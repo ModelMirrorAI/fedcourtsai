@@ -12,9 +12,12 @@ log tool calls in the same places their token usage lives:
   arrive in subsequent user messages, matched by ``tool_use_id``.
 - **Codex**: the session rollout JSONL's response items carry ``function_call``
   / ``custom_tool_call`` / ``local_shell_call`` / ``mcp_tool_call`` payloads
-  with a ``call_id`` their ``*_output`` items echo. The hosted
-  ``web_search_call`` is the exception: it runs provider-side and carries a
-  query but no ``call_id`` and no output item, so such a row records what was
+  with a ``call_id`` their ``*_output`` items echo. An MCP item is the shape
+  that breaks the echo: the Responses API settles it *on the call item*, with
+  the answer in the item's own ``output`` (or ``error``) and no ``*_output``
+  sibling to pair, so it is paired from the item itself. The hosted
+  ``web_search_call`` is the other exception: it runs provider-side and carries
+  a query but no ``call_id`` and no output item, so such a row records what was
   asked and never what came back.
 - **Gemini**: the OpenTelemetry log's ``gemini_cli.tool_call`` events carry
   ``function_name`` / ``function_args`` attributes, and no result payload at
@@ -28,7 +31,8 @@ like the usage parsers: an unreadable or unrecognized log yields ``[]``,
 because capture is instrumentation that must never fail a real run.
 
 Every row also states whether its result was seen at all: ``result_capture``
-is ``captured`` where the transcript carried the paired result item and
+is ``captured`` where the transcript carried the result — as a paired result
+item, or on the call item itself for an engine that settles it there — and
 ``unobserved`` where nothing came back to capture — every Gemini row, a hosted
 Codex ``web_search_call``, or any call this pairing rule found no result item
 for, which includes one the engine logged without a pairing id and one whose
@@ -36,6 +40,24 @@ result sits past a truncated transcript. The digests cannot say it, because a nu
 ``result_digest`` or ``retrieved_doc_date`` is what a captured-empty result
 and an uncaptured one both leave behind; without the marker a reader grades
 "this call surfaced nothing" over calls whose results were never in the log.
+
+Where a result *was* captured, ``result_status`` says what came back in it —
+``throttled`` when a **manifest-tool** payload carries the shape the pinned
+CourtListener MCP server renders an upstream HTTP 429 as, ``error`` on the
+engine's own structural failure marker, ``ok`` otherwise. The throttle state is
+the one that changes how a cell should be read: a call the shared daily quota
+turned away retrieved nothing, so a starved run's coverage is not comparable
+with a well-fed one's, and the 429 evidence exists nowhere else — the payload it
+sits in is digested away one line later. Two things keep that reading honest,
+because the text is not trustworthy from either direction: the **tool gate**
+excludes what a *builtin* hands back (a cell reading its own ``reasoning.md``,
+or this repository's own source and docs, sitting in the checkout the cell runs
+in), and the **phrasing** of each alternation excludes what a manifest tool
+legitimately returns — a search tool's whole job is handing back opinions, and
+an opinion may well discuss a rate limitation or too many requests for
+admission. The status is a floor by construction, decided once at parse time,
+and available only on engines whose results reach a transcript at all; every
+Gemini row is ``unobserved``.
 
 A transcript is not trusted text: it records whatever a tool call carried,
 including a credential the agent never chose to write. Every string harvested
@@ -54,7 +76,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
-from .schemas import RetrievalCall
+from .schemas import RetrievalCall, RetrievalResultStatus, normalize_call
 from .secretscan import REDACTION_MARKER_PREFIX, redact_credentials
 from .usage import _gemini_attrs, _load_json, _load_json_objects, _newest_rollout
 
@@ -75,6 +97,59 @@ _QUERY_KEYS = ("q", "query", "search", "citation", "prompt", "command", "url", "
 # so the serialized form the regex scans carries escaped quotes.
 _DOC_DATE_RE = re.compile(
     r'\\?"(?:date_?[Ff]iled|date_?[Dd]ecided|decision_?date)\\?"\s*:\s*\\?"(\d{4}-\d{2}-\d{2})\\?"'
+)
+# The shape a captured result takes when the shared upstream quota turned the
+# call away rather than answering it. **Keyed to the pinned MCP release** —
+# :data:`fedcourtsai.mcp._HTTP_BYPASS_RELEASE`, the package the sidecar launches
+# — because these are that release's own strings, not a standard: its
+# tool-handler middleware turns an upstream HTTP 429 into the tool error `Rate
+# limit exceeded: HTTP 429: <detail>. For higher rate limits, …`, and its
+# citation tools append `Rate limited by the upstream API (retry in ~Ns, …)` to a
+# result the throttle cut short. `Too Many Requests` covers a transport-level
+# rendering of the same status. A manifest pin bump must re-read those two
+# renderings, exactly as the sidecar launch must re-read the constructor;
+# `test_the_predicate_matches_the_pinned_releases_own_error_strings` holds the
+# strings so the bump fails a test rather than silently going quiet.
+#
+# Phrase-anchored on purpose, unlike the bare `\b429\b` in
+# :mod:`fedcourtsai.pipeline.runner`'s transient-failure regex — that one scans an
+# agent's stderr, this one scans *retrieved legal content*, where 429 is an
+# everyday U.S. Reports volume ("429 U.S. 274") and a docket number besides. The
+# asymmetry is deliberate: a false positive invents starvation in a run that had
+# none and taints every comparison drawn from it, while a false negative only
+# leaves a throttled call reading as `ok` — where every call sat before the marker
+# existed. So the predicate is cheap to miss with and expensive to fire wrongly,
+# and every count derived from it is a floor.
+#
+# Two defences, and neither is sufficient alone. The **tool gate** (see
+# :func:`_result_status`) keeps out the text a *builtin* reads back — a cell's
+# own `reasoning.md` recounting a throttle, this repository's source and docs
+# inside the checkout, the predictor artifacts an evaluate cell is instructed to
+# read. It does *not* make the rest of the corpus safe: a manifest tool's whole
+# job is returning documents, and an opinion about utility rates or a discovery
+# dispute is retrieved through the same call that a 429 comes back on. So each
+# alternation must be a string this server emits and not a shape English
+# produces — which is why the two loosest ones carry their subject
+# ("...by the upstream API") or their status code ("429 Too Many Requests")
+# rather than standing alone.
+_THROTTLE_RE = re.compile(
+    r"""
+    # The MCP tool handler's own 429 rendering.
+      rate[\s_-]*limit[\s_-]*exceeded
+    # The citation tools' partial-result note, quoted to its full subject rather
+    # than cut at `rate limited`: "the rate limited the recovery" is ordinary
+    # English in a rate-regulation opinion, and a manifest search returns
+    # opinions.
+    | rate[\s_-]*limited[\s_-]+by[\s_-]+the[\s_-]+upstream[\s_-]+api
+    # The API client's `HTTP 429: <detail>` str.
+    | \bhttp[\s_-]*429\b
+    # The status line as a transport renders it, status and reason adjacent. The
+    # reason phrase alone would match "too many requests for admission" in a
+    # discovery dispute; pinning it to the code costs nothing, because a bare
+    # reason phrase with no status beside it is not a rendering this server emits.
+    | 429[\s:_-]*too[\s_-]*many[\s_-]*requests
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 # Schema cap on calls per log; a longer transcript is truncated head-first
 # (the earliest calls are the retrieval-shaped ones worth grading).
@@ -145,26 +220,80 @@ def _query_candidate(params: Any) -> str | None:
     return None
 
 
-def _doc_date(result: Any) -> str | None:
-    """The first document/decision date legible in a result payload, if any."""
+def _result_text(result: Any) -> str:
+    """A captured result payload as the one searchable string both readers scan.
+
+    Serialized once per call and handed to the date and condition reads
+    together: a result payload is unbounded, and re-serializing it per question
+    costs the walk in proportion to how much the agent retrieved.
+    """
     try:
-        text = json.dumps(result, default=str)
+        return json.dumps(result, default=str)
     except (TypeError, ValueError):
-        text = str(result)
+        return str(result)
+
+
+def _doc_date(text: str) -> str | None:
+    """The first document/decision date legible in a serialized result, if any."""
     match = _DOC_DATE_RE.search(text)
     return match.group(1) if match else None
+
+
+def _result_status(
+    tool: str, text: str, *, captured: bool, engine_error: bool = False
+) -> RetrievalResultStatus:
+    """The condition of a call's result, from what capture actually holds.
+
+    ``unobserved`` wherever no result reached the log, so this field and
+    ``result_capture`` never disagree about capture (the schema rejects a row
+    where they do). Otherwise the throttle predicate decides first — a 429
+    arrives *as* an error, and which error it is, is the whole point — then the
+    engine's own error marker, then ``ok`` as the residual.
+
+    The two tests are gated differently, and the split is the point. The
+    **throttle** test reads the payload's *text*, so it runs only where the tool
+    is a manifest one (:func:`~fedcourtsai.schemas.normalize_call`): a builtin's
+    result is whatever the agent asked it to read — its own ``reasoning.md``,
+    this repository's source, another cell's artifacts — and prose *about*
+    throttling is not this call being throttled. The gate narrows the text this
+    reads; it does not make that text safe, since a manifest search returns
+    documents too, which is why :data:`_THROTTLE_RE` quotes strings this server
+    emits rather than shapes English produces. ``engine_error`` is a
+    **structural** flag the engine set (a Claude ``tool_result``'s ``is_error``,
+    a Codex MCP item's inline ``error``), which retrieved text cannot forge, so
+    it needs no such gate and a failed builtin is honestly an error. Nothing
+    sniffs a generic failure out of result prose: no marker robust enough
+    exists, and inventing one would put a text-shaped judgment in a field whose
+    whole value is that it is mechanical.
+
+    So ``ok`` is wide — captured, unmarked, and either not a manifest call or a
+    manifest result with no throttle shape — and claims nothing about success.
+
+    Decided once, here, and written into the row: nothing recomputes a status
+    from a committed log, because the payload it was read from is already gone.
+    A later change to the predicate therefore reaches only logs captured after
+    it, and any rollup over the ledger pools whatever predicate each log was
+    minted under.
+    """
+    if not captured:
+        return "unobserved"
+    if normalize_call(tool) is not None and _THROTTLE_RE.search(text):
+        return "throttled"
+    return "error" if engine_error else "ok"
 
 
 def parse_claude_retrieval(execution_file: Path) -> list[RetrievalCall]:
     """Tool calls from a Claude Code ``execution_file`` JSON transcript."""
     doc = _load_json(execution_file)
     events = doc if isinstance(doc, list) else [doc] if isinstance(doc, dict) else []
-    # First pass: index tool results by the tool_use id they answer.
-    results: dict[str, Any] = {}
+    # First pass: index tool-result *blocks* by the tool_use id they answer. The
+    # whole block, not just its content: `is_error` rides beside the payload and
+    # is the engine's own word on whether the call came back a failure.
+    results: dict[str, dict[str, Any]] = {}
     for event in events:
         for block in _message_blocks(event):
             if block.get("type") == "tool_result" and block.get("tool_use_id"):
-                results[str(block["tool_use_id"])] = block.get("content")
+                results[str(block["tool_use_id"])] = block
     calls: list[RetrievalCall] = []
     for event in events:
         timestamp = event.get("timestamp") if isinstance(event, dict) else None
@@ -176,19 +305,30 @@ def parse_claude_retrieval(execution_file: Path) -> list[RetrievalCall]:
             # was still captured, and that is exactly the case the marker
             # exists to separate from one whose result never reached the log.
             call_id = str(block.get("id", ""))
+            answer = results.get(call_id)
             captured = call_id in results
-            result = results.get(call_id)
+            result = answer.get("content") if answer is not None else None
+            text = _result_text(result) if result is not None else ""
+            # The redacted name the row will carry, so the manifest-tool gate on
+            # the condition read and the rollup's own exclusion see one string.
+            tool = _tool_name(block["name"])
             calls.append(
                 RetrievalCall(
-                    tool=_tool_name(block["name"]),
+                    tool=tool,
                     query=_query_slice(params),
                     params_digest=_digest(params),
                     timestamp=_text(timestamp),
                     result_digest=_digest(result),
                     # A date the `\d{4}-\d{2}-\d{2}` capture produced; it has no
                     # room to carry anything else, so it needs no redaction.
-                    retrieved_doc_date=_doc_date(result) if result is not None else None,
+                    retrieved_doc_date=_doc_date(text) if result is not None else None,
                     result_capture="captured" if captured else "unobserved",
+                    result_status=_result_status(
+                        tool,
+                        text,
+                        captured=captured,
+                        engine_error=bool(answer.get("is_error")) if answer is not None else False,
+                    ),
                 )
             )
     return calls[:RETRIEVAL_CALL_CAP]
@@ -208,14 +348,23 @@ def _message_blocks(event: Any) -> list[dict[str, Any]]:
 # Codex payload types that represent a tool invocation / its output.
 # `web_search_call` is the hosted search the engine runs provider-side: it is a
 # retrieval channel like any other, so the leakage grading has to see it.
+# An MCP invocation answers to two type names — the rollout's `mcp_tool_call`
+# and the Responses API's `mcp_call` — and under either it is the one call shape
+# that carries its own result rather than echoing a `call_id` an output item
+# answers.
+_CODEX_MCP_CALL_TYPES = ("mcp_tool_call", "mcp_call")
 _CODEX_CALL_TYPES = (
     "function_call",
     "custom_tool_call",
     "local_shell_call",
-    "mcp_tool_call",
+    *_CODEX_MCP_CALL_TYPES,
     "web_search_call",
 )
 _CODEX_OUTPUT_SUFFIX = "_output"
+# Where an MCP call item carries its own settled result, most authoritative
+# first: the Responses API's `output` / `error`, then the `result` the rollout's
+# own record of the same call may use.
+_CODEX_INLINE_RESULT_FIELDS = ("output", "error", "result")
 
 
 def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
@@ -223,20 +372,7 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
     rollout = _newest_rollout(sessions_dir)
     if rollout is None:
         return []
-    records: list[dict[str, Any]] = []
-    try:
-        for raw in rollout.read_text().splitlines():
-            line = raw.strip()
-            if not line:
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(record, dict):
-                records.append(record)
-    except OSError:
-        return []
+    records = _codex_records(rollout)
     outputs: dict[str, Any] = {}
     for record in records:
         payload = _codex_payload(record)
@@ -261,18 +397,119 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
         call_id = str(payload.get("call_id", ""))
         captured = call_id in outputs
         result = outputs.get(call_id)
+        # A sibling `*_output` item carries no failure flag of its own, so a call
+        # paired that way has only its text to be read by: the throttle predicate
+        # can still classify it, but a generic failure lands as `ok`.
+        engine_error = False
+        # An MCP item settles on itself rather than in a sibling, so where the
+        # sibling lookup produced no result, the item's own is the pairing. A
+        # sibling that carried anything at all — an empty string included — wins;
+        # only a null one, which digests to nothing either way, defers.
+        if result is None:
+            inline = _codex_inline_result(payload)
+            if inline is not None:
+                field, result = inline
+                captured, engine_error = True, field == "error"
+        text = _result_text(result) if result is not None else ""
+        # The composed, redacted name the row will carry — the same string the
+        # manifest-tool gate and the rollup's exclusion both key on.
+        tool = _tool_name(_codex_tool(payload))
         calls.append(
             RetrievalCall(
-                tool=_tool_name(payload.get("name") or payload.get("tool") or payload["type"]),
+                tool=tool,
                 query=_query_slice(params),
                 params_digest=_digest(params),
                 timestamp=_text(record.get("timestamp")),
                 result_digest=_digest(result),
-                retrieved_doc_date=_doc_date(result) if result is not None else None,
+                retrieved_doc_date=_doc_date(text) if result is not None else None,
                 result_capture="captured" if captured else "unobserved",
+                result_status=_result_status(
+                    tool, text, captured=captured, engine_error=engine_error
+                ),
             )
         )
     return calls[:RETRIEVAL_CALL_CAP]
+
+
+def _codex_records(rollout: Path) -> list[dict[str, Any]]:
+    """Every JSON object in a rollout JSONL, tolerant of a line that is not one."""
+    try:
+        lines = rollout.read_text().splitlines()
+    except OSError:
+        return []
+    records: list[dict[str, Any]] = []
+    for raw in lines:
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(record, dict):
+            records.append(record)
+    return records
+
+
+def _codex_inline_result(payload: dict[str, Any]) -> tuple[str, Any] | None:
+    """An MCP call item's own settled result as ``(field, value)``, else ``None``.
+
+    The field name rides back with the value because ``error`` is the engine's
+    own word that this call came back a failure — the Codex counterpart of a
+    Claude ``tool_result``'s ``is_error`` — and the per-call condition marker
+    reads it rather than guessing a failure out of the payload's prose.
+
+    The Responses API settles an MCP call **on the call item** — the answer in
+    its ``output``, the failure in its ``error``, and no ``*_output`` sibling
+    emitted either way — so a walk that only pairs by ``call_id`` reads every
+    such row as ``unobserved`` while the transcript held the result. An inline
+    ``error`` counts as captured for the same reason a Claude ``is_error``
+    result does: the transcript recorded what came back, and what came back was
+    a failure. ``result`` is read after both because the rollout's own record of
+    an MCP call may name the answer that way, and the two spellings cost one
+    lookup to cover jointly. Only MCP shapes are read this way; every other call
+    type pairs against its output item.
+
+    A sibling output item still wins: this is consulted only where the pairing
+    found none, or found one carrying ``null`` — which digests to nothing, so
+    reading the item's own result in its place can add a captured result but
+    never overwrite one.
+
+    Presence is by value, not by key: an unsettled item carries these fields as
+    ``null`` (or omits them), while an empty string is a real, captured, empty
+    answer.
+    """
+    if payload.get("type") not in _CODEX_MCP_CALL_TYPES:
+        return None
+    for field in _CODEX_INLINE_RESULT_FIELDS:
+        value = payload.get(field)
+        if value is not None:
+            return field, value
+    return None
+
+
+def _codex_tool(payload: dict[str, Any]) -> Any:
+    """A Codex call item's tool name, in the spelling the rollup normalizes.
+
+    An MCP item names the server and the bare tool in two fields —
+    ``server_label`` + ``name`` in the Responses spelling, ``server`` + ``tool``
+    in the rollout's own — so the two are composed into the
+    ``mcp__<server>__<tool>`` spelling the engines' MCP calls share.
+    Uncomposed, ``search`` is indistinguishable from an engine builtin
+    and :func:`~fedcourtsai.schemas.normalize_call` buckets it as one — the
+    offered denominator loses the call and the MCP-gated result observability
+    reads the engine as having no MCP calls at all.
+
+    The server half flows into the name verbatim, which is what keeps the
+    composition honest about an unknown server: a manifest's server ids are
+    schema-constrained to lowercase, so anything else lands as the literal
+    string the transcript carried rather than as a quietly normalized id.
+    """
+    name = payload.get("name") or payload.get("tool")
+    server = payload.get("server_label") or payload.get("server")
+    if name and server:
+        return f"mcp__{server}__{name}"
+    return name or payload["type"]
 
 
 def _maybe_json(params: Any) -> Any:
@@ -290,6 +527,159 @@ def _codex_payload(record: dict[str, Any]) -> dict[str, Any] | None:
         inner = payload.get("payload")
         return inner if isinstance(inner, dict) else payload
     return record if "type" in record else None
+
+
+# --- Codex transcript shape distillation ---------------------------------
+#
+# The verification lever for the Codex parsing above. That parser reads the
+# rollout against the Responses API's documented item shapes plus the
+# rollout's own spellings, and a shape it does not recognize costs a whole
+# engine's retrieval rows silently — the log records "no calls", which is
+# indistinguishable from a cell that retrieved nothing. Distilling a real
+# transcript's item shapes says which of the two a zero row-count is.
+#
+# Shape-only, by construction: a rollout carries retrieved documents and tool
+# arguments verbatim, so the distillation must never be able to republish
+# them. Every emitted string is either a JSON type name or an
+# identifier-shaped token (:data:`_SHAPE_IDENTIFIER`) read from a *key* or a
+# type discriminator; every *value* is replaced by its type name.
+_SHAPE_DEPTH = 2
+_SHAPE_KEY_CAP = 40
+_SHAPE_VARIANT_CAP = 3
+# How many distinct shapes are retained. A transcript is agent-influenced
+# input: an item stream whose keys vary per record has as many distinct shapes
+# as records, so an uncapped distillation is an unbounded artifact an agent
+# chooses the size of. Past the cap the counting continues and the shapes stop,
+# and the output says so (``truncated``) rather than reading as a complete
+# census of a stream it stopped following.
+_SHAPE_COUNT_CAP = 500
+# What an emitted key or type discriminator may look like: a field
+# identifier's own shape and nothing wider. Values never reach the output at
+# all, so an object keyed by *data* rather than by schema is the single path by
+# which transcript content could — and the screen bounds that path rather than
+# closing it. It refuses what does not fit an identifier: anything spaced or
+# punctuated, a URL or document path, a citation, a sentence, anything past 64
+# characters. It admits what does: **a bare slug (`roe-v-wade`) and a dotted
+# phrase are identifier-shaped and pass verbatim.** So the honest claim is that
+# no *value* is ever emitted and a data-keyed object can still export an
+# identifier-shaped fragment of up to 64 characters — bounded further by the
+# per-object key cap, the shape cap, and a walk that stops at the item
+# envelope, where the keys are the CLI's own. Read the artifact knowing that;
+# do not read it as proof that no retrieved token ever appears.
+_SHAPE_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_.-]{0,63}")
+_SHAPE_NON_IDENTIFIER = "<non-identifier>"
+
+
+# In order: ``bool`` precedes ``int`` because it is a subclass of one.
+_JSON_TYPE_NAMES: tuple[tuple[type | tuple[type, ...], str], ...] = (
+    (bool, "bool"),
+    ((int, float), "number"),
+    (str, "string"),
+    (dict, "object"),
+    (list, "array"),
+)
+
+
+def _json_type_name(value: Any) -> str:
+    """The JSON type name of ``value`` — the only thing a value contributes."""
+    if value is None:
+        return "null"
+    for kinds, name in _JSON_TYPE_NAMES:
+        if isinstance(value, kinds):
+            return name
+    return "unknown"
+
+
+def _shape_token(value: Any) -> str:
+    """A key name or type discriminator, screened to identifier shape.
+
+    ``fullmatch``, not ``match``: a trailing newline sits outside ``$``, so a
+    key carrying one — a line of text ending where an identifier would — would
+    otherwise pass the screen with the newline still on it.
+    """
+    text = value if isinstance(value, str) else str(value)
+    return text if _SHAPE_IDENTIFIER.fullmatch(text) else _SHAPE_NON_IDENTIFIER
+
+
+def _shape(value: Any, depth: int) -> Any:
+    """``value`` with every leaf replaced by its JSON type name.
+
+    Recurses ``depth`` levels into objects, keeping their keys (screened and
+    capped); below that, and for every scalar, only the type name survives. An
+    array spends no level of its own — it is a container, not a nesting step,
+    and the shape that matters is its elements' — so its distinct element
+    shapes (capped) are read at the array's own depth.
+    """
+    if depth <= 0:
+        return _json_type_name(value)
+    if isinstance(value, dict):
+        keys = sorted(_shape_token(key) for key in value)[:_SHAPE_KEY_CAP]
+        by_token = {_shape_token(key): item for key, item in value.items()}
+        return {key: _shape(by_token[key], depth - 1) for key in keys}
+    if isinstance(value, list):
+        variants: list[Any] = []
+        for item in value:
+            shape = _shape(item, depth)
+            if shape not in variants:
+                variants.append(shape)
+            if len(variants) >= _SHAPE_VARIANT_CAP:
+                break
+        return variants
+    return _json_type_name(value)
+
+
+def distill_codex_shapes(sessions_dir: Path) -> dict[str, Any]:
+    """Distinct item shapes across every Codex rollout under ``sessions_dir``.
+
+    Every rollout in the tree, not the newest alone
+    (:func:`parse_codex_retrieval`'s input): the question a distillation
+    answers is which shapes an engine emits at all, and a session that logged
+    the interesting item is as good evidence as the last one written.
+
+    Returns a JSON-ready mapping: the file and record totals, then one entry
+    per distinct shape — the record envelope's type and keys, the payload's
+    own type, and the payload's :func:`_shape` — with the number of records
+    that carried it, most frequent first. At most :data:`_SHAPE_COUNT_CAP`
+    shapes are retained; past that ``truncated`` is true and
+    ``shapes_dropped`` counts the records whose shape was new when the cap was
+    already full, so a bounded artifact never passes as a complete census.
+    Tolerant like the parsers: a missing
+    directory or an unreadable rollout yields an empty distillation, never an
+    exception, because this is instrumentation.
+    """
+    rollouts = sorted(sessions_dir.rglob("*.jsonl")) if sessions_dir.is_dir() else []
+    counts: dict[str, int] = {}
+    entries: dict[str, dict[str, Any]] = {}
+    records = 0
+    dropped = 0
+    for rollout in rollouts:
+        for record in _codex_records(rollout):
+            records += 1
+            payload = _codex_payload(record)
+            entry = {
+                "record_type": _shape_token(record["type"]) if "type" in record else None,
+                "record_keys": sorted(_shape_token(key) for key in record)[:_SHAPE_KEY_CAP],
+                "payload_type": (
+                    _shape_token(payload["type"])
+                    if payload is not None and "type" in payload
+                    else None
+                ),
+                "payload_shape": None if payload is None else _shape(payload, _SHAPE_DEPTH),
+            }
+            key = json.dumps(entry, sort_keys=True)
+            if key not in entries and len(entries) >= _SHAPE_COUNT_CAP:
+                dropped += 1
+                continue
+            entries.setdefault(key, entry)
+            counts[key] = counts.get(key, 0) + 1
+    ordered = sorted(counts, key=lambda key: (-counts[key], key))
+    return {
+        "files": len(rollouts),
+        "records": records,
+        "truncated": dropped > 0,
+        "shapes_dropped": dropped,
+        "shapes": [{"count": counts[key], **entries[key]} for key in ordered],
+    }
 
 
 def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
@@ -333,8 +723,11 @@ def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
                     timestamp=_text(timestamp),
                     # The local exporter logs the invocation and nothing of what
                     # came back, so every Gemini row is unobserved by
-                    # construction — a whole engine's capture rate is 0.0.
+                    # construction — a whole engine's capture rate is 0.0, and
+                    # its result condition is unreadable rather than fine: this
+                    # engine cannot be seen being throttled at all.
                     result_capture="unobserved",
+                    result_status="unobserved",
                 )
             )
             continue

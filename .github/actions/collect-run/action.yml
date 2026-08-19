@@ -63,6 +63,44 @@ inputs:
 runs:
   using: composite
   steps:
+    # First step, before the downloads: a setup failure here should cost
+    # nothing but its own ten seconds.
+    #
+    # The union loop further down branches each run PR from `origin/main` with a
+    # `git checkout -B` **in this same working tree**, which swaps every
+    # tracked file — `src/fedcourtsai/` included — to main's content. The
+    # project is installed editable against that tree, so a plain
+    # `uv run fedcourts` after that point executes *main's* CLI rather than
+    # the one this composite was checked out with. On `main` the two are the
+    # same file and nothing shows; off it they are not, and the mismatch is
+    # silent in the direction that matters — a composite passing a flag its
+    # own CLI defines fails against an older main, and the integration
+    # scenario that exists to catch that reports main's behavior instead.
+    # Materialize the CLI once from the checked-out source into a directory no
+    # branch switch can reach, and call it by absolute path throughout, so the
+    # CLI a collect runs is the ref the workflow was dispatched at — by
+    # construction, not by coincidence of which branch the tree sits on.
+    #
+    # Only the runtime dependency group: nothing here uses the dev tools, and
+    # the lock is still the pin (`--locked`, as everywhere else this repo
+    # installs dependencies). Both files the wheel build reads — `pyproject.toml`
+    # for the metadata and `README.md`, which its `readme =` names — are copied
+    # alongside `src/`, so a missing one fails here at setup rather than
+    # mid-collect with a run's output already downloaded.
+    - name: Pin the CLI to this checkout
+      id: cli
+      shell: bash
+      run: |
+        set -euo pipefail
+        cli="${RUNNER_TEMP}/collect-cli"
+        rm -rf "$cli"
+        mkdir -p "$cli"
+        cp -a pyproject.toml uv.lock README.md src "$cli"/
+        uv sync --locked --no-default-groups --project "$cli"
+        bin="${cli}/.venv/bin/fedcourts"
+        test -x "$bin"
+        printf 'bin=%s\n' "$bin" >> "$GITHUB_OUTPUT"
+
     # Per-artifact downloads, NOT `actions/download-artifact` over the whole set.
     # That action fetches every artifact as a single fail-fast unit: on
     # 2026-07-18 one transient failure after its five internal retries killed the
@@ -199,6 +237,10 @@ runs:
         ROLE: ${{ inputs.role }}
         # Via env, never interpolated into the shell body: the matrix carries
         # court/docket/event ids parsed from the trigger issue.
+        # The CLI pinned to this checkout by the step above — never a bare
+        # `uv run`, which resolves against a working tree the union loop
+        # below rewrites to `origin/main` mid-step.
+        FEDCOURTS: ${{ steps.cli.outputs.bin }}
         PLAN_MATRIX: ${{ inputs.matrix }}
         # For the secret scan's literal-containment detector only: the one
         # credential reachable from an agent cell, searched for in the run's
@@ -246,7 +288,7 @@ runs:
           # ambient token), and take the run id from the matrix — every queued cell
           # stamped the same id, and there is no status.json to read.
           echo "::warning::no cell artifacts to collect"
-          uv run fedcourts stall-comment --role "$ROLE" --run-url "$run_url" > stall-comment.md
+          "$FEDCOURTS" stall-comment --role "$ROLE" --run-url "$run_url" > stall-comment.md
           run_id=$(jq -r 'first(.include[].run_id) // empty' plan-matrix.json 2>/dev/null || true)
         fi
         # Neither a status.json nor a matrix: the run left no trace of what it was
@@ -260,7 +302,7 @@ runs:
         # computed by the tested `collect-plan`; this step only runs git and gh.
         # The ready PR closes the triggering issue on merge (unless a draft still
         # has work); the facts-only PR never does.
-        plan=$(uv run fedcourts collect-plan --role "$ROLE" --run-id "$run_id" \
+        plan=$("$FEDCOURTS" collect-plan --role "$ROLE" --run-id "$run_id" \
           --status-dir cell-artifacts --issue "$ISSUE" \
           --missing-file missing-artifacts.txt "${matrix_args[@]}")
         # Never silently drop a cell: warn for each that produced no output. The
@@ -279,7 +321,7 @@ runs:
         if [ "$(jq -r '.stalled' <<<"$plan")" = "true" ]; then
           # Artifacts arrived but no cell produced output and no agent finished
           # cleanly (the tested `stalled` signal) — same stall, same comment.
-          uv run fedcourts stall-comment --role "$ROLE" --run-url "$run_url" > stall-comment.md
+          "$FEDCOURTS" stall-comment --role "$ROLE" --run-url "$run_url" > stall-comment.md
         fi
         # Record one durable failure fact per failed cell (skipped/salvage/died)
         # into the ledger, BEFORE the union loop's `git add data/`, so the facts
@@ -303,7 +345,7 @@ runs:
         # the loop below opens a small PR to commit them so the attempt cap still
         # advances (`collect-plan` emits it exactly when ready and partial are both
         # absent, so the facts are never committed twice).
-        uv run fedcourts record-cell-failures --plan-file collect-plan.json --data-root data \
+        "$FEDCOURTS" record-cell-failures --plan-file collect-plan.json --data-root data \
           || echo "::warning::could not record cell-failure facts; continuing"
         # `facts_only` is null on any run that opened a ready or partial PR (its
         # facts rode that PR) and on a run with no failed cell, so this loop can
@@ -357,10 +399,10 @@ runs:
           # producer-side. Either failing downgrades the PR to a draft for review
           # instead of auto-merging something unexpected (CI re-checks the jail).
           git diff --cached --name-status > changes.txt
-          if ! uv run fedcourts assert-paths --name-status-file changes.txt; then
+          if ! "$FEDCOURTS" assert-paths --name-status-file changes.txt; then
             draft=true; auto=false; echo "::warning::path jail tripped; opening ${branch} as a draft"
           fi
-          if ! uv run fedcourts validate data; then
+          if ! "$FEDCOURTS" validate data; then
             draft=true; auto=false; echo "::warning::validation failed; opening ${branch} as a draft"
           fi
           # Third gate: schema checks read shape, not content, so a secret
@@ -372,13 +414,17 @@ runs:
           # flag roll-up, which is agent free text. The tested, redacted
           # report (file/rule/line, never the matched text) rides to the
           # trigger issue via the next steps, and the flagged files stay
-          # reviewable in the run's cell artifacts.
+          # reviewable in the run's cell artifacts. The run id keys the
+          # entropy heuristic's one exemption — the collected run's own
+          # ledger directory in the run's own scanned text — equality-pinned, so no
+          # other run's (or an invented) path is exempt.
           jq -r '.body' <<<"$pr" > pr-body.md
-          if ! uv run fedcourts scan-diff-for-secrets --name-status-file changes.txt \
+          if ! "$FEDCOURTS" scan-diff-for-secrets --name-status-file changes.txt \
               --known-secret-env COURTLISTENER_API_TOKEN \
               --extra-file pr-body.md \
               --issue-comment-file secret-scan-issue.md \
-              --run-url "$run_url"; then
+              --run-url "$run_url" \
+              --run-id "$run_id"; then
             echo "::warning::secret scan did not pass; withholding ${branch}"
             # Hard-reset so a modified tracked file from the withheld union
             # cannot ride into the next iteration's branch; then drop the
@@ -452,11 +498,12 @@ runs:
           flags_md=""
         elif [ -n "$flags_md" ] && [ "$flags_md" != "null" ]; then
           printf '%s\n' "$flags_md" > run-flags.md
-          if ! uv run fedcourts scan-diff-for-secrets --name-status-file /dev/null \
+          if ! "$FEDCOURTS" scan-diff-for-secrets --name-status-file /dev/null \
               --known-secret-env COURTLISTENER_API_TOKEN \
               --extra-file run-flags.md \
               --issue-comment-file secret-scan-issue.md \
-              --run-url "$run_url"; then
+              --run-url "$run_url" \
+              --run-id "$run_id"; then
             echo "::warning::secret scan hit in the flag roll-up; suppressing it"
             flags_md=""
           fi

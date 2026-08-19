@@ -33,6 +33,7 @@ from fedcourtsai.store import (
     ledger_cell_counts,
     open_events,
     resolved_events,
+    unforecastable_listed_events,
 )
 from tests.conftest import seed_prediction
 
@@ -173,6 +174,129 @@ def test_open_and_resolved_events_partition_corpus_events(tmp_path: Path) -> Non
     # The corpus resolved flag is the single source of truth for event state.
     assert open_events(db, "ca9", 7) == ["evt-appeal-disposition"]
     assert resolved_events(db, "ca9", 7) == ["evt-motion-stay"]
+
+
+def _stale_grant_db(tmp_path: Path, granted: date) -> Path:
+    """A corpus holding one granted SCOTUS row and its resolved cert event."""
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9",
+                    court="scotus",
+                    docket_number="24-100",
+                    disposition=Disposition.granted,
+                    date_cert_granted=granted,
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-cert",
+                    case_id="scotus/9",
+                    court="scotus",
+                    kind=EventKind.petition,
+                    resolved=True,
+                )
+            ],
+        )
+    return db
+
+
+def test_unforecastable_listed_events_names_both_refusal_classes(tmp_path: Path) -> None:
+    # What a replayed trigger listing is re-checked against: the event the
+    # corpus resolved since queueing, and every merits moment of a proceeding
+    # whose grant went stale unparsed — the second stated from the row alone,
+    # so a moment absent from the events table is refused too.
+    db = _stale_grant_db(tmp_path, date(2020, 1, 6))
+    reasons = unforecastable_listed_events(db, "scotus", 9, today=date(2024, 1, 6))
+    assert "resolved" in reasons["evt-petition-cert"]
+    merits = [spec.event_id for spec in moments.moments_for(Stage.merits)]
+    assert set(merits) <= set(reasons)
+    assert all("cert grant is more than" in reasons[event_id] for event_id in merits)
+
+
+def test_unforecastable_listed_events_keeps_a_fresh_grants_merits_moments(tmp_path: Path) -> None:
+    # Inside the bound the proceeding is pending, so only the resolved class fires.
+    today = date(2024, 1, 6)
+    db = _stale_grant_db(tmp_path, today - timedelta(days=30))
+    reasons = unforecastable_listed_events(db, "scotus", 9, today=today)
+    assert set(reasons) == {"evt-petition-cert"}
+
+
+def test_unforecastable_listed_events_resolved_reason_wins_on_a_stale_rows_moment(
+    tmp_path: Path,
+) -> None:
+    # The documented precedence, pinned: a merits moment that is both resolved
+    # and a moment of a stale proceeding keeps the resolved attribution — it is
+    # the reason that says what to do next (grade it).
+    db = _stale_grant_db(tmp_path, date(2020, 1, 6))
+    merits = [spec.event_id for spec in moments.moments_for(Stage.merits)]
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=merits[0],
+                    case_id="scotus/9",
+                    court="scotus",
+                    kind=EventKind.order,
+                    resolved=True,
+                )
+            ],
+        )
+    reasons = unforecastable_listed_events(db, "scotus", 9, today=date(2024, 1, 6))
+    assert "resolved" in reasons[merits[0]]
+    assert all("cert grant is more than" in reasons[event_id] for event_id in merits[1:])
+
+
+def test_unforecastable_listed_events_refuses_a_latched_judgment_and_a_gvr_row(
+    tmp_path: Path,
+) -> None:
+    # The other row arms of the selection predicate, read back at the plan
+    # seam: a latched judgment (decided while the event waits for triage) and a
+    # grant re-resolved so it no longer opens a merits proceeding. Neither has
+    # a later backstop for the listing path.
+    today = date(2024, 1, 6)
+    merits = [spec.event_id for spec in moments.moments_for(Stage.merits)]
+    latched = corpus.corpus_db_path(tmp_path / "latched")
+    with corpus.connect(latched) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9",
+                    court="scotus",
+                    docket_number="24-100",
+                    disposition=Disposition.granted,
+                    date_cert_granted=today - timedelta(days=30),
+                    merits_judgment=Judgment.affirmed,
+                )
+            ],
+        )
+    reasons = unforecastable_listed_events(latched, "scotus", 9, today=today)
+    assert all("already carries its merits outcome" in reasons[event_id] for event_id in merits)
+
+    gvr = corpus.corpus_db_path(tmp_path / "gvr")
+    with corpus.connect(gvr) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9",
+                    court="scotus",
+                    docket_number="24-100",
+                    disposition=Disposition.gvr,
+                    date_cert_granted=today - timedelta(days=30),
+                )
+            ],
+        )
+    reasons = unforecastable_listed_events(gvr, "scotus", 9, today=today)
+    assert all("no longer opens a merits proceeding" in reasons[event_id] for event_id in merits)
 
 
 def test_forecastable_events_filters_to_case_baseline_kinds(tmp_path: Path) -> None:

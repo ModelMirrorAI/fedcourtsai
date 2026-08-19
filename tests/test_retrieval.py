@@ -8,17 +8,23 @@ import random
 import time
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
 from typer.testing import CliRunner
 
+from fedcourtsai.blinding import neutral_tool_class
 from fedcourtsai.cli import app
+from fedcourtsai.mcp import _HTTP_BYPASS_RELEASE
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.retrieval import (
+    _SHAPE_COUNT_CAP,
     carries_redaction,
+    distill_codex_shapes,
     parse_claude_retrieval,
     parse_codex_retrieval,
     parse_gemini_retrieval,
 )
-from fedcourtsai.schemas import RetrievalCall, RetrievalLog
+from fedcourtsai.schemas import RetrievalCall, RetrievalLog, normalize_call
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -233,6 +239,253 @@ def test_codex_empty_output_is_captured_and_an_unanswered_call_is_not(tmp_path: 
     assert [call.result_digest for call in calls] == [None, None]
 
 
+def _codex_rollout(tmp_path: Path, *payloads: dict[str, object]) -> Path:
+    """A one-session rollout of the given response items; returns its sessions dir."""
+    rollout = tmp_path / "sessions" / "2026" / "07" / "10" / "rollout-2026-07-10T12-00-00.jsonl"
+    rollout.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        {"timestamp": "2026-07-10T12:00:02Z", "type": "response_item", "payload": payload}
+        for payload in payloads
+    ]
+    rollout.write_text("\n".join(json.dumps(line) for line in lines))
+    return tmp_path / "sessions"
+
+
+def test_codex_mcp_tool_call_pairs_a_separate_output(tmp_path: Path) -> None:
+    # The rollout's own MCP spelling, answered by a sibling output item like any
+    # other call. This path is unchanged by the inline pairing beside it.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_tool_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "call_id": "m1",
+            "arguments": json.dumps({"q": "qualified immunity"}),
+        },
+        {
+            "type": "mcp_tool_call_output",
+            "call_id": "m1",
+            "output": '{"count": 2, "dateFiled": "2024-01-02"}',
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.tool == "mcp__courtlistener__search"
+    assert call.query == "qualified immunity"
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+    assert call.retrieved_doc_date == "2024-01-02"
+
+
+def test_codex_mcp_call_pairs_the_result_carried_inline(tmp_path: Path) -> None:
+    # The Responses API settles an MCP call on the call item — the answer under
+    # its own `output`, no `*_output` sibling and no `call_id` to pair one by.
+    # Read only by `call_id`, every such row would claim `unobserved` while the
+    # transcript held the result.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "id": "mcp_1",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "output": '{"count": 2, "dateFiled": "2024-01-02"}',
+            "error": None,
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.tool == "mcp__courtlistener__search"
+    assert call.query == "chevron deference"
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+    assert call.retrieved_doc_date == "2024-01-02"
+
+
+def test_codex_mcp_call_inline_error_is_captured(tmp_path: Path) -> None:
+    # A failure that reached the transcript is a captured result: the record
+    # says what came back, and what came back was an error.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "output": None,
+            "error": "tool call failed: 429 rate limited",
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+    assert call.retrieved_doc_date is None
+
+
+def test_codex_mcp_call_inline_empty_output_is_captured(tmp_path: Path) -> None:
+    # The load-bearing half of "presence by value, not truthiness": an empty
+    # answer that reached the transcript is captured, and only the marker can
+    # say so — its digest is null exactly like an uncaptured call's.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "output": "",
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.result_capture == "captured"
+    assert call.result_digest is None
+
+
+def test_codex_mcp_call_with_no_result_at_all_is_unobserved(tmp_path: Path) -> None:
+    # Neither a sibling output nor an inline one: the item never settled, and
+    # the row must not borrow the inline path's confidence. Both spellings of
+    # "nothing settled" — the fields present and null, and the fields absent.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "output": None,
+            "error": None,
+        },
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "major questions"}),
+        },
+    )
+    calls = parse_codex_retrieval(sessions)
+    assert [call.result_capture for call in calls] == ["unobserved", "unobserved"]
+    assert [call.result_digest for call in calls] == [None, None]
+
+
+def test_codex_mcp_call_reads_the_rollout_s_own_field_spellings(tmp_path: Path) -> None:
+    # The rollout's record of an MCP call may name the same three things
+    # `server` / `tool` / `result` rather than `server_label` / `name` /
+    # `output`. Both spellings compose and settle the same way; which one codex
+    # actually writes is what a real transcript will say.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_tool_call",
+            "tool": "search",
+            "server": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "result": '{"count": 2, "dateFiled": "2024-01-02"}',
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.tool == "mcp__courtlistener__search"
+    assert normalize_call(call.tool) == "courtlistener.search"
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+    assert call.retrieved_doc_date == "2024-01-02"
+
+
+def test_codex_mcp_sibling_output_outranks_the_inline_field(tmp_path: Path) -> None:
+    # The sibling is the pairing wherever it carried anything — an empty string
+    # included, which is a captured empty answer and not an absent one.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_tool_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "call_id": "m1",
+            "output": '{"dateFiled": "2024-01-02"}',
+        },
+        {"type": "mcp_tool_call_output", "call_id": "m1", "output": ""},
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.result_capture == "captured"
+    assert call.result_digest is None  # the sibling's empty output, not the inline one
+    assert call.retrieved_doc_date is None
+
+
+def test_codex_mcp_null_sibling_output_defers_to_the_inline_field(tmp_path: Path) -> None:
+    # A sibling carrying `null` digests to nothing either way, so reading the
+    # item's own result in its place can add a captured result and never
+    # overwrite one; the marker is `captured` under both readings.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_tool_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "call_id": "m1",
+            "output": '{"dateFiled": "2024-01-02"}',
+        },
+        {"type": "mcp_tool_call_output", "call_id": "m1"},
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+    assert call.retrieved_doc_date == "2024-01-02"
+
+
+def test_codex_mcp_name_composes_into_the_rollup_s_mcp_spelling(tmp_path: Path) -> None:
+    # The bare `name` an MCP item carries is `search` — indistinguishable from
+    # an engine builtin once it is a row. Asserted through the rollup's own
+    # normalizer rather than against the string, because what the composition
+    # buys is the MCP classification, not the spelling.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "output": "{}",
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert normalize_call(call.tool) == "courtlistener.search"
+    assert normalize_call("search") is None
+
+
+def test_codex_custom_tool_call_pairs_its_output(tmp_path: Path) -> None:
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "custom_tool_call",
+            "name": "apply_patch",
+            "call_id": "t1",
+            "input": "*** Begin Patch",
+        },
+        {"type": "custom_tool_call_output", "call_id": "t1", "output": "patched"},
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.tool == "apply_patch"
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+
+
+def test_codex_local_shell_call_records_its_command(tmp_path: Path) -> None:
+    # No `name` and no `arguments`: the invocation describes itself in `action`,
+    # so the row is named by payload type and queried from the command.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "local_shell_call",
+            "call_id": "s1",
+            "action": {"type": "exec", "command": ["fedcourts", "query", "--court", "scotus"]},
+        },
+        {"type": "local_shell_call_output", "call_id": "s1", "output": "3 rows"},
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.tool == "local_shell_call"
+    assert call.query is not None and "fedcourts" in call.query
+    assert call.result_capture == "captured"
+
+
 def test_gemini_telemetry_tool_calls(tmp_path: Path) -> None:
     telemetry = tmp_path / "telemetry.log"
     events = [
@@ -411,6 +664,33 @@ def test_codex_transcript_credential_is_redacted_at_capture(tmp_path: Path) -> N
     # The params digest still covers the unredacted payload, so the audit trail
     # keeps its identity even though the text is gone.
     assert calls[0].params_digest is not None
+
+
+def test_codex_inline_mcp_result_is_redacted_at_capture(tmp_path: Path) -> None:
+    # The mirror of the separate-output case for the inline path: an MCP item
+    # that both asks and answers on one record must give the row no route a
+    # credential can ride. The params reach the log as text and are redacted;
+    # the result reaches it only as a digest and a date capture, exactly as a
+    # sibling output does — the pairing changed, the treatment did not.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"message": _FERNET}),
+            "output": json.dumps({"token": _FERNET, "dateFiled": "2024-01-02"}),
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions)
+    assert call.result_capture == "captured"
+    assert call.query is not None
+    assert _FERNET[:40] not in call.query
+    assert "[redacted:fernet-token]" in call.query
+    assert carries_redaction(call)
+    # Nothing of the inline result survives as text anywhere in the row.
+    assert _FERNET[:40] not in call.model_dump_json()
+    assert call.result_digest is not None and call.retrieved_doc_date == "2024-01-02"
 
 
 def test_capture_redacts_a_credential_sitting_past_the_query_cap(tmp_path: Path) -> None:
@@ -765,3 +1045,573 @@ def test_capture_marker_round_trips_through_the_schema() -> None:
     restored = RetrievalLog.model_validate(legacy)
     assert restored.calls[0].result_capture is None
     assert restored.result_capture_coverage is None
+
+
+# --- the per-call result condition ---------------------------------------------
+
+
+def _claude_result_transcript(payload: object, *, is_error: bool = False) -> list[object]:
+    """A one-call Claude transcript whose ``tool_result`` carries ``payload``."""
+    result: dict[str, object] = {
+        "type": "tool_result",
+        "tool_use_id": "toolu_1",
+        "content": payload,
+    }
+    if is_error:
+        result["is_error"] = True
+    return [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_1",
+                        "name": "mcp__courtlistener__search",
+                        "input": {"q": "chevron deference"},
+                    }
+                ]
+            },
+        },
+        {"type": "user", "message": {"content": [result]}},
+    ]
+
+
+def _claude_status(
+    tmp_path: Path,
+    payload: object,
+    *,
+    is_error: bool = False,
+    tool: str = "mcp__courtlistener__search",
+) -> RetrievalCall:
+    path = tmp_path / "execution.json"
+    transcript = _claude_result_transcript(payload, is_error=is_error)
+    transcript[0]["message"]["content"][0]["name"] = tool  # type: ignore[index]
+    path.write_text(json.dumps(transcript))
+    (call,) = parse_claude_retrieval(path)
+    return call
+
+
+# The pinned MCP release's own throttle renderings, quoted from
+# `courtlistener/mcp/middleware.py` (the 429 branch of `on_call_tool`, whose
+# `{exc}` is `CourtListenerAPIError.__str__` -> `HTTP 429: <detail>`) and
+# `courtlistener/mcp/tools/citation_utils.py::format_rate_limit_note`.
+_PINNED_RELEASE_THROTTLE_STRINGS = [
+    "Rate limit exceeded: HTTP 429: {'detail': 'Request was throttled.'}. For higher "
+    + "rate limits, you can upgrade your membership at "
+    + "https://donate.free.law/forms/membership",
+    "Rate limited by the upstream API. Call `resume_citation_analysis` to retry; set "
+    + "`wait=true` to have the server sleep through the rate-limit window.",
+    "Rate limited by the upstream API (retry in ~41s, "
+    + "wait_until=2026-07-10T12:05:00+00:00). Call `resume_citation_analysis` with "
+    + "`wait=true` to have the server sleep through the window.",
+]
+
+
+def test_the_predicate_matches_the_pinned_releases_own_error_strings(tmp_path: Path) -> None:
+    """The predicate is keyed to the pinned MCP release, not to a standard.
+
+    These are that release's strings, so a manifest pin bump has to re-read its
+    error rendering exactly as the sidecar launch has to re-read its
+    constructor. Holding them here makes a bump that changes the wording fail a
+    test rather than quietly turn the marker off for every later run — and
+    asserting the pin itself keeps that coupling local, so the claim the
+    `_THROTTLE_RE` comment makes is checked rather than merely written down.
+    """
+    assert _HTTP_BYPASS_RELEASE == "courtlistener-api-client[mcp]==1.1.0", (
+        "the throttle predicate quotes this release's error rendering; re-read "
+        "courtlistener/mcp/middleware.py and citation_utils.py before bumping the pin"
+    )
+    for rendering in _PINNED_RELEASE_THROTTLE_STRINGS:
+        assert _claude_status(tmp_path, rendering).result_status == "throttled", rendering
+
+
+def test_the_predicate_ignores_the_english_its_phrases_are_made_of(tmp_path: Path) -> None:
+    """A manifest tool returns documents, so the gate alone is not enough.
+
+    Both shapes are ordinary in what a search legitimately hands back — the
+    first in any rate-regulation opinion, the second in a discovery dispute —
+    and each is a substring of a phrase this server does emit. A false positive
+    invents starvation in a run that had none, so the alternations carry their
+    subject or their status code rather than standing alone.
+    """
+    for payload in (
+        "The Commission found that the rate limited the recovery of prudently incurred costs.",
+        "Petitioner served too many requests for admission, and the court so held.",
+        "Rate limits are discussed at length in the briefing.",
+        "See 429 U.S. 274; the request was denied.",
+    ):
+        assert _claude_status(tmp_path, payload).result_status == "ok", payload
+
+
+def test_a_throttled_claude_result_is_marked_and_still_digested(tmp_path: Path) -> None:
+    # The shape the pinned CourtListener MCP server renders an upstream 429 as.
+    # That evidence lives only in the payload, which the row digests away one
+    # line later, so the marker is the last place a starved run stays legible —
+    # and the digest is untouched, because this reads the result, not replaces it.
+    call = _claude_status(
+        tmp_path,
+        [
+            {
+                "type": "text",
+                "text": (
+                    "Rate limit exceeded: HTTP 429: {'detail': 'Request was throttled.'}. "
+                    "For higher rate limits, you can upgrade your membership at "
+                    "https://donate.free.law/forms/membership"
+                ),
+            }
+        ],
+        is_error=True,
+    )
+    # Throttled outranks the engine's own error flag: a 429 arrives *as* an
+    # error, and which error it is, is the whole point of the field.
+    assert call.result_status == "throttled"
+    assert call.result_capture == "captured"
+    assert call.result_digest is not None
+
+
+def test_the_citation_tools_partial_throttle_note_is_marked_too(tmp_path: Path) -> None:
+    # A result the quota cut short rather than refused outright: the call came
+    # back with rows, and the cell still did not get what it asked for.
+    call = _claude_status(
+        tmp_path,
+        "Rate limited by the upstream API (retry in ~41s). Call `resume_citation_analysis`.",
+    )
+    assert call.result_status == "throttled"
+
+
+def test_an_ordinary_result_is_ok_and_a_us_reports_429_is_not_a_throttle(
+    tmp_path: Path,
+) -> None:
+    # The predicate is phrase-anchored precisely because what it scans is
+    # retrieved legal content, where 429 is an everyday reporter volume. A bare
+    # number must never invent starvation in a run that had none.
+    call = _claude_status(
+        tmp_path,
+        [{"type": "text", "text": '{"citation": "429 U.S. 274", "dateFiled": "1977-01-11"}'}],
+    )
+    assert call.result_status == "ok"
+    assert call.retrieved_doc_date == "1977-01-11"
+
+
+def test_a_builtin_reading_prose_about_throttling_is_not_a_throttle(tmp_path: Path) -> None:
+    """The false positive the tool-name gate exists for, and it is not hypothetical.
+
+    A cell's checkout contains this repository — including the very strings the
+    predicate looks for, in this file and in `docs/predicted-artifacts.md` — and
+    an evaluate cell is *instructed* to read the predictor's `reasoning.md`,
+    where a starved cell will have written about being throttled. Ungated, a run
+    with no 429 at all commits `throttled_calls >= 1` the moment any cell reads
+    one of those, and every downstream count inherits it.
+    """
+    for builtin in ("Read", "Bash", "run_shell_command", "read_file", "WebFetch"):
+        call = _claude_status(
+            tmp_path,
+            "The MCP server returned `Rate limit exceeded: HTTP 429` for every search, "
+            "so this prediction rests on the snapshot alone.",
+            tool=builtin,
+        )
+        assert (call.tool, call.result_status) == (builtin, "ok")
+    # The identical payload through a manifest tool is the real thing.
+    assert _claude_status(tmp_path, "Rate limit exceeded: HTTP 429").result_status == "throttled"
+
+
+def test_a_builtin_failure_is_still_an_error_because_the_engine_said_so(tmp_path: Path) -> None:
+    # The gate is on the *text* predicate only. `is_error` is a flag the engine
+    # set, which no retrieved payload can forge, so it needs no tool gate and a
+    # failed builtin is honestly an error rather than a widened `ok`.
+    call = _claude_status(tmp_path, "No such file", is_error=True, tool="Read")
+    assert call.result_status == "error"
+
+
+def test_an_engine_marked_failure_is_an_error_not_an_ok(tmp_path: Path) -> None:
+    # `ok` claims only "captured, unmarked, unthrottled", so a failure the
+    # engine itself flagged must not land there.
+    assert _claude_status(tmp_path, "upstream 502", is_error=True).result_status == "error"
+
+
+def test_an_unanswered_claude_call_has_no_condition_to_read(tmp_path: Path) -> None:
+    transcript = [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "toolu_1", "name": "search", "input": {"q": "a"}}
+                ]
+            },
+        }
+    ]
+    path = tmp_path / "execution.json"
+    path.write_text(json.dumps(transcript))
+    (call,) = parse_claude_retrieval(path)
+    assert (call.result_capture, call.result_status) == ("unobserved", "unobserved")
+
+
+def test_a_codex_inline_mcp_error_reads_its_condition_from_the_field(tmp_path: Path) -> None:
+    # The Codex counterpart of `is_error`: the item's own `error` field is the
+    # engine's word that this came back a failure, so no text sniffing is needed
+    # to tell it from an `output` that merely reads badly.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "chevron deference"}),
+            "error": "tool call failed: upstream timeout",
+        },
+        {
+            "type": "mcp_call",
+            "call_id": "call_2",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "major questions"}),
+            "error": "Rate limit exceeded: HTTP 429: {'detail': 'Request was throttled.'}",
+        },
+        {
+            "type": "mcp_call",
+            "call_id": "call_3",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "standing"}),
+            "output": '{"results": [], "count": 0}',
+        },
+    )
+    assert [call.result_status for call in parse_codex_retrieval(sessions)] == [
+        "error",
+        "throttled",
+        "ok",
+    ]
+
+
+def test_every_gemini_call_is_condition_blind(tmp_path: Path) -> None:
+    # Not "no throttle" — no observation. The local exporter logs the
+    # invocation and nothing of what came back, so this engine can never be
+    # seen being starved.
+    telemetry = tmp_path / "telemetry.log"
+    telemetry.write_text(
+        json.dumps(
+            {
+                "attributes": {
+                    "event.name": "gemini_cli.tool_call",
+                    "function_name": "mcp_cl_search",
+                    "function_args": {"q": "chevron"},
+                    "event.timestamp": "2026-07-10T12:00:01Z",
+                }
+            }
+        )
+    )
+    (call,) = parse_gemini_retrieval(telemetry)
+    assert (call.result_capture, call.result_status) == ("unobserved", "unobserved")
+
+
+def test_the_two_result_markers_may_not_disagree_about_capture() -> None:
+    # One fact read twice: a condition is legible exactly when a result was
+    # captured, so a row claiming otherwise means the parser is broken.
+    with pytest.raises(ValidationError, match="disagree about whether"):
+        RetrievalCall(tool="search", result_capture="unobserved", result_status="ok")
+    with pytest.raises(ValidationError, match="disagree about whether"):
+        RetrievalCall(tool="search", result_capture="captured", result_status="unobserved")
+    # A null in either field is the legacy record's capture-unknown, which
+    # constrains nothing.
+    assert RetrievalCall(tool="search", result_status="ok").result_capture is None
+
+
+def _throttled(count: int) -> list[RetrievalCall]:
+    return [
+        RetrievalCall(
+            tool="mcp__courtlistener__search", result_capture="captured", result_status="throttled"
+        )
+        for _ in range(count)
+    ]
+
+
+def _ok(count: int, *, tool: str = "mcp__courtlistener__search") -> list[RetrievalCall]:
+    return [
+        RetrievalCall(tool=tool, result_capture="captured", result_status="ok")
+        for _ in range(count)
+    ]
+
+
+def test_the_log_counts_throttles_over_the_manifest_calls_it_could_read() -> None:
+    assert _log(_throttled(2) + _ok(3)).throttled_calls == 2
+    # A real zero, and the stronger claim: manifest results were legible, none
+    # was a throttle.
+    assert _log(_ok(3)).throttled_calls == 0
+    # Builtins leave both sides of the count untouched — the same exclusion the
+    # per-run note and the corpus rollup apply, so the three cannot disagree.
+    assert _log(_throttled(1) + _ok(9, tool="Read")).throttled_calls == 1
+
+
+def test_a_condition_blind_log_reports_no_throttle_count_at_all() -> None:
+    # The distinction the whole field turns on. A Gemini cell's every result is
+    # unobserved, so a 0 here would assert a clean run out of a blind one.
+    blind = _log(
+        [
+            RetrievalCall(
+                tool="mcp_courtlistener_search",
+                result_capture="unobserved",
+                result_status="unobserved",
+            )
+            for _ in range(4)
+        ]
+    )
+    assert blind.throttled_calls is None
+    assert blind.result_capture_coverage == 0.0
+    # As are an empty log and one written before the field existed.
+    assert _log([]).throttled_calls is None
+    assert _log([RetrievalCall(tool="mcp__courtlistener__search")]).throttled_calls is None
+    # And a cell that called only builtins: it read plenty and could not have
+    # been throttled by this quota, which is not the same as a clean cell.
+    assert _log(_ok(6, tool="Read")).throttled_calls is None
+
+
+def test_the_count_survives_the_blinding_masks_respelling_of_the_tool() -> None:
+    """A staged log is still a RetrievalLog, and revalidating it re-derives this.
+
+    `mask_retrieval_log` rewrites each call's `tool` to its engine-neutral
+    class, so a gate that only knew the engines' own spellings would read every
+    staged manifest call as a builtin and null a count the mask is not supposed
+    to touch — the blinded view would then disagree with the committed log about
+    a number, which is exactly what the mask exists not to do.
+    """
+    masked = neutral_tool_class("mcp__courtlistener__search")
+    assert masked == "mcp:courtlistener:search"
+    assert normalize_call(masked) == "courtlistener.search"
+    staged = _log(
+        [
+            *_throttled(1),
+            RetrievalCall(tool=masked, result_capture="captured", result_status="throttled"),
+            RetrievalCall(tool=masked, result_capture="captured", result_status="ok"),
+        ]
+    )
+    assert staged.throttled_calls == 2
+
+
+def test_the_throttle_count_follows_the_calls_rather_than_a_writers_claim() -> None:
+    asserted = RetrievalLog(
+        case_id="scotus/305",
+        run_id="20260710T120000Z",
+        role="predictor",
+        actor_id="claude-baseline",
+        engine="claude-code",
+        calls=_ok(2),
+        throttled_calls=7,
+    )
+    assert asserted.throttled_calls == 0
+
+
+def test_the_condition_marker_round_trips_through_the_schema() -> None:
+    original = _log(_throttled(1) + _ok(1))
+    payload = json.loads(original.model_dump_json())
+    assert [call["result_status"] for call in payload["calls"]] == ["throttled", "ok"]
+    assert payload["throttled_calls"] == 1
+    assert RetrievalLog.model_validate(payload) == original
+    # A record written before the field existed still validates and reads as
+    # condition-unknown rather than as a cell nothing ever turned away.
+    legacy = {key: value for key, value in payload.items() if key != "throttled_calls"}
+    legacy["calls"] = [{"tool": "search", "result_capture": "captured"}]
+    restored = RetrievalLog.model_validate(legacy)
+    assert restored.calls[0].result_status is None
+    assert restored.throttled_calls is None
+
+
+# --- the transcript's own item shapes ------------------------------------------
+
+
+def test_codex_shape_distillation_keeps_types_and_keys_and_drops_every_value(
+    tmp_path: Path,
+) -> None:
+    # The verification lever for the Codex parsing above: what an item's type
+    # and field spellings actually are, from a real transcript, without
+    # republishing a line of what the cell retrieved.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "mcp_call",
+            "name": "search",
+            "server_label": "courtlistener",
+            "arguments": json.dumps({"q": "qualified immunity"}),
+            "output": "Roe v. Wade, 410 U.S. 113",
+            "error": None,
+        },
+    )
+    distillation = distill_codex_shapes(sessions)
+    assert distillation["files"] == 1
+    assert distillation["records"] == 1
+    (shape,) = distillation["shapes"]
+    assert shape["count"] == 1
+    assert shape["record_type"] == "response_item"
+    assert shape["record_keys"] == ["payload", "timestamp", "type"]
+    assert shape["payload_type"] == "mcp_call"
+    assert shape["payload_shape"] == {
+        "arguments": "string",
+        "error": "null",
+        "name": "string",
+        "output": "string",
+        "server_label": "string",
+        "type": "string",
+    }
+    # The security property, asserted over the whole artifact rather than a
+    # field at a time: no value the transcript carried reaches the output.
+    rendered = json.dumps(distillation)
+    for value in ("qualified immunity", "Roe v. Wade", "courtlistener", "search"):
+        assert value not in rendered
+
+
+def test_codex_shape_distillation_counts_repeats_and_walks_two_levels(tmp_path: Path) -> None:
+    sessions = _codex_rollout(
+        tmp_path,
+        {"type": "function_call", "call_id": "c1", "arguments": "{}"},
+        {"type": "function_call", "call_id": "c2", "arguments": "{}"},
+        {
+            "type": "message",
+            "content": [{"type": "output_text", "text": "the model's prose"}],
+            "meta": {"nested": {"deeper": "unreachable"}},
+        },
+    )
+    shapes = {shape["payload_type"]: shape for shape in distill_codex_shapes(sessions)["shapes"]}
+    # Identical items collapse to one shape with a count, so a long transcript
+    # distils to a short artifact.
+    assert shapes["function_call"]["count"] == 2
+    # One level into an array's elements, and no further: the third level is
+    # the type name alone, which is what keeps a nested payload's text out.
+    assert shapes["message"]["payload_shape"]["content"] == [{"text": "string", "type": "string"}]
+    assert shapes["message"]["payload_shape"]["meta"] == {"nested": "object"}
+
+
+def test_codex_shape_distillation_screens_a_data_shaped_key(tmp_path: Path) -> None:
+    # A key name is emitted verbatim where it is identifier-shaped, so an
+    # object keyed by content rather than by schema is the single path by which
+    # transcript content could reach the output at all. The screen refuses what
+    # does not fit an identifier: spacing, punctuation, a path, a trailing
+    # newline (which is why the match is anchored at both ends).
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "custom_tool_call",
+            "input": {"petitioner asked whether X": 1},
+            "output": {"/opinion/12345/roe-v-wade/": "granted"},
+            "meta": {"docket_no\n": "22-1234"},
+        },
+    )
+    (shape,) = distill_codex_shapes(sessions)["shapes"]
+    assert shape["payload_shape"]["input"] == {"<non-identifier>": "number"}
+    assert shape["payload_shape"]["output"] == {"<non-identifier>": "string"}
+    assert shape["payload_shape"]["meta"] == {"<non-identifier>": "string"}
+    assert "roe-v-wade" not in json.dumps(shape)
+
+
+def test_codex_shape_distillation_admits_an_identifier_shaped_data_key(tmp_path: Path) -> None:
+    # The residual, pinned rather than pretended away: the screen bounds the
+    # data-keyed path, it does not close it. A bare slug and a dotted phrase
+    # ARE identifier-shaped, so a key made of retrieved content in those forms
+    # crosses into the artifact verbatim, up to 64 characters. Read a published
+    # distillation knowing that; it is not proof that no retrieved token
+    # appears in it. What holds unconditionally is the other half — no *value*
+    # is ever emitted, only its JSON type name.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "custom_tool_call",
+            "input": {"roe-v-wade": 1, "Petitioner.confidential.sealed.brief": 2},
+        },
+    )
+    (shape,) = distill_codex_shapes(sessions)["shapes"]
+    assert shape["payload_shape"]["input"] == {
+        "Petitioner.confidential.sealed.brief": "number",
+        "roe-v-wade": "number",
+    }
+
+
+def test_codex_shape_distillation_caps_the_shapes_it_retains(tmp_path: Path) -> None:
+    # A transcript is agent-influenced input: an item stream whose keys vary
+    # per record has as many distinct shapes as records, so the artifact's size
+    # would be the agent's to choose. Past the cap the counting continues and
+    # the shapes stop, and the output says so rather than reading as a complete
+    # census.
+    payloads: list[dict[str, object]] = [
+        {"type": f"item_{index}"} for index in range(_SHAPE_COUNT_CAP + 25)
+    ]
+    sessions = _codex_rollout(tmp_path, *payloads)
+    distillation = distill_codex_shapes(sessions)
+    assert len(distillation["shapes"]) == _SHAPE_COUNT_CAP
+    assert distillation["records"] == _SHAPE_COUNT_CAP + 25
+    assert distillation["truncated"] is True
+    assert distillation["shapes_dropped"] == 25
+
+
+def test_codex_shape_distillation_reads_every_session_and_tolerates_a_missing_tree(
+    tmp_path: Path,
+) -> None:
+    # Every rollout in the tree, unlike the parser's newest-only read: the
+    # question a distillation answers is which shapes the engine emits at all.
+    sessions = _codex_rollout(tmp_path, {"type": "function_call", "call_id": "c1"})
+    older = sessions / "2026" / "07" / "09" / "rollout-2026-07-09T12-00-00.jsonl"
+    older.parent.mkdir(parents=True)
+    older.write_text(
+        json.dumps({"timestamp": "x", "type": "response_item", "payload": {"type": "reasoning"}})
+        + "\nnot json at all\n"
+    )
+    distillation = distill_codex_shapes(sessions)
+    assert distillation["files"] == 2
+    assert {shape["payload_type"] for shape in distillation["shapes"]} == {
+        "function_call",
+        "reasoning",
+    }
+    # Instrumentation never fails the run it observes.
+    assert distill_codex_shapes(tmp_path / "absent") == {
+        "files": 0,
+        "records": 0,
+        "truncated": False,
+        "shapes_dropped": 0,
+        "shapes": [],
+    }
+
+
+def test_codex_item_shapes_command_writes_the_distillation(tmp_path: Path) -> None:
+    sessions = _codex_rollout(tmp_path, {"type": "function_call", "call_id": "c1"})
+    out = tmp_path / "artifact" / "codex-item-shapes.json"
+    result = runner.invoke(
+        app,
+        ["codex-item-shapes", "--sessions-dir", str(sessions), "--out", str(out)],
+    )
+    assert result.exit_code == 0, result.output
+    assert "1 file(s), 1 record(s), 1 distinct shape(s)" in result.output
+    assert json.loads(out.read_text())["shapes"][0]["payload_type"] == "function_call"
+
+
+def test_codex_item_shapes_command_survives_a_cell_that_never_ran(tmp_path: Path) -> None:
+    # The step runs `if: always()`, so a failed or unstarted cell reaches it
+    # with no sessions tree; an empty distillation is the honest answer, and
+    # exit 0 leaves the smoke's verdict exactly where the cell put it.
+    out = tmp_path / "codex-item-shapes.json"
+    result = runner.invoke(
+        app,
+        ["codex-item-shapes", "--sessions-dir", str(tmp_path / "absent"), "--out", str(out)],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(out.read_text()) == {
+        "files": 0,
+        "records": 0,
+        "truncated": False,
+        "shapes_dropped": 0,
+        "shapes": [],
+    }
+
+
+def test_codex_item_shapes_command_reports_a_truncated_distillation(tmp_path: Path) -> None:
+    # The marker reaches the run log too, not only the artifact: a capped
+    # distillation read as a complete census is the wrong reading of it.
+    payloads: list[dict[str, object]] = [
+        {"type": f"item_{index}"} for index in range(_SHAPE_COUNT_CAP + 2)
+    ]
+    sessions = _codex_rollout(tmp_path, *payloads)
+    out = tmp_path / "codex-item-shapes.json"
+    result = runner.invoke(
+        app,
+        ["codex-item-shapes", "--sessions-dir", str(sessions), "--out", str(out)],
+    )
+    assert result.exit_code == 0, result.output
+    assert "2 record(s) past the shape cap" in result.output
+    assert json.loads(out.read_text())["truncated"] is True

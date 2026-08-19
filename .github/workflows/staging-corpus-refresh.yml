@@ -1,0 +1,194 @@
+name: staging-corpus-refresh
+
+# Rebuild the **staging corpus** — a lean slice of real cases in its own
+# bucket/prefix pair — so orchestration and the read/write seams can be
+# verified end to end for runner minutes without anything gaining write access
+# to the production corpus. `fedcourts corpus-seed-slice` does the work; this
+# workflow is the only place its write half can run.
+#
+# Its own workflow file rather than a mode on an existing one, on AGENTS.md's
+# risk-class rule: this is a **corpus writer**, and every other corpus writer
+# (run-pull, run-seed) is its own workflow for the same reason — a job holding
+# a write-capable role and a job holding a read-only one are different risk
+# classes, and permissions are scoped per job. Its whole permission surface
+# is one file to read: the staging read-write role's trust names the
+# `staging` environment — deliberately, so staging rehearses production's
+# provenance model (in prod too, the write role trusts the environment every
+# reader binds, and review of what reaches the branch is the control) — and
+# this workflow is the one reviewed asker.
+#
+# It does not reuse the `corpus-readonly` / `corpus-ranged` composites for the
+# credential step, deliberately: those exist to hand a job the PRODUCTION
+# read-only role, which is the opposite posture from this one, and teaching
+# them a second role would put a write-capable path inside composites that
+# every consumer job calls. The cost is one duplicated `configure-aws-credentials`
+# block whose action pin can drift from theirs — accepted, and cheap to notice,
+# because `lint-actions` reads every workflow's pins together.
+#
+# **Dispatch-only, and dry-run by default.** The dry run's census — rows,
+# events, snapshots, documents, and content-store objects per named case — is
+# the reading a maintainer does before an apply, so the intended procedure is
+# two dispatches: dispatch with `apply` unset, read the census off the step
+# summary, then dispatch again with it set.
+#
+# **What guarantees this cannot write production is IAM, not the command.** The
+# role below is read-only on the production stores by policy, so no input, no
+# variable, and no bug here reaches the production write path. The command's own
+# rail — it refuses a destination that is, or is inside, either configured
+# production store — is the second line: it turns a misconfiguration into a
+# local refusal before anything is read, rather than a confusing AccessDenied
+# part-way through. Neither line covers everything: the rail cannot catch the
+# destination variables being set to some OTHER real bucket, and a swap of the
+# source and destination variables would have the seeder read staging and write
+# staging — wrong, but harmlessly so, and the policy is what keeps it that way.
+# Both together are why the write is dispatch-triggerable at all.
+#
+# Provisioning the variables and the role is a maintainer task the workflow
+# cannot do for itself — see the staging corpus runbook in docs/security.md.
+# Until it is done, a dispatch fails closed: an unset role variable resolves
+# empty and the assume-role step refuses.
+on:
+  workflow_dispatch:
+    inputs:
+      dockets:
+        description: >-
+          The slice, one `<court>/<docket>` case id per line. Every id is
+          matched against the case-id grammar before anything runs, and the
+          whole list is refused if any line fails. Pick cases that are real
+          specimens of what the scenarios read: an undisposed SCOTUS petition
+          with an open event and a stored snapshot is the shape
+          `integration-test.yml` targets.
+        required: true
+        type: string
+      apply:
+        description: >-
+          Seed the staging stores. Left unset — the default — the run is a
+          dry-run census and writes nothing. Set it only after reading a
+          previous dispatch's census: an apply run's own census is a receipt,
+          not a reading, since nobody reads it before the write.
+        required: false
+        default: false
+        type: boolean
+
+# Least privilege by default; the job widens only to what the seed needs.
+permissions: {}
+
+# The staging corpus is a single destination pair, so two refreshes must not
+# interleave. cancel-in-progress:false because a superseded refresh has already
+# begun copying objects: letting it finish leaves a converged store, while
+# cancelling it leaves a partial one for the next run to complete. It shares no
+# group with the production `corpus-write` lock — nothing here touches the
+# production corpus, so serialising against its writers would only make both
+# lanes wait.
+concurrency:
+  group: staging-corpus-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    # The slice is bounded by the command's own --max-cases, and each case
+    # costs a handful of small S3 objects plus point lookups over the ranged
+    # index, so a refresh is minutes. The cap is a backstop against a degraded
+    # endpoint, not a budget for the work.
+    timeout-minutes: 30
+    # The environment whose deployment branches are restricted to `staging`,
+    # so the staging read-write role its trust names is reachable only from
+    # code that passed the staging ruleset's checks — provenance, not a
+    # separate identity boundary, exactly as production scopes its own writer.
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write # assume the staging read-write AWS role
+    # The SOURCE stores, read-only: the production corpus remote and content
+    # store, exactly as every consumer job names them. The ranged backend reads
+    # the index in place — a bounded slice is point lookups, so no full pull —
+    # and the split flag is inert here (the seeder reads the source content
+    # store explicitly and builds a payload-free slice either way), but it is
+    # set for parity with every other corpus-reading job.
+    env:
+      CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+      FEDCOURTS_CORPUS_BACKEND: ranged
+    steps:
+      # The environment's deployment-branch policy is the real gate — a
+      # dispatch from any other ref is refused before a step runs — but that
+      # policy is a repository setting this workflow cannot see, and the live
+      # failure mode is the policy edited or removed on the pre-existing
+      # environment, which fails OPEN. So state the requirement in the job too: it
+      # costs one step, it is the same assertion the promotion gate makes from
+      # the outside, and it means the lane never rests solely on a setting
+      # nobody can read from here. Belt and braces, in that order.
+      - name: Refuse a dispatch from anything but the staging branch
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "${REF_NAME}" != "staging" ]; then
+            echo "::error::staging-corpus-refresh runs only from the 'staging' ref (dispatched from '${REF_NAME}'). The staging environment's deployment branches should already refuse this — if this message is what stopped the run, the environment's branch policy needs checking too (docs/security.md)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The staging read-write role: read on the production stores, read-write
+      # on the staging pair alone, and an OIDC trust naming ONLY this
+      # environment — so no other job in this repository can assume it, and
+      # nothing it can assume reaches the production write path. The
+      # assume-role wall clock is bounded for the reason recorded in
+      # docs/pipeline.md's workflow-traps list.
+      - name: Configure AWS credentials (staging corpus, read-write)
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_STAGING_RW }}
+          aws-region: ${{ vars.AWS_REGION }}
+          action-timeout-s: 120
+
+      # One invocation, in the mode the input names. An apply is NOT preceded
+      # by a separate dry run: the apply path takes the same census first and
+      # renders it, so a second pass would only duplicate the table and close
+      # it with the dry run's "re-dispatch with `apply`" line — advice the run
+      # has already acted on, and misleading in a summary a maintainer reads
+      # later as the record of what happened.
+      - name: Seed the staging corpus slice
+        env:
+          # The dispatch inputs pass through the environment, never
+          # interpolated into this script, so maintainer-typed text cannot
+          # inject commands; the command itself matches every line against the
+          # case-id grammar and refuses the whole list on any failure.
+          DOCKETS: ${{ inputs.dockets }}
+          APPLY: ${{ inputs.apply }}
+          DEST_REMOTE: ${{ vars.STAGING_CORPUS_REMOTE_URL }}
+          DEST_CASESTORE: ${{ vars.STAGING_CASESTORE_URL }}
+        run: |
+          set -euo pipefail
+          # Runner-local scratch, not the checkout: the docket list is input,
+          # not source, and nothing here should be able to dirty the tree.
+          dockets_file="${RUNNER_TEMP}/dockets.txt"
+          printf '%s\n' "${DOCKETS}" > "$dockets_file"
+          seed() {
+            uv run fedcourts corpus-seed-slice \
+              --dockets-file "$dockets_file" \
+              --dest-remote "${DEST_REMOTE}" \
+              --dest-casestore "${DEST_CASESTORE}" \
+              --summary-out "$GITHUB_STEP_SUMMARY" \
+              "$@"
+          }
+          if [ "${APPLY}" != "true" ]; then
+            seed
+            echo "dry run only; nothing written."
+            exit 0
+          fi
+          # The seed copies the content objects before it publishes the index
+          # blob, so a reader that resolves the new pointer always finds the
+          # payloads its rows refer to; an interrupted apply leaves a store
+          # ahead of its index, which the next apply completes. The published
+          # pointer lands in the summary beside the census: the runner is
+          # thrown away, and that value is the only thing a staging consumer
+          # needs from this run.
+          seed --apply

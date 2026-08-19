@@ -16,7 +16,9 @@ Three seams, each swappable on its own:
 * **Transport** — one callable ``(object key, inclusive byte range) -> bytes``.
   :class:`S3RangeTransport` (boto3 ranged ``GetObject``) is today's
   implementation; an S3-compatible endpoint or another blob store is a
-  contained swap, and tests substitute an in-memory transport here.
+  contained swap, and tests substitute an in-memory transport here. It is also
+  the one seam where a *transient* remote fault is absorbed
+  (:data:`RETRY_BACKOFF_SECONDS`) — a permanent one still fails immediately.
 * **Resolver** — :func:`resolve_pointer` is the **only** place that knows the
   remote key layout. It maps the committed pointer (key + checksum + size) to
   the object's coordinates and fails loudly when the coupling breaks.
@@ -35,7 +37,10 @@ no ctypes VFS registration, no hand-rolled SigV4 signing.
 from __future__ import annotations
 
 import json
+import random
 import re
+import sys
+import time
 from collections import OrderedDict
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
@@ -68,17 +73,96 @@ POINTER_SCHEMA_VERSION = "1.0"
 # digest it carries.
 INDEX_KEY_PREFIX = "index/sha256"
 
+# Pauses *between* ranged-GET attempts, so the attempt budget is one more than
+# the number of pauses. Every predict cell provisions its own snapshot over
+# this transport, so a single transient remote fault would otherwise refuse one
+# engine's cell while its siblings on the same event predict.
+# Fixed rather than configurable: the schedule is short enough to cost nothing
+# when unused and bounded enough that a genuinely down remote still fails fast.
+# This budget layers on top of botocore's own request-level retries (the
+# client is built with the default retry config): the marginal value here is
+# the faults botocore does not re-attempt — mid-body stream failures during
+# Body.read() — plus one place that names the flake before giving up.
+RETRY_BACKOFF_SECONDS = (0.2, 0.6)
+# Fraction of each pause added as jitter, so cells that flaked on the same
+# object do not resynchronise onto the next attempt together.
+RETRY_JITTER = 0.25
+
+# S3 error codes naming a transient server-side condition. Listed by name
+# because S3 returns some of them (``RequestTimeout``) with a 4xx status; the
+# rest of the 5xx family is caught by status instead.
+_TRANSIENT_ERROR_CODES = frozenset(
+    {"InternalError", "RequestTimeout", "ServiceUnavailable", "SlowDown"}
+)
+
+# Test seam: the pause between attempts, bound here so an offline test can
+# replace it without touching the global clock.
+_sleep = time.sleep
+
 # Each connection registers its own uniquely-named VFS (state lives in the VFS
 # instance); the counter keeps concurrent connections from colliding.
 _vfs_names = count()
 
 
+def _is_transient(exc: Any) -> bool:
+    """Whether a failed ranged GET is worth another attempt.
+
+    Deliberately an allowlist. A permanent fault — 403 from a role that cannot
+    read the corpus remote, 404 from a drifted pointer, a redirect from the
+    wrong region — is a misconfiguration, and smearing it over a retry budget
+    turns a one-line diagnosis into a slow mystery. Only server-side
+    transients and connection-level faults are retried. ``exc`` is untyped
+    because botocore ships no type information, so its exception classes and
+    their ``response`` payload are only known at runtime.
+    """
+    from botocore.exceptions import (  # noqa: PLC0415
+        ClientError,
+        HTTPClientError,
+        IncompleteReadError,
+    )
+    from botocore.exceptions import (  # noqa: PLC0415
+        ConnectionError as BotoConnectionError,
+    )
+
+    # The connection never got a usable HTTP response: timeouts, dropped and
+    # closed connections, endpoint failures, truncated bodies.
+    if isinstance(exc, BotoConnectionError | HTTPClientError | IncompleteReadError):
+        return True
+    if isinstance(exc, ClientError):
+        response = exc.response
+        if response.get("Error", {}).get("Code") in _TRANSIENT_ERROR_CODES:
+            return True
+        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        return isinstance(status, int) and status >= 500
+    return False
+
+
+def _fault_summary(exc: Any) -> str:
+    """A one-token account of a failed attempt, safe to print.
+
+    Never the exception's message: connection-family messages embed the full
+    endpoint URL (bucket included), and the remote's name must not reach a log
+    or an error type that callers render. The class name — plus the S3 error
+    code where one exists — is enough to count and classify flakes.
+    """
+    from botocore.exceptions import ClientError  # noqa: PLC0415
+
+    if isinstance(exc, ClientError):
+        code = exc.response.get("Error", {}).get("Code")
+        if isinstance(code, str) and code:
+            return f"{type(exc).__name__}: {code}"
+    return type(exc).__name__
+
+
 class RangedBackendError(RuntimeError):
-    """The ranged backend cannot serve — misconfigured remote or broken pointer.
+    """The ranged backend cannot serve — misconfigured remote, broken pointer,
+    or a transient fault that survived the whole retry budget.
 
     Deliberately loud: every failure names what was expected so a drifted
     remote layout or missing out-of-band configuration is a diagnosis, not a
-    mystery.
+    mystery. A permanent per-request fault (403, 404) is *not* wrapped: callers
+    that catch this type deliberately degrade, and a misconfigured remote must
+    crash the caller instead of degrading into the unprovisioned path.
     """
 
 
@@ -99,6 +183,12 @@ class S3RangeTransport:
     Credentials and region come from the environment (the OIDC-assumed role in
     workflows, the developer's profile locally), exactly like the whole-file
     corpus transport and the casestore.
+
+    A transient fault is retried on the :data:`RETRY_BACKOFF_SECONDS` schedule
+    and each retry is announced on stderr, so the flake rate is countable from
+    a run log; a permanent one propagates on the first attempt, and an
+    exhausted budget becomes a :class:`RangedBackendError` naming the object,
+    the range, and how many attempts were spent.
     """
 
     def __init__(self, bucket: str) -> None:
@@ -110,10 +200,39 @@ class S3RangeTransport:
         self._client = boto3.client("s3")
 
     def __call__(self, key: str, start: int, end: int) -> bytes:
-        response = self._client.get_object(
-            Bucket=self._bucket, Key=key, Range=f"bytes={start}-{end}"
-        )
-        return bytes(response["Body"].read())
+        byte_range = f"bytes={start}-{end}"
+        attempts = len(RETRY_BACKOFF_SECONDS) + 1
+        for attempt in range(1, attempts + 1):
+            try:
+                response = self._client.get_object(Bucket=self._bucket, Key=key, Range=byte_range)
+                return bytes(response["Body"].read())
+            except Exception as exc:
+                if not _is_transient(exc):
+                    raise
+                if attempt == attempts:
+                    raise RangedBackendError(
+                        f"ranged read of {key} ({byte_range}) failed after "
+                        f"{attempts} attempts: {_fault_summary(exc)}"
+                    ) from exc
+                pause = RETRY_BACKOFF_SECONDS[attempt - 1]
+                pause += random.uniform(0.0, pause * RETRY_JITTER)
+                # Printed rather than logged: only a line that *starts* with
+                # the marker is annotated by the workflow runner, and the
+                # ranged reader runs under callers with different (or no)
+                # logging configuration. The exception is summarised, never
+                # interpolated: connection-family messages embed the endpoint
+                # URL, bucket included, and the remote's name is supplied out
+                # of band and never committed or rendered — the key and range
+                # are what identify the failed read.
+                print(
+                    f"::warning::ranged read of {key} ({byte_range}) attempt "
+                    f"{attempt}/{attempts} failed ({_fault_summary(exc)}); "
+                    f"retrying in {pause:.2f}s",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                _sleep(pause)
+        raise AssertionError("unreachable")  # pragma: no cover
 
 
 @dataclass(frozen=True)

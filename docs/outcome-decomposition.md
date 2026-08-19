@@ -111,6 +111,28 @@ docket's disposition entry):
 | A concurrence is filed | *no field yet* |
 | A dissent is filed | *no field yet* |
 
+`Outcome.judgment` is also the routing key for the accuracy bit beside the
+claim scores: `pipeline.evaluate.is_correct` takes the judgment comparison
+wherever that field is non-null and the disposition comparison otherwise. That
+routing never reads the stage, so **no outcome off the merits stage records a
+judgment** — a stray one, on a cert event or a stage-less one alike, would move
+the cell onto the merits axis, where the predictor was never asked for a
+judgment and the cell scores 0 against a question it never received. The merits
+outcome builder is the field's only writer, so `validate`'s
+`judgment_only_on_merits_outcomes` holds that invariant on the artifact. And
+because `correct` is a function of two committed artifacts — the predictor's
+latest prediction *as at the stamp* and the outcome — rather than a judgment
+about them, `evaluation_correct_agrees` requires the **current** stamped
+gradings of one `(case_id, event_id, predictor_id)` cell to record the same bit
+across evaluators; where they differ, the stamps read different pairs (a
+pre-stamp bit surviving, or stamps straddling a re-prediction), and the remedy
+is a re-stamp of the event's evaluations. Superseded runs are collapsed away
+first, exactly as every aggregating surface collapses them: an older stamp
+records what was true when it ran, and nothing reads it. Unstamped records stay
+outside the rule, their disagreement being the signal the stamp displaces; a
+null `correct` — the stamp's own value where either artifact is missing — is
+skipped the same way.
+
 Disposition is **one** claim, not two. `Outcome.actual_granted` is a pure
 function of `actual_disposition` (`pipeline.outcome.granted_flag`), so scoring
 both would score one belief twice — see *No claim may be derived from another*.
@@ -441,9 +463,9 @@ rediscovering them.
 
 **The claim was resolved as a level, not an increment.** This is what actually
 sank it. The resolver asked whether the count reached two *by resolution*, not
-whether it rose past what the predictor could see. A forward cell's snapshot
-carries the docket's proceedings intact, so distributions already recorded are
-readable; for a petition already relisted when it is predicted, "will be relisted
+whether it rose past what the predictor could see. A cert baseline cell's
+snapshot carries the docket's proceedings intact — it is the one moment the
+cutoff does not place — so distributions already recorded are readable; for a petition already relisted when it is predicted, "will be relisted
 at least once" is trivially true and a predictor writing `1.0` scores near the
 maximum without forecasting anything. Fixing this needs the value **as at
 prediction** on a committed artifact — the corpus column is mutable and
@@ -691,10 +713,12 @@ which route a future grant would take. (2) It is a level rather than an
 increment, and legitimately so — there is no prediction-time value to move away
 from, because the quantity does not exist until the grant does; the increment
 discipline binds a claim about a docket field that already has a value, which
-this is not. Leakage is handled structurally instead: a forward cell's docket
-is pending by the provisioning guards, and a replay cell's snapshot is
-truncated at its cutoff, so the claim is not keyed on `signals_observable` and
-needs no context freeze. (3) The baseline is conditioned twice over on the
+this is not. Leakage is handled structurally instead: a forward cell's docket is
+pending by the provisioning guards, and a replay cell's snapshot is placed at its
+cutoff, so the claim is not keyed on `signals_observable` and needs no context
+freeze. (The forward population here is the cert petition baseline, which reads
+the latest snapshot: its declared moment is the distribution, not the docketing
+its opening date carries, so the moment cutoff does not place it.) (3) The baseline is conditioned twice over on the
 population that is actually scored — the grant family the resolver conditions
 on, and the paid fee class the salience gate selects — and pooled strictly
 prior, never on the case's own trajectory. The **sample** takes the same
@@ -1329,19 +1353,28 @@ extended, confined, or overruled; whether the holding turns on the canon the
 petitioner pressed or the one the respondent did. Test 1: no snapshot field
 discloses the Court's reasoning, so a forward cell is genuinely forecasting.
 
-That pass is **conditional on when the cell runs**, and nothing in the
-declaration records the vantage. The merits event opens at the grant, but
-nothing pins a
-merits predict cell to that moment, and a forward cell may retrieve without
-restriction — so a cell running after oral argument can read a transcript in
-which the doctrinal ground is frequently telegraphed. The claim's
-forecastability decays monotonically across the Term. It does not fail test 1,
-which keys on the snapshot; it is a **caveat the declared claim carries**: a
-summary publishing `majority-ground` owes the prediction's date relative to
-argument beside every grade, and that is unbuilt — no artifact in this project
-records an argument date, so the caveat travels as prose and not as a column.
-Read a `majority-ground` census as an upper bound on forecasting skill until it
-does.
+That pass is **conditional on when the cell runs**, and only half of "when" is
+pinned. The provisioned half is: each merits moment opens at its own trigger —
+the grant moment at the cert grant, the briefed moment at the second side's
+merits brief — and `provision-snapshot` places the cell at the day after it, so
+however late in the Term the cell runs, the proceedings, the documents, and the
+date-keyed top-level fields it is handed are the ones that trigger left
+(`context.cutoff` records the instant; see [cli.md](cli.md)). An argument date
+therefore no longer reaches a grant-moment cell whose argument entry was cut.
+One residual survives and rides `truncated` cells only: the undated counsel and
+amici blocks, which accrue as a case proceeds, are as at the pull the docket was
+reconstructed from — a `dated` cell has none of it.
+
+The **retrieval** half is not pinned at all, because a forward cell may retrieve
+without restriction: a cell running after oral argument can still reach a
+transcript in which the doctrinal ground is frequently telegraphed. So the claim's forecastability still decays across the Term,
+through what the cell fetches rather than through what it is given. It does not
+fail test 1, which keys on the snapshot; it is a **caveat the declared claim
+carries**: a summary publishing `majority-ground` owes the prediction's date
+relative to argument beside every grade, and that is unbuilt — no artifact in
+this project records an argument date, so the caveat travels as prose and not as
+a column. Read a `majority-ground` census as an upper bound on forecasting skill
+until it does.
 
 Test 6 is the protocol constraint, not a filter: the grade must be formed
 against the **opinion text itself**, never against a harness-produced summary

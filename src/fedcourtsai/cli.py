@@ -15,7 +15,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
 from pathlib import Path
@@ -29,11 +29,13 @@ from pydantic import BaseModel, ValidationError
 from . import (
     analytics,
     blinding,
+    casestore,
     cleanup,
     corpus,
     corpus_index,
     corpus_ranged,
     corpus_remote,
+    corpus_seed,
     corpus_service,
     dedupe,
     ids,
@@ -66,6 +68,7 @@ from .cert_backtest import (
     replayable_items,
     run_cert_backtest,
     select_cert_backtest_set,
+    truncate_snapshot,
 )
 from .claim_metrics import agreement_summary, build_claim_scores
 from .collect import (
@@ -74,6 +77,7 @@ from .collect import (
     ExpectedCell,
     PathJailError,
     PrPlan,
+    ThrottleRollup,
     assert_cleanup_within_jail,
     assert_within_jail,
     cell_failures,
@@ -97,10 +101,16 @@ from .config import (
     load_statpack_config,
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
+from .disposition_convergence import converge_disposition_labels
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
-from .integrity import cell_clock, evaluation_clock, forward_claim_record
+from .integrity import (
+    cell_clock,
+    evaluation_clock,
+    forward_claim_record,
+    latest_evaluation_runs,
+)
 from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
@@ -110,6 +120,8 @@ from .leaderboard import (
 from .matrix import (
     CappedMatrix,
     CaseRequest,
+    GuardedMatrix,
+    StrandedCell,
     cap_predict_cells,
     drop_stranded_cells,
     evaluate_matrix,
@@ -138,7 +150,11 @@ from .pipeline.base_rates import interim_base_rate, merits_base_rate
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
 from .pipeline.caption import CAPTION_RULE_VERSION, CAPTION_RULES, caption_census
 from .pipeline.cascade import CascadeError, run_cascade
-from .pipeline.cert_signals import match_disposition_signal
+from .pipeline.cert_signals import (
+    DEFAULT_DISTRIBUTION_PARSE,
+    DISTRIBUTION_PARSES,
+    match_disposition_signal,
+)
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
 from .pipeline.documents import backfill_questions_presented
@@ -157,6 +173,8 @@ from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
 from .pipeline.salience import (
     SALIENCE_VERSION,
+    SCORERS,
+    distribution_census,
     reconcile_salience_selection,
     registered_versions,
     unlatch_overselected,
@@ -204,8 +222,10 @@ from .schemas import (
     StatPack,
     Stratum,
     UsageRole,
+    observed_mcp_conditions,
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
+from .slug_migration import converge_event_slugs
 from .spend import SpendVerdict, check_spend
 from .store import (
     ExcludedCell,
@@ -222,6 +242,7 @@ from .store import (
     open_events,
     resolved_events,
     stratify,
+    unforecastable_listed_events,
 )
 from .supremecourt import SupremeCourtClient, current_docket_term
 from .usage import (
@@ -556,7 +577,7 @@ def reconcile_salience_selection_cmd(
         raise typer.Exit(code=1)
     config = load_salience_config(settings.config_root)
     with corpus.connect(db_path) as conn:
-        result = reconcile_salience_selection(conn, config, apply=apply)
+        result = reconcile_salience_selection(conn, settings.data_root, config, apply=apply)
     typer.echo(
         f"reconcile-salience-selection ({'applied' if apply else 'dry-run'}): "
         f"scored {result.scored}, newly selected {result.newly_selected} "
@@ -617,6 +638,105 @@ def caption_census_cmd(
             f"{cell.petitioner_class}: n={cell.n} grant-family={cell.grant_family} rate={rate}",
             err=True,
         )
+    typer.echo(census.model_dump_json())
+
+
+@app.command("distribution-census")
+def distribution_census_cmd(
+    baseline_parse: str = typer.Option(
+        DEFAULT_DISTRIBUTION_PARSE,
+        "--baseline-parse",
+        help="The registered distribution parse counted as the incumbent.",
+    ),
+    candidate_parse: str = typer.Option(
+        "dist-v2",
+        "--candidate-parse",
+        help="The registered distribution parse counted against the incumbent.",
+    ),
+    version: str = typer.Option(
+        SALIENCE_VERSION,
+        "--version",
+        help="Which registered salience version's band function bands both counts.",
+    ),
+) -> None:
+    """The distribution-parse census: what re-reading DISTRIBUTED would move.
+
+    A deterministic, read-only count of two registered distribution parses
+    (`pipeline.cert_signals`) over the salience gate's scored segment —
+    live-slice, paid, modern-cert petitions, **pending rows included**, since
+    the count is a banding input the gate reads before a petition resolves and
+    the ancillary-paper distributions the readings differ on accumulate on live
+    pending dockets. Both counts come off each case's latest **live-shaped**
+    snapshot — the entry-initial rule is a claim about the live channel's entry
+    conventions, so counting a REST payload under it would report a channel
+    artifact as a parse delta — and are banded by one salience version's band
+    function, so the reported delta (changed counts, the band-transition matrix,
+    a per-Term rollup split by docket maturity, and every changed case id) is
+    attributable to the phrase-reading alone.
+
+    The **input-level** cut only, and conditional: the corpus column, the
+    statpack's band base rates, and the relist-tier cutpoints were all fitted
+    under the default parse, so pinning a new parse means re-deriving the column
+    on a writer job, rebuilding the statpack, and re-measuring the tier rates.
+    The selection question is read from `salience-replay` with the candidate
+    version registered, never from this matrix (`docs/salience.md`). Prints a
+    `DistributionCensus`. Fails loud if the corpus is absent, a parse or version
+    label is unregistered, or the frame is subsampled.
+    """
+    for label in (baseline_parse, candidate_parse):
+        if label not in DISTRIBUTION_PARSES:
+            typer.echo(
+                f"unregistered distribution parse {label!r}; "
+                f"registered: {', '.join(sorted(DISTRIBUTION_PARSES))}",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+    if version not in SCORERS:
+        typer.echo(
+            f"unregistered salience version {version!r}; registered: {', '.join(sorted(SCORERS))}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the distribution census.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    # The provenance the freeze record needs, read exactly as the caption census
+    # reads it: under `local` the hash of the file the census actually ran over,
+    # under `ranged` the pointer's own parsed digest of the immutable blob.
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+    else:
+        pointer = corpus_remote.pointer_path_for(db_path)
+        corpus_sha = corpus_ranged.read_index_pointer(pointer).sha256 if pointer.is_file() else ""
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        census = distribution_census(
+            conn,
+            corpus_sha256=corpus_sha,
+            baseline_parse=baseline_parse,
+            candidate_parse=candidate_parse,
+            version=version,
+        )
+    typer.echo(
+        f"distribution census {census.baseline_parse} -> {census.candidate_parse} "
+        f"({census.salience_version}): cases={census.cases} "
+        f"unobservable={census.unobservable} count-changed={census.count_changed} "
+        f"band-changed={census.band_changed}",
+        err=True,
+    )
+    typer.echo(
+        "frame: live-slice paid modern-cert SCOTUS, pending included, "
+        f"latest live snapshot; corpus sha256={census.corpus_sha256 or '(unknown)'}",
+        err=True,
+    )
+    for cell in census.transitions:
+        if cell.from_band != cell.to_band:
+            typer.echo(f"{cell.from_band} -> {cell.to_band}: {cell.n}", err=True)
     typer.echo(census.model_dump_json())
 
 
@@ -688,13 +808,28 @@ def dedupe_live_rows_cmd(
     and drops the live row: every fact only the live twin carries fills in on
     the survivor, its events / snapshots / documents move under the surviving
     id, the survivor's `sample_weight` takes the pair's minimum, and the
-    live-minted row is deleted from all four tables — no orphans. A pair
-    disagreeing on `date_filed`, `date_decided`, or `disposition` is skipped
-    and reported, never dropped — the dry-run output is the triage list.
-    Content-store objects under a dropped id are left in place (no-delete
-    store; nothing resolves a dropped id, so they are inert). Idempotent. Run
-    where the corpus is pulled, `corpus-push` after an `--apply`. Prints a
-    `LiveDedupeResult`. Fails loud if the corpus is absent.
+    live-minted row is deleted from all four tables — no orphans. A **minted**
+    forecast moment's committed `event.yaml` directory moves with its re-keyed
+    row, its case id restamped inside, so the merge never leaves the shape
+    `minted_moments_defined_in_ledger` fails on — a row under the survivor whose
+    definition still sits on the dropped case's path. The ledger half goes
+    first, so an interrupted pair converges on the next run. A pair disagreeing
+    on `date_filed`, `date_decided`, or `disposition` is skipped and reported,
+    never dropped — the dry-run output is the triage list — and so is one this
+    merge cannot carry mechanically: committed cell output anywhere under the
+    dropped id (a prediction names that id inside its own file, which no restamp
+    here rewrites, so the row delete would orphan it), committed directories for
+    one moment under **both** ids, or a survivor-side document that will not
+    read. A half-merged twin is worse than an unmerged one. Content-store
+    objects under a dropped id are left in place (no-delete store; nothing
+    resolves a dropped id, so they are inert). Idempotent. Run where the corpus
+    is pulled, `corpus-push` after an `--apply`. Because an `--apply` now writes
+    `data/` as well as the corpus, the lane that runs it **must stage the moved
+    paths in the same pointer commit**, as the merits-events backfill step does;
+    an `--apply` whose ledger writes are not committed drops the corpus half
+    alone and leaves the directory stranded, which no later pass re-detects (the
+    dropped row is gone). Prints a `LiveDedupeResult`. Fails loud if the corpus
+    is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -706,18 +841,26 @@ def dedupe_live_rows_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
-        result = dedupe.dedupe_live_rows(conn, apply=apply)
+        result = dedupe.dedupe_live_rows(conn, settings.data_root, apply=apply)
     verb = "dropped" if apply else "would drop"
     typer.echo(
         f"dedupe-live-rows ({'applied' if apply else 'dry-run'}): "
         f"{result.pairs} duplicate pair(s); {verb} {len(result.dropped)} live-minted row(s), "
-        f"skipped {len(result.skipped)} disagreeing pair(s)"
+        f"skipped {len(result.skipped)} pair(s) for triage"
     )
     for entry in result.skipped:
         typer.echo(
             f"  - kept {entry.pair.keep}, not dropped {entry.pair.drop}: "
             f"{'; '.join(entry.conflicts)}"
         )
+    for move in result.ledger_moves:
+        if move.restamp_only:
+            verbed = "restamped" if apply else "would restamp"
+            where = f"{move.to_case}/{move.event_id} (already at the survivor)"
+        else:
+            verbed = "moved" if apply else "would move"
+            where = f"{move.from_case}/{move.event_id} -> {move.to_case}/{move.event_id}"
+        typer.echo(f"  {verbed} ledger event directory {where}")
     if result.dropped:
         typer.echo(
             "  content-store objects under the dropped ids are left in place "
@@ -1104,6 +1247,85 @@ def migrate_gvr_labels_cmd(
         typer.echo(", ".join(result.relabeled))
 
 
+@app.command("converge-event-slugs")
+def converge_event_slugs_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Rename the diverged events; omit for a dry-run report."),
+    ] = False,
+    max_renames: Annotated[
+        int,
+        typer.Option(
+            "--max-renames",
+            help="Blast-radius bound: refuse to apply more renames than this.",
+        ),
+    ] = 20,
+) -> None:
+    """Rename entry-pinned events whose ids the current slug derivation no longer mints.
+
+    An entry-pinned event's id is derived from its docket entry's text, and
+    `corpus.upsert_events` keys on `(case_id, event_id)` — so a row minted under
+    a superseded derivation is not updated by a re-ingest of its docket: the
+    refresh inserts a *second* row under today's id, open, beside the stale one
+    that holds the `resolved` latch and the committed ledger directory. Nothing
+    closes the new row (a SCOTUS disposing order cites no entry number), so the
+    case carries a permanent open event. This convergence sweep re-derives each
+    entry-pinned row's id from its own stored entry text and renames the
+    divergent ones in both stores — the corpus row through
+    `corpus.rename_event` (atomic, `resolved` latch carried, casestore mirror
+    included) and the ledger directory by moving it and restamping the id inside
+    `event.yaml` / `outcome.json`. The ledger half goes first: the corpus row is
+    the detection handle, so an interrupted run is re-found and finished by the
+    next one. Where the derived id is already on the case *pinned to the same
+    docket entry*, that row is the duplicate this sweep exists to clear, and the
+    rename folds onto it — `rename_event` takes `resolved` as the MAX of the
+    two, so the case ends with one row holding the latch. A **different**
+    entry's row under the derived id is the genuine collision and is reported
+    for triage, as are a ledger directory holding committed cell output,
+    directories under both ids, and a row whose text or kind cannot be read.
+    Idempotent. Dry-run by default; `--apply` writes, and refuses above
+    `--max-renames`: the population is the finite set of rows a derivation
+    change left behind, so a large count means the derivation moved further
+    than intended. Corpus writes exist only inside the writer workflows and no
+    lane runs this sweep, so today only the **dry run** is runnable — from a dev
+    checkout over a pulled corpus, as the triage report a maintainer reads.
+    Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the convergence.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        if apply:
+            preview = converge_event_slugs(conn, settings.data_root, apply=False)
+            if len(preview.renamed) > max_renames:
+                typer.echo(
+                    f"converge-event-slugs: refusing to apply {len(preview.renamed)} renames "
+                    f"(--max-renames {max_renames}). The population is the finite set of rows "
+                    "a derivation change left behind; a count this size means the derivation "
+                    "moved further than intended — triage before raising the bound.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+        result = converge_event_slugs(conn, settings.data_root, apply=apply)
+    verb = "renamed" if apply else "would rename"
+    typer.echo(
+        f"converge-event-slugs ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.renamed)} event(s); "
+        f"{result.already_converged} entry-pinned row(s) already converged; "
+        f"skipped {len(result.skipped)} for triage"
+    )
+    for ref, new_event_id in result.renamed:
+        typer.echo(f"  {verb} {ref} -> {new_event_id}")
+    for ref, reason in result.skipped:
+        typer.echo(f"  skipped {ref}: {reason}")
+
+
 @app.command("relabel-application-events")
 def relabel_application_events_cmd(
     apply: Annotated[
@@ -1220,6 +1442,126 @@ def reopen_misattributed_outcomes_cmd(
     )
     for ref in result.reopened:
         typer.echo(f"  {verb} {ref}")
+    for ref, reason in result.skipped:
+        typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("converge-disposition-labels")
+def converge_disposition_labels_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Rewrite the confirmed outcomes; omit for a dry-run report."),
+    ] = False,
+    max_relabels: Annotated[
+        int | None,
+        typer.Option(
+            "--max-relabels",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
+        ),
+    ] = None,
+    include_scored: Annotated[
+        bool,
+        typer.Option(
+            "--include-scored",
+            help="Also relabel candidates carrying committed predict/evaluate output.",
+        ),
+    ] = False,
+) -> None:
+    """Re-resolve committed `granted` cert outcomes against their stored docket text.
+
+    A deterministic **ledger** convergence sweep for the labels no re-resolution
+    reaches: `record_outcomes` is idempotent-by-filter, so a resolved event is
+    never revisited, and a prose GVR — an order granting, vacating and remanding
+    in one breath, which `match_disposition_signal` now reads through its
+    vacatur-sentence upgrade — stays recorded as a plain `granted`. Over each
+    committed cert-stage outcome labeled `granted` **resolved on or after the era
+    boundary** (`disposition_convergence.PARSED_ORDER_TEXT_SINCE`), the sweep
+    reads the case's latest stored snapshot, parses the earliest disposing entry
+    at or after the recorded resolution date, and relabels **only** where that
+    parse returns `gvr`.
+
+    The era boundary is the separation the forward-convention rule needs, and it
+    is enforced here rather than left to snapshot coverage: before it, a cert
+    label was normalized from upstream record fields and never passed through
+    the disposition parser, so its `granted` is the older vocabulary's faithful
+    record — the protected residual — not a parse gap. Those are reported, never
+    rewritten.
+
+    Candidates carrying committed predict/evaluate output are **held back by
+    default**, because an `evaluation.json` is stamped with a `correct` bit
+    computed from the outcome; `--include-scored` opts in and reports, per
+    relabel, how many stamped evaluations it puts in the re-grade backlog that
+    `stamp-cell --regrade` is the follow-through for.
+
+    Self-confirming, so the report is the point: every population member not
+    relabeled is printed with its reason, and the header carries the honest
+    denominators — how many candidates were actually checkable, how many had no
+    readable text, and how many the sweep declines to judge. Ledger-side only:
+    the corpus's own disposition column converges through the pull path, and
+    corpus writes belong to the writer jobs' upsert path.
+
+    Idempotent (a `gvr` outcome no longer reads `granted`). Dry-run by default.
+    `--apply` writes and **requires** `--max-relabels`, so the number applied is
+    one the maintainer read in the dry run rather than a default nobody chose;
+    it refuses above that bound, since the population this sweep converges is
+    finite and non-growing, so a large count means the predicate widened, not
+    that the ledger did. Run where the corpus is pulled; the snapshot read is
+    split-aware, so it serves from the per-case content store under the
+    corpus-split mode. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_relabels is None:
+        typer.echo(
+            "converge-disposition-labels: --apply requires an explicit --max-relabels. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the convergence sweep.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = converge_disposition_labels(
+            conn,
+            settings.data_root,
+            apply=apply,
+            max_relabels=max_relabels,
+            include_scored=include_scored,
+        )
+    if result.refused:
+        typer.echo(
+            f"converge-disposition-labels: refusing to apply "
+            f"{len(result.relabeled)} relabels (--max-relabels {max_relabels}). "
+            "The population this sweep converges is finite and non-growing; "
+            "a count this size means the predicate widened — triage before "
+            "raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "relabeled" if apply else "would relabel"
+    typer.echo(
+        f"converge-disposition-labels ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.relabeled)} of {result.checkable} checkable candidate(s); "
+        f"{result.uncheckable} uncheckable (no readable docket text); "
+        f"{result.out_of_scope} out of scope"
+    )
+    for entry in result.relabeled:
+        backlog = (
+            f"; {entry.stamped_evaluations} stamped evaluation(s) to re-grade"
+            if entry.stamped_evaluations
+            else ""
+        )
+        typer.echo(
+            f"  {verb} {entry.ref}: {entry.was.value} -> {entry.now.value} ({entry.basis}) "
+            f"[entry {entry.entry_filed.isoformat()}, resolved "
+            f"{entry.resolved_at.isoformat()}, snapshot {entry.snapshot_date.isoformat()}]"
+            f"{backlog} — {entry.evidence!r}"
+        )
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")
 
@@ -1609,6 +1951,157 @@ def corpus_push() -> None:
         f"pushed {db_path} ({pointer.size} bytes) to {pointer.key}; "
         f"pointer rewritten at {corpus_remote.pointer_path_for(db_path)}"
     )
+
+
+@app.command("corpus-seed-slice")
+def corpus_seed_slice(
+    dest_remote: Annotated[
+        str,
+        typer.Option(
+            help="Destination corpus remote as an s3 bucket URL with an optional "
+            "prefix; must NOT be the production remote."
+        ),
+    ],
+    dest_casestore: Annotated[
+        str,
+        typer.Option(
+            help="Destination content store as an s3 bucket URL with an optional "
+            "prefix; must NOT be the production store."
+        ),
+    ],
+    dockets: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--dockets", help="A `<court>/<docket>` case id to include; repeat for several."
+        ),
+    ] = None,
+    dockets_file: Annotated[
+        Path | None,
+        typer.Option(help="File of case ids, one per line (`#` comments and blanks ignored)."),
+    ] = None,
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Seed the destination; omit for the dry-run census."),
+    ] = False,
+    max_cases: Annotated[
+        int,
+        typer.Option(help="Hard bound on cases seeded; the rest are reported as dropped."),
+    ] = corpus_seed.DEFAULT_MAX_CASES,
+    stage_db: Annotated[
+        Path | None,
+        typer.Option(
+            help="Runner-local file the slice blob is built at; defaults to a "
+            "gitignored path under the corpus root, with the pointer beside it."
+        ),
+    ] = None,
+    summary_out: Annotated[
+        Path | None,
+        typer.Option(help="Append the Markdown census + verdict here (the step summary)."),
+    ] = None,
+) -> None:
+    """Copy a named docket slice into a **staging** corpus (its own bucket pair).
+
+    Builds the two halves a split-mode corpus has: a payload-free index blob
+    carrying only the slice's `cases` and `events` rows — rebuilt through the
+    corpus's own upsert seams, then published to `--dest-remote` at its
+    content-addressed key exactly as `corpus-push` publishes production's — and
+    a key-level copy of every content-store object under each case's prefix
+    into `--dest-casestore`, so the staging store holds the writers' own bytes.
+    Objects are copied before the blob is published, so a reader resolving the
+    new pointer always finds the payloads its rows refer to; within a case the
+    documents manifest lands after the leaves it names.
+
+    Reads the production stores read-only: the source corpus comes through the
+    configured read backend (the ranged backend needs no pull — a bounded slice
+    is a handful of point lookups) and the source content store from the
+    configured content-store URL. **Refuses** a destination that *is* either
+    configured production store, or that sits inside either production bucket
+    at any prefix — a local second line behind the IAM policy, which is what
+    actually keeps the seeding role read-only on production.
+
+    Convergent rather than idempotent in the strict sense: the remote is
+    content-addressed and add-only, and write-once keys (dated snapshots,
+    content-addressed document leaves) the destination already holds are
+    skipped — but the three manifests the writers overwrite in place
+    (`case.json`, `events.json`, `documents/documents.json`) are re-copied on
+    every apply, or a re-seed would leave the staging store describing a case
+    the source has moved past.
+
+    Dry-run by default, printing the per-case census (rows, events, snapshots,
+    documents, objects). An `--apply` additionally reports what it copied and
+    the published pointer — the value a staging consumer resolves, and the one
+    thing the thrown-away runner would otherwise lose.
+    """
+    settings = get_settings()
+    destination = corpus_seed.Destination(remote_url=dest_remote, casestore_url=dest_casestore)
+    staged = stage_db if stage_db is not None else settings.corpus_root / "staging-slice.db"
+    try:
+        case_ids = corpus_seed.parse_case_ids(dockets or [], path=dockets_file)
+        # Both rails run before a client is built or a store is opened, so a
+        # dispatch aimed at production — or at the checkout's own corpus blob —
+        # is refused in milliseconds and touches nothing. `seed_slice`
+        # re-asserts both, because a library entry point has to be safe on its
+        # own; these calls are a duplicate, not a substitute.
+        corpus_seed.assert_destination_is_not_production(destination, settings=settings)
+        corpus_seed.assert_stage_db_is_not_the_corpus(staged, settings=settings)
+    except corpus_seed.SeedSliceError as exc:
+        typer.echo(f"corpus-seed-slice: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    # The rail already refused an unconfigured production content store — it is
+    # both the comparison basis and the slice's payload source — so by here the
+    # source URL is known present.
+    source_casestore_url = str(settings.casestore_url)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if corpus.resolve_backend() == "local" and not db_path.exists():
+        # `connect` would create an empty database and report every requested
+        # case missing; say what is actually wrong instead.
+        typer.echo(
+            f"corpus-seed-slice: no corpus at {db_path} — `fedcourts corpus-pull` "
+            "to fetch it, or read it in place with the ranged backend.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    bucket, prefix = casestore.parse_s3_url(source_casestore_url.strip())
+    source_objects = casestore.S3ObjectTransport(bucket, prefix=prefix or casestore.DEFAULT_PREFIX)
+    try:
+        with corpus.connect_readonly(db_path) as conn:
+            result = corpus_seed.seed_slice(
+                source_conn=conn,
+                source_objects=source_objects,
+                case_ids=case_ids,
+                destination=destination,
+                settings=settings,
+                stage_db=staged,
+                apply=apply,
+                max_cases=max_cases,
+            )
+    except (
+        corpus_seed.SeedSliceError,
+        casestore.CasestoreError,
+        corpus_remote.CorpusRemoteError,
+        corpus_ranged.RangedBackendError,
+        # `connect_readonly` rejects the casestore and service backends with a
+        # bare ValueError — a backend setting this command cannot serve. Caught
+        # here so it lands in the same one-line message as every other refusal
+        # rather than as a traceback.
+        ValueError,
+    ) as exc:
+        typer.echo(f"corpus-seed-slice: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    markdown = result.render_markdown()
+    if summary_out is not None:
+        with summary_out.open("a", encoding="utf-8") as fh:
+            fh.write(markdown)
+    typer.echo(markdown)
+    if result.census.missing:
+        # Loud but not fatal: a slice naming a case the corpus does not carry
+        # is an operator mistake worth seeing, and the cases that do exist are
+        # still worth seeding.
+        typer.echo(
+            f"corpus-seed-slice: {len(result.census.missing)} requested case(s) "
+            "have no row in the source corpus",
+            err=True,
+        )
 
 
 @app.command()
@@ -2525,7 +3018,8 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
 
 
 @app.command("stamp-cell")
-def stamp_cell(
+def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
     event: Annotated[str, typer.Option(help="Event id this cell predicted/scored.")],
@@ -2542,6 +3036,15 @@ def stamp_cell(
     stamped_at: Annotated[
         str, typer.Option(help="ISO timestamp of the stamp; defaults to now (UTC).")
     ] = "",
+    regrade: Annotated[
+        bool,
+        typer.Option(
+            "--regrade",
+            help="Evaluator role only: recompute the harness-owned graded fields over "
+            "the committed artifacts as they stand now, leaving each record's "
+            "existing process_version exactly as its producing run stamped it.",
+        ),
+    ] = False,
 ) -> None:
     """Stamp a cell's ``prediction.json`` / ``evaluation.json`` with its process version.
 
@@ -2594,42 +3097,83 @@ def stamp_cell(
     prediction's frozen band, recorded in ``base_rate_basis``, and the
     leaderboard's coherence check is what holds that arithmetic to its record.
 
-    A recorded ``risk_set`` basis whose version does not resolve exits non-zero
-    after every cell is stamped. The null is still written — it is the
-    deterministic record of what resolution produced — but a basis without its
-    version half names a population nothing pins down, and rewriting the basis
-    to ``terminal`` instead would stamp the live scorer's version onto a rate
-    read over the risk-set table. ``validate``'s
-    :func:`fedcourtsai.validate.check_base_rate_version` holds the same rule
-    over the committed ledger.
+    A mispaired basis exits non-zero after every cell is stamped — either
+    half. A recorded ``risk_set`` basis whose version does not resolve: the
+    null is still written — it is the deterministic record of what resolution
+    produced — but a basis without its version half names a population nothing
+    pins down. And a recorded ``terminal`` basis while the scored prediction
+    froze a ``context.band`` at all: ``terminal`` is the fallback for a
+    prediction that froze no band, so against a frozen band it prices the cell
+    off the wrong population — a well-formed record where the band's version
+    also resolves, and a moved band priced at the terminal rate where it does
+    not. The correction either way is a re-derived evaluation whose rate,
+    basis, and version come off one population together — or nulling the rate,
+    the basis, and the skill together and re-stamping, which clears the
+    version half — never a relabel of the basis under the number as written,
+    which would pair one population's version with a rate read over the
+    other's table. ``validate``'s
+    :func:`fedcourtsai.validate.check_base_rate_version` holds both halves
+    over the committed ledger, so a failed cell reaches a maintainer through
+    the run's draft PR rather than a merged one.
+
+    **``--regrade``: this stamp minus the process attribution.** A committed
+    evaluation grades a prediction against a *committed outcome*, so a
+    corrected outcome leaves every evaluation that read the old one recording
+    a stale ``correct``, claim block, and skill record. Every one of those
+    fields is already a pure function of the committed artifacts, so a re-grade
+    recomputes exactly what an ordinary stamp would — and writes it without
+    ``process_version``, because the process that produced the record is
+    unchanged by the correction. The alternative reading, that a re-grade
+    re-stamps the resolving registry's version, is wrong on the evidence: the
+    record's prose was written by the earlier process, and re-labelling it
+    would attribute an older process's judgment to a newer pre-registration.
+    So a re-grade requires a record that already carries a stamp — a
+    never-stamped cell has no attribution to preserve and takes the ordinary
+    stamp — and it refuses ``--role predictor`` (a prediction carries no graded
+    field to recompute) and refuses ``--stamped-at`` / ``--pipeline-sha``,
+    which set only the version it declines to write. Finding no artifact at all
+    exits non-zero, unlike the ordinary stamp's no-op: a re-grade's coordinates
+    are typed by hand, so a mistyped run id must not read as a correction that
+    landed. It also refuses a run a newer grading supersedes (nothing reads it,
+    so recomputing it would report a correction that moved no published
+    number), and a cell whose evaluator-owned Brier trio no longer reproduces
+    against the corrected outcome (:func:`_require_reproducible_trio`) — every
+    one of them judged before the first write, so a refusal cannot leave the
+    event half corrected. Each target's process scope is echoed as it goes,
+    since a frozen-scope cell moving with no ``superseded_gradings`` trace is
+    the one thing a reader would want recorded outside ``data/``.
+
+    The stamp it preserves is the vintage of the **producing** invocation, and
+    a re-grade deliberately re-derives the graded block against the statpack
+    and salience config committed *now* — same rule as the ordinary stamp, that
+    a harness field is a function of the committed artifacts as of the
+    invocation. Reconstructing a stamp-vintage pool would price a corrected
+    outcome against a pack that never saw the correction. So the vintage
+    discipline is the operator's: re-grade a whole cohort against one committed
+    statpack, never a cell at a time across a moving pack.
+
+    Re-grade **every evaluator on the event**, not one: ``validate``'s
+    :func:`fedcourtsai.validate.check_evaluation_correct_agrees` collapses to
+    the latest runs and requires the evaluators to agree, so a half-re-graded
+    event fails the ledger — which is the check doing its job, not an obstacle
+    to route around.
     """
     settings = get_settings()
     if role not in ("predictor", "evaluator"):
         typer.echo(f"role must be predictor or evaluator, not {role!r}", err=True)
         raise typer.Exit(code=2)
+    if regrade:
+        _refuse_unsupported_regrade(role, pipeline_sha, stamped_at)
 
-    digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
-    if stamped_at:
-        # The stamp is the frozen/alpha partition's time key; a naive value
-        # has no defined order against the freeze instant and reads as
-        # pre-freeze, so refuse to write one rather than stamp a cell out of
-        # the headline by formatting accident.
-        try:
-            stamp_moment = datetime.fromisoformat(stamped_at)
-        except ValueError:
-            typer.echo(f"--stamped-at is not an ISO timestamp: {stamped_at!r}", err=True)
-            raise typer.Exit(code=2) from None
-        if stamp_moment.tzinfo is None:
-            typer.echo("--stamped-at must carry a UTC offset (e.g. ...T12:00:00+00:00)", err=True)
-            raise typer.Exit(code=2)
-    else:
-        stamp_moment = datetime.now(UTC)
-    stamp = ProcessVersion(
-        label=process_version.CURRENT_PROCESS_LABEL,
-        digest=digest,
-        pipeline_sha=resolve_pipeline_sha(pipeline_sha),
-        stamped_at=stamp_moment,
-    )
+    # Under --regrade neither the digest nor the stamp over it is resolved: the
+    # digest *is* the process attribution being withheld, so resolving it would
+    # fail a re-grade of a record whose actor the live registry no longer
+    # carries — over a version this run does not write.
+    digest = ""
+    update: dict[str, object] = {}
+    if not regrade:
+        digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
+        update["process_version"] = _resolve_stamp(digest, pipeline_sha, stamped_at)
 
     event_paths = CasePaths(settings.data_root, court, docket).event(event)
     if role == "predictor":
@@ -2643,22 +3187,25 @@ def stamp_cell(
         )
         model_cls = Evaluation
 
+    if regrade:
+        _echo_frozen_scope(_refuse_unregradable(targets, event_paths, actor, run_id))
+
     # A predictor's conditioning is stamped from the same provisioning record the
     # agent read, for the same reason the digest is: it is a scoring input, so it
     # cannot be the agent's word. `record/` is gitignored, so `prediction.json` is
-    # where it has to become durable. Absent when provisioning failed — that step
-    # is continue-on-error and the cell runs snapshot-less — and the evaluator
-    # then falls back to the terminal band rather than inventing one.
-    update: dict[str, object] = {"process_version": stamp}
+    # where it has to become durable. Absent when provisioning left nothing to
+    # freeze — and the evaluator then falls back to the terminal band rather
+    # than inventing one.
     if role == "predictor":
         # Assigned unconditionally, so an agent-authored block is cleared rather
         # than preserved when provisioning left nothing to freeze. A guarded
-        # assignment would let a cell that ran snapshot-less supply its own
-        # baseline conditioning, which is the one thing this field must not be.
+        # assignment would let a cell that ran without a provisioned record
+        # supply its own baseline conditioning, which is the one thing this
+        # field must not be.
         update["context"] = _read_cell_context(CasePaths(settings.data_root, court, docket))
 
-    stamped = 0
-    basis_records: dict[Path, tuple[str | None, str | None]] = {}
+    graded = 0
+    basis_records: dict[Path, tuple[str | None, str | None, Prediction | None]] = {}
     for path in targets:
         if not path.is_file():
             continue
@@ -2674,69 +3221,337 @@ def stamp_cell(
             # rate, and the ratio over them — on the stages that own it: same
             # discipline, derived deterministically from the stage and the
             # committed inputs, overwritten unconditionally so what it says is
-            # the harness's word. The basis pair it returns is what the risk-set
-            # guard below judges — the record as stamped, never as the evaluator
-            # wrote it.
+            # the harness's word. The basis trio it returns is what the
+            # mispairing guard below judges — the record as stamped, never as
+            # the evaluator wrote it.
             skill_fields, basis_records[path] = _skill_record_for(event_paths, record, settings)
             cell_update.update(skill_fields)
         write_json(path, record.model_copy(update=cell_update))
-        stamped += 1
+        graded += 1
 
-    if stamped == 0:
-        typer.echo(f"stamp: no {role} artifact for {actor} to stamp; skipping.", err=True)
+    if graded == 0:
+        _report_no_targets(regrade, role, actor)
         return
     # Echoed before the guard so a failed cell's log still says how many stamps
     # landed; the guard is judged after every cell is written, so one
     # unresolvable record does not strand the run's remaining stamps.
-    typer.echo(f"stamp: {actor} {digest} -> {stamped} file(s)")
-    _fail_on_unversioned_risk_set(basis_records)
+    typer.echo(
+        f"regrade: {actor} -> {graded} file(s); process_version left as stamped"
+        if regrade
+        else f"stamp: {actor} {digest} -> {graded} file(s)"
+    )
+    _fail_on_mispaired_basis(basis_records)
 
 
-def _fail_on_unversioned_risk_set(
-    basis_records: Mapping[Path, tuple[str | None, str | None]],
-) -> None:
-    """Exit non-zero where a stamped ``risk_set`` basis resolved no salience version.
+def _report_no_targets(regrade: bool, role: str, actor: str) -> None:
+    """Say that the invocation found nothing to write — and fail a re-grade that did.
 
-    Takes each stamped evaluation's ``(base_rate_basis, base_rate_salience_version)``
-    as written. The null version is written either way — it is the deterministic
-    record of what the resolution produced — and this is what stops the cell
-    passing as a scored one: a risk-set base rate is banded under the scored
-    prediction's frozen ``context.salience_version``, so a basis recorded without
-    one names a population nothing pins down, and the two halves are only
-    comparable together (``metrics/README.md``). One ``::error::`` per offender,
-    so a maintainer reading the run log sees every cell at once.
+    The ordinary stamp's silence is the fan-out's contract: a no-output cell
+    has nothing to stamp and is already routed to a draft, so a missing
+    artifact is that cell's failure and not this step's. A re-grade is the
+    opposite shape — a hand-run correction over cells that already exist, whose
+    coordinates are typed rather than handed down by the matrix — so finding
+    none means the cell was named wrong, and a mistyped run id must not read as
+    a correction that landed.
     """
-    offenders = [
-        path
-        for path, (basis, version) in sorted(basis_records.items())
-        if basis == "risk_set" and version is None
-    ]
-    if not offenders:
-        return
-    for path in offenders:
+    if regrade:
         typer.echo(
-            f"::error::stamp: {path} records base_rate_basis 'risk_set' but no salience "
-            + "version resolves — the join found no prediction for this predictor, no "
-            + "frozen context on its latest one, or no `salience_version` in that "
-            + "context. A risk-set base rate is banded under the scored prediction's "
-            + "frozen `context.salience_version`, so a basis recorded without one names "
-            + "a population nothing pins down. Where the join simply missed, the cell "
-            + "needed the terminal basis; where the scored prediction froze a band with "
-            + "no version beside it, the terminal basis is wrong too and the cell needed "
-            + "no segment base rate at all.",
+            f"::error::regrade: no {role} artifact for {actor} at this event and run id; "
+            + "a re-grade recomputes cells that already exist.",
             err=True,
         )
-    raise typer.Exit(code=1)
+        raise typer.Exit(code=1)
+    typer.echo(f"stamp: no {role} artifact for {actor} to stamp; skipping.", err=True)
 
 
-def _base_rate_salience_version_for(event_paths: EventPaths, evaluation: Evaluation) -> str | None:
+def _refuse_unsupported_regrade(role: str, pipeline_sha: str, stamped_at: str) -> None:
+    """Exit non-zero where ``--regrade`` was asked for something it is not.
+
+    Two refusals, both because the flag's whole content is *withholding the
+    process attribution*. A **predictor** cell carries no harness-graded field
+    — its ``correct`` and skill record live on the evaluations that score it —
+    so a re-grade would recompute nothing and merely skip the stamp. And
+    ``--stamped-at`` / ``--pipeline-sha`` set fields of the version a re-grade
+    declines to write, so taking them silently would read as re-dating a stamp
+    that by design never moves.
+    """
+    if role == "predictor":
+        typer.echo(
+            "--regrade recomputes an evaluation's graded fields; a prediction has none, "
+            "so a predictor cell only ever takes the ordinary stamp.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if stamped_at or pipeline_sha:
+        typer.echo(
+            "--regrade writes no process_version, so --stamped-at and --pipeline-sha "
+            "have nothing to set; drop them.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+
+def _refuse_unregradable(
+    targets: Sequence[Path], event_paths: EventPaths, actor: str, run_id: str
+) -> list[tuple[Path, Evaluation]]:
+    """The re-gradable targets, or exit non-zero over the first that is not.
+
+    Every check runs **before the first write**, because each failure mode is a
+    half-corrected event: a run that stopped part-way through would leave the
+    event's evaluators disagreeing on ``correct``, which is the exact state
+    ``validate``'s ``evaluation_correct_agrees`` fails.
+
+    Three refusals (:func:`_require_prior_stamp`, :func:`_require_latest_run`,
+    :func:`_require_reproducible_trio`), all of them cases where recomputing
+    the harness fields in place would leave the ledger worse than it found it:
+    a record with no stamp to preserve, a superseded run nothing reads, and a
+    cell whose evaluator-owned Brier trio the correction has invalidated.
+    """
+    records = [(path, read_model(path, Evaluation)) for path in targets if path.is_file()]
+    _require_prior_stamp(records)
+    _require_latest_run(records, event_paths, actor, run_id)
+    _require_reproducible_trio(records, event_paths)
+    return records
+
+
+def _require_prior_stamp(records: Sequence[tuple[Path, Evaluation]]) -> None:
+    """Exit non-zero unless every target already carries a ``process_version``.
+
+    A re-grade preserves the stamp of the process that produced the record, so
+    an unstamped cell has nothing for it to preserve: writing the graded fields
+    alone would leave a cell reading as scored under no process at all. That
+    cell takes the ordinary stamp instead.
+    """
+    for path, record in records:
+        if record.process_version is None:
+            typer.echo(
+                f"::error::regrade: {path} carries no process_version. A re-grade "
+                + "preserves the stamp of the process that produced the record; an "
+                + "unstamped cell has none, so it takes the ordinary stamp instead.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+
+def _require_latest_run(
+    records: Sequence[tuple[Path, Evaluation]], event_paths: EventPaths, actor: str, run_id: str
+) -> None:
+    """Exit non-zero where a newer grading by the same evaluator supersedes this run.
+
+    Every surface that aggregates the ledger collapses a grader's re-runs of
+    one cell to the newest (:func:`fedcourtsai.integrity.latest_evaluation_runs`),
+    so recomputing a superseded run moves no published number while exiting
+    clean — a correction that reads as landed and is not. The message names the
+    run that actually wins, since that is the one to re-grade.
+    """
+    committed = sorted((event_paths.base / "evaluations" / actor).glob("*/*/evaluation.json"))
+    graded: list[tuple[Path, Evaluation]] = [(p, read_model(p, Evaluation)) for p in committed]
+    winners = {
+        record.predictor_id: record.run_id
+        for _, record in latest_evaluation_runs(graded, lambda item: item[1])
+    }
+    for path, record in records:
+        winning = winners.get(record.predictor_id)
+        if winning is not None and winning != run_id:
+            typer.echo(
+                f"::error::regrade: {path} is not {actor}'s surviving grading of "
+                + f"{record.predictor_id} on this event — run {winning} supersedes it, and "
+                + "every scoring surface collapses to that one. Re-grade the surviving run.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+
+def _require_reproducible_trio(
+    records: Sequence[tuple[Path, Evaluation]], event_paths: EventPaths
+) -> None:
+    """Exit non-zero where a correction has invalidated an evaluator-owned Brier trio.
+
+    On the stages :data:`_HARNESS_SKILL_STAGES` does not cover, the Brier, the
+    segment base rate, and the skill over them stay the evaluator's arithmetic
+    against its own frozen band — the stamp does not recompute them, and a
+    re-grade must not either. A correction that moves the outcome's
+    ``actual_granted`` therefore leaves a recomputed ``correct`` and claim
+    block beside a trio scored against the superseded binary, and the two then
+    describe different outcomes: the leaderboard drops such a cell from
+    ``skill_scored`` (its recorded skill no longer reproduces from its own
+    recorded inputs) while the corrected ``correct`` stays in accuracy, so the
+    two columns would run over different populations with nothing saying so.
+
+    Refused rather than repaired, because the repair is a judgment the harness
+    does not hold: which band population the rate was taken over is the
+    evaluator's. The remedy is the one the mispaired-basis guard already names
+    — null ``brier_score``, ``segment_base_rate``, ``base_rate_basis``, and
+    ``brier_skill_score`` together, or commit a genuine re-derivation — after
+    which the re-grade proceeds. A correction that leaves the binary alone (a
+    disposition relabelled within the granted set, say) reproduces and passes.
+    """
+    if _event_stage_and_opened(event_paths)[0] in _HARNESS_SKILL_STAGES:
+        return
+    outcome = _outcome_for(event_paths)
+    for path, record in records:
+        recorded = record.brier_score
+        if recorded is None:
+            continue
+        recomputed = _harness_brier_for(event_paths, record, outcome)
+        if recomputed is None or abs(recomputed - recorded) <= _STAMP_ECHO_TOLERANCE:
+            continue
+        typer.echo(
+            f"::error::regrade: {path} records brier_score {recorded}, which does not "
+            + f"reproduce against the committed outcome ({recomputed}). The Brier, the "
+            + "segment base rate, and the skill over them are the evaluator's on this "
+            + "stage, so a re-grade would leave them scored against the superseded "
+            + "outcome while `correct` moved. Null `brier_score`, `segment_base_rate`, "
+            + "`base_rate_basis`, and `brier_skill_score` together, or commit a "
+            + "re-derivation, then re-grade.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
+def _echo_frozen_scope(records: Sequence[tuple[Path, Evaluation]]) -> None:
+    """Name each re-graded cell's process scope, one line per target.
+
+    A re-grade leaves no ``superseded_gradings`` trace, so a cell whose stamp
+    is in the frozen set — one whose numbers a published claim may rest on —
+    would otherwise move with nothing outside ``data/``'s git history recording
+    that it did. The line puts that in the writer run's log and step summary,
+    where it is greppable after the fact. It reports the stamp the record
+    already carries, which is exactly the stamp the re-grade preserves.
+    """
+    for path, record in records:
+        stamp = record.process_version
+        if stamp is None:
+            continue
+        scope = "frozen" if process_version.is_frozen(stamp) else "alpha"
+        typer.echo(f"regrade: {path} — {scope}-scope cell stamped {stamp.label}")
+
+
+def _resolve_stamp(digest: str, pipeline_sha: str, stamped_at: str) -> ProcessVersion:
+    """The ``ProcessVersion`` an ordinary stamp writes, over its resolved digest.
+
+    Exits non-zero rather than writing an unparseable or offset-less
+    ``--stamped-at``, for the reason below.
+    """
+    if stamped_at:
+        # The stamp is the frozen/alpha partition's time key; a naive value
+        # has no defined order against the freeze instant and reads as
+        # pre-freeze, so refuse to write one rather than stamp a cell out of
+        # the headline by formatting accident.
+        try:
+            stamp_moment = datetime.fromisoformat(stamped_at)
+        except ValueError:
+            typer.echo(f"--stamped-at is not an ISO timestamp: {stamped_at!r}", err=True)
+            raise typer.Exit(code=2) from None
+        if stamp_moment.tzinfo is None:
+            typer.echo("--stamped-at must carry a UTC offset (e.g. ...T12:00:00+00:00)", err=True)
+            raise typer.Exit(code=2)
+    else:
+        stamp_moment = datetime.now(UTC)
+    return ProcessVersion(
+        label=process_version.CURRENT_PROCESS_LABEL,
+        digest=digest,
+        pipeline_sha=resolve_pipeline_sha(pipeline_sha),
+        stamped_at=stamp_moment,
+    )
+
+
+def _fail_on_mispaired_basis(
+    basis_records: Mapping[Path, tuple[str | None, str | None, Prediction | None]],
+) -> None:
+    """Exit non-zero where a stamped basis contradicts the scored prediction.
+
+    Takes each stamped evaluation's ``(base_rate_basis,
+    base_rate_salience_version, scored prediction)`` as written. Two
+    mispairings, both fatal because a skill score is only comparable within a
+    correctly recorded basis (``metrics/README.md``):
+
+    - ``risk_set`` with no resolvable version — the join found no prediction,
+      no frozen context, or no ``salience_version`` in it. The null version is
+      still written (the deterministic record of what resolution produced);
+      this guard is what stops the cell passing as scored.
+    - ``terminal`` while the scored prediction froze a ``band`` at all —
+      ``terminal`` is the fallback for a prediction that froze no band
+      (``docs/salience.md``), so taking it against a frozen band prices the
+      cell off the wrong population: a well-formed number where the band's
+      version also resolves, a moved band priced at the terminal rate where
+      it does not.
+
+    One ``::error::`` per offender, so a maintainer reading the run log sees
+    every cell at once, and each names the valid corrections for its own
+    shape — never a basis relabel under the number as written, which would
+    stamp a truthful-looking version onto a rate read over the other table.
+
+    The two arms differ off the cert stage: the risk-set arm judges the
+    record's own two halves and fires on any stage that reaches it, while the
+    terminal arm needs the scored prediction, which the caller supplies only
+    on a cert cell — the frozen-band pairing is a cert-petition concept, and
+    the context is stamped per case, so on a stage-less event a case-level
+    band must not reach a rule about cert populations.
+    """
+    failed = False
+    for path, (basis, stamped_version, scored) in sorted(basis_records.items()):
+        context = scored.context if scored is not None else None
+        if basis == "risk_set" and stamped_version is None:
+            failed = True
+            typer.echo(
+                f"::error::stamp: {path} records base_rate_basis 'risk_set' but no salience "
+                + "version resolves — the join found no prediction for this predictor, no "
+                + "frozen context on its latest one, or no `salience_version` in that "
+                + "context. A risk-set base rate is banded under the scored prediction's "
+                + "frozen `context.salience_version`, so a basis recorded without one names "
+                + "a population nothing pins down. Where the join simply missed, a "
+                + "corrected evaluation may take the terminal basis (the documented "
+                + "fallback); where the scored prediction froze a band with no version "
+                + "beside it, the terminal basis is wrong too — null `segment_base_rate`, "
+                + "`base_rate_basis`, and `brier_skill_score` together and re-stamp, never "
+                + "relabel the basis under the number as written.",
+                err=True,
+            )
+        elif basis == "terminal" and context is not None and context.band is not None:
+            failed = True
+            # Narrowing only: `context` was read off `scored`, so a non-null
+            # context implies the prediction it came from.
+            assert scored is not None
+            if context.salience_version is not None:
+                detail = (
+                    "carries a frozen `context.band` and `context.salience_version` — the "
+                    + "fallback taken where the risk-set pairing was available, a "
+                    + "well-formed rate read against the wrong population. Correct with a "
+                    + "re-derived evaluation whose rate, basis, and version come off the "
+                    + "risk-set population together, or null `segment_base_rate`, "
+                    + "`base_rate_basis`, and `brier_skill_score` together and re-stamp; "
+                    + "never relabel the basis under the number as written, which pairs "
+                    + "one population's version with a rate read over the other's table."
+                )
+            else:
+                detail = (
+                    "froze a `context.band` with no salience version beside it — a frozen "
+                    + "band priced at the terminal rate, where omission is the only "
+                    + "answer: null `segment_base_rate`, `base_rate_basis`, and "
+                    + "`brier_skill_score` together and re-stamp."
+                )
+            typer.echo(
+                f"::error::stamp: {path} records base_rate_basis 'terminal' while the "
+                + f"scored prediction (run {scored.run_id}) "
+                + detail,
+                err=True,
+            )
+    if failed:
+        raise typer.Exit(code=1)
+
+
+def _base_rate_salience_version_for(
+    evaluation: Evaluation, context: PredictionContext | None
+) -> str | None:
     """Which salience version the evaluation's segment base rate was read under.
 
     Deterministic from the same inputs ``base_rate_basis`` names, so the stamp
     records — never trusts — the evaluator: on the ``risk_set`` path the band
-    was the scored prediction's frozen one, so the version is that
-    prediction's ``context.salience_version`` (the latest prediction, the same
-    join every scoring surface uses); on the ``terminal`` path the band was
+    was the scored prediction's frozen one, so the version is the passed
+    ``context``'s ``salience_version`` — the caller resolves that context via
+    the latest-prediction join every scoring surface uses; on the ``terminal``
+    path the band was
     re-derived from the row under the live scorer, so the version is the live
     ``SALIENCE_VERSION``. ``None`` where the evaluation records no basis (no
     segment base rate was taken), or where the risk-set path's prediction or
@@ -2747,10 +3562,7 @@ def _base_rate_salience_version_for(event_paths: EventPaths, evaluation: Evaluat
         return SALIENCE_VERSION
     if evaluation.base_rate_basis != "risk_set":
         return None
-    latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
-    if latest is None or latest.context is None:
-        return None
-    return latest.context.salience_version
+    return context.salience_version if context is not None else None
 
 
 def _claim_scores_for(
@@ -2828,8 +3640,8 @@ _HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim)
 
 def _skill_record_for(
     event_paths: EventPaths, evaluation: Evaluation, settings: Settings
-) -> tuple[dict[str, object], tuple[str | None, str | None]]:
-    """This cell's ``correct`` and skill record as a stamp update, plus its basis pair.
+) -> tuple[dict[str, object], tuple[str | None, str | None, Prediction | None]]:
+    """This cell's ``correct`` and skill record as a stamp update, plus its basis trio.
 
     ``correct`` is stamped on **every** stage, cert included, and is the one
     field here that does not split by stage. The exemption the cert stage holds
@@ -2868,11 +3680,16 @@ def _skill_record_for(
     Both halves of the **basis record** are cleared, because neither pooled rate
     is a salience-band product: there is no band population for a basis to name,
     and a recorded one would otherwise pull a salience version onto a rate no
-    band ever produced — or fail the cell on the risk-set guard, whose remedy
+    band ever produced — or fail the cell on the mispairing guard, whose remedy
     (the terminal basis) means nothing on a stage the harness pools itself.
 
-    The returned ``(basis, version)`` pair is the record **as stamped**, so the
-    guard judges what was written rather than what the evaluator proposed.
+    The returned ``(basis, version, scored prediction)`` trio is the record
+    **as stamped** plus the prediction it scores, so the guard judges what was
+    written rather than what the evaluator proposed — and can judge the
+    terminal half of the mispairing, which is visible only against the frozen
+    context the fallback declined to use. The prediction rides only on a
+    **cert** cell: the frozen-band pairing is a cert-petition concept, so on a
+    stage-less event a case-level frozen band must not reach the guard.
     """
     outcome = _outcome_for(event_paths)
     correct = _harness_correct_for(event_paths, evaluation, outcome)
@@ -2883,11 +3700,14 @@ def _skill_record_for(
     _warn_on_discarded_number(
         evaluation, "correct", evaluation.correct, correct, warn_on_omission=True
     )
-    if _event_stage_and_opened(event_paths)[0] not in _HARNESS_SKILL_STAGES:
-        version = _base_rate_salience_version_for(event_paths, evaluation)
+    stage = _event_stage_and_opened(event_paths)[0]
+    if stage not in _HARNESS_SKILL_STAGES:
+        latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+        context = latest.context if latest is not None else None
+        version = _base_rate_salience_version_for(evaluation, context)
         return (
             {"correct": correct, "base_rate_salience_version": version},
-            (evaluation.base_rate_basis, version),
+            (evaluation.base_rate_basis, version, latest if stage == Stage.cert else None),
         )
     rate = _harness_base_rate_for(event_paths, evaluation, settings)
     brier = _harness_brier_for(event_paths, evaluation, outcome)
@@ -2902,7 +3722,7 @@ def _skill_record_for(
             "base_rate_basis": None,
             "base_rate_salience_version": None,
         },
-        (None, None),
+        (None, None, None),
     )
 
 
@@ -3305,6 +4125,51 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
             f"::warning::retrieval capture redacted credential-shaped text in {redacted} "
             f"call(s) for {actor} ({ids.case_id(court, docket)} {event})"
         )
+
+
+@app.command("codex-item-shapes")
+def codex_item_shapes(
+    *,
+    sessions_dir: Annotated[
+        Path, typer.Option(help="Codex sessions dir (CODEX_HOME/sessions) to distill.")
+    ],
+    out: Annotated[Path, typer.Option(help="Where to write the distillation JSON.")],
+) -> None:
+    """Distill a Codex rollout tree into its item shapes — types and keys only.
+
+    The observation half of ``record-retrieval``'s Codex path: that parser
+    keys on the rollout's item types and field spellings, so a shape it does
+    not recognize costs the cell's whole retrieval log while looking exactly
+    like a cell that called nothing. This writes the transcript's distinct
+    item shapes — the record envelope, the payload's type, and its key names
+    with every value replaced by its JSON type name — so a real run can settle
+    which of the two an empty log was, and pin the shapes a fixture must
+    carry.
+
+    No **value** crosses into the output: a rollout holds retrieved documents
+    and tool arguments verbatim, and only key names, type discriminators, and
+    JSON type names are emitted. The residual is stated rather than claimed
+    away — a key name is emitted verbatim where it is identifier-shaped, so an
+    object keyed by data can export a fragment of up to 64 characters (see
+    :func:`~fedcourtsai.retrieval.distill_codex_shapes`). Retained shapes are
+    capped, with the truncation marked in the output, so a transcript cannot
+    choose the artifact's size. Tolerant like the
+    capture steps it observes — a missing sessions dir distills to zero files
+    rather than failing, because instrumentation must never take a run down.
+    """
+    distillation = retrieval.distill_codex_shapes(sessions_dir)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(distillation, indent=2, sort_keys=True) + "\n")
+    truncation = (
+        f", {distillation['shapes_dropped']} record(s) past the shape cap"
+        if distillation["truncated"]
+        else ""
+    )
+    typer.echo(
+        f"codex item shapes: {distillation['files']} file(s), "
+        f"{distillation['records']} record(s), "
+        f"{len(distillation['shapes'])} distinct shape(s){truncation} -> {out}"
+    )
 
 
 @app.command("usage-summary")
@@ -4122,7 +4987,27 @@ def make_fixture_corpus(
 
 @app.command("corpus-info")
 def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
-    """Show the corpus location and row count (after `corpus-pull`, or ranged)."""
+    """Show the corpus location, row count, and freshness (after `corpus-pull`, or ranged).
+
+    The freshness line is the reason to run this before making any claim that
+    depends on corpus state: the committed pointer is a content digest carrying
+    no date, so nothing beside the blob dates it, and it is only ever as fresh
+    as the last pull left it. (The docket pack derives the same `last_pulled`
+    maximum for its `pulled through` line — this is the cheap way to the
+    number, not the only one.) Two dates, because they age differently and
+    a blob can carry one without the other — `latest pull` is the newest
+    `last_pulled` over the cases (kept in a payload-free index, so it reports
+    on the production shape too) and `latest snapshot` the newest dated docket
+    state the blob itself stores. A payload-free index stores none: the
+    snapshots live in the per-case content store, which this command does not
+    read. Hence `in this blob` on both snapshot readings — under the corpus
+    split, `no snapshots` would otherwise read as a claim about the system.
+
+    Both are maxima over the whole blob: its vintage, not any one case's. The
+    pull governor rotates stalest-first, so a maximum says when *anything* was
+    last refreshed — a claim about a specific case reads that case's own
+    `last_pulled` instead.
+    """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
@@ -4132,8 +5017,15 @@ def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         typer.echo(
             f"corpus {db_path} [{backend}]: {corpus.count(conn)} row(s), "
-            f"{corpus.snapshot_count(conn)} snapshot(s)"
+            f"{corpus.snapshot_count(conn)} snapshot(s) in this blob"
         )
+        pulled = corpus.latest_pull_date(conn)
+        snapshot = corpus.latest_snapshot_date(conn)
+        pulled_text = f"latest pull {pulled.isoformat()}" if pulled else "never pulled"
+        snapshot_text = (
+            f"latest snapshot {snapshot.isoformat()}" if snapshot else "no snapshots in this blob"
+        )
+        typer.echo(f"freshness: {pulled_text}, {snapshot_text}")
         _echo_read_stats(conn)
 
 
@@ -4632,8 +5524,8 @@ def _refuse_forward_if_closed(
     the caller, which holds the payload): the record gate over the parts
     provisioning already read on its own connection, the casestore row-half
     fallback through the ordinary index backend, and the wall-clock staleness
-    bound. Refusals are ``::warning::`` annotations so a fleet of
-    snapshot-less cells is attributable per cause from the Actions UI.
+    bound. Refusals are ``::warning::`` annotations so a fleet of skipped
+    cells is attributable per cause from the Actions UI.
     """
     settings = get_settings()
     case = ids.case_id(court, docket)
@@ -4688,8 +5580,66 @@ def _casestore_row_refusal(db_path: Path, court: str, docket: int, event: str) -
     return None
 
 
+def _read_cell_inputs(
+    backend: corpus.CorpusBackend,
+    db_path: Path,
+    case: str,
+    event: str,
+    *,
+    want_row: bool,
+    cut: bool,
+) -> provision.CellRead:
+    """One backend read of everything a cell's provisioning decides on.
+
+    Kept whole, and kept inside one connection, because that is what makes a
+    ranged cell's egress counters (``_echo_read_stats``) the whole story of what
+    the cell cost.
+
+    ``want_row`` fetches the row half of the terminal gate, which only an armed
+    gate reads. ``cut`` asks for the moment placement: ``provision.moment_cutoff``
+    decides from the events whether this event declares a moment with a date to
+    be placed at, and the pre-cutoff snapshot is fetched on the same connection.
+    That read happens before the caller's gates run, so a refused cell pays for
+    one snapshot it never uses; the alternative is a second connection on every
+    cut cell.
+
+    The events are read for either — the gate reads them, and a cutoff is a
+    property of the moment the cell forecasts rather than of the gate — and for
+    neither otherwise, which is the evaluate path: an unread list is egress this
+    command's single-connection design exists to account for.
+    """
+    if backend == "casestore":
+        source = _casestore_source()
+        events = source.events_for_case(case) if want_row or cut else []
+        cutoff = provision.moment_cutoff(event, events) if cut else None
+        return provision.CellRead(
+            latest=source.latest_snapshot(case),
+            documents=source.documents_for_case(case),
+            events=events,
+            # The casestore exposes events but no rows; `_casestore_row_refusal`
+            # is the gate's own fallback for the row half.
+            row=None,
+            cutoff=cutoff,
+            dated=source.snapshot_at(case, before=cutoff) if cutoff is not None else None,
+        )
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        events = corpus.events_for_case(conn, case) if want_row or cut else []
+        cutoff = provision.moment_cutoff(event, events) if cut else None
+        read = provision.CellRead(
+            latest=corpus.latest_snapshot(conn, case),
+            documents=corpus.documents_for_case(conn, case),
+            events=events,
+            row=corpus.get_row(conn, case) if want_row else None,
+            cutoff=cutoff,
+            dated=corpus.snapshot_at(conn, case, before=cutoff) if cutoff is not None else None,
+        )
+        _echo_read_stats(conn)
+    return read
+
+
 @app.command("provision-snapshot")
-def provision_snapshot(
+def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
     out: Annotated[
@@ -4724,11 +5674,28 @@ def provision_snapshot(
         str,
         typer.Option(
             help="The event this cell forecasts. Scopes --refuse-terminal to "
-            "that event's own outcome; omitted, the guard reads the "
-            "cert/interim disposition, which is the right question for every "
-            "case-baseline cell.",
+            "that event's own outcome, and places the cell at the event's "
+            "declared moment (see --moment-cutoff); omitted, the guard reads "
+            "the cert/interim disposition, which is the right question for "
+            "every case-baseline cell, and no cut is taken.",
         ),
     ] = "",
+    moment_cutoff: Annotated[
+        bool,
+        typer.Option(
+            "--moment-cutoff/--no-moment-cutoff",
+            help="Cut a forward cell's snapshot and documents to the "
+            "information set its --event declares: everything filed strictly "
+            "before the day after the event opened. A stage's later moments "
+            "exist because their information sets differ, so a grant-moment "
+            "merits cell provisioned from the latest snapshot would read the "
+            "merits briefs only the briefed moment declares. On by default; it "
+            "acts only on a forward cell whose --event names a declared moment "
+            "whose opened_at is that moment's trigger and whose corpus row "
+            "records it, so a case-baseline cell and an evaluate cell (no "
+            "--event) are untouched either way.",
+        ),
+    ] = True,
     max_snapshot_age_days: Annotated[
         int,
         typer.Option(
@@ -4744,7 +5711,7 @@ def provision_snapshot(
     ] = 0,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
-    """Materialize a case's latest corpus snapshot (and documents) for an agent run.
+    """Materialize a case's corpus snapshot (and documents) for an agent run.
 
     Point-in-time snapshots are raw facts that live in the packed corpus, not
     git. The predict/evaluate workflows call this to read the most
@@ -4756,7 +5723,18 @@ def provision_snapshot(
     questions presented, brief in opposition — fetched pipeline-side by the live poller) is
     materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest, so the cell reads identical content with no
-    fetch rights. Exits non-zero if the corpus holds no snapshot for the case
+    fetch rights.
+
+    "Most recent" is the answer only for a cell that has no declared moment of
+    its own. Where ``--event`` names one (and ``--moment-cutoff`` is on, which is
+    the default), a forward cell is placed at that moment instead: the snapshot
+    is the one the docket served before the cutoff if the corpus stored one
+    (``dated``), otherwise the latest payload with its post-cutoff entries
+    removed and its date set to the cutoff (``truncated``), and the documents are
+    cut with it. ``record/context.json`` records which, and the cutoff. Both
+    gates below run on the latest payload first, before any of that.
+
+    Exits non-zero if the corpus holds no snapshot for the case
     (code 1), or — under ``--refuse-terminal`` on a forward cell — if the
     record or the snapshot shows the event is not open (code 3, nothing
     written): the record already holds the outcome
@@ -4768,26 +5746,20 @@ def provision_snapshot(
     db_path = corpus.corpus_db_path(settings.corpus_root)
     case = ids.case_id(court, docket)
     backend = _provision_backend(corpus_backend)
-    # The gate reads (events, row) ride the same connection as the snapshot
-    # read, so a ranged cell opens one connection and the egress counters
-    # `_echo_read_stats` reports stay the whole story.
     gate_active = refuse_terminal and mode == "forward"
-    gate_events: list[corpus.CorpusEvent] = []
-    gate_row: corpus.CorpusRow | None = None
-    if backend == "casestore":
-        source = _casestore_source()
-        found = source.latest_snapshot(case)
-        documents = source.documents_for_case(case)
-        if gate_active:
-            gate_events = source.events_for_case(case)
-    else:
-        with corpus.connect_readonly(db_path, backend=backend) as conn:
-            found = corpus.latest_snapshot(conn, case)
-            documents = corpus.documents_for_case(conn, case)
-            if gate_active:
-                gate_events = corpus.events_for_case(conn, case)
-                gate_row = corpus.get_row(conn, case)
-            _echo_read_stats(conn)
+    # The cut applies to a forward cell that names an event; whether that event
+    # *declares* a moment with a usable date is `provision.moment_cutoff`'s call.
+    read = _read_cell_inputs(
+        backend,
+        db_path,
+        case,
+        event,
+        want_row=gate_active,
+        cut=moment_cutoff and mode == "forward" and bool(event),
+    )
+    found = read.latest
+    documents = read.documents
+    cutoff = read.cutoff
     if found is None:
         typer.echo(f"No snapshot in corpus for {case} (corpus-pull the corpus first?)", err=True)
         raise typer.Exit(code=1)
@@ -4795,11 +5767,11 @@ def provision_snapshot(
         typer.echo(f"unknown --mode '{mode}'; choose forward or replay", err=True)
         raise typer.Exit(code=2)
     snapshot_date, payload = found
-    # Refuses before writing anything (no snapshot, no context.json);
-    # run-predict distinguishes the exits: a refusal (exit 3) short-circuits
-    # the cell's agent steps entirely, while a missing snapshot (exit 1) under
-    # its continue-on-error leaves the cell running snapshot-less with the gap
-    # noted per the prompt contract. Opt-in
+    # Refuses before writing anything (no snapshot, no context.json).
+    # run-predict short-circuits the cell's agent steps on either non-zero exit
+    # — this refusal (exit 3) and the missing snapshot (exit 1) alike, since a
+    # predictor with no provisioned record has lost the guaranteed-common input
+    # — and keeps the two causes apart in the log. Opt-in
     # because the other callers *must* see decided dockets: run-evaluate
     # provisions the same forward-mode cell for an already-resolved event, and
     # the replay provisioner truncates point-in-time itself.
@@ -4813,16 +5785,16 @@ def provision_snapshot(
     # textual scan by construction. Only then does the textual scan ask whether
     # the payload itself discloses the outcome. None of this rests on the
     # agent: a refused forward cell never receives a snapshot or a context —
-    # un-minting is the plan seam's job (the matrix openness re-check), and
+    # un-minting is the plan seam's job (the matrix forecastability re-check), and
     # run-predict's refusal gate skips the cell's agent steps on exit 3
     # entirely. Refusals are ::warning::
-    # annotations so a fleet of snapshot-less cells is attributable per cause
+    # annotations so a fleet of skipped cells is attributable per cause
     # from the Actions UI.
     if gate_active:
         _refuse_forward_if_closed(
             backend,
-            gate_events,
-            gate_row,
+            read.events,
+            read.row,
             court,
             docket,
             event,
@@ -4836,6 +5808,56 @@ def provision_snapshot(
                 err=True,
             )
             raise typer.Exit(code=3)
+    # Both gates ran on the LATEST payload, before the cut, and that ordering is
+    # the point of putting the cut here. The staleness bound asks whether the
+    # *pipeline* is live, which only the latest snapshot's date can answer — a
+    # cut payload is re-dated to its cutoff and would read as months stale by
+    # construction. The terminal scan asks whether the docket is decided, and a
+    # disposing order filed after the cutoff is exactly what the cut would hide:
+    # the cell would be provisioned, not refused, against a case that is over.
+    provenance: Literal["as-stored", "dated", "truncated"] = "as-stored"
+    # Nothing was removed from a `dated` payload: it is what the docket served.
+    dropped_entries = 0
+    if cutoff is not None:
+        if read.dated is not None and provision.shows_the_moment(read.dated[1], cutoff):
+            # What the docket really served at the moment, which also knows what
+            # had not yet been filed — strictly better than reconstructing it, so
+            # it is preferred and recorded apart. Only where it reaches the
+            # trigger, though: a stored snapshot from well before the moment
+            # would place the cell earlier than the cohort it is filed under.
+            snapshot_date, payload = read.dated
+            provenance = "dated"
+        else:
+            # Reconstructed from a later payload: post-cutoff entries removed,
+            # and an entry whose date is missing or unparseable removed with them
+            # (`truncate_snapshot` fails closed — an undated entry could be the
+            # one that decides the case). Never `blind`: this path always holds a
+            # cutoff to keep entries against, so it never removes the proceedings
+            # key outright, which is what that provenance records.
+            payload, dropped_entries = truncate_snapshot(payload, cutoff)
+            # The same date rule over the top-level fields truncation does not
+            # reach, so the cut docket does not carry an argument date whose
+            # entry it just removed.
+            payload = provision.cut_dated_fields(payload, cutoff)
+            # The docket as at the cutoff is dated by the cutoff, not by the pull
+            # whose bytes it was reconstructed from — otherwise the one file the
+            # cell's information set is judged against carries a later date than
+            # anything in it.
+            snapshot_date = cutoff
+            provenance = "truncated"
+        kept = provision.documents_before(documents, cutoff)
+        dropped_documents = len(documents) - len(kept)
+        documents = kept
+        # Spoken, never written to `context.json`: the cell reads that file, and
+        # how much a cut removed separates a grant from a denial about as
+        # cleanly as the disposing order does. Here it is the harness's own
+        # record — the auditable size of what placement excluded.
+        typer.echo(
+            f"::notice::{case} placed at {cutoff.isoformat()} ({provenance}): "
+            f"{dropped_entries} entr(ies) and {dropped_documents} document(s) "
+            f"postdate the moment",
+            err=True,
+        )
     paths = CasePaths(settings.data_root, court, docket)
     dest = out or paths.snapshot(snapshot_date.isoformat())
     write_raw_json(dest, payload)
@@ -4845,12 +5867,23 @@ def provision_snapshot(
     # rest because the salience band only ever strengthens, so a band re-derived
     # later is the band the petition *ended* at. Derived from the payload rather
     # than the corpus row: the row holds current values, the payload is what this
-    # cell can read, and a baseline has to be conditioned on the latter.
+    # cell can read, and a baseline has to be conditioned on the latter. The
+    # cutoff rides along as the cohort marker: a forward cell whose `cutoff` is
+    # non-null was placed at its moment, and a figure that pools it with one
+    # provisioned from the latest snapshot pools two information sets.
     write_raw_json(
         paths.cell_context,
-        cell_context.build(case, snapshot_date, payload, mode).model_dump(mode="json"),
+        cell_context.build(
+            case,
+            snapshot_date,
+            payload,
+            mode,
+            provenance=provenance,
+            cutoff=cutoff,
+        ).model_dump(mode="json"),
     )
-    typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}) -> {dest}")
+    placed = f" cut at {cutoff.isoformat()} ({provenance})" if cutoff is not None else ""
+    typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}){placed} -> {dest}")
     if documents:
         for doc in documents:
             write_text(paths.document(doc.kind), doc.text)
@@ -4871,6 +5904,77 @@ def provision_snapshot(
         )
         kinds = ", ".join(doc.kind for doc in documents)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
+
+
+@app.command("assert-cell-record")
+def assert_cell_record(
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[
+        str,
+        typer.Option(
+            help="The event this cell forecasts. Names the cell in the warning so "
+            "a fleet of skipped cells is attributable from the Actions log; the "
+            "record itself is per case, so nothing about the check is event-keyed."
+        ),
+    ],
+) -> None:
+    """Assert that a cell's provisioned record landed complete, or exit 1.
+
+    The provisioned snapshot is every predictor's guaranteed-common input, so a
+    cell whose record never landed must not run its agent: it would forecast from
+    base rates alone while its output claims the shared baseline, and nothing
+    downstream can tell the two apart. ``provision-snapshot`` declares the
+    failures it knows about through its exit code, but a read that half-lands
+    declares nothing — this command asks the disk instead of the exit code, and
+    is the predict cell's gate between provisioning and any token spend.
+
+    Complete means both halves of the provisioning write are there and readable:
+    ``record/context.json`` parses as a
+    :class:`~fedcourtsai.schemas.PredictionContext`, and the dated snapshot that
+    context names is present, non-empty, and parses as JSON. The snapshot is
+    parsed rather than merely counted because provisioning's write is not atomic,
+    so the very failure this command is named for — a write that half-lands —
+    leaves a truncated file that a size check passes. Exit 0 complete; exit 1
+    incomplete, with a ``::warning::`` naming which half is missing. It reads the
+    default record paths — the ones the cell workflows provision into — so a
+    ``provision-snapshot --out`` written elsewhere is not what it checks.
+
+    The context load is spelled out here rather than reusing
+    :func:`_read_cell_context`, which is deliberately tolerant and returns
+    ``None`` for both "absent" and "unreadable": this command's whole output is
+    *which* of those it found.
+    """
+    settings = get_settings()
+    case = ids.case_id(court, docket)
+    paths = CasePaths(settings.data_root, court, docket)
+    context_path = paths.cell_context
+    missing: str | None = None
+    if not context_path.is_file():
+        missing = f"no cell context at {context_path}"
+    else:
+        try:
+            context = PredictionContext.model_validate_json(context_path.read_text())
+        except (OSError, ValueError):
+            missing = f"unreadable cell context at {context_path}"
+        else:
+            snapshot = paths.snapshot(context.snapshot_date.isoformat())
+            if not snapshot.is_file():
+                missing = f"no snapshot at {snapshot}"
+            elif snapshot.stat().st_size == 0:
+                missing = f"empty snapshot at {snapshot}"
+            else:
+                try:
+                    json.loads(snapshot.read_text())
+                except (OSError, ValueError):
+                    missing = f"unreadable snapshot at {snapshot}"
+    if missing is not None:
+        typer.echo(
+            f"::warning::incomplete cell record for {case} {event}: {missing}; no cell runs",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    typer.echo(f"{case} {event} record complete -> {context_path}")
 
 
 def _read_cell_context(paths: CasePaths) -> PredictionContext | None:
@@ -5858,42 +6962,111 @@ def discover(
     typer.echo(f"Discovered {result.total}/{cap} new case(s) across {len(courts)} court(s)")
 
 
+@dataclass(frozen=True)
+class _DropRecord:
+    """One case, event, or cell a planning step held back, with that step's reason.
+
+    The reason string is the dropping step's own — printed verbatim, never
+    re-worded here — so a plan that reports the wrong cell set names the step
+    that decided it. ``event_id`` and ``actor_id`` are absent where the step
+    works at a coarser grain: the scope gate drops whole cases, and the
+    forecastability re-check whole events. ``actor_id`` is the predictor or
+    evaluator whose cell the drop cost, the same union
+    :class:`fedcourtsai.collect.ExpectedCell` calls an actor.
+    """
+
+    case_id: str
+    reason: str
+    event_id: str | None = None
+    actor_id: str | None = None
+
+    def as_json(self) -> dict[str, str]:
+        """The record as a plan-JSON object, omitting the grains it has none of."""
+        out = {"case_id": self.case_id, "reason": self.reason}
+        if self.event_id is not None:
+            out["event_id"] = self.event_id
+        if self.actor_id is not None:
+            out["actor_id"] = self.actor_id
+        return out
+
+
+@dataclass
+class _ResolveReport:
+    """What event resolution decided, for a plan to report.
+
+    ``unforecastable`` is the re-check's per-event drops. ``no_default_events``
+    is the quieter class beside it: a case that listed no events and whose
+    default lookup came back empty, which resolves to a case carrying zero
+    events rather than to a drop — invisible in a case count and invisible in
+    an event count, so it is named here instead.
+    """
+
+    unforecastable: list[_DropRecord] = field(default_factory=list)
+    no_default_events: list[_DropRecord] = field(default_factory=list)
+
+
 def _resolve_cases(
     cases: list[CaseRequest],
     default_events: Callable[[str, int], list[str]],
     *,
-    drop_resolved: Callable[[str, int], list[str]] | None = None,
+    drop_unforecastable: Callable[[str, int], Mapping[str, str]] | None = None,
+    stage: str,
+    report: bool,
+    report_out: _ResolveReport | None = None,
 ) -> list[CaseRequest]:
     """Fill in each case's default events when the request listed none.
 
-    ``drop_resolved`` re-checks a request's *listed* events against the corpus's
-    resolved set at plan time. A trigger issue is written when its events are
-    open and fanned out whenever the workflow runs — and a pipeline pause can
-    put an arbitrary gap between the two, during which an event resolves.
-    Without the re-check the stale listing mints forward cells that
-    provisioning must then refuse one by one; with it the event is dropped
-    here, once, with the cause on the record. Only an *affirmatively resolved*
-    event is dropped — an event the corpus does not track stays listed, because
-    the matrix has always trusted the trigger's event ids and the provisioning
-    record gate backs the trust. The predict matrix passes the corpus's
-    resolved-events read; evaluate passes ``None``, since its listed events are
-    exactly the resolved ones.
+    ``drop_unforecastable`` re-checks a request's *listed* events against the
+    corpus at plan time, returning ``{event_id: reason}`` for the ones the
+    corpus now refuses. The listing is what makes the re-check necessary: a
+    case with no events runs through selection, which applies every
+    forecastability rule, while a listed event skips selection entirely — and a
+    trigger issue is written when its events are forecastable and fanned out
+    whenever the workflow runs, with a pipeline pause free to put an arbitrary
+    gap between the two. Without the re-check the stale listing mints cells
+    provisioning must then refuse one by one; with it each event is dropped
+    here, once, with its own reason on the record (printed verbatim, so a new
+    refusal class needs no second annotation site). An event the callback does
+    not name stays listed, because the matrix trusts the trigger's event ids
+    and the provisioning record gate backs the trust. The predict matrix passes
+    :func:`fedcourtsai.store.unforecastable_listed_events`; evaluate passes
+    ``None``, since its listed events are exactly the resolved ones.
+
+    ``stage`` labels the warning lines and ``report`` is the minting path — a
+    plan passes ``False`` and suppresses the annotations, carrying the same
+    drops in ``report_out`` for its JSON instead. Both are keyword-required:
+    a caller that has to name its stage cannot inherit another command's label
+    by omission.
     """
     kept: list[CaseRequest] = []
     for c in cases:
         if not c.events:
-            kept.append(replace(c, events=tuple(default_events(c.court, c.docket))))
+            resolved = tuple(default_events(c.court, c.docket))
+            if not resolved and report_out is not None:
+                report_out.no_default_events.append(
+                    _DropRecord(
+                        ids.case_id(c.court, c.docket),
+                        "the request listed no events and the corpus resolved none for this "
+                        "case, so it contributes no cells",
+                    )
+                )
+            kept.append(replace(c, events=resolved))
             continue
-        if drop_resolved is None:
+        if drop_unforecastable is None:
             kept.append(c)
             continue
-        gone = set(drop_resolved(c.court, c.docket)) & set(c.events)
-        for dropped in sorted(gone):
-            typer.echo(
-                f"::warning::predict-matrix: dropped {dropped} on {c.court}/{c.docket} — "
-                f"the corpus records it resolved (it closed since the run was queued)",
-                err=True,
-            )
+        refused = drop_unforecastable(c.court, c.docket)
+        gone = {e: refused[e] for e in c.events if e in refused}
+        for dropped, reason in sorted(gone.items()):
+            if report:
+                typer.echo(
+                    f"::warning::{stage}: dropped {dropped} on {c.court}/{c.docket} — {reason}",
+                    err=True,
+                )
+            if report_out is not None:
+                report_out.unforecastable.append(
+                    _DropRecord(ids.case_id(c.court, c.docket), reason, event_id=dropped)
+                )
         kept.append(replace(c, events=tuple(e for e in c.events if e not in gone)))
     return kept
 
@@ -5905,6 +7078,7 @@ def _scope_filtered(
     corpus_backend: corpus.CorpusBackend,
     *,
     for_grading: bool = False,
+    dropped_out: list[_DropRecord] | None = None,
 ) -> list[CaseRequest]:
     """Drop out-of-scope cases under ``scotus_docket``; the matrix backstop.
 
@@ -5943,6 +7117,10 @@ def _scope_filtered(
     result), so fail loud. Under ``ranged`` the committed pointer + remote URL
     stand in for the file, and a missing pointer/URL fails loud in
     :func:`corpus.connect_readonly` itself.
+
+    ``dropped_out`` collects each skipped case as a structured record carrying
+    the same reason the stderr note prints, so a plan can attribute a missing
+    case to this step.
     """
     if scope == PredictScope.all:
         return cases
@@ -5958,20 +7136,13 @@ def _scope_filtered(
     with corpus.connect_readonly(db_path, backend=corpus_backend) as conn:
         for case in cases:
             row = corpus.get_row(conn, ids.case_id(case.court, case.docket))
+            drop: str | None
             if row is None or row.court != "scotus":
-                typer.echo(
-                    f"Skipping {case.court}/{case.docket}: out of prediction scope "
-                    f"(predict.scope=scotus_docket, not a SCOTUS docket).",
-                    err=True,
-                )
+                drop = "out of prediction scope (predict.scope=scotus_docket, not a SCOTUS docket)."
             elif row.predict_excluded:
-                typer.echo(
-                    f"Skipping {case.court}/{case.docket}: latched out of predict scope "
-                    f"by the corpus reconcile.",
-                    err=True,
-                )
+                drop = "latched out of predict scope by the corpus reconcile."
             elif (reason := corpus.out_of_scope_reason_full(conn, row)) is not None:
-                typer.echo(f"Skipping {case.court}/{case.docket}: {reason}.", err=True)
+                drop = f"{reason}."
             elif (
                 not for_grading
                 and corpus.is_salience_deferred(row)
@@ -5980,13 +7151,15 @@ def _scope_filtered(
                 # The merits bypass: a below-cap petition still earns no cert
                 # cell, but once the Court grants it the funding question is a
                 # different one and the gate no longer answers it.
-                typer.echo(
-                    f"Skipping {case.court}/{case.docket}: not selected this salience round "
-                    f"(scored, below the capacity slice).",
-                    err=True,
-                )
+                drop = "not selected this salience round (scored, below the capacity slice)."
             else:
+                drop = None
+            if drop is None:
                 kept.append(case)
+                continue
+            typer.echo(f"Skipping {case.court}/{case.docket}: {drop}", err=True)
+            if dropped_out is not None:
+                dropped_out.append(_DropRecord(ids.case_id(case.court, case.docket), drop))
     return kept
 
 
@@ -6202,60 +7375,61 @@ def _stranded_note(runs: Sequence[int]) -> str:
     )
 
 
-def _guarded_matrix(
-    matrix: dict[str, list[dict[str, Any]]],
-    stranded_file: Path | None,
-    note_file: Path | None,
-) -> dict[str, list[dict[str, Any]]]:
-    """Withhold cells whose output sits in an uncollected run, and say so loudly.
+@dataclass
+class _StrandedGuardReport:
+    """What the stranded-run guard did on one pass, for a plan to report.
 
-    Fails **open** in every degraded direction — an unreadable census, an
-    artifact name that does not parse — because the failure this guard prevents
-    is expensive, not dangerous: a census the plan cannot trust must never be
-    the reason a legitimate run does not start. Reports on the same channels as
-    the other plan-time gates (workflow-command lines on stderr and the step
-    summary; stdout carries only the matrix JSON), plus ``note_file`` when the
-    guard empties the matrix, which the workflow's close step posts in place of
-    its generic out-of-scope note.
+    A withheld count of zero is three different states, and only one of them is
+    a reason to distrust the plan: the guard ran and matched nothing
+    (``active``, no ``degraded_reason``), no census was supplied so the guard
+    never ran (neither), or the census was unreadable and the guard failed open
+    (a ``degraded_reason``, no ``active``). ``unparsed`` names census records
+    the guard could not read, which leaves it *partly* blind even when active —
+    a withheld count that is honest about the records it was able to match, and
+    silent about the ones it was not.
     """
-    if stranded_file is None:
-        return matrix
-    try:
-        census = read_stranded_census(stranded_file)
-    except (OSError, ValueError) as exc:
-        typer.echo(
-            f"::warning::predict-matrix: the stranded-run guard is off — {stranded_file} is "
-            f"unreadable ({exc}). Cells already sitting in an uncollected run may be re-minted.",
-            err=True,
-        )
-        return matrix
-    for name in census.unparsed:
-        typer.echo(
-            f"::warning::predict-matrix: stranded-run guard skipped the census record {name!r} — "
-            "it does not read as a cell artifact naming predictor/court/docket/event, and a "
-            "guessed reading would withhold the wrong cell",
-            err=True,
-        )
-    guarded = drop_stranded_cells(matrix, census.cells)
-    if not guarded.withheld:
-        return matrix
+
+    active: bool = False
+    degraded_reason: str | None = None
+    unparsed: tuple[str, ...] = ()
+    withheld: tuple[StrandedCell, ...] = ()
+
+    def as_json(self) -> dict[str, Any]:
+        """The guard's state as a plan-JSON block."""
+        return {
+            "active": self.active,
+            "degraded_reason": self.degraded_reason,
+            "unparsed_records": list(self.unparsed),
+        }
+
+
+def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, stage: str) -> None:
+    """The minting path's record of what the stranded-run guard withheld.
+
+    Three channels, all of them a run's record rather than a plan's: a
+    ``::warning::`` per withheld cell carrying its own recovery command, the
+    escalated ``::error::`` plus ``note_file`` close note when the guard emptied
+    the matrix (the workflow's close step posts the note in place of its generic
+    out-of-scope one), and the Actions step summary. Called only when something
+    was actually withheld.
+    """
+    runs = sorted({cell.run_db_id for cell in guarded.withheld})
+    run_list = ", ".join(str(run) for run in runs)
     for cell in guarded.withheld:
         typer.echo(
-            f"::warning::predict-matrix: withheld {cell.predictor_id} "
-            f"{ids.case_id(cell.court, cell.docket)} {cell.event_id} — its output already sits "
-            f"in uncollected run {cell.run_db_id}; recover it with "
+            f"::warning::{stage}: withheld {cell.predictor_id} "
+            f"{ids.case_id(cell.court, cell.docket)} {cell.event_id} — its output already "
+            f"sits in uncollected run {cell.run_db_id}; recover it with "
             f"`gh run rerun {cell.run_db_id} --failed` rather than re-spending the cell",
             err=True,
         )
-    runs = sorted({cell.run_db_id for cell in guarded.withheld})
-    run_list = ", ".join(str(run) for run in runs)
     if not guarded.include:
         # Every cell withheld: the plan reports has_jobs=false, and the workflow's
         # close step would otherwise post its generic out-of-scope note. Write the
         # honest one for it to post instead, and escalate here so the cause is on
         # the record even if the note never reaches the issue.
         typer.echo(
-            f"::error::predict-matrix: the stranded-run guard withheld ALL "
+            f"::error::{stage}: the stranded-run guard withheld ALL "
             f"{len(guarded.withheld)} cell(s) — every event this trigger names already ran in "
             f"uncollected run(s) {run_list}. Recover rather than re-run: "
             f"`gh run rerun {runs[0]} --failed`. {_STRANDED_RERUN_CAVEAT} " + _STRANDED_OVERRIDE,
@@ -6268,13 +7442,13 @@ def _guarded_matrix(
                 # An unwritable note costs the issue its honest close message,
                 # never the run: the ::error:: above is already on the record.
                 typer.echo(
-                    f"::warning::predict-matrix: could not write the stranded-run close note to "
+                    f"::warning::{stage}: could not write the stranded-run close note to "
                     f"{note_file} ({exc}); the trigger issue closes with the generic note",
                     err=True,
                 )
     else:
         typer.echo(
-            f"::warning::predict-matrix: the stranded-run guard withheld "
+            f"::warning::{stage}: the stranded-run guard withheld "
             f"{len(guarded.withheld)} cell(s) whose output sits in uncollected run(s) "
             f"{run_list}; the remaining {len(guarded.include)} cell(s) are genuinely new",
             err=True,
@@ -6290,7 +7464,245 @@ def _guarded_matrix(
                 f"trigger. {_STRANDED_RERUN_CAVEAT} Kept {len(guarded.include)} genuinely new "
                 f"cell(s). {_STRANDED_OVERRIDE}\n"
             )
+
+
+def _guarded_matrix(
+    matrix: dict[str, list[dict[str, Any]]],
+    stranded_file: Path | None,
+    note_file: Path | None,
+    *,
+    stage: str,
+    report: bool,
+    guard_out: _StrandedGuardReport | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Withhold cells whose output sits in an uncollected run, and say so loudly.
+
+    Fails **open** in every degraded direction — an unreadable census, an
+    artifact name that does not parse — because the failure this guard prevents
+    is expensive, not dangerous: a census the plan cannot trust must never be
+    the reason a legitimate run does not start. Reports on the same channels as
+    the other plan-time gates (workflow-command lines on stderr and the step
+    summary; stdout carries only the matrix JSON), plus ``note_file`` when the
+    guard empties the matrix, which the workflow's close step posts in place of
+    its generic out-of-scope note.
+
+    ``stage`` labels those lines. ``report`` is the minting path: a plan passes
+    ``False``, which suppresses every workflow-command annotation and the step
+    summary together, and carries the same facts in ``guard_out`` for its JSON
+    instead — a fail-open the plan document does not name would read exactly
+    like a guard that matched nothing.
+    """
+    guard = guard_out if guard_out is not None else _StrandedGuardReport()
+    if stranded_file is None:
+        return matrix
+    try:
+        census = read_stranded_census(stranded_file)
+    except (OSError, ValueError) as exc:
+        guard.degraded_reason = (
+            f"{stranded_file} is unreadable ({exc}); cells already sitting in an "
+            f"uncollected run may be re-minted"
+        )
+        if report:
+            typer.echo(
+                f"::warning::{stage}: the stranded-run guard is off — {stranded_file} is "
+                f"unreadable ({exc}). Cells already sitting in an uncollected run may be "
+                f"re-minted.",
+                err=True,
+            )
+        return matrix
+    guard.active = True
+    guard.unparsed = census.unparsed
+    if report:
+        for name in census.unparsed:
+            typer.echo(
+                f"::warning::{stage}: stranded-run guard skipped the census record {name!r} — "
+                "it does not read as a cell artifact naming predictor/court/docket/event, and a "
+                "guessed reading would withhold the wrong cell",
+                err=True,
+            )
+    guarded = drop_stranded_cells(matrix, census.cells)
+    guard.withheld = guarded.withheld
+    if not guarded.withheld:
+        return matrix
+    if report:
+        _report_stranded_guard(guarded, note_file, stage=stage)
     return {"include": guarded.include}
+
+
+@dataclass(frozen=True)
+class _PredictFanout:
+    """One pass of the predict planning pipeline, recorded step by step.
+
+    Every field is one named step's output, so a fan-out that mints the wrong
+    cells is attributable to the step that decided it rather than to the
+    pipeline as a whole. ``capped.include`` is the surviving cell set — what
+    ``predict-matrix`` emits and ``predict-plan`` reports without minting.
+    """
+
+    requested: list[CaseRequest]
+    resolved: list[CaseRequest]
+    scope_dropped: tuple[_DropRecord, ...]
+    resolution: _ResolveReport
+    guard: _StrandedGuardReport
+    capped: CappedMatrix
+    max_cells: int
+
+
+def _predict_fanout(
+    requested_cases: list[CaseRequest],
+    run_id: str,
+    *,
+    stage: str,
+    stranded_file: Path | None,
+    note_file: Path | None,
+    report: bool,
+) -> _PredictFanout:
+    """Run the predict planning pipeline: scope, forecastability, ledger, guard, cap.
+
+    The one definition of what a predict run would mint, shared by
+    ``predict-matrix`` (which emits the surviving cells as the Actions matrix)
+    and ``predict-plan`` (which reports them and spends nothing), so the dry run
+    can never describe a different fan-out than the minting command performs.
+
+    ``report`` is the minting command's reading: it emits the workflow-command
+    annotations and appends the volume cap's block to the Actions step summary.
+    A plan passes ``False`` — its JSON carries every one of those facts, and an
+    annotation from a run that mints nothing describes something that did not
+    happen. Suppression is all-or-nothing on that flag, so no plan-run log ever
+    carries a partial set. ``note_file`` is the other write, and a plan passes
+    ``None``.
+    """
+    settings = get_settings()
+    predict_config = load_predict_config(settings.config_root)
+    scope_dropped: list[_DropRecord] = []
+    resolution = _ResolveReport()
+    requested = _scope_filtered(
+        requested_cases,
+        predict_config.scope,
+        settings.corpus_root,
+        settings.corpus_backend,
+        dropped_out=scope_dropped,
+    )
+    # One clock for the whole plan, so a fan-out that straddles midnight cannot
+    # apply a different staleness bound to selection than to the re-check.
+    today = date.today()
+    cases = _resolve_cases(
+        requested,
+        lambda c, d: forecastable_events(
+            corpus.corpus_db_path(settings.corpus_root),
+            c,
+            d,
+            backend=settings.corpus_backend,
+            today=today,
+        ),
+        # Listed events the corpus now refuses — resolved since queueing, or a
+        # merits moment whose row fails the selection predicate's row arms —
+        # are dropped at plan time rather than minted into cells provisioning
+        # must (or, for the gvr/stale classes, cannot) refuse. Keyed on the
+        # same condition as the scope gate, because under `all` the corpus is
+        # deliberately never consulted (dev / back-testing may fan out over an
+        # empty corpus).
+        drop_unforecastable=(
+            recheck := (
+                (
+                    lambda c, d: unforecastable_listed_events(
+                        corpus.corpus_db_path(settings.corpus_root),
+                        c,
+                        d,
+                        today=today,
+                        backend=settings.corpus_backend,
+                    )
+                )
+                if predict_config.scope != PredictScope.all
+                else None
+            )
+        ),
+        stage=stage,
+        report=report,
+        report_out=resolution,
+    )
+    if requested and any(c.events for c in requested) and not any(c.events for c in cases):
+        # Every listed event fell to the forecastability re-check, so the
+        # emitted matrix will be empty and the workflow's empty-matrix step will
+        # close the trigger issue with its generic out-of-scope note (it cannot
+        # tell the causes apart). This line is the correctly-attributed record;
+        # safe, because every class the re-check drops on needs something other
+        # than a re-queue — a grade for a resolved event, a corpus fix for a
+        # stale grant. The per-event warnings above carry which class each was.
+        if report:
+            typer.echo(
+                f"::error::{stage}: the forecastability re-check dropped every listed event — "
+                "none is still forecastable; nothing is minted",
+                err=True,
+            )
+        # A workflow-log annotation is retention-bounded; the close note is the
+        # durable, human-read surface. Re-derive the per-event reasons (point
+        # lookups, only on this empty path) and hand the workflow's close step
+        # an attributed note in place of its generic out-of-scope one — the
+        # same channel the stranded guard uses.
+        if note_file is not None and recheck is not None:
+            lines: list[str] = []
+            for c in requested:
+                dropped = recheck(c.court, c.docket)
+                lines.extend(
+                    f"- `{ids.case_id(c.court, c.docket)}` `{event}` — {reason}"
+                    for event, reason in sorted(dropped.items())
+                    if event in c.events
+                )
+            note_file.write_text(
+                "Every event this trigger listed has become unforecastable since it was "
+                "queued, so nothing was minted:\n\n" + "\n".join(lines) + "\n\n"
+                "None of these needs a re-queue — a resolved event needs its grade, and a "
+                "decided or stale proceeding must not receive a forward cell.\n",
+                encoding="utf-8",
+            )
+    # Per-predictor plan-time gate, before any model spend: a (predictor, event)
+    # cell whose predictor already committed a prediction for that event is not
+    # re-minted, so a re-queue where two of three engines landed mints only the
+    # missing engine. See `predict_matrix` (the mirror of evaluate's gate).
+    matrix = predict_matrix(
+        settings.config_root / "predictors.yaml", cases, run_id, data_root=settings.data_root
+    )
+    # The stranded-run guard, before the volume cap so the cap's budget goes to
+    # genuinely new cells: a cell whose output already sits in a run whose
+    # `collect` never succeeded is withheld rather than re-spent. The ledger gate
+    # above cannot see those predictions — they are cell artifacts, not commits —
+    # which is exactly why a failed collect otherwise re-mints the whole run
+    # every live cycle. Fail-open in every degraded direction; see
+    # `_guarded_matrix` and `drop_stranded_cells`.
+    guard = _StrandedGuardReport()
+    matrix = _guarded_matrix(
+        matrix,
+        stranded_file,
+        note_file,
+        stage=stage,
+        report=report,
+        guard_out=guard,
+    )
+    # Salience-independent volume backstop, after scope filtering: hold the
+    # fan-out under the cell cap even if selection failed open, deferring whole
+    # overflow cases (they stay queued and re-run next cycle). See
+    # `cap_predict_cells` and PredictConfig.max_predict_cells_per_run.
+    #
+    # Coupling to watch: if the cap defers ALL cases the emitted matrix is empty,
+    # which the plan job's `has_jobs=false` path routes to the workflow's
+    # empty-matrix step — and that step closes the trigger issue with a generic
+    # *out-of-scope* note, since cap-empty and scope-empty look identical to it.
+    # `_report_predict_cap` escalates to a ::error:: in that case so the cause is
+    # on the record; it is safe because the deferred cases persist in the corpus
+    # predict queue and re-queue next cycle regardless of the close.
+    capped = cap_predict_cells(matrix, predict_config.max_predict_cells_per_run)
+    if capped.dropped_cells and report:
+        _report_predict_cap(capped, predict_config.max_predict_cells_per_run)
+    return _PredictFanout(
+        requested=requested_cases,
+        resolved=cases,
+        scope_dropped=tuple(scope_dropped),
+        resolution=resolution,
+        guard=guard,
+        capped=capped,
+        max_cells=predict_config.max_predict_cells_per_run,
+    )
 
 
 @app.command("predict-matrix")
@@ -6330,85 +7742,149 @@ def predict_matrix_cmd(
     A case with no listed ``events`` defaults to that case's open case-baseline
     (petition/appeal-kind) events.
     """
-    settings = get_settings()
-    predict_config = load_predict_config(settings.config_root)
-    requested = _scope_filtered(
+    fanout = _predict_fanout(
         _requested_cases(body_file, court, docket, event),
-        predict_config.scope,
-        settings.corpus_root,
-        settings.corpus_backend,
+        run_id,
+        stage="predict-matrix",
+        stranded_file=stranded_file,
+        note_file=stranded_note_file,
+        report=True,
     )
-    cases = _resolve_cases(
-        requested,
-        lambda c, d: forecastable_events(
-            corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
-        ),
-        # Listed events the corpus now records resolved are dropped at plan
-        # time rather than minted into cells provisioning must refuse. Keyed on
-        # the same condition as the scope gate, because under `all` the corpus
-        # is deliberately never consulted (dev / back-testing may fan out over
-        # an empty corpus).
-        drop_resolved=(
-            (
-                lambda c, d: resolved_events(
-                    corpus.corpus_db_path(settings.corpus_root),
-                    c,
-                    d,
-                    backend=settings.corpus_backend,
-                )
-            )
-            if predict_config.scope != PredictScope.all
-            else None
-        ),
-    )
-    if requested and any(c.events for c in requested) and not any(c.events for c in cases):
-        # Every listed event fell to the openness re-check, so the emitted
-        # matrix will be empty and the workflow's empty-matrix step will close
-        # the trigger issue with its generic out-of-scope note (it cannot tell
-        # the causes apart). This line is the correctly-attributed record;
-        # safe, because a resolved event needs an evaluate run, not a re-queue.
-        typer.echo(
-            "::error::predict-matrix: the openness re-check dropped every listed event — "
-            "each resolved since the run was queued; nothing is minted",
-            err=True,
-        )
-    # Per-predictor plan-time gate, before any model spend: a (predictor, event)
-    # cell whose predictor already committed a prediction for that event is not
-    # re-minted, so a re-queue where two of three engines landed mints only the
-    # missing engine. See `predict_matrix` (the mirror of evaluate's gate).
-    matrix = predict_matrix(
-        settings.config_root / "predictors.yaml", cases, run_id, data_root=settings.data_root
-    )
-    # The stranded-run guard, before the volume cap so the cap's budget goes to
-    # genuinely new cells: a cell whose output already sits in a run whose
-    # `collect` never succeeded is withheld rather than re-spent. The ledger gate
-    # above cannot see those predictions — they are cell artifacts, not commits —
-    # which is exactly why a failed collect otherwise re-mints the whole run
-    # every live cycle. Fail-open in every degraded direction; see
-    # `_guarded_matrix` and `drop_stranded_cells`.
-    matrix = _guarded_matrix(matrix, stranded_file, stranded_note_file)
-    # Salience-independent volume backstop, after scope filtering: hold the
-    # fan-out under the cell cap even if selection failed open, deferring whole
-    # overflow cases (they stay queued and re-run next cycle). See
-    # `cap_predict_cells` and PredictConfig.max_predict_cells_per_run.
-    #
-    # Coupling to watch: if the cap defers ALL cases the emitted matrix is empty,
-    # which the plan job's `has_jobs=false` path routes to the workflow's
-    # empty-matrix step — and that step closes the trigger issue with a generic
-    # *out-of-scope* note, since cap-empty and scope-empty look identical to it.
-    # `_report_predict_cap` escalates to a ::error:: in that case so the cause is
-    # on the record; it is safe because the deferred cases persist in the corpus
-    # predict queue and re-queue next cycle regardless of the close.
-    capped = cap_predict_cells(matrix, predict_config.max_predict_cells_per_run)
-    if capped.dropped_cells:
-        _report_predict_cap(capped, predict_config.max_predict_cells_per_run)
     # The ex-post backstop, last: it reads measured spend rather than projected
     # volume, so it holds whatever the caps above decided. Checked after the cap
     # so a breach is reported against the run that would actually have been minted.
     if _spend_gate_or_empty("predict-matrix").breached:
         typer.echo(json.dumps({"include": []}, separators=(",", ":")))
         return
-    typer.echo(json.dumps({"include": capped.include}, separators=(",", ":")))
+    typer.echo(json.dumps({"include": fanout.capped.include}, separators=(",", ":")))
+
+
+@dataclass(frozen=True)
+class _EvaluateFanout:
+    """One pass of the evaluate planning pipeline, recorded step by step.
+
+    The two cell-grain drop classes stay apart — one is a cost gate (nothing to
+    score) and the other an idempotency gate (already scored) — because
+    collapsed, a fully-graded re-queue reads as a run with no predictions.
+    """
+
+    requested: list[CaseRequest]
+    resolved: list[CaseRequest]
+    scope_dropped: tuple[_DropRecord, ...]
+    resolution: _ResolveReport
+    predictionless: tuple[_DropRecord, ...]
+    already_evaluated: tuple[_DropRecord, ...]
+    candidates: int
+    matrix: dict[str, list[dict[str, Any]]]
+
+
+def _evaluate_fanout(
+    requested_cases: list[CaseRequest],
+    run_id: str,
+    *,
+    stage: str,
+    force: bool,
+    report: bool,
+) -> _EvaluateFanout:
+    """Run the evaluate planning pipeline: scope, resolution, and the two gates.
+
+    The one definition of what an evaluate run would mint, shared by
+    ``evaluate-matrix`` and ``evaluate-plan``, so the dry run cannot describe a
+    different fan-out than the minting command performs. Nothing here writes.
+
+    ``report`` is the minting path's per-gate stderr lines; a plan passes
+    ``False`` and carries the same two numbers in its own ``counts`` block,
+    which is its single stderr voice.
+
+    ``candidates`` is the opening balance — every evaluator x case x event cell
+    the resolved request spans, before either gate — so a reader can reconcile
+    the drops against the surviving set rather than take the difference on
+    trust.
+    """
+    settings = get_settings()
+    scope = load_predict_config(settings.config_root).scope
+    scope_dropped: list[_DropRecord] = []
+    resolution = _ResolveReport()
+    cases = _resolve_cases(
+        _scope_filtered(
+            requested_cases,
+            scope,
+            settings.corpus_root,
+            settings.corpus_backend,
+            for_grading=True,
+            dropped_out=scope_dropped,
+        ),
+        lambda c, d: resolved_events(
+            corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
+        ),
+        stage=stage,
+        report=report,
+        report_out=resolution,
+    )
+    # Two plan-time gates, both before any model spend: an event with no
+    # committed prediction has nothing to score, and a judge that already graded
+    # the event is not re-minted. See `evaluate_matrix`.
+    evaluators_path = settings.config_root / "evaluators.yaml"
+    matrix = evaluate_matrix(
+        evaluators_path, cases, run_id, data_root=settings.data_root, skip_evaluated=not force
+    )
+    evaluators = [e for e in load_evaluators(evaluators_path) if e.enabled]
+    # Report the two gates separately: one is a cost gate (nothing to score) and
+    # the other an idempotency gate (already scored). Collapsed, a fully-graded
+    # re-queue would read as a run with no predictions. Each is counted from the
+    # same predicate the gate uses rather than by subtracting one from the total,
+    # so the arithmetic does not silently depend on the order the gates run in
+    # `evaluate_matrix` — reordering them there would otherwise print a negative.
+    predictionless: list[_DropRecord] = []
+    already: list[_DropRecord] = []
+    for case in cases:
+        case_id = ids.case_id(case.court, case.docket)
+        for event_id in case.events:
+            if not event_has_predictions(settings.data_root, case.court, case.docket, event_id):
+                # Attribute an event that is both to the cost gate only; one
+                # record per would-be cell, so the count is cells, not events.
+                predictionless.extend(
+                    _DropRecord(
+                        case_id,
+                        "no committed prediction for this event, so nothing to score",
+                        event_id=event_id,
+                        actor_id=evaluator.id,
+                    )
+                    for evaluator in evaluators
+                )
+                continue
+            if force:
+                continue
+            already.extend(
+                _DropRecord(
+                    case_id,
+                    "this evaluator has already graded the event",
+                    event_id=event_id,
+                    actor_id=evaluator.id,
+                )
+                for evaluator in evaluators
+                if event_has_evaluations(
+                    settings.data_root,
+                    case.court,
+                    case.docket,
+                    event_id,
+                    evaluator_id=evaluator.id,
+                )
+            )
+    if report and predictionless:
+        typer.echo(f"{stage}: dropped {len(predictionless)} predictionless cell(s)", err=True)
+    if report and already:
+        typer.echo(f"{stage}: dropped {len(already)} already-evaluated cell(s)", err=True)
+    return _EvaluateFanout(
+        requested=requested_cases,
+        resolved=cases,
+        scope_dropped=tuple(scope_dropped),
+        resolution=resolution,
+        predictionless=tuple(predictionless),
+        already_evaluated=tuple(already),
+        candidates=len(evaluators) * sum(len(case.events) for case in cases),
+        matrix=matrix,
+    )
 
 
 @app.command("evaluate-matrix")
@@ -6448,58 +7924,13 @@ def evaluate_matrix_cmd(
     it for a deliberate re-grade, which otherwise would need committed artifacts
     deleted to get a cell minted.
     """
-    settings = get_settings()
-    scope = load_predict_config(settings.config_root).scope
-    cases = _resolve_cases(
-        _scope_filtered(
-            _requested_cases(body_file, court, docket, event),
-            scope,
-            settings.corpus_root,
-            settings.corpus_backend,
-            for_grading=True,
-        ),
-        lambda c, d: resolved_events(
-            corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
-        ),
+    fanout = _evaluate_fanout(
+        _requested_cases(body_file, court, docket, event),
+        run_id,
+        stage="evaluate-matrix",
+        force=force,
+        report=True,
     )
-    # Two plan-time gates, both before any model spend: an event with no
-    # committed prediction has nothing to score, and a judge that already graded
-    # the event is not re-minted. See `evaluate_matrix`.
-    evaluators_path = settings.config_root / "evaluators.yaml"
-    matrix = evaluate_matrix(
-        evaluators_path, cases, run_id, data_root=settings.data_root, skip_evaluated=not force
-    )
-    evaluators = [e for e in load_evaluators(evaluators_path) if e.enabled]
-    # Report the two gates separately: one is a cost gate (nothing to score) and
-    # the other an idempotency gate (already scored). Collapsed, a fully-graded
-    # re-queue would read as a run with no predictions. Each is counted from the
-    # same predicate the gate uses rather than by subtracting one from the total,
-    # so the arithmetic does not silently depend on the order the gates run in
-    # `evaluate_matrix` — reordering them there would otherwise print a negative.
-    predictionless = 0
-    already = 0
-    for case in cases:
-        for event_id in case.events:
-            if not event_has_predictions(settings.data_root, case.court, case.docket, event_id):
-                predictionless += len(evaluators)
-                continue  # attribute an event that is both to the cost gate only
-            if force:
-                continue
-            already += sum(
-                1
-                for evaluator in evaluators
-                if event_has_evaluations(
-                    settings.data_root,
-                    case.court,
-                    case.docket,
-                    event_id,
-                    evaluator_id=evaluator.id,
-                )
-            )
-    if predictionless:
-        typer.echo(f"evaluate-matrix: dropped {predictionless} predictionless cell(s)", err=True)
-    if already:
-        typer.echo(f"evaluate-matrix: dropped {already} already-evaluated cell(s)", err=True)
     # The same ex-post backstop predict consults: the ceiling governs total
     # inference spend, and a grading costs a cell like a forecast does. An owed
     # grading is never lost by deferring it — the backlog deriver re-derives it
@@ -6507,7 +7938,842 @@ def evaluate_matrix_cmd(
     if _spend_gate_or_empty("evaluate-matrix").breached:
         typer.echo(json.dumps({"include": []}, separators=(",", ":")))
         return
-    typer.echo(json.dumps(matrix, separators=(",", ":")))
+    typer.echo(json.dumps(fanout.matrix, separators=(",", ":")))
+
+
+#: The **fallback** per-cell rate, from *Capacity `N`: the funding knob* in
+#: ``docs/budget.md``: $15 per fully-tournamented case divided across its design
+#: mix of six cells. It prices a cell whose engine the table below does not name
+#: — a new engine, or a registry entry ahead of the doc — so a plan never
+#: silently drops such a cell from its total. Re-anchor it when the doc moves.
+_PLANNING_USD_PER_CELL = 2.50
+
+#: Per-cell rates in USD, keyed (seam, engine), from ``docs/budget.md``. The
+#: predict row is the whole-run column of *Per-cell cost is keyed on the stage*
+#: — the first post-freeze fan-out, 81 cells over 27 events. The evaluate row is
+#: that section's evaluate-cohort table, ``proc-v2`` row (the better-matched of
+#: its two anchors), scaled by the whole predict move (x1.218) exactly as the
+#: doc's own per-case derivation does. The two sum to $6.79 + $8.18 = $14.97 a
+#: case — the top of the doc's $14.6-15.0 band, which the $2.50 fallback is the
+#: six-cell rounding of — so a full three-engine, both-seam fan-out prices within
+#: a cent either way. What conditioning buys is the *narrowed* plan: within a
+#: seam the engines differ ~7x, so an engine-narrowed backfill priced at the flat
+#: rate is wrong by up to ~4x.
+#:
+#: Engine keys, not actor ids: a cell carries its resolved ``engine``, and the
+#: doc's per-actor columns are one actor per engine in the shipped registries.
+_PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
+    "predict": {"claude-code": 4.27, "codex": 1.88, "gemini": 0.64},
+    "evaluate": {"claude-code": 5.92, "codex": 1.30, "gemini": 0.96},
+}
+
+#: What the rates above can and cannot support, carried on every plan beside the
+#: number so the estimate is never read as a measurement of this run. Keyed by
+#: seam where the standing differs; :func:`_shared_spend_caveats` adds the rest.
+#:
+#: The two "four"s in this file name different things and each says which: the
+#: four predict *moments* docs/budget.md measures, and the four pre-freeze
+#: *gradings* the evaluate anchor is drawn from (of which the rates here use
+#: three).
+_SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
+    "predict": [
+        "Measured, but over one post-freeze fan-out (81 cells, 27 events). "
+        + "docs/budget.md reads the ~+20% level gap to the 410-cell pre-freeze "
+        + "ledger as an UPPER BOUND on any level effect, not a measurement of one.",
+    ],
+    "evaluate": [
+        "An ASSUMPTION, not a measurement: no evaluate fan-out has run since the "
+        + "pre-registration freeze, so docs/budget.md scales a pre-freeze anchor "
+        + "by the whole predict move (~+22%). The anchor these rates use is its "
+        + "`proc-v2` row — THREE graded events, the process-stamped subset of the "
+        + "four pre-freeze gradings — taken as the better-matched of the doc's "
+        + "two anchors; the pooled four-grading row is the more cautious one and "
+        + "is NOT what these rates carry. All four are cert-stage, so the anchor "
+        + "is stage-narrow either way.",
+    ],
+}
+
+
+def _shared_spend_caveats(seam: str) -> list[str]:
+    """The caveats that hold on both seams, with the moment note routed by seam.
+
+    The moment caveat is a statement about the *predict* measurements. It still
+    belongs on an evaluate plan, because the evaluate rates are the predict
+    move applied to a pre-freeze anchor — so whatever the predict mix carries,
+    they carry — but it has to say so, or it reads as a claim about measured
+    evaluate moments that do not exist.
+    """
+    moment = (
+        "Not conditioned on the forecast moment. Of the four predict MOMENTS "
+        "docs/budget.md measures, only merits-above-cert-arrival separates at the "
+        "measured n (~+$1.2 an event, on 11 events against 12); the rest sit "
+        "within noise of each other, so conditioning on them would fit noise. "
+        "The merits separation is real and is deliberately not applied here, so "
+        "an all-merits plan reads ~10% LOW ($7.47 an event against the $6.79 "
+        "whole-run rate these figures use)."
+    )
+    if seam == "evaluate":
+        moment += (
+            " This describes the predict seam, whose whole-run move the evaluate "
+            "rates are scaled by, so it carries into them."
+        )
+    return [
+        "Measured per-cell cost spans ~$0.25-8.30 by model mix, so a per-engine mean "
+        + "prices a FAN-OUT and never a cell.",
+        moment,
+    ]
+
+
+def _spend_verdict_json(verdict: SpendVerdict) -> dict[str, Any]:
+    """The ex-post spend backstop's reading, for a plan to report rather than act on.
+
+    Two honesty properties the raw verdict does not carry. **Unknowns print as
+    unknown**: with no ceiling configured the backstop short-circuits before
+    reading the ledger, so its zeros are unmeasured rather than measured-zero
+    and are emitted as ``null``. And **the measurement is a floor**: a cell's
+    ``usage.json`` reaches ``data/`` only on its run's collect PR, so spend
+    already incurred but not yet committed is invisible to it.
+    """
+    enforced = verdict.enforced
+    return {
+        "enforced": enforced,
+        "breached": verdict.breached,
+        # The consequence, stated rather than left to be derived: under a breach
+        # `would_mint` is a fan-out the run would not actually mint.
+        "would_empty_matrix": verdict.breached,
+        "spent_usd": verdict.spent_usd if enforced else None,
+        "ceiling_usd": verdict.ceiling_usd if enforced else None,
+        "cells": verdict.cells if enforced else None,
+        "window_days": verdict.window_days,
+        # Only where a figure exists to be a floor of. Claiming a null is a
+        # floor is not a weaker claim than claiming it is exact — it is not a
+        # claim about anything.
+        "spent_usd_is_floor": True if enforced else None,
+        "basis": (
+            "The ledger counts collected cells only — a cell's usage.json reaches data/ when "
+            "its run's collect PR merges — so spent_usd is a FLOOR on spend within the window, "
+            "never a live figure. Null where no ceiling is configured: the backstop returns "
+            "before reading the ledger, so those figures are unmeasured, not zero."
+        ),
+    }
+
+
+def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool) -> dict[str, Any]:
+    """Price a would-mint cell set at the per-(seam, engine) rates, with its basis.
+
+    Summed cell by cell rather than multiplied by one blended rate, because the
+    engines differ by ~7x within a seam: a plan narrowed to one engine priced at
+    the design-mix average is wrong by up to 4x in either direction, and a
+    narrowed plan is exactly the shape a backfill re-queue takes. A cell whose
+    engine the table does not name falls back to the design-mix rate and is
+    counted, so an unrecognized engine shows up as a stated approximation rather
+    than as a cell missing from the total.
+    """
+    rates = _PLANNING_RATES_USD_PER_CELL[seam]
+    total = 0.0
+    at_fallback = 0
+    for cell in cells:
+        rate = rates.get(str(cell["engine"]))
+        if rate is None:
+            rate = _PLANNING_USD_PER_CELL
+            at_fallback += 1
+        total += rate
+    caveats = list(_SPEND_BASIS_CAVEATS[seam]) + _shared_spend_caveats(seam)
+    if seam == "predict":
+        caveats.append(
+            "Covers THIS run only: cells the volume cap deferred (see deferred_by_cap) "
+            "re-queue on a later cycle and cost their own rates then."
+        )
+    if at_fallback:
+        caveats.append(
+            f"{at_fallback} cell(s) ran an engine the rate table does not name and are "
+            f"priced at the ${_PLANNING_USD_PER_CELL:.2f} design-mix fallback."
+        )
+    return {
+        "estimated_spend_usd": round(total, 2),
+        # Non-null only under a breach, where the figure prices a fan-out the
+        # run would not mint. Kept beside the number rather than only in
+        # `spend_gate`, so a reader who takes the estimate takes the caveat.
+        "estimated_spend_caveat": (
+            "The ex-post spend backstop is breached, so a real run would mint 0 cells and "
+            "spend $0.00; this prices the fan-out the earlier steps decided."
+            if breached
+            else None
+        ),
+        # The fallback rate is deliberately NOT published at the top level beside
+        # `estimated_spend_usd`: there it reads as the rate the estimate used,
+        # and a consumer multiplying it by `would_mint_cells` reconstructs
+        # exactly the flat-rate error the per-engine table exists to remove. It
+        # lives inside the basis block, named as the fallback it is.
+        "spend_estimate_basis": {
+            "source": (
+                "docs/budget.md — 'Per-cell cost is keyed on the stage' (the predict "
+                "whole-run row) and the evaluate-cohort table beside it (proc-v2 row, "
+                "scaled by the predict move)"
+            ),
+            "seam": seam,
+            "rates_usd_per_cell": dict(rates),
+            "fallback_usd_per_cell": _PLANNING_USD_PER_CELL,
+            "fallback_source": (
+                "docs/budget.md — 'Capacity `N`: the funding knob' ($15 per "
+                "fully-tournamented case over a six-cell design mix)"
+            ),
+            "cells_at_fallback_rate": at_fallback,
+            "caveats": caveats,
+        },
+    }
+
+
+@dataclass(frozen=True)
+class _LedgerGate:
+    """The predict ledger gate's reading: the opening balance and what it dropped.
+
+    ``candidates`` is the FULL enabled-predictor x case x event product the
+    resolved request spans, before any narrowing or gate — the plan's opening
+    balance, so the later drops reconcile against the surviving set (candidates
+    minus request-narrowed minus already-predicted minus withheld minus deferred
+    is exactly what a run would mint) instead of being taken on trust.
+    """
+
+    candidates: int
+    request_narrowed: tuple[_DropRecord, ...]
+    already_predicted: tuple[_DropRecord, ...]
+
+
+def _predict_ledger_gate(
+    resolved: list[CaseRequest], predictors_path: Path, data_root: Path
+) -> _LedgerGate:
+    """Re-walk :func:`predict_matrix`'s product and report what removed cells from it.
+
+    Re-derived from the same predicates, over the same predictor x case x event
+    order, rather than by subtracting the surviving cells from a product — so
+    the plan's counts cannot drift from the gates they report on, and stay right
+    when a later step (the stranded guard, the cap) removes cells of its own.
+
+    Two classes, held apart because they answer different questions: the
+    request's own ``predictors:`` narrowing is what the *trigger* asked for (a
+    backfill body naming the engines that failed), while the ledger gate is what
+    the *corpus* already holds. Collapsed, a narrowed backfill would read as an
+    already-complete event.
+    """
+    candidates = 0
+    narrowed: list[_DropRecord] = []
+    records: list[_DropRecord] = []
+    for predictor in enabled_predictors(predictors_path):
+        for case in resolved:
+            candidates += len(case.events)
+            case_id = ids.case_id(case.court, case.docket)
+            if case.predictors and predictor.id not in case.predictors:
+                narrowed.extend(
+                    _DropRecord(
+                        case_id,
+                        f"the request narrows this case to predictors {sorted(case.predictors)}",
+                        event_id=event_id,
+                        actor_id=predictor.id,
+                    )
+                    for event_id in case.events
+                )
+                continue
+            records.extend(
+                _DropRecord(
+                    case_id,
+                    "this predictor has already committed a prediction for the event",
+                    event_id=event_id,
+                    actor_id=predictor.id,
+                )
+                for event_id in case.events
+                if event_has_predictions(
+                    data_root, case.court, case.docket, event_id, predictor_id=predictor.id
+                )
+            )
+    return _LedgerGate(candidates, tuple(narrowed), tuple(records))
+
+
+def _plan_count_lines(plan: dict[str, Any], *, stage: str) -> list[str]:
+    """The plan's counts, one line per grain.
+
+    Two lines because they are two grains — cases and events on one, cells on
+    the other — and a single run-on line invites reading a case count as a cell
+    count. Shared by the stderr summary and the approval report, so the two
+    surfaces cannot disagree about what the plan counted.
+    """
+    counts = plan["counts"]
+    return [
+        f"{stage} {grain.replace('_', ' ')}: "
+        + ", ".join(f"{name}={value}" for name, value in counts[grain].items())
+        for grain in ("provenance", "cell_ledger")
+    ]
+
+
+def _plan_breach_line(plan: dict[str, Any], *, stage: str) -> str | None:
+    """The ex-post backstop's warning, or ``None`` where it is not breached."""
+    if not plan["spend_gate"]["breached"]:
+        return None
+    return (
+        f"{stage}: the ex-post spend backstop is breached, so a real run would mint 0 cells "
+        f"however many this plan lists; the plan reports the gate rather than applying it"
+    )
+
+
+def _plan_spend_line(plan: dict[str, Any], *, stage: str) -> str:
+    """The closing sentence: what the fan-out would cost, with its basis in the sentence.
+
+    The line a reader is most likely to quote, so every clause that changes what
+    the number means travels inside it rather than a paragraph away — the
+    evaluate seam's rates being an assumption, a breach that would empty the
+    matrix anyway, and the cap-deferred cells the figure does not cover.
+    """
+    ledger = plan["counts"]["cell_ledger"]
+    breached = bool(plan["spend_gate"]["breached"])
+    # Without the suffix the line reads as a prediction of what the next run
+    # costs, directly contradicting the breach warning above it — and the last
+    # line is the one a reader keeps.
+    breach_note = (
+        " — but the spend backstop would empty the matrix, so a real run mints 0."
+        if breached
+        else "."
+    )
+    deferred = ledger.get("deferred_by_cap_cells", 0)
+    cap_note = (
+        f" Covers this run only: {deferred} cell(s) deferred by the volume cap re-queue on a "
+        f"later cycle at their own cost."
+        if deferred
+        else ""
+    )
+    # The evaluate seam's rates are a scaled pre-freeze anchor, so the one line a
+    # reader is most likely to quote has to carry that in the same sentence as
+    # the number; predict's are measured and need no such clause.
+    rate_note = (
+        "docs/budget.md's per-engine rates, which for the evaluate seam are an "
+        "assumption (pre-freeze cert-stage anchor scaled ~+22%), not a measurement"
+        if plan["stage"] == "evaluate"
+        else "the per-engine rates in docs/budget.md (see spend_estimate_basis)"
+    )
+    return (
+        f"{stage}: would mint {ledger['would_mint_cells']} cell(s), estimated "
+        f"${plan['estimated_spend_usd']:.2f} at {rate_note}. Nothing was spent and nothing "
+        f"was written{breach_note}{cap_note}"
+    )
+
+
+#: Would-mint rows the approval report prints before it truncates. The comment
+#: is read to decide one question — approve this fan-out or not — and forty rows
+#: is already more than anyone checks line by line; past that the surviving
+#: count and the plan JSON carry the fan-out better than another 200 rows would.
+_APPROVAL_REPORT_MAX_ROWS = 40
+
+#: The rendered document's hard ceiling, under GitHub's 65,536-character comment
+#: limit. That limit is refused with a 422 rather than truncated, and a 422 is
+#: not transient: a fan-out wide enough to overflow would lose its approval
+#: surface at exactly the moment it most needs a human reading it. Every section
+#: is bounded by construction; the clamp makes the bound a guarantee.
+_APPROVAL_REPORT_MAX_CHARS = 60_000
+
+_APPROVAL_REPORT_TRUNCATED = (
+    "\n\n_Report truncated at the comment-size ceiling; the plan JSON carries the full fan-out._"
+)
+
+#: Drop classes as (plan key, the count's grain and what the class did), in
+#: pipeline order. A key a seam does not have is skipped — the two gate on
+#: different things — as is an empty one: the counts block above already
+#: reconciles, so this section exists to name the classes that actually took
+#: something. Each label opens with its own grain because the classes do not
+#: share one: the scope gate drops whole *cases*, the forecastability re-check
+#: drops *events*, and only the ledger-grain classes drop *cells*. Under a
+#: section a reader arrives at counting cells, an ungrained "3 dropped as out of
+#: scope" is read as three cells when it means three cases' worth of them.
+_APPROVAL_DROP_CLASSES: tuple[tuple[str, str], ...] = (
+    ("dropped_out_of_scope", "case(s) dropped as out of scope"),
+    ("dropped_unforecastable", "event(s) dropped as no longer forecastable"),
+    ("cases_with_no_default_events", "case(s) resolved to no default events"),
+    ("dropped_by_request_narrowing", "cell(s) narrowed away by the request's event list"),
+    ("dropped_already_predicted", "cell(s) dropped as already predicted by that predictor"),
+    ("dropped_predictionless", "cell(s) dropped as having no committed prediction to score"),
+    ("dropped_already_evaluated", "cell(s) dropped as already graded by that judge"),
+    ("withheld_stranded", "cell(s) withheld by the stranded-run guard"),
+)
+
+
+def _md_cell(value: object) -> str:
+    """One table cell: the value as a code span, with any pipe escaped.
+
+    Two characters in a value would otherwise escape the cell it is rendered
+    into, and this document is posted as a public issue comment:
+
+    A `|` splits the row into an extra column even within a code span — GFM
+    resolves the table's cell boundaries before it resolves inline code — so it
+    is backslash-escaped, which keeps a stray pipe in an id from silently
+    shifting every column to its right.
+
+    A backtick would close the span early and let the rest of the value render
+    as markdown. Rather than dropping it, the span is fenced with one more
+    backtick than the longest run inside the value, padded where the value
+    itself begins or ends with one (the renderer strips that padding again).
+    Values here are corpus- and registry-derived ids, so this is a containment
+    property rather than a live threat — but a cell that cannot break out is
+    the same amount of code as one that can, and only one of them stays true
+    when a future id gains a character nobody anticipated.
+    """
+    text = str(value).replace("|", r"\|")
+    longest = run = 0
+    for char in text:
+        run = run + 1 if char == "`" else 0
+        longest = max(longest, run)
+    fence = "`" * (longest + 1)
+    pad = " " if text.startswith("`") or text.endswith("`") else ""
+    return f"{fence}{pad}{text}{pad}{fence}"
+
+
+def _approval_report_table(plan: dict[str, Any]) -> list[str]:
+    """The would-mint cells as a markdown table, ordered by case, truncated with its count.
+
+    Sorted by (case, actor) rather than left in fan-out order so the 40 rows a
+    truncated table keeps are a **contiguous range of cases**: a reader can see
+    which cases the visible rows cover and know the rest lie past them, where
+    the registry-major fan-out order would instead show every case's first
+    engine and cut the others.
+    """
+    cells = plan["would_mint"]
+    if not cells:
+        return ["No cells would be minted, so approving this run would spend nothing."]
+    evaluate = plan["stage"] == "evaluate"
+    actor_key = "evaluator_id" if evaluate else "predictor_id"
+    ordered = sorted(cells, key=lambda c: (c["court"], c["docket"], c[actor_key], c["event_id"]))
+    rows = [
+        f"| {'Evaluator' if evaluate else 'Predictor'} | Case | Event | Engine |",
+        "| --- | --- | --- | --- |",
+    ]
+    rows.extend(
+        f"| {_md_cell(cell[actor_key])} "
+        f"| {_md_cell(ids.case_id(cell['court'], cell['docket']))} "
+        f"| {_md_cell(cell['event_id'])} | {_md_cell(cell['engine'])} |"
+        for cell in ordered[:_APPROVAL_REPORT_MAX_ROWS]
+    )
+    if len(cells) > _APPROVAL_REPORT_MAX_ROWS:
+        rows.extend(
+            [
+                "",
+                f"… and {len(cells) - _APPROVAL_REPORT_MAX_ROWS} more cells. Rows are ordered "
+                f"by case, then actor, so the ones above are the lowest case ids; the plan "
+                f"JSON carries every one of them.",
+            ]
+        )
+    return rows
+
+
+def _render_approval_report(plan: dict[str, Any], *, stage: str, run_url: str = "") -> str:
+    """Render a plan as the bounded markdown a maintainer approves or rejects from.
+
+    A pure function of the plan document, so the surface a hold decision is made
+    on is unit-tested rather than assembled by a workflow's shell; the workflow
+    posts this file and contributes only ``run_url``, the one line that needs to
+    know where the deployment approval lives.
+
+    Bounded by construction — a capped cell table, per-class drop *counts* with
+    no per-record lists (those stay in the JSON, which is where a reader who
+    wants one drop's reason goes), and a final clamp — because GitHub refuses an
+    over-long comment with a 422 rather than truncating it, and the widest
+    fan-out is exactly the one that must not lose its approval surface. Every
+    count and caveat is the string the stderr summary prints, not a paraphrase
+    of it, so the report cannot drift from the plan it renders.
+    """
+    ledger = plan["counts"]["cell_ledger"]
+    # The heading is the one line a reader is guaranteed to see, so under a
+    # breach it carries the consequence rather than a cell count that approving
+    # would not deliver: the backstop empties the matrix whatever the plan lists.
+    breach_heading = (
+        " — but a real run mints 0 under the spend backstop"
+        if plan["spend_gate"]["breached"]
+        else ""
+    )
+    lines = [
+        f"## {stage}: {ledger['would_mint_cells']} cell(s) held for approval{breach_heading}",
+        "",
+        f"Run `{plan['run_id']}` is held before minting anything. Nothing has been spent and "
+        f"nothing has been written; this is what a run would do if approved.",
+        "",
+        "### Counts",
+        "",
+    ]
+    lines.extend(f"- `{line}`" for line in _plan_count_lines(plan, stage=stage))
+    lines.extend(["", "### Spend", "", _plan_spend_line(plan, stage=stage)])
+    breach = _plan_breach_line(plan, stage=stage)
+    if breach is not None:
+        lines.extend(["", f"> {breach}"])
+    guard = plan.get("stranded_guard")
+    if guard is not None and (guard["degraded_reason"] or guard["unparsed_records"]):
+        # A withheld count of zero is three states and only one of them is a
+        # reason to distrust the plan, so the two degraded ones are named where
+        # the decision is made rather than left for the JSON. The reason goes in
+        # a code span: it quotes the underlying exception, whose text routinely
+        # carries a repr like `<class 'dict'>` that GitHub's comment sanitizer
+        # eats as a tag — leaving a reader "got ." where the cause should be —
+        # and the span neutralizes any other markdown the exception carries.
+        detail = (
+            f"failed open (`{guard['degraded_reason']}`)"
+            if guard["degraded_reason"]
+            else f"ran but could not read {len(guard['unparsed_records'])} census record(s)"
+        )
+        lines.extend(
+            [
+                "",
+                "### Stranded-run guard",
+                "",
+                f"The stranded-run guard {detail}, so a cell it could not check may re-spend "
+                f"output an uncollected run already produced.",
+            ]
+        )
+    lines.extend(["", "### Would mint", ""])
+    lines.extend(_approval_report_table(plan))
+    dropped = [
+        f"- {len(plan[key])} {label}" for key, label in _APPROVAL_DROP_CLASSES if plan.get(key)
+    ]
+    deferred = ledger.get("deferred_by_cap_cells", 0)
+    if deferred:
+        dropped.append(
+            f"- {deferred} cell(s) deferred by the volume cap "
+            f"(max {plan['deferred_by_cap']['max_cells']} cells a run); they re-queue next cycle"
+        )
+    lines.extend(["", "### Dropped", ""])
+    lines.extend(dropped or ["- Nothing was dropped: every candidate cell would be minted."])
+    lines.extend(["", "Each drop's per-record reason is in the plan JSON."])
+    if run_url:
+        lines.extend(
+            [
+                "",
+                # The literal environment name the workflows bind — one `review`
+                # environment serves every spend hold, so the line never derives
+                # a name a stage-specific environment would have to match.
+                f"Approve or reject the `review` deployment on the run: {run_url}",
+            ]
+        )
+    document = "\n".join(lines) + "\n"
+    if len(document) > _APPROVAL_REPORT_MAX_CHARS:
+        document = (
+            document[: _APPROVAL_REPORT_MAX_CHARS - len(_APPROVAL_REPORT_TRUNCATED)]
+            + _APPROVAL_REPORT_TRUNCATED
+        )
+    return document
+
+
+# Declared once and shared by both plan commands rather than spelled out twice:
+# the two options describe one contract, and a help text that drifted between
+# the seams would document a difference that does not exist.
+_ApprovalReportOption = Annotated[
+    Path | None,
+    typer.Option(
+        help="Also write the plan as a bounded markdown report, for a hold gate to post as "
+        "a trigger-issue comment. stdout is unchanged, with the flag or without it.",
+    ),
+]
+_ApprovalReportRunUrlOption = Annotated[
+    str,
+    typer.Option(
+        help="Run URL the approval report's closing line points at; omitted, the report "
+        "carries no such line. Ignored without --approval-report.",
+    ),
+]
+
+
+def _echo_plan(
+    plan: dict[str, Any],
+    *,
+    stage: str,
+    approval_report: Path | None = None,
+    run_url: str = "",
+) -> None:
+    """Print the plan to stdout, its human summary to stderr, its report to a file.
+
+    The repo's stdout/stderr split, for the same reason the matrix commands keep
+    it: stdout is the machine surface a consuming gate parses, so every word
+    meant for a person goes to stderr. ``approval_report`` adds a third channel
+    and changes neither of the first two — with the flag or without it stdout
+    carries the same bytes, so a gate that parses the plan cannot tell whether a
+    report was written beside it.
+
+    That write is deliberately **fail-loud**, and deliberately *before* the
+    stdout echo, which is the opposite of the stranded-run close note's
+    fail-open: an unwritable note costs the trigger issue a better message and
+    nothing else, while an unwritable approval report costs the hold its entire
+    decision surface. A gate that read the plan from stdout, found no report,
+    and posted an empty comment would ask a maintainer to approve a fan-out
+    they cannot see. Raising here stops the run instead.
+    """
+    for line in _plan_count_lines(plan, stage=stage):
+        typer.echo(line, err=True)
+    breach = _plan_breach_line(plan, stage=stage)
+    if breach is not None:
+        typer.echo(breach, err=True)
+    typer.echo(_plan_spend_line(plan, stage=stage), err=True)
+    if approval_report is not None:
+        write_text(approval_report, _render_approval_report(plan, stage=stage, run_url=run_url))
+    typer.echo(json.dumps(plan, separators=(",", ":")))
+
+
+@app.command("predict-plan")
+def predict_plan_cmd(
+    body_file: Annotated[
+        Path | None,
+        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
+    ] = None,
+    court: Annotated[
+        str, typer.Option(help="Single-case court id (ignored with --body-file).")
+    ] = "",
+    docket: Annotated[
+        int | None, typer.Option(help="Single-case docket id (ignored with --body-file).")
+    ] = None,
+    event: Annotated[
+        list[str] | None,
+        typer.Option(help="Single-case event id(s); default: open case-baseline events."),
+    ] = None,
+    stranded_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="Census of cell artifacts left by recent runs whose collect did not succeed, "
+            "as `predict-matrix` takes it; a cell already sitting in one is reported withheld.",
+        ),
+    ] = None,
+    run_id: Annotated[
+        str,
+        typer.Option(
+            help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
+            "carries it — a plan mints none — so it names the run only in the plan."
+        ),
+    ] = "",
+    approval_report: _ApprovalReportOption = None,
+    approval_report_run_url: _ApprovalReportRunUrlOption = "",
+) -> None:
+    """Report the predict cells a run would mint, step by step, spending nothing.
+
+    The dry run of ``predict-matrix``: the same inputs through the same pipeline
+    — scope gate, forecastability re-check, per-predictor ledger gate,
+    stranded-run guard, volume cap — with nothing minted and nothing written. No
+    trigger-issue close note, no Actions step summary, no model spend; only the
+    plan document on stdout, its summary lines on stderr, and — on request —
+    the ``--approval-report`` markdown.
+
+    stdout is a single JSON object. ``counts`` splits by grain — ``provenance``
+    counts cases and events, ``cell_ledger`` counts cells — because the two are
+    read for different questions and a flat block invites reading a case count
+    as a cell count. The drop lists explain each count, every record carrying
+    the dropping step's own reason; ``would_mint`` is the surviving cell set;
+    and ``estimated_spend_usd`` prices it at the per-(seam, engine) rates in
+    ``docs/budget.md``, with ``spend_estimate_basis`` naming the source section,
+    the rates used, and what they cannot support. That makes "this change
+    protects a rerun" a check someone can execute rather than a claim.
+
+    The ex-post spend backstop is **reported, not applied**: ``spend_gate``
+    carries its verdict while ``would_mint`` stays the fan-out the earlier steps
+    decided, because a plan describes the pipeline rather than standing in for
+    it. The consequence is on stdout as well as stderr —
+    ``would_mint_cells_after_spend_gate``, ``spend_gate.would_empty_matrix``,
+    and ``estimated_spend_caveat`` — so a machine reader cannot take
+    ``would_mint`` for what a run would actually spend.
+
+    ``--approval-report`` writes the same plan a second time as bounded
+    markdown, for a hold gate to post where a maintainer decides on it. stdout
+    is byte-identical either way: the report is a third channel, not a mode.
+    """
+    settings = get_settings()
+    planned_run_id = run_id or ids.run_id()
+    fanout = _predict_fanout(
+        _requested_cases(body_file, court, docket, event),
+        planned_run_id,
+        stage="predict-plan",
+        stranded_file=stranded_file,
+        # A plan writes nothing: no close note, and no step-summary block.
+        note_file=None,
+        report=False,
+    )
+    gate = _predict_ledger_gate(
+        fanout.resolved, settings.config_root / "predictors.yaml", settings.data_root
+    )
+    verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
+    would_mint = [
+        {
+            "predictor_id": cell["predictor_id"],
+            "court": cell["court"],
+            "docket": cell["docket"],
+            "event_id": cell["event_id"],
+            # The resolved pair the cell would actually run on, not the registry
+            # default: what a cell costs is keyed on them, so a plan that priced
+            # the fan-out must name them.
+            "engine": cell["engine"],
+            "model": cell["model"],
+        }
+        for cell in fanout.capped.include
+    ]
+    plan: dict[str, Any] = {
+        "stage": "predict",
+        "run_id": planned_run_id,
+        # Split by grain: `provenance` counts cases and events, `cell_ledger`
+        # counts cells. Every key carries its own grain suffix as well, so a
+        # count read out of its block is still unambiguous.
+        "counts": {
+            "provenance": {
+                "requested_cases": len(fanout.requested),
+                "requested_listed_events": sum(len(c.events) for c in fanout.requested),
+                "dropped_out_of_scope_cases": len(fanout.scope_dropped),
+                "dropped_unforecastable_events": len(fanout.resolution.unforecastable),
+                "resolved_cases": len(fanout.resolved),
+                "resolved_events": sum(len(c.events) for c in fanout.resolved),
+                "cases_with_no_default_events": len(fanout.resolution.no_default_events),
+            },
+            "cell_ledger": {
+                # The opening balance, so the drops below reconcile: candidates
+                # - request_narrowed - already_predicted - withheld - deferred
+                # == would_mint.
+                "candidate_cells": gate.candidates,
+                "dropped_by_request_narrowing_cells": len(gate.request_narrowed),
+                "dropped_already_predicted_cells": len(gate.already_predicted),
+                "withheld_stranded_cells": len(fanout.guard.withheld),
+                "deferred_by_cap_cells": fanout.capped.dropped_cells,
+                "would_mint_cells": len(would_mint),
+                # What a real run would mint once the ex-post backstop is
+                # applied — zero under a breach. The plan reports the gate
+                # rather than applying it, so the two numbers differ there.
+                "would_mint_cells_after_spend_gate": (0 if verdict.breached else len(would_mint)),
+            },
+        },
+        "dropped_out_of_scope": [r.as_json() for r in fanout.scope_dropped],
+        "dropped_unforecastable": [r.as_json() for r in fanout.resolution.unforecastable],
+        "cases_with_no_default_events": [r.as_json() for r in fanout.resolution.no_default_events],
+        "dropped_by_request_narrowing": [r.as_json() for r in gate.request_narrowed],
+        "dropped_already_predicted": [r.as_json() for r in gate.already_predicted],
+        # A withheld count of zero means nothing on its own — see
+        # `_StrandedGuardReport`, which separates a clean guard from an absent
+        # one and from one that failed open.
+        "stranded_guard": fanout.guard.as_json(),
+        "withheld_stranded": [
+            {
+                "case_id": ids.case_id(cell.court, cell.docket),
+                "event_id": cell.event_id,
+                "actor_id": cell.predictor_id,
+                "run_db_id": cell.run_db_id,
+                "reason": f"its output already sits in uncollected run {cell.run_db_id}",
+            }
+            for cell in fanout.guard.withheld
+        ],
+        "deferred_by_cap": {
+            "cells": fanout.capped.dropped_cells,
+            "cases": list(fanout.capped.dropped_cases),
+            "max_cells": fanout.max_cells,
+        },
+        "spend_gate": _spend_verdict_json(verdict),
+        "would_mint": would_mint,
+        **_plan_spend(would_mint, seam="predict", breached=verdict.breached),
+    }
+    _echo_plan(
+        plan,
+        stage="predict-plan",
+        approval_report=approval_report,
+        run_url=approval_report_run_url,
+    )
+
+
+@app.command("evaluate-plan")
+def evaluate_plan_cmd(
+    body_file: Annotated[
+        Path | None,
+        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
+    ] = None,
+    court: Annotated[
+        str, typer.Option(help="Single-case court id (ignored with --body-file).")
+    ] = "",
+    docket: Annotated[
+        int | None, typer.Option(help="Single-case docket id (ignored with --body-file).")
+    ] = None,
+    event: Annotated[
+        list[str] | None,
+        typer.Option(help="Single-case event id(s); default: all resolved events."),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Plan as a deliberate re-grade (the `evaluate-matrix` flag)."),
+    ] = False,
+    run_id: Annotated[
+        str,
+        typer.Option(
+            help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
+            "carries it — a plan mints none — so it names the run only in the plan."
+        ),
+    ] = "",
+    approval_report: _ApprovalReportOption = None,
+    approval_report_run_url: _ApprovalReportRunUrlOption = "",
+) -> None:
+    """Report the evaluate cells a run would mint, step by step, spending nothing.
+
+    The dry run of ``evaluate-matrix``, through the same pipeline and its two
+    plan-time gates — an event with no committed prediction has nothing to
+    score, and a judge that already graded the event is not re-minted. Same
+    grain-split ``counts``, stdout/stderr split, and spend-gate reading as
+    ``predict-plan``: the backstop's verdict is reported, never applied.
+
+    Its ``estimated_spend_usd`` carries a weaker basis than predict's, and says
+    so: no evaluate fan-out has run since the pre-registration freeze, so the
+    rates are ``docs/budget.md``'s scaled assumption rather than a measurement.
+    ``spend_estimate_basis.caveats`` states it on every plan, and
+    ``--approval-report`` carries it into the rendered report's spend sentence.
+    """
+    settings = get_settings()
+    planned_run_id = run_id or ids.run_id()
+    fanout = _evaluate_fanout(
+        _requested_cases(body_file, court, docket, event),
+        planned_run_id,
+        stage="evaluate-plan",
+        force=force,
+        report=False,
+    )
+    verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
+    would_mint = [
+        {
+            "evaluator_id": cell["evaluator_id"],
+            "court": cell["court"],
+            "docket": cell["docket"],
+            "event_id": cell["event_id"],
+            # See predict-plan: the resolved pair the cell would run on.
+            "engine": cell["engine"],
+            "model": cell["model"],
+        }
+        for cell in fanout.matrix["include"]
+    ]
+    plan: dict[str, Any] = {
+        "stage": "evaluate",
+        "run_id": planned_run_id,
+        # Split by grain, as predict-plan's is; see there.
+        "counts": {
+            "provenance": {
+                "requested_cases": len(fanout.requested),
+                "requested_listed_events": sum(len(c.events) for c in fanout.requested),
+                "dropped_out_of_scope_cases": len(fanout.scope_dropped),
+                "resolved_cases": len(fanout.resolved),
+                "resolved_events": sum(len(c.events) for c in fanout.resolved),
+                "cases_with_no_default_events": len(fanout.resolution.no_default_events),
+            },
+            "cell_ledger": {
+                # The opening balance, so the drops below reconcile: candidates
+                # - predictionless - already_evaluated == would_mint.
+                "candidate_cells": fanout.candidates,
+                "dropped_predictionless_cells": len(fanout.predictionless),
+                "dropped_already_evaluated_cells": len(fanout.already_evaluated),
+                "would_mint_cells": len(would_mint),
+                "would_mint_cells_after_spend_gate": (0 if verdict.breached else len(would_mint)),
+            },
+        },
+        "dropped_out_of_scope": [r.as_json() for r in fanout.scope_dropped],
+        "cases_with_no_default_events": [r.as_json() for r in fanout.resolution.no_default_events],
+        "dropped_predictionless": [r.as_json() for r in fanout.predictionless],
+        "dropped_already_evaluated": [r.as_json() for r in fanout.already_evaluated],
+        "spend_gate": _spend_verdict_json(verdict),
+        "would_mint": would_mint,
+        **_plan_spend(would_mint, seam="evaluate", breached=verdict.breached),
+    }
+    _echo_plan(
+        plan,
+        stage="evaluate-plan",
+        approval_report=approval_report,
+        run_url=approval_report_run_url,
+    )
 
 
 @app.command("authorize-trigger")
@@ -6589,20 +8855,28 @@ def assert_paths_cmd(
 
 
 def _scan_listed_files(
-    files: list[Path] | None, secrets: list[str], *, entropy: bool, noun: str
+    files: list[Path] | None,
+    secrets: list[str],
+    *,
+    entropy: bool,
+    noun: str,
+    run_id: str | None = None,
 ) -> tuple[list[secretscan.Finding], bool]:
     """Scan caller-named files beside the change set; a missing one fails closed.
 
     The caller writes each file immediately before scanning, so absence is a
     misconfigured gate, never an empty surface. ``entropy`` passes through to
     the scanner — off for a transcript, whose format guarantees high-entropy
-    ids as ordinary content.
+    ids as ordinary content — and so does ``run_id``, which narrows the
+    entropy rule alone and is therefore inert wherever that rule is off.
     """
     findings: list[secretscan.Finding] = []
     misconfigured = False
     for path in files or []:
         if path.is_file():
-            findings.extend(secretscan.scan_file(path, str(path), secrets, entropy=entropy))
+            findings.extend(
+                secretscan.scan_file(path, str(path), secrets, entropy=entropy, run_id=run_id)
+            )
         else:
             misconfigured = True
             typer.echo(f"::error::secret-scan: {noun} {path} is missing", err=True)
@@ -6652,6 +8926,17 @@ def scan_diff_for_secrets_cmd(
     run_url: Annotated[
         str, typer.Option(help="Actions run URL, included in the issue comment.")
     ] = "",
+    run_id: Annotated[
+        str,
+        typer.Option(
+            help="The run being collected. Exempts that run's own ledger paths "
+            "(`predictions/<actor>/<run id>`, `evaluations/<actor>/<predictor>/"
+            "<run id>`) from the entropy heuristic only — a cell's logged shell "
+            "commands name its own output directory, which is neither secret nor "
+            "random but scores like one. Every other detector is unaffected, and "
+            "the trailing segment must equal this value exactly."
+        ),
+    ] = "",
 ) -> None:
     """Scan a change set's changed data/ files for secrets; exit non-zero on a hit.
 
@@ -6666,7 +8951,8 @@ def scan_diff_for_secrets_cmd(
     too short, a missing ``--extra-file`` or ``--transcript-file``) fails the
     same way rather than silently dropping a detector or a surface. A
     ``--transcript-file`` is scanned without the generic high-entropy
-    heuristic only — see the option's help for why that surface needs it.
+    heuristic only — see the option's help for why that surface needs it, and
+    ``--run-id`` for the one path shape that heuristic is told to skip.
     """
     misconfigured = False
     secrets: list[str] = []
@@ -6682,12 +8968,26 @@ def scan_diff_for_secrets_cmd(
                 err=True,
             )
     changes = parse_name_status(name_status_file.read_text())
-    findings = secretscan.scan_changes(changes, Path(), secrets)
+    own_run = run_id or None
+    # The run id is the single input that defines the exemption's shape, so a
+    # value that is not a run id (an interpolation gone wrong) is a scan
+    # misconfiguration, not a wider exemption.
+    if own_run is not None and not secretscan.is_run_id_shaped(own_run):
+        misconfigured = True
+        own_run = None
+        typer.echo(
+            "::error::secret-scan: --run-id is not a run id; "
+            "the own-run exemption cannot be applied",
+            err=True,
+        )
+    findings = secretscan.scan_changes(changes, Path(), secrets, run_id=own_run)
     for files, entropy, noun in (
         (extra_file, True, "extra file"),
         (transcript_file, False, "transcript file"),
     ):
-        listed_findings, missing = _scan_listed_files(files, secrets, entropy=entropy, noun=noun)
+        listed_findings, missing = _scan_listed_files(
+            files, secrets, entropy=entropy, noun=noun, run_id=own_run
+        )
         findings.extend(listed_findings)
         misconfigured = misconfigured or missing
     if findings:
@@ -6929,6 +9229,12 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
             if isinstance(c, CellStatus)
         ],
         "flags": plan.flags_markdown,
+        # The harness-side counterpart of `flags`: what this run's captured
+        # retrieval says the upstream quota did to it. It already rides the PR
+        # body, but it leaves the process here too, so the surface that echoes
+        # `flags` into the Actions summary can echo this beside it without
+        # re-reading a single artifact. Empty on a genuinely clean run.
+        "throttle": plan.throttle_markdown,
         "feedback_comment": plan.feedback_comment,
         "stalled": plan.stalled,
         "dead_actors": list(plan.dead_actors),
@@ -7017,6 +9323,68 @@ def _load_flag_sets(status_dir: Path, run_id: str) -> list[AgentFlags]:
     return flag_sets
 
 
+def _load_throttle(status_dir: Path, run_id: str) -> ThrottleRollup:
+    """Summarize this run's captured retrieval throttling from the cell artifacts.
+
+    The same walk shape as :func:`_load_flag_sets`, and for the same reason:
+    each cell uploads its whole ``data/`` subtree, so the run's
+    ``retrieval_log.json`` files land wherever the cell's own case path puts
+    them. The two filters are the same two as well — **run id**, because every
+    artifact also carries every *previously committed* log and an earlier run's
+    throttling is not this run's; and **identity**, keyed on the cell a log
+    describes, because a log committed by an earlier cell of this same run rides
+    along in later cells' artifacts and would otherwise be counted once per
+    cell.
+
+    The run-id filter runs twice, once in the glob and once on the parsed
+    record, and the pair is not redundant. Both roles key a cell's directory on
+    its run id, so the glob skips the whole committed history without opening
+    it — every log the ledger has ever carried rides in every artifact, so a
+    parse-everything walk would validate that history once per cell of the
+    fan-out. The record's own ``run_id`` is what the count is actually keyed
+    on, so the cheap path filter can never be the thing that decides.
+
+    Denominated by :func:`~fedcourtsai.schemas.observed_mcp_conditions` — the
+    same helper the log's own ``throttled_calls`` and the corpus rollup's
+    per-engine rate denominate by — so the three figures a maintainer may read
+    side by side mean one thing. A cell it leaves empty (capture-blind, or
+    calling no manifest tool) is counted as ``blind_cells`` rather than as a
+    clean cell, because it could not have shown a throttle and must not read as
+    evidence of none. A malformed or unreadable log lands there too rather than
+    being dropped: it is a cell of this run — its path carries the run id — whose
+    condition nothing can read, which is exactly what the counter means. It is
+    never fatal, because this is a notification and it must never take down the
+    aggregation that carries the run's only copy of its output.
+    """
+    seen: set[tuple[str, str, str, str]] = set()
+    rollup = ThrottleRollup()
+    for path in sorted(status_dir.glob(f"**/{run_id}/retrieval_log.json")):
+        try:
+            log = RetrievalLog.model_validate_json(path.read_text())
+        except (OSError, ValueError):
+            rollup = replace(rollup, blind_cells=rollup.blind_cells + 1)
+            continue
+        if log.run_id != run_id:
+            continue
+        identity = (log.case_id, log.actor_id, str(log.role), log.run_id)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        observed = observed_mcp_conditions(log.calls)
+        if not observed:
+            rollup = replace(rollup, blind_cells=rollup.blind_cells + 1)
+            continue
+        throttled = sum(1 for call in observed if call.result_status == "throttled")
+        rollup = replace(
+            rollup,
+            cells=rollup.cells + 1,
+            throttled_cells=rollup.throttled_cells + bool(throttled),
+            calls=rollup.calls + len(observed),
+            throttled_calls=rollup.throttled_calls + throttled,
+        )
+    return rollup
+
+
 @app.command("collect-plan")
 def collect_plan_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
@@ -7077,6 +9445,11 @@ def collect_plan_cmd(
         # leaves no status.json, so without this it is indistinguishable from a
         # cell that was never queued.
         expected=_expected_cells(matrix_file),
+        # Whether the shared upstream quota starved this run's retrieval. Read
+        # from the cells' harness-captured logs, not from what an agent said:
+        # the 429 evidence lives only in the result payload, which capture
+        # digests away, so the parse-time marker is the last place it is legible.
+        throttle=_load_throttle(status_dir, run_id),
     )
     typer.echo(
         json.dumps(_collect_plan_json(plan, role=role, run_id=run_id), separators=(",", ":"))

@@ -58,6 +58,7 @@ def project_row(
     *,
     cutoff: date | None,
     provenance: Literal["dated", "truncated", "blind"],
+    parse: str = cert_signals.DEFAULT_DISTRIBUTION_PARSE,
 ) -> AsOfRow:
     """Project ``base`` to what ``payload`` disclosed, as an :class:`AsOfRow`.
 
@@ -101,6 +102,16 @@ def project_row(
       the ``salience_*`` columns, the ``predict_*``/queue latches, tracking
       stamps, opinion linkage. The projected row therefore reads as an open,
       never-scored petition, which is what it was at the cutoff.
+
+    ``parse`` names the registered DISTRIBUTED reading
+    (:data:`~fedcourtsai.pipeline.cert_signals.DISTRIBUTION_PARSES`) the
+    ``distribution_count`` is derived under. A caller that goes on to band the
+    projected row passes the parse its scorer pins
+    (:attr:`~fedcourtsai.pipeline.salience.SalienceScorer.distribution_parse`),
+    or the band it reads back is one that scoring function was never fitted on.
+    :func:`asof_conference` takes no parse for the reason ingest's conference
+    key takes none: the cohort a petition is scored in is one value per case,
+    not one per registered parse.
     """
     observable = cert_signals.snapshot_carries_proceedings(payload)
     texts = [text for text, _ in cert_signals.proceedings_entries(payload)]
@@ -119,7 +130,7 @@ def project_row(
             originating_court_name=base.originating_court_name,
             originating_docket_number=base.originating_docket_number,
             sample_weight=base.sample_weight,
-            distribution_count=cert_signals.snapshot_distribution_count(payload),
+            distribution_count=cert_signals.snapshot_distribution_count(payload, parse=parse),
             cvsg_date=cert_signals.entry_date(cert_signals.snapshot_cvsg_date(payload)),
             response_requested=requested,
             referred_to_court=referred,
@@ -193,6 +204,11 @@ def replay_cutoff(payload: Mapping[str, Any], resolved_at: date) -> date | None:
     Reading entry dates rather than the conference dates they name is deliberate:
     the entry "DISTRIBUTED for Conference of March 7" is *filed* in late February,
     and February is when a forward cell would have run.
+
+    The moment reads ``DISTRIBUTED_RE`` unversioned on purpose: the cutoff is
+    the reconstruction *moment* and must be parse-invariant so cells stay
+    comparable across salience versions — only the projected *count*
+    (:func:`project_row`) follows a version's declared parse.
     """
     latest: date | None = None
     for text, raw in cert_signals.proceedings_entries(payload):
@@ -213,6 +229,10 @@ def policy_cutoff(
     — an undated docket under ``arrival``, a never-distributed petition under
     ``distribution-1``, or no pre-resolution distribution under ``resolution``
     — and the caller degrades to a blind projection rather than guessing.
+
+    Like :func:`replay_cutoff`, the ``distribution-1`` branch reads
+    ``DISTRIBUTED_RE`` unversioned on purpose: the moment is parse-invariant so
+    cells stay comparable across versions; only the count follows the parse.
     """
     if policy is CutoffPolicy.arrival:
         dates = [

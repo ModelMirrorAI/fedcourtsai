@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#
+# Refresh the short-lived AWS SSO session behind read-only corpus access —
+# the maintainer flow whose profiles .devcontainer/setup-corpus-access.sh
+# writes. Device code, because a codespace has no browser for the redirect
+# flow: the command prints a URL and a code to approve from any browser, then
+# completes on its own. A committed command rather than only a ~/.bashrc
+# function so it resolves in any shell — a coding agent's per-call shells and
+# `!`-prefixed session commands included, where .bashrc functions are not
+# inherited (the hook still installs `corpus-login` as a convenience name for
+# interactive terminals; it delegates here).
+set -euo pipefail
+
+aws_config="${AWS_CONFIG_FILE:-${HOME}/.aws/config}"
+if [[ ! -f "${aws_config}" ]] || ! grep -q '^\[sso-session modelmirror\]$' "${aws_config}"; then
+  echo "corpus-login: no 'modelmirror' SSO session in ${aws_config} — the SSO (maintainer)" \
+    "flow is not configured in this codespace. The contributor key-pair flow needs no login;" \
+    "see .devcontainer/setup-corpus-access.sh." >&2
+  exit 1
+fi
+
+exec aws sso login --sso-session modelmirror --use-device-code

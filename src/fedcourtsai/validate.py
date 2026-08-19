@@ -28,10 +28,13 @@ Two layers of checks:
   grades alike — answers the declaration its event carries, since both sides are
   read past silently rather than refused loudly; and
   every merits-stage event's scored (latest-per-predictor) prediction carries
-  its ``judgment`` — the stage-aware half of the merits prediction contract —
-  and no evaluation carries a ``vote_accuracy`` off a merits event, since an
+  its ``judgment`` — the stage-aware half of the merits prediction contract;
+  no evaluation carries a ``vote_accuracy`` off a merits event, since an
   individual cert vote is never scored and that field is the evaluator's own to
-  write.
+  write; one cell's current gradings record the same ``correct`` bit, that bit
+  being a function of two committed artifacts rather than a judgment; and no
+  outcome carries a ``judgment`` off a merits event, that field's presence being
+  what routes the accuracy comparison onto the merits axis.
 
 The verdict is a pure function of its inputs (corpus, ledger, baseline,
 tracked courts, as-of date), with no clock or network, so it is deterministic and
@@ -55,7 +58,9 @@ import yaml
 from pydantic import ValidationError
 
 from . import corpus
-from .integrity import cell_clock
+from .integrity import cell_clock, latest_evaluation_runs
+from .paths import CasePaths
+from .pipeline import moments
 from .pipeline.claims import claim_block_problems
 from .pipeline.interim_signals import ApplicationKind
 from .pipeline.semantic import semantic_claim_problems, semantic_grade_problems
@@ -71,6 +76,7 @@ from .schemas import (
     LedgerValidation,
     PredictableEvent,
     Prediction,
+    PredictionContext,
     ScopeDocketShape,
     ScopeExclusion,
     ScopeUnclassified,
@@ -101,7 +107,16 @@ CHECK_DOMAIN_VALUES = "domain_values_valid"
 CHECK_NO_DUPLICATES = "no_duplicate_cases_or_events"
 CHECK_LEDGER_REFERENCES = "ledger_references_exist"
 CHECK_LEDGER_EVENTS_IN_GIT = "ledger_events_exist_in_git"
+# The corpus→ledger direction of the same referential rule
+# `CHECK_LEDGER_REFERENCES` runs the other way: a minted forecast moment owes
+# both halves at its mint, so its corpus row must carry the committed
+# `event.yaml` that defines it. Stage baselines are outside the rule — their
+# ledger half is written at first touch or at resolution, not at discovery.
+CHECK_CORPUS_EVENTS_IN_LEDGER = "minted_moments_defined_in_ledger"
 CHECK_EVALUATION_TARGETS = "evaluation_targets_prediction"
+# The id is the durable name of the whole basis-pairing rule (both the
+# risk-set and the terminal half), kept stable across reports even though it
+# reads as the risk-set half alone.
 CHECK_BASE_RATE_VERSION = "base_rate_basis_carries_version"
 CHECK_PREDICTION_DOCS = "prediction_docs_exist"
 CHECK_PREDICTION_CLAIMS = "prediction_claims_scoreable"
@@ -109,6 +124,11 @@ CHECK_PREDICTION_SEMANTIC = "prediction_semantic_claims_conform"
 CHECK_EVALUATION_SEMANTIC = "evaluation_semantic_grades_gradeable"
 CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
 CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
+# `correct` is a function of two committed artifacts, so one cell's current
+# gradings must record the same bit whichever evaluator wrote them.
+CHECK_CORRECT_AGREES = "evaluation_correct_agrees"
+# Only a merits outcome has a judgment to record, and the field routes `correct`.
+CHECK_JUDGMENT_ONLY_MERITS = "judgment_only_on_merits_outcomes"
 CHECK_STALE_UNPARSED_GRANTS = "no_stale_unparsed_grants"
 
 # The staleness bound lives in `corpus` (`STALE_GRANT_DAYS`, with the
@@ -600,6 +620,63 @@ def check_ledger_references(conn: sqlite3.Connection, data_root: Path) -> Corpus
     return _check(CHECK_LEDGER_REFERENCES, problems, checked=checked)
 
 
+def check_corpus_events_in_ledger(conn: sqlite3.Connection, data_root: Path) -> CorpusCheck:
+    """Every minted forecast moment in the corpus must carry its ledger definition.
+
+    :func:`check_ledger_references` runs ledger→corpus: no judgment about an
+    event the raw-fact store does not know. This is the same rule the other
+    way. A declared **minted** moment
+    (:func:`fedcourtsai.pipeline.moments.minted_moment_ids`) exists only because
+    a mint seam wrote it, and that seam writes the corpus row and the ledger
+    ``event.yaml`` together
+    (:func:`fedcourtsai.pipeline.outcome.persist_moment_events`) — so a corpus
+    row with no committed definition is a half-landed mint.
+
+    Why that matters, given that ``materialize-event`` would project the row
+    into the ledger at a cell's first touch anyway. Two reasons, and neither is
+    the cell: **git is the pre-registration record**, so a moment must be
+    declared there when it is *minted* — the day it became forecastable — not
+    at whatever later touch happens to occur, or that date is recoverable only
+    from the corpus blob. And a moment that never earns a cell never gets that
+    touch: provisioning can refuse, and the materialization is skipped with it,
+    so a corpus-only mint can go undefined until resolution, if it resolves at
+    all. The offline gate's :func:`check_ledger_events_in_git` is no substitute
+    either — it only notices once an artifact lands under the empty directory.
+
+    A stage's case-level baseline is deliberately **not** in the population:
+    the ingest projection derives it from a docket's own shape, so the corpus
+    holds one for every case it has ever seen, and its ledger half is owed at
+    first touch or at resolution rather than at discovery. Requiring a file
+    there would fail on the whole corpus rather than on a defect.
+
+    Scoped to SCOTUS, the only court whose stages declare moments at all. The
+    scan is unindexed on ``court``, which is affordable because
+    ``validate-corpus`` runs only where the corpus has been *pulled* — never
+    against the ranged backend, whose per-query egress this would dominate.
+    """
+    minted_ids = moments.minted_moment_ids()
+    problems: list[str] = []
+    checked = 0
+    for record in conn.execute(
+        "SELECT case_id, event_id FROM events WHERE court = 'scotus' ORDER BY case_id, event_id"
+    ):
+        case_id, event_id = str(record["case_id"]), str(record["event_id"])
+        if event_id not in minted_ids:
+            continue
+        court_id, _, docket = case_id.partition("/")
+        if not docket.isdigit():
+            # No numeric docket id, so the row addresses no ledger path at all —
+            # a different defect (a malformed case id), and not this one's.
+            continue
+        checked += 1
+        if not CasePaths(data_root, court_id, int(docket)).event(event_id).event_file.is_file():
+            problems.append(
+                f"event ({case_id!r}, {event_id!r}) is minted in the corpus "
+                "with no event.yaml in the ledger"
+            )
+    return _check(CHECK_CORPUS_EVENTS_IN_LEDGER, problems, checked=checked)
+
+
 def check_evaluation_targets(data_root: Path) -> CorpusCheck:
     """Every evaluation must score a predictor that produced a prediction for the event.
 
@@ -632,30 +709,51 @@ def check_evaluation_targets(data_root: Path) -> CorpusCheck:
 
 
 def check_base_rate_version(data_root: Path) -> CorpusCheck:
-    """A ``risk_set`` base-rate basis must sit beside a non-null salience version.
+    """A recorded base-rate basis must agree with the scored prediction's record.
 
-    The two fields are one record: ``base_rate_basis`` says which population the
-    segment base rate was read over, and ``base_rate_salience_version`` says
-    under which salience version that population was banded — a skill score is
-    only comparable to another taken under the same pair (``metrics/README.md``).
-    On the ``terminal`` path the version is the live scorer's and always
-    resolves; on the ``risk_set`` path it is the scored prediction's frozen
-    ``context.salience_version``, so a null there means the join found no
-    prediction, no frozen context, or no version in it — the rate was taken off
-    a risk-set table nothing pins down.
+    The basis and its version are one record: ``base_rate_basis`` says which
+    population the segment base rate was read over, and
+    ``base_rate_salience_version`` says under which salience version that
+    population was banded — a skill score is only comparable to another taken
+    under the same pair (``metrics/README.md``). Two shapes contradict that
+    record, and both fail here as they do at the stamp — the stamp is a run-log
+    error, this check is what keeps the cell out of a merged ledger:
 
-    Only that pairing is in scope, so a record that took no segment base rate
-    (both halves null) and one whose ``terminal`` version is not yet stamped
-    still pass: the terminal version always resolves from the live scorer, so a
-    gap there is an unstamped cell rather than an unanswerable one.
+    - a ``risk_set`` basis beside a null version. On the ``risk_set`` path the
+      version is the scored prediction's frozen ``context.salience_version``,
+      so the null means the join found no prediction, no frozen context, or no
+      version in it — the rate was taken off a risk-set table nothing pins
+      down.
+    - a ``terminal`` basis on a **cert** cell while the scored prediction —
+      the predictor's latest for the event, the same join every scoring
+      surface uses — froze a band at all. ``terminal`` is the fallback for a
+      prediction that froze no band, so against a frozen band it prices the
+      cell off the wrong population; where the band's version also resolves
+      the record looks well-formed while doing so. Cert-only because the
+      frozen-band pairing is a cert-petition concept while the frozen context
+      is stamped per case, so on any other stage a case-level band must not
+      reach this rule — the same narrowing the stamp's guard applies.
 
-    The remedy is a corrected evaluation (the terminal basis is the documented
-    fallback where no frozen context exists, and omitting the rate is always
-    open), never rewriting the recorded basis to ``terminal`` after the fact:
-    that would stamp the live scorer's version onto a number read over the
-    risk-set population, making the version half truthful-looking over the wrong
-    population — a worse record than the null, because nothing downstream could
-    tell the two apart.
+    A record that took no segment base rate (both halves null) and a
+    ``terminal`` record whose version is not yet stamped still pass. The
+    terminal-version gap is a weaker guarantee than it looks: a never-stamped
+    ``terminal`` cell was banded under whatever scorer was live when it ran,
+    which need not be today's, so its version is genuinely unknown — only a
+    stamp contemporaneous with the evaluation, which the workflow makes it,
+    records the right one, and a later re-stamp overwrites it with the live
+    version rather than leaving the gap. Tolerated here because the stamp, not
+    the ledger, is where that answer exists. The terminal-basis rule inherits
+    the same caveat from the other side: its join reads the predictor's latest
+    prediction *now*, so a prediction landing after the evaluation would
+    retro-judge a record that was correct when written — accepted because a
+    resolved event takes no further predictions, which is what keeps the join
+    stable once an evaluation exists.
+
+    The remedy is a corrected evaluation whose rate, basis, and version come
+    off one population together (omitting the rate is always open), never a
+    relabel of the recorded basis under the number as written: that would pair
+    one population's version with a rate read over the other's table — a worse
+    record than the null, because nothing downstream could tell the two apart.
     """
     problems: list[str] = []
     checked = 0
@@ -666,15 +764,71 @@ def check_base_rate_version(data_root: Path) -> CorpusCheck:
             continue
         if not isinstance(data, dict):
             continue
-        if data.get("base_rate_basis") != "risk_set":
-            continue
-        checked += 1
-        if data.get("base_rate_salience_version") is None:
-            problems.append(
-                f"evaluation {path}: base_rate_basis 'risk_set' with a null "
-                + "base_rate_salience_version"
-            )
+        basis = data.get("base_rate_basis")
+        if basis == "risk_set":
+            checked += 1
+            if data.get("base_rate_salience_version") is None:
+                problems.append(
+                    f"evaluation {path}: base_rate_basis 'risk_set' with a null "
+                    + "base_rate_salience_version"
+                )
+        elif basis == "terminal":
+            checked += 1
+            # `==`, never `is`: the models carry `use_enum_values`, so the
+            # stage comes back as the enum's value.
+            if _evaluation_event_stage(path) != Stage.cert:
+                continue
+            context = _scored_prediction_context(path, data.get("predictor_id"))
+            if context is not None and context.band is not None:
+                problems.append(
+                    f"evaluation {path}: base_rate_basis 'terminal' while the scored "
+                    + f"prediction froze band {context.band!r} — the fallback taken "
+                    + "where a risk-set pairing was available"
+                )
     return _check(CHECK_BASE_RATE_VERSION, problems, checked=checked)
+
+
+def _evaluation_event_stage(evaluation_path: Path) -> Stage | None:
+    """The declared stage of the event one evaluation file sits under.
+
+    Tolerant like the rest of this check's inputs: ``None`` where the event
+    file is missing or does not parse — that is another check's problem, and a
+    rule keyed on the stage must not fire off a record it cannot read.
+    """
+    event_file = evaluation_path.parents[4] / "event.yaml"
+    try:
+        return PredictableEvent.model_validate(yaml.safe_load(event_file.read_text())).stage
+    except (OSError, ValueError, ValidationError):
+        return None
+
+
+def _scored_prediction_context(
+    evaluation_path: Path, predictor_id: object
+) -> PredictionContext | None:
+    """The frozen context of the scored prediction for one evaluation file.
+
+    The scored prediction is the evaluation's predictor's **latest** for the
+    event by :func:`fedcourtsai.integrity.cell_clock` — the same join every
+    scoring surface uses. ``predictor_id`` is the evaluation record's own
+    field, never the directory name, because the stamp and every scoring
+    surface join on the field and an un-aliasing that moved the directory but
+    not the field (or vice versa) must not make the two enforcers of one rule
+    score different predictions. ``None`` where the field is not a string, no
+    prediction parses, or the latest carries no context; a file that fails to
+    parse is another check's problem, never reported as a join miss here.
+    """
+    if not isinstance(predictor_id, str) or not predictor_id:
+        return None
+    event_dir = evaluation_path.parents[4]
+    predictions = []
+    for path in sorted(event_dir.glob(f"predictions/{predictor_id}/*/prediction.json")):
+        try:
+            predictions.append(Prediction.model_validate_json(path.read_text()))
+        except (OSError, ValidationError):
+            continue
+    if not predictions:
+        return None
+    return max(predictions, key=cell_clock).context
 
 
 def check_prediction_docs(data_root: Path) -> CorpusCheck:
@@ -933,6 +1087,148 @@ def check_scored_votes(data_root: Path) -> CorpusCheck:
     return _check(CHECK_SCORED_VOTES, problems, checked=checked)
 
 
+def check_evaluation_correct_agrees(data_root: Path) -> CorpusCheck:
+    """One cell's current gradings must record the same ``correct`` bit.
+
+    ``correct`` is not a judgment: ``stamp-cell --role evaluator`` computes it
+    through :func:`fedcourtsai.pipeline.evaluate.is_correct` from the
+    predictor's latest committed prediction and the committed outcome. Both
+    inputs are properties of the cell — the ``(case_id, event_id,
+    predictor_id)`` triple — and neither depends on *who* judged it, so two
+    graders reading one cell cannot land on different bits *from the same
+    committed pair*. A disagreement means the group's stamps did not read one
+    pair: an evaluator's own bit that predates correct-stamping (or a
+    hand-edit) surviving, or two graders' stamps straddling a re-prediction so
+    each read a different "latest" prediction. Either way the accuracy column
+    — the surface that averages this bit — would fold two answers to two
+    different questions into one mean, and the remedy is the same: re-stamp
+    the event's evaluations so every current grading reads the current pair.
+
+    **Across runs it is not a defect, so the rule does not reach there.** The
+    bit is computed against the predictor's latest prediction *as at stamp
+    time*, so a re-predicted cell's older evaluation records what was true when
+    it ran — history, exactly as an earlier judgment-less prediction is history
+    to :func:`check_merits_predictions`. Nothing aggregates it either: every
+    surface collapses re-runs of one grader on one cell first, newest winning.
+    So this check collapses the same way, through
+    :func:`fedcourtsai.integrity.latest_evaluation_runs`, **before** grouping —
+    the rule then holds across evaluators over precisely the records the
+    leaderboard reads, and a superseded stamp can neither fire it nor be
+    repaired by a gate that has no bulk re-stamp to offer.
+
+    Only **stamped** survivors take part (``process_version`` non-null): an
+    unstamped cell's ``correct`` is whatever it was written with, so its
+    disagreement with a stamped sibling is the signal the stamp displaces
+    rather than a defect to refuse. A null ``correct`` — the value the stamp
+    writes where a committed artifact is missing — carries no claim to
+    contradict, so it is excluded too. ``checked`` counts the **groups** with
+    at least one participating record, since the group is the unit the rule
+    holds over; only a group holding two or more can contribute a problem. A
+    file that does not parse is ``validate_ledger``'s concern (schema law) and
+    is skipped.
+
+    The ``(case_id, event_id, predictor_id)`` key is read from the record's own
+    fields, never the path, for the reason
+    :func:`_scored_prediction_context` gives: the stamp joins on the fields, so
+    an un-aliasing that moved a directory but not a field must not let this
+    check group cells the stamp kept apart.
+    """
+    records: list[tuple[Evaluation, Path]] = []
+    for path in _ledger_files(data_root, "*/*/events/*/evaluations/*/*/*/evaluation.json"):
+        # Parsed through the model so `process_version` resolves to its declared
+        # default on a record that omits it rather than reading as unparseable.
+        try:
+            evaluation = Evaluation.model_validate(json.loads(path.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        records.append((evaluation, path))
+    groups: dict[tuple[str, str, str], list[tuple[int, Path]]] = {}
+    for evaluation, path in latest_evaluation_runs(records, lambda record: record[0]):
+        if evaluation.process_version is None or evaluation.correct is None:
+            continue
+        key = (evaluation.case_id, evaluation.event_id, evaluation.predictor_id)
+        groups.setdefault(key, []).append((evaluation.correct, path))
+    problems: list[str] = []
+    for (case_id, event_id, predictor_id), graded in sorted(groups.items()):
+        if len({correct for correct, _ in graded}) < 2:
+            continue
+        recorded = ", ".join(
+            f"{correct} at {path}" for correct, path in sorted(graded, key=lambda r: r[1])
+        )
+        problems.append(
+            f"cell ({case_id!r}, {event_id!r}, {predictor_id!r}): its evaluators' current "
+            f"gradings record disagreeing `correct` values — {recorded}"
+        )
+    return _check(CHECK_CORRECT_AGREES, problems, checked=len(groups))
+
+
+def check_judgment_only_on_merits_outcomes(data_root: Path) -> CorpusCheck:
+    """No committed outcome may carry a ``judgment`` off a merits event.
+
+    ``Outcome.judgment`` is the merits axis, and its presence is what routes
+    the accuracy comparison: :func:`fedcourtsai.pipeline.evaluate.is_correct`
+    takes the judgment comparison wherever the field is non-null and the
+    disposition comparison otherwise. That routing is **stage-blind**, so the
+    population at risk is every event that is not merits-stage — a judgment
+    there does not merely record a field the stage has no use for, it silently
+    moves the cell onto the merits axis, where the predictor was never asked
+    for a ``judgment`` and the cell is scored against a question it never
+    received.
+    Stage-less events are inside the rule for the same reason: the router does
+    not read the stage, so a missing stamp cannot excuse the misrouting.
+
+    Refusing this cannot cost a legitimate outcome, because the merits outcome
+    builder is the only writer of the field: "carries a judgment => merits-stage
+    event" is the pipeline's own invariant, and the check holds it on the
+    artifact. The schema states it in ``Outcome.judgment``'s own description
+    but cannot enforce it — an ``outcome.json`` does not carry its event's
+    stage — so the rule needs the committed ``event.yaml`` and lives here, the
+    same shape as :func:`check_scored_votes`.
+
+    ``checked`` counts the non-merits events carrying an ``outcome.json``. The
+    sibling test comes before the parse for the reason
+    :func:`check_merits_predictions` gives: an event with no outcome is outside
+    the rule, and ``validate data`` runs once per cell in both fan-outs. An
+    ``event.yaml`` that does not parse is ``validate_ledger``'s concern (schema
+    law) and is skipped.
+    """
+    problems: list[str] = []
+    checked = 0
+    for event_file in _ledger_files(data_root, "*/*/events/*/event.yaml"):
+        outcome_file = event_file.parent / "outcome.json"
+        if not outcome_file.is_file():
+            continue
+        try:
+            event = PredictableEvent.model_validate(yaml.safe_load(event_file.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        # `==`, never `is`: the models carry `use_enum_values`, so the stage
+        # comes back as the enum's value.
+        if event.stage == Stage.merits:
+            continue
+        checked += 1
+        # Read raw rather than through `Outcome`, and deliberately unlike the
+        # sibling checks: any non-null value misroutes `is_correct` whatever it
+        # is, so a judgment outside the vocabulary must fire here rather than
+        # be skipped as a model-parse failure. The enclosing file being
+        # malformed JSON is still `validate_ledger`'s concern.
+        try:
+            data = json.loads(outcome_file.read_text())
+        except (OSError, ValueError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        judgment = data.get("judgment")
+        if judgment is not None:
+            problems.append(
+                f"outcome {outcome_file}: carries judgment {judgment!r} on "
+                f"{event.stage or 'stage-less'}-stage event {event.event_id!r} — "
+                "the field is the merits axis, and its presence routes the accuracy "
+                "comparison off the disposition this cell forecast"
+            )
+    return _check(CHECK_JUDGMENT_ONLY_MERITS, problems, checked=checked)
+
+
 # --- referential integrity (git-only subset, for the PR gate) ------------------
 
 
@@ -994,8 +1290,9 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
     the salience version it was banded under, every prose document a prediction
     names is there, every committed claims block is one the claim scorer will not
     void, every committed semantic block on either side answers the declaration
-    it was asked for, and every merits-stage event's scored prediction carries
-    its judgment.
+    it was asked for, every merits-stage event's scored prediction carries
+    its judgment, one cell's current gradings record the same ``correct`` bit,
+    and no outcome carries a judgment off a merits event.
     The corpus-dependent referential checks (which need
     the corpus blob) stay on the schedule — the gate is deliberately offline.
     """
@@ -1009,6 +1306,8 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
         check_evaluation_semantic_grades(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
+        check_evaluation_correct_agrees(data_root),
+        check_judgment_only_on_merits_outcomes(data_root),
     ]
 
 
@@ -1034,6 +1333,9 @@ def _run_checks(
         check_domain_values(conn, tracked_courts),
         check_no_duplicates(conn),
         check_ledger_references(conn, data_root),
+        # Corpus-dependent, so it stays off `run_ledger_referential_checks` —
+        # that gate is deliberately offline and has no corpus to read.
+        check_corpus_events_in_ledger(conn, data_root),
         check_evaluation_targets(data_root),
         check_base_rate_version(data_root),
         check_prediction_docs(data_root),
@@ -1042,6 +1344,8 @@ def _run_checks(
         check_evaluation_semantic_grades(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
+        check_evaluation_correct_agrees(data_root),
+        check_judgment_only_on_merits_outcomes(data_root),
     ]
     return CorpusValidation(
         ok=all(c.passed for c in checks),

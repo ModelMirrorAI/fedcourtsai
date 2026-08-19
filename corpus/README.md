@@ -270,7 +270,7 @@ this table stays empty; with the split mode off they live inline:
 ```bash
 export CORPUS_REMOTE_URL="<your bucket url>"   # out of band, see SECURITY.md
 fedcourts corpus-pull    # fetch corpus.db from the remote (checksum-verified)
-fedcourts corpus-info    # show the location and row count
+fedcourts corpus-info    # show the location, row count, and how fresh the blob is
 ```
 
 Without remote access, build a tiny **synthetic** corpus instead — a handful of
@@ -281,6 +281,16 @@ work offline. It is deterministic and never a substitute for the real corpus:
 ```bash
 fedcourts make-fixture-corpus    # writes the synthetic corpus to corpus/corpus.db
 ```
+
+Between those two there is a third corpus, which nobody builds locally: the
+**staging pair** — a lean slice of real cases copied into its own private
+bucket/prefix pair by `fedcourts corpus-seed-slice`, from the dispatch-only
+`staging-corpus-refresh` workflow that alone holds the credential to write it.
+It carries the same two-store shape and the same access terms as production,
+and exists so orchestration and the read/write seams can be exercised against
+real content without anything gaining write access to the corpus described
+here. Provisioning and operating it: *The staging corpus (provisioning
+runbook)* in [docs/security.md](../docs/security.md).
 
 ## Precedent retrieval
 

@@ -349,7 +349,14 @@ the out-of-band remote URL; writers never use this seam. Each ranged connection
 reports its `GET`s and bytes fetched to stderr — the per-query egress evidence
 retrieval logging and the integration check consume — and the transport is one
 callable `(key, byte range) -> bytes` (boto3-against-S3; offline tests
-substitute an in-memory stand-in). Credit: michalc/sqlite-s3-query and
+substitute an in-memory stand-in) — and that callable is the one place remote
+flakiness is absorbed: a *transient* fault (a 5xx, a throttle, a dropped
+connection) is retried a bounded number of times on a short jittered backoff,
+each retry announced on stderr as a `::warning::` naming the key and range so
+the flake rate is countable from a run log, while a *permanent* one (a 403
+from a role that cannot read the remote, a 404 from a drifted pointer) fails
+immediately and loudly rather than being smeared over a retry budget.
+Credit: michalc/sqlite-s3-query and
 litements/s3sqlite (both MIT) are the reference implementations; this is
 in-repo so it is typed, tested, and reviewed under the same gate.
 
@@ -413,8 +420,18 @@ its filed-document text, and the event — from the **content store**
 (`--corpus-backend casestore`, the default under the corpus-split mode, so the
 whole forward fleet reads one store without per-command flags; an explicit
 `--corpus-backend` still wins), proven byte-identical across backends by a
-parity gate (`tests/test_provision_casestore.py`). The `casestore` backend has
-no query surface, so `query` / `stats` / `open-events` / scope reconcile read
+parity gate (`tests/test_provision_casestore.py`).
+
+*Which* point in time the record is sourced at is the cell's declared moment,
+not the corpus's newest read: where a forward cell names an event that declares
+a moment, `provision-snapshot` places it at the day after that event opened,
+cutting the snapshot's proceedings and the documents there, and records the
+instant as `context.cutoff`. The terminal-refusal gates below run on the latest
+payload first, before any cut — a disposition filed after the cutoff is exactly
+what a cut would otherwise hide. See [cli.md](cli.md) for the flag, the two
+provenances, and the moments the cut does not apply to.
+
+The `casestore` backend has no query surface, so `query` / `stats` / `open-events` / scope reconcile read
 the index — locally pulled or ranged in place — and `cert-backtest` replay
 reads its redacted snapshots from the store through the payload read source.
 `query --full` is the one reader that needs a payload the index does not hold:
@@ -511,21 +528,32 @@ is the merits cell's own record. On the merits event the test is therefore a
 parsed merits judgment (and, record-side, the latched judgment); on every
 other event it is any entry reading terminal, any entry carrying a
 machine-readable disposition order, or — on an application docket — a legible
-interim disposal. The predict matrix applies the same openness question one
-seam earlier (`predict-matrix` drops a listed event the corpus records
-resolved, wherever the scope gate consults the corpus at all — under
-`predict.scope: all` neither does), so a stale trigger issue sheds its closed
-events at plan time instead of minting cells this guard then refuses one by
-one. A refusal
+interim disposal. The predict matrix applies the same forecastability
+questions one seam earlier (`predict-matrix` drops a listed event the corpus
+records resolved, and any listed merits moment whose row fails the selection
+predicate's row arms — latched judgment or termination, a grant that no
+longer opens a merits proceeding, a stale unparsed grant — wherever the scope
+gate consults the corpus at all; under `predict.scope: all` neither does), so
+a stale trigger issue sheds its dead events at plan time instead of minting
+cells. For the resolved, latched-judgment, and terminated classes this guard
+then re-refuses whatever slips through one by one; for the gvr-re-resolved
+and stale-grant classes the plan seam is the **only** guard — the forward
+record gate does not read those columns — which is why the re-check exists. A refusal
 (exit 3) is a legitimate outcome, not an error — and it **short-circuits the
 cell**: the workflow withholds the agent token, the retrieval config, the
 engine steps, and the event materialization, so a refused forward cell
 produces nothing rather than a context-less prediction claiming a mode it
 never had. The cell's status records `produced=false` and the collect census
-warns per cell. Only the other non-zero provisioning exit — no snapshot in
-the corpus at all — keeps the best-effort shape: that cell runs snapshot-less,
-notes the gap in `flags.json`, and predicts from priors and base rates only
-per the prompt contract.
+warns per cell. The other non-zero provisioning exit — no snapshot in the
+corpus at all — short-circuits the predict cell the same way, as does a
+provisioning write that did not land complete (`assert-cell-record`, which
+reads the record off disk rather than trusting the exit code): the provisioned
+snapshot is every predictor's guaranteed-common input, so a cell that ran
+without one would predict from priors and base rates alone while its output
+claimed the shared baseline, and nothing downstream could separate the two.
+An evaluate cell, whose provisioning carries no forward gate, keeps the
+best-effort shape: it runs and records the gap under its prompt's headless
+rule.
 
 One trust boundary to keep in view: `record/context.json` is written by
 provisioning but *lives in the agent's workspace* for the run, so the post-run
@@ -558,6 +586,32 @@ pair, provisioned on demand (see [security.md](security.md)). The hook exports
 the remote URL as `CORPUS_REMOTE_URL`, exactly the env contract the workflows
 use; absent secrets it prints a note and succeeds — the offline fixture loop
 and the full gate need no remote.
+
+The **staging pair** (the lean real-slice corpus of
+[security.md](security.md)'s staging-corpus runbook) is served by the same
+read-only role — the maintainer's role-assumed flow; the contributor IAM
+user stays scoped to production — and its URLs arrive as two more user-scoped
+secrets, `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`: the same
+names the `staging` Actions environment carries for the refresh lane,
+deliberately, since they hold the same URLs in a different config store.
+`scripts/corpus-env` (invoked from the repo root) switches the whole env
+contract between the pairs — both accepted spellings of the remote and
+casestore URLs plus `FEDCOURTS_CORPUS_SPLIT`, together, because the
+`FEDCOURTS_`-prefixed aliases outrank the bare names and a hand-rolled export
+of one spelling half-switches: `scripts/corpus-env staging <command>` runs
+one command against staging (the form that works from any shell, a coding
+agent's per-call shells included), while `eval "$(scripts/corpus-env
+staging)"` flips an interactive shell and `eval "$(scripts/corpus-env prod)"`
+flips it back. What the switch reaches today is the **content-store half**:
+casestore-path reads of a seeded case's snapshots, events, and documents. The
+**index half is not readable yet** — every consumer resolves the committed
+`corpus/corpus.db.ref`, whose digest names the production blob, so a ranged
+query or `corpus-pull` in a staging-flipped shell asks the staging bucket for
+a key it does not hold and fails as a missing key; the pointer wiring that
+unblocks the integration scenarios (*The outstanding wiring* in
+[security.md](security.md)) is the same wiring that unblocks this. The split
+flag rides along because the slice is payload-free by construction: without
+it, payload reads bypass the casestore and find nothing, silently.
 
 ### Corpus schema
 
@@ -646,7 +700,11 @@ or network.
   corpus.
 - **Maintenance sweeps:** after the loop, one window a day also runs seven
   converging sweeps in order — `fedcourts dedupe-live-rows --apply` (merging
-  live-minted duplicate rows), `fedcourts reconcile-scope --apply` (the
+  live-minted duplicate rows; a minted moment's committed event directory moves
+  onto the survivor with its re-keyed row, so the lane must stage the moved
+  `data/` paths in the same pointer commit — an uncommitted ledger half strands
+  the directory under an id the corpus no longer carries, and no later pass
+  re-detects it), `fedcourts reconcile-scope --apply` (the
   predict-scope latch sweep), `fedcourts relabel-application-events --apply`
   (application baselines to their motion/interim identity), `fedcourts
   backfill-merits-judgments --apply` (the judgment a merits-bound grant
@@ -801,7 +859,11 @@ give the data **invariants** worth asserting on their own, distinct from
 - **Referential integrity** — every judgment references an event and case that
   exist in the corpus, every evaluation targets a real prediction, and every
   prose document a prediction names exists beside it (so a pointer to a document
-  the cell never wrote fails rather than passing as a valid record).
+  the cell never wrote fails rather than passing as a valid record). The rule
+  runs both ways: the corpus→ledger direction requires every **minted** moment
+  in the corpus to carry the `event.yaml` that defines it, so a moment is
+  declared in git on the day it became forecastable rather than whenever a
+  cell or a resolution next touches it.
 - **Record completeness** — a row that should have resolved by now has. A cert
   grant that opens a merits proceeding and is more than two Terms old, carrying
   neither a parsed judgment nor a recorded termination, is a decided docket the
@@ -826,7 +888,36 @@ deterministic outcome writer is the asymmetry: it materializes the definition
 beside every `outcome.json` it writes on its own writer lane, refusing to
 write an outcome whose event the corpus does not hold — so the committed
 definition converges at resolution even where cells left it at its
-first-touch shape. An event definition also names its **stage** — the
+first-touch shape.
+
+Which events that first-touch schedule governs is the **mint invariant**, and
+it splits the event population in two. A stage's **case-level baseline** — the
+cert petition's `evt-petition-disposition`, the interim application's
+`evt-motion-disposition` — is derived from a docket's mere existence by the
+ingest projection, so its corpus row lands at discovery and its ledger half
+arrives later, at first touch or at resolution, exactly as above. Every other
+declared moment (`pipeline.moments.minted_moment_ids`) is **minted**: it exists
+only because a mint seam decided it does, and a mint owes both halves at once,
+through `outcome.persist_moment_events` and never a bare corpus upsert. The one
+writer that *moves* an existing minted row rather than creating one is the
+dedupe merge's re-key onto a surviving twin, and it carries the row's committed
+event directory across with it — restamping the case id inside — so the pair
+stays whole through the move. So a
+baseline row with no ledger file is the ordinary state of the corpus, while a
+minted row with no ledger file is a defect.
+
+The defect is not that the moment would go undefined forever — `materialize-event`
+would project the corpus row at a cell's first touch just as it does for a
+baseline. It is that **git is the pre-registration record**: a minted moment is
+a decision that this case became forecastable on this day, so it belongs in the
+committed tree at the mint, not at whatever later touch happens to occur — and
+a moment that never earns a cell never gets that touch at all, since a refused
+cell skips the materialization with it. `validate-corpus`'s corpus→ledger
+check (`minted_moments_defined_in_ledger`) draws exactly that line; it needs
+the corpus, so it runs on the scheduled verdict rather than in the offline PR
+gate that `validate` carries.
+
+An event definition also names its **stage** — the
 decision standard that governs it (cert, interim, or merits) — carried from
 the corpus row into `event.yaml` at that first materialization, so a cell and
 its consumers read the standard from the record rather than inferring it from

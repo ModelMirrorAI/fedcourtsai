@@ -6,7 +6,7 @@ shared by every consumer that needs it — the live channel's ingest-time
 resolution (:mod:`.ingest`), the historical loader (:mod:`.historical`), the
 live reachability probe (:mod:`.liveprobe`), and the forward-provisioning
 leakage guard (``provision-snapshot --refuse-terminal``), whose false-positive
-cost is the cheapest of the family: one snapshot-less cell, no recorded fact.
+cost is the cheapest of the family: one refused cell, no recorded fact.
 A leaf module on purpose: it depends only on the shared schema, so the
 consumers can never form an import cycle around it.
 
@@ -36,6 +36,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from datetime import date, datetime
+from types import MappingProxyType
 from typing import Any
 
 from dateutil import parser as date_parser
@@ -420,6 +421,56 @@ def dissent_from_denial(text: str) -> bool:
 DISTRIBUTED_RE = re.compile(r"DISTRIBUTED\s+for\s+Conference\s+of\s+([\d/A-Za-z, ]+)", re.I)
 CVSG_RE = re.compile(r"Solicitor\s+General\s+is\s+invited\s+to\s+file", re.I)
 
+# The entry-initial reading of the same phrase. A conference distribution the
+# clerk enters for the *petition* opens its entry with the word; a distribution
+# of some ancillary paper always names that paper first ("Motion (25M82)
+# DISTRIBUTED for Conference of …", "Application (23A242) DISTRIBUTED for
+# Conference of …", "Suggestion of mootness DISTRIBUTED for Conference of …"),
+# so the leading position is what separates the petition's own trajectory from
+# traffic riding beside it.
+_DISTRIBUTED_ENTRY_INITIAL_RE = re.compile(
+    r"^\s*DISTRIBUTED\s+for\s+Conference\s+of\s+([\d/A-Za-z, ]+)", re.I
+)
+
+#: The registered distribution parses, keyed by label. The *count* of conference
+#: distributions is a versioned input to the salience band
+#: (``docs/salience.md``), so which phrase-reading produced a count has to be
+#: nameable rather than implied by whichever pattern was live: a parse is added
+#: here, never edited, and each salience version pins the one it was fitted on
+#: (:attr:`~fedcourtsai.pipeline.salience.SalienceScorer.distribution_parse`).
+#:
+#: Every parse captures the conference phrase in group 1 and is read with
+#: ``.search``, so the pattern is the whole of the difference between two
+#: versions — ``dist-v2``'s ``^`` anchor is what excludes an ancillary paper's
+#: distribution, and both feed the same date parse and same distinct-date dedupe
+#: below. The two counters — ingest's over a synthesized entry list, the
+#: snapshot reader's over a raw payload — both take their pattern from here, so
+#: a parse cannot move for only one of them.
+DISTRIBUTION_PARSES: Mapping[str, re.Pattern[str]] = MappingProxyType(
+    {"dist-v1": DISTRIBUTED_RE, "dist-v2": _DISTRIBUTED_ENTRY_INITIAL_RE}
+)
+
+#: The parse every counter reads unless its caller names another — the reading
+#: the corpus's stored ``distribution_count`` column holds.
+DEFAULT_DISTRIBUTION_PARSE = "dist-v1"
+
+
+def distribution_pattern(parse: str) -> re.Pattern[str]:
+    """The registered pattern for ``parse``.
+
+    Raises :class:`KeyError` for an unregistered label rather than falling back
+    to the default: a caller asking for a parse this process cannot perform
+    wants an error, not a count silently produced by a different reading than
+    the one it named.
+    """
+    try:
+        return DISTRIBUTION_PARSES[parse]
+    except KeyError:
+        registered = ", ".join(sorted(DISTRIBUTION_PARSES))
+        raise KeyError(
+            f"unregistered distribution parse {parse!r}; registered: {registered}"
+        ) from None
+
 
 def proceedings_entries(payload: Mapping[str, Any]) -> list[tuple[str, str | None]]:
     """(description, date string) per proceedings entry, over either payload shape.
@@ -491,7 +542,9 @@ def snapshot_carries_proceedings(payload: Mapping[str, Any]) -> bool:
     )
 
 
-def snapshot_distribution_count(payload: Mapping[str, Any]) -> int | None:
+def snapshot_distribution_count(
+    payload: Mapping[str, Any], *, parse: str = DEFAULT_DISTRIBUTION_PARSE
+) -> int | None:
     """Distinct conferences the payload shows this petition distributed for.
 
     Distinct **parsed conference dates**, not raw entry matches, so a re-docketed
@@ -500,12 +553,18 @@ def snapshot_distribution_count(payload: Mapping[str, Any]) -> int | None:
     cannot disagree about one payload. Relists derive downstream as
     ``max(0, count - 1)``. ``None`` when the payload discloses no proceedings —
     unobservable rather than zero.
+
+    ``parse`` names the registered phrase-reading (:data:`DISTRIBUTION_PARSES`);
+    an unregistered label raises. The date parse and the dedupe are the parse's
+    only shared machinery, so two parses of one payload differ by exactly which
+    entries they read.
     """
     if not snapshot_carries_proceedings(payload):
         return None
+    pattern = distribution_pattern(parse)
     conferences: set[date] = set()
     for text, _ in proceedings_entries(payload):
-        match = DISTRIBUTED_RE.search(text)
+        match = pattern.search(text)
         if match is None:
             continue
         parsed = conference_date(match.group(1))

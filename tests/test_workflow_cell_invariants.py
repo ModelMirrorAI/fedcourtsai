@@ -15,6 +15,10 @@ of them while every gate stays green:
 * the **forward leakage guard** — `run-predict`'s provisioning step is the one
   place `--refuse-terminal` defends the forward information set, and it sits
   behind `continue-on-error`, so losing the flag fails nothing at runtime;
+* the **codex MCP wiring** — the live codex cells and the engine-smoke codex
+  leg must name the same sidecar URL, write the client config to the same
+  file, and pin the same `CODEX_HOME`, or the smoke answers a question about a
+  configuration nothing else runs;
 * the **labeler transcript capture** — the qp-topic labeler's execution log is
   scanned and published as a short-lived artifact, and every clause of that
   (the scan gate, the retention window, the survive-failure condition, and the
@@ -150,6 +154,7 @@ SPLIT_PAIR_WORKFLOWS = {
     "run-predict.yml",
     "run-pull.yml",
     "run-seed.yml",
+    "staging-corpus-refresh.yml",
 }
 
 
@@ -214,6 +219,103 @@ def test_sidecar_call_sites_pass_the_split_inputs_together() -> None:
                 )
 
 
+# The codex cell's MCP wiring, in the one spelling every surface must share.
+# The live cells and the engine-smoke codex leg certify each other only while
+# these agree: the smoke exists to say what a real codex transcript's MCP
+# items look like, and an answer collected under different wiring than the
+# cells run is an answer about a configuration nothing else uses. Each half is
+# separately silent when it drifts — a config written where the CLI does not
+# read it, a port the sidecar does not serve, a server id the manifest does not
+# resolve, a home the session rollout does not land in — and the cell still
+# runs, still validates, and still reports no MCP calls.
+CODEX_MCP_HTTP_URL = "--http-url courtlistener=http://127.0.0.1:8378/mcp"
+CODEX_MCP_CONFIG_REDIRECT = "> .codex/config.toml"
+CODEX_HOME_EXPRESSION = "${{ github.workspace }}/.codex"
+CODEX_MCP_WORKFLOWS = ("run-predict.yml", "integration-test.yml")
+
+
+def _joined_run_blocks(name: str) -> list[str]:
+    """Every ``run:`` block with whitespace collapsed, so a cosmetic re-wrap
+    cannot split a flag off the command it belongs to."""
+    return [" ".join(block.split()) for block in _run_blocks(_load(name))]
+
+
+def test_the_codex_mcp_wiring_agrees_across_the_cells_and_the_smoke() -> None:
+    """`mcp-config --engine codex` is invoked identically on both surfaces:
+    same sidecar URL and server id, redirected to the file the CLI reads."""
+    for name in CODEX_MCP_WORKFLOWS:
+        blocks = [b for b in _joined_run_blocks(name) if "mcp-config --engine codex" in b]
+        assert blocks, f"{name}: no codex mcp-config invocation found"
+        for block in blocks:
+            assert CODEX_MCP_HTTP_URL in block, (
+                f"{name}: codex mcp-config must name the sidecar as "
+                f"{CODEX_MCP_HTTP_URL!r}; a drifted port or server id "
+                f"silently falls back to a stdio spawn or fails the step"
+            )
+            assert CODEX_MCP_CONFIG_REDIRECT in block, (
+                f"{name}: codex mcp-config must write {CODEX_MCP_CONFIG_REDIRECT!r} "
+                f"— the CODEX_HOME the cell runs under"
+            )
+
+
+# A credential-shaped env name on an `mcp-config` step is the one input that
+# changes what the command writes: stdio entries inject token values from the
+# emitting process's environment into the generated file, which is the residual
+# the localhost sidecar retired. `--http-url` entries carry no token whatever
+# the env holds, so this is defence for the day someone drops the flag.
+_CREDENTIAL_ENV_NAME = re.compile(r"TOKEN|SECRET|PASSWORD|CREDENTIAL|API_KEY|AUTH", re.IGNORECASE)
+
+
+def test_no_mcp_config_step_can_inject_a_token_into_the_file_it_writes() -> None:
+    """Every `mcp-config` step's env is identifiers only — no credential-shaped
+    name, no `secrets.` expression — on the cell workflows and the smoke leg
+    alike, so no generated client config can carry a token value."""
+    seen: set[str] = set()
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        for job_id, job in _load(path.name)["jobs"].items():
+            for step in job.get("steps", []) or []:
+                run = step.get("run")
+                if not isinstance(run, str) or "mcp-config" not in run:
+                    continue
+                seen.add(path.name)
+                context = f"{path.name}: job {job_id}, step {step.get('name')!r}"
+                for key, value in (step.get("env") or {}).items():
+                    assert not _CREDENTIAL_ENV_NAME.search(key), (
+                        f"{context}: credential-shaped env {key!r} on an mcp-config "
+                        f"step — a stdio entry would write its value into the "
+                        f"generated config file"
+                    )
+                    assert "secrets." not in str(value), (
+                        f"{context}: env {key!r} interpolates a secret into an mcp-config step"
+                    )
+    assert CODEX_MCP_WORKFLOWS[1] in seen, "the smoke leg must generate its own MCP config"
+
+
+def test_every_codex_home_is_the_workspace_dir_the_config_is_written_into() -> None:
+    """One spelling of ``CODEX_HOME`` everywhere, and the smoke declares it.
+
+    The config lands in ``.codex`` and the session rollout the usage, retrieval,
+    and shape captures read lands under it, so a step that omits the variable
+    gets the CLI's own default (or, in the local cascade, a temp home named
+    after a pid) and every one of those reads misses in silence.
+    """
+    declared: set[str] = set()
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        for context, env in _env_mappings(path.name):
+            if "CODEX_HOME" not in env:
+                continue
+            declared.add(path.name)
+            assert env["CODEX_HOME"] == CODEX_HOME_EXPRESSION, (
+                f"{context}: CODEX_HOME must be exactly {CODEX_HOME_EXPRESSION!r}, "
+                f"got {env['CODEX_HOME']!r}"
+            )
+    assert CODEX_MCP_WORKFLOWS[1] in declared, (
+        "the engine-smoke codex leg must pin CODEX_HOME: unset, the cascade "
+        "picks a temp home and neither the MCP config nor the shape "
+        "distillation finds what it is looking for"
+    )
+
+
 def _provision_lines(name: str) -> list[str]:
     """Every provision-snapshot invocation, with shell continuations joined so
     a cosmetic re-wrap cannot split a flag off its command, and shell comments
@@ -249,12 +351,15 @@ def test_the_evaluate_cell_provisions_without_the_forward_guard() -> None:
 def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
     """A refused forward cell runs no agent at all.
 
-    Provisioning's exit-3 refusal (the record gate, the staleness bound, or the
-    textual scan) sets `refused=true`; every step that would spend tokens, hold
-    a credential, or write a runner-local config for the agent — the comment
-    token mint, the MCP retrieval config, the engine installs and runs, and the
-    event materialization — must carry the gate, or a refused cell produces a
-    context-less prediction claiming a mode it never had.
+    Two outcomes refuse, and each sets `refused=true` on its own step: the
+    provisioning gate's exit 3 (the record gate, the staleness bound, or the
+    textual scan) and an unprovisioned record — no snapshot in the corpus, or a
+    provisioning write that did not land complete, which the `record` step reads
+    off disk. Every step that would spend tokens, hold a credential, or write a
+    runner-local config for the agent — the comment token mint, the MCP
+    retrieval config, the engine installs and runs, and the event
+    materialization — must carry *both* halves of the gate, or a refused cell
+    produces a context-less prediction claiming a mode it never had.
     """
     wf = _load("run-predict.yml")
     steps = wf["jobs"]["predict"]["steps"]
@@ -262,6 +367,14 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
     assert provision.get("continue-on-error") is True
     assert "--max-snapshot-age-days" in provision["run"]  # the staleness bound is armed
     assert 'echo "refused=true"' in provision["run"]
+    record = next(s for s in steps if s.get("id") == "record")
+    assert record.get("continue-on-error") is True
+    assert "assert-cell-record" in record["run"]
+    assert 'echo "refused=true"' in record["run"]
+    # The record check is itself gated on provisioning, and on that half only:
+    # a cell the forward gate refused was never provisioned by design, so
+    # re-asserting its record would report the refusal as an incomplete write.
+    assert record.get("if") == "steps.provision.outputs.refused != 'true'"
     gated = [
         "Mint agent comment token",
         "Configure agent retrieval (MCP)",
@@ -274,11 +387,14 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
     names = [s.get("name") for s in steps]
     for name in gated:
         step = next(s for s in steps if s.get("name") == name)
-        assert "steps.provision.outputs.refused != 'true'" in str(step.get("if")), name
-    # The gate can only hold for steps that run after provisioning.
+        for half in (
+            "steps.provision.outputs.refused != 'true'",
+            "steps.record.outputs.refused != 'true'",
+        ):
+            assert half in str(step.get("if")), (name, half)
+    # The gate can only hold for steps that run after both refusal points.
     assert all(
-        names.index(name) > names.index("Provision the case snapshot from the corpus")
-        for name in gated
+        names.index(name) > names.index("Assert the provisioned record landed") for name in gated
     )
 
 

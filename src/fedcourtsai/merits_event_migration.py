@@ -214,11 +214,11 @@ def _pendency_conflict(conn: sqlite3.Connection, case_id: str) -> str | None:
     *unlatched*, not *pending*: the judgment sweep leaves them
     null on really-decided dockets whose snapshot it could not parse
     (``no_match``) or never saw (``no_snapshot``). Minting on that residue
-    would open an event provisioning refuses daily (the ``no_match`` shape) or
-    — worse — one a snapshot-less forward cell could run on a decided docket
-    (the ``no_snapshot`` shape, which defeats the provisioning guard), with
-    ``forecastable_event_ids`` re-admitting it every fan-out inside the
-    stale-grant bound's two Terms. So a mint
+    would open an event the predict cell refuses daily on a docket that is
+    already decided — the ``no_match`` shape because the snapshot reads
+    terminal, the ``no_snapshot`` shape because there is nothing to provision —
+    with ``forecastable_event_ids`` re-admitting it every fan-out inside the
+    stale-grant bound's two Terms, burning the cell's attempt cap each time. So a mint
     requires a stored snapshot
     (:func:`fedcourtsai.corpus.latest_snapshot`, the judgment sweep's own
     read) whose high-recall judgment scan

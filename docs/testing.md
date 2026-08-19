@@ -121,7 +121,22 @@ service sidecar and the cascade's own provisioning reads pinned to `ranged`
 via `--corpus-backend` — the full production cell posture, including each
 engine's real sandbox semantics, which is exactly the layer an engine-level
 integration break (a sandbox denying localhost, a CLI behavior change) hides
-in. Dispatch a scenario around the changes it guards: **before and after any
+in. Its codex leg additionally wires the CourtListener MCP sidecar and the
+generated client config the live cells get, and uploads the cell's rollout
+distilled to item shapes alone (`fedcourts codex-item-shapes` — types and key
+names, never a value, with the key screen's residual and the shape cap stated
+in [cli.md](cli.md), so the artifact is publishable where the transcript is
+not): the retrieval parser keys on those shapes, an unrecognized one reads
+exactly like a cell that called nothing, and a real transcript is the only
+thing that separates the two. Read the artifact against the environment the
+dispatch bound: where that environment carries no CourtListener token the
+sidecar runs token-free, the handshake and tool listing still succeed, and
+tool *calls* error — the shapes are then an errored call's, which still
+answers the question, but only a token-bearing dispatch also shows a settled
+one. The job log's sidecar replay is the second witness either way (requests
+with no MCP shapes is a capture gap; no requests at all is the engine
+declining to call). Observation, not a gate — the leg's verdict is
+still the cell's. Dispatch a scenario around the changes it guards: **before and after any
 change to corpus access** (the read seams, `corpus_ranged`, the sidecar
 composites, the blob's physical layout) **or to a corpus-consuming workflow**,
 **engine-smoke around any engine CLI version bump or sandbox/config change**,
@@ -131,6 +146,22 @@ composite, the labeling job, or the `qp_topics` module — and before any paid
 labeling dispatch**, and as a preflight **before a release dry run** and
 **before a prediction freeze** — the moments when a silent read regression
 would be most expensive.
+
+The qp-topic clause generalizes: **a new token-spending run mode lands its
+token-free `integration-test.yml` scenario before its first paid dispatch,
+never after.** The scenario exercises the mode's plumbing — artifact hand-off,
+IO staging, guards, the publication path — over canned or fixture inputs, the
+way `qp-topic` and `collect` do, so plumbing bugs surface for runner minutes
+instead of across paid dispatches. `integration-test.yml`'s scenario roster
+above is the checklist: a new paid surface without a scenario is an incomplete
+change unless it ships an equally token-free dry-run mode of itself (the
+`run:backtest` replay's stub engine is that shape, and stronger evidence than
+a scenario would be), and the scenario ships in the same batch as the mode it
+guards. A scenario that joins the promotion gate's **required** set moves the
+run counts below and the gate's own scenario roster with it — both
+maintainer-gated surfaces, so that batch is a maintainer-merged one by
+construction.
+
 The `deploy-environment` input names which deployment environment supplies the
 role and remote variables, and by default resolves from the dispatching branch:
 `main` dispatches use `prod`, and dispatches from `staging` use the `staging`
@@ -141,7 +172,17 @@ empty environment with no role variables and no keys — and an explicit choice
 environment stays pinned to its one branch.
 That is what lets a change's read seams run against real infrastructure once it
 is on `staging` and before it is promoted — the capability the trigger path
-structurally cannot provide. Changed seams are therefore validated after the
+structurally cannot provide.
+
+What those staging-bound runs read is production's corpus today, and is meant
+to become the **staging corpus**: a lean slice of real cases in its own
+bucket/prefix pair, seeded by the dispatch-only `staging-corpus-refresh`
+workflow (`fedcourts corpus-seed-slice`), so orchestration and the read/write
+seams get live verification for runner minutes without anything gaining write
+access to production. It is not wired up yet — every consumer still resolves
+the committed pointer, which names the production blob — so provisioning it,
+and the wiring that remains, are the staging corpus runbook in
+[security.md](security.md). Changed seams are therefore validated after the
 merge to `staging` rather than on the PR branch; nothing broken reaches `main`
 regardless: the gate needs the nine required integration runs — all seven real
 scenarios, with engine-smoke counted once per engine, or one green
@@ -151,9 +192,12 @@ head, and `promotion-gate` is a required check on `main`, so it is
 branch-protection-enforced rather than advisory. A `promote` dispatch carrying
 `skip_engine_smoke` narrows what *that pre-flight* asks for to the six
 token-free scenarios, taking a green `scenario=all-offline` run as their
-whole-suite evidence — for batches that cannot affect a cell, and never by
-default. The required check is unaffected: it sets no skip, so the nine stand
-between any batch and `main`.
+whole-suite evidence — never by default. It decides nothing about the merge:
+waiving the smokes at the required check is a second, separate act, the
+`promote:skip-engine-smoke` label on the promotion PR, and the batch that
+carries it merges with no real-engine evidence at its head sha (*Promotion:
+staging → main* in [pipeline.md](pipeline.md) carries the trade). Unlabelled —
+the default — the nine stand between a batch and `main`.
 
 > **Status.** The deterministic core and the gate above, the engine seam (with the
 > offline `stub` and `replay` backends), the fixture corpus, the stub cascade that
@@ -213,7 +257,11 @@ The stub cascade is fast and offline enough to belong in the gate, and it does:
 `tests/test_cascade_smoke.py` drives it over the fixture corpus on every `pytest`
 run, so a broken predict/evaluate cell surfaces *before* a PR is opened. A
 real-engine run is a deliberate, occasional check — it catches prompt-level
-regressions the stub can't see — not the inner loop.
+regressions the stub can't see — not the inner loop. One step earlier,
+`fedcourts predict-plan` / `evaluate-plan` ([cli.md](cli.md)) report the cell
+set a fan-out **would** mint, step by step and spending nothing, so a change
+that claims to protect a re-run is checked by executing it rather than by
+reading the diff.
 
 ## Keep the workflow a thin wrapper
 
@@ -290,7 +338,8 @@ Together those cover most "why did this cell get the wrong documents" questions
 directly against the real docket. Reach for a corpus pull only when the question
 is genuinely about the *stored* row rather than the upstream record — and
 remember the local blob is a snapshot, so its freshness is whatever the last
-pull left behind.
+pull left behind (`fedcourts corpus-info` prints those dates, and AGENTS.md
+asks any corpus-dependent claim to state them).
 
 ## The boundary that remains
 

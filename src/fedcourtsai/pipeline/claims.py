@@ -240,6 +240,15 @@ def _resolve_relist_increment(context: PredictionContext, outcome: Outcome) -> i
     prediction-time count, and an outcome without a signals block observed
     nothing at resolution. The count is max-latched and never falls, so the
     strict comparison reads any non-rise as no increment.
+
+    The two ends must be read under one distribution parse for that monotonicity
+    to hold across the pair: the context side follows the active scorer's
+    declared parse while the outcome side is the corpus column at
+    ``cert_signals.DEFAULT_DISTRIBUTION_PARSE``, so a version pinning a narrower
+    reading could make the frozen count exceed the resolution-time one and turn
+    a real increment into a mask. What keeps them comparable today is that every
+    registered version pins the default, pinned by the all-versions parse test
+    in ``tests/test_salience.py``.
     """
     if (
         not context.signals_observable

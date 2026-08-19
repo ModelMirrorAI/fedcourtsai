@@ -75,6 +75,46 @@ _SUBJECT_PATTERNS: dict[EventKind, re.Pattern[str]] = {
     EventKind.petition: re.compile(r"petition(?:s)?\s+for\s+(?:a\s+)?(.+)", re.IGNORECASE),
 }
 
+# Function words are dropped from the *end* of a capped subject: they carry none
+# of the request's meaning, so a slug ending in one reads as the truncation it
+# is ("…-amicus-brief-and"). It also keeps a function word from standing in for
+# a distinction it does not make — two motions sharing a long prefix would
+# otherwise differ only by whichever word the cap landed on ("…-brief-and" vs
+# "…-brief-for"), where trimming hands them to the within-case uniqueness suffix
+# below instead. That suffix lands on the *second* entry of a colliding pair, so
+# which one keeps the bare id follows the docket's own `docket_entries` order —
+# stable for a given docket, not a property of the subjects. Only trailing
+# positions are trimmed: inside the phrase these words carry the subject
+# ("extension of time"). The set is deliberately closed over the function words
+# a request phrase can end on rather than grown case by case, since every later
+# widening re-derives ids the corpus already holds ("by" and "pursuant" need no
+# member — the boundary split above cuts the subject before them).
+_SUBJECT_TAIL_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "as",
+        "at",
+        "but",
+        "for",
+        "from",
+        "in",
+        "into",
+        "nor",
+        "of",
+        "on",
+        "or",
+        "per",
+        "than",
+        "the",
+        "to",
+        "under",
+        "upon",
+        "with",
+    }
+)
+
 # The substantive SCOTUS applications worth an entry-pinned event; every other
 # SCOTUS motion (extensions, IFP leave, amicus leave, …) is administrative.
 _SCOTUS_SUBSTANTIVE_MOTION_RE = re.compile(r"\bstay\b|\binjunction\b|\bemergency\b", re.IGNORECASE)
@@ -164,7 +204,16 @@ def _is_disposing_order(text: str) -> bool:
 
 
 def _subject_slug(text: str, kind: EventKind) -> str:
-    """Slug for an event id, taken from the request's subject (e.g. ``stay-pending-appeal``)."""
+    """Slug for an event id, taken from the request's subject (e.g. ``stay-pending-appeal``).
+
+    The subject is cut at the first phrase boundary, capped at a few words, and
+    stripped of trailing function words (``_SUBJECT_TAIL_STOPWORDS``) so the cap
+    cannot leave the slug dangling mid-phrase. A subject that is nothing but
+    function words keeps its first word rather than trimming to nothing:
+    ``disposition`` is the case-level baseline's identity, and an entry-pinned
+    event stays clear of it. Falls back to ``disposition`` only where there is no
+    subject at all — a kind with no subject pattern, or one the pattern misses.
+    """
     pattern = _SUBJECT_PATTERNS.get(kind)
     subject = ""
     if pattern is not None:
@@ -175,8 +224,26 @@ def _subject_slug(text: str, kind: EventKind) -> str:
     subject = re.split(r"[.;,]| filed | by | pursuant ", subject, maxsplit=1, flags=re.IGNORECASE)[
         0
     ]
-    slug = ids.slugify(" ".join(subject.split()[:6]))
+    words = subject.split()[:6]
+    # Iteratively, because one cut exposes the next ("…brief and the"); never to
+    # nothing, so an all-function-word subject keeps a subject of its own rather
+    # than widening into the case baseline's `disposition` identity.
+    while len(words) > 1 and words[-1].lower() in _SUBJECT_TAIL_STOPWORDS:
+        words.pop()
+    slug = ids.slugify(" ".join(words))
     return slug if slug != "x" else "disposition"
+
+
+def entry_event_id(text: str, kind: EventKind) -> str:
+    """The event id today's rules mint for a docket entry of ``kind`` reading ``text``.
+
+    The derivation as a callable, so the convergence sweep that renames
+    committed rows onto it (:mod:`fedcourtsai.slug_migration`) re-derives
+    through the code :func:`extract_events` mints with rather than a second copy
+    of the rule. The within-case uniqueness suffix is deliberately not part of
+    it: that depends on the docket's *other* entries, not on this one.
+    """
+    return ids.event_id(kind.value, _subject_slug(text, kind))
 
 
 def _referenced_numbers(text: str) -> set[int]:
@@ -289,7 +356,7 @@ def extract_events(
             # case-level disposition attaches to whichever of the two it lands
             # on rather than to the petition it decides.
             continue
-        event_id = ids.event_id(kind.value, _subject_slug(entry.text, kind))
+        event_id = entry_event_id(entry.text, kind)
         # Guarantee within-case uniqueness deterministically (two like motions).
         if event_id in used_ids:
             event_id = f"{event_id}-{entry.number if entry.number is not None else entry.entry_id}"

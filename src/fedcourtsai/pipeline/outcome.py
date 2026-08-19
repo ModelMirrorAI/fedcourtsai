@@ -224,7 +224,7 @@ def appears_decided(row: CorpusRow) -> bool:
 # This is a high-recall *routing* backstop that also feeds the forward-cell
 # provisioning refusal (``provision-snapshot --refuse-terminal``): a match
 # diverts a decided-looking case out of the forward-predict queue for triage
-# (``predict_skipped_decided``), or leaves a fanned-out cell snapshot-less.
+# (``predict_skipped_decided``), or refuses a fanned-out cell outright.
 # Routing (``termination_signal``) reads only the latest entry (pendency, so a
 # reactivation reopens the docket); the provisioning leakage guard
 # (``snapshot_shows_disposition``) scans every entry with no reactivation
@@ -334,8 +334,9 @@ def snapshot_shows_disposition(docket: Mapping[str, Any]) -> str | None:
     would read* — so it deliberately scans every entry and takes no reactivation
     exception: once a disposition order sits in the snapshot, a predictor can
     read it even if a later filing reopened the docket. Uses the same high-recall
-    :data:`_TERMINAL_ENTRY_RE` as the routing backstop (a false positive only
-    parks a cell snapshot-less), which catches the shapes the resolver
+    :data:`_TERMINAL_ENTRY_RE` as the routing backstop (a false positive costs
+    the cell, which is refused rather than handed an outcome — the cheaper of
+    the two errors), which catches the shapes the resolver
     deliberately omits — the cert-before-judgment grant, the merits judgment,
     "Judgment Issued" — that trailing administrative notations ("Application ...
     denied as moot") hide from the latest-entry rule. Pure, over either payload
@@ -1537,6 +1538,20 @@ def persist_moment_events(
     from the corpus row, so an interruption leaves the corpus authoritative
     and the next run converges the ledger. ``events`` must all belong to the
     case ``(court_id, docket_id)`` names.
+
+    **When each half of an event is owed.** A stage's case-level *baseline* —
+    the cert petition's ``evt-petition-disposition``, the interim application's
+    ``evt-motion-disposition`` — is derived from a docket's mere existence by
+    the ingest projection, so its corpus row lands at discovery and its ledger
+    ``event.yaml`` arrives later: at first touch (``materialize-event`` in a
+    predict cell) or at resolution (:func:`record_outcomes`). Every other
+    declared moment (:func:`fedcourtsai.pipeline.moments.minted_moment_ids`) is
+    *minted*, and a mint owes both halves at once — it goes through this
+    function, never a bare :func:`fedcourtsai.corpus.upsert_events` (the
+    dedupe merge's re-key moves existing rows and creates none). The
+    asymmetry is what makes a baseline row without a ledger file ordinary and a
+    minted row without one a defect, which is the line
+    ``validate-corpus``'s corpus→ledger check draws.
     """
     if not events:
         return []

@@ -40,6 +40,12 @@
     },
     "CORPUS_REMOTE_URL": {
       "description": "Corpus remote S3 URL (optional, corpus access only)"
+    },
+    "STAGING_CORPUS_REMOTE_URL": {
+      "description": "Staging corpus remote S3 URL, read via scripts/corpus-env (optional; set both STAGING_* or neither)"
+    },
+    "STAGING_CASESTORE_URL": {
+      "description": "Staging content-store S3 URL, read via scripts/corpus-env (optional; set both STAGING_* or neither)"
     }
   },
   "customizations": {

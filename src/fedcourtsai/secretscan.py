@@ -29,7 +29,14 @@ Detectors, strongest first:
 - **High entropy**: long random-looking runs, tuned so the ledger's normal
   content — citations, docket numbers, hex digests, run ids, URLs — passes
   clean. A raw opaque blob pasted into free text *does* flag, by design: the
-  cost of a rare false positive is one human look at a withheld run.
+  cost of a rare false positive is one human look at a withheld run. One
+  further shape is exempt, and only when the caller names the run being
+  collected (``scan-diff-for-secrets --run-id``): that run's own ledger
+  directory, which a cell's logged shell commands name routinely. It cannot
+  mask a credential — the path is a fixed repo-relative literal, its trailing
+  segment is compared for *equality* with the run id the collect job is
+  scanning, and the one or two segments between are pinned to lowercase and to
+  a length below the floor at which this detector judges a run at all.
 
 One surface opts out of the entropy rule alone: an engine transcript
 (``scan-diff-for-secrets --transcript-file``) carries server-generated tool
@@ -66,6 +73,7 @@ import re
 import string
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from urllib.parse import quote
 
@@ -190,6 +198,56 @@ _PATHLIKE_SLASHES = 3
 _HEX_RUN = re.compile(r"^[0-9a-f]+$")  # content digests (sha256 etc.)
 _RUN_ID_SHAPE = re.compile(r"(?i)^(?:run[_-]?)?20\d{6}t\d{6}z$")
 
+# The one shape the path-like rule above does not cover: a cell's *relative*
+# reference to its own ledger directory. `predictions/<actor>/<run id>` carries
+# two slashes, one short of `_PATHLIKE_SLASHES`, so it is judged whole — and
+# whole it clears the bar for every predictor in the registry (0.829 for
+# `gemini-baseline`, 0.836 for `claude-baseline`, 0.839 for `codex-baseline`,
+# against a threshold of 0.82). Nothing about it is random: a lowercase slug,
+# two separators, and a run id whose digits and `T`/`Z` spread the character
+# distribution flat enough to read as mixed alphabet. The absolute form of the
+# same path escapes because its leading directories push it over the slash
+# count; the relative form is what a cell writes once it has changed into the
+# event directory, so without this exemption a whole clean fan-out is withheld
+# over a directory the collect job itself provisioned.
+#
+# So the exemption is keyed on the run actually being collected, never on the
+# shape alone. Three properties carry the security argument, and each is worth
+# stating because a reviewer must be able to check them by reading the pattern:
+#
+# 1. **The run id is compared for equality, not matched by shape.** The
+#    trailing segment is the literal run id the collect job passed in, escaped
+#    into the pattern. `_RUN_ID_SHAPE` is deliberately *not* reused here: a
+#    shape match would exempt this directory layout under any plausible
+#    timestamp, including one an agent invented, whereas equality binds the
+#    exemption to the single run whose own output is being scanned.
+# 2. **Every free segment is shorter than `_MIN_ENTROPY_RUN`.** The actor
+#    segments are capped one character below the length at which this detector
+#    is willing to judge a run as credential material at all. So an exempted
+#    candidate can hold no run of secret material that the scan would have
+#    convicted had it stood alone — the exemption's channel sits inside the
+#    short-segment gap `_PATHLIKE_SLASHES` already documents, and opens no new
+#    class of miss. What it does forgo is the incidental *aggregate* hit,
+#    where the whole path crossed the bar only because a random sub-39-char
+#    segment was spliced into it — material the rule cannot see standalone.
+# 3. **The free segments are lowercase-only.** Both base64 alphabets are
+#    mixed-case, so a pasted blob cannot occupy an actor position; re-encoding
+#    one into `[a-z0-9-]` would first have to survive the length cap above.
+#
+# The candidate always contains the whole `predictions/` or `evaluations/`
+# literal whenever the log line does, so a `fullmatch` is sufficient and no
+# mid-token prefix needs allowing for: every character of both literals is
+# inside `_ENTROPY_CANDIDATE`'s own charset, which means the candidate run can
+# only ever start *before* the literal, never inside it. Starting before it —
+# with a `/` or another path component — adds a slash and hands the run to the
+# per-segment branch, where this predicate is not what saves it.
+#
+# The `evaluations/` arm carries three slashes of its own, so at the current
+# `_PATHLIKE_SLASHES` it never reaches the whole-run branch at all. It is here
+# so the exemption states the ledger's two writer layouts symmetrically, and so
+# that the fix does not silently depend on that knob keeping its exact value.
+_OWN_RUN_SEGMENT = rf"[a-z0-9-]{{1,{_MIN_ENTROPY_RUN - 1}}}"
+
 
 @dataclass(frozen=True)
 class Finding:
@@ -242,8 +300,43 @@ def _is_benign_run(run: str) -> bool:
     return bool(_RUN_ID_SHAPE.match(run))
 
 
-def _entropy_candidate_hits(run: str) -> bool:
+# The bare form the fan-outs mint (UTC `%Y%m%dT%H%M%SZ`), case-sensitive and
+# unprefixed — stricter than `_RUN_ID_SHAPE`, because this validates the one
+# caller-supplied value that defines the own-run exemption's shape.
+_BARE_RUN_ID = re.compile(r"^20\d{6}T\d{6}Z$")
+
+
+def is_run_id_shaped(value: str) -> bool:
+    """Whether ``value`` is a bare fan-out run id, fit to key the exemption."""
+    return _BARE_RUN_ID.match(value) is not None
+
+
+@lru_cache(maxsize=4)
+def _own_run_path_pattern(run_id: str) -> re.Pattern[str]:
+    """The two ledger directory layouts, pinned to one run id. See the note above.
+
+    Cached because the scan asks per candidate per line and the run id is
+    fixed for a whole scan; the cache is keyed on that id, so a different run
+    can never read another's pattern.
+    """
+    return re.compile(
+        rf"(?:predictions/{_OWN_RUN_SEGMENT}"
+        rf"|evaluations/{_OWN_RUN_SEGMENT}/{_OWN_RUN_SEGMENT})"
+        rf"/{re.escape(run_id)}"
+    )
+
+
+def _is_own_run_path(run: str, run_id: str) -> bool:
+    """Whether ``run`` is exactly the ledger directory of the run being collected."""
+    return _own_run_path_pattern(run_id).fullmatch(run) is not None
+
+
+def _entropy_candidate_hits(run: str, *, run_id: str | None = None) -> bool:
     if _is_benign_run(run):
+        return False
+    # Truthiness, not a None test: an empty run id must never degenerate the
+    # pattern to `predictions/<seg>/` and exempt a candidate ending in a slash.
+    if run_id and _is_own_run_path(run, run_id):
         return False
     # Random credential material mixes cases and digits *and* fills its length
     # with near-random symbols; readable slugs/URLs/identifiers may reach three
@@ -251,7 +344,7 @@ def _entropy_candidate_hits(run: str) -> bool:
     return _char_classes(run) >= 3 and _normalized_entropy(run) >= _NORM_ENTROPY_THRESHOLD
 
 
-def _entropy_hits(line: str) -> bool:
+def _entropy_hits(line: str, *, run_id: str | None = None) -> bool:
     for match in _ENTROPY_CANDIDATE.finditer(line):
         run = match.group()
         if run.count("/") >= _PATHLIKE_SLASHES:
@@ -265,7 +358,7 @@ def _entropy_hits(line: str) -> bool:
                 for segment in run.split("/")
             ):
                 return True
-        elif _entropy_candidate_hits(run):
+        elif _entropy_candidate_hits(run, run_id=run_id):
             return True
     return False
 
@@ -557,7 +650,12 @@ def secret_variants(secret: str) -> tuple[str, ...]:
 
 
 def scan_lines(
-    rel: str, lines: Iterable[str], known_secrets: Sequence[str], *, entropy: bool = True
+    rel: str,
+    lines: Iterable[str],
+    known_secrets: Sequence[str],
+    *,
+    entropy: bool = True,
+    run_id: str | None = None,
 ) -> list[Finding]:
     """Run every detector over one file's lines; findings carry ``rel`` as the path.
 
@@ -568,6 +666,11 @@ def scan_lines(
     ids), the generic heuristic convicts every real file, which turns "scan
     then publish" into "never publish anything with content"; the detectors
     that still run are the ones that can actually name a credential there.
+
+    ``run_id`` names the run being collected and narrows the high-entropy rule
+    alone, exempting that run's own ledger directory where a cell's logged
+    shell commands name it. Omitted, every detector reads exactly as it would
+    without the argument.
     """
     variant_sets = [secret_variants(secret) for secret in known_secrets]
     findings: list[Finding] = []
@@ -581,27 +684,36 @@ def scan_lines(
                 findings.append(Finding(path=rel, rule=rule, line=lineno))
         if _keyword_assignment_hits(line):
             findings.append(Finding(path=rel, rule="keyword-assignment", line=lineno))
-        if entropy and _entropy_hits(line):
+        if entropy and _entropy_hits(line, run_id=run_id):
             findings.append(Finding(path=rel, rule="high-entropy", line=lineno))
     return findings
 
 
 def scan_file(
-    path: Path, rel: str, known_secrets: Sequence[str], *, entropy: bool = True
+    path: Path,
+    rel: str,
+    known_secrets: Sequence[str],
+    *,
+    entropy: bool = True,
+    run_id: str | None = None,
 ) -> list[Finding]:
     """Scan one file on disk; unreadable bytes are replaced, never fatal.
 
     Split on ``\\n`` only (not :meth:`str.splitlines`), so reported line
     numbers match what a reviewer sees on GitHub even for files carrying
-    exotic unicode line separators. ``entropy`` passes through to
+    exotic unicode line separators. ``entropy`` and ``run_id`` pass through to
     :func:`scan_lines`.
     """
     text = path.read_bytes().decode("utf-8", errors="replace")
-    return scan_lines(rel, text.split("\n"), known_secrets, entropy=entropy)
+    return scan_lines(rel, text.split("\n"), known_secrets, entropy=entropy, run_id=run_id)
 
 
 def scan_changes(
-    changes: Iterable[PathChange], root: Path, known_secrets: Sequence[str]
+    changes: Iterable[PathChange],
+    root: Path,
+    known_secrets: Sequence[str],
+    *,
+    run_id: str | None = None,
 ) -> list[Finding]:
     """Scan every changed ``data/`` file under ``root`` (deletes have no blob).
 
@@ -611,7 +723,8 @@ def scan_changes(
     every status that leaves bytes on disk, not just the adds the jail
     permits. Paths outside ``data/`` are left to the jail (they are never
     agent output). A listed file missing from disk is skipped (the jail
-    check, not this one, owns change-list integrity).
+    check, not this one, owns change-list integrity). ``run_id`` passes
+    through to :func:`scan_lines`.
     """
     findings: list[Finding] = []
     for change in changes:
@@ -620,7 +733,7 @@ def scan_changes(
         target = root / change.path
         if not target.is_file():
             continue
-        findings.extend(scan_file(target, change.path, known_secrets))
+        findings.extend(scan_file(target, change.path, known_secrets, run_id=run_id))
     return findings
 
 

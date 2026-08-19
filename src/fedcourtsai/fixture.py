@@ -518,6 +518,15 @@ def add_cvsg_fixture(db_path: Path) -> FixtureCase:
     write APIs, so the offline cascade can run the cert re-forecast cell end
     to end. Returns the case, so the caller can address it without restating
     literals.
+
+    Corpus-only, deliberately: this writes the event row without the ledger
+    ``event.yaml`` the production mint would pair it with — as does the
+    merits ``evt-order-judgment`` each fixture case seeds — which is the shape
+    ``validate-corpus``'s ``minted_moments_defined_in_ledger`` check calls a
+    defect. Nothing in the offline cascade runs that check (the smoke invokes
+    ``validate`` only), but a test that points
+    :func:`fedcourtsai.validate.run_corpus_validation` at a fixture corpus has
+    to write the ledger half too.
     """
     case = CVSG_FIXTURE_CASE
     spec = next(s for s in moments.moments_for(Stage.cert) if s.moment is Moment.cvsg)

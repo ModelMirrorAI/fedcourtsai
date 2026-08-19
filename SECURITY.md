@@ -31,14 +31,18 @@ runbook, [docs/security.md](docs/security.md).
   reach the agent's shell. That strict mode is forced by `GITHUB_SHA`, i.e. in CI
   (the residual: off-CI there is no such barrier, which is a local dev run with
   the dev's own key). The lower-sensitivity CourtListener token is passed as a scoped step env
-  in exactly two deterministic places: the cells' **MCP sidecar launch step**,
+  in exactly two kinds of deterministic place, whatever the caller: the
+  **MCP sidecar composite's launch step**,
   whose background `fedcourts mcp-serve` process inherits it and serves the
-  CourtListener MCP tools over localhost HTTP, and the collect job's
+  CourtListener MCP tools over localhost HTTP — the cells launch it, and so
+  does `integration-test`'s engine-smoke **codex** leg, which exists to
+  exercise that very wiring — and the collect job's
   **aggregate step**, where the secret scan (below) needs the live value to
   search the run's output for it — a step that parses agent bytes with
   jq/git/tested Python but never executes them. (Pull's ingestion holds the
-  same secret under its own name; the two places here are the agent
-  workflows'.) **No agent step holds it, and no file an agent can read
+  same secret under its own name; the two kinds here are the agent
+  workflows'. A new caller of the composite is a new *call site*, never a new
+  kind of place — the token reaches the launch step's env and stops there.) **No agent step holds it, and no file an agent can read
   carries it:** the client configs name only the sidecar's `localhost` URL —
   the structural fix that retired the old stdio-transport residual, where the
   token sat as a literal value in a gitignored client-config file the agent's
@@ -66,7 +70,12 @@ runbook, [docs/security.md](docs/security.md).
   (`fedcourts scan-diff-for-secrets`) over the run's changed files and the PR
   prose about to be posted: literal containment of the live token in the cheap
   encodings (base64, hex, URL-escaping), credential-shape patterns, and an
-  entropy heuristic. A hit **withholds the branch** — nothing is pushed and no
+  entropy heuristic — which skips exactly one shape: the collected run's own
+  ledger directory (`predictions/<actor>/<run id>` and the evaluations
+  analogue), named by `--run-id` with the trailing run id compared for
+  equality and the free segments pinned lowercase and shorter than the
+  heuristic's own minimum, so the skip can hide nothing the heuristic would
+  convict standalone. A hit **withholds the branch** — nothing is pushed and no
   PR opens; a redacted file/rule/line report (never the matched text) lands on
   the trigger issue and the files stay in the run's cell artifacts for
   maintainer review. The scan fails closed: if its token env is missing, the
@@ -129,12 +138,25 @@ runbook, [docs/security.md](docs/security.md).
   agent's token. Issue and docket text stay untrusted input.
 - **No static cloud keys — OIDC for S3.** Workflows that touch the private S3
   stores (the corpus remote and the per-case content store) assume a
-  least-privilege IAM role via GitHub OIDC. **Two roles, split by access:**
+  least-privilege IAM role via GitHub OIDC. **Three roles, split by access:**
   corpus writers get a **read-write, append-only** role (get/put/list, **no
   delete**) and every corpus consumer a **read-only** role, so a compromised
   consumer runner cannot tamper with the data; the buckets keep **versioning**
-  on, so no run can wipe corpus objects. Both roles' OIDC trust is scoped to
-  this repo's `prod` environment, so a PR-branch job cannot assume them. No
+  on, so no run can wipe corpus objects. The third is the **staging read-write**
+  role — read-only on the production stores, read-write on the staging corpus
+  pair alone — so the production stores keep exactly one writer whatever
+  happens to it. Every role's OIDC trust is scoped to named environments of
+  this repo — the production read-write role to `prod`, the read-only role to
+  `prod` and `staging` (which is what lets the pre-promotion integration runs
+  read the corpus), the staging read-write role to `staging` — and each of
+  those environments restricts deployments to one branch, so a PR-branch job
+  cannot assume any of them. Within an environment the split is provenance,
+  not identity, on both sides of the promotion: any `prod`-bound job could ask
+  for the production write role and any `staging`-bound job for the staging
+  one, and what stops the wrong job asking is review of the code the branch
+  policy admits — deliberately symmetric, so a wrongly-writing change fails
+  visibly against the disposable staging pair before promotion instead of
+  succeeding first in production. No
   committed file carries credentials or the bucket URL — each job (and
   operator) supplies the URL out of band as the `CORPUS_REMOTE_URL`
   environment variable, and boto3 reads its credentials from the environment.
@@ -143,8 +165,10 @@ runbook, [docs/security.md](docs/security.md).
 - **One scoped exception: developer corpus access from Codespaces.** Two
   developer flows, both read-only, both fed by **user-scoped** Codespaces
   secrets (never repo-level, never committed): the maintainer via IAM Identity
-  Center's short-lived SSO tokens, and contributors via a dedicated read-only
-  IAM user provisioned on demand. The exposure a leaked contributor key could
+  Center's short-lived SSO tokens — the role-assumed flow, whose read-only
+  role also reads the staging pair — and contributors via a dedicated
+  read-only IAM user provisioned on demand, scoped to the production stores
+  alone. The exposure a leaked contributor key could
   buy is deliberately small: the corpus is public court data, neither principal
   can write or delete anything, and a billing alarm bounds egress abuse. See
   *Developer access* in [docs/data-pipeline.md](docs/data-pipeline.md).
@@ -176,11 +200,28 @@ runbook, [docs/security.md](docs/security.md).
   is a new, attributable commit. Forward deletions of ledger records are
   confined to two bounded channels: the maintainer-reviewed `cleanup/*` PR
   lane, and the run-seed writer lane's attribution-repair sweeps, whose CLI
-  refuses to apply above a per-run blast-radius cap. Secrets and the S3 roles live in the
+  refuses to apply above a per-run blast-radius cap. Secrets and the two
+  production S3 role ARNs live in the
   `prod` environment, whose deployment branches are restricted to `main`: a
   workflow authored on a PR branch runs without them. A second environment,
   `staging`, is restricted to the `staging` branch and holds the read-only role
-  and its own engine keys for the pre-promotion integration runs.
+  and its own engine keys for the pre-promotion integration runs. A third,
+  `review`, holds no secret, no role, and no branch policy: its entire content
+  is a required-reviewer rule, and it exists only as the audit-logged hold
+  between a paid fan-out's plan and its token spend (run-predict today; any
+  later spend hold binds the same environment). The promotion gate's
+  admin-read stage verifies the rule is present, because an auto-created
+  environment is unprotected and an unprotected hold releases instantly.
+  Self-review is deliberately permitted: with a single maintainer the hold is
+  a deliberateness gate — an explicit, audit-logged reading of the plan before
+  the spend — not two-person control, and blocking the run's own actor would
+  make a maintainer-labeled run unreleasable. Revisit if a second maintainer
+  joins. The `staging` environment also carries the **staging read-write
+  role**'s trust — the only credential in the system that can write a corpus
+  store other than through the `prod` writers, read-only on production and
+  read-write on the staging bucket pair alone, so production's single-writer
+  discipline is unchanged and the worst a staging-bound write can corrupt is
+  the re-seedable fixture the refresh lane rebuilds in one dispatch.
 - **Prompt-injection awareness.** Issue bodies are untrusted input. The agent
   actions include actor-permission checks; matrix inputs are parsed from a
   fixed JSON block rather than free text, and agents are instructed to treat

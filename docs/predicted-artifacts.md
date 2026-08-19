@@ -433,16 +433,37 @@ directory without knowing which part is which invites trusting the wrong half.
   legible. It is the cross-evaluator's leakage evidence precisely because the
   agent does not write it; credential-shaped runs are redacted at capture. Each
   call also states whether capture saw its result at all — `result_capture` is
-  `captured` when the paired result item was in the log and `unobserved` when
-  nothing came back to capture or capture found no result item to pair with the
-  call, with `result_capture_coverage` the log-level share. Read it before reading the digests: a null `result_digest` is what a
+  `captured` when the log carried the call's result, whether in a paired result
+  item or on the call item itself for an engine that settles it there, and
+  `unobserved` when nothing came back to capture or capture found no result to
+  pair with the call, with `result_capture_coverage` the log-level share. Read
+  it before reading the digests: a null `result_digest` is what a
   captured-but-empty result and a never-captured one both leave behind, so
-  "this call surfaced nothing" is a claim only the marker can support. The
-  evaluate prompt does not name the marker — the process the frozen partition
-  keys on cannot gain a reading instruction without moving
-  ([process-version.md](process-version.md)) — so it serves a maintainer, and
-  is available to the tool-usage rollup, which does not yet read it, until the
-  next re-blessing carries the instruction.
+  "this call surfaced nothing" is a claim only the marker can support. Where a
+  result *was* captured, `result_status` says what came back in it — `ok`,
+  `error` (the engine's own structural failure marker), or `throttled`, the
+  shape the pinned CourtListener MCP server renders an upstream HTTP 429 as.
+  `throttled` is the state that changes how the cell reads: the shared daily
+  quota turned the call away, so it retrieved nothing and the cell is not
+  comparable with a well-fed one. Only a **manifest-tool** call can carry it —
+  the text predicate is gated on the tool name, because a builtin's result is
+  whatever the agent asked it to read (its own `reasoning.md`, this
+  repository's source, another cell's artifacts), and prose about throttling is
+  not this cell being refused. `throttled_calls` is the log-level count over
+  that same gated set, null where no manifest result was legible, because a
+  throttle is only countable where one reached the transcript. Both are floors
+  — the predicate is anchored on the server's own rate-limit phrasing, biased
+  to miss rather than invent, and baked at parse time, since the raw 429 text is
+  digested away one line after it is read and can never be re-examined. The
+  evaluate prompt does not name `result_capture` — the process the frozen
+  partition keys on cannot gain a reading instruction without moving
+  ([process-version.md](process-version.md)) — so that marker serves a
+  maintainer, and is available to the tool-usage rollup, which does not yet
+  read it, until the next re-blessing carries the instruction. `result_status`
+  is under the same silence for the same reason, though the rollup does read
+  it: both reach an evaluator's information set unmasked regardless, which is
+  recorded as a masking-surface entry in
+  [milestones.md](milestones.md).
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
   prediction, written by the `collect` job, which is the only observer of that.
 - **`process_version`** on `prediction.json` — stamped by `fedcourts
@@ -452,10 +473,13 @@ directory without knowing which part is which invites trusting the wrong half.
   human-readable sugar and never a partition key. See
   [process-version.md](process-version.md).
 - **`context`** on `prediction.json` — the `PredictionContext` block: the
-  cell's mode and replay cutoff, and the conditioning state frozen at
-  provisioning: the salience band, the distribution count and CVSG date as at
-  prediction, the Term, and — on an application cell only — the interim
-  escalation trio as at prediction. Written by provisioning and copied on by the stamp. It
+  cell's mode, the cutoff it was placed at (the replay cutoff on a replay cell,
+  the declared moment on a forward one; null where nothing placed it, as in the
+  cert-baseline example above — and distinct from `decided_before`, the replay
+  clock beside it), and the conditioning state frozen at provisioning: the
+  salience band, the distribution count and CVSG date as at that cutoff (as at
+  the snapshot where there is none), the Term, and — on an application cell only
+  — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It
   matters that it is harness-owned more than most: the band a cell is scored
   against only ever strengthens, so a band re-derived at evaluation would
   condition a forecast's baseline on its own future — and the `mode` is a
@@ -527,10 +551,11 @@ who writes the baseline on each:
   `brier_skill_score` are omitted where no band, no prior-Term rate, or no
   matching salience version exists — the last of those is an omission and never
   a relabel to `terminal`, which would pair a risk-set population with a
-  terminal rate. A recorded `risk_set` basis must therefore
+  terminal rate, and which the stamp and `validate` refuse outright wherever
+  the scored prediction froze a band at all. A recorded `risk_set` basis must
   arrive with the `base_rate_salience_version` its band was read under: the
   stamp fails the cell where that does not resolve, and `validate`'s
-  `base_rate_basis_carries_version` holds the same rule over the ledger.
+  `base_rate_basis_carries_version` holds both rules over the ledger.
 - **An interim cell's baseline is registered and wired** — the statpack interim
   section's substantive grant rate pooled over application Terms strictly before
   the case's own — but it is no band product either, so `base_rate_basis` and

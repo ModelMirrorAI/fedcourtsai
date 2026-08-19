@@ -40,8 +40,11 @@ latch lives elsewhere.
 
 **Scoring is versioned by registry, not by edit.** :data:`SCORERS` holds every
 frozen salience version as a :class:`SalienceScorer` — score function, band
-function, band names, and always-include rule together, because all four decide
-what a band label means. :data:`SALIENCE_VERSION` names the **active** one: the
+function, band names, always-include rule, and the distribution parse the
+ranking's primary feature is read under, together, because each of them decides
+what a band label means. :func:`distribution_census` is the read-only artifact
+that measures what a candidate parse would move before any version pins it.
+:data:`SALIENCE_VERSION` names the **active** one: the
 version the live pass scores with and stamps onto the corpus and onto every
 :class:`~fedcourtsai.schemas.PredictionContext`. A refit registers a new version
 beside the old rather than editing it, so a past ranking always replays against
@@ -63,12 +66,22 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from types import MappingProxyType
 
 from .. import corpus
 from ..config import SalienceConfig
-from ..schemas import SalienceSelectionResult, SalienceUnlatchResult
-from . import caption
+from ..paths import CasePaths
+from ..schemas import (
+    DistributionBandTransition,
+    DistributionCensus,
+    DistributionCensusTerm,
+    Moment,
+    SalienceSelectionResult,
+    SalienceUnlatchResult,
+    Stage,
+)
+from . import caption, cert_signals, moments
 
 # The **active** salience-function version: the one the live selection pass scores
 # and stamps with. A refit is a NEW version registered alongside, never an
@@ -143,6 +156,14 @@ _ARRIVAL_DRAW_KEY = "sal-v2"
 #: new pre-registered population, never a quiet widening. Backlog cases still
 #: earn escalation selection as their trajectory signals accrue.
 ARRIVAL_COHORT_SINCE = date(2026, 7, 1)
+
+#: The cert stage's arrival moment — the event this module's selection pass
+#: mints. Read off the declared-moments register rather than spelled here, so
+#: the id has exactly one definition and this pass and the mint seam it calls
+#: can never disagree about which event is owed.
+_ARRIVAL_EVENT_ID = next(
+    spec.event_id for spec in moments.moments_for(Stage.cert) if spec.moment is Moment.arrival
+)
 
 
 def arrival_draw(case_id: str, rate: float) -> bool:
@@ -312,11 +333,12 @@ class SalienceScorer:
     """One frozen salience version: everything that makes a ranking reproducible.
 
     A version is not just a score function. The band cutpoints, the band *names*,
-    and the always-include rule are all part of what "sal-v1 high" means, so a
-    refit that changed any of them while reusing the label would silently
-    redefine a published segment. Bundling the four here makes a version a single
-    object to register, and makes "which function produced this band" answerable
-    by lookup rather than by reading the commit that was live at the time.
+    the always-include rule, and the parse that reads the ranking's primary
+    feature off a docket are all part of what "sal-v1 high" means, so a refit
+    that changed any of them while reusing the label would silently redefine a
+    published segment. Bundling them here makes a version a single object to
+    register, and makes "which function produced this band" answerable by lookup
+    rather than by reading the commit that was live at the time.
 
     The pairing of ``carve_out`` with ``bands`` is load-bearing and pinned by
     test: the always-include floor and the strongest band's cutpoint must select
@@ -335,6 +357,15 @@ class SalienceScorer:
     # carve-out predicate. False for sal-v1 — its features are
     # docket-acquired, so it has nothing to say at arrival.
     selects_arrivals: bool = False
+    # Which registered reading of the DISTRIBUTED phrase this version's relist
+    # tier was fitted on (`cert_signals.DISTRIBUTION_PARSES`). The count is the
+    # band's primary feature, so two parses of one docket are two different
+    # inputs to the same cutpoints — which makes the parse part of what a band
+    # label means, exactly as the cutpoints and the carve-out rule are. Pinned
+    # by a literal, never by the parse registry's default, for the reason
+    # `_ARRIVAL_DRAW_KEY` is a literal: registration fixes the assignment, so a
+    # later default cannot re-read a frozen version's ranking.
+    distribution_parse: str = "dist-v1"
 
 
 _SAL_V1 = SalienceScorer(
@@ -405,6 +436,174 @@ def salience_band(row: corpus.CorpusRow) -> str:
 def salience_bands() -> tuple[str, ...]:
     """The active scorer's band names strongest→weakest — the statpack's segment order."""
     return scorer().bands
+
+
+@dataclass
+class _TermTally:
+    """One Term's census counters, named so a transposed slot cannot publish."""
+
+    cases: int = 0
+    count_changed: int = 0
+    band_changed: int = 0
+    pending: int = 0
+    pending_count_changed: int = 0
+    pending_band_changed: int = 0
+    unobservable: int = 0
+
+
+def distribution_census(
+    conn: corpus.ReadConnection,
+    *,
+    corpus_sha256: str = "",
+    baseline_parse: str = cert_signals.DEFAULT_DISTRIBUTION_PARSE,
+    candidate_parse: str,
+    version: str | None = None,
+) -> DistributionCensus:
+    """What re-reading the DISTRIBUTED phrase would move, case by case and band by band.
+
+    Two registered parses (:data:`.cert_signals.DISTRIBUTION_PARSES`) count the
+    same docket, and one salience version's band function bands both counts, so
+    the delta reported here is attributable to the phrase-reading alone.
+    ``version`` defaults to the active scorer — the labels a parse change would
+    actually move — and an unregistered parse or version raises rather than
+    falling back.
+
+    **The frame is the gate's scored segment, pending rows included**:
+    live-slice, paid, modern-cert SCOTUS petitions with a parseable Term. It
+    departs from the caption census's frame in exactly one way, and
+    deliberately — that census counts realized grant rates, so it can only read
+    resolved rows, while this one counts a *banding input*, which the gate reads
+    on a pending petition to decide selection. A resolved-only frame would omit
+    the live pending dockets where ancillary-paper distributions accumulate,
+    which is the population the reading is about.
+
+    Both counts come off each case's latest **live-shaped** snapshot, never the
+    newest snapshot of either shape. The two channels docket the same facts in
+    different prose, and the entry-initial reading is a claim about the live
+    channel's entry conventions, so counting a REST payload's ``docket_entries``
+    text under it would report a channel artifact as a parse delta. A case with
+    no live snapshot, or whose snapshot discloses no proceedings list, is
+    counted ``unobservable`` and enters no cell — silence is not agreement
+    between the parses. The corpus's own ``distribution_count`` column supplies
+    neither side: it holds one parse's answer, max-latched across pulls, so it
+    could not produce the candidate's count nor be compared against it on equal
+    terms.
+
+    The frame **must not be subsampled**: a ``sample_weight`` other than 1 raises,
+    as it does in the caption census, because every figure here is a raw count
+    and a denial-sampled row would silently stand for ten.
+
+    **What a transition matrix here does not license.** The corpus column, the
+    statpack's per-band base rates, and the relist-tier cutpoints the bands are
+    built from were all fitted under
+    :data:`.cert_signals.DEFAULT_DISTRIBUTION_PARSE`. So this artifact is the
+    *input-level* cut — it says which cases the readings disagree about and
+    which band labels move — and it is conditional on the corpus column being
+    re-derived under the candidate parse before anything downstream is read.
+    Pinning a new parse in a registered version is therefore three pieces of
+    work, not one: re-derive ``distribution_count`` on a writer job — with a
+    write that bypasses the upsert path's max latch (a direct ``UPDATE``, the
+    bulk scrubs' shape), since a narrower count routed through ``upsert_rows``
+    is a silent no-op — rebuild the statpack so each band's base rate is
+    measured under the same parse, and re-measure the relist-tier grant rates
+    the cutpoints sit between. The
+    *selection* question — who the gate would actually fund — is a different
+    instrument again: rank-and-cap means a band move also moves cohort rank, so
+    that is read from ``salience-replay`` with the candidate version registered,
+    never from this matrix.
+
+    Deterministic and read-only: rows are ``case_id``-ordered and every count is
+    a pure function of a stored payload, so two runs over one corpus pointer
+    agree byte for byte — which is what lets a statistical review of this
+    artifact license a version pinning the candidate parse (``docs/salience.md``).
+    """
+    active = scorer(version)
+    # Resolve both parses up front, so an unregistered label fails on the empty
+    # frame too rather than only where the frame happens to hold a snapshot.
+    cert_signals.distribution_pattern(baseline_parse)
+    cert_signals.distribution_pattern(candidate_parse)
+    transitions: dict[tuple[str, str], int] = defaultdict(int)
+    per_term: dict[int, _TermTally] = defaultdict(_TermTally)
+    count_changed: list[str] = []
+    band_changed: list[str] = []
+    cases = 0
+    unobservable = 0
+    for row in corpus.iter_rows(conn, court="scotus"):
+        if not corpus.is_live_slice(row) or not caption._scored_segment(row):
+            continue
+        term = corpus.scotus_term_year(row.docket_number)
+        if term is None:
+            continue
+        if (row.sample_weight or 1) != 1:
+            raise ValueError(
+                f"{row.case_id}: sample_weight {row.sample_weight} — the census "
+                "counts raw and must not run over a subsampled frame"
+            )
+        term_cell = per_term[term]
+        # The live channel only: see the docstring on why the newest snapshot of
+        # either shape would report a channel artifact as a parse delta.
+        found = corpus.latest_live_snapshot(conn, row.case_id)
+        counts = (
+            (
+                cert_signals.snapshot_distribution_count(found[1], parse=baseline_parse),
+                cert_signals.snapshot_distribution_count(found[1], parse=candidate_parse),
+            )
+            if found is not None
+            else (None, None)
+        )
+        if counts[0] is None or counts[1] is None:
+            unobservable += 1
+            term_cell.unobservable += 1
+            continue
+        # One row, two counts: every other band input — caption, CVSG, circuit —
+        # is held at the corpus's own value, so the band delta isolates the parse.
+        bands = tuple(active.band(row.model_copy(update={"distribution_count": n})) for n in counts)
+        # Maturity is tracked per Term because it confounds the trend outright: a
+        # recent Term is mostly pending, and a pending docket has had fewer
+        # conferences to accumulate ancillary traffic than a resolved one.
+        pending = row.disposition is None
+        cases += 1
+        transitions[(bands[0], bands[1])] += 1
+        term_cell.cases += 1
+        term_cell.pending += int(pending)
+        if counts[0] != counts[1]:
+            count_changed.append(row.case_id)
+            term_cell.count_changed += 1
+            term_cell.pending_count_changed += int(pending)
+        if bands[0] != bands[1]:
+            band_changed.append(row.case_id)
+            term_cell.band_changed += 1
+            term_cell.pending_band_changed += int(pending)
+    order = {band: index for index, band in enumerate(active.bands)}
+    return DistributionCensus(
+        baseline_parse=baseline_parse,
+        candidate_parse=candidate_parse,
+        salience_version=active.version,
+        corpus_sha256=corpus_sha256,
+        cases=cases,
+        unobservable=unobservable,
+        count_changed=len(count_changed),
+        band_changed=len(band_changed),
+        transitions=[
+            DistributionBandTransition(from_band=cell[0], to_band=cell[1], n=transitions[cell])
+            for cell in sorted(transitions, key=lambda cell: (order[cell[0]], order[cell[1]]))
+        ],
+        terms=[
+            DistributionCensusTerm(
+                term=term,
+                cases=per_term[term].cases,
+                pending=per_term[term].pending,
+                unobservable=per_term[term].unobservable,
+                count_changed=per_term[term].count_changed,
+                band_changed=per_term[term].band_changed,
+                pending_count_changed=per_term[term].pending_count_changed,
+                pending_band_changed=per_term[term].pending_band_changed,
+            )
+            for term in sorted(per_term)
+        ],
+        count_changed_case_ids=sorted(count_changed),
+        band_changed_case_ids=sorted(band_changed),
+    )
 
 
 def carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
@@ -620,7 +819,9 @@ def _selection_plan(
     )
 
 
-def apply_salience_selection(conn: sqlite3.Connection, config: SalienceConfig) -> list[str]:
+def apply_salience_selection(
+    conn: sqlite3.Connection, data_root: Path, config: SalienceConfig
+) -> list[str]:
     """The live cycle's write pass: score, latch, and return the newly-latched ids.
 
     Runs after the cycle's polls so the cohorts reflect the day's ingested
@@ -630,7 +831,8 @@ def apply_salience_selection(conn: sqlite3.Connection, config: SalienceConfig) -
     ``predict_queued_at`` debounce — a never-queued case passes it).
 
     Under a scorer with ``selects_arrivals`` the pass also mints the
-    **arrival event** for every latched, pending, undistributed cert row
+    **arrival event** — both halves, into ``data_root``'s ledger as well as the
+    corpus — for every latched, pending, undistributed cert row
     that lacks one — driven off *state*, not off this pass's latch delta, so
     it is idempotent, a crash between the latch write and the mint heals on
     the next pass, and the manual ``reconcile-salience-selection`` command
@@ -643,11 +845,11 @@ def apply_salience_selection(conn: sqlite3.Connection, config: SalienceConfig) -
     scores, to_select, _, _ = _selection_plan(conn, config)
     corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
     corpus.latch_salience_selected(conn, to_select)
-    _mint_owed_arrival_events(conn)
+    _mint_owed_arrival_events(conn, data_root)
     return to_select
 
 
-def _mint_owed_arrival_events(conn: sqlite3.Connection) -> None:
+def _mint_owed_arrival_events(conn: sqlite3.Connection, data_root: Path) -> None:
     """Mint the arrival event for every selected arrival still lacking one.
 
     State-driven and idempotent: scans the latched, pending, undistributed
@@ -655,12 +857,27 @@ def _mint_owed_arrival_events(conn: sqlite3.Connection) -> None:
     for a pass interrupted between its latch write and its mint, and the
     reason the manual reconcile needs no minting logic of its own. A no-op
     under a scorer without arrival semantics.
+
+    "Absent" means either half. The arrival moment is a *declared* moment, so
+    it is minted through :func:`fedcourtsai.pipeline.outcome.persist_moment_events`
+    and owes its ledger ``event.yaml`` at the mint, not at some later touch;
+    a corpus row whose ledger file is missing is a half-landed mint, and
+    skipping on the corpus row alone would leave it that way forever. Keying
+    the skip on the **pair** makes the ledger half level-triggered like the
+    rest of the pass: the next cycle writes what is missing (for as long as
+    the row still passes the arrival guards — a since-distributed pick needs a
+    hand ``materialize-event``), and the write
+    path's ``resolved`` latch means re-minting can never reopen an event a
+    resolution already closed.
     """
     if not scorer().selects_arrivals:
         return
     from . import outcome  # noqa: PLC0415 - outcome<-moments<-... keeps this deferred
 
-    events: list[corpus.CorpusEvent] = []
+    # Scan to completion first, write after: `iter_rows` streams an open cursor
+    # over `cases` and the mint seam commits, so buffering keeps the scan one
+    # consistent pass rather than reading through its own writes.
+    owed: list[tuple[str, int, corpus.CorpusEvent]] = []
     for row in corpus.iter_rows(conn, court="scotus"):
         if (
             not row.salience_selected
@@ -675,32 +892,41 @@ def _mint_owed_arrival_events(conn: sqlite3.Connection) -> None:
             or row.date_filed < ARRIVAL_COHORT_SINCE
         ):
             continue
+        court_id, _, docket = row.case_id.partition("/")
+        if not docket.isdigit():
+            # No numeric docket id means no ledger path to mint the other half
+            # into, so the pair this pass maintains cannot exist for the row.
+            continue
+        docket_id = int(docket)
         case_events = corpus.events_for_case(conn, row.case_id)
-        if any(e.event_id == "evt-petition-arrival-disposition" for e in case_events):
+        ledger_file = CasePaths(data_root, court_id, docket_id).event(_ARRIVAL_EVENT_ID).event_file
+        if any(e.event_id == _ARRIVAL_EVENT_ID for e in case_events) and ledger_file.is_file():
             continue
         open_ids = [e.event_id for e in case_events if not e.resolved]
         minted = outcome.arrival_event_for(row, open_ids)
         if minted is not None:
-            events.append(minted)
-    if events:
-        corpus.upsert_events(conn, events)
+            owed.append((court_id, docket_id, minted))
+    for court_id, docket_id, event in owed:
+        outcome.persist_moment_events(conn, data_root, court_id, docket_id, [event])
 
 
 def reconcile_salience_selection(
-    conn: sqlite3.Connection, config: SalienceConfig, *, apply: bool
+    conn: sqlite3.Connection, data_root: Path, config: SalienceConfig, *, apply: bool
 ) -> SalienceSelectionResult:
     """Score the in-scope SCOTUS cases and latch the per-conference selected slice.
 
     Dry run by default (scores and picks are computed but nothing is written);
     ``apply`` writes the scores/version on every in-scope case and latches
-    ``salience_selected`` on the newly-selected ones. Idempotent under the sticky
+    ``salience_selected`` on the newly-selected ones, and mints each owed
+    arrival event into both stores — ``data_root`` is the git ledger root the
+    mint's ``event.yaml`` half lands under. Idempotent under the sticky
     latch — a second run with no corpus change latches nothing new.
     """
     scores, to_select, eligible, conferences = _selection_plan(conn, config)
     if apply:
         corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
         corpus.latch_salience_selected(conn, to_select)
-        _mint_owed_arrival_events(conn)
+        _mint_owed_arrival_events(conn, data_root)
     return SalienceSelectionResult(
         applied=apply,
         version=SALIENCE_VERSION,

@@ -155,15 +155,44 @@ stays outside the gate:
   survivor is indistinguishable from a cell graded once, and every figure
   around it is already post-collapse, so re-grading — a maintainer-reachable
   operation — could otherwise move a standing with nothing on any published
-  artifact recording that it happened. It does **not** cover a **re-stamp**:
-  running `stamp-cell` again over an existing `evaluation.json` rewrites
-  `correct` — the first rank key — *in place*, on the same file, so no second
-  grading exists, nothing is collapsed away, and `superseded_gradings` stays
-  where it was. Against a corrected outcome that moves a published standing
-  with a trace only in `data/`'s git history. The honest route to moving a
-  standing after an outcome correction is therefore a **re-grade** — a second
-  `evaluation.json`, which the collapse counts — never a bare re-stamp of the
-  existing one. Read it as an audit line, never as a
+  artifact recording that it happened. It does **not** cover an **in-place
+  rewrite**: running `stamp-cell` again over an existing `evaluation.json`
+  rewrites `correct` — the first rank key — *in place*, on the same file, so no
+  second grading exists, nothing is collapsed away, and `superseded_gradings`
+  stays where it was. Two operations hide under that, and they part on whether
+  a **judgment** changed.
+  A new judgment — the same cell graded again under a changed rubric, prompt,
+  or registry — is a second observation, and its honest route is a second
+  `evaluation.json` from a new evaluator run, which the collapse counts and
+  this figure then records; never a bare re-stamp of the existing one, which
+  would move a standing with nothing published saying so.
+  A **corrected outcome** is not a second observation. `correct`, the claim
+  block, and the skill record are deterministic functions of the committed
+  artifacts, so re-committing an outcome changes those functions' *inputs*
+  while nothing about the grading run changes: minting a second
+  `evaluation.json` would fabricate an observation for the collapse to count,
+  and would copy prose its agent wrote under different ground truth. It would
+  also convert a ground-truth correction into a **process** change: a genuine
+  evaluator re-run resolves a *current* stamp — `stamped_at` moving across
+  `FROZEN_SINCE` and the digest to today's registry — which migrates the cell
+  into a pre-registration cohort it was never produced under, and that is the
+  decisive objection, not merely the copied prose. The
+  sanctioned route there is therefore in place — `stamp-cell --regrade`, which
+  recomputes exactly those harness-owned fields and preserves the producing
+  run's process stamp — and its two trades are worth saying plainly. It leaves
+  **no** `superseded_gradings` trace, so `data/`'s git history is the only
+  record that the numbers moved. And the recomputed `claim_scores` and skill
+  fields pool from the **statpack committed at re-grade time**, not the one the
+  stamp dates, so a re-graded set is comparable within itself and should be
+  re-graded together against one pack. What the ledger gate catches of a
+  partial recompute is narrower than it sounds:
+  `evaluation_correct_agrees` holds the **`correct` bit only**, and only inside
+  a `(case, event, predictor)` group where two or more evaluators left stamped,
+  non-null gradings — so a lone judge's cell, or a recompute that leaves
+  `claim_scores` and the skill record stale while `correct` agrees, passes it
+  clean. The whole-event discipline is the operator's; the gate is the backstop
+  for the one bit the accuracy column averages. Read it as an
+  audit line, never as a
   term: it is **not** subtracted from any count on the board, and a count
   plus it is not a ledger total. Its population is the **scope gate's**, which
   is the board's process scope but a slightly wider set of cells. The scope
@@ -870,9 +899,11 @@ the rendered table) and
   is projected to the state its docket disclosed at the policy's moment
   (petition arrival, first distribution, or the last pre-resolution
   distribution), and **every registered** frozen scoring, banding, and
-  per-conference selection runs over that one reconstruction — the projection
-  is built once per (Term, policy) and shared, so the versions cannot differ in
-  what they saw. Each cell names the version that produced it, and reports
+  per-conference selection runs over that reconstruction — the projection is
+  built once per (Term, policy, distribution parse) and shared by the versions
+  pinning that parse, so versions differ in what they saw only where their
+  declared parse differs, and each cell records the parse it was projected
+  under. Each cell names the version that produced it, and reports
   the would-have-been selection (carve-out vs rank-fill, and where capacity
   actually bit), the band mix including `unobservable`, the
   snapshot-provenance mix, and sample-weighted **precision/recall of the
@@ -885,14 +916,18 @@ the rendered table) and
   relist-0 with no conference cohort, so the rank-and-cap selects nothing and
   escalation precision is undefined (the trajectory features cannot
   distinguish petitions before the docket moves). Under a scorer that selects
-  arrivals (sal-v2), the `arrival` policy's cells report the draw slice and
-  the carve-in picks instead — a separate cohort, never pooled into the
-  escalation ones, and still no validation of any caption feature (the
-  reconstruction carries the terminal caption; a declared gap).
+  arrivals (both caption-banded versions declare it), the `arrival` policy's
+  cells report the draw slice and the carve-in picks instead — a separate
+  cohort, never pooled into the escalation ones, and still no validation of
+  any caption feature (the reconstruction carries the terminal caption; a
+  declared gap).
 
-  **Comparing two salience versions.** Cells sharing a (Term, policy) are paired
-  on one identical projection, so any difference between them is the scoring
-  function — but *not* at a matched operating point. Every version is run
+  **Comparing two salience versions.** Cells sharing a (Term, policy) *and a
+  distribution parse* are paired on one identical projection, so any
+  difference between them is the scoring function; where the parses differ,
+  the projections differ with them (each cell records its parse), and the
+  comparison spans the scoring function together with the docket reading it
+  was fitted on — but either way *not* at a matched operating point. Every version is run
   against the same `salience.floor` and the same per-conference capacity, and
   carve-outs sit above `N`, so a scorer whose score scale puts a different
   fraction above the floor selects a **differently sized set**. Raw precision
@@ -929,6 +964,19 @@ the rendered table) and
   within a Term is the intended reading (mind the shifting blind share);
   cross-report comparison against the cert back-test's band mix is not — the
   two select different populations at different moments.
+
+  **The same standard binds the forward stratum.** A forward cell placed at its
+  declared moment carries the same `dated`/`truncated` split, so no forward
+  figure over placed cells may be published without those counts stated inline.
+  The split is not cosmetic on either axis. It is **selected**: `dated` needs a
+  pull that landed on the trigger day, which the live poller does for
+  watchlisted and salient dockets and not for the rest, so the residual
+  concentrates in the `truncated` arm rather than spreading evenly. And the two
+  arms err in opposite directions — `dated` brackets the moment from below (it
+  is the docket as pulled, so it can miss entries filed later the same day),
+  `truncated` from above (it reconstructs to the cutoff but carries the undated
+  counsel/amici blocks as at a much later pull). Pooling them averages a
+  selected mixture of two different biases.
 - `statpack.json` / `statpack.md` — a corpus base-rate **statpack** (an independent
   published artifact): two cert-era populations side by side, plus the
   interim-docket and merits stage sections described below. The labeled full-corpus
@@ -1197,6 +1245,26 @@ of the answer side is observable, never a hit rate, and its denominator is every
 call including builtins. An engine with no captured MCP result anywhere has its
 per-tool dead-end rows **withheld** rather than printed as 100%, and where they
 are printed they are an upper bound.
+
+**What may be claimed from the throttle counts.** `result_status` on a
+`RetrievalCall` marks a result the shared upstream quota refused, and the counts
+built on it — the log's `throttled_calls`, the per-run note on a predict /
+evaluate PR, the tool-usage rollup's per-engine cut — support exactly one claim:
+*these cells retrieved less than they asked for, so do not read their coverage
+beside a well-fed cell's.* Three limits bind every figure. It is a **floor**: the
+predicate is anchored on the pinned MCP release's own rate-limit phrasing and
+biased to miss a throttle rather than invent one, it is read only from
+manifest-tool results, and a call a starved cell gave up on making leaves no row
+at all. Its denominator is **observed manifest-tool conditions**, not calls, so
+an engine whose transcript drops results shows an em dash rather than a clean
+zero — capture-blind is not throttle-free, and the surfaces say so where the
+number is printed rather than in a footnote. And the **per-engine cut is
+descriptive, never comparative**: the quota is one bucket every cell of a run
+draws from, so which engine's cells hit the wall records ordering and
+concurrency within that run, not a property of the engine — no engine may be
+ranked, differenced, or excused on it. Statuses are baked at parse time and
+never recomputed, so a ledger-wide count pools whatever predicate each log was
+captured under, exactly as `process_version` scopes a grade.
 
 **The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
 the replay runs, `backtest.json`, `cert-backtest.json`,

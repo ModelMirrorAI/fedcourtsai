@@ -55,7 +55,7 @@
             }
           ],
           "default": null,
-          "description": "Whether capture saw this call's result at all. `captured` means the engine log carried the paired result item; it does NOT mean the result had content \u2014 an empty result, or a failed one, is still captured. `unobserved` means no result reached the log: the engine logs none (Gemini's telemetry), the call ran provider-side and echoed nothing back (a Codex hosted `web_search_call`), or capture found no result item to pair with the call \u2014 the parsers derive the marker from a pairing rule, so a call the engine logged without a pairing id, and one whose result sits past a truncated transcript, both land here for a capture-side reason. The digests cannot make that distinction on their own \u2014 `result_digest` is null both for a captured-empty result and for one never captured, and so is `retrieved_doc_date` \u2014 which is why a reader who treats a null digest as `returned nothing` silently mis-grades every unobserved call. Null on records written before the field existed: capture-unknown, not unobserved.",
+          "description": "Whether capture saw this call's result at all. `captured` means the engine log carried the call's result, in a paired result item or on the call item itself for an engine that settles it there; it does NOT mean the result had content \u2014 an empty result, or a failed one, is still captured. `unobserved` means no result reached the log: the engine logs none (Gemini's telemetry), the call ran provider-side and echoed nothing back (a Codex hosted `web_search_call`), or capture found no result to pair with the call \u2014 the parsers derive the marker from a pairing rule, so a call the engine logged without a pairing id, and one whose result sits past a truncated transcript, both land here for a capture-side reason. The digests cannot make that distinction on their own \u2014 `result_digest` is null both for a captured-empty result and for one never captured, and so is `retrieved_doc_date` \u2014 which is why a reader who treats a null digest as `returned nothing` silently mis-grades every unobserved call. Null on records written before the field existed: capture-unknown, not unobserved.",
           "title": "Result Capture"
         },
         "result_digest": {
@@ -70,6 +70,25 @@
           "default": null,
           "description": "SHA-256 (hex, 16 chars) of the logged result payload",
           "title": "Result Digest"
+        },
+        "result_status": {
+          "anyOf": [
+            {
+              "enum": [
+                "ok",
+                "throttled",
+                "error",
+                "unobserved"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What capture read IN this call's result \u2014 decided at parse time from the captured payload, never the agent's word, and never a judgment about whether the call was useful. `throttled` means the payload carries the shape the pinned CourtListener MCP server renders an upstream HTTP 429 as: its tool handler raises `Rate limit exceeded: HTTP 429: \u2026`, and its citation tools append a `Rate limited by the upstream API` note to a result the throttle cut short. That is the shared daily quota turning the cell away rather than the corpus being empty, which is the one condition a starved run cannot otherwise be told apart from a well-fed one by. ONLY a manifest-tool (MCP) call can carry it: the text predicate is gated on the tool name, because the same phrases occur constantly in what a BUILTIN reads \u2014 a cell's own `reasoning.md` describing a throttle it hit, this repository's source, an evaluator reading the predictor's artifacts \u2014 and a builtin echoing prose about throttling is not the upstream refusing this cell. That gate narrows the text scanned; it does not make the rest of it safe, because a manifest search tool returns documents for a living and an opinion may discuss a rate limitation or too many requests for admission. So each phrase is quoted to something this server actually emits \u2014 the note to its subject (`\u2026by the upstream API`), the reason phrase to its status code (`429 Too Many Requests`) \u2014 and none is a bare `429`, which inside a legal payload is an ordinary U.S. Reports volume and a docket number besides. Biased to miss a throttle rather than invent one, so read `throttled` as a floor. `error` is the engine's OWN structural marker on the result (a Claude `tool_result` `is_error`, a Codex MCP item's inline `error`) with no throttle shape. It is NOT gated on the tool name \u2014 it is a flag the engine set, not text a payload can forge, so a failed builtin is honestly an error \u2014 and it is a floor too, since only some engines set one. `ok` is the residual, and it is wide: captured, no engine error marker, and either not a manifest-tool call at all or a manifest result with no throttle shape. It is not proof the call succeeded. `unobserved` mirrors `result_capture` exactly: no result reached the log, so no condition could be read, which is every Gemini call. Null on records written before the field existed: condition-unknown, not `ok`. Every status is BAKED AT PARSE TIME and never recomputed, so a later recalibration of the predicate reaches only new logs; any rollup pools whatever predicate each log was minted under.",
+          "title": "Result Status"
         },
         "retrieved_doc_date": {
           "anyOf": [
@@ -200,6 +219,20 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "throttled_calls": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "How many of this log's MANIFEST-TOOL calls carry `result_status` `throttled` \u2014 the log-level reading of how often the shared upstream quota turned this cell away rather than answering it. Derived from `calls`, never asserted independently, so the count and the rows cannot disagree; like `result_capture_coverage` its denominator is the calls this log RETAINED, after capture's head-cut at the schema's 500-call maximum. Builtin calls are excluded on both sides \u2014 a `Read` of a document that discusses throttling is not this cell being throttled \u2014 which is the same exclusion the corpus-wide rollup and the per-run note apply, so the three figures mean one thing. Null when no manifest call's status records an observed condition: an empty log, one predating the field, one whose every result was `unobserved`, or one that called no manifest tool at all. A real 0 is the stronger claim: manifest results were legible and none of them was a throttle. Read any non-null count as a floor \u2014 the per-call predicate is biased against inventing a throttle, and calls the cell never got to make are not here at all.",
+      "title": "Throttled Calls"
     }
   },
   "required": [

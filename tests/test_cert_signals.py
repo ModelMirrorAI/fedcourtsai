@@ -14,11 +14,13 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.pipeline.cert_signals import (
+    DISTRIBUTION_PARSES,
     dissent_from_denial,
     match_disposition_signal,
     mootness_disposition,
+    snapshot_distribution_count,
 )
-from fedcourtsai.pipeline.ingest import _live_resolution
+from fedcourtsai.pipeline.ingest import _live_distribution_count, _live_resolution
 from fedcourtsai.schemas import Disposition
 
 # --- dispositions the resolver must read -----------------------------------------
@@ -739,3 +741,124 @@ def test_the_bare_notation_needs_its_own_entry_to_be_the_denial() -> None:
     # an entry of their own, as an order list files them.
     assert dissent_from_denial("Justice Gorsuch, dissenting.") is False
     assert dissent_from_denial("Justice Thomas would grant the petition.") is True
+
+
+# --- the versioned distribution parse --------------------------------------------
+
+#: The three prefixed shapes a docket carries when some paper *other than the
+#: petition* goes to a conference. Each names its paper first, which is what
+#: `dist-v2`'s entry-initial anchor reads and `dist-v1`'s free search does not.
+_ANCILLARY_DISTRIBUTIONS = (
+    "Motion (25M82) DISTRIBUTED for Conference of 5/19/2026.",
+    "Application (23A242) DISTRIBUTED for Conference of 5/19/2026.",
+    "Suggestion of mootness DISTRIBUTED for Conference of 5/19/2026.",
+)
+
+#: The petition's own distribution, which the clerk always enters entry-initial.
+_OWN_DISTRIBUTION = "DISTRIBUTED for Conference of 3/24/2023."
+
+
+def _payload(*descriptions: str) -> dict[str, object]:
+    """A REST-shaped snapshot payload carrying one entry per description."""
+    return {"docket_entries": [{"description": text} for text in descriptions]}
+
+
+def _live_payload(*texts: str) -> dict[str, object]:
+    """A live-shaped (supremecourt.gov) snapshot payload.
+
+    The shape the entry-initial rule was measured on, and the one the census
+    counts, so the parses are pinned against it and not only against the REST
+    rendering of the same facts.
+    """
+    return {"ProceedingsandOrder": [{"Text": text, "Date": "08/01/2026"} for text in texts]}
+
+
+def _entries(*descriptions: str) -> list[dict[str, object]]:
+    """The synthesized live entry list ingest counts over."""
+    return [{"description": text} for text in descriptions]
+
+
+@pytest.mark.parametrize("text", _ANCILLARY_DISTRIBUTIONS)
+def test_an_ancillary_papers_distribution_counts_only_under_dist_v1(text: str) -> None:
+    """The prefix before DISTRIBUTED is the whole discriminator.
+
+    Every ancillary distribution names its own paper first, so a free search
+    reads it as the petition's own trajectory and the entry-initial anchor does
+    not. The count feeds the salience band's primary feature, which is why the
+    two readings are separately registered rather than one silently replacing
+    the other.
+    """
+    assert snapshot_distribution_count(_payload(text), parse="dist-v1") == 1
+    assert snapshot_distribution_count(_payload(text), parse="dist-v2") == 0
+    # The live shape is where the rule was measured, so it is pinned directly
+    # rather than only through the REST rendering of the same facts.
+    assert snapshot_distribution_count(_live_payload(text), parse="dist-v1") == 1
+    assert snapshot_distribution_count(_live_payload(text), parse="dist-v2") == 0
+    # The corpus-side counter reads the same registry, so it cannot disagree.
+    assert _live_distribution_count(_entries(text), parse="dist-v1") == 1
+    assert _live_distribution_count(_entries(text), parse="dist-v2") == 0
+
+
+def test_the_petitions_own_distribution_counts_under_both_parses() -> None:
+    """dist-v2 narrows the reading; it must not narrow it past the signal itself."""
+    for parse in DISTRIBUTION_PARSES:
+        assert snapshot_distribution_count(_payload(_OWN_DISTRIBUTION), parse=parse) == 1
+        assert snapshot_distribution_count(_live_payload(_OWN_DISTRIBUTION), parse=parse) == 1
+        assert _live_distribution_count(_entries(_OWN_DISTRIBUTION), parse=parse) == 1
+
+
+def test_dist_v2_tolerates_leading_whitespace_before_the_entry() -> None:
+    """Indentation is upstream formatting, not a paper naming itself."""
+    padded = f"  \n\t{_OWN_DISTRIBUTION}"
+    assert snapshot_distribution_count(_payload(padded), parse="dist-v2") == 1
+    assert _live_distribution_count(_entries(padded), parse="dist-v2") == 1
+
+
+def test_a_mixed_docket_sheds_exactly_the_ancillary_entries() -> None:
+    """The two readings differ by the prefixed entries and by nothing else."""
+    docket = _payload(
+        "DISTRIBUTED for Conference of 3/24/2023.",
+        "Motion (25M82) DISTRIBUTED for Conference of 5/19/2026.",
+        "DISTRIBUTED for Conference of 4/14/2023.",
+    )
+    assert snapshot_distribution_count(docket, parse="dist-v1") == 3
+    assert snapshot_distribution_count(docket, parse="dist-v2") == 2
+
+
+def test_the_conference_date_dedupe_survives_both_parses() -> None:
+    """Distinct parsed conference dates, not raw matches — under either reading.
+
+    Two spellings of one conference are one distribution, so a re-docketed
+    notice never inflates the count and the parse change cannot smuggle in a
+    different dedupe rule alongside it.
+    """
+    respelled = _payload(
+        "DISTRIBUTED for Conference of 3/24/2023.",
+        "DISTRIBUTED for Conference of March 24, 2023.",
+    )
+    for parse in DISTRIBUTION_PARSES:
+        assert snapshot_distribution_count(respelled, parse=parse) == 1
+        assert (
+            _live_distribution_count(
+                _entries(
+                    "DISTRIBUTED for Conference of 3/24/2023.",
+                    "DISTRIBUTED for Conference of March 24, 2023.",
+                ),
+                parse=parse,
+            )
+            == 1
+        )
+
+
+def test_an_unregistered_parse_raises_rather_than_falling_back() -> None:
+    """A count produced by a reading the caller did not name is worse than an error."""
+    with pytest.raises(KeyError):
+        snapshot_distribution_count(_payload(_OWN_DISTRIBUTION), parse="dist-v0")
+    with pytest.raises(KeyError):
+        _live_distribution_count(_entries(_OWN_DISTRIBUTION), parse="dist-v0")
+
+
+def test_a_payload_with_no_proceedings_is_unobservable_under_every_parse() -> None:
+    """Absence of a proceedings list is unknown, never zero — whichever reading asks."""
+    for parse in DISTRIBUTION_PARSES:
+        assert snapshot_distribution_count({}, parse=parse) is None

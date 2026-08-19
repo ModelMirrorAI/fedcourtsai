@@ -108,6 +108,15 @@ the whole tree at the `prereg/<label>` tag — lookback window included — and 
 later window change belongs in the freeze record beside the masking changes,
 never in a commit message alone.
 
+The **provisioning cutoff** is the list's predictor-side member: where a forward
+cell's event declares a moment, provisioning places the cell at that moment
+rather than at the corpus's latest snapshot, which moves what the predictor is
+conditioned on without touching a prompt byte and so without moving a digest.
+It does carry a data-visible boundary — `context.cutoff`, non-null exactly on a
+placed cell — so the two conditionings are separable in the record rather than
+pooled silently, which is the property the scoring baseline lacks. It belongs in
+the freeze record on the same terms as the rest.
+
 ## The stamp is the harness's word, not the agent's
 
 The agent writes `prediction.json` / `evaluation.json`; a post-agent step
@@ -148,6 +157,96 @@ where the evaluator wrote a number of its own. So
 `fedcourts unblind-evaluations` runs first, then `stamp-cell`, then `validate` —
 whose `check_evaluation_targets` resolves the same join and is the loud backstop
 for an alias that survived.
+
+### Re-grading a corrected outcome keeps the producing run's stamp
+
+An evaluation grades a prediction against the **committed outcome**, so
+correcting an outcome — a disposition relabelled, a judgment fixed — leaves
+every evaluation that read the old one recording a stale `correct`, claim
+block, and skill record. `stamp-cell --regrade` recomputes exactly those
+harness-owned fields and writes them **without** `process_version`: the
+committed stamp survives byte-identical, `stamped_at` included.
+
+That is the whole of the design, and the reason is pre-registration. Every
+field a re-grade touches is a function of the committed artifacts alone —
+recomputing it says nothing about who computed it. The record's *prose*, and
+the judgment the numbers sit beside, were produced by the process the stamp
+names; a bare re-stamp would move a proc-N artifact's label to whatever the
+registry resolves at re-grade time, attributing an older process's work to a
+newer pre-registration and silently moving cells across the frozen/alpha
+partition the label keys. So the correction changes the record's inputs, not
+its attribution. A re-grade therefore **requires** a record that already
+carries a stamp — a never-stamped cell has no attribution to preserve and
+takes the ordinary stamp — and it refuses `--role predictor` (a prediction
+carries no harness-graded field) and `--stamped-at` / `--pipeline-sha`, which
+set only the version it declines to write.
+
+Two senses of "re-grade" meet here and must not be confused. The flag is an
+in-place **recompute** of the harness-owned fields on the records that exist,
+under the stamp they already carry. The sense the leaderboard's collapse counts
+— a second `evaluation.json` from a new evaluator run, which supersedes the
+first and shows up in `superseded_gradings` — is the route for a changed
+*judgment*, and it is the only one of the two that is a second observation.
+An outcome correction is not a changed judgment, and minting a run for it would
+fabricate an observation; a changed rubric is not an outcome correction, and
+recomputing in place for it would rewrite a standing invisibly. See
+`metrics/README.md`.
+
+The decisive argument against minting a run for a correction is this page's
+subject rather than the collapse's: a genuine evaluator re-run resolves a
+**current** stamp. Its `stamped_at` is now — on the far side of `FROZEN_SINCE`
+— and its digest is whatever the registry resolves today, so the cell lands in
+a pre-registration cohort it was never produced under, and a correction to
+ground truth has been recorded as a change of process. Preserving the stamp is
+what keeps the two kinds of change distinguishable in the record.
+
+**A re-grade re-prices against today's pools, deliberately.** The recomputed
+`claim_scores` and skill fields are pooled from the statpack and salience
+config committed at re-grade time, which may have moved since the stamp — so
+the preserved stamp bounds the block's vintage from below rather than pinning
+it (`fedcourtsai.integrity.evaluation_clock`). That is the honest choice, and
+it is the ordinary stamp's own rule: a harness field is a function of the
+committed artifacts *as of the invocation that writes it*. Reconstructing a
+stamp-vintage pool would price a corrected outcome against a pack that never
+saw the correction — a number matching neither the record it replaces nor
+anything a reader can rebuild. The comparability that costs is the operator's
+to keep: **re-grade a whole cohort against one committed statpack**, never a
+cell at a time across a moving pack. That discipline buys internal consistency
+for the set re-graded and nothing wider — the ledger's blocks already spread
+across pack vintages from one run to the next, which no re-grade widens, and
+the realized-Term column is immune either way, being built from a single
+handed-in pack.
+
+Re-grade **every evaluator on the event**, not one. `validate`'s
+`evaluation_correct_agrees` collapses to the latest runs and requires the
+evaluators to agree on `correct`, so a half-re-graded event fails the ledger —
+the check doing its job on a genuinely inconsistent state, not an obstacle to
+route around. Read its reach in `metrics/README.md` before relying on it: it
+holds the `correct` bit only, and only where two or more evaluators left
+stamped gradings of the same cell.
+
+Three more refusals, all judged before the first write so a refusal cannot
+leave an event half corrected. **No artifact at all** exits non-zero, unlike
+the ordinary stamp's no-op: a re-grade's coordinates are typed by hand, so a
+mistyped run id must not read as a correction that landed. A **superseded
+run** is refused with the surviving run named, since every scoring surface
+collapses to the newest and recomputing the loser moves nothing. And a cell
+whose **evaluator-owned Brier trio no longer reproduces** against the corrected
+outcome is refused rather than half-corrected: on the stages where the Brier,
+the segment base rate, and the skill stay the evaluator's arithmetic, a
+correction that moves the outcome's binary would otherwise leave `correct`
+recomputed beside a trio scored against the superseded one — the leaderboard
+drops that cell from `skill_scored` while keeping it in accuracy, so the two
+columns would run over different populations. The remedy is the one the
+mispaired-basis guard already names: null the four together, or commit a
+re-derivation, then re-grade.
+
+Each target's process scope is echoed as the re-grade goes — `frozen` or
+`alpha`, with the label it preserved. Since the operation leaves no
+`superseded_gradings` trace, that line is the published-record annotation for a
+frozen-scope re-grade: it puts the fact that a claimable cell moved into the
+writer run's log and step summary, where it stays greppable without a schema
+field or a walk through `data/`'s history.
 
 ## Three states: shakedown → not-yet-frozen → frozen
 

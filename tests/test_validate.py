@@ -2,7 +2,7 @@
 
 import json
 import sqlite3
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -32,6 +32,7 @@ from fedcourtsai.schemas import (
     PredictableEvent,
     Prediction,
     PredictionContext,
+    ProcessVersion,
     SemanticClaim,
     SemanticGrade,
     SemanticGradeBlock,
@@ -45,9 +46,12 @@ from fedcourtsai.validate import (
     _STALE_GRANT_DAYS,
     CHECK_BASE_RATE_VERSION,
     CHECK_CASE_DATES,
+    CHECK_CORPUS_EVENTS_IN_LEDGER,
+    CHECK_CORRECT_AGREES,
     CHECK_DOMAIN_VALUES,
     CHECK_EVALUATION_SEMANTIC,
     CHECK_EVALUATION_TARGETS,
+    CHECK_JUDGMENT_ONLY_MERITS,
     CHECK_LEDGER_EVENTS_IN_GIT,
     CHECK_LEDGER_REFERENCES,
     CHECK_MERITS_PREDICTIONS,
@@ -528,6 +532,127 @@ def test_orphan_case_fails(tmp_path: Path) -> None:
     assert _verdict_by_check(verdict)[CHECK_LEDGER_REFERENCES] is False
 
 
+# --- C: minted moments are defined in the ledger ------------------------------
+
+
+def _seed_moment(db: Path, event_id: str, kind: EventKind, stage: Stage) -> None:
+    """A SCOTUS case carrying one declared-moment event row and nothing else."""
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [corpus.CorpusRow(case_id="scotus/7", court="scotus")])
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=event_id,
+                    case_id="scotus/7",
+                    court="scotus",
+                    kind=kind,
+                    stage=stage,
+                )
+            ],
+        )
+
+
+def _minted_check(db: Path, data_root: Path) -> CorpusCheck:
+    """The corpus→ledger check's own result, so a test can assert what it *looked* at.
+
+    `passed` alone is not enough: a check that stopped examining anything would
+    pass every "…passes" case below vacuously, so each asserts `checked` too —
+    which is also what pins the population boundary the check exists to draw.
+    """
+    verdict = _run(db, data_root)
+    return next(c for c in verdict.checks if c.name == CHECK_CORPUS_EVENTS_IN_LEDGER)
+
+
+def test_minted_moment_without_its_ledger_definition_fails(tmp_path: Path) -> None:
+    """A half-landed mint: the arrival moment exists in the corpus while the
+    committed tree, which is the pre-registration record, declares no event —
+    and a moment that never earns a cell never gets a first touch to fix it."""
+    db = tmp_path / "corpus.db"
+    _seed_moment(db, "evt-petition-arrival-disposition", EventKind.petition, Stage.cert)
+    check = _minted_check(db, tmp_path / "data")
+    assert check.passed is False
+    assert check.checked == 1
+
+
+def test_minted_moment_with_its_ledger_definition_passes(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    data_root = tmp_path / "data"
+    _seed_moment(db, "evt-petition-arrival-disposition", EventKind.petition, Stage.cert)
+    _write_event(data_root, "scotus", 7, "evt-petition-arrival-disposition")
+    check = _minted_check(db, data_root)
+    assert check.passed is True
+    assert check.checked == 1
+
+
+def test_cert_baseline_without_a_ledger_definition_passes(tmp_path: Path) -> None:
+    """The cert stage's baseline is derived from the docket's own shape, so the
+    corpus holds one for every petition it has ever seen and its ledger half is
+    owed at first touch or at resolution — not at discovery. Requiring a file
+    here would fail on most of the corpus rather than on a defect."""
+    db = tmp_path / "corpus.db"
+    _seed_moment(db, "evt-petition-disposition", EventKind.petition, Stage.cert)
+    check = _minted_check(db, tmp_path / "data")
+    assert check.passed is True
+    assert check.checked == 0  # outside the population, not merely satisfied
+
+
+def test_interim_baseline_without_a_ledger_definition_passes(tmp_path: Path) -> None:
+    """The interim stage's baseline is the same shape as the cert stage's: an
+    application docket's mere existence mints it."""
+    db = tmp_path / "corpus.db"
+    _seed_moment(db, "evt-motion-disposition", EventKind.motion, Stage.interim)
+    check = _minted_check(db, tmp_path / "data")
+    assert check.passed is True
+    assert check.checked == 0  # outside the population, not merely satisfied
+
+
+def test_a_non_scotus_minted_id_is_outside_the_population(tmp_path: Path) -> None:
+    """The scan is SCOTUS-scoped: only SCOTUS stages declare moments, so a
+    circuit row carrying the same id is another court's event, not a
+    half-landed mint this rule has anything to say about."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [corpus.CorpusRow(case_id="ca9/7", court="ca9")])
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-arrival-disposition",
+                    case_id="ca9/7",
+                    court="ca9",
+                    kind=EventKind.petition,
+                )
+            ],
+        )
+    check = _minted_check(db, tmp_path / "data")
+    assert check.passed is True
+    assert check.checked == 0
+
+
+def test_a_minted_id_on_a_non_numeric_docket_is_skipped(tmp_path: Path) -> None:
+    """A case id with no numeric docket addresses no ledger path at all, so it
+    is a malformed-id defect for another check — counting it here would report
+    a missing file that could never exist."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [corpus.CorpusRow(case_id="scotus/abc", court="scotus")])
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-arrival-disposition",
+                    case_id="scotus/abc",
+                    court="scotus",
+                    kind=EventKind.petition,
+                )
+            ],
+        )
+    check = _minted_check(db, tmp_path / "data")
+    assert check.passed is True
+    assert check.checked == 0
+
+
 # --- C: evaluation targets a prediction ---------------------------------------
 
 
@@ -772,11 +897,13 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
         CHECK_EVALUATION_SEMANTIC,
         CHECK_MERITS_PREDICTIONS,
         CHECK_SCORED_VOTES,
+        CHECK_CORRECT_AGREES,
+        CHECK_JUDGMENT_ONLY_MERITS,
     }
     assert all(c.passed for c in checks)
 
 
-# --- C: a risk-set base-rate basis carries its salience version ---------------
+# --- C: the base-rate basis agrees with the scored prediction's record --------
 
 
 def _write_basis_evaluation(data_root: Path, predictor: str, fields: dict[str, object]) -> Path:
@@ -833,9 +960,9 @@ def test_a_risk_set_basis_without_a_salience_version_fails(tmp_path: Path) -> No
 
 
 def test_a_resolved_or_terminal_or_absent_basis_passes(tmp_path: Path) -> None:
-    """Only the risk-set path can fail: terminal always resolves to the live
-    scorer's version, and a record that took no segment base rate has no basis
-    to carry one."""
+    """A versioned risk-set record, a band-less terminal one, and no basis all
+    pass: the terminal record here has no prediction to contradict it, and a
+    record that took no segment base rate has no basis to carry one."""
     data_root = tmp_path / "data"
     _write_basis_evaluation(
         data_root, "p1", {"base_rate_basis": "risk_set", "base_rate_salience_version": "sal-v2"}
@@ -846,7 +973,114 @@ def test_a_resolved_or_terminal_or_absent_basis_passes(tmp_path: Path) -> None:
     _write_basis_evaluation(data_root, "p3", {})  # no basis recorded at all
     check = _basis_check(data_root)
     assert check.passed
-    assert check.checked == 1  # only the risk-set record is in scope
+    assert check.checked == 2  # the risk-set and terminal records are in scope
+
+
+def _write_cert_terminal_cell(
+    data_root: Path,
+    docket: int,
+    predictor: str,
+    *,
+    band: str | None,
+    salience_version: str | None,
+    stage: Stage | None = Stage.cert,
+) -> Path:
+    """A cert-shaped event whose latest prediction froze the given pairing,
+    beside an evaluation recording the ``terminal`` basis. Returns the
+    evaluation path."""
+    event = "evt-petition-writ-of-certiorari"
+    ep = CasePaths(data_root, "scotus", docket).event(event)
+    write_yaml(
+        ep.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id=f"scotus/{docket}",
+            kind=EventKind.petition,
+            stage=stage,
+            title="Petition for writ of certiorari",
+        ),
+    )
+    run = "2026-01-01T00-00-00Z"
+    write_json(
+        ep.prediction(predictor, run),
+        Prediction(
+            case_id=f"scotus/{docket}",
+            event_id=event,
+            predictor_id=predictor,
+            engine=Engine.claude_code,
+            run_id=run,
+            created_at=datetime(2026, 1, 1),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+            context=PredictionContext(
+                mode="forward",
+                snapshot_date=date(2026, 1, 1),
+                signals_observable=band is not None,
+                distribution_count=1,
+                band=band,
+                salience_version=salience_version,
+                term=2025,
+            ),
+        ),
+    )
+    path = ep.evaluation("e1", predictor, run)
+    write_json(
+        path,
+        Evaluation(
+            case_id=f"scotus/{docket}",
+            event_id=event,
+            predictor_id=predictor,
+            evaluator_id="e1",
+            engine=Engine.claude_code,
+            run_id=run,
+            created_at=datetime(2026, 1, 2),
+            correct=1,
+            base_rate_basis="terminal",
+            segment_base_rate=0.02,
+        ),
+    )
+    return path
+
+
+def test_a_terminal_basis_against_a_frozen_band_fails(tmp_path: Path) -> None:
+    """`terminal` is the fallback for a prediction that froze no band: recorded
+    against a frozen one, the rate was read over the wrong population whether
+    or not the band's version resolves — and this check is what keeps that
+    record out of a merged ledger, since the stamp's refusal is a run-log
+    error the cell-status flag never reads."""
+    data_root = tmp_path / "data"
+    versioned = _write_cert_terminal_cell(
+        data_root, 1, "p1", band="elevated", salience_version="sal-v2"
+    )
+    versionless = _write_cert_terminal_cell(
+        data_root, 2, "p2", band="elevated", salience_version=None
+    )
+    check = _basis_check(data_root)
+    assert not check.passed
+    assert check.checked == 2
+    assert check.failures == 2
+    for offender in (versioned, versionless):
+        assert any(str(offender) in p for p in check.problems)
+    assert all("'terminal'" in p for p in check.problems)
+
+
+def test_a_terminal_basis_with_no_frozen_band_or_off_the_cert_stage_passes(
+    tmp_path: Path,
+) -> None:
+    """The legitimate fallback and the out-of-scope stage both pass: a scored
+    prediction that froze no band is exactly what `terminal` is for, and the
+    frozen-band pairing is a cert-petition concept, so a band frozen per case
+    must not reach a rule about another stage's cell."""
+    data_root = tmp_path / "data"
+    _write_cert_terminal_cell(data_root, 1, "p1", band=None, salience_version=None)
+    _write_cert_terminal_cell(
+        data_root, 2, "p2", band="elevated", salience_version="sal-v2", stage=None
+    )
+    check = _basis_check(data_root)
+    assert check.passed
+    assert check.checked == 2
 
 
 def test_the_basis_check_tolerates_unreadable_records(tmp_path: Path) -> None:
@@ -1515,4 +1749,290 @@ def test_a_merits_evaluation_may_score_votes(tmp_path: Path) -> None:
     check = _votes_check(data_root)
     # The merits event is skipped before its evaluations are read, so it is
     # outside this check's population rather than a passing member of it.
+    assert check.passed and check.checked == 0
+
+
+# --- evaluation_correct_agrees -------------------------------------------------
+
+
+def _write_correct_evaluation(
+    data_root: Path,
+    *,
+    evaluator: str,
+    run: str,
+    correct: int | None,
+    stamped: bool = True,
+    predictor: str = "p1",
+    stamped_at: datetime = datetime(2026, 2, 1, tzinfo=UTC),
+) -> Path:
+    """One evaluation of a fixed cell, carrying ``correct`` and the stamp as given.
+
+    ``stamped_at`` is the harness clock the run collapse orders on, so a test
+    that cares which of one evaluator's runs is current says so explicitly.
+
+    Written through the model, then re-opened as raw JSON so an *unstamped*
+    record carries no ``process_version`` key at all — the shape a pre-harness
+    cell actually has, and the one the check excludes.
+    """
+    event = "evt-motion-stay"
+    path = CasePaths(data_root, "ca9", 1).event(event).evaluation(evaluator, predictor, run)
+    write_json(
+        path,
+        Evaluation(
+            case_id="ca9/1",
+            event_id=event,
+            predictor_id=predictor,
+            evaluator_id=evaluator,
+            engine=Engine.claude_code,
+            run_id=run,
+            created_at=datetime(2026, 2, 1),
+            correct=correct,
+            process_version=ProcessVersion(
+                label="proc-v3",
+                digest="sha256:x",
+                stamped_at=stamped_at,
+            ),
+        ),
+    )
+    if not stamped:
+        payload = json.loads(path.read_text())
+        payload.pop("process_version", None)
+        path.write_text(json.dumps(payload))
+    return path
+
+
+def _correct_check(data_root: Path) -> CorpusCheck:
+    return next(
+        c for c in run_ledger_referential_checks(data_root) if c.name == CHECK_CORRECT_AGREES
+    )
+
+
+def test_two_stamped_evaluators_agreeing_on_correct_pass(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_correct_evaluation(data_root, evaluator="e1", run="r1", correct=1)
+    _write_correct_evaluation(data_root, evaluator="e2", run="r1", correct=1)
+    check = _correct_check(data_root)
+    # One cell, however many evaluations answer for it.
+    assert check.passed and check.checked == 1
+
+
+def test_two_stamped_evaluators_disagreeing_on_correct_fail(tmp_path: Path) -> None:
+    """`correct` is computed from the prediction and the outcome, not judged, so
+    two stamped answers to one cell cannot differ — a disagreement means one of
+    them came from somewhere other than those two committed artifacts."""
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_correct_evaluation(data_root, evaluator="e1", run="r1", correct=1)
+    offender = _write_correct_evaluation(data_root, evaluator="e2", run="r1", correct=0)
+    check = _correct_check(data_root)
+    assert not check.passed
+    assert check.checked == 1
+    problem = check.problems[0]
+    assert "'ca9/1'" in problem and "'evt-motion-stay'" in problem and "'p1'" in problem
+    assert str(offender) in problem
+
+
+def test_an_unstamped_evaluation_is_outside_the_agreement_rule(tmp_path: Path) -> None:
+    """The exclusion is the point: an unstamped cell's `correct` is whatever it
+    was written with, so disagreeing with a stamped sibling is the signal the
+    stamp displaces rather than a defect the gate should refuse."""
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_correct_evaluation(data_root, evaluator="e1", run="r1", correct=1)
+    _write_correct_evaluation(data_root, evaluator="e2", run="r1", correct=0, stamped=False)
+    check = _correct_check(data_root)
+    assert check.passed and check.checked == 1
+
+
+def test_a_superseded_run_of_one_evaluator_does_not_disagree(tmp_path: Path) -> None:
+    """A re-graded cell's older stamp is history, not a defect: `correct` is
+    computed against the predictor's latest prediction *as at stamp time*, so a
+    re-predicted cell legitimately leaves an older bit behind. Nothing reads it
+    — every aggregating surface collapses a grader's runs to the newest — so
+    this check collapses first and the superseded run cannot fire it."""
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_correct_evaluation(
+        data_root,
+        evaluator="e1",
+        run="2026-02-01T00-00-00Z",
+        correct=1,
+        stamped_at=datetime(2026, 2, 1, tzinfo=UTC),
+    )
+    _write_correct_evaluation(
+        data_root,
+        evaluator="e1",
+        run="2026-03-01T00-00-00Z",
+        correct=0,
+        stamped_at=datetime(2026, 3, 1, tzinfo=UTC),
+    )
+    check = _correct_check(data_root)
+    assert check.passed and check.checked == 1
+
+
+def test_the_newest_run_is_what_must_agree_across_evaluators(tmp_path: Path) -> None:
+    """The collapse narrows the rule to the records the leaderboard reads, and
+    does not soften it: two graders' *current* gradings still cannot differ."""
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_correct_evaluation(
+        data_root,
+        evaluator="e1",
+        run="2026-02-01T00-00-00Z",
+        correct=0,
+        stamped_at=datetime(2026, 2, 1, tzinfo=UTC),
+    )
+    _write_correct_evaluation(
+        data_root,
+        evaluator="e1",
+        run="2026-03-01T00-00-00Z",
+        correct=1,
+        stamped_at=datetime(2026, 3, 1, tzinfo=UTC),
+    )
+    _write_correct_evaluation(data_root, evaluator="e2", run="2026-03-01T00-00-00Z", correct=0)
+    check = _correct_check(data_root)
+    assert not check.passed and check.checked == 1
+    # The superseded run of e1 is absent; the two current gradings are named.
+    problem = check.problems[0]
+    assert "2026-02-01T00-00-00Z" not in problem
+    assert "1 at " in problem and "0 at " in problem
+
+
+def test_a_null_correct_never_disagrees(tmp_path: Path) -> None:
+    """Null is what the stamp writes where a committed artifact is missing — no
+    claim, so nothing to contradict."""
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_correct_evaluation(data_root, evaluator="e1", run="r1", correct=1)
+    _write_correct_evaluation(data_root, evaluator="e2", run="r1", correct=None)
+    check = _correct_check(data_root)
+    assert check.passed and check.checked == 1
+
+
+def test_a_cell_whose_every_stamped_correct_is_null_is_outside_the_population(
+    tmp_path: Path,
+) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_correct_evaluation(data_root, evaluator="e1", run="r1", correct=None)
+    _write_correct_evaluation(data_root, evaluator="e2", run="r1", correct=None)
+    check = _correct_check(data_root)
+    assert check.passed and check.checked == 0
+
+
+def test_different_predictors_are_different_cells(tmp_path: Path) -> None:
+    """The key is the cell, and the prediction half of `correct` is the
+    predictor's own — two predictors on one event answer different questions."""
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_correct_evaluation(data_root, evaluator="e1", run="r1", correct=1, predictor="p1")
+    _write_correct_evaluation(data_root, evaluator="e1", run="r1", correct=0, predictor="p2")
+    check = _correct_check(data_root)
+    assert check.passed and check.checked == 2
+
+
+# --- judgment_only_on_merits_outcomes ------------------------------------------
+
+
+def _write_staged_outcome(
+    data_root: Path,
+    *,
+    docket: int,
+    stage: Stage | None,
+    judgment: Judgment | None,
+) -> Path:
+    """A staged event beside an outcome recording (or not) a judgment."""
+    merits = stage == Stage.merits
+    event = "evt-order-judgment" if merits else "evt-petition-writ-of-certiorari"
+    ep = CasePaths(data_root, "scotus", docket).event(event)
+    write_yaml(
+        ep.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id=f"scotus/{docket}",
+            kind=EventKind.order if merits else EventKind.petition,
+            stage=stage,
+            title="Doe v. Roe" if merits else "Petition for writ of certiorari",
+        ),
+    )
+    write_json(
+        ep.outcome,
+        Outcome(
+            case_id=f"scotus/{docket}",
+            event_id=event,
+            # A recorded judgment is a disturbed one here, so the stage's binary
+            # reads 1 with it — the shape a real merits outcome carries.
+            actual_disposition=Disposition.other if judgment else Disposition.denied,
+            actual_granted=1 if judgment else 0,
+            resolved_at=date(2026, 1, 2),
+            judgment=judgment,
+        ),
+    )
+    return ep.outcome
+
+
+def _judgment_check(data_root: Path) -> CorpusCheck:
+    return next(
+        c for c in run_ledger_referential_checks(data_root) if c.name == CHECK_JUDGMENT_ONLY_MERITS
+    )
+
+
+def test_a_cert_outcome_recording_a_judgment_fails(tmp_path: Path) -> None:
+    """The field routes the accuracy comparison, so a judgment on a cert outcome
+    moves the whole cell onto the merits axis rather than merely recording an
+    unused value."""
+    data_root = tmp_path / "data"
+    offender = _write_staged_outcome(
+        data_root, docket=20, stage=Stage.cert, judgment=Judgment.reversed
+    )
+    check = _judgment_check(data_root)
+    assert not check.passed
+    assert check.checked == 1
+    assert any(str(offender) in p and "merits axis" in p for p in check.problems)
+
+
+def test_a_stage_less_outcome_recording_a_judgment_fails(tmp_path: Path) -> None:
+    """`is_correct` routes on the field's presence without reading the stage, so
+    a missing stage stamp cannot excuse the misrouting."""
+    data_root = tmp_path / "data"
+    _write_staged_outcome(data_root, docket=21, stage=None, judgment=Judgment.reversed)
+    check = _judgment_check(data_root)
+    assert not check.passed
+    assert check.checked == 1
+    assert any("stage-less-stage event" in p for p in check.problems)
+
+
+def test_a_cert_outcome_without_a_judgment_passes(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_staged_outcome(data_root, docket=20, stage=Stage.cert, judgment=None)
+    check = _judgment_check(data_root)
+    assert check.passed and check.checked == 1
+
+
+def test_a_merits_outcome_may_record_a_judgment(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_staged_outcome(data_root, docket=22451, stage=Stage.merits, judgment=Judgment.reversed)
+    check = _judgment_check(data_root)
+    # Merits events are skipped before their outcome is read, so they are
+    # outside this check's population rather than passing members of it.
+    assert check.passed and check.checked == 0
+
+
+def test_an_event_without_an_outcome_is_not_checked(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_cert_terminal_cell(data_root, 20, "p1", band=None, salience_version=None)
+    check = _judgment_check(data_root)
+    assert check.passed and check.checked == 0
+
+
+def test_a_non_conforming_event_yaml_does_not_fire_the_judgment_rule(tmp_path: Path) -> None:
+    """A file that does not validate is `validate_ledger`'s concern; a rule keyed
+    on the stage must not fire off a record it cannot read."""
+    data_root = tmp_path / "data"
+    offender = _write_staged_outcome(
+        data_root, docket=20, stage=Stage.cert, judgment=Judgment.reversed
+    )
+    (offender.parent / "event.yaml").write_text("not_an_event: true\n")
+    check = _judgment_check(data_root)
     assert check.passed and check.checked == 0

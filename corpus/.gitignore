@@ -9,3 +9,10 @@
 *.parquet
 /index.db
 corpus.db\?*
+# The staging-corpus slice `corpus-seed-slice` builds here by default, and the
+# pointer it publishes beside it: both are runner-local working files naming a
+# non-production remote, and neither belongs in the repository.
+/staging-slice.db
+/staging-slice.db.ref
+/staging-slice.db-wal
+/staging-slice.db-shm

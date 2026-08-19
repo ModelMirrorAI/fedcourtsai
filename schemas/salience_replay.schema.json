@@ -2,7 +2,7 @@
   "$defs": {
     "SalienceReplayCell": {
       "additionalProperties": false,
-      "description": "One (Term, cutoff policy, salience version) cell of the salience-gate replay.\n\nOne frozen salience version run over one past Term's resolved paid modern-cert\npetitions, each projected to the state its docket disclosed as at the policy's\ncutoff (see ``fedcourtsai.pipeline.asof``). Selection here is what that\nversion's gate *would have* latched at that moment; precision/recall score\nthat selection against the realized grant-family outcomes.\n\nThe version is on the **cell**, not the report, so every registered scorer\nreplays over one common projection of the docket in a single run. That is\nwhat makes two versions comparable at all: they differ only in the scoring\nfunction, never in the reconstructed moment they scored.",
+      "description": "One (Term, cutoff policy, salience version) cell of the salience-gate replay.\n\nOne frozen salience version run over one past Term's resolved paid modern-cert\npetitions, each projected to the state its docket disclosed as at the policy's\ncutoff (see ``fedcourtsai.pipeline.asof``). Selection here is what that\nversion's gate *would have* latched at that moment; precision/recall score\nthat selection against the realized grant-family outcomes.\n\nThe version is on the **cell**, not the report, so every registered scorer\nreplays in a single run. Two versions are comparable because they scored the\nsame reconstructed moment; what may differ between them is the scoring\nfunction and the ``distribution_parse`` the reconstruction's relist count was\nread under, which is why the parse is recorded here rather than inferred \u2014\nversions sharing a parse share one projection, and a version pinning another\ngets its own.",
       "properties": {
         "bands": {
           "additionalProperties": {
@@ -23,6 +23,12 @@
           "minimum": 0,
           "title": "Cohorts",
           "type": "integer"
+        },
+        "distribution_parse": {
+          "default": "",
+          "description": "The registered DISTRIBUTED reading this cell's distribution counts were projected under (e.g. dist-v1) \u2014 the version's own pin, so a cross-version comparison can say whether the two saw one reading",
+          "title": "Distribution Parse",
+          "type": "string"
         },
         "eligible": {
           "description": "Resolved, live-slice, paid modern-cert petitions of the Term (the time-invariant eligibility bar; a Tier-0 predicate that depends on post-arrival state is deliberately not applied)",

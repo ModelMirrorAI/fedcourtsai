@@ -137,7 +137,12 @@ The NoDerivatives term is why the **derived corpus is not publicly republished**
 The raw-fact corpus — every docket, snapshot, judge, and case record drawn from
 CourtListener — lives in the **access-gated** private S3 corpus remote, never in
 public git (see [data-pipeline.md](data-pipeline.md) → *Storage*). It is an internal
-working set, not a public dataset.
+working set, not a public dataset. There is a **second gated location, on the
+same terms**: the staging corpus (see *The staging corpus (provisioning
+runbook)* in [security.md](security.md)), a lean slice of that same content
+copied into its own private bucket pair for integration testing. The NoDerivatives posture travels with the copy — same
+access gate, no wider read principal, and nothing published from it — because
+what governs is the content, not where it happens to sit.
 
 What does go to **public git** under `data/` is only our **own work product**: the
 model-generated predictions, outcomes, and evaluations, keyed by case id, plus the

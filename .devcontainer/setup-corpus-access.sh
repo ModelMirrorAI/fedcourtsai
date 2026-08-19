@@ -65,14 +65,12 @@ EOF
   # static-key flow (boto3 fails on a profile no config file defines).
   cat >> "${env_file}" <<'EOF'
 export AWS_PROFILE=fedcourts-ro
-
-# Refresh the short-lived SSO session. Device code because a codespace has no
-# browser for the redirect flow.
-corpus-login() {
-  aws sso login --sso-session modelmirror --use-device-code
-}
 EOF
-  echo "AWS SSO profiles written (fedcourts-sso -> fedcourts-ro); run 'corpus-login' when the session expires."
+  # A convenience name for interactive terminals; the committed script is the
+  # definition, and the one spelling that also resolves where .bashrc
+  # functions are not inherited (a coding agent's per-call shells).
+  printf 'corpus-login() {\n  %q "$@"\n}\n' "$(pwd)/scripts/corpus-login" >> "${env_file}"
+  echo "AWS SSO profiles written (fedcourts-sso -> fedcourts-ro); run scripts/corpus-login when the session expires."
 elif [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
   # Contributor flow: nothing to configure — boto3 picks the key pair up from
   # the environment, and no profile must be set (see the remoteEnv note above).
@@ -86,6 +84,16 @@ fi
 if [[ -n "${remote_url}" ]]; then
   printf 'export CORPUS_REMOTE_URL=%q\n' "${remote_url}" >> "${env_file}"
   echo "Corpus remote URL exported as CORPUS_REMOTE_URL (read-only). Ranged queries work now; a full pull stays deliberate: uv run fedcourts corpus-pull"
+fi
+
+# The staging pair's URLs need no translation — the STAGING_* secrets are
+# already the names scripts/corpus-env reads — so presence is just worth a
+# pointer to the switcher, and a half-configured pair a warning (the switcher
+# refuses one URL without the other).
+if [[ -n "${STAGING_CORPUS_REMOTE_URL:-}" && -n "${STAGING_CASESTORE_URL:-}" ]]; then
+  echo "Staging corpus pair configured (read-only): scripts/corpus-env staging <cmd>, or eval \"\$(scripts/corpus-env staging)\" for the shell."
+elif [[ -n "${STAGING_CORPUS_REMOTE_URL:-}${STAGING_CASESTORE_URL:-}" ]]; then
+  echo "Staging corpus pair half-configured: set both STAGING_CORPUS_REMOTE_URL and STAGING_CASESTORE_URL (scripts/corpus-env refuses one without the other)."
 fi
 
 source_line='if [ -f "$HOME/.fedcourts-env.sh" ]; then . "$HOME/.fedcourts-env.sh"; fi'

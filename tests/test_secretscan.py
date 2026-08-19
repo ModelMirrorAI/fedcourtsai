@@ -27,6 +27,7 @@ from fedcourtsai.collect import PathChange, parse_name_status
 from fedcourtsai.secretscan import (
     _MAX_SEGMENT,
     Finding,
+    _is_own_run_path,
     redact_credentials,
     render_issue_comment,
     render_warnings,
@@ -47,6 +48,11 @@ _HEX_TOKEN = "89f3a1c07d5e4b2a6f8091c3d5e7f90a1b2c3d4e"
 
 def _scan(line: str, known: tuple[str, ...] = ()) -> list[str]:
     return [f.rule for f in scan_lines("data/x/reasoning.md", [line], known)]
+
+
+def _scan_for_run(line: str, run_id: str, known: tuple[str, ...] = ()) -> list[str]:
+    """As :func:`_scan`, but naming the run whose output is being collected."""
+    return [f.rule for f in scan_lines("data/x/reasoning.md", [line], known, run_id=run_id)]
 
 
 # --- detectors: real-shaped fakes are caught ---
@@ -357,6 +363,107 @@ def test_workspace_output_paths_are_not_flagged() -> None:
         '20260716T181711Z; rm -f tmp_stderr1.txt"'
     )
     assert _scan(line, known=(_TOKEN,)) == []
+
+
+_OWN_RUN_ID = "20260816T173750Z"
+
+
+def _own_run_line(actor: str = "gemini-baseline", run_id: str = _OWN_RUN_ID) -> str:
+    """A cell's logged shell command naming its own ledger directory *relatively*.
+
+    The relative form is the one that trips: it carries two slashes, one short
+    of the path-like threshold, so the whole run is scored as a single token.
+    """
+    return (
+        '"query": "cd data/cases/scotus/73274859/events/evt-brief-judgment '
+        f'&& mkdir -p predictions/{actor}/{run_id}"'
+    )
+
+
+def test_own_run_path_flags_without_the_run_id_and_is_clean_with_it() -> None:
+    # The regression this exemption exists for. `predictions/<actor>/<run id>`
+    # is 44 chars over four character classes at 0.829 normalized entropy —
+    # past the 0.82 bar — and it is not gemini-specific: claude-baseline scores
+    # 0.836 and codex-baseline 0.839. Told which run it is collecting, the scan
+    # recognizes that run's own directory and says nothing.
+    line = _own_run_line()
+    assert _scan(line, known=(_TOKEN,)) == ["high-entropy"]
+    assert _scan_for_run(line, _OWN_RUN_ID, known=(_TOKEN,)) == []
+
+
+def test_a_different_runs_path_still_flags() -> None:
+    # The exemption is pinned to the run being collected by *equality*, not to
+    # the directory shape: another run's id in the same layout is exactly what
+    # an agent could invent, so it gets no relief. The stand-in id differs by a
+    # single digit and scores 0.829 — identical to the collected run's — so the
+    # verdict turns on the equality check and on nothing about the timestamp.
+    line = _own_run_line(run_id="20260815T173750Z")
+    assert _scan(line) == ["high-entropy"]
+    assert _scan_for_run(line, _OWN_RUN_ID, known=(_TOKEN,)) == ["high-entropy"]
+
+
+def test_a_blob_in_the_actor_position_still_flags_for_the_collected_run() -> None:
+    # The anti-regression that matters: splicing credential-length material
+    # where the predictor id belongs must not ride the exemption out. Two
+    # independent pins catch it — base64 is mixed-case while the actor segment
+    # is lowercase-only, and the segment is capped below the length at which
+    # the detector judges a run at all.
+    blob = base64.b64encode(bytes(range(7, 47))).decode().replace("/", "A")
+    assert len(blob) >= 40
+    assert not blob.islower()  # mixed case: outside the exempted charset
+    assert "high-entropy" in _scan_for_run(_own_run_line(actor=blob), _OWN_RUN_ID)
+    # And re-encoded into the exempted charset exactly, so only the length cap
+    # stands between it and the exemption — which is the pin that matters.
+    rng = random.Random(20260816)
+    lowered = "".join(rng.choice("abcdefghijklmnopqrstuvwxyz0123456789") for _ in range(44))
+    assert set(lowered) <= set("abcdefghijklmnopqrstuvwxyz0123456789")
+    assert "high-entropy" in _scan_for_run(_own_run_line(actor=lowered), _OWN_RUN_ID)
+
+
+def test_a_prefixed_or_suffixed_candidate_is_not_exempt() -> None:
+    # The fullmatch anchor, pinned at both ends: the exemption's soundness
+    # argument is that a candidate can only ever contain the whole layout, so
+    # anything beyond the layout's bytes must defeat it. A later switch to
+    # `search`, or a widened segment charset, fails here first.
+    prefixed = _own_run_line().replace("predictions/", "xpredictions/")
+    assert "high-entropy" in _scan_for_run(prefixed, _OWN_RUN_ID)
+    # A suffixed candidate happens to score under the bar (the repeated tail
+    # dilutes its entropy), so pin the predicate itself: fullmatch refuses it.
+    suffixed = f"predictions/gemini-baseline/{_OWN_RUN_ID}AAAAAAAA"
+    assert not _is_own_run_path(suffixed, _OWN_RUN_ID)
+    assert not _is_own_run_path("x" + suffixed[:-8], _OWN_RUN_ID)
+
+
+def test_the_length_cap_boundary_is_exempt_at_39_and_not_above() -> None:
+    # The accepted residual, pinned at its boundary: a 39-char lowercase
+    # segment rides the exemption out — deliberately, because the same string
+    # standalone sits below the length at which the entropy rule judges a run
+    # at all, so no standalone conviction is lost. Raising the cap is a test
+    # change, never a quiet widening.
+    rng = random.Random(20260817)
+    at_cap = "".join(rng.choice("abcdefghijklmnopqrstuvwxyz0123456789") for _ in range(39))
+    assert _scan_for_run(_own_run_line(actor=at_cap), _OWN_RUN_ID) == []
+    assert _scan(at_cap) == []  # invisible standalone: the residual costs no detection
+
+
+def test_an_uppercase_actor_segment_is_not_exempt() -> None:
+    # Registry ids are lowercase slugs. A mixed-case segment is outside the
+    # exempted charset, so the run is scored as any other candidate would be.
+    line = _own_run_line(actor="Gemini-Baseline")
+    assert "high-entropy" in _scan_for_run(line, _OWN_RUN_ID)
+
+
+def test_the_evaluations_ledger_path_is_clean_either_way() -> None:
+    # `evaluations/<evaluator>/<predictor>/<run id>` carries three slashes, so
+    # it reaches the per-segment branch and is never scored whole — every
+    # segment is under the 40-char floor. (Whole it would score 0.735-0.754,
+    # under the bar anyway.) It is clean before the exemption and stays clean
+    # after, which is what pins the exemption to *adding* no verdict here.
+    line = f'"query": "mkdir -p evaluations/claude-baseline/gemini-baseline/{_OWN_RUN_ID}"'
+    path = f"evaluations/claude-baseline/gemini-baseline/{_OWN_RUN_ID}"
+    assert path.count("/") >= 3  # the reason: per-segment branch, never scored whole
+    assert _scan(line, known=(_TOKEN,)) == []
+    assert _scan_for_run(line, _OWN_RUN_ID, known=(_TOKEN,)) == []
 
 
 def test_credential_length_segment_inside_a_path_still_flags() -> None:
@@ -728,6 +835,80 @@ def test_cli_transcript_file_still_catches_a_credential(
     )
     assert result.exit_code == 1
     assert "known-token" in result.output
+
+
+def test_cli_run_id_exempts_only_the_collected_runs_own_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The same bytes, the same tree, opposite verdicts: without --run-id the
+    # cell's own output directory withholds the run, with it the scan passes.
+    changes = _write_tree(tmp_path, _own_run_line() + "\n")
+    monkeypatch.chdir(tmp_path)
+    without = runner.invoke(app, ["scan-diff-for-secrets", "--name-status-file", str(changes)])
+    assert without.exit_code == 1
+    assert "high-entropy" in without.output
+    with_run_id = runner.invoke(
+        app,
+        [
+            "scan-diff-for-secrets",
+            "--name-status-file",
+            str(changes),
+            "--run-id",
+            _OWN_RUN_ID,
+        ],
+    )
+    assert with_run_id.exit_code == 0
+    assert "secret scan OK" in with_run_id.output
+
+
+def test_cli_a_malformed_run_id_is_a_misconfiguration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The run id is the one caller-supplied value that defines the exemption's
+    # shape, so an interpolation gone wrong must fail closed as a scan
+    # misconfiguration, never widen the exemption. On a dirty tree the findings
+    # exit (1) wins — the malformed id is nulled, so the offending line still
+    # flags; on a clean tree the misconfiguration itself (2) surfaces.
+    dirty = _write_tree(tmp_path, _own_run_line() + "\n")
+    monkeypatch.chdir(tmp_path)
+    args = ["scan-diff-for-secrets", "--run-id", "predictions/not-a-run-id"]
+    result = runner.invoke(app, [*args, "--name-status-file", str(dirty)])
+    assert result.exit_code == 1
+    assert "not a run id" in result.output
+    assert "high-entropy" in result.output  # the exemption was not applied
+
+    clean_dir = tmp_path / "clean"
+    clean_dir.mkdir()
+    clean = _write_tree(clean_dir, "nothing to see\n")
+    monkeypatch.chdir(clean_dir)
+    result = runner.invoke(app, [*args, "--name-status-file", str(clean)])
+    assert result.exit_code == 2
+    assert "not a run id" in result.output
+
+
+def test_cli_run_id_does_not_silence_containment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # --run-id narrows one heuristic, not the gate: a live credential in the
+    # same file as the exempted path is still caught, and the run withheld.
+    changes = _write_tree(tmp_path, _own_run_line() + f"\nleak {_TOKEN}\n")
+    monkeypatch.setenv("FAKE_SECRET_SOURCE", _TOKEN)
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "scan-diff-for-secrets",
+            "--name-status-file",
+            str(changes),
+            "--known-secret-env",
+            "FAKE_SECRET_SOURCE",
+            "--run-id",
+            _OWN_RUN_ID,
+        ],
+    )
+    assert result.exit_code == 1
+    assert "known-token" in result.output
+    assert "high-entropy" not in result.output
 
 
 def test_cli_missing_transcript_file_fails_closed(

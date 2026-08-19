@@ -14,6 +14,7 @@ from typing import Any
 
 import yaml
 
+from fedcourtsai.cli import _render_approval_report
 from fedcourtsai.collect import ExpectedCell, cell_artifact_name
 from fedcourtsai.finalize import FinalizeRole
 
@@ -66,16 +67,48 @@ def test_no_workflow_reimplements_collect_inline() -> None:
             )
 
 
+def test_the_hold_environment_name_agrees_with_the_report_it_gates() -> None:
+    """The renderer's closing line names the environment a reviewer must find
+    in the Actions UI, and the promotion gate greps for the same binding — a
+    rename that misses one surface points the approver at a gate that does
+    not exist, exactly the drift a reader would have to catch otherwise."""
+    workflow = _load(WORKFLOWS / "run-predict.yml")
+    environment = workflow["jobs"]["approval"]["environment"]
+    plan = {
+        "stage": "predict",
+        "run_id": "20260817T000000Z",
+        "counts": {"provenance": {}, "cell_ledger": {"would_mint_cells": 0}},
+        "would_mint": [],
+        "spend_gate": {"enforced": False, "breached": False},
+        "estimated_spend_usd": 0.0,
+        "deferred_by_cap": {"cells": [], "cases": []},
+        "stranded_guard": {"active": False, "degraded_reason": None, "unparsed_records": []},
+    }
+    report = _render_approval_report(plan, stage="predict-plan", run_url="https://run/1")
+    assert f"`{environment}` deployment" in report
+    gate = (ROOT / "scripts" / "promotion-gate.sh").read_text()
+    assert f"environments/{environment}" in gate
+
+
 def test_the_two_call_sites_differ_only_by_role() -> None:
     """Anything else that diverges is drift the composite was meant to end."""
     predict, evaluate = (_collect_job(w) for w in FAN_OUTS)
 
-    # The matrix job each waits on is legitimately per-workflow. Pop outside the
+    # The matrix job each waits on is legitimately per-workflow, and predict
+    # alone carries the approval hold between plan and spend. Pop outside the
     # assert: a mutating expression inside one vanishes under `python -O`.
     predict_needs = predict.pop("needs")
     evaluate_needs = evaluate.pop("needs")
-    assert predict_needs == ["plan", "predict"]
+    assert predict_needs == ["plan", "approval", "predict"]
     assert evaluate_needs == ["plan", "evaluate"]
+
+    # Predict's collect must not fire on a hold that never released; evaluate
+    # is ungated by decision. The clause is the one sanctioned divergence in
+    # the `if:` — strip exactly it, then the conditions must agree too.
+    predict_if = predict.pop("if")
+    evaluate_if = evaluate.pop("if")
+    assert "needs.approval.result == 'success'" in predict_if
+    assert predict_if.replace(" && needs.approval.result == 'success'", "") == evaluate_if
 
     # The delegating step differs only in `role`; normalize it out, then the two
     # jobs must be byte-equal — setup steps, permissions, timeout, everything.
@@ -290,13 +323,19 @@ def test_the_run_pr_loop_is_safe_to_repeat() -> None:
 def test_the_trigger_issue_reports_are_marker_deduped() -> None:
     """Both reports are posted by steps that rerun with the job, so a plain
     comment would stack one copy per recovery attempt."""
+    # run-predict carries a third marker-deduped poster: the plan-and-hold
+    # approval report, keyed on the fan-out's own run id.
+    expected = {"run-predict.yml": 3, "run-evaluate.yml": 2}
     for workflow in FAN_OUTS:
         body = (WORKFLOWS / workflow).read_text()
-        assert body.count("post-issue-comment") == 2, f"{workflow}: stall and secret-scan"
+        assert body.count("post-issue-comment") == expected[workflow], (
+            f"{workflow}: every trigger-issue report posts through the deduped command"
+        )
         assert "<!-- collect-stall: ${GITHUB_RUN_ID} -->" in body
         assert "<!-- collect-secret-scan: ${GITHUB_RUN_ID}-${digest} -->" in body
         # The old unconditional form must not come back.
         assert "gh issue comment" not in body
+    assert "<!-- predict-plan: ${PLAN_RUN_ID} -->" in (WORKFLOWS / "run-predict.yml").read_text()
 
 
 def test_a_rerun_cannot_race_the_first_attempt_on_the_same_branch() -> None:
@@ -474,3 +513,43 @@ def test_a_no_artifact_run_still_records_facts_via_a_matrix_derived_run_id() -> 
     assert body.index("first(.include[].run_id)") < exit_idx < body.index("record-cell-failures")
     # The old unconditional "no cell artifacts -> exit 0 immediately" must be gone.
     assert "no run id from artifacts or matrix" in body
+
+
+def test_the_cli_is_pinned_to_the_checkout_not_to_the_branch_the_tree_sits_on() -> None:
+    """The union loop rewrites this checkout to `origin/main` (`git checkout -B`),
+    and the project is installed editable against that tree — so a bare
+    `uv run fedcourts` after that line runs *main's* CLI. Identical on `main`,
+    wrong everywhere else: the composite passes flags its own CLI defines, and
+    the collect integration scenario runs from `staging`, so without the pin
+    that scenario reports main's behavior and can never go green on a staging
+    change to this contract.
+    """
+    steps = _load(COLLECT_ACTION)["runs"]["steps"]
+    names = [str(s["name"]) for s in steps]
+    pin = next(s for s in steps if s["name"].startswith("Pin the CLI"))
+
+    # The pin is materialized before anything can consume it.
+    assert names.index(pin["name"]) < names.index(
+        next(n for n in names if n.startswith("Aggregate"))
+    )
+    # Copied out of the checkout into a directory no branch switch reaches, and
+    # the lock stays the pin on what gets installed.
+    assert '"${RUNNER_TEMP}/collect-cli"' in pin["run"]
+    assert "--locked" in pin["run"]
+    # Every file the wheel build reads, or the sync fails mid-collect instead.
+    for needed in ("pyproject.toml", "uv.lock", "README.md", "src"):
+        assert needed in pin["run"], f"the pinned copy must carry {needed}"
+
+    # The consumer reads the pin's declared output, not a path convention.
+    aggregate = next(s for s in steps if s["name"].startswith("Aggregate"))
+    assert aggregate["env"]["FEDCOURTS"] == f"${{{{ steps.{pin['id']}.outputs.bin }}}}"
+
+    # The tripwire: re-adding a bare `uv run fedcourts` anywhere in the
+    # composite silently reintroduces the defect, since it only misbehaves off
+    # `main` and only for a CLI surface that has moved since.
+    body = COLLECT_ACTION.read_text()
+    for line in body.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue  # the comments explain the rule
+        assert "uv run fedcourts" not in stripped, f"call the pinned CLI, not `uv run`: {stripped}"
