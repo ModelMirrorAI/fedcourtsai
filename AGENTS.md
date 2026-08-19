@@ -311,8 +311,22 @@ same PR.
   compose the exact command, put it where the maintainer will see it (the PR
   description, or the run summary for an automated surface), and continue with
   what does not depend on it. The same holds for anything else the token is
-  refused on — environment and variable administration. Merging is **not** on
-  that list: what limits it is the merge rule above, not the credential.
+  refused on — environment and variable administration, enabling or disabling a
+  workflow (`gh workflow enable`), and re-running a run or one of its jobs
+  (`gh run rerun`, with or without `--job`, which answers *Resource not
+  accessible by integration*). Merging is **not** on that list: what limits it
+  is the merge rule above, not the credential.
+
+  The re-run refusal has a standing consequence, because some required checks
+  read live state at check time rather than from the event payload — the
+  promotion gate reads quiescence, integration-run freshness, and the
+  `promote:skip-engine-smoke` label that way. To make such a check re-read
+  without a re-run, **edit the pull request body**: ci.yml's `pull_request`
+  trigger lists `edited`, so a body edit re-fires the workflow. Prefer it to an
+  empty commit, which moves the branch head and so invalidates every
+  integration run the freshness gate had already matched — on a promotion PR
+  that costs a full re-dispatch of the suite. Make the edit carry the reason it
+  happened, so the body stays a record rather than a poke.
 - **Keep environment variables out of PR and issue text.** Refer to a var by
   its role, not its name or value. Secrets never appear anywhere.
 - **Don't commit personal or organizational email addresses.** Commit identity
