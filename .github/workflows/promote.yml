@@ -36,8 +36,9 @@ name: promote
 #      commands (each runs from the staging branch, which is the gate), and
 #      this workflow is re-dispatched after they land. The `skip_engine_smoke`
 #      input narrows what this pre-flight asks for to the token-free
-#      scenarios; the required check on the promotion PR runs the gate
-#      strictly either way, so the batch still needs the smokes to merge.
+#      scenarios. It does not decide what the batch merges on: that is the
+#      `promote:skip-engine-smoke` label on the promotion PR, a separate and
+#      deliberate second act (ci.yml's `promotion-gate` job).
 
 on:
   workflow_dispatch:
@@ -47,11 +48,14 @@ on:
           Drop the three engine-smoke runs from THIS PRE-FLIGHT's freshness
           check, accepting a token-free `scenario=all-offline` run as
           whole-suite evidence. It answers "is anything else missing" without
-          paying for the smokes; it does not narrow what the batch must
-          satisfy to merge, since the promotion PR's own `promotion-gate`
-          check sets no skip. Reserve it for batches that cannot affect a
-          cell — docs, analytics, non-cell code — and when in doubt run the
-          full suite.
+          paying for the smokes. It does NOT narrow what the batch merges on:
+          waiving the smokes at the merge gate is a separate act — the
+          `promote:skip-engine-smoke` label on the promotion PR — so that
+          setting this input can never quietly become the merge decision too.
+          Reserve both for batches whose risk you judge not to be worth the
+          smokes' tokens; a batch that cannot affect a cell — docs, analytics,
+          non-cell code — is the clear case, and when in doubt run the full
+          suite.
         type: boolean
         default: false
 
@@ -138,7 +142,7 @@ jobs:
               if [ "$suite" = all-offline ]; then
                 echo "## Pre-flight green at \`${sha}\` — engine-smoke skipped"
                 echo
-                echo "Green on the token-free suite alone, so this says nothing about the smokes. The promotion PR's own \`promotion-gate\` check sets no skip and runs the gate strictly, and \`main\`'s ruleset has no bypass for it: the three engine-smoke runs at this sha are still what the batch merges on. Dispatch them when the rest of the batch checks out."
+                echo "Green on the token-free suite alone, so this says nothing about the smokes. The promotion PR's own \`promotion-gate\` check demands them unless that PR carries the \`promote:skip-engine-smoke\` label, and \`main\`'s ruleset has no bypass for the check itself: either dispatch the three engine-smoke runs at this sha, or waive them on the PR and accept that the batch merges with no real-engine evidence."
               else
                 echo "## Promotion gates green at \`${sha}\`"
               fi

@@ -59,17 +59,29 @@
 #
 # PROMOTION_SKIP_SMOKE=1 drops the `engine-smoke/*` entries and lets a green
 # `scenario=all-offline` run stand in for `scenario=all`. It is the one
-# relaxation a workflow may set, and `promote.yml`'s `skip_engine_smoke`
-# dispatch input is the only workflow that sets it (a shape test pins that no
-# other does) — so a workflow-side skip is always an explicit act on one
-# dispatch, never a standing configuration. Only the exact value `1` enables
-# it; anything else, a typo included, leaves the gate strict. What it trades
-# away is the only evidence that real engine cells still run in the production
-# posture at the sha being promoted, so reserve it for batches that cannot
-# affect a cell — docs, analytics, non-cell code — and when in doubt run the
-# full suite. It narrows a pre-flight, not a merge: ci.yml's `promotion-gate`
-# job — the required check on the promotion PR — sets neither variable, so the
-# full set is what a batch actually merges on.
+# relaxation a workflow may set, and exactly two workflows set it (a shape test
+# pins that no third does):
+#
+#   * `promote.yml`'s `skip_engine_smoke` dispatch input, which narrows one
+#     pre-flight — a cheap answer to "is anything else missing" before paying
+#     for the smokes;
+#   * `ci.yml`'s `promotion-gate` job, when the promotion PR carries the
+#     `promote:skip-engine-smoke` label, which narrows what that batch merges
+#     on.
+#
+# Both are per-act and leave a record — a dispatch input on one run, a label on
+# one PR — so a skip is never standing configuration that outlives the batch
+# that wanted it. Only the exact value `1` enables it; anything else, a typo
+# included, leaves the gate strict.
+#
+# What it trades away is the only evidence that real engine cells still run in
+# the production posture at the sha being promoted. Whether that evidence is
+# worth its tokens for a given batch is the maintainer's risk call — a batch
+# that cannot affect a cell (docs, analytics, non-cell code) is the easy yes,
+# and when in doubt run the full suite. What the gate owes in return is that a
+# waived batch says so: this script names the dropped entries on every run
+# under the skip, and `ci.yml`'s waiver step annotates the PR and writes the
+# trade into the run summary.
 set -euo pipefail
 
 REPO="${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}"
@@ -85,13 +97,23 @@ REQUIRED_SCENARIOS="${PROMOTION_SCENARIOS:-ranged-reads corpus-service stub-casc
 # racing it. Fails closed — only the literal `1` drops anything.
 if [ "${PROMOTION_SKIP_SMOKE:-}" = 1 ]; then
   kept=""
+  dropped=""
   for entry in $REQUIRED_SCENARIOS; do
     case "$entry" in
-      engine-smoke/*) continue ;;
+      engine-smoke/*)
+        dropped="${dropped:+${dropped} }${entry}"
+        continue
+        ;;
     esac
     kept="${kept:+${kept} }${entry}"
   done
   REQUIRED_SCENARIOS="$kept"
+  # Say what left the set, on stdout, on every stage. A gate that quietly
+  # checks less than its name implies is the failure mode the skip is one
+  # short typo away from; naming the entries makes a waived run readable as
+  # waived from its log alone, without reconstructing which surface set the
+  # variable.
+  echo "promotion gate: engine-smoke waived — not required at this sha: ${dropped:-none}"
 fi
 
 fail=0

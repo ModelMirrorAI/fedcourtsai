@@ -137,9 +137,24 @@ jobs:
     # freshness at the PR head, via scripts/promotion-gate.sh — the same
     # script the `promote` dispatch runs, so the pre-flight and this required
     # check cannot drift apart on what the gate *means*. What each asks for
-    # can differ, and only in one direction: this job sets neither
-    # PROMOTION_SCENARIOS nor PROMOTION_SKIP_SMOKE, so it always demands the
-    # full required set, whatever a pre-flight dispatch narrowed itself to.
+    # can differ. PROMOTION_SCENARIOS is set by nothing: an arbitrary required
+    # set is a local re-check narrowing, never a merge gate. PROMOTION_SKIP_SMOKE
+    # has two sanctioned setters — promote.yml's `skip_engine_smoke` input,
+    # which narrows one pre-flight, and the `promote:skip-engine-smoke` label
+    # below, which narrows this check for one batch. Whether real-engine
+    # evidence is worth its tokens for what a given batch contains is the
+    # maintainer's risk call; the label is where they record having made it.
+    #
+    # Read from the API at check time, not from `github.event.pull_request`.
+    # A re-run replays the original event payload, so a payload read would go
+    # stale the moment the label was added — which is exactly when it matters,
+    # since the usual sequence is gate-fails-then-label. Fixing that through
+    # the payload would mean `labeled`/`unlabeled` on the `pull_request`
+    # trigger, re-running this whole workflow on every label edit to every PR
+    # in the repository. Reading it here instead means the documented practice
+    # — re-run this check immediately before merging — picks the label up on
+    # its own, and what the run records is the label state at gate time.
+    #
     # Skipped — and therefore green as a required
     # check — on every other PR. Gate state is point-in-time: re-run this
     # check immediately before merging the promotion. Same-repo head only: a
@@ -155,15 +170,57 @@ jobs:
     permissions:
       contents: read
       actions: read
+      # Pull-request labels are issue labels; this is the read the waiver
+      # step below needs, and the gate script already needs it for quiescence.
       issues: read
+    env:
+      # Named once, and read by name everywhere below: the label, the warning,
+      # and the summary can never disagree about which label was checked.
+      WAIVER_LABEL: promote:skip-engine-smoke
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Resolve the engine-smoke waiver
+        id: waiver
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Fails closed on every path: a failed read, an empty body, or any
+          # value but a whole-line match leaves `skip` unset, and the gate
+          # script honours only the literal `1`. Whole-line (-Fx) so a label
+          # that merely contains this one cannot waive anything.
+          labels=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" \
+            --jq '.[].name' || true)
+          if ! grep -Fqx "$WAIVER_LABEL" <<<"$labels"; then
+            echo "no ${WAIVER_LABEL} label; the full required set stands"
+            exit 0
+          fi
+          echo "skip=1" >>"$GITHUB_OUTPUT"
+          # The waiver's whole cost is that it removes evidence, so it has to
+          # be the loudest thing this check says. The annotation lands on the
+          # PR; the summary survives in the run record the promotion is
+          # audited from.
+          echo "::warning::promotion-gate: engine smokes waived by the ${WAIVER_LABEL} label — this batch may merge with no real-engine evidence at ${HEAD_SHA}"
+          {
+            echo "## Engine smokes waived on this batch"
+            echo
+            echo "\`${WAIVER_LABEL}\` is on this PR, so the three \`engine-smoke\` scenarios left the required set and a token-free \`scenario=all-offline\` run counts as whole-suite evidence at \`${HEAD_SHA}\`."
+            echo
+            echo "What that trades away: the only evidence that a real engine cell still runs in the production posture at the sha being promoted — \`claude-code\`, \`codex\`, and \`gemini\` all unrun. Every other gate is unchanged and still strict."
+            echo
+            echo "Remove the label and re-run this check to demand them."
+          } >>"$GITHUB_STEP_SUMMARY"
       - name: Quiescence and freshness at the PR head
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # Empty unless the step above matched the label — and the script
+          # treats anything but `1` as strict.
+          PROMOTION_SKIP_SMOKE: ${{ steps.waiver.outputs.skip }}
         run: scripts/promotion-gate.sh all "$HEAD_SHA"
 
   main-base:
