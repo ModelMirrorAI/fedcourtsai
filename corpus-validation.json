@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2152467,
-      "detail": "2152467 rows vs baseline 2152467",
+      "checked": 2152471,
+      "detail": "2152471 rows vs baseline 2152467",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4308119,
+      "checked": 4308127,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -62,7 +62,7 @@
       ]
     },
     {
-      "checked": 2152467,
+      "checked": 2152471,
       "detail": "0 future-dated, 22 decided-before-filed vs accepted baseline 50 (as of 2026-08-19); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
       "failures": 22,
       "name": "case_dates_ordered",
@@ -91,7 +91,7 @@
       ]
     },
     {
-      "checked": 4305046,
+      "checked": 4305054,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -99,7 +99,7 @@
       "problems": []
     },
     {
-      "checked": 4308119,
+      "checked": 4308127,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -117,13 +117,10 @@
     {
       "checked": 82,
       "detail": "",
-      "failures": 2,
+      "failures": 0,
       "name": "minted_moments_defined_in_ledger",
-      "passed": false,
-      "problems": [
-        "event ('scotus/9026000201', 'evt-petition-arrival-disposition') is minted in the corpus with no event.yaml in the ledger",
-        "event ('scotus/9026000204', 'evt-petition-arrival-disposition') is minted in the corpus with no event.yaml in the ledger"
-      ]
+      "passed": true,
+      "problems": []
     },
     {
       "checked": 36,
@@ -206,8 +203,8 @@
       "problems": []
     }
   ],
-  "corpus_events": 2152579,
-  "corpus_rows": 2152467,
+  "corpus_events": 2152583,
+  "corpus_rows": 2152471,
   "ok": false,
   "schema_version": "1.0",
   "skipped": false
