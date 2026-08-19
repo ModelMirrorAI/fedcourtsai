@@ -460,6 +460,21 @@ pattern rather than rediscovering it:
   token without `workflows` permission has the whole push rejected. `collect-run`
   carries the worked reasoning and the fetch-then-branch shape; copy it in any
   job that pushes a branch it built while other jobs were writing.
+- **That branch switch also swaps the source the job is running.** `git checkout
+  -B <branch> origin/main` rewrites every tracked file in the working tree,
+  `src/fedcourtsai/` included, and `uv sync` installs the project *editable*
+  against that tree — so every `uv run fedcourts` after that line executes
+  `origin/main`'s CLI, not the ref the workflow was dispatched at. On `main` the
+  two are the same file and nothing shows. Off it they are not, and the failure
+  is silent in the worse direction: a step passing a flag its own CLI defines
+  dies against an older `main`, and the integration scenario that exists to
+  catch that reports `main`'s behavior instead — so a `staging` change to the
+  contract can never go green, and the promotion freshness gate wants exactly
+  that scenario green. Any job that runs the CLI after switching branches must
+  pin it first: `collect-run`'s `Pin the CLI to this checkout` step copies
+  `pyproject.toml`, `uv.lock`, `README.md`, and `src/` to `$RUNNER_TEMP`, syncs
+  there, and exports the absolute path the rest of the step calls. A shape test
+  fails on a bare `uv run fedcourts` reappearing in that composite.
 
 Validate any `.github/` change locally with the linters CI enforces (see the
 local gate in [AGENTS.md](../AGENTS.md)), and run the **`workflow-reviewer`**

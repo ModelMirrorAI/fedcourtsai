@@ -513,3 +513,43 @@ def test_a_no_artifact_run_still_records_facts_via_a_matrix_derived_run_id() -> 
     assert body.index("first(.include[].run_id)") < exit_idx < body.index("record-cell-failures")
     # The old unconditional "no cell artifacts -> exit 0 immediately" must be gone.
     assert "no run id from artifacts or matrix" in body
+
+
+def test_the_cli_is_pinned_to_the_checkout_not_to_the_branch_the_tree_sits_on() -> None:
+    """The union loop rewrites this checkout to `origin/main` (`git checkout -B`),
+    and the project is installed editable against that tree — so a bare
+    `uv run fedcourts` after that line runs *main's* CLI. Identical on `main`,
+    wrong everywhere else: the composite passes flags its own CLI defines, and
+    the collect integration scenario runs from `staging`, so without the pin
+    that scenario reports main's behavior and can never go green on a staging
+    change to this contract.
+    """
+    steps = _load(COLLECT_ACTION)["runs"]["steps"]
+    names = [str(s["name"]) for s in steps]
+    pin = next(s for s in steps if s["name"].startswith("Pin the CLI"))
+
+    # The pin is materialized before anything can consume it.
+    assert names.index(pin["name"]) < names.index(
+        next(n for n in names if n.startswith("Aggregate"))
+    )
+    # Copied out of the checkout into a directory no branch switch reaches, and
+    # the lock stays the pin on what gets installed.
+    assert '"${RUNNER_TEMP}/collect-cli"' in pin["run"]
+    assert "--locked" in pin["run"]
+    # Every file the wheel build reads, or the sync fails mid-collect instead.
+    for needed in ("pyproject.toml", "uv.lock", "README.md", "src"):
+        assert needed in pin["run"], f"the pinned copy must carry {needed}"
+
+    # The consumer reads the pin's declared output, not a path convention.
+    aggregate = next(s for s in steps if s["name"].startswith("Aggregate"))
+    assert aggregate["env"]["FEDCOURTS"] == f"${{{{ steps.{pin['id']}.outputs.bin }}}}"
+
+    # The tripwire: re-adding a bare `uv run fedcourts` anywhere in the
+    # composite silently reintroduces the defect, since it only misbehaves off
+    # `main` and only for a CLI surface that has moved since.
+    body = COLLECT_ACTION.read_text()
+    for line in body.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue  # the comments explain the rule
+        assert "uv run fedcourts" not in stripped, f"call the pinned CLI, not `uv run`: {stripped}"
