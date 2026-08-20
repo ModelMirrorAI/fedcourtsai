@@ -52,12 +52,13 @@ on:
     inputs:
       dockets:
         description: >-
-          The slice, one `<court>/<docket>` case id per line. Every id is
-          matched against the case-id grammar before anything runs, and the
-          whole list is refused if any line fails. Pick cases that are real
-          specimens of what the scenarios read: an undisposed SCOTUS petition
-          with an open event and a stored snapshot is the shape
-          `integration-test.yml` targets.
+          The slice, one `<court>/<docket>` case id per line — spaces work
+          too, and are what the dispatch form's single-line field gives you.
+          Every id is matched against the case-id grammar before anything
+          runs, and the whole list is refused if any line fails. Pick cases
+          that are real specimens of what the scenarios read: an undisposed
+          SCOTUS petition with an open event and a stored snapshot is the
+          shape `integration-test.yml` targets.
         required: true
         type: string
       apply:
@@ -170,7 +171,16 @@ jobs:
           # Runner-local scratch, not the checkout: the docket list is input,
           # not source, and nothing here should be able to dirty the tree.
           dockets_file="${RUNNER_TEMP}/dockets.txt"
-          printf '%s\n' "${DOCKETS}" > "$dockets_file"
+          # Split on whitespace, not newlines alone. `dockets` is a `string`
+          # input, which GitHub's dispatch form renders as a SINGLE-LINE field:
+          # a per-line list cannot be typed there at all, and a pasted one
+          # arrives space-joined. Writing that verbatim hands the command one
+          # long "id" and the run dies at the grammar check having done
+          # nothing. Same idiom as run-seed's `regrade_cells`, which tolerates
+          # both for the same reason. Blank lines are dropped with `sed` rather
+          # than `grep -v`, whose exit 1 on an all-blank value would trip
+          # pipefail before the command's own emptiness refusal is reached.
+          printf '%s\n' "${DOCKETS}" | tr -s ' \t\r' '\n' | sed '/^$/d' > "$dockets_file"
           seed() {
             uv run fedcourts corpus-seed-slice \
               --dockets-file "$dockets_file" \
