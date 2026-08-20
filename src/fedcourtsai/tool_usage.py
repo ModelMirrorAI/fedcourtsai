@@ -35,8 +35,9 @@ only one of them is reliably in the record. ``result_digest`` is positive
 evidence that the result side was captured and non-empty; a null covers both an
 empty result and a result the engine's transcript never carried.
 :class:`~fedcourtsai.schemas.RetrievalCall` carries a ``result_capture`` marker
-that separates exactly those two, but every committed log predates it and reads
-null — capture-unknown, which is a third thing again. So the rollup reports two
+that separates exactly those two, but only the logs captured since it existed
+carry it; on the rest it reads null — capture-unknown, which is a third thing
+again. So the rollup reports two
 states per call, not three, and takes the
 engine-level reading the per-call record cannot yet give: an engine with no positive
 instance across every **MCP** call it ever made has an unobservable result side,
@@ -860,10 +861,14 @@ def _render_observability(usage: ToolUsage) -> list[str]:
         "_Two states, not three. A captured result digest proves the result side was "
         + "recorded and non-empty; a null covers an empty result **and** a result the "
         + "transcript never carried. The per-call `result_capture` marker separates "
-        + "those two, but every committed log predates it and reads null. So this "
+        + "those two, but only the logs captured since it existed carry it; on the rest "
+        + "it reads null. So this "
         + "column is a floor on how much of the answer side is observable, not a hit rate. "
         + "Its denominator is every call, builtins included — the MCP column beside it is "
-        + "the one that speaks to the manifest tools._",
+        + "the one that speaks to the manifest tools. For a code-mode engine that "
+        + "denominator also gains one row per manifest call lifted from a freeform call's "
+        + "source, each unobserved by construction, so its rate falls for a reason of call "
+        + "shape rather than of capture quality._",
     ]
     if blind:
         lines += [
@@ -883,8 +888,17 @@ def _throttle_cell(profile: ToolUsageEngine) -> str:
     Three distinguishable states, each said in the cell rather than in a note
     below it, because the number is what gets copied out of a report: a real
     ratio, *capture-blind* (MCP calls were made and no result condition came
-    back), and *no MCP calls* (nothing to be throttled). A bare ``0/0 (—)``
-    collapses the last two into each other and reads as neither.
+    back), and *no MCP calls in the ledger* (nothing to be throttled). A bare
+    ``0/0 (—)`` collapses the last two into each other and reads as neither.
+
+    The last is scoped to the ledger on purpose. It is a statement about what
+    capture recorded, and capture reads what an engine's transcript exposes: a
+    code-mode engine invokes its manifest tools from inside a freeform builtin
+    call, and rows for those invocations exist only where capture lifted them
+    out of that call's source. A log carrying no such row is one capture never
+    minted them for — a null ``RetrievalCall.call_source`` is what that reads
+    like in the data — so an engine can show empty here over a stretch of the
+    ledger in which it was retrieving.
     """
     if profile.mcp_calls_with_status:
         return (
@@ -893,7 +907,7 @@ def _throttle_cell(profile: ToolUsageEngine) -> str:
         )
     if profile.mcp_calls:
         return f"`{profile.engine}` — (capture-blind)"
-    return f"`{profile.engine}` — (no MCP calls)"
+    return f"`{profile.engine}` — (no MCP calls in the ledger)"
 
 
 def _render_throttling(usage: ToolUsage) -> list[str]:
@@ -938,10 +952,15 @@ def _render_throttling(usage: ToolUsage) -> list[str]:
             + "was legible, so there is no denominator and the figure is an em dash rather "
             + "than 0%. Read that as **capture-blind, not throttle-free** — Gemini's "
             + "telemetry logs no result payload by construction, and a log written before "
-            + "the per-call condition marker existed carries none either. These engines "
-            + "cannot be observed being starved, so they cannot supply evidence that they "
-            + "were not. An engine marked *no MCP calls* is a different thing again: "
-            + "nothing it did could have been throttled.",
+            + "the per-call condition marker existed carries none either. A code-mode "
+            + "engine reaching its manifest tools from inside a freeform builtin call is a "
+            + "third way to land here: only the program's combined output is captured, and "
+            + "no part of it is attributable to an individual call inside the program, so "
+            + "every such row is unobserved by construction. These engines cannot be "
+            + "observed being starved, so "
+            + "they cannot supply evidence that they were not. An engine marked *no MCP "
+            + "calls in the ledger* is a different thing again: no such call was recorded "
+            + "for it, so nothing in the ledger could have been throttled.",
         ]
     return lines
 
@@ -1166,5 +1185,13 @@ def _render_correlations(useful: ToolUsefulness) -> list[str]:
         + "populations: within a row the engines are pooled, so the coefficient carries "
         + "every difference between them — prompt, model, sandbox — and a cell calls more "
         + "tools partly *because* its case is hard._",
+        "",
+        "_The call axis is the row count, and that unit is **not uniform across engines "
+        + "or across the ledger**. A code-mode engine's cell carries its freeform builtin "
+        + "call plus one row per manifest call lifted from that call's source, so its "
+        + "count sits higher than a direct-calling engine's for the same retrieval, and "
+        + "higher than its own pre-lift cells' for the same behaviour. Engines are pooled "
+        + "within a row, so read a coefficient over a population spanning both shapes as "
+        + "carrying that mixture, not only the tool use it is meant to measure._",
     ]
     return lines

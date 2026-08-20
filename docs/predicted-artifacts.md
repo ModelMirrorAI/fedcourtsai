@@ -454,7 +454,33 @@ directory without knowing which part is which invites trusting the wrong half.
   throttle is only countable where one reached the transcript. Both are floors
   — the predicate is anchored on the server's own rate-limit phrasing, biased
   to miss rather than invent, and baked at parse time, since the raw 429 text is
-  digested away one line after it is read and can never be re-examined. The
+  digested away one line after it is read and can never be re-examined.
+  `call_source` states where the row's *call* was read from. Most rows are
+  `transcript_item`: the engine logged a tool-call item and the row is that
+  item. A **code-mode** engine is the exception — it is given one freeform
+  builtin call and invokes the manifest tools from inside the program that call
+  carries, so those invocations emit no item of their own and are lifted out of
+  the source into rows marked `code_mode_source`, named in the same
+  `mcp__<server>__<tool>` spelling a direct item would carry. A lifted row is
+  always `unobserved`: the freeform call returns one combined output for its
+  whole program, and nothing says which part of it belongs to a given call. A
+  single call *site* is not a single invocation — one inside a loop runs as
+  many times as the loop — and the output holds whatever else the program did,
+  so reading it under a manifest tool's name would put builtin text through the
+  throttle predicate the tool gate keeps it out of. The lift therefore makes
+  the *call* visible and claims nothing about its answer. What it counts is
+  **call sites in program text**, which is neither a floor nor a bound on
+  invocations: a site inside a loop counts once however many times it ran, a
+  site in an untaken branch or a comment counts though it never ran, and a call
+  reached through an alias or a computed name is not counted at all. The claim
+  it supports is *the program asked for these tools* — enough for
+  offered-vs-called, and not an execution trace. The freeform call keeps
+  its own row beside them, so a count over all rows counts both the builtin
+  call and the manifest calls it made; gate on the MCP spelling to separate
+  them.
+  `call_source` is the one field the blinding mask **drops** rather than
+  staging, because naming a row as lifted names the engine that lifts — so
+  unlike the two markers below it never reaches a grader at all. The
   evaluate prompt does not name `result_capture` — the process the frozen
   partition keys on cannot gain a reading instruction without moving
   ([process-version.md](process-version.md)) — so that marker serves a

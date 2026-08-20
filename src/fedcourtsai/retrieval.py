@@ -18,7 +18,13 @@ log tool calls in the same places their token usage lives:
   sibling to pair, so it is paired from the item itself. The hosted
   ``web_search_call`` is the other exception: it runs provider-side and carries
   a query but no ``call_id`` and no output item, so such a row records what was
-  asked and never what came back.
+  asked and never what came back. A **code-mode** model is a third: it is given
+  one freeform builtin instead of direct tool exposure and reaches the manifest
+  tools from inside the program that call carries, so those invocations emit no
+  item of their own. They are lifted out of the program's source into rows
+  beside it (``call_source`` says which), because a walk that reads items only
+  records such an engine as having made no manifest call at all — a claim
+  indistinguishable from a cell that never retrieved.
 - **Gemini**: the OpenTelemetry log's ``gemini_cli.tool_call`` events carry
   ``function_name`` / ``function_args`` attributes, and no result payload at
   all.
@@ -81,6 +87,18 @@ from .secretscan import REDACTION_MARKER_PREFIX, redact_credentials
 from .usage import _gemini_attrs, _load_json, _load_json_objects, _newest_rollout
 
 # The human-legible query slice kept (redacted; the rest is digested).
+#
+# One cap for every call shape, freeform code-mode source included, and the
+# uniformity is load-bearing rather than incidental. A code-mode call's params
+# are a *program*, and that program's text names the manifest tools in the
+# engine's own vocabulary — the very spelling the blinding mask respells the
+# `tool` field to hide, and one the mask does not reach inside a query slice.
+# Widening the slice for this shape would carry more of that vocabulary into a
+# blinded log, and buy nothing: the calls it holds are lifted into rows of
+# their own, each with its own arguments, digest, and query, read from the
+# UNTRUNCATED source. So coverage of what was called never depended on this
+# width, and the narrow cut costs only how much of the surrounding program a
+# reader sees.
 _QUERY_CAP = 500
 # How much of a params payload is redacted before that slice is cut. A tool
 # call's arguments are unbounded — a file write carries its whole body — and
@@ -329,6 +347,7 @@ def parse_claude_retrieval(execution_file: Path) -> list[RetrievalCall]:
                         captured=captured,
                         engine_error=bool(answer.get("is_error")) if answer is not None else False,
                     ),
+                    call_source="transcript_item",
                 )
             )
     return calls[:RETRIEVAL_CALL_CAP]
@@ -360,6 +379,36 @@ _CODEX_CALL_TYPES = (
     *_CODEX_MCP_CALL_TYPES,
     "web_search_call",
 )
+# The freeform tool a code-mode model is given in place of direct tool
+# exposure. Its params are a *program*, and the manifest tools are reached from
+# inside that program rather than as items of their own: the model emits one
+# `custom_tool_call` and every MCP invocation it makes is dispatched within the
+# code-mode session, emitting no MCP-shaped item. Left unread, a code-mode
+# engine's whole manifest surface is invisible — the log records builtin calls
+# only, which is indistinguishable from a cell that never retrieved.
+_CODEX_CODE_MODE_TOOL = "exec"
+# A manifest call inside code-mode source: `tools.mcp__<server>__<tool>(`. The
+# name is taken whole, in the same `mcp__<server>__<tool>` spelling
+# `_codex_tool` composes for a direct item, so a lifted row and a direct one
+# normalize identically and land in one offered denominator.
+#
+# It reads the *text* of a program rather than executing it, so it is a
+# syntactic count with syntactic limits, in both directions. It cannot see a
+# call reached indirectly — through a computed name or an alias bound earlier —
+# and it counts a call that appears in the source but never ran: one inside a
+# branch not taken, or commented out. Neither is worth a JavaScript parser to
+# close, and the cheap screens for the second are worse than the miss: `//`
+# earlier on the line is as often a URL in a query as a comment, so suppressing
+# on it would drop real calls in exchange for rare phantom ones. What the count
+# supports is therefore "the program asked for these tools", which is what the
+# offered-vs-called comparison reads it for — not an execution trace.
+_CODE_MODE_CALL_RE = re.compile(r"\btools\.(mcp__[a-z0-9]+__[A-Za-z0-9_]+)\s*\(")
+# How far past a call's opening parenthesis its argument text is scanned for a
+# balancing close. Bounds the per-call walk over agent-authored source, which
+# is unbounded and may be unbalanced (a truncated program, a paren inside a
+# regex literal): past this the arguments are taken as the raw slice scanned
+# and the row still records that the call was made.
+_CODE_MODE_ARG_SCAN = 4096
 _CODEX_OUTPUT_SUFFIX = "_output"
 # Where an MCP call item carries its own settled result, most authoritative
 # first: the Responses API's `output` / `error`, then the `result` the rollout's
@@ -414,21 +463,122 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
         # The composed, redacted name the row will carry — the same string the
         # manifest-tool gate and the rollup's exclusion both key on.
         tool = _tool_name(_codex_tool(payload))
+        # Both halves, so a `function_call` that merely shares the name cannot
+        # take the freeform path: code mode arrives as a custom tool call.
+        is_code_mode = tool == _CODEX_CODE_MODE_TOOL and payload.get("type") == "custom_tool_call"
+        timestamp = _text(record.get("timestamp"))
         calls.append(
             RetrievalCall(
                 tool=tool,
                 query=_query_slice(params),
                 params_digest=_digest(params),
-                timestamp=_text(record.get("timestamp")),
+                timestamp=timestamp,
                 result_digest=_digest(result),
                 retrieved_doc_date=_doc_date(text) if result is not None else None,
                 result_capture="captured" if captured else "unobserved",
                 result_status=_result_status(
                     tool, text, captured=captured, engine_error=engine_error
                 ),
+                call_source="transcript_item",
             )
         )
+        # The manifest calls this freeform call made from inside itself, lifted
+        # into rows of their own beside it — read from the UNTRUNCATED source,
+        # so a call sitting past the legible slice is still counted.
+        if is_code_mode:
+            calls.extend(_code_mode_nested_calls(_query_candidate(params), timestamp=timestamp))
     return calls[:RETRIEVAL_CALL_CAP]
+
+
+def _code_mode_nested_calls(source: str | None, *, timestamp: str | None) -> list[RetrievalCall]:
+    """Manifest calls made from inside code-mode source, as rows of their own.
+
+    The freeform call keeps its own row — it is a real builtin invocation, and
+    it is what carries the program and the combined output — and each manifest
+    call the program asked for gets a row beside it, named in the composed
+    ``mcp__<server>__<tool>`` spelling a direct item would carry. Without them
+    a code-mode engine's manifest use is absent from every count that keys on
+    that spelling: the offered-vs-called comparison and the per-engine MCP
+    totals alike.
+
+    **A lifted row is always ``unobserved``, and no result is read into it.**
+    The freeform call returns one combined output for its whole program, and
+    nothing in the transcript says which part of it — if any — belongs to a
+    given manifest call. Two things defeat every rule that would split it. A
+    single call *site* is not a single invocation: a site inside a loop runs as
+    many times as the loop does, against one output. And the output holds
+    whatever else the program did — a shell command, a file read — so reading
+    it under a manifest tool's name would put builtin text through the throttle
+    predicate that :func:`_result_status`'s tool gate exists to keep it out of,
+    where prose about a rate limit is not this call being refused. Both would
+    fire wrongly rather than merely miss, into a field decided once at parse
+    time and never recomputed. So the lift makes the *call* visible and claims
+    nothing about its answer: the manifest counts gain a code-mode engine, and
+    the throttle denominator, which needs a result, does not.
+    """
+    if not source:
+        return []
+    rows: list[RetrievalCall] = []
+    # The same window the redactor reads, for the same reason: how much source
+    # there is to scan is a size the agent chooses, so the scan takes a fixed
+    # bite of it rather than however much was written.
+    for match in _CODE_MODE_CALL_RE.finditer(source[:_REDACT_WINDOW]):
+        args = _code_mode_arguments(source, match.end())
+        rows.append(
+            RetrievalCall(
+                tool=_tool_name(match.group(1)),
+                query=_query_slice(args),
+                params_digest=_digest(args),
+                # The parent call's stamp: the transcript times the freeform
+                # call, and the invocations inside it share that one moment.
+                timestamp=timestamp,
+                result_capture="unobserved",
+                result_status="unobserved",
+                call_source="code_mode_source",
+            )
+        )
+        if len(rows) >= RETRIEVAL_CALL_CAP:
+            break
+    return rows
+
+
+def _code_mode_arguments(source: str, start: int) -> str | None:
+    """The argument text of a nested call, from just past its opening paren.
+
+    Balanced-paren scan, quote-aware so a parenthesis inside a string literal
+    (a query is one, and a citation is full of them) does not close the call
+    early. Bounded by :data:`_CODE_MODE_ARG_SCAN`: unbalanced or longer source
+    yields the scanned slice rather than nothing, because the row's purpose is
+    recording that the call happened and roughly what it asked.
+    """
+    depth = 1
+    quote: str | None = None
+    escaped = False
+    end = min(len(source), start + _CODE_MODE_ARG_SCAN)
+    for index in range(start, end):
+        char = source[index]
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\":
+            # Honoured outside a quote too: the source may arrive JSON-encoded,
+            # where every quote is backslashed and counting them as delimiters
+            # would flip the parity for the rest of the scan.
+            escaped = True
+            continue
+        if quote is not None:
+            if char == quote:
+                quote = None
+            continue
+        if char in "\"'`":
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return source[start:index].strip() or None
+    return source[start:end].strip() or None
 
 
 def _codex_records(rollout: Path) -> list[dict[str, Any]]:
@@ -728,6 +878,7 @@ def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
                     # engine cannot be seen being throttled at all.
                     result_capture="unobserved",
                     result_status="unobserved",
+                    call_source="transcript_item",
                 )
             )
             continue

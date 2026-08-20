@@ -920,12 +920,16 @@ coverage — the operator-run channel that fills it (`fedcourts
 enrich-opinions`) has landed bodies on fewer than ten rows against a
 cert-granted slice of ≈1,250. Their blind-grading
 precondition above is met on the explicit-identifier channel and on the
-engine channel's tool names — the staged retrieval log respells them as
-engine-neutral classes (`fedcourtsai.blinding.neutral_tool_class`), so the
-staged *log* carries no per-engine vocabulary — though the call-class
-*profile* still narrows the guessing space the way prose style does, and a
-candidate's own `retrieval.md` prose can name a tool the scrub's identity
-terms do not cover (the blinding module's residual list states these). The alpha
+engine channel's tool *names* — the staged retrieval log respells each call's
+`tool` as an engine-neutral class
+(`fedcourtsai.blinding.neutral_tool_class`) — though the respelling covers
+that field alone, and three residuals survive it: the call-class *profile*
+narrows the guessing space the way prose style does, a candidate's own
+`retrieval.md` prose can name a tool the scrub's identity terms do not
+cover, and a query slice passes through unrespelled, which matters most for
+the engine whose freeform calls carry program source naming its manifest
+tools in the raw vocabulary (the blinding module's residual list states
+these). The alpha
 that will meet them when they land — and what it deliberately
 does not yet decide — is *The semantic family, alpha*.
 

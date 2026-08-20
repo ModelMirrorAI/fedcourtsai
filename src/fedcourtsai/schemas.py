@@ -1856,6 +1856,41 @@ class RetrievalCall(_Strict):
         "only new logs; any rollup pools whatever predicate each log was minted under.",
     )
 
+    call_source: Literal["transcript_item", "code_mode_source"] | None = Field(
+        default=None,
+        description="Where capture read the CALL itself from — the provenance of the row, "
+        "not of its result. `transcript_item` is the ordinary case: the engine logged a "
+        "tool-call item and this row is that item. `code_mode_source` means the row was "
+        "lifted out of the SOURCE of a freeform code-mode call, which is how a code-mode "
+        "engine reaches its manifest tools: the model emits one builtin freeform call and "
+        "invokes the MCP tools from inside the program it carries, so those invocations "
+        "never appear as items of their own and are invisible to any count that waits for "
+        "one. A lifted row names the same `mcp__<server>__<tool>` spelling a direct item "
+        "would, so it normalizes into the offered denominator identically. Read the two "
+        "differently on the RESULT side: a lifted row is ALWAYS `unobserved`, and no "
+        "result is read into it. The freeform call returns one combined output for its "
+        "whole program and nothing says which part of it belongs to a given manifest call "
+        "— a single call SITE is not a single invocation (a site inside a loop runs as "
+        "many times as the loop), and the output also holds whatever else the program did, "
+        "so reading it under a manifest tool's name would put builtin text through the "
+        "throttle predicate the tool gate exists to keep it out of. So the lift makes the "
+        "CALL visible and claims nothing about its answer: manifest call counts gain a "
+        "code-mode engine, the throttle denominator does not. What is counted is CALL "
+        "SITES IN PROGRAM TEXT, neither a floor nor a bound on invocations: a site inside "
+        "a loop counts once however many times it ran, a site in an untaken branch or a "
+        "comment counts though it never ran, and a call reached through an alias or a "
+        "computed name is not counted at all. The claim it supports is `the program asked "
+        "for these tools`, not an execution trace. "
+        "The freeform call keeps its own row beside the lifted ones — a real builtin "
+        "invocation, carrying the program and the combined output — so a total over all "
+        "rows counts the builtin call AND the manifest calls it made; count with the MCP "
+        "gate (`normalize_call`) to avoid conflating them. This field is also the one the "
+        "blinding mask DROPS rather than staging, since naming a row as lifted names the "
+        "engine that lifts it. Null on records written before the field existed: "
+        "provenance-unknown — and on a code-mode engine's log a null also marks a record "
+        "whose manifest calls were never captured at all.",
+    )
+
     @model_validator(mode="after")
     def _status_agrees_with_capture(self) -> RetrievalCall:
         """Reject a row whose two result markers disagree about capture.
