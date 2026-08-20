@@ -1,0 +1,2 @@
+I used `mcp_courtlistener_call_endpoint` to look up the docket `26A203`, which returned no results.
+I then used `google_web_search` with the query `"National Park Service" "National Trust for Historic Preservation" Supreme Court stay 2026` to retrieve public information about the pending case. No query to `fedcourts` was made.

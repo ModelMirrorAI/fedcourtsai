@@ -1,0 +1,9 @@
+# Forecast
+
+The Court is more likely to deny the petition than grant it. The question is nationally important, and the CVSG confirms serious interest, but this record presents several obstacles to plenary review: the decision is unpublished and nonprecedential; the challenged selection policy has changed; Saadeh never applied for an available position and disputed below that he needed to show a desire to apply; and the state appellate court did not decide whether the policy violated state law. Those defects give the Solicitor General and the Court narrower grounds to recommend or choose denial without resolving the First Amendment question.
+
+The snapshot shows two distributions and a CVSG already issued on June 22, 2026. After the Solicitor General files, the petition will almost certainly be distributed at least once more, and it may be considered at one additional conference beyond that. A second CVSG is not expected.
+
+If the Court grants, it is more likely to set the case for plenary briefing than dispose of it in the certiorari order. The likely question would be narrower than the petition's formulation: whether applying an antidiscrimination law to a private, voluntary expressive association's status-conscious leadership selection materially burdens expressive association under *Dale*, despite *Runyon*, *Roberts*, and the status/message distinction. No intervening Supreme Court decision supplies an obvious GVR ground, and the disputed facts and jurisdictional issues make summary reversal unlikely.
+
+If review is denied, no separate writing is the most likely outcome. There is nevertheless a meaningful chance that Justice Alito or Justice Thomas notes a dissent or statement emphasizing the importance of the First Amendment/antidiscrimination conflict while acknowledging the vehicle defects.

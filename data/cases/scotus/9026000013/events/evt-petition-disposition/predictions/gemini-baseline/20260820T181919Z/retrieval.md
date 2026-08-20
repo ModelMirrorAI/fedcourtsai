@@ -1,0 +1,2 @@
+CourtListener MCP search for DC Circuit docket 25-1009 to identify the lower court proceeding.
+CourtListener MCP read_document for DC Circuit opinion (id: 11098235) to understand the mandamus posture, the withdrawal of the plea agreements by the Secretary of Defense, and Judge Wilkins' dissent.

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "questions-presented.txt does not carry the petition's QP section: it opens mid-sentence inside the 'Reasons for Granting the Petition' part (\"In This Case Are Exceptionally Important...\"). The actual questions presented were recovered from the provisioned petition.txt, so the cell was unaffected, but the QP extractor mis-cut this document.",
+      "event_id": "evt-order-cvsg-disposition"
+    }
+  ]
+}

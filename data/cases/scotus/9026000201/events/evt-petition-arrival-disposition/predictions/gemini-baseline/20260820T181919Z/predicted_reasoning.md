@@ -1,0 +1,5 @@
+The petition is at 0 distributions (docketed recently). Expect it to be granted at its first conference (no further relists before a decision on the petition). The question presented directly involves a circuit split on the constitutionality of the Horseracing Integrity and Safety Act's enforcement provisions under the private nondelegation doctrine, struck down by the Fifth Circuit.
+
+No CVSG will be called for, because the federal government (through the Solicitor General) is already the petitioner. 
+
+If granted, the Court would likely take the sole question presented as written. A summary disposition route (like a GVR or summary reversal) is unlikely because this is a significant constitutional question demanding full briefing and oral argument. Should the Court surprisingly deny the petition, expect a dissent from denial or a statement respecting the denial from one or more conservative Justices, given the stakes of the nondelegation doctrine.

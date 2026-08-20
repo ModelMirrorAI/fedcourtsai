@@ -1,0 +1,17 @@
+{
+  "actor_id": "gemini-baseline",
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 1239353,
+  "case_id": "scotus/9526000124",
+  "created_at": "2026-08-20T18:19:19Z",
+  "engine": "gemini",
+  "estimated_cost_usd": 0.6758605999999999,
+  "event_id": "evt-order-response-requested-disposition",
+  "input_tokens": 150977,
+  "model": "gemini-3.1-pro-preview",
+  "output_tokens": 10503,
+  "pipeline_sha": "adcce636b96febaca4b39615cf5821730116fd28",
+  "role": "predictor",
+  "run_id": "20260820T181919Z",
+  "schema_version": "1.0"
+}

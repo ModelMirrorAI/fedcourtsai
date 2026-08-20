@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275236",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "Decisive post-snapshot forward signal (forward cell, snapshot 2026-01-13): the underlying no-poach action has settled out (Huntington Ingalls/Marinette/Serco affiliate settlements 2026-03-19; plaintiffs dismissed General Dynamics from the suit) and petitioners moved on 2026-05-18 to hold the petition in abeyance (SCOTUSblog timeline; Law360). No disposition of the petition itself was surfaced — CourtListener shows the docket unterminated — so this is forward signal, not leakage, but it moved the forecast from ~0.45 (post-CVSG dynamics) to 0.05 with `dismissed` as the modal disposition. supremecourt.gov's docket page returned HTTP 403, so the abeyance/settlement picture rests on secondary reporting."
+    }
+  ]
+}

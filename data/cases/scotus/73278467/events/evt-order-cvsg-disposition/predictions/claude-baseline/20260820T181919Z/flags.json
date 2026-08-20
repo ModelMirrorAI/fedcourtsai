@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278467",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "Forward-signal disclosure: the forecast leans on West Virginia v. B.P.J. (No. 24-43) having been decided 2026-06-30 — the same day as this docket's CVSG and one day inside the snapshot cutoff — retrieved via CourtListener MCP. Legitimate pre-snapshot public information, disclosed because it was decisive for reading the CVSG as a plenary-interest signal rather than a prelude to GVR. B.P.J.'s opinion text was not available on CourtListener at run time, so only its existence and timing were used."
+    }
+  ]
+}

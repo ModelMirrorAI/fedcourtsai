@@ -1,0 +1,7 @@
+The petition has been distributed once, for the June 18, 2026 conference, but was rescheduled before that conference. It will probably be distributed again for the Court's post-recess conference calendar; I expect one further distribution, with additional relists less likely after that.
+
+The Court will most likely deny this petition, either after considering it alongside No. 25-1201 or after holding it while that cleaner final-judgment petition proceeds. This case asks for certiorari before the Fifth Circuit has entered judgment, while No. 25-1201 presents the Corporate Transparency Act's constitutionality after an Eleventh Circuit judgment. The government's waiver and the absence of a requested response also make a grant in this docket unlikely.
+
+No CVSG is expected. The Solicitor General already represents the federal respondents, so the Court can request a response directly if it wants the government's views.
+
+If the Court grants this petition, the likelier path is plenary review coordinated or consolidated with No. 25-1201, focused on Congress's enumerated-powers authority—principally the Commerce Clause—to impose beneficial-ownership reporting. A cert-order disposition is possible if the lead case or intervening developments supply a basis for a GVR, but it is not the likelier route conditional on grant. If review is denied, no noted dissent or statement respecting denial is expected.

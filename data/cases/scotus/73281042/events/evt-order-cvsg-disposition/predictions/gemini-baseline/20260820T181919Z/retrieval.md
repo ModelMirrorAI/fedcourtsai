@@ -1,0 +1,3 @@
+- `cat metrics/statpack.md` to read the statpack baseline for CVSG and salience band `high`.
+- `mcp_courtlistener_search` query `{"q": "\"Rajeh A. Saadeh\" \"New Jersey State Bar\"", "type": "d"}` (0 results).
+- `google_web_search` query `"Saadeh v. New Jersey State Bar Association" Supreme Court` (returned background information on the lower court ruling and amicus participation, confirming the case's high-profile nature and pending status).

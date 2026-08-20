@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000201",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "read_file", "run_shell_command"],
+  "helpful": ["statpack base rates", "CourtListener MCP"],
+  "gaps": [],
+  "notes": "Everything worked smoothly."
+}

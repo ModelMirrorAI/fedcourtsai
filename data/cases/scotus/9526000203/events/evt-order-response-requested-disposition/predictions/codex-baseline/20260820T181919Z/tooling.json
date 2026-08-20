@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000203",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "CourtListener MCP",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The interim statpack provided the scored strictly prior base-rate pool.",
+    "CourtListener exposed the lower-court opinion and dissent that framed the stay arguments."
+  ],
+  "gaps": [
+    "The Supreme Court stay application and requested response were not provisioned as text."
+  ],
+  "notes": "The docket-entry endpoint returned very large nested RECAP document payloads despite a narrow field request; dedicated document search was much easier to use."
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500252",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed statpack",
+    "fedcourts paths"
+  ],
+  "helpful": [
+    "The frozen context supplied the exact salience band and prediction-time distribution count.",
+    "The complete opposition brief exposed the strongest vehicle and importance counterarguments.",
+    "The machine-readable statpack allowed an exact prior-Term risk-set calculation."
+  ],
+  "gaps": [
+    "The docket showed an August 19 reply submission, but reply text was not provisioned.",
+    "The petition extraction was marked truncated, limiting confidence that every appendix passage was available."
+  ],
+  "notes": "The provisioned QP, petition, BIO, docket snapshot, and committed base rates were sufficient; no live retrieval was needed."
+}

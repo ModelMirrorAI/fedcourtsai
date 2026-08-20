@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000210",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned documents"],
+  "helpful": [
+    "The sal-v3 segment table's bracketed reached rates with the federal band frozen in context.json made the arrival-cell anchor a direct pooled computation",
+    "Provisioned petition.txt (155pp) carried the QP, reasons-for-granting, and the CA9/district-court excerpts — no live retrieval was needed for the cert call"
+  ],
+  "gaps": [
+    "fedcourts query --citation is documented-sparse and still cost 1335 GETs / ~350MB to return zero rows; a cheap coverage pre-check (or a fielded 'is this filter populated' probe) would save the round-trip",
+    "No statpack cut isolates SG-as-petitioner petitions from the broader federal band by posture (interlocutory vs final), which is the main case-specific adjustment an arrival cell has to freehand"
+  ],
+  "notes": "Single corpus query, slow (~2 min) through the ranged backend; everything else came from committed artifacts and provisioned inputs."
+}

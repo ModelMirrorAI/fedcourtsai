@@ -1,0 +1,68 @@
+{
+  "big_case_rationale": "A dispute involving Khalid Shaikh Mohammad and the United States is exceptionally consequential and newsworthy if the Court reaches it, independent of the low grant probability.",
+  "big_case_score": 0.94,
+  "case_id": "scotus/9026000013",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.05
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.25
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.005
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.1
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.05
+    }
+  ],
+  "confidence": 0.25,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-20",
+    "snapshot_provenance": "as-stored",
+    "term": 2026
+  },
+  "created_at": "2026-08-20T19:20:39Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "unavailable: provisioned record missing",
+  "judgment": null,
+  "model": "gpt-5.6-sol",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.05,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:06a854e7847cddf2d03ff391f3fe9dfc52e739180e0d30aed72aea2f0b909bdf",
+    "label": "proc-v3",
+    "pipeline_sha": "adcce636b96febaca4b39615cf5821730116fd28",
+    "stamped_at": "2026-08-20T19:21:43.639411Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260820T181919Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/9026000013",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search"
+  ],
+  "helpful": [
+    "The salience-band table's bracketed reached rates made the anchor unambiguous for a frozen-band cell",
+    "Provisioned petition.txt and questions-presented.txt carried the whole cert-stage argument, including the asserted splits, without any fetching",
+    "The relist/CVSG/circuit cuts gave usable conditional shape beside the anchor"
+  ],
+  "gaps": [
+    "fedcourts query has no free-text or subject filter, so no way to pull topically similar priors (e.g. military-commission or mandamus-related cert petitions); --topic is circuit-rows-only and the structured filters could not express the need",
+    "No provisioned amicus-brief text although three cert-stage amicus briefs are on the docket and are a load-bearing grant signal here",
+    "distribution_count conflates motion distributions with petition distributions; a per-kind count (or the distributed entry's text) beside the frozen context would remove the ambiguity flagged in flags.json"
+  ],
+  "notes": "Forward cell; retrieval kept to 2 calls (1 corpus query, 1 MCP search) — the provisioned inputs plus the statpack carried nearly all of the signal."
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281042",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp call_endpoint (dockets, docket-entries)",
+    "courtlistener-mcp search (opinions)"
+  ],
+  "helpful": [
+    "The sal-v3 band table's bracketed reached rates — the pooled prior-Term high-band figure was the single most useful anchor for a CVSG cell",
+    "The CVSG status cut, which brackets the same neighborhood from an independent direction",
+    "Full extracted text of petition, BIO, and QP — the BIO's vehicle arguments (standing, changed policy, finality) drove most of the down-adjustment",
+    "Live docket metadata via CourtListener confirming the case is still pending (forward-mode sanity check)"
+  ],
+  "gaps": [
+    "No CVSG-conditional forward cut: the CVSG bucket is terminal-status, so there is no published hazard for 'CVSG'd petitions from the invitation date', which is exactly this moment's state",
+    "SCOTUS docket entries are not on CourtListener/RECAP, so a live post-snapshot proceedings check is limited to docket metadata; a supremecourt.gov docket fetch would close that gap",
+    "Corpus citation coverage is sparse (159 rows), so a Dale-progeny prior lookup returned nothing; a cases-citing-authority search over the corpus would help thematic prior retrieval"
+  ],
+  "notes": "The band anchor and the CVSG cut agreed within a few points (≈0.41 vs ≈0.35), which made the base-rate side of this cell easy; the hard part was pricing the SG-recommendation uncertainty, for which no tooling exists."
+}

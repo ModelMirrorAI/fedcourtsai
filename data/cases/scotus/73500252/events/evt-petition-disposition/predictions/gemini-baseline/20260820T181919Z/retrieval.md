@@ -1,0 +1,2 @@
+- Consulted `metrics/statpack.md` for base rates, specifically the "Cert petitions by salience band", "Cert petitions by relist count", and "Cert petitions by CVSG status" sections.
+- Searched CourtListener MCP with `"Cantero" AND "escrow"` to confirm the context of the recent Supreme Court decision and related lower court decisions.

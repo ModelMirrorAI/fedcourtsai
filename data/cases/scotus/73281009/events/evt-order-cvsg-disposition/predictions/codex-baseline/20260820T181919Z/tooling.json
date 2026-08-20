@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281009",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP opinion search",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The provisioned petition and combined opposition text exposed both the GVR theory and the vehicle objections.",
+    "The statpack's frozen-band risk-set fields supported an exact prior-Term anchor."
+  ],
+  "gaps": [
+    "A strictly prior-Term CVSG-conditioned cut and a post-CVSG redistribution hazard would sharpen this moment's forecast."
+  ],
+  "notes": "The broad CourtListener search was available and worked, but the provisioned filings and committed base-rate artifacts carried the material evidence for this cell."
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000203",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP search and endpoint access",
+    "CourtListener MCP document search and reading",
+    "committed interim statpack"
+  ],
+  "helpful": [
+    "The frozen context made the already-requested response and untriggered referral explicit.",
+    "The interim statpack supplied the correct strictly-prior scored baseline.",
+    "CourtListener RECAP exposed the lower-court judgment, majority analysis, and dissent."
+  ],
+  "gaps": [
+    "No provisioned application or response text was available for the Supreme Court filing."
+  ],
+  "notes": "The lower-court record was sufficient to distinguish the majority's statutory theory from the dissent's standing and equities arguments."
+}

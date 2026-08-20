@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279035",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP endpoint access"
+  ],
+  "helpful": [
+    "Provisioned petition, opposition, questions presented, snapshot, and frozen context",
+    "Prior-Term salience-band and CVSG base rates",
+    "Related-case docket entries showing en banc rehearing and vacatur"
+  ],
+  "gaps": [
+    "CourtListener search returned no direct SCOTUS docket result, so the invited Solicitor General brief could not be checked"
+  ],
+  "notes": "The related Fifth Circuit docket was materially useful because the opposition's split analysis depended on a panel opinion later vacated for en banc rehearing."
+}

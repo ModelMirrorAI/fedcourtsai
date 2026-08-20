@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000173",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "courtlistener-mcp search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The frozen context.json band + the statpack's per-Term reached rates made the anchor mechanical",
+    "Provisioned petition.txt and questions-presented.txt were fully extracted (no empty_text), so the QP weakness assessment rests on the actual text",
+    "CourtListener docket search cheaply confirmed the decision below is unindexed as an opinion (likely unpublished) and surfaced the petitioner's serial-litigant history"
+  ],
+  "gaps": [
+    "fedcourts query has no pro-se / counsel-status or petitioner-type filter, so no corpus prior set matching this case's dominant feature (self-represented paid petitioner) could be pulled; the statpack likewise publishes no pro-se cut",
+    "No filter or cut conditions on respondent-waived-response, a strong and cheaply observable denial signal"
+  ],
+  "notes": "The recency-ranked generic query (--court scotus --era 2020s) returned mostly interim applications, which the cert cell could not use; a --kind petition filter would make the default query useful out of the box."
+}

@@ -1,0 +1,5 @@
+This is a massive election law application (State of California, et al. v. Trump, et al.) seeking a stay of a First Circuit decision that blocked President Trump's Executive Order 14399 regarding USPS lists for mail-in voting.
+
+I anchored on the statpack's substantive interim grant rate of 13.3% (pooled over Terms 2024 and 2025, since 2026 has not cleared the 50-application floor). However, because this is an administration request involving a nationwide injunction, the success rate is historically higher than the baseline.
+
+I adjusted down from a typical executive-branch success rate because of the *Purcell* principle (reluctance to alter election rules close to an election) and the major questions doctrine, given the unprecedented federal intervention into state election administration. Therefore, a stay is unlikely to be granted, as the Court is likely to leave the lower court's block in place pending cert or a merits decision from the First Circuit. P(grant) = 0.25.

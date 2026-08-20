@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9526000203",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-brief-response-disposition",
+      "message": "Frozen context reads amicus_briefs: 0 while the provisioned 2026-08-18 snapshot visibly carries six amicus filings. Cause: the amicus counter (interim_signals._AMICUS_RE) matches the literal phrase 'amicus curiae', but this application docket's entries read 'Amicus brief of X submitted.' and never contain it. The undercount hits both ends of the amicus-increment claim (frozen state and resolution-time signal), so the claim will likely resolve false despite real, possibly growing amicus activity, and the statpack's interim amicus escalation counts are likewise undercounted for dockets using this entry style. My amicus-increment probability (0.10) prices the measurement, not the world."
+    }
+  ]
+}

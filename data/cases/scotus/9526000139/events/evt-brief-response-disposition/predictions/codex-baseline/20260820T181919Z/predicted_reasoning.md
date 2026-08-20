@@ -1,0 +1,7 @@
+# Forecast
+
+The Court will deny the intervenor states' application for an unqualified stay. The likelier order is either an outright denial or relief limited to parts of Sections 2(a) and 2(b) of Executive Order 14399; under this event's denial-first rule, a mixed grant-in-part-and-denial-in-part still resolves as denied.
+
+The response-request rung has already fired. From the frozen prediction state, the application has not yet been referred to the full Court, but its national election consequences, expedited posture, requested response, and divided First Circuit panel make referral highly likely. No further response request is expected. The frozen context counts two amicus briefs; no additional post-prediction amicus filing is expected.
+
+Disposition should follow quickly, most likely within one to three days of the August 3 response. The decisive obstacle to an unqualified grant is the applicants' weak showing of their own irreparable injury: the injunction is limited to the plaintiff states and does not prevent implementation of the executive order in the applicant states. The First Circuit majority also found immediate election-administration injuries on the respondent side and noted that the applicants had not developed a public-interest argument. The panel dissent makes partial relief on the citizenship-list provisions plausible, but does not supply a strong basis to stay the entire injunction.

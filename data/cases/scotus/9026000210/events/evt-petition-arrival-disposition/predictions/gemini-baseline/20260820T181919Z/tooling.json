@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000210",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "mcp_courtlistener_read_document"],
+  "helpful": ["mcp_courtlistener_search", "mcp_courtlistener_read_document"],
+  "gaps": [],
+  "notes": "Used MCP to read the Ninth Circuit opinion to understand the underlying First Amendment issue."
+}

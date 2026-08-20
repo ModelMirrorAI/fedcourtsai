@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned snapshot + filed documents"
+  ],
+  "helpful": [
+    "The statpack's CVSG-status cut is exactly the conditional this moment needs; the band table's bracketed reached rates made the pooled prior-Term anchor a one-step computation.",
+    "Provisioned petition and BIO full text let me weigh the vehicle objection directly instead of inferring it from docket entries."
+  ],
+  "gaps": [
+    "A statpack cut of CVSG'd petitions by SG-recommendation (grant/deny) and by whether the case settled before the SG filed would sharpen the dominant uncertainty at this moment.",
+    "fedcourts query has no CVSG filter, so retrieving resolved CVSG'd priors as comparables is not possible; the corpus rows carry cvsg_date, so a --cvsg flag seems cheap.",
+    "questions-presented.txt extraction cut the wrong petition section (see flags.json) — a QP-section extractor anchored on the '(I) QUESTIONS PRESENTED' heading would be more reliable."
+  ],
+  "notes": "Kept retrieval to one corpus query; the provisioned documents plus the statpack carried this cell."
+}
