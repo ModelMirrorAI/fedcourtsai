@@ -676,7 +676,9 @@ def test_an_engine_that_called_no_mcp_tool_is_not_called_capture_blind(
     (profile,) = build_tool_usage(tmp_path).engine_profiles
     assert (profile.calls, profile.mcp_calls) == (1, 0)
     md = render_tool_usage_markdown(build_tool_usage(tmp_path))
-    assert "`claude-code` — (no MCP calls)" in md
+    # Scoped to the ledger: the cell is what capture recorded, and an engine
+    # whose manifest calls capture cannot see would read the same way.
+    assert "`claude-code` — (no MCP calls in the ledger)" in md
     assert "capture-blind" not in md
 
 

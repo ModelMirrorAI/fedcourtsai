@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import random
+import re
 import time
 from pathlib import Path
 
@@ -12,7 +13,7 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from fedcourtsai.blinding import neutral_tool_class
+from fedcourtsai.blinding import mask_retrieval_log, neutral_tool_class
 from fedcourtsai.cli import app
 from fedcourtsai.mcp import _HTTP_BYPASS_RELEASE
 from fedcourtsai.paths import CasePaths
@@ -24,7 +25,12 @@ from fedcourtsai.retrieval import (
     parse_codex_retrieval,
     parse_gemini_retrieval,
 )
-from fedcourtsai.schemas import RetrievalCall, RetrievalLog, normalize_call
+from fedcourtsai.schemas import (
+    RetrievalCall,
+    RetrievalLog,
+    normalize_call,
+    observed_mcp_conditions,
+)
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -466,6 +472,242 @@ def test_codex_custom_tool_call_pairs_its_output(tmp_path: Path) -> None:
     assert call.tool == "apply_patch"
     assert call.result_capture == "captured"
     assert call.result_digest is not None
+
+
+def _code_mode_call(source: str, output: str, *, call_id: str = "c1") -> list[dict[str, object]]:
+    """A code-mode freeform call carrying ``source``, answered by its output item."""
+    return [
+        {"type": "custom_tool_call", "name": "exec", "call_id": call_id, "input": source},
+        {"type": "custom_tool_call_output", "call_id": call_id, "output": output},
+    ]
+
+
+def test_codex_code_mode_lifts_a_nested_manifest_call(tmp_path: Path) -> None:
+    # A code-mode model reaches the manifest tools from inside the program its
+    # one freeform call carries; those invocations emit no item of their own, so
+    # a walk that reads items only records the engine as never having retrieved.
+    source = (
+        'const r = await tools.mcp__courtlistener__search({type:"o",q:"qualified immunity",'
+        'num_results:10}); for (const c of (r.content||[])) { if (c.type==="text") text(c.text); }'
+    )
+    sessions = _codex_rollout(
+        tmp_path, *_code_mode_call(source, '{"count": 2, "dateFiled": "2024-01-02"}')
+    )
+    freeform, nested = parse_codex_retrieval(sessions)
+
+    # The freeform call keeps its own row: a real builtin invocation.
+    assert freeform.tool == "exec"
+    assert freeform.call_source == "transcript_item"
+    assert normalize_call(freeform.tool) is None
+    # The manifest call is lifted beside it, in the spelling a direct item carries.
+    assert nested.tool == "mcp__courtlistener__search"
+    assert nested.call_source == "code_mode_source"
+    assert normalize_call(nested.tool) == "courtlistener.search"
+    assert nested.query is not None
+    assert "qualified immunity" in nested.query
+    # The lift makes the CALL visible and claims nothing about its answer: the
+    # combined output belongs to the program, not to any one call inside it.
+    assert nested.result_capture == "unobserved"
+    assert nested.result_status == "unobserved"
+    assert nested.result_digest is None
+    assert nested.retrieved_doc_date is None
+    # The freeform call's own row still carries what came back.
+    assert freeform.result_capture == "captured"
+    assert freeform.retrieved_doc_date == "2024-01-02"
+
+
+def test_codex_code_mode_refuses_to_attribute_one_output_to_several_calls(
+    tmp_path: Path,
+) -> None:
+    # The freeform call returns ONE combined output for the whole program. With
+    # several manifest calls in it, no result belongs to any one of them, so
+    # each lifted row is unobserved rather than claiming a share it cannot own.
+    source = (
+        'const a = await tools.mcp__courtlistener__search({q:"chevron"});'
+        "const b = await tools.mcp__courtlistener__get_endpoint_item({id:42});"
+        'const c = await tools.mcp__courtlistener__analyze_citations({text:"429 U.S. 274"});'
+    )
+    sessions = _codex_rollout(
+        tmp_path, *_code_mode_call(source, '{"count": 1, "dateFiled": "2024-01-02"}')
+    )
+    freeform, *nested = parse_codex_retrieval(sessions)
+
+    assert freeform.tool == "exec"
+    assert [call.tool for call in nested] == [
+        "mcp__courtlistener__search",
+        "mcp__courtlistener__get_endpoint_item",
+        "mcp__courtlistener__analyze_citations",
+    ]
+    assert all(call.call_source == "code_mode_source" for call in nested)
+    assert all(call.result_capture == "unobserved" for call in nested)
+    assert all(call.result_status == "unobserved" for call in nested)
+    # Nothing may be read out of an output that cannot be split.
+    assert all(call.result_digest is None for call in nested)
+    assert all(call.retrieved_doc_date is None for call in nested)
+    # The combined output still belongs to the freeform call itself.
+    assert freeform.result_capture == "captured"
+
+
+def test_codex_code_mode_reads_a_call_past_the_legible_query_slice(tmp_path: Path) -> None:
+    # Nested calls are lifted from the UNTRUNCATED source. Read from the row's
+    # own query slice instead, a call sitting past the cut would be invisible —
+    # and the transcript it could be recovered from dies with the runner.
+    filler = "// " + "padding " * 200
+    source = filler + '\nconst r = await tools.mcp__courtlistener__search({q:"late arrival"});'
+    assert source.index("tools.mcp__") > 500
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+    freeform, nested = parse_codex_retrieval(sessions)
+
+    assert nested.tool == "mcp__courtlistener__search"
+    assert nested.query is not None
+    assert "late arrival" in nested.query
+    # The freeform row's own slice is cut at the width every call shape gets,
+    # and the call sits past it — so the lifted row is the only record of it,
+    # which is precisely why the lift reads the untruncated source.
+    assert freeform.query is not None
+    assert len(freeform.query) == 500
+    assert "late arrival" not in freeform.query
+
+
+def test_codex_code_mode_without_a_manifest_call_lifts_nothing(tmp_path: Path) -> None:
+    # Most code-mode programs are ordinary work. A parser that invented a row
+    # per freeform call would inflate every manifest count with builtin work.
+    source = 'const text = await readFile("reasoning.md"); text(text.slice(0, 100));'
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "ok"))
+    (freeform,) = parse_codex_retrieval(sessions)
+
+    assert freeform.tool == "exec"
+    assert freeform.call_source == "transcript_item"
+
+
+def test_codex_code_mode_nested_call_arguments_survive_a_parenthesis_in_a_string(
+    tmp_path: Path,
+) -> None:
+    # A citation is full of parentheses, so the argument scan is quote-aware:
+    # a naive balance would cut the call short and lose what it asked.
+    source = (
+        'await tools.mcp__courtlistener__search({q:"Roe v. Wade (1973) (per curiam)",type:"o"});'
+    )
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+    _, nested = parse_codex_retrieval(sessions)
+
+    assert nested.query is not None
+    assert "(per curiam)" in nested.query
+
+
+def test_codex_code_mode_never_reads_builtin_output_under_a_manifest_name(
+    tmp_path: Path,
+) -> None:
+    """A lifted row must not put builtin text through the throttle predicate.
+
+    The freeform call's output holds whatever else the program did — here a
+    file read that recounts a throttle. Scanned under the manifest tool's name
+    it would pass the gate `_result_status` keeps such text out of and mint a
+    throttled row for a call that may not even have run, into a field decided
+    once at parse time and never recomputed.
+    """
+    source = (
+        '// tools.mcp__courtlistener__search({q:"never run"})\n'
+        + 'const t = await readFile("notes.md"); text(t);'
+    )
+    output = "notes.md: Rate limit exceeded: HTTP 429: too many requests today."
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, output))
+    freeform, nested = parse_codex_retrieval(sessions)
+
+    assert nested.tool == "mcp__courtlistener__search"
+    assert nested.result_status == "unobserved"
+    # The builtin row reads its own result, where the gate correctly declines
+    # to call a builtin's recounted prose this cell being refused.
+    assert freeform.result_status == "ok"
+    # And nothing in the log claims a throttle happened: the only manifest row
+    # is unobserved, so the count has no denominator to be read against.
+    assert _log([freeform, nested]).throttled_calls is None
+
+
+def test_codex_code_mode_lifts_a_call_site_inside_a_loop_without_claiming_its_count(
+    tmp_path: Path,
+) -> None:
+    # One site can run many times, which is half of why no lifted row carries a
+    # result: the output covers every iteration and belongs to none of them.
+    source = (
+        "for (const id of [1,2,3,4]) { "
+        + "await tools.mcp__courtlistener__get_endpoint_item({item_id:id}); }"
+    )
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, '{"ok":true}'))
+    _, nested = parse_codex_retrieval(sessions)
+
+    assert nested.tool == "mcp__courtlistener__get_endpoint_item"
+    assert nested.result_capture == "unobserved"
+
+
+def test_codex_code_mode_lift_is_a_floor_keyed_on_one_calling_idiom(tmp_path: Path) -> None:
+    # A call reached through an alias is not lifted. The count supports "the
+    # program asked for these tools" as a floor, which is what the
+    # offered-vs-called comparison reads it for — not an execution trace.
+    source = (
+        "const t = tools.mcp__courtlistener__search; "
+        + 'await Promise.all([t({q:"a"}), t({q:"b"})]);'
+    )
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+    rows = parse_codex_retrieval(sessions)
+
+    assert [row.tool for row in rows] == ["exec"]
+
+
+def test_codex_code_mode_argument_scan_tolerates_unbalanced_source(tmp_path: Path) -> None:
+    # Agent-authored source may be truncated mid-call. The row still records
+    # that the call was made and roughly what it asked.
+    source = 'await tools.mcp__courtlistener__search({q:"cut off mid'
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+    _, nested = parse_codex_retrieval(sessions)
+
+    assert nested.tool == "mcp__courtlistener__search"
+    assert nested.query is not None
+    assert "cut off mid" in nested.query
+
+
+def test_codex_code_mode_rows_reach_the_tool_usage_manifest_counts(tmp_path: Path) -> None:
+    """The whole point: a code-mode engine's manifest use becomes countable.
+
+    Gated on the same `normalize_call` predicate every manifest surface keys
+    on, so a lifted row lands in the offered denominator exactly as a direct
+    item's row does.
+    """
+    source = (
+        'await tools.mcp__courtlistener__search({q:"a"}); '
+        + "await tools.mcp__courtlistener__get_endpoint_item({item_id:7});"
+    )
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+    rows = parse_codex_retrieval(sessions)
+
+    manifest = [row for row in rows if normalize_call(row.tool) is not None]
+    assert [normalize_call(row.tool) for row in manifest] == [
+        "courtlistener.search",
+        "courtlistener.get_endpoint_item",
+    ]
+    # The builtin wrapper is counted apart from the calls it made.
+    assert [row.tool for row in rows if normalize_call(row.tool) is None] == ["exec"]
+
+
+def test_a_code_mode_log_supplies_no_throttle_denominator(tmp_path: Path) -> None:
+    """The invariant that keeps the throttle count a floor, at the derived level.
+
+    Row fields are the mechanism; these two are what gets published. A lifted
+    row must never enter `observed_mcp_conditions`, so a code-mode log's
+    `throttled_calls` stays null — the state that renders as *capture-blind*
+    rather than as a clean zero the engine did not earn.
+    """
+    source = (
+        'await tools.mcp__courtlistener__search({q:"a"}); '
+        + "await tools.mcp__courtlistener__get_endpoint_item({item_id:7});"
+    )
+    sessions = _codex_rollout(
+        tmp_path, *_code_mode_call(source, "Rate limit exceeded: HTTP 429: slow down.")
+    )
+    log = _log(parse_codex_retrieval(sessions))
+
+    assert observed_mcp_conditions(log.calls) == []
+    assert log.throttled_calls is None
 
 
 def test_codex_local_shell_call_records_its_command(tmp_path: Path) -> None:
@@ -1386,6 +1628,31 @@ def test_the_count_survives_the_blinding_masks_respelling_of_the_tool() -> None:
         ]
     )
     assert staged.throttled_calls == 2
+
+
+def test_the_blinding_mask_drops_call_provenance() -> None:
+    """Only one engine reaches its tools from inside a freeform call.
+
+    So a row marked as lifted from such a call's source names the candidate on
+    the grader's own reading path — the very thing respelling the tool exists to
+    prevent. The grading reads a lifted row exactly as a direct one, so
+    withholding provenance costs it nothing, and a dropped value reads as the
+    same null a pre-marker record carries.
+    """
+    log = _log(
+        [
+            RetrievalCall(tool="mcp__courtlistener__search", call_source="code_mode_source"),
+            RetrievalCall(tool="exec", call_source="transcript_item"),
+        ]
+    )
+    masked = mask_retrieval_log(
+        json.loads(log.model_dump_json()), alias="candidate-a", pattern=re.compile(r"(?!x)x")
+    )
+    assert all("call_source" not in call for call in masked["calls"])
+    # The rest of the contract is unchanged: the mask still stages the calls
+    # one-for-one, and a dropped value reads back as provenance-unknown.
+    assert len(masked["calls"]) == 2
+    assert all(RetrievalCall.model_validate(call).call_source is None for call in masked["calls"])
 
 
 def test_the_throttle_count_follows_the_calls_rather_than_a_writers_claim() -> None:

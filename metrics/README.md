@@ -1238,13 +1238,44 @@ published beside the coefficient.
 **A result-observability rate is two states, not three.** A captured
 `result_digest` proves the result side was recorded and non-empty; a null covers
 an empty result *and* a result the engine's transcript never carried. The
-per-call `result_capture` marker separates those two, but every committed log
-predates it and reads null — capture-unknown, a third state again. So the rate
+per-call `result_capture` marker separates those two, but only the logs
+captured since it existed carry it; on the rest it reads null — capture-unknown,
+a third state again, and a ledger-wide rate pools both kinds. So the rate
 is a floor on how much
 of the answer side is observable, never a hit rate, and its denominator is every
 call including builtins. An engine with no captured MCP result anywhere has its
 per-tool dead-end rows **withheld** rather than printed as 100%, and where they
 are printed they are an upper bound.
+
+**For a code-mode engine, a call count counts call sites in program text.** Its
+manifest calls are written inside a freeform builtin call's program and lifted
+from that source, so what `calls` and the offered-vs-called table's *called in*
+report is how many times a tool is *named* in the programs, not how many times
+it ran: a site inside a loop counts once however many times the loop turned, a
+site in an untaken branch or a comment counts though it never ran, and a call
+reached through an alias or a computed name is not counted at all. It is
+therefore neither a floor nor a bound on invocations. The claim it supports —
+and the one the offered-vs-called cut needs — is *the program asked for these
+tools*. It is not an execution trace, and no per-call rate should be built on it.
+
+**A raw call total is not one row per invocation for every engine.** A
+code-mode engine reaches its manifest tools from inside a freeform builtin
+call, and the log carries both: the builtin call's own row and a lifted row per
+manifest call the program made (`RetrievalCall.call_source`). So a program
+making three manifest calls contributes four rows, and any figure denominated
+on *every* call — the result-observability rate above, the call axis of the
+call-volume-against-Brier table — counts the wrapper beside the calls it
+wrapped, for that engine only. Three readings follow. Gate on the MCP predicate
+wherever the question is about manifest use, which the offered-vs-called cuts
+and every throttle figure already do. Do not read a code-mode engine's call
+*volume* beside another engine's as a behavioural difference: part of the gap
+is one call shape being recorded twice over, and the per-log call cap applies
+to the combined rows, so such a cell is also right-censored sooner. And treat
+every per-engine cut this touches — the observability rate, the mean call
+counts, and which engines appear in the offered-vs-called table at all — as
+**scoped to the logs that could express it**, since a lifted row exists only
+where capture minted one. A code-mode engine appearing to call no manifest
+tool over a stretch of the ledger is a capture fact, not a behavioural one.
 
 **What may be claimed from the throttle counts.** `result_status` on a
 `RetrievalCall` marks a result the shared upstream quota refused, and the counts
@@ -1265,6 +1296,32 @@ concurrency within that run, not a property of the engine — no engine may be
 ranked, differenced, or excused on it. Statuses are baked at parse time and
 never recomputed, so a ledger-wide count pools whatever predicate each log was
 captured under, exactly as `process_version` scopes a grade.
+
+**Throttle coverage is uneven across engines, so the denominator is not
+comparable between them.** How much of an engine's manifest use can carry a
+status at all is a property of what its transcript exposes, and the three
+engines differ in kind rather than by degree, and the artifact says which case a
+row is in rather than the engine's name doing it. Where an engine pairs each
+call with its own result, its manifest calls are observable and its figure is a
+real ratio. Where the engine's telemetry logs no result payload at all, every
+row is `unobserved` by construction and it can never be observed being
+throttled — coverage that is **structural**, so an empty figure there is no
+evidence of a clean run. The third case is a **code-mode** engine, whose rows
+carry `RetrievalCall.call_source: code_mode_source`: it invokes the manifest
+tools from inside a freeform builtin call, and only that call's *combined*
+output is captured. No part of that output is attributable to an individual
+manifest call — a single call site may run many times, and the output also
+holds whatever else the program did — so every lifted row is `unobserved` by
+construction, and such an engine likewise **cannot be observed being
+throttled**. Its manifest calls are counted; its results are not read. Two
+consequences bind any reading. A cross-engine throttle comparison is
+**denominator-incomparable** on top of being descriptive — the engines differ
+in what could be seen, not only in what happened, and only one of the three
+supplies a real denominator at all. And the denominator moves with capture: a
+log carrying no lifted rows is one capture never minted them for, not a cell
+that made no manifest call, so a ledger-wide cut pools stretches with
+categorically different coverage. Read a per-engine throttle number as scoped
+to the logs that could express one.
 
 **The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
 the replay runs, `backtest.json`, `cert-backtest.json`,

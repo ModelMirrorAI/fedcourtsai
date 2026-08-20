@@ -488,9 +488,10 @@ alongside its engine keys — launches the sidecar **token-free**, exactly as
 the `mcp-sidecar` scenario does on purpose. That is a degradation, not a
 failure: warn-only health, the handshake and the tool listing still succeed,
 and tool *calls* error. Both artifacts answer the question the leg is for —
-an errored MCP call is still an MCP item, and its shape is what the retrieval
-parser has never had confirmed — but only the token-bearing one also shows
-what a settled call looks like. A codex smoke additionally loosens
+what an invocation looks like in the transcript, which under code mode is not
+an MCP item at all but a call inside the freeform call's own source, so the
+shape the retrieval parser keys on is the one a real rollout confirms — but
+only the token-bearing one also shows what a settled call looks like. A codex smoke additionally loosens
 the runner kernel's
 AppArmor userns restriction (codex-action's own prerequisite for the live
 cells) without dropping sudo afterwards — accepted for the same reason as in
