@@ -1,0 +1,9 @@
+# Forecast
+
+The Court is more likely than not to grant the federal applicants an unqualified stay of the injunction pending further review. The application will almost certainly be referred to the full Court. A short administrative stay may precede the dispositive order, with final action likely shortly after the requested response and near the D.C. Circuit's scheduled mandate date.
+
+The frozen record already shows that the Chief Justice requested a response, so there is no remaining first-response-request increment from this vantage. No referral was shown. The combination of an affirmative response request, a divided panel, a federal applicant, and an injunction controlling work at the White House makes full-Court consideration highly likely.
+
+The grant is likely to rest on the government's fair prospect of reversal and the institutional consequences of leaving the injunction in force. Judge Rao's dissent supplies a developed route through associational standing, statutory authority under 3 U.S.C. § 105(d), and the balance of equities. The principal obstacle is that the panel majority grounded its judgment in Congress's express control over federal property and emphasized that the injunction already exempts below-ground and security-critical work, weakening the applicants' irreparable-harm showing. On balance, the Court's conservative majority is likely to view the intrusion on presidential administration and construction pending review as sufficient for a stay.
+
+At least one amicus filing is likely after the frozen count of zero, and several are plausible given the constitutional, historical-preservation, and presidential-security interests. The Court should dispose of the application within days to roughly two weeks rather than leave it pending for an extended period.

@@ -1,0 +1,188 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "40aab2825baca3d0",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '1,260p' .github/prompts/predict.md && rg --files data/cases/scotus/9026000204 | sort\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:10000,max_output_tokens:30000});text(r.output)",
+      "result_capture": "captured",
+      "result_digest": "32eb5a970a8cd08b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-20T19:07:54.779Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a3e12e3954f99a15",
+      "query": "const r = await tools.exec_command({cmd:\"uv run fedcourts paths --court scotus --docket 9026000204 --event evt-petition-arrival-disposition --role predictor && sed -n '261,620p' .github/prompts/predict.md && sed -n '1,280p' schemas/prediction.schema.json && find data/cases/scotus/9026000204 -maxdepth 8 -type f -print | sort\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:30000,max_output_tokens:40000});text(r.output)",
+      "result_capture": "captured",
+      "result_digest": "a5922aa37f9fcc58",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-20T19:07:57.628Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "6d6d2ab0743c471c",
+      "query": "const r = await tools.exec_command({cmd:\"UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts paths --court scotus --docket 9026000204 --event evt-petition-arrival-disposition --role predictor; sed -n '261,680p' .github/prompts/predict.md; sed -n '1,320p' schemas/prediction.schema.json; find data/cases/scotus/9026000204 -maxdepth 10 -type f -print | sort\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:30000,max_output_tokens:50000});text(r.output)",
+      "result_capture": "captured",
+      "result_digest": "85dcc7404a3d9ba4",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-20T19:08:00.064Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "2ae8868862d77242",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '1,220p' data/cases/scotus/9026000204/events/evt-petition-arrival-disposition/event.yaml; jq . data/cases/scotus/9026000204/record/context.json; jq . data/cases/scotus/9026000204/record/documents/documents.json; jq . data/cases/scotus/9026000204/record/snapshots/2026-08-19.json; sed -n '1,260p' data/cases/scotus/9026000204/record/documents/questions-presented.txt; sed -n '1,420p' data/cases/scotus/9026000204/record/documents/petition.txt\",workdir:\"",
+      "result_capture": "captured",
+      "result_digest": "7468fbbbe08095c8",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-20T19:08:04.846Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "08e4c46c69fcd37c",
+      "query": "const r = await tools.exec_command({cmd:\"rg -n \\\"REASONS FOR GRANTING|decision below|Ream|conflict|vehicle|standing|cross-appeal|sever|wrong|CONCLUSION|dissent|majority|Ho|Jones|Douglas\\\" data/cases/scotus/9026000204/record/documents/petition.txt | head -n 180; wc -l data/cases/scotus/9026000204/record/documents/petition.txt; rg -n \\\"Segment base rate by salience band|federal|Modern discretionary-cert|By relist|CVSG|Fifth\\\" metrics/statpack.md | head -n 100\",workdir:\"/home/runner/work/fedcourtsa",
+      "result_capture": "captured",
+      "result_digest": "d9fcd57f40d5bf98",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-20T19:08:10.754Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "1b2705d10e503983",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '430,935p' data/cases/scotus/9026000204/record/documents/petition.txt; sed -n '45,205p' metrics/statpack.md\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:10000,max_output_tokens:40000});text(r.output)",
+      "result_capture": "captured",
+      "result_digest": "4606c3125cbca8c0",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-20T19:08:13.175Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "599b68055071abfe",
+      "query": "const hits = ALL_TOOLS.filter(x => /courtlistener|case law|citation|search/i.test(x.name+\" \"+x.description)); text(hits);",
+      "result_capture": "captured",
+      "result_digest": "8cee79758d12a9bd",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-20T19:08:18.421Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "4bf832254636a931",
+      "query": "const t=ALL_TOOLS.find(x=>x.name===\"mcp__courtlistener__search\"); if(!t){text(\"missing\");exit()} const r=await tools.mcp__courtlistener__search({type:\"o\",q:\"Ream v. United States Department of the Treasury 174 F.4th 480\",court:[\"ca6\"],filed_before:\"2026-08-20\",fields:[\"caseName\",\"dateFiled\",\"citation\",\"docketNumber\",\"absolute_url\",\"status\"],num_results:5}); for(const c of (r.content||[])){if(c.type===\"text\")text(c.text); else if(c.type===\"image\")image(c)}",
+      "result_capture": "captured",
+      "result_digest": "c5853cd40003e467",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-20T19:08:25.500Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "code_mode_source",
+      "params_digest": "cbb5d88e38de7654",
+      "query": "{type:\"o\",q:\"Ream v. United States Department of the Treasury 174 F.4th 480\",court:[\"ca6\"],filed_before:\"2026-08-20\",fields:[\"caseName\",\"dateFiled\",\"citation\",\"docketNumber\",\"absolute_url\",\"status\"],num_results:5}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-20T19:08:25.500Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a6d134eeb5dd0ac7",
+      "query": "const r=await tools.mcp__courtlistener__search({type:\"o\",q:\"\\\"home distilling\\\" 26 U.S.C. 5178\",filed_before:\"2026-08-20\",fields:[\"caseName\",\"dateFiled\",\"citation\",\"docketNumber\",\"absolute_url\",\"court_citation_string\"],num_results:10}); for(const c of (r.content||[])){if(c.type===\"text\")text(c.text); else if(c.type===\"image\")image(c)}",
+      "result_capture": "captured",
+      "result_digest": "5793dd292041fff8",
+      "result_status": "ok",
+      "retrieved_doc_date": "2026-04-10",
+      "timestamp": "2026-08-20T19:08:28.913Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "code_mode_source",
+      "params_digest": "5669a0570fd6b932",
+      "query": "{type:\"o\",q:\"\\\"home distilling\\\" 26 U.S.C. 5178\",filed_before:\"2026-08-20\",fields:[\"caseName\",\"dateFiled\",\"citation\",\"docketNumber\",\"absolute_url\",\"court_citation_string\"],num_results:10}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-20T19:08:28.913Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f35d2f2c3164c3ea",
+      "query": "const r = await tools.exec_command({cmd:\"rg -n \\\"predicted_reasoning.md|prediction.json|claims block|relist-increment|dissent|CVSG\\\" .github/prompts/predict.md | tail -n 80; sed -n '470,640p' .github/prompts/predict.md\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:10000,max_output_tokens:20000});text(r.output)",
+      "result_capture": "captured",
+      "result_digest": "aa8a5cf724ff3fe5",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-20T19:08:44.844Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8470f6aaa5a8d894",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '620,830p' .github/prompts/predict.md\",workdir:\"/home/runner/work/fedcourtsai/fedcourtsai\",yield_time_ms:10000,max_output_tokens:24000});text(r.output)",
+      "result_capture": "captured",
+      "result_digest": "239de177438fae4e",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-20T19:08:46.944Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f6f42882ed079f62",
+      "query": "{\"message\": \"[redacted:fernet-token][redacted:opaque]\", \"target\": \"/root\"}",
+      "result_capture": "captured",
+      "result_digest": null,
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-20T19:09:22.648Z",
+      "tool": "send_message"
+    }
+  ],
+  "case_id": "scotus/9026000204",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.8571428571428571,
+  "role": "predictor",
+  "run_id": "20260820T181919Z",
+  "schema_version": "1.0",
+  "throttled_calls": null
+}

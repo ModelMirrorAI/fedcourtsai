@@ -1,0 +1,16 @@
+{
+  "case_id": "scotus/9526000203",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "google_web_search"
+  ],
+  "helpful": [
+    "google_web_search"
+  ],
+  "gaps": [],
+  "notes": "Web search was very helpful for retrieving context for a forward prediction since no documents were provisioned."
+}

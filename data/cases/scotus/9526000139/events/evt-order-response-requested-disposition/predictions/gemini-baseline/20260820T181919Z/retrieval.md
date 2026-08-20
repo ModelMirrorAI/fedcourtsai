@@ -1,0 +1,3 @@
+- Used CourtListener MCP search tool for docket "26A139" to identify the related district court case (`League of Women Voters of Massachusetts v. Trump`).
+- Used Google Web Search for `"26A139" SCOTUS "Alabama" "California"` to gather context on the underlying dispute, revealing that the application seeks to stay a nationwide injunction against a presidential executive order regarding citizenship verification for mail-in ballots.
+- Consulted `metrics/statpack.md` to identify the base rate for substantive interim applications (pooled across the 2024 and 2025 Terms, yielding 30/225 = 13.3%).

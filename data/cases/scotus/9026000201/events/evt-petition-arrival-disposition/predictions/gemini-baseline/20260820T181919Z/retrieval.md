@@ -1,0 +1,2 @@
+- Read `metrics/statpack.md` to identify the base rate for the `federal` salience band.
+- Searched CourtListener MCP for Fifth Circuit opinions after June 1, 2026 containing "National Horsemen" to confirm the decision date and context of the circuit court's ruling.

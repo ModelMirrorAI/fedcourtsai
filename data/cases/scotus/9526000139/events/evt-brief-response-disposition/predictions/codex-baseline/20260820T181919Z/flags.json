@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-brief-response-disposition",
+      "message": "The harness-frozen context records amicus_briefs=2, but the provisioned snapshot lists five distinct amicus filings dated August 3, 2026. I used the frozen count as the declared claim baseline but did not treat already-visible filings as future increments; mechanical resolution of amicus-increment may therefore encode a provisioning/parser mismatch."
+    }
+  ]
+}

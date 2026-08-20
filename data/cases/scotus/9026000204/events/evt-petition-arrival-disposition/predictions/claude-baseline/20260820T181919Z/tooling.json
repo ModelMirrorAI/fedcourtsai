@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/9026000204",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md (committed)",
+    "courtlistener MCP search (dockets)"
+  ],
+  "helpful": [
+    "The sal-v3 segment table's federal band column with bracketed reached rates — the exact anchor an arrival cell with band=federal needs, directly quotable.",
+    "Provisioned petition text (even truncated): the reasons-for-granting section carried the split and companion-case facts that drove the adjustment."
+  ],
+  "gaps": [
+    "fedcourts query cannot filter on petitioner class (federal/state) or on statute-invalidated-below, so no corpus prior set matching this cell's decisive features could be pulled; the case-specific adjustment above the band anchor had to be qualitative.",
+    "CourtListener's docket search did not surface SCOTUS companion docket 26-93 (Ream), so the companion petition's current posture could not be checked.",
+    "--era modern on fedcourts query silently returned zero rows at ~190MB of ranged reads; a note: line naming the unmatched era value would have saved a retry."
+  ],
+  "notes": "Forward arrival-moment cell; band=federal published in the segment table, so the class had a real anchor (~71% pooled reached) rather than the weakest-band fallback."
+}

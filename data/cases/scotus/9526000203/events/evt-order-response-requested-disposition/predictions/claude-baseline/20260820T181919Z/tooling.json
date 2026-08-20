@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000203",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus, --include-applications)",
+    "metrics/statpack.md (interim-docket section)",
+    "CourtListener MCP: search (dockets), call_endpoint (docket-entries)"
+  ],
+  "helpful": [
+    "statpack interim section's per-Term substantive counts — the pooled strictly-prior baseline (30/225) was computable directly as the prompt instructs",
+    "CourtListener docket-entries on the originating circuit docket — the single most valuable retrieval; the lower court's judgment, split, and self-stay carried most of the signal",
+    "frozen context.json escalation-ladder booleans — unambiguous about which increment claims are live"
+  ],
+  "gaps": [
+    "no applicant-class cut in the interim statpack section (government vs private applicant) — the dominant adjustment for this cell had to come from training knowledge rather than a committed rate",
+    "no ladder-conditioned interim rates (grant rate given response requested) — the increments and the disposition are all banked against unconditioned counts",
+    "fedcourts query's recency ranking surfaces time-extension applications even with --include-applications aimed at substantive priors; an --application-kind filter would help interim cells"
+  ],
+  "notes": "Snapshot attorney roster appears fresher than the truncated proceedings list (see flags.json); a roster-as-of-cutoff would make the amicus increment cleaner to state."
+}

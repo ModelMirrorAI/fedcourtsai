@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500252",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (attempted twice; corpus service timed out both times)",
+    "metrics/statpack.md (committed base rates: sal-v3 band table, relist/CVSG cuts)",
+    "courtlistener MCP search (docket search, 1 call)",
+    "provisioned record: snapshot, questions-presented.txt, petition.txt, brief-in-opposition.txt, documents.json"
+  ],
+  "helpful": [
+    "The provisioned petition and BIO texts were decisive — the BIO's own concessions (vehicle soundness, the three-pending-petitions landscape, the OCC rule timeline) carried more signal than any retrieval could have.",
+    "The statpack's per-Term elevated-band bracketed reached rates made the scored anchor computable in one place."
+  ],
+  "gaps": [
+    "fedcourts query was unusable this run: both calls hit the corpus service's 180s ReadTimeout (slow corpus read per its own message, not a dead sidecar), so no analogous priors could be pulled.",
+    "CourtListener's docket search returns no SCOTUS dockets (type=d, court=scotus, case_name=Cantero gave 0 results), so the status of companion petitions on the same QP could not be verified live; a companion/related-petition lookup surface would have directly sharpened the hold/GVR split within the grant family.",
+    "No statpack cut exists for 'response requested after waiver' at the cert stage — a strong signal on this docket that had to be weighed by judgment alone."
+  ],
+  "notes": "Forward cell; retrieval needs were modest because the provisioned documents were complete and current (snapshot dated the run day, reply brief included)."
+}

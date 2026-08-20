@@ -1,0 +1,1 @@
+Used CourtListener MCP search for 'Republican National Committee Eakin' to confirm case context, but relied entirely on provisioned documents and the metrics/statpack.md for predictions. No extra corpus query or deep REST reads.

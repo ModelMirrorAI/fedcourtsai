@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73279035",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["google_web_search", "run_shell_command"],
+  "helpful": ["metrics/statpack.md provided excellent base rates for CVSG and salience bands"],
+  "gaps": [],
+  "notes": ""
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281042",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "CourtListener MCP opinion search",
+    "committed corpus statpack"
+  ],
+  "helpful": [
+    "Provisioned petition and brief in opposition were complete and text-extractable.",
+    "The statpack supplied CVSG and frozen-band anchors for the correct scored segment."
+  ],
+  "gaps": [
+    "A CVSG-moment table conditioned jointly on band, current distribution count, and forward relist hazard would sharpen this forecast."
+  ],
+  "notes": "CourtListener confirmed Fearless Fund but did not surface the cited 2026 Fourth Circuit opinion; the provisioned opposition brief supplied enough detail to proceed."
+}

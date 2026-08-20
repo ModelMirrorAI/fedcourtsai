@@ -1,0 +1,7 @@
+# Forecast
+
+The Court is more likely than not to deny the petition, but the June 1 CVSG makes this a close cert decision rather than an ordinary denial. The petition has been distributed for one conference. After the Solicitor General files, I expect at least one further distribution and most likely disposition after one or two post-brief conferences, probably during October Term 2026. A second CVSG is not expected because the Court has already invited the government's views.
+
+If review is granted, the Court is most likely to take a narrowed version of the first question: whether Section 11(a)'s misleading-omissions prong permits liability for omitted interim financial information without a statement-specific finding that the omission made an affirmative statement misleading. The Court could add or subsume the Item 303 question if the Solicitor General concludes that the Ninth Circuit's treatment of trends, events, and quantification warrants review. The likely plenary route would be briefing and argument, not a GVR or summary reversal, because no intervening authority presently supplies a rule for the Ninth Circuit to apply on remand.
+
+On the merits conditional on a plenary grant, the Court would likely reject a materiality-alone understanding and require the lower courts to identify the affirmative statements allegedly rendered misleading. It may avoid a categorical duration rule for Item 303 and leave the SEC room to define disclosure obligations. If certiorari is denied, no dissent from denial or statement respecting denial is expected.

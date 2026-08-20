@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000204",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed corpus statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "The extracted question presented and petition supplied the complete grant argument at the arrival moment.",
+    "The sal-v3 band table supplied the leakage-safe federal-petitioner anchor.",
+    "CourtListener opinion search confirmed the square lower-court conflict without consulting the SCOTUS docket."
+  ],
+  "gaps": [],
+  "notes": "The provisioned petition appendix was truncated, but the question presented and certworthiness discussion were complete. No corpus query was needed."
+}

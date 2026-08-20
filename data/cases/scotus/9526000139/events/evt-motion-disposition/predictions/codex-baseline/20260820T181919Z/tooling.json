@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP search",
+    "CourtListener MCP document reader",
+    "CourtListener MCP endpoint access",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The frozen interim escalation state",
+    "The statpack's strictly prior-Term application counts",
+    "Pre-event First Circuit motion and order text"
+  ],
+  "gaps": [
+    "Provisioned text of the Supreme Court application and response"
+  ],
+  "notes": "Lower-court retrieval materially clarified the likelihood of mixed rather than unqualified relief. Endpoint responses sometimes embedded full document text despite narrow field requests, producing avoidably large outputs."
+}

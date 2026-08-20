@@ -1,0 +1,3 @@
+- `cat metrics/statpack.md | grep -A 30 "CVSG"` (0 GET(s))
+- `cat metrics/statpack.md | grep -A 20 "Segment base rate by salience band"` (0 GET(s))
+- Google Search: `"PhRMA" "O'Day" "Oregon" "HB 4005" SCOTUS`

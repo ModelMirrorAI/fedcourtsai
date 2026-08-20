@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274796",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "Forward cell predicted ~10 months after its frozen snapshot cutoff (2025-10-15 vs run 2026-08-20). Per contract I did not retrieve this case's post-snapshot history and nothing I retrieved surfaced its disposition, but a CVSG'd petition from October 2025 may well be resolved by now — if it is, the cell was forward-in-mode but stale-in-fact, which a maintainer may want to weigh when reading the score.",
+      "event_id": "evt-order-cvsg-disposition"
+    }
+  ]
+}

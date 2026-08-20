@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73358839",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "CourtListener MCP search and endpoint access",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The statpack supplied the exact prior-Term salience-band risk-set anchor.",
+    "CourtListener exposed the cleaner related final-judgment vehicle and its holdings."
+  ],
+  "gaps": [
+    "Provisioned petition text or questions-presented text would materially improve vehicle and issue-overlap analysis."
+  ],
+  "notes": "The CourtListener docket-entry response expanded nested RECAP records into a very large payload; a compact docket-entry-only mode would make posture checks more efficient."
+}

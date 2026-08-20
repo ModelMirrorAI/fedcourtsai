@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "Frozen context reports amicus_briefs=2 while the snapshot shows five amicus filings: interim_signals._AMICUS_RE matches the singular 'amicus curiae' only, so the three entries styled 'amici curiae' (56 Former Judges; Bipartisan Former Governors; Asian Law Caucus, et al.) are not counted. Internally consistent for the amicus-increment claim (the same counter resolves it), but the count understates amicus interest on any docket where filers docket in the plural form, which is most multi-filer briefs.",
+      "event_id": "evt-brief-response-disposition"
+    },
+    {
+      "category": "ambiguous-event",
+      "severity": "info",
+      "message": "Three of the five amicus entries carry 'VIDED', which normally marks a filing docketed across companion applications, yet the snapshot's RelatedCaseNumber is empty and a metadata-restricted CourtListener search surfaced no companion SCOTUS application from the federal defendants. Whether the enjoined federal parties have a parallel application materially affects this application's grant probability; the record available to this cell cannot resolve it.",
+      "event_id": "evt-brief-response-disposition"
+    }
+  ]
+}

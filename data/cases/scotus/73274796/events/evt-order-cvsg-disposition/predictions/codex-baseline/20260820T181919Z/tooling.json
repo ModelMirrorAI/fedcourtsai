@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274796",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP search",
+    "CourtListener MCP endpoint access",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The provisioned petition and opposition exposed both the doctrinal case and the vehicle objections.",
+    "The statpack supplied the moment-appropriate CVSG and high-band anchors.",
+    "CourtListener confirmed the lower-court rehearing posture."
+  ],
+  "gaps": [
+    "The docket-entry endpoint expanded nested RECAP document bodies despite a restricted field request, making a narrow procedural lookup unnecessarily large."
+  ],
+  "notes": "No corpus-prior query was needed; the committed conditional base rates and provisioned filings were more probative."
+}

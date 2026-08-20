@@ -1,0 +1,7 @@
+This petition is at the arrival stage and has not yet been distributed for conference. I expect the petition to be granted. The Court is highly likely to take up this case because it involves a lower court injunction against a major executive branch policy (the administration's executive orders terminating grants based on DEI/DEIA viewpoints).
+
+Expect one or two relists before a decision on the petition, as is common for significant cases requiring careful consideration or potential separate writings, although a grant at the first conference is also quite possible. No CVSG is expected because the Solicitor General is already the petitioner representing the United States. 
+
+If granted, the Court will likely take the Question Presented as written. A summary disposition (like a summary reversal) is unlikely, as the First Amendment implications of government funding restrictions on academic research (touching on the unconstitutional conditions doctrine and government speech) are complex and warrant full briefing and oral argument.
+
+Should the Court deny the petition, expect a dissent from denial from several of the conservative justices, given the injunction against the federal government.

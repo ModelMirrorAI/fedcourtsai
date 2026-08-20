@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/9526000203",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search",
+    "courtlistener-mcp call_endpoint (docket-entries)"
+  ],
+  "helpful": [
+    "The statpack's interim section: the per-Term substantive counts made the strictly-prior pool (225 resolved, 13.3%) a one-step computation, and its caption's caveats were directly usable.",
+    "CourtListener docket-entries with a date_filed__lte bound — let a forward cell read the lower-court posture without risking surfacing its own disposition on a fast-moving application."
+  ],
+  "gaps": [
+    "fedcourts query has no application-kind or party-role filter, so there is no way to pull prior substantive stay applications (let alone government-applicant ones) as priors; the government-applicant adjustment — the largest in this forecast — had to come from general knowledge.",
+    "A statpack cut of interim grant rate by applicant class (federal government vs. other) would anchor exactly the adjustment interim cells most need.",
+    "The frozen context's amicus count (0) diverges from the docket's attorney list, which already names several evident amicus counsel; an as-frozen count of noticed amicus appearances would sharpen the amicus-increment claim."
+  ],
+  "notes": "Interim arrival cell on a compressed clock (response due 4 days after filing, circuit mandate 3 days later); the escalation ladder had already fired its first rung at snapshot time."
+}

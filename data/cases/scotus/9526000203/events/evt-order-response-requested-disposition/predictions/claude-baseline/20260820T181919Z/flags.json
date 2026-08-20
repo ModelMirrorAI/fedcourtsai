@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000203",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "Frozen context says amicus_briefs: 0, but the truncated snapshot's attorney roster already lists six non-party 'Other' counsel of the amicus-filing kind (Members of Congress/CAC, Society for the Rule of Law, Campaign Legal Center/CREW, State of Indiana, two individuals) — the roster appears to reflect post-cutoff appearances while the proceedings list is cut at 2026-08-15. I resolved my amicus-increment claim against the frozen zero per the contract; noting in case the roster/counter skew affects other cells."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "Decisive forward signal from outside the snapshot: CourtListener retrieval of D.C. Circuit docket 26-5123 showed the 2026-08-07 per curiam judgment affirming the preliminary injunction (Rao dissenting), with the ruling self-stayed 14 days for Supreme Court review and the mandate reset to 2026-08-21. This predates the 2026-08-15 snapshot cutoff and drove my adjustment up from the pooled 13.3% baseline. Retrieval was stopped short of anything that could surface the application's own disposition; I did not encounter it."
+    }
+  ]
+}

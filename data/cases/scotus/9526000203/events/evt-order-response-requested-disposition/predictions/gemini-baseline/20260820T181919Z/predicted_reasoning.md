@@ -1,0 +1,5 @@
+The application seeks a stay of a preliminary injunction halting construction of a new White House ballroom, which the government argues is essential for the security of the President and underground national security facilities. Chief Justice Roberts has called for a response, indicating the Court is taking the application seriously. Given the strong dissenting opinion in the D.C. Circuit by Judge Rao emphasizing deference to the Executive's military and Secret Service security assessments, and the separation of powers implications of a court halting construction at the White House, the application is highly likely to be referred to the full Court. 
+
+The full Court will likely grant the stay pending certiorari, finding that the government's national security interests outweigh the aesthetic harms asserted by the plaintiffs, and that the plaintiffs' APA and appropriations challenges are unlikely to succeed on the merits.
+
+Expect several amicus briefs to be filed at the Supreme Court before the disposition, given the high-profile nature of the case and the numerous amici that participated below.

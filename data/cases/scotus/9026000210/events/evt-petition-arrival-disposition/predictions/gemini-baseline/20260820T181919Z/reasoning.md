@@ -1,0 +1,8 @@
+P(grant) 0.85. The petition falls into the "federal" salience band because the petitioner is the United States (represented by the Solicitor General). Historically, the base rate for OSG petitions is very high (often between 50% and 80%, as seen in the statpack for the federal band). I adjust this up to 0.85 because the Ninth Circuit affirmed a preliminary injunction against the administration's executive orders targeting DEI/DEIA viewpoints in federal research grants. The Supreme Court frequently grants certiorari when a lower court enjoins major federal executive actions.
+
+The First Amendment issue presented is highly salient and politically charged. The record shows the Form Termination Class lacked standing/APA success, but the DEI Termination Class succeeded on First Amendment grounds. The conservative majority of the Court will almost certainly want to review this injunction. 
+
+P(relist-increment) 0.35. While many grants happen at the first conference, major cases often see at least one relist.
+P(cvsg-increment) 0.01. The OSG is the petitioner, so a CVSG is essentially impossible.
+P(summary-disposition-route) 0.10. While the conservative majority might disagree with the Ninth Circuit, the doctrinal questions surrounding government funding and speech are complex enough to require plenary review rather than summary reversal.
+P(dissent-from-denial) 0.25. If the Court surprisingly denies review (perhaps due to the preliminary injunction posture), conservative justices are likely to dissent from the refusal to lift the injunction.

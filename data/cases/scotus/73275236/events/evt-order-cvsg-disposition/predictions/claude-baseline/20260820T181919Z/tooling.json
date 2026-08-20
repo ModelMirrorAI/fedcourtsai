@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275236",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp (dockets, docket-entries)",
+    "web search",
+    "web fetch"
+  ],
+  "helpful": [
+    "The statpack's CVSG cut and the per-Term salience-band `reached` table gave a clean pre-adjustment anchor for a CVSG-moment cell.",
+    "Provisioned petition/BIO text made the vehicle-argument read possible without any fetching."
+  ],
+  "gaps": [
+    "No sanctioned way to read the current supremecourt.gov docket: the CourtListener MCP has no entries for SCOTUS dockets and supremecourt.gov blocks fetches (403). For a forward CVSG cell whose snapshot is seven months old, the post-snapshot docket (abeyance motion, SG brief status) was the decisive input and had to come from secondary reporting.",
+    "fedcourts corpus-info is not runnable inside a cell (ranged backend lacks the remote URL), so the corpus-vintage line the golden rules ask for cannot be produced as documented; query rows' last_live_polled was the fallback."
+  ],
+  "notes": "Retrieval stayed well under budget (~9 calls). The statpack has no cut for petitions that settle while a CVSG is pending; the dismissal-path mass is judgment."
+}

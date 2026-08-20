@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279035",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (attempted, timed out)",
+    "metrics/statpack.md",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "The statpack's CVSG-status cut is exactly the anchor a moment:cvsg cell needs",
+    "The sal-v3 band table's bracketed reached rates with per-Term n made pooling prior Terms mechanical",
+    "Provisioned petition/BIO full text made the vehicle-flaw assessment possible without any fetching"
+  ],
+  "gaps": [
+    "The corpus query service timed out on both attempts (180s and 100s), so no priors could be pulled; a smaller default row budget or a faster cold read would make the surface usable inside a cell",
+    "No published cut conditions grant rate on CVSG *and* prior-Term vintage jointly, so the CVSG anchor is terminal-status and pack-wide rather than leakage-shaped like the band table",
+    "No baseline exists for dissent-from-denial on the CVSG'd subpopulation"
+  ],
+  "notes": "Both fedcourts query attempts failed against the corpus sidecar; the prediction rests on the provisioned inputs, the committed statpack, and three CourtListener MCP searches."
+}

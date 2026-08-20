@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281002",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP opinion search",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The frozen context made the CVSG moment and salience risk set unambiguous.",
+    "The statpack supplied both matching high-band and broader CVSG anchors."
+  ],
+  "gaps": [
+    "The corpus query surface has no CVSG-status filter for retrieving comparable resolved petitions."
+  ],
+  "notes": "The provisioned petition, questions presented, compiled opposition filings, and point-in-time docket were sufficient for the forecast; CourtListener search added little beyond general doctrinal context."
+}
