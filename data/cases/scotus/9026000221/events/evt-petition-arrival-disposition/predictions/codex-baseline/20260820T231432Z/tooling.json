@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000221",
+  "run_id": "20260820T231432Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "committed corpus statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document"
+  ],
+  "helpful": [
+    "The statpack exposed the exact prior-Term arrival anchor.",
+    "Provisioned petition text included the complete questions and certworthiness argument.",
+    "CourtListener document search checked the petition's vertical-stare-decisis characterization without retrieving this case's outcome."
+  ],
+  "gaps": [
+    "No published conditioned baseline was available for cert-order dispositions or separate writings from denial."
+  ],
+  "notes": "The petition appendix was truncated, but the complete petition argument and enough of the lower opinions were provisioned for the forecast."
+}
