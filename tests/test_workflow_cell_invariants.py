@@ -219,6 +219,64 @@ def test_sidecar_call_sites_pass_the_split_inputs_together() -> None:
                 )
 
 
+# The out-of-band corpus index pointer, in its one spelling and its one home.
+# It is the only corpus variable that REDIRECTS a read — the store URLs say
+# where to look, this says which blob to read there — so both halves are
+# pinned: the exact expression (no `|| ''`, which would be a no-op an unset
+# variable already gives, and no respelling), and the exact set of surfaces
+# that may carry it.
+POINTER_ENV_EXPRESSION = "${{ vars.FEDCOURTS_CORPUS_POINTER }}"
+# The scenario lane alone. The production lanes read the pair the committed
+# pointer names, so a pointer reaching run-predict/run-evaluate/the writers
+# would repoint a real run's corpus at another blob — hence a pinned set
+# rather than a count, exactly as the split pair is pinned above.
+POINTER_WORKFLOWS = {"integration-test.yml"}
+
+
+def test_the_corpus_pointer_is_spelled_once_and_scoped_to_the_scenario_lane() -> None:
+    """The pointer override travels in one spelling, on one workflow.
+
+    A copy-paste onto a production lane silently redirects that lane's corpus
+    reads to whatever blob the variable names; a respelling forks the read
+    path between the job env and the sidecar input, which must agree for the
+    sidecar to serve the same pair the in-process reads resolve.
+    """
+    covered: set[str] = set()
+    for name in sorted(p.name for p in WORKFLOWS.glob("*.y*ml")):
+        for context, env in _env_mappings(name):
+            if "FEDCOURTS_CORPUS_POINTER" not in env:
+                continue
+            covered.add(name)
+            assert env["FEDCOURTS_CORPUS_POINTER"] == POINTER_ENV_EXPRESSION, (
+                f"{context}: the corpus pointer must be exactly "
+                f"{POINTER_ENV_EXPRESSION!r}, got {env['FEDCOURTS_CORPUS_POINTER']!r}"
+            )
+    assert covered == POINTER_WORKFLOWS, (
+        f"corpus pointer coverage drifted: {sorted(covered ^ POINTER_WORKFLOWS)}"
+    )
+
+
+def test_sidecar_call_sites_pass_the_pointer_with_the_same_spelling() -> None:
+    """A sidecar call site's pointer input matches the job env's expression.
+
+    The sidecar is a separate process resolving its own corpus connection, so
+    a call site whose pointer disagrees with the job env serves one blob's
+    index rows to cells whose in-process reads resolve another's.
+    """
+    for name in sorted(p.name for p in WORKFLOWS.glob("*.y*ml")):
+        for job_id, job in _load(name)["jobs"].items():
+            for step in job.get("steps", []) or []:
+                if not str(step.get("uses", "")).endswith("actions/corpus-sidecar"):
+                    continue
+                pointer = (step.get("with") or {}).get("corpus-pointer")
+                if pointer is None:
+                    continue
+                assert pointer == POINTER_ENV_EXPRESSION, (
+                    f"{name}: job {job_id}: corpus-sidecar corpus-pointer must be "
+                    f"exactly {POINTER_ENV_EXPRESSION!r}, got {pointer!r}"
+                )
+
+
 # The codex cell's MCP wiring, in the one spelling every surface must share.
 # The live cells and the engine-smoke codex leg certify each other only while
 # these agree: the smoke exists to say what a real codex transcript's MCP
