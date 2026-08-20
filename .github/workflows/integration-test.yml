@@ -93,6 +93,14 @@ on:
       # undisposed, since the guard rightly refuses a snapshot that already
       # shows the outcome. Swap the defaults if this case ever resolves out
       # of shape.
+      #
+      # The defaults name a case in the *production* corpus, which is what
+      # the overwhelmingly common dispatch reads. A dispatch against an
+      # environment pointed at the staging pair must name a case in that
+      # pair's seeded slice instead — the slice is a lean cut, so the default
+      # is absent from it and the run would fail as a missing case rather
+      # than a regression (see the staging-corpus runbook in
+      # docs/security.md).
       court:
         description: Court id of a known case with an open event and a snapshot.
         type: string
@@ -253,9 +261,25 @@ jobs:
     # cascade — resolves the same mode; the sidecar process gets the same
     # pair explicitly, as corpus-sidecar composite inputs, exactly as the
     # cell workflows pass it. Inert while the flag is off.
+    #
+    # The index half of that pair travels the same way. A consumer resolves
+    # the committed `corpus/corpus.db.ref`, whose digest names the production
+    # blob, unless this out-of-band pointer names another published blob —
+    # and content addressing means a lean slice can never publish under the
+    # production digest, so an environment holding staging's store URLs must
+    # carry staging's pointer too or every index read asks that bucket for a
+    # key it does not hold. An unset variable resolves to the empty string,
+    # which reads as "the committed pointer, unchanged", and no fallback
+    # literal can express a pointer, so there is nothing to default it to.
+    # What keeps the `prod` lane off this path is that the variable is set on
+    # the `staging` environment alone — every corpus-writing workflow
+    # hard-codes `environment: prod` and forwards no pointer at all.
+    # Job-level for the split flag's own reason — one pair per job, never a
+    # staging index resolved against a production pointer.
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+      FEDCOURTS_CORPUS_POINTER: ${{ vars.FEDCOURTS_CORPUS_POINTER }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -334,6 +358,11 @@ jobs:
           # every other read stays green. Inert while the flag is off.
           casestore-url: ${{ vars.CASESTORE_URL }}
           corpus-split: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+          # The index half of the same pair, explicit for the same reason: the
+          # sidecar is a separate process, and a pair whose index it resolved
+          # from the committed pointer would serve production's index rows
+          # against this environment's store.
+          corpus-pointer: ${{ vars.FEDCOURTS_CORPUS_POINTER }}
 
       # The same tested command as the ranged read set, on the service
       # backend: three reads through the exact client a cell's `service`
@@ -682,10 +711,12 @@ jobs:
           AWS_REGION: ${{ vars.AWS_REGION }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           FEDCOURTS_CORPUS_BACKEND: service
-          # The corpus-split pair rides the job env for the cascade's own
-          # provisioning reads; the agent inherits those two non-secret
-          # pointers harmlessly — its reads go via the sidecar, and the
-          # content store is unreachable without the scrubbed creds.
+          # The corpus pair rides the job env for the cascade's own
+          # provisioning reads; the agent inherits those three non-secret
+          # values — the store URL, the split flag, the index pointer —
+          # harmlessly: its reads go via the sidecar, the content store is
+          # unreachable without the scrubbed creds, and a pointer names a
+          # blob rather than granting any reach to one.
           ANTHROPIC_API_KEY: ${{ matrix.engine == 'claude-code' && secrets.ANTHROPIC_API_KEY || '' }}
           OPENAI_API_KEY: ${{ matrix.engine == 'codex' && secrets.OPENAI_API_KEY || '' }}
           GEMINI_API_KEY: ${{ matrix.engine == 'gemini' && secrets.GEMINI_API_KEY || '' }}
