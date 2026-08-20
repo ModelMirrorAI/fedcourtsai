@@ -606,3 +606,38 @@ def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -
     assert len(tolerated) == 2
     untolerated = [s for s in scenario if s.get("continue-on-error") is not True]
     assert untolerated[0]["with"]["labeler"] == "canned/reference"
+
+
+def test_the_staging_seed_accepts_the_only_list_shape_its_form_can_produce() -> None:
+    """`dockets` is a `string` input, and GitHub renders those as a single-line
+    field — so the per-line list the description asks for cannot be typed into
+    the dispatch form at all, and a pasted one arrives space-joined. The step
+    must therefore split on whitespace, not newlines alone; writing the value
+    verbatim hands `corpus-seed-slice` one long "id" and the run dies at the
+    grammar check having done nothing.
+    """
+    workflow = _load("staging-corpus-refresh.yml")
+    dockets = workflow[True]["workflow_dispatch"]["inputs"]["dockets"]
+    # If this ever becomes a multi-line input type, the split below stops being
+    # load-bearing and this test should be revisited rather than deleted.
+    assert dockets["type"] == "string"
+    # The contract has to admit what the form can actually give.
+    assert "spaces work" in dockets["description"]
+
+    step = next(
+        s
+        for s in workflow["jobs"]["refresh"]["steps"]
+        if str(s.get("name", "")).startswith("Seed the staging corpus slice")
+    )
+    run = str(step["run"])
+    # The one pipeline that builds the docket file, comments excluded.
+    (build,) = [
+        line.strip()
+        for line in run.splitlines()
+        if "dockets_file" in line and not line.strip().startswith("#") and ">" in line
+    ]
+    assert r"tr -s ' \t\r' '\n'" in build, "split the docket list on whitespace"
+    # `grep -v` exits 1 on an all-blank value, which pipefail would turn into a
+    # step failure before the command's own emptiness refusal is reached.
+    assert "grep -v" not in build
+    assert "sed '/^$/d'" in build
