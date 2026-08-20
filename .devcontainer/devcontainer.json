@@ -9,7 +9,7 @@
     "ghcr.io/devcontainers/features/aws-cli:1": {}
   },
   "onCreateCommand": "uv sync",
-  "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.claude && bash .devcontainer/setup-claude-package-ownership.sh && bash .devcontainer/setup-corpus-access.sh",
+  "postCreateCommand": "mkdir -p \"$HOME/.claude\" && sudo chown -R \"$(id -un)\" \"$HOME/.claude\"; bash .devcontainer/setup-claude-package-ownership.sh; bash .devcontainer/setup-corpus-access.sh",
   "postStartCommand": "bash .devcontainer/check-corpus-session.sh",
   "waitFor": "postCreateCommand",
   "userEnvProbe": "loginInteractiveShell",
