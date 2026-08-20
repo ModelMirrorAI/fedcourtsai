@@ -232,6 +232,28 @@ def test_corpus_split_empty_env_reads_as_off(monkeypatch: pytest.MonkeyPatch) ->
     assert Settings().corpus_split is False
 
 
+def test_corpus_pointer_empty_env_reads_as_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    # corpus-env's prod restore and any workflow-variable fallback pass an
+    # unset override through as the empty string, which must mean "the
+    # committed pointer, unchanged" — not crash settings resolution.
+    for name in ("FEDCOURTS_CORPUS_POINTER", "CORPUS_POINTER"):
+        monkeypatch.delenv(name, raising=False)
+    assert Settings().corpus_pointer is None
+    monkeypatch.setenv("FEDCOURTS_CORPUS_POINTER", "")
+    assert Settings().corpus_pointer is None
+    monkeypatch.setenv("FEDCOURTS_CORPUS_POINTER", '{"key": "index/sha256/x"}')
+    assert Settings().corpus_pointer == '{"key": "index/sha256/x"}'
+
+
+def test_corpus_pointer_prefixed_name_outranks_bare(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Same alias discipline as the store URLs: both spellings accepted, the
+    # FEDCOURTS_-prefixed one wins, so corpus-env moves them together.
+    monkeypatch.setenv("CORPUS_POINTER", "bare")
+    assert Settings().corpus_pointer == "bare"
+    monkeypatch.setenv("FEDCOURTS_CORPUS_POINTER", "prefixed")
+    assert Settings().corpus_pointer == "prefixed"
+
+
 def test_corpus_service_url_reads_its_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     # The service backend's target: the name is deliberately clear of the
     # Gemini CLI's credential-name refusal regex so cells can allowlist it.

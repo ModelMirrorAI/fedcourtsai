@@ -212,6 +212,132 @@ def test_cli_corpus_push_requires_remote_url(
     assert "CORPUS_REMOTE_URL" in result.stderr
 
 
+def test_cli_corpus_push_refuses_under_pointer_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A writer owns the committed pointer; an environment that overrides reads
+    # would push to one pair while reading another, so the mixture is refused.
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_REMOTE_URL", REMOTE_URL)
+    monkeypatch.setenv(
+        "FEDCOURTS_CORPUS_POINTER",
+        json.dumps(
+            {
+                "key": "index/sha256/" + "a" * 64,
+                "size": 7,
+                "sha256": "a" * 64,
+                "schema_version": "1.0",
+            }
+        ),
+    )
+    result = CliRunner().invoke(app, ["corpus-push"])
+    assert result.exit_code == 1
+    assert "refuses" in result.stderr
+
+
+@mock_aws
+def test_cli_corpus_pull_honors_pointer_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With the override set, the pull needs no committed pointer at all.
+
+    The staging-read shape: the pair's pointer arrives out of band, the
+    checkout's `.ref` (absent here, production's in a real checkout) is not
+    consulted, and the download still verifies digest + size.
+    """
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="test-bucket")
+    corpus_root = tmp_path / "corpus"
+    corpus_root.mkdir()
+    db = corpus_root / "corpus.db"
+    with corpus.connect(db):  # a real (empty) corpus, so corpus-info can open it
+        pass
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_REMOTE_URL", REMOTE_URL)
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    published = corpus_remote.upload_index(db, REMOTE_URL)
+    original = db.read_bytes()
+    db.unlink()
+    corpus_remote.pointer_path_for(db).unlink()
+    monkeypatch.setenv(
+        "FEDCOURTS_CORPUS_POINTER",
+        json.dumps(
+            {
+                "key": published.key,
+                "size": published.size,
+                "sha256": published.sha256,
+                "schema_version": "1.0",
+            }
+        ),
+    )
+    # `--missing-pointer warn` governs only the committed file, so it is inert
+    # here: the override still names what to pull.
+    pulled = CliRunner().invoke(app, ["corpus-pull", "--missing-pointer", "warn"])
+    assert pulled.exit_code == 0, pulled.output
+    assert "No corpus pointer yet" not in pulled.stdout
+    assert db.read_bytes() == original
+    assert "sha256-verified" in pulled.stdout
+    # The pull records its provenance durably: the sidecar carries the
+    # override's digest, so a later shell without the override can tell the
+    # blob on disk is not the committed ref's.
+    sidecar = corpus_remote.pulled_pointer_path_for(db)
+    assert corpus_ranged.read_index_pointer(sidecar).sha256 == published.sha256
+    # Simulate that later shell: override gone, a committed ref naming some
+    # OTHER blob present — the local freshness surface must disclose the drift.
+    monkeypatch.delenv("FEDCOURTS_CORPUS_POINTER", raising=False)
+    other = corpus_ranged.IndexPointer(key="index/sha256/" + "b" * 64, size=9, sha256="b" * 64)
+    corpus_remote.write_pointer(corpus_remote.pointer_path_for(db), other)
+    info = CliRunner().invoke(app, ["corpus-info"])
+    assert info.exit_code == 0, info.output
+    assert "blob on disk is not the committed ref's" in info.stdout
+    assert published.sha256 in info.stdout
+    # And with the committed ref matching the pulled blob, no drift line.
+    corpus_remote.write_pointer(
+        corpus_remote.pointer_path_for(db),
+        corpus_ranged.IndexPointer(key=published.key, size=published.size, sha256=published.sha256),
+    )
+    clean = CliRunner().invoke(app, ["corpus-info"])
+    assert clean.exit_code == 0, clean.output
+    assert "blob on disk is not the committed ref's" not in clean.stdout
+
+
+@mock_aws
+def test_cli_corpus_info_disclosure_names_the_blob_actually_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The `pointer:` line under the override: digest under ranged, a
+    not-read note under local — never the override digest beside a local
+    file's freshness."""
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="test-bucket")
+    corpus_root = tmp_path / "corpus"
+    corpus_root.mkdir()
+    db = corpus_root / "corpus.db"
+    with corpus.connect(db):  # a real (empty) corpus in the ranged-read layout
+        pass
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_REMOTE_URL", REMOTE_URL)
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    published = corpus_remote.upload_index(db, REMOTE_URL)
+    corpus_remote.pointer_path_for(db).unlink()
+    monkeypatch.setenv(
+        "FEDCOURTS_CORPUS_POINTER",
+        json.dumps(
+            {
+                "key": published.key,
+                "size": published.size,
+                "sha256": published.sha256,
+                "schema_version": "1.0",
+            }
+        ),
+    )
+    ranged = CliRunner().invoke(app, ["corpus-info", "--corpus-backend", "ranged"])
+    assert ranged.exit_code == 0, ranged.output
+    assert f"pointer: out-of-band override (sha256 {published.sha256})" in ranged.stdout
+    local = CliRunner().invoke(app, ["corpus-info", "--corpus-backend", "local"])
+    assert local.exit_code == 0, local.output
+    assert "override set (not read by the local backend)" in local.stdout
+    assert published.sha256 not in local.stdout
+
+
 @mock_aws
 def test_cli_corpus_push_then_pull_round_trip(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

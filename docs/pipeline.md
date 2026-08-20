@@ -178,13 +178,13 @@ default**: the per-case census is the reading an apply is dispatched on, so the
 procedure is two dispatches. What keeps it off production is IAM: the role is
 read-only there. The seeder's own rail is the second line, refusing any
 destination that is, or sits inside the bucket of, either configured production
-store. **One wiring is still outstanding**: every consumer resolves the
-committed `corpus/corpus.db.ref`, whose digest names the production blob, so
-nothing reads the staging corpus yet — the refresh lane produces it, and the
-scenarios still read production's until a follow-up change to
-`integration-test.yml` resolves a staging pointer. Provisioning the stores, the
-environment, and the role — and that outstanding wiring — is the maintainer
-runbook in [security.md](security.md).
+store. **One repointing is still outstanding**: a consumer resolves the committed
+`corpus/corpus.db.ref` — whose digest names the production blob — unless the
+out-of-band pointer override names the staging blob instead (*Developer
+access* in [data-pipeline.md](data-pipeline.md)), and the scenarios read
+production's pair until the staging environment's store variables — the
+URLs and that pointer — are repointed. Provisioning the stores, the environment, and the role — and
+that repointing — is the maintainer runbook in [security.md](security.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
 accumulating resolved outcomes reverse-chronologically by Term for the statpack's

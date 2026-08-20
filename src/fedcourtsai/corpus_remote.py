@@ -33,6 +33,7 @@ from typing import Protocol
 
 from .corpus_ranged import (
     INDEX_KEY_PREFIX,
+    POINTER_OVERRIDE_SOURCE,
     POINTER_SUFFIX,
     IndexPointer,
     RemoteObject,
@@ -126,6 +127,17 @@ def pointer_path_for(db_path: Path) -> Path:
     return db_path.with_name(db_path.name + POINTER_SUFFIX)
 
 
+def pulled_pointer_path_for(db_path: Path) -> Path:
+    """The pull-provenance sidecar's location beside the index blob.
+
+    Gitignored, written by every ``corpus-pull``: which pointer the blob on
+    disk actually came from. The override is process-scoped but the file it
+    pulls is durable, so without this record a blob pulled through the
+    override would read as the committed pointer's in every later shell.
+    """
+    return db_path.with_name(db_path.name + ".pulled" + POINTER_SUFFIX)
+
+
 def digest_file(path: Path) -> tuple[str, int]:
     """``(sha256 hex digest, byte size)`` of ``path``, streamed in bounded memory."""
     digest = hashlib.sha256()
@@ -174,7 +186,7 @@ def upload_index(
 
 
 def download_index(
-    pointer_path: Path,
+    pointer: Path | IndexPointer,
     remote_url: str,
     dest: Path,
     *,
@@ -182,11 +194,13 @@ def download_index(
 ) -> RemoteObject:
     """Fetch the blob the pointer names into ``dest``, sha256-verified.
 
-    Downloads to a sibling ``.partial`` file, verifies digest + size, then
-    renames into place — a failed or corrupted transfer never leaves a
-    plausible-looking corpus file behind.
+    ``pointer`` is a committed ``.ref`` path or an :class:`IndexPointer`
+    already validated from the out-of-band override. Downloads to a sibling
+    ``.partial`` file, verifies digest + size, then renames into place — a
+    failed or corrupted transfer never leaves a plausible-looking corpus file
+    behind.
     """
-    remote = resolve_pointer(pointer_path, remote_url)
+    remote = resolve_pointer(pointer, remote_url)
     active = transport if transport is not None else S3FileTransport(remote.bucket)
     dest.parent.mkdir(parents=True, exist_ok=True)
     partial = dest.with_name(dest.name + ".partial")
@@ -194,8 +208,9 @@ def download_index(
         active.download(remote.key, partial)
         digest, size = digest_file(partial)
         if size != remote.size or digest != remote.checksum:
+            source = pointer if isinstance(pointer, Path) else POINTER_OVERRIDE_SOURCE
             raise CorpusRemoteError(
-                f"downloaded corpus index does not match the pointer {pointer_path}: "
+                f"downloaded corpus index does not match the pointer {source}: "
                 f"got sha256 {digest} ({size} bytes), "
                 f"expected {remote.checksum} ({remote.size} bytes)"
             )

@@ -344,7 +344,8 @@ QUERY PLAN` tests), keeping a ranged point lookup at KB scale.
 
 Read-only consumers go through `corpus.connect_readonly`, which picks the
 backend from the corpus-backend setting (or an explicit override): `local`
-opens the pulled file, `ranged` resolves the committed pointer against
+opens the pulled file, `ranged` resolves the pointer the read paths honor —
+the out-of-band override when set, else the committed one — against
 the out-of-band remote URL; writers never use this seam. Each ranged connection
 reports its `GET`s and bytes fetched to stderr — the per-query egress evidence
 retrieval logging and the integration check consume — and the transport is one
@@ -596,22 +597,48 @@ names the `staging` Actions environment carries for the refresh lane,
 deliberately, since they hold the same URLs in a different config store.
 `scripts/corpus-env` (invoked from the repo root) switches the whole env
 contract between the pairs — both accepted spellings of the remote and
-casestore URLs plus `FEDCOURTS_CORPUS_SPLIT`, together, because the
-`FEDCOURTS_`-prefixed aliases outrank the bare names and a hand-rolled export
-of one spelling half-switches: `scripts/corpus-env staging <command>` runs
-one command against staging (the form that works from any shell, a coding
-agent's per-call shells included), while `eval "$(scripts/corpus-env
-staging)"` flips an interactive shell and `eval "$(scripts/corpus-env prod)"`
-flips it back. What the switch reaches today is the **content-store half**:
-casestore-path reads of a seeded case's snapshots, events, and documents. The
-**index half is not readable yet** — every consumer resolves the committed
-`corpus/corpus.db.ref`, whose digest names the production blob, so a ranged
-query or `corpus-pull` in a staging-flipped shell asks the staging bucket for
-a key it does not hold and fails as a missing key; the pointer wiring that
-unblocks the integration scenarios (*The outstanding wiring* in
-[security.md](security.md)) is the same wiring that unblocks this. The split
-flag rides along because the slice is payload-free by construction: without
-it, payload reads bypass the casestore and find nothing, silently.
+casestore URLs plus `FEDCOURTS_CORPUS_SPLIT` and the out-of-band corpus
+pointer, together, because the `FEDCOURTS_`-prefixed aliases outrank the bare
+names and a hand-rolled export of one spelling half-switches:
+`scripts/corpus-env staging <command>` runs one command against staging (the
+form that works from any shell, a coding agent's per-call shells included),
+while `eval "$(scripts/corpus-env staging)"` flips an interactive shell and
+`eval "$(scripts/corpus-env prod)"` flips it back. The pointer travels with
+the pair because the staging index pointer is not committed: consumers
+resolve the committed `corpus/corpus.db.ref`, whose digest names the
+production blob, unless the out-of-band override (`Settings.corpus_pointer`)
+names another published blob — and staging's arrives as a third user-scoped
+secret, `STAGING_CORPUS_POINTER`, holding the seed run's published pointer
+JSON verbatim (re-set it after each re-seed; the apply summary prints it —
+the value is a delivery mechanism rather than a sensitive one: a digest and
+a size, no URL or credential).
+With the secret present the switch reaches **both halves** — casestore-path
+reads of a seeded case's snapshots, events, and documents, and index reads: a
+ranged `query`, `corpus-info --corpus-backend ranged`, `corpus-pull`. (A
+staging `corpus-pull` is deliberate surgery: it overwrites the shared local
+`corpus/corpus.db` with the slice, so re-pull production afterwards — prefer
+the ranged backend, which touches no local file. The `local` backend never
+consults the override at all; it reads whatever blob is on disk.) Absent
+the secret, the content-store half still works, and a *ranged* read or
+`corpus-pull` fails loudly as a missing key (the production digest against
+the staging bucket).
+The override passes the committed pointer's exact validation, key↔digest
+binding included, so it only ever selects which already-published immutable
+blob is read; writers never honor it — `corpus-push` refuses to run while it
+is set. The split flag rides along because the slice is payload-free by
+construction: without it, payload reads bypass the casestore and find
+nothing, silently.
+
+That same silence is a standing trap on the **production** side too: a dev
+shell without the split flag and casestore URL set is **casestore-blind** — a
+payload living only in the content store (petition text, documents, the
+snapshots the blob does not carry) reads as *absent* rather than
+erroring, so a figure computed locally over payloads silently undercounts,
+with no warning either way. Any figure derived from
+petition text, documents, or content-store payloads must therefore come from
+a writer-lane run or a shell `corpus-env` has pointed at a pair with the
+split on — and must say which. Ledger-derived figures (`data/cases`) and
+index-column reads are unaffected; they are in git and in the blob.
 
 ### Corpus schema
 

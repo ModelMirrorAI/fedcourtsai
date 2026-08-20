@@ -298,6 +298,29 @@ def test_upsert_rows_mirrors_case_json(tmp_path: Any) -> None:
     assert _loads(t, "scotus/74112233/case.json")["case_name"] == "A v. B"
 
 
+def test_mirrors_are_withheld_under_the_pointer_override(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The pointer override redirects reads; no mirror write may land under it.
+
+    A writer environment carrying the override would otherwise derive the
+    mutable manifests from override-selected state — the one write the
+    corpus-push refusal cannot reach. The SQLite write itself must still land.
+    """
+    monkeypatch.setenv(
+        "FEDCOURTS_CORPUS_POINTER",
+        '{"key": "index/sha256/' + "a" * 64 + '", "size": 1, "sha256": "' + "a" * 64 + '"}',
+    )
+    t = casestore.InMemoryObjectTransport()
+    casestore.set_active_transport(t)
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_rows(conn, [_row("scotus/74112233")])
+        corpus.upsert_snapshot(conn, "scotus/74112233", date(2026, 5, 1), {"x": 1})
+        assert corpus.get_row(conn, "scotus/74112233") is not None
+    assert t.objects == {}  # not one object landed
+    assert t.puts == 0
+
+
 def test_upsert_snapshot_mirrors_dated_object(tmp_path: Any) -> None:
     t = casestore.InMemoryObjectTransport()
     casestore.set_active_transport(t)
