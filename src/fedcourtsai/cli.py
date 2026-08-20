@@ -623,12 +623,30 @@ def caption_census_cmd(
     # The provenance the freeze record needs: under `local` the hash of the
     # file the census actually ran over (which can drift from the committed
     # pointer); under `ranged` the immutable blob IS the pointer's object, so
-    # the pointer's own parsed digest names it exactly.
+    # the digest of the pointer the read paths resolve — the out-of-band
+    # override when set, else the committed file — names it exactly.
     if settings.corpus_backend == "local":
         corpus_sha, _ = corpus_remote.digest_file(db_path)
     else:
-        pointer = corpus_remote.pointer_path_for(db_path)
-        corpus_sha = corpus_ranged.read_index_pointer(pointer).sha256 if pointer.is_file() else ""
+        if settings.corpus_pointer is None:
+            # Only a MISSING committed pointer is excused (an empty digest); a
+            # malformed one must raise rather than blank a freeze-record input.
+            pointer_file = corpus_remote.pointer_path_for(db_path)
+            corpus_sha = (
+                corpus_ranged.read_index_pointer(pointer_file).sha256
+                if pointer_file.is_file()
+                else ""
+            )
+        else:
+            corpus_sha = corpus.resolve_read_pointer(db_path).sha256
+        # The census is a freeze-record input: a provenance digest that came
+        # from the override must never read like a committed-pointer one.
+        if settings.corpus_pointer is not None:
+            typer.echo(
+                "corpus provenance: out-of-band pointer override in effect — the "
+                "recorded corpus_sha256 names the override's blob",
+                err=True,
+            )
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
         census = caption_census(conn, corpus_sha256=corpus_sha, rule_version=rule_version)
     typer.echo(f"caption census ({census.rule_version}), pooled:", err=True)
@@ -708,12 +726,29 @@ def distribution_census_cmd(
         raise typer.Exit(code=1)
     # The provenance the freeze record needs, read exactly as the caption census
     # reads it: under `local` the hash of the file the census actually ran over,
-    # under `ranged` the pointer's own parsed digest of the immutable blob.
+    # under `ranged` the parsed digest of the pointer the read paths resolve.
     if settings.corpus_backend == "local":
         corpus_sha, _ = corpus_remote.digest_file(db_path)
     else:
-        pointer = corpus_remote.pointer_path_for(db_path)
-        corpus_sha = corpus_ranged.read_index_pointer(pointer).sha256 if pointer.is_file() else ""
+        if settings.corpus_pointer is None:
+            # Only a MISSING committed pointer is excused (an empty digest); a
+            # malformed one must raise rather than blank a freeze-record input.
+            pointer_file = corpus_remote.pointer_path_for(db_path)
+            corpus_sha = (
+                corpus_ranged.read_index_pointer(pointer_file).sha256
+                if pointer_file.is_file()
+                else ""
+            )
+        else:
+            corpus_sha = corpus.resolve_read_pointer(db_path).sha256
+        # The census is a freeze-record input: a provenance digest that came
+        # from the override must never read like a committed-pointer one.
+        if settings.corpus_pointer is not None:
+            typer.echo(
+                "corpus provenance: out-of-band pointer override in effect — the "
+                "recorded corpus_sha256 names the override's blob",
+                err=True,
+            )
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
         census = distribution_census(
             conn,
@@ -1899,29 +1934,50 @@ def corpus_pull(
 ) -> None:
     """Download the corpus index blob from the remote, checksum-verified.
 
-    Resolves the committed ``corpus/corpus.db.ref`` pointer against the
-    out-of-band remote URL, streams the blob to ``corpus/corpus.db``, and
-    verifies its digest and size before the file lands — a truncated or
-    corrupted transfer fails loudly instead of masquerading as the corpus.
+    Resolves the pointer the read paths honor — the out-of-band override when
+    set, else the committed ``corpus/corpus.db.ref`` — against the out-of-band
+    remote URL, streams the blob to ``corpus/corpus.db``, and verifies its
+    digest and size before the file lands — a truncated or corrupted transfer
+    fails loudly instead of masquerading as the corpus.
     """
     if missing_pointer not in {"fail", "warn"}:
         typer.echo(f"--missing-pointer must be 'fail' or 'warn', not {missing_pointer!r}", err=True)
         raise typer.Exit(code=2)
-    db_path = corpus.corpus_db_path(get_settings().corpus_root)
-    try:
-        pointer = corpus_ranged.find_pointer(db_path)
-    except corpus_ranged.RangedBackendError as exc:
-        if missing_pointer == "warn":
-            typer.echo("No corpus pointer yet; starting a fresh corpus.")
-            return
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=1) from exc
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    pointer: Path | corpus_ranged.IndexPointer
+    if settings.corpus_pointer is not None:
+        # The override names a specific published blob; a missing committed
+        # file is irrelevant to it, so the --missing-pointer modes don't apply.
+        try:
+            pointer = corpus_ranged.parse_pointer_override(settings.corpus_pointer)
+        except corpus_ranged.RangedBackendError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
+    else:
+        try:
+            pointer = corpus_ranged.find_pointer(db_path)
+        except corpus_ranged.RangedBackendError as exc:
+            if missing_pointer == "warn":
+                typer.echo("No corpus pointer yet; starting a fresh corpus.")
+                return
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
     remote_url = _require_corpus_remote_url()
     try:
         remote = corpus_remote.download_index(pointer, remote_url, db_path)
     except (corpus_remote.CorpusRemoteError, corpus_ranged.RangedBackendError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
+    # The durable provenance record: the override dies with the shell, the
+    # pulled file does not, so the sidecar (gitignored) is what lets a later
+    # shell's `corpus-info` catch a blob that is not the committed pointer's.
+    pulled = (
+        pointer
+        if isinstance(pointer, corpus_ranged.IndexPointer)
+        else corpus_ranged.read_index_pointer(pointer)
+    )
+    corpus_remote.write_pointer(corpus_remote.pulled_pointer_path_for(db_path), pulled)
     # Deliberately no remote key in the log line: the joined key carries the
     # remote URL's path prefix, which is supplied out of band and never
     # published (see SECURITY.md); size + verified digest identify the pull.
@@ -1938,8 +1994,22 @@ def corpus_push() -> None:
     always resolves against the remote. The writer workflows commit the
     pointer after this command returns. Rebuilds the file to the ranged-read
     layout first if it drifted (the same guarantee every writer command gives).
+
+    Refuses to run while the out-of-band pointer override is set: a writer
+    owns the *committed* pointer, and an environment that overrides reads is
+    not reading the pair it would be publishing to.
     """
-    db_path = corpus.corpus_db_path(get_settings().corpus_root)
+    settings = get_settings()
+    if settings.corpus_pointer is not None:
+        typer.echo(
+            "corpus-push refuses to run while the out-of-band corpus pointer "
+            "override is set (unset FEDCOURTS_CORPUS_POINTER / CORPUS_POINTER): "
+            "a writer publishes the committed pointer, and an override in the "
+            "same environment means reads and writes would name different pairs.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
     remote_url = _require_corpus_remote_url()
     try:
         _ensure_corpus_layout(db_path)
@@ -5026,6 +5096,47 @@ def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
             f"latest snapshot {snapshot.isoformat()}" if snapshot else "no snapshots in this blob"
         )
         typer.echo(f"freshness: {pulled_text}, {snapshot_text}")
+        # A freshness claim must name the blob it was read from; with the
+        # out-of-band override set, a ranged read served the override's object,
+        # not the committed ref — say so, so no vintage is quoted blind. Under
+        # any other backend the override did not govern this read, so claiming
+        # its digest here would misattribute the local file's freshness.
+        if settings.corpus_pointer is not None:
+            if backend == "ranged":
+                try:
+                    override_sha = corpus_ranged.parse_pointer_override(
+                        settings.corpus_pointer
+                    ).sha256
+                    typer.echo(f"pointer: out-of-band override (sha256 {override_sha})")
+                except corpus_ranged.RangedBackendError:
+                    typer.echo("pointer: out-of-band override (set but unparseable)")
+            else:
+                typer.echo(f"pointer: out-of-band override set (not read by the {backend} backend)")
+        # The durable half of the same claim: under `local` the vintage above
+        # is the on-disk blob's, and the pull's provenance sidecar says which
+        # pointer that blob came from — a blob pulled through the override (or
+        # left behind by a superseded pull) must not read as the committed ref's.
+        if backend == "local":
+            pulled_path = corpus_remote.pulled_pointer_path_for(db_path)
+            if pulled_path.is_file():
+                try:
+                    pulled_sha: str | None = corpus_ranged.read_index_pointer(pulled_path).sha256
+                except corpus_ranged.RangedBackendError:
+                    pulled_sha = None
+                committed_path = corpus_remote.pointer_path_for(db_path)
+                try:
+                    committed_sha: str | None = (
+                        corpus_ranged.read_index_pointer(committed_path).sha256
+                        if committed_path.is_file()
+                        else None
+                    )
+                except corpus_ranged.RangedBackendError:
+                    committed_sha = None
+                if pulled_sha is not None and pulled_sha != committed_sha:
+                    typer.echo(
+                        f"pointer: the blob on disk is not the committed ref's (pulled "
+                        f"sha256 {pulled_sha}) — re-pull before quoting this vintage"
+                    )
         _echo_read_stats(conn)
 
 
@@ -7106,7 +7217,7 @@ def _scope_filtered(
     predicate so ingestion coverage is unaffected.
 
     Gating reads the corpus through the configured backend — the pulled local
-    file, or the committed pointer read in place over ``ranged``. The matrix is
+    file, or the resolved pointer read in place over ``ranged``. The matrix is
     built from the *specific* cases the trigger issue names, so gating is a
     handful of point lookups (each case's row, and a latest-snapshot lookup only
     for a bare-import row), which the ranged backend serves in KBs — no full
@@ -7114,7 +7225,7 @@ def _scope_filtered(
     cannot distinguish "case not eligible" from "corpus never provisioned"
     (:func:`corpus.connect` would silently create an empty database and drop
     *every* case, an empty matrix that looks like a normal "nothing in scope"
-    result), so fail loud. Under ``ranged`` the committed pointer + remote URL
+    result), so fail loud. Under ``ranged`` the resolved pointer + remote URL
     stand in for the file, and a missing pointer/URL fails loud in
     :func:`corpus.connect_readonly` itself.
 

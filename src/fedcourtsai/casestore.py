@@ -301,15 +301,43 @@ def transport_override(transport: ObjectTransport | None) -> Iterator[None]:
             _ACTIVE.pop("transport", None)
 
 
+# Mutable one-slot state so the withheld-mirror warning fires once per
+# process rather than once per mirrored object.
+_MIRROR_WITHHELD = {"warned": False}
+
+
+def _mirror_blocked() -> bool:
+    """Whether mirror writes are withheld because the pointer override is set.
+
+    The out-of-band corpus pointer redirects *reads* to another published
+    blob; a mirror write in the same environment would derive mutable
+    manifests from that state and land them on the configured store — the one
+    write ``corpus-push``'s own refusal cannot reach. Reads are unaffected.
+    Checked only after the transport guard (a mirror-off shell must stay a
+    pure no-op), and warned once per process, not per object.
+    """
+    if get_settings().corpus_pointer is None:
+        return False
+    if not _MIRROR_WITHHELD["warned"]:
+        logger.warning(
+            "casestore: mirrors withheld — the out-of-band corpus pointer override is set"
+        )
+        _MIRROR_WITHHELD["warned"] = True
+    return True
+
+
 def _best_effort(description: str, write: Callable[[ObjectTransport], object]) -> None:
     """Run one mirror write against the active transport, swallowing any failure.
 
     Dual-write is secondary to the SQLite blob (the phase-1 system of record), so a
     store hiccup logs and is swallowed — it must never fail an ingestion write.
-    A no-op when the store is disabled (transport ``None``).
+    A no-op when the store is disabled (transport ``None``) or when the pointer
+    override withholds mirrors (see :func:`_mirror_blocked`).
     """
     transport = active_transport()
     if transport is None:
+        return
+    if _mirror_blocked():
         return
     try:
         write(transport)
@@ -321,6 +349,8 @@ def mirror_cases(rows: Sequence[CorpusRow]) -> None:
     """Best-effort mirror of each row's ``case.json``; never raises."""
     transport = active_transport()
     if transport is None:
+        return
+    if _mirror_blocked():
         return
     for row in rows:
         try:
@@ -347,6 +377,8 @@ def mirror_documents_for_cases(conn: ReadConnection, case_ids: Iterable[str]) ->
     transport = active_transport()
     if transport is None:
         return
+    if _mirror_blocked():
+        return
     for case_id in dict.fromkeys(case_ids):
         try:
             write_documents(transport, case_id, documents_for_case(conn, case_id))
@@ -363,6 +395,8 @@ def mirror_documents(documents: Sequence[CaseDocument]) -> None:
     """
     transport = active_transport()
     if transport is None:
+        return
+    if _mirror_blocked():
         return
     by_case: dict[str, list[CaseDocument]] = {}
     for doc in documents:
@@ -382,6 +416,8 @@ def mirror_events_for_cases(conn: ReadConnection, case_ids: Iterable[str]) -> No
     """
     transport = active_transport()
     if transport is None:
+        return
+    if _mirror_blocked():
         return
     for case_id in dict.fromkeys(case_ids):
         try:

@@ -289,7 +289,11 @@ bucket/prefix pair by `fedcourts corpus-seed-slice`, from the dispatch-only
 It carries the same two-store shape and the same access terms as production,
 and exists so orchestration and the read/write seams can be exercised against
 real content without anything gaining write access to the corpus described
-here. Provisioning and operating it: *The staging corpus (provisioning
+here. A reader reaches it by re-pointing the env contract —
+`scripts/corpus-env staging <command>`, which also supplies the pair's index
+pointer out of band, since only production's is committed (*Developer access*
+in [docs/data-pipeline.md](../docs/data-pipeline.md)). Provisioning and
+operating it: *The staging corpus (provisioning
 runbook)* in [docs/security.md](../docs/security.md).
 
 ## Precedent retrieval

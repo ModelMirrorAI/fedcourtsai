@@ -59,7 +59,9 @@ class Settings(BaseSettings):
     corpus_backend: CorpusBackend = "local"
     # The corpus remote's bucket URL, supplied out of band (never committed;
     # see SECURITY.md). corpus-pull/corpus-push and the ranged backend resolve
-    # the committed corpus pointer against it. The bare workflow variable names
+    # the corpus pointer against it — which pointer a read resolves is
+    # `corpus_pointer` below; a push resolves only the committed one. The
+    # bare workflow variable names
     # are accepted as aliases so the same runner env serves both. The workflow
     # variable is CORPUS_REMOTE_URL; the DVC_* aliases exist for the Codespaces
     # devcontainer secret, which is spelled DVC_REMOTE_URL (see
@@ -73,6 +75,21 @@ class Settings(BaseSettings):
             "FEDCOURTS_DVC_REMOTE_URL",
             "DVC_REMOTE_URL",
         ),
+    )
+    # The out-of-band corpus index pointer: the same JSON a publish writes to
+    # the committed ``corpus/corpus.db.ref``, supplied verbatim through the
+    # environment instead. When set, corpus READ paths resolve it in place of
+    # the committed file — which is what lets a checkout read a corpus pair
+    # whose pointer is not in git (the staging pair; see *Developer access* in
+    # docs/data-pipeline.md). It passes exactly the committed pointer's
+    # validation, key↔digest binding included, so it can widen nothing: it only
+    # selects which already-published immutable blob is read. Writers never
+    # honor it — ``corpus-push`` refuses to run while it is set — so the
+    # committed pointer stays the sole pre-registration record. Unset/empty =
+    # off (the committed pointer, unchanged).
+    corpus_pointer: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("FEDCOURTS_CORPUS_POINTER", "CORPUS_POINTER"),
     )
     # Corpus split (phase 1): points the per-case content store (see
     # fedcourtsai.casestore) at ``s3://<bucket>[/<prefix>]``. When set, the writer
@@ -104,6 +121,22 @@ class Settings(BaseSettings):
     # pipeline is byte-for-byte unchanged until it is flipped on (at the clean-slate
     # cutover). Needs the store populated — i.e. ``casestore_url`` set.
     corpus_split: bool = False
+
+    @field_validator("corpus_pointer", mode="before")
+    @classmethod
+    def _empty_corpus_pointer_is_unset(cls, value: object) -> object:
+        """An empty pointer override reads as unset, not as malformed JSON.
+
+        The same degradation ``_empty_corpus_split_is_off`` gives the split
+        flag, for the same wiring: an env layer that passes an unset variable
+        through raw (``scripts/corpus-env``'s prod restore, a workflow's
+        ``${{ vars.… }}`` fallback) lands here as the empty string, which must
+        mean "the committed pointer, unchanged" rather than fail every
+        ``get_settings()`` call.
+        """
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @field_validator("corpus_split", mode="before")
     @classmethod

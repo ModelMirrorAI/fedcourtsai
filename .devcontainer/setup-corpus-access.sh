@@ -91,7 +91,11 @@ fi
 # pointer to the switcher, and a half-configured pair a warning (the switcher
 # refuses one URL without the other).
 if [[ -n "${STAGING_CORPUS_REMOTE_URL:-}" && -n "${STAGING_CASESTORE_URL:-}" ]]; then
-  echo "Staging corpus pair configured (read-only): scripts/corpus-env staging <cmd>, or eval \"\$(scripts/corpus-env staging)\" for the shell."
+  if [[ -n "${STAGING_CORPUS_POINTER:-}" ]]; then
+    echo "Staging corpus pair configured (read-only, index included): scripts/corpus-env staging <cmd>, or eval \"\$(scripts/corpus-env staging)\" for the shell."
+  else
+    echo "Staging corpus pair configured (read-only, content store only): index reads need STAGING_CORPUS_POINTER (the seed run's published pointer JSON) or they fail on the committed production digest."
+  fi
 elif [[ -n "${STAGING_CORPUS_REMOTE_URL:-}${STAGING_CASESTORE_URL:-}" ]]; then
   echo "Staging corpus pair half-configured: set both STAGING_CORPUS_REMOTE_URL and STAGING_CASESTORE_URL (scripts/corpus-env refuses one without the other)."
 fi

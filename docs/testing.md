@@ -179,10 +179,12 @@ to become the **staging corpus**: a lean slice of real cases in its own
 bucket/prefix pair, seeded by the dispatch-only `staging-corpus-refresh`
 workflow (`fedcourts corpus-seed-slice`), so orchestration and the read/write
 seams get live verification for runner minutes without anything gaining write
-access to production. It is not wired up yet — every consumer still resolves
-the committed pointer, which names the production blob — so provisioning it,
-and the wiring that remains, are the staging corpus runbook in
-[security.md](security.md). Changed seams are therefore validated after the
+access to production. The scenario lane does not read it yet — a consumer
+resolves the committed pointer, which names the production blob, unless the
+out-of-band pointer override names the staging one (*Developer access* in
+[data-pipeline.md](data-pipeline.md)), and the scenario jobs' environment
+supplies no override — so provisioning it, and the repointing that remains,
+are the staging corpus runbook in [security.md](security.md). Changed seams are therefore validated after the
 merge to `staging` rather than on the PR branch; nothing broken reaches `main`
 regardless: the gate needs the nine required integration runs — all seven real
 scenarios, with engine-smoke counted once per engine, or one green
