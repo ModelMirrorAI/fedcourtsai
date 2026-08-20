@@ -1,0 +1,68 @@
+{
+  "big_case_rationale": "9-8 en banc CA5 declared Stone v. Graham no longer good law and upheld mandatory Ten Commandments displays in every Texas public-school classroom; two dozen states have enacted or considered similar laws, so the decision either way reshapes Establishment Clause law nationwide.",
+  "big_case_score": 0.97,
+  "case_id": "scotus/9026000221",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.72
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.97
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.03
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.05
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.85
+    }
+  ],
+  "confidence": 0.7,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cutoff": "2026-08-21",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-21",
+    "snapshot_provenance": "truncated",
+    "term": 2026
+  },
+  "created_at": "2026-08-20T23:40:48Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-arrival-disposition",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/9026000221/record/snapshots/2026-08-21.json",
+  "judgment": null,
+  "model": "claude-fable-5",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.72,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "bdc77c4d7362bc741e35ca371a8a5d732abced79",
+    "stamped_at": "2026-08-20T23:43:50.747821Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260820T231432Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
