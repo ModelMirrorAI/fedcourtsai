@@ -219,6 +219,35 @@ each freeze commit is recorded here.
     committed call's marker is `null` on every log written before capture
     minted it — the frozen partition's cells carry the field from their first
     cell or not at all. No label bump;
+  - the **code-mode manifest calls** a code-mode engine makes from inside a
+    freeform builtin call, lifted out of that call's source into
+    `RetrievalCall` rows of their own. It is the largest of these entries and
+    the same class: a candidate whose staged log previously showed builtin rows
+    alone now shows manifest call classes and their query slices. So one
+    candidate's information set on the grader's required reading path changes,
+    with no digest of its own, which is what puts it here. Four things bound
+    it. A lifted row carries no result — no digest, no `retrieved_doc_date`,
+    the leakage grading's own timing signal — because a freeform call's one
+    combined output is not attributable to an individual call inside it; what
+    the grader gains is which tools were asked for, not what came back. The
+    rows are *what the engine already did*;
+    only their visibility to capture changes, so no cell retrieves differently.
+    And `call_source`, the marker naming a lifted row, is the one field
+    `mask_retrieval_log` **drops** rather than passing through, because it
+    identifies the engine as directly as the raw tool vocabulary the
+    respelling removes.
+    Unlike the two markers above, this one does **not** leave its partition
+    homogeneous, and the difference is worth stating rather than inheriting
+    their reasoning: the stamped code-mode cells already committed carry no
+    lifted rows and never can — their rollouts are gone — while every later
+    cell under the same blessed digest carries them, so that partition holds
+    two capture regimes distinguished in the artifact only by a null
+    `call_source`, which no surface reads. It still takes no label bump,
+    because what the split can reach is bounded: a lifted row carries no
+    result, so the leakage assessment it feeds gains which tools a program
+    asked for and nothing about what came back, and that assessment moves no
+    quantitative field. No scored number differs across the two regimes. No
+    label bump;
   - the **`sal-v3` activation**, whose own entry is above; it carries a
     data-visible boundary of its own (`context.salience_version`), so it is
     listed here for completeness rather than because it is invisible.

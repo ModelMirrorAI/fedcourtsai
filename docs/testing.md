@@ -128,7 +128,10 @@ names, never a value, with the key screen's residual and the shape cap stated
 in [cli.md](cli.md), so the artifact is publishable where the transcript is
 not): the retrieval parser keys on those shapes, an unrecognized one reads
 exactly like a cell that called nothing, and a real transcript is the only
-thing that separates the two. Read the artifact against the environment the
+thing that separates the two. That distinction is why the distillation is
+worth uploading at all — under code mode a manifest call is not an item but a
+call written inside a freeform call's own source, so what the parser must key
+on is a shape no item census would have revealed. Read the artifact against the environment the
 dispatch bound: where that environment carries no CourtListener token the
 sidecar runs token-free, the handshake and tool listing still succeed, and
 tool *calls* error — the shapes are then an errored call's, which still
@@ -179,10 +182,12 @@ to become the **staging corpus**: a lean slice of real cases in its own
 bucket/prefix pair, seeded by the dispatch-only `staging-corpus-refresh`
 workflow (`fedcourts corpus-seed-slice`), so orchestration and the read/write
 seams get live verification for runner minutes without anything gaining write
-access to production. It is not wired up yet — every consumer still resolves
-the committed pointer, which names the production blob — so provisioning it,
-and the wiring that remains, are the staging corpus runbook in
-[security.md](security.md). Changed seams are therefore validated after the
+access to production. The scenario lane does not read it yet — a consumer
+resolves the committed pointer, which names the production blob, unless the
+out-of-band pointer override names the staging one (*Developer access* in
+[data-pipeline.md](data-pipeline.md)), and the scenario jobs' environment
+supplies no override — so provisioning it, and the repointing that remains,
+are the staging corpus runbook in [security.md](security.md). Changed seams are therefore validated after the
 merge to `staging` rather than on the PR branch; nothing broken reaches `main`
 regardless: the gate needs the nine required integration runs — all seven real
 scenarios, with engine-smoke counted once per engine, or one green

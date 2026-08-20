@@ -46,6 +46,9 @@
     },
     "STAGING_CASESTORE_URL": {
       "description": "Staging content-store S3 URL, read via scripts/corpus-env (optional; set both STAGING_* or neither)"
+    },
+    "STAGING_CORPUS_POINTER": {
+      "description": "Staging corpus index pointer JSON (the seed run's published pointer, verbatim), read via scripts/corpus-env (optional; without it staging index reads fail on the committed production digest)"
     }
   },
   "customizations": {

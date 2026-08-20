@@ -25,6 +25,19 @@ from fedcourtsai.serialize import write_json
 
 
 @pytest.fixture(autouse=True)
+def _clear_pointer_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep an ambient corpus-pointer override out of every test's settings.
+
+    ``eval "$(scripts/corpus-env staging)"`` exports the override into an
+    interactive shell, and any test that touches ``get_settings()`` would
+    inherit that live redirection — a gate result must not depend on which
+    pair the invoking shell was flipped to.
+    """
+    for name in ("FEDCOURTS_CORPUS_POINTER", "CORPUS_POINTER"):
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _reset_casestore_transport() -> Iterator[None]:
     """Keep the process-wide casestore transport cache from leaking across tests.
 

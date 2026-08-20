@@ -40,6 +40,17 @@ inputs:
       payload from the blob and casestore-url is inert.
     required: false
     default: "0"
+  corpus-pointer:
+    description: >-
+      The out-of-band corpus index pointer (pass
+      `vars.FEDCOURTS_CORPUS_POINTER`). Empty resolves the committed
+      `corpus/corpus.db.ref`, whose digest names the production blob; a pair
+      publishing its own index — the staging pair — supplies its pointer JSON
+      here instead. Explicit, like the other two halves of the read
+      configuration, so a call site cannot serve one store's index against
+      another store's pointer by inheriting half of it.
+    required: false
+    default: ""
 
 outputs:
   aws-access-key-id:
@@ -91,6 +102,7 @@ runs:
         CORPUS_REMOTE_URL: ${{ inputs.corpus-remote-url }}
         FEDCOURTS_CASESTORE_URL: ${{ inputs.casestore-url }}
         FEDCOURTS_CORPUS_SPLIT: ${{ inputs.corpus-split }}
+        FEDCOURTS_CORPUS_POINTER: ${{ inputs.corpus-pointer }}
       run: |
         set -euo pipefail
         # The background sidecar inherits the credentials from THIS step's

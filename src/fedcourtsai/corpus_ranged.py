@@ -19,9 +19,10 @@ Three seams, each swappable on its own:
   contained swap, and tests substitute an in-memory transport here. It is also
   the one seam where a *transient* remote fault is absorbed
   (:data:`RETRY_BACKOFF_SECONDS`) — a permanent one still fails immediately.
-* **Resolver** — :func:`resolve_pointer` is the **only** place that knows the
-  remote key layout. It maps the committed pointer (key + checksum + size) to
-  the object's coordinates and fails loudly when the coupling breaks.
+* **Resolver** — :func:`resolve_index_pointer` is the **only** place that knows
+  the remote key layout. It maps a validated pointer (key + checksum + size),
+  from either carrier, to the object's coordinates and fails loudly when the
+  coupling breaks.
 * **VFS** — a private apsw VFS serving ``xRead`` from block-aligned ranged GETs
   (:data:`BLOCK_SIZE` bytes) through an in-process LRU cache, with the file
   size taken from the pointer (no HEAD request) and every write/lock/journal
@@ -68,7 +69,8 @@ POINTER_SUFFIX = ".ref"
 POINTER_SCHEMA_VERSION = "1.0"
 # Remote-prefix-relative home of the published index versions; the digest in
 # the key is the object's own sha256, so the layout is self-verifying — and
-# read_index_pointer ENFORCES that (key must equal index/sha256/<sha256>), so
+# parse_index_pointer — the chokepoint both pointer carriers pass through —
+# ENFORCES that (key must equal index/sha256/<sha256>), so
 # a pointer can never route readers to an object other than the one whose
 # digest it carries.
 INDEX_KEY_PREFIX = "index/sha256"
@@ -252,9 +254,10 @@ class RemoteObject:
 
 @dataclass(frozen=True)
 class IndexPointer:
-    """The committed ``corpus/corpus.db.ref`` pointer's contents.
+    """A validated corpus index pointer's contents, whichever carrier held it.
 
-    ``key`` is remote-prefix-relative and content-addressed
+    Parsed from the committed ``corpus/corpus.db.ref`` file or from the
+    out-of-band override; ``key`` is remote-prefix-relative and content-addressed
     (``index/sha256/<digest>``), so every published version is immutable and
     the remote stays add-only; ``size`` rides along because the ranged reader
     serves ``xFileSize`` from the pointer, never a HEAD request.
@@ -264,6 +267,21 @@ class IndexPointer:
     size: int
     sha256: str
     schema_version: str = POINTER_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        # The key<->digest binding is the type's own invariant, not only the
+        # parser's: whatever constructs one of these — a parsed carrier, a
+        # publish, a test — cannot hand the digest-blind ranged reader a key
+        # its checksum does not vouch for.
+        if _SHA256_RE.fullmatch(self.sha256) is None:
+            raise RangedBackendError(f"index pointer carries no valid sha256: {self.sha256!r}")
+        if self.key != f"{INDEX_KEY_PREFIX}/{self.sha256}":
+            raise RangedBackendError(
+                f"index pointer key {self.key!r} does not match its own sha256 "
+                f"(expected {INDEX_KEY_PREFIX}/{self.sha256})"
+            )
+        if self.size <= 0:
+            raise RangedBackendError(f"index pointer carries no positive size: {self.size!r}")
 
 
 def parse_remote_url(remote_url: str) -> tuple[str, str]:
@@ -284,8 +302,46 @@ def find_pointer(db_path: Path) -> Path:
     raise RangedBackendError(f"no corpus pointer at {pointer} (is the repo checked out?)")
 
 
+def parse_index_pointer(data: object, *, source: str) -> IndexPointer:
+    """Validate decoded pointer content from any carrier, failing loudly.
+
+    ``source`` names where the JSON came from — a committed ``.ref`` file or
+    the out-of-band override — so every defect message stays a diagnosis
+    rather than a confusing download failure later. Both carriers get exactly
+    this validation, key↔digest binding included: no pointer, however
+    supplied, can route the digest-blind ranged reader to an object its
+    checksum does not vouch for.
+    """
+    if not isinstance(data, dict):
+        raise RangedBackendError(f"corpus pointer {source} must be a JSON object")
+    key = data.get("key")
+    size = data.get("size")
+    sha256 = data.get("sha256")
+    schema_version = data.get("schema_version")
+    if not isinstance(key, str) or not key:
+        raise RangedBackendError(f"corpus pointer {source} carries no remote key")
+    if not isinstance(sha256, str) or _SHA256_RE.fullmatch(sha256) is None:
+        raise RangedBackendError(f"corpus pointer {source} carries no valid sha256 checksum")
+    if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
+        raise RangedBackendError(f"corpus pointer {source} carries no positive size")
+    if schema_version != POINTER_SCHEMA_VERSION:
+        raise RangedBackendError(
+            f"corpus pointer {source} has schema_version {schema_version!r}; "
+            f"this reader understands {POINTER_SCHEMA_VERSION!r}"
+        )
+    # The key must be derived from the carried digest: a pointer whose key and
+    # sha256 diverge could route the (digest-blind) ranged reader to a
+    # different object than the one the checksum vouches for.
+    if key != f"{INDEX_KEY_PREFIX}/{sha256}":
+        raise RangedBackendError(
+            f"corpus pointer {source} key {key!r} does not match its own "
+            f"sha256 (expected {INDEX_KEY_PREFIX}/{sha256})"
+        )
+    return IndexPointer(key=key, size=size, sha256=sha256, schema_version=schema_version)
+
+
 def read_index_pointer(pointer_path: Path) -> IndexPointer:
-    """Parse and validate the committed JSON pointer, failing loudly.
+    """Parse and validate the committed JSON pointer file, failing loudly.
 
     Every defect names what was expected (the offline gate reuses this for its
     pointer well-formedness check), so a hand-edited or truncated pointer is a
@@ -294,49 +350,57 @@ def read_index_pointer(pointer_path: Path) -> IndexPointer:
     if not pointer_path.is_file():
         raise RangedBackendError(f"no corpus pointer at {pointer_path} (is the repo checked out?)")
     try:
-        pointer = json.loads(pointer_path.read_text())
+        data = json.loads(pointer_path.read_text())
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise RangedBackendError(f"corpus pointer {pointer_path} is not valid JSON: {exc}") from exc
-    if not isinstance(pointer, dict):
-        raise RangedBackendError(f"corpus pointer {pointer_path} must be a JSON object")
-    key = pointer.get("key")
-    size = pointer.get("size")
-    sha256 = pointer.get("sha256")
-    schema_version = pointer.get("schema_version")
-    if not isinstance(key, str) or not key:
-        raise RangedBackendError(f"corpus pointer {pointer_path} carries no remote key")
-    if not isinstance(sha256, str) or _SHA256_RE.fullmatch(sha256) is None:
-        raise RangedBackendError(f"corpus pointer {pointer_path} carries no valid sha256 checksum")
-    if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
-        raise RangedBackendError(f"corpus pointer {pointer_path} carries no positive size")
-    if schema_version != POINTER_SCHEMA_VERSION:
+    return parse_index_pointer(data, source=str(pointer_path))
+
+
+# How error messages name the out-of-band pointer's origin (the env-supplied
+# JSON, see ``Settings.corpus_pointer``) in place of a file path.
+POINTER_OVERRIDE_SOURCE = "from the environment override"
+
+
+def parse_pointer_override(value: str) -> IndexPointer:
+    """Parse and validate the out-of-band pointer JSON, failing loudly.
+
+    The env-supplied twin of :func:`read_index_pointer`: same schema, same
+    validation, no file. It serves a corpus pair whose pointer is not
+    committed (the staging pair — see *Developer access* in
+    ``docs/data-pipeline.md``); read paths prefer it over the committed file
+    when it is set.
+    """
+    try:
+        data = json.loads(value)
+    except json.JSONDecodeError as exc:
         raise RangedBackendError(
-            f"corpus pointer {pointer_path} has schema_version {schema_version!r}; "
-            f"this reader understands {POINTER_SCHEMA_VERSION!r}"
-        )
-    # The key must be derived from the carried digest: a pointer whose key and
-    # sha256 diverge could route the (digest-blind) ranged reader to a
-    # different object than the one the checksum vouches for.
-    if key != f"{INDEX_KEY_PREFIX}/{sha256}":
-        raise RangedBackendError(
-            f"corpus pointer {pointer_path} key {key!r} does not match its own "
-            f"sha256 (expected {INDEX_KEY_PREFIX}/{sha256})"
-        )
-    return IndexPointer(key=key, size=size, sha256=sha256, schema_version=schema_version)
+            f"corpus pointer {POINTER_OVERRIDE_SOURCE} is not valid JSON: {exc}"
+        ) from exc
+    return parse_index_pointer(data, source=POINTER_OVERRIDE_SOURCE)
 
 
-def resolve_pointer(pointer_path: Path, remote_url: str) -> RemoteObject:
-    """Map the committed pointer to the blob's bucket/key/size/checksum.
+def resolve_index_pointer(pointer: IndexPointer, remote_url: str) -> RemoteObject:
+    """Map a validated pointer to the blob's bucket/key/size/checksum.
 
-    The single place that knows the remote key layout: the JSON ``.ref``
-    pointer's content-addressed ``key`` joins directly under the remote
-    prefix. Raises :class:`RangedBackendError` with a specific message on any
-    mismatch, so a layout change or a malformed pointer surfaces immediately.
+    The single place that knows the remote key layout: the pointer's
+    content-addressed ``key`` joins directly under the remote prefix. Raises
+    :class:`RangedBackendError` with a specific message on a malformed URL,
+    so a layout change surfaces immediately.
     """
     bucket, prefix = parse_remote_url(remote_url)
-    pointer = read_index_pointer(pointer_path)
     key = "/".join(part for part in (prefix, pointer.key) if part)
     return RemoteObject(bucket=bucket, key=key, size=pointer.size, checksum=pointer.sha256)
+
+
+def resolve_pointer(pointer: Path | IndexPointer, remote_url: str) -> RemoteObject:
+    """Resolve either pointer carrier against the remote.
+
+    A committed ``.ref`` path is read and validated first; an
+    :class:`IndexPointer` goes straight to :func:`resolve_index_pointer`.
+    """
+    if isinstance(pointer, Path):
+        pointer = read_index_pointer(pointer)
+    return resolve_index_pointer(pointer, remote_url)
 
 
 @dataclass
@@ -543,7 +607,7 @@ class RangedConnection:
 
 @contextmanager
 def connect_ranged(
-    pointer_path: Path,
+    pointer: Path | IndexPointer,
     remote_url: str,
     *,
     transport: RangeTransport | None = None,
@@ -551,14 +615,15 @@ def connect_ranged(
 ) -> Iterator[RangedConnection]:
     """Open the corpus blob the pointer names for read-only remote queries.
 
-    Resolves ``pointer_path`` against ``remote_url`` (see
-    :func:`resolve_pointer`), registers a connection-private VFS, and yields a
-    :class:`RangedConnection`. ``transport`` defaults to
-    :class:`S3RangeTransport` against the resolved bucket; tests pass an
-    offline stand-in (and may shrink ``block_size`` so request-count
-    assertions stay meaningful on a small fixture).
+    Resolves ``pointer`` — a committed ``.ref`` path, or an
+    :class:`IndexPointer` already validated from the out-of-band override —
+    against ``remote_url`` (see :func:`resolve_pointer`), registers a
+    connection-private VFS, and yields a :class:`RangedConnection`.
+    ``transport`` defaults to :class:`S3RangeTransport` against the resolved
+    bucket; tests pass an offline stand-in (and may shrink ``block_size`` so
+    request-count assertions stay meaningful on a small fixture).
     """
-    remote = resolve_pointer(pointer_path, remote_url)
+    remote = resolve_pointer(pointer, remote_url)
     reader = _BlockReader(
         transport if transport is not None else S3RangeTransport(remote.bucket),
         remote.key,
@@ -569,7 +634,12 @@ def connect_ranged(
     )
     vfs_name = f"fedcourts-ranged-{next(_vfs_names)}"
     vfs = _RangedVFS(vfs_name, reader)
-    db_name = pointer_path.name.removesuffix(POINTER_SUFFIX)
+    # The SQLite connection needs a db *name*; a file-borne pointer supplies
+    # it, an env-borne one has no filename so the canonical name stands in.
+    if isinstance(pointer, Path):
+        db_name = pointer.name.removesuffix(POINTER_SUFFIX)
+    else:
+        db_name = "corpus.db"
     try:
         connection = apsw.Connection(
             db_name,

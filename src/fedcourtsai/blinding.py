@@ -66,7 +66,22 @@ number depends on naming them:
   which pass the mask untouched. The marker is kept regardless, because
   dropping it makes every uncaptured call read as one that returned nothing —
   a leakage grade wrong in a known direction, which is the worse of the two
-  harms.
+  harms. Call *provenance* is the case where that trade reverses and the field
+  is dropped instead: one engine reaches its manifest tools from inside a
+  freeform call, so a row marked as lifted from such a call's source names the
+  engine outright, and the grading loses nothing by not seeing it
+  (:func:`mask_retrieval_log`).
+- **A query slice is not respelled, and a freeform call's slice is program
+  text.** The mask rewrites each call's ``tool`` and leaves ``query`` alone,
+  which the grading needs — but the engine that reaches its manifest tools from
+  inside a freeform call carries that call's *source* in its query slice, and
+  the source names those tools in the engine's own ``mcp__<server>__<tool>``
+  vocabulary. So the raw spelling the respelling removes from ``tool`` survives
+  in the slice beside it, on the grader's own reading path. It is bounded
+  rather than closed: the slice is cut at the same width every call shape
+  gets, deliberately not widened for this one. The shape of a staged log says
+  it too — builtin freeform rows interleaved with the manifest rows lifted out
+  of them is a profile only that engine produces.
 - **Style is not masked.** Three candidates over three known engines is a small
   guessing space, and an engine may recognise its own prose.
 
@@ -469,6 +484,16 @@ def mask_retrieval_log(
     one-for-one; a future mask that dropped or filtered calls would have to
     recompute them, since the staged rate and count would otherwise summarize
     rows the grader cannot see.
+
+    ``call_source`` is **dropped**, and it is the one field here that is, because
+    the trade above runs the other way for it. It names the transcript shape a
+    row was read from, and only one engine's transcript has that shape, so it
+    identifies the candidate about as directly as the raw tool vocabulary the
+    respelling exists to remove. Nothing in the grading needs it — a lifted row
+    grades on its tool class, query, and result markers exactly as a direct one
+    does — so withholding costs the grader nothing, which is what makes this
+    unlike the capture markers. A dropped value reads as the same
+    provenance-unknown null a pre-marker record carries.
     """
     masked = scrub_json(dict(payload), pattern)
     if not isinstance(masked, dict):  # pragma: no cover - a JSON object by construction
@@ -478,8 +503,11 @@ def mask_retrieval_log(
     calls = masked.get("calls")
     if isinstance(calls, list):
         for call in calls:
-            if isinstance(call, dict) and isinstance(call.get("tool"), str):
+            if not isinstance(call, dict):
+                continue
+            if isinstance(call.get("tool"), str):
                 call["tool"] = neutral_tool_class(call["tool"])
+            call.pop("call_source", None)
     return masked
 
 

@@ -351,12 +351,16 @@ granted an Actions scope; the first workflow that binds `staging` on a
 would bind the environment on the merge itself, and agents merge their own PRs
 to `staging`, which since the environment carries the staging write role's
 trust would hand *write* reach on the fixture, not just read and spend, at an
-agent's own merge; or **the pointer wiring landing**, from which point the
-staging corpus is the promotion gate's freshness evidence and the code that
-can write the evidence is the thing a reviewer would be approving — the
-re-seed practice above keeps the evidence honest between reviews, but it does
-not answer that question, so the change that lands the wiring re-asks it
-rather than leaving it standing on this paragraph. No workflow filters on a
+agent's own merge; or **the `staging` environment being repointed at the
+staging corpus** (the runbook's step 5), from which point the promotion gate's
+freshness evidence is produced against a corpus the staging lane can write,
+and the code that can write the evidence is the thing a reviewer would be
+approving. The premise is the repointing, not the code that makes it
+possible: an override no environment sets redirects nothing, so the wiring
+landing leaves the gate's evidence exactly where it was. The re-seed practice
+above keeps the evidence honest between reviews but does not answer that
+question, so step 5 is where it must be answered rather than left standing on
+this paragraph. No workflow filters on a
 staging ref today; every branch filter names `main`.
 
 What neither shape covers: the `staging` ruleset requires no workflow linter, so
@@ -403,10 +407,11 @@ write role's credentials, so the scrub is now load-bearing for the staging
 pair's write integrity too.
 
 What corrupting it *costs* depends on a coupling worth stating rather than
-discovering. Today nothing committed depends on the staging corpus — the
-scenarios still read production's, since the pointer wiring is outstanding — so
-a corrupted slice is caught by the next integration run and fixed by another
-dispatch. **The moment that wiring lands, the coupling is immediate and not
+discovering. While the `staging` environment still names the production pair,
+nothing committed depends on the staging corpus — the scenarios read
+production's — so a corrupted slice is caught by the next integration run and
+fixed by another dispatch. **The moment step 5 repoints it, the coupling is
+immediate and not
 hypothetical**: the staging integration runs are the promotion gate's freshness
 evidence, so a staging corpus that is corrupt, empty, or subtly wrong makes
 those runs fail or — worse — pass against the wrong content, and promotions
@@ -488,9 +493,10 @@ alongside its engine keys — launches the sidecar **token-free**, exactly as
 the `mcp-sidecar` scenario does on purpose. That is a degradation, not a
 failure: warn-only health, the handshake and the tool listing still succeed,
 and tool *calls* error. Both artifacts answer the question the leg is for —
-an errored MCP call is still an MCP item, and its shape is what the retrieval
-parser has never had confirmed — but only the token-bearing one also shows
-what a settled call looks like. A codex smoke additionally loosens
+what an invocation looks like in the transcript, which under code mode is not
+an MCP item at all but a call inside the freeform call's own source, so the
+shape the retrieval parser keys on is the one a real rollout confirms — but
+only the token-bearing one also shows what a settled call looks like. A codex smoke additionally loosens
 the runner kernel's
 AppArmor userns restriction (codex-action's own prerequisite for the live
 cells) without dropping sudo afterwards — accepted for the same reason as in
@@ -721,12 +727,14 @@ closed (an unset role variable resolves empty and the assume-role step
 refuses). Do those four and the lane works — you can seed the staging corpus,
 and step 6's first half is its acceptance.
 
-**Steps 5 and 6's second half are BLOCKED** on a wiring this change does not
-include (see *The outstanding wiring* below). Step 5 points the `staging`
-environment at a corpus its consumers cannot yet resolve, so running it before
-the wiring lands would break the integration scenarios that read production's
-corpus today — it is listed here because it is the right final state, not
-because it is ready. Read the caveat before doing either.
+**Step 5 and step 6's second half repoint the scenarios** at the seeded pair.
+Step 5 hands the `staging` environment all four corpus variables at once, the
+pointer among them (see *How a consumer resolves the staging index* below for
+why the pointer cannot be committed). It carries **one remaining
+prerequisite**, and it is not the pointer: the refresh lane still sources its
+slice from the same two variables step 5 repoints, so until that lane is given
+explicit production-source variables, running step 5 disables re-seeding. Read
+step 5's two ordering notes before doing either.
 
 1. **Create the staging bucket/prefix pair.** Two destinations, named by role
    rather than by literal here as everywhere in this document: a *staging
@@ -802,16 +810,83 @@ because it is ready. Read the caveat before doing either.
    must give the refresh lane explicit production-source variables in the
    same change, or the lane would seed staging from itself and the refusal
    rail would refuse the now-"production" staging destination.
-5. **[BLOCKED on the outstanding wiring] Point the `staging` environment at the
-   staging corpus.** Set its `CORPUS_REMOTE_URL` and `CASESTORE_URL` to the
-   staging pair and `FEDCOURTS_CORPUS_SPLIT=1`, so the integration scenarios
-   dispatched from `staging` run split-on against the staging corpus rather
-   than production's. **Do not do this yet**: until the wiring lands, a
-   consumer pointed at the staging remote resolves a pointer that names the
-   production blob, so this step converts working scenarios into failing ones.
-   Three consequences to accept deliberately when it does land: the seeder's
-   source variables must decouple from the repointed pair (the step-4 note);
-   the production
+5. **Point the `staging` environment at the staging corpus.** Set its
+   `CORPUS_REMOTE_URL` and `CASESTORE_URL` to the staging pair,
+   `FEDCOURTS_CORPUS_SPLIT=1`, and `FEDCOURTS_CORPUS_POINTER` to the pointer
+   JSON the seed's apply run published — the block its step summary prints
+   (step 6), copied verbatim. The first three name the pair's two stores and
+   its read mode; the fourth is what makes the *index* half resolvable. A
+   consumer otherwise resolves the committed `corpus/corpus.db.ref`, whose
+   digest names the production blob, and content addressing means a lean
+   slice can never publish under that digest. With all four set, the
+   integration scenarios dispatched from `staging` run split-on against the
+   staging corpus rather than production's.
+
+   **Set all four on the `staging` environment only** — never repository- or
+   organization-wide. `vars` resolves environment first and falls back to the
+   repository and organization, and the scenario job's environment is
+   branch-resolved, so a repository-level pointer reaches `prod`-bound
+   dispatches too. Most such mistakes are loud (a staging digest against the
+   production bucket is a missing key), but one is silent: a pointer naming a
+   *stale production* digest resolves cleanly, because the remote is add-only
+   and still holds it — every production scenario would then certify the
+   seams against an old corpus and pass.
+
+   **The refresh lane must never receive the pointer.** Its source is
+   production's index, which is exactly what the committed pointer names, so
+   `staging-corpus-refresh` deliberately forwards no pointer. Handing it one
+   is the index half of the self-seeding hazard the step-4 note names: the
+   seeder would read the slice as its own source and re-seed staging from
+   staging.
+
+   **Blocked until the refresh lane has its own production-source
+   variables.** `staging-corpus-refresh` reads its slice from
+   `CORPUS_REMOTE_URL` / `CASESTORE_URL` — the two this step repoints — so
+   after this step the seeder would read the staging pair as its own source
+   and re-seed staging from itself, which the refusal rail then blocks as a
+   destination that is now "production". Giving that lane explicit
+   production-source variables is a workflow change; until it lands, this
+   step trades re-seeding for repointed scenarios. The pointer is *not* what
+   blocks it — that half is wired.
+
+   **Order this after the override is live on the ref the scenarios run
+   from.** An environment carrying the pointer variable while the running
+   code ignores it has repointed the store URLs without repointing the
+   pointer — exactly the failing state the variable exists to prevent. A
+   dispatch runs the dispatched ref's own code, and only `staging`-ref
+   dispatches bind this environment, so the condition is that `staging`
+   carries the override — not that it has been promoted. (Requiring a
+   promotion would invert the order the gate itself depends on: staging
+   integration runs are the freshness evidence a promotion is granted on.)
+   Confirm rather than assume:
+
+   ```bash
+   git fetch origin staging
+   git grep -q corpus_pointer origin/staging -- src/fedcourtsai/config.py \
+     && echo "override live on staging"
+   ```
+
+   The reverse order is safe: the override is inert until a variable sets it,
+   so the code may land arbitrarily far ahead of this step.
+
+   **Re-set the pointer variable after every re-seed.** The published digest
+   changes with the slice's contents, and a stale pointer names a blob the
+   remote still holds (the remote is add-only), so the scenarios would go on
+   reading the *previous* slice — green, and wrong. The apply run's summary
+   prints the value to copy — the JSON object inside the fenced block, not
+   the fence. It is pretty-printed: paste it whole, newlines included.
+   Nothing interpolates it into a shell — it travels as an environment
+   mapping and as a composite input — so its shape is inert, and a compacted
+   single line resolves identically if that is easier to handle.
+
+   **The developer shell needs the same re-set.** Its half of the pointer is
+   a user-scoped Codespaces secret rather than an environment variable
+   ([data-pipeline.md](data-pipeline.md)'s *Developer access*), and it goes
+   stale on a re-seed for the identical reason — reading the previous slice,
+   green and wrong.
+
+   Two further consequences to accept deliberately (the seeder's source
+   variables are the prerequisite above, not a consequence): the production
    **read-only** role that the `staging` environment binds must be able
    to read and list the staging pair (the read-side extension below, which may
    land at any time and is already absorbed if it landed early), and a
@@ -819,7 +894,7 @@ because it is ready. Read the caveat before doing either.
    the seams against a real but *small* corpus — real shapes, not production's
    volume.
 6. **Accept it.** The first half is runnable as soon as steps 1-4 are done; the
-   second waits on step 5, and therefore on the wiring.
+   second waits on step 5.
 
    *Runnable today.* Dispatch the refresh **from the `staging` ref** — the
    environment accepts no other, so a dispatch from `main` is refused at its
@@ -839,11 +914,23 @@ because it is ready. Read the caveat before doing either.
    available today — it proves the role, the environment, the variables, and
    both destination stores are provisioned and writable.
 
-   *After the wiring.* Then, and only then, step 5 followed by:
+   *After step 5.* Then:
 
    ```bash
-   gh workflow run integration-test.yml --ref staging -f scenario=stub-cascade
+   # substitute a docket from the seeded slice
+   gh workflow run integration-test.yml --ref staging -f scenario=stub-cascade \
+     -f court=scotus -f docket=74112233
    ```
+
+   **Name a slice member explicitly.** The scenario's default case is a
+   production docket, and the slice is a lean cut that does not hold it — a
+   defaulted dispatch fails as a missing case, which reads as a regression
+   and is not one. The case must also meet the scenario's own input contract:
+   an open event, a snapshot in the content store, and — for the provisioning
+   guard — a genuinely undisposed posture. The apply run's per-case census
+   lists the slice's cases with their row/event/snapshot/document counts, so
+   it narrows the field to cases carrying events and snapshots; whether one
+   is *open* and *undisposed* is a `fedcourts query` against the pair.
 
    Green there is the full acceptance — provision → predict → validate over a
    real, split-on corpus that no production credential was involved in writing.
@@ -865,14 +952,27 @@ permission policy — Codespaces reaches the role by STS from the Identity
 Center profile, and the CI readers bind it through the OIDC trust that
 already names `prod` and `staging`.
 
-**The outstanding wiring.** Every corpus consumer resolves the **committed**
-`corpus/corpus.db.ref` pointer, and that pointer carries the digest and size of
-the *production* blob — content addressing means a lean slice can never publish
-under the same key. So a consumer pointed at the staging remote resolves a key
-the staging bucket does not hold. The seeder therefore renders the pointer it
-published into the run summary, which is the value that wiring needs; choosing
-the wiring is a change to `integration-test.yml` (a staging-only pointer path
-selected by a corpus-root variable, or the pointer supplied out of band the way
-the remote URL already is), and lands as its own maintainer-gated change. Until
-then the refresh lane produces the staging corpus and the scenarios still read
-production's — which is why step 5 is blocked rather than merely later.
+**How a consumer resolves the staging index.** A corpus consumer resolves the
+**committed** `corpus/corpus.db.ref` pointer, which carries the digest and size
+of the *production* blob — content addressing means a lean slice can never
+publish under the same key, so a consumer pointed at the staging remote alone
+would resolve a key that bucket does not hold. The pointer is therefore
+supplied **out of band**, the way the remote URL already is: an environment
+variable carrying the published pointer JSON verbatim, which read paths prefer
+over the committed file. `integration-test.yml` forwards it job-wide beside the
+content-store URL and the split flag — and explicitly into the corpus sidecar,
+whose separate process resolves its own connection — so the environment a
+dispatch resolves supplies the whole pair;
+`scripts/corpus-env` does the same for a developer shell
+([data-pipeline.md](data-pipeline.md)'s *Developer access*). The seeder renders
+the pointer it published into the apply run's summary, which is the value both
+consumers take.
+
+Three properties make this safe to prefer over a committed file. It passes the
+committed pointer's exact validation, the key↔digest binding included, so it
+can only ever select an already-published immutable blob and never route a
+reader to bytes its checksum does not vouch for. It is read-only: writers never
+honor it, and `corpus-push` refuses to run while it is set, so the committed
+pointer stays the sole pre-registration record and `main` carries exactly one
+corpus digest. And unset — the production lane — reads as "the committed
+pointer, unchanged", so the default path is untouched.

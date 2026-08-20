@@ -43,7 +43,14 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 # --strict; ruff reads it as a redundant alias, which is exactly what it is.
 from .config import CorpusBackend as CorpusBackend  # noqa: PLC0414
 from .config import get_settings
-from .corpus_ranged import RangedBackendError, connect_ranged, find_pointer
+from .corpus_ranged import (
+    IndexPointer,
+    RangedBackendError,
+    connect_ranged,
+    find_pointer,
+    parse_pointer_override,
+    read_index_pointer,
+)
 from .pipeline.interim_signals import ApplicationKind
 from .schemas import (
     GRANTED_DISPOSITIONS,
@@ -1001,6 +1008,23 @@ def resolve_backend(override: CorpusBackend | None = None) -> CorpusBackend:
     return get_settings().corpus_backend
 
 
+def resolve_read_pointer(db_path: Path) -> IndexPointer:
+    """The index pointer READ paths resolve, from whichever carrier holds it.
+
+    The out-of-band override when set, else the committed ``.ref`` file
+    beside ``db_path``. The override (``Settings.corpus_pointer``) exists to read a corpus pair
+    whose pointer is not committed — the staging pair — and both carriers get
+    identical validation, so preferring it swaps which immutable blob is read
+    and nothing else. Write paths never call this: a writer publishes the
+    committed pointer, and ``corpus-push`` refuses to run while the override
+    is set.
+    """
+    override = get_settings().corpus_pointer
+    if override is not None:
+        return parse_pointer_override(override)
+    return read_index_pointer(find_pointer(db_path))
+
+
 class ReadConnection(Protocol):
     """The read seam the retrieval/provisioning helpers require of a connection.
 
@@ -1059,7 +1083,7 @@ def connect_readonly(
                 "the ranged corpus backend needs the corpus remote URL from the "
                 "environment (the same out-of-band value the workflows use)"
             )
-        pointer = find_pointer(db_path)
+        pointer = resolve_read_pointer(db_path)
         with connect_ranged(pointer, remote_url) as ranged:
             yield ranged
     else:

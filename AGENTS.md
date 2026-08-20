@@ -139,10 +139,10 @@ non-interactive** container. Two consequences shape everything you do:
   with `fedcourts corpus-pull`, which a dev checkout's read-only role serves;
   when the *remote* is the stale one, compose the `run-pull` dispatch for the
   maintainer rather than reporting a stale number as current. The same role
-  also reads the **staging** pair's content store: `scripts/corpus-env staging
-  <cmd>` re-points one command at it, though the staging *index* — and so
-  `corpus-pull`/`corpus-info` against it — waits on the pointer wiring
-  (*Developer access* in `docs/data-pipeline.md`).
+  also reads the **staging** pair: `scripts/corpus-env staging <cmd>`
+  re-points one command at it, index reads included where the pair's
+  out-of-band pointer secret is present (*Developer access* in
+  `docs/data-pipeline.md`).
 - **A promotion batch states its observable effect as a runnable check.** The
   promotion PR body carries what should be true once the batch is live and the
   command that shows it, and the promotion is not done until someone runs that

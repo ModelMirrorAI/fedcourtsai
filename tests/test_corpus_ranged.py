@@ -169,6 +169,81 @@ def test_resolver_fails_loudly_on_missing_pointer_and_bad_url(tmp_path: Path) ->
         corpus_ranged.resolve_pointer(pointer, "gs://elsewhere/prefix")
 
 
+# --- the out-of-band pointer override ---------------------------------------------
+
+
+def _pointer_json(sha256: str, size: int = 5) -> str:
+    """Pointer JSON in the published shape, as the override env var carries it."""
+    return json.dumps(
+        {
+            "key": f"index/sha256/{sha256}",
+            "size": size,
+            "sha256": sha256,
+            "schema_version": "1.0",
+        }
+    )
+
+
+def test_parse_pointer_override_round_trips_and_resolves() -> None:
+    pointer = corpus_ranged.parse_pointer_override(_pointer_json(_SHA))
+    assert pointer.sha256 == _SHA
+    remote = corpus_ranged.resolve_pointer(pointer, REMOTE_URL)
+    assert remote.key == f"store/index/sha256/{_SHA}"
+    assert remote.checksum == _SHA
+
+
+def test_parse_pointer_override_fails_loudly_and_names_its_source() -> None:
+    # Same validation as the committed file — the key<->digest binding included —
+    # with the error naming the env origin instead of a path.
+    with pytest.raises(corpus_ranged.RangedBackendError, match=r"environment override.*not valid"):
+        corpus_ranged.parse_pointer_override("{")
+    with pytest.raises(corpus_ranged.RangedBackendError, match="does not match its own"):
+        corpus_ranged.parse_pointer_override(
+            json.dumps(
+                {
+                    "key": f"index/sha256/{'b' * 64}",
+                    "size": 5,
+                    "sha256": _SHA,
+                    "schema_version": "1.0",
+                }
+            )
+        )
+    with pytest.raises(
+        corpus_ranged.RangedBackendError, match=r"environment override.*JSON object"
+    ):
+        corpus_ranged.parse_pointer_override("[1, 2]")
+
+
+def test_connect_ranged_accepts_an_env_borne_pointer(tmp_path: Path) -> None:
+    # No `.ref` file anywhere: the validated override alone names the blob.
+    db = build_fixture_corpus(tmp_path / "corpus.db")
+    blob = db.read_bytes()
+    pointer = corpus_ranged.parse_pointer_override(
+        _pointer_json(hashlib.sha256(blob).hexdigest(), len(blob))
+    )
+    db.unlink()
+    transport = FileTransport(blob)
+    with corpus_ranged.connect_ranged(pointer, REMOTE_URL, transport=transport) as ranged:
+        assert corpus.count(ranged) == len(FIXTURE_CASES)
+
+
+def test_read_pointer_override_beats_committed_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The read-path seam: override set -> its digest; unset/empty -> the file's.
+    db = build_fixture_corpus(tmp_path / "corpus.db")
+    _, file_sha = _write_pointer(db)
+    for name in ("FEDCOURTS_CORPUS_POINTER", "CORPUS_POINTER"):
+        monkeypatch.delenv(name, raising=False)
+    assert corpus.resolve_read_pointer(db).sha256 == file_sha
+    override_sha = "c" * 64
+    monkeypatch.setenv("FEDCOURTS_CORPUS_POINTER", _pointer_json(override_sha))
+    assert corpus.resolve_read_pointer(db).sha256 == override_sha
+    # Empty degrades to unset (the corpus-env prod restore's shape).
+    monkeypatch.setenv("FEDCOURTS_CORPUS_POINTER", "")
+    assert corpus.resolve_read_pointer(db).sha256 == file_sha
+
+
 # --- equivalence: ranged results == local results --------------------------------
 
 

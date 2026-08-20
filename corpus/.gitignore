@@ -6,6 +6,10 @@
 /corpus.db.partial
 /corpus.db-wal
 /corpus.db-shm
+# The pull's provenance sidecar: which pointer the blob on disk actually came
+# from (written by `fedcourts corpus-pull`), so a blob pulled through the
+# out-of-band override can never masquerade as the committed pointer's.
+/corpus.db.pulled.ref
 *.parquet
 /index.db
 corpus.db\?*
