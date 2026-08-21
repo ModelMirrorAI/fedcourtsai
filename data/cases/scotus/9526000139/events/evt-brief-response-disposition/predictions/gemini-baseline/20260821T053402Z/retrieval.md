@@ -1,0 +1,4 @@
+- `mcp_courtlistener_search(q="26A139", type="d")`: Failed with 429 Rate limit exceeded.
+- `mcp_courtlistener_search(q="26-1774", type="d")`: Failed with 429 Rate limit exceeded.
+- `mcp_courtlistener_search(q="Alabama v. California", type="d")`: Failed with 429 Rate limit exceeded.
+- Consulted `metrics/statpack.md` for base rates and `record/snapshots/2026-08-04.json` for case context.
