@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281057",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The frozen context identified the CVSG moment, two distributions, high band, and matching salience version.",
+    "The statpack supplied both CVSG and prior-Term risk-set anchors."
+  ],
+  "gaps": [
+    "No as-at-CVSG conditioned baseline combines salience band, CVSG status, and case-specific vehicle quality."
+  ],
+  "notes": "The provisioned petition and opposition were complete, text-extractable, and sufficient for the vehicle assessment."
+}

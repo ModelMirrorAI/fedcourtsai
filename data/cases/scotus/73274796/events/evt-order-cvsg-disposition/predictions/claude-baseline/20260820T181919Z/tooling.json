@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274796",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned documents (petition, brief-in-opposition, questions-presented)"
+  ],
+  "helpful": [
+    "The sal-v3 band table's bracketed reached rates with explicit pooling instructions made the scored anchor unambiguous",
+    "The CVSG cut in the statpack is exactly the conditioning this cell's moment needs",
+    "Provisioned petition and BIO full text made the vehicle-quality assessment possible without any live retrieval"
+  ],
+  "gaps": [
+    "fedcourts corpus-info is not runnable in the cell (no local blob, no ranged remote URL in env), so the corpus-freshness golden rule cannot be satisfied except by inference from query rows",
+    "fedcourts query has no CVSG or relist filter, so CVSG'd resolved priors cannot be pulled as a cohort; the statpack cut is the only CVSG-conditional view",
+    "No statpack cut conditions grant rate jointly on CVSG and posture (e.g. interlocutory), which is the main case-specific adjustment a CVSG cell has to make unaided"
+  ],
+  "notes": "Forward cell run ~10 months after its snapshot cutoff: the no-subsequent-history rule makes most live retrieval unusable, so the committed statpack carried nearly all the anchoring weight."
+}

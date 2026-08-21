@@ -1,0 +1,68 @@
+{
+  "big_case_rationale": "The dispute could define Dodd-Frank-era National Bank Act preemption beyond mortgage escrow laws, with consequences for national product pricing and state consumer-finance regulation.",
+  "big_case_score": 0.74,
+  "case_id": "scotus/73500252",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.57
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.55
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.1
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.28
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.09
+    }
+  ],
+  "confidence": 0.68,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-20",
+    "snapshot_provenance": "as-stored",
+    "term": 2025
+  },
+  "created_at": "2026-08-20T19:06:19Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73500252/record/snapshots/2026-08-20.json",
+  "judgment": null,
+  "model": "gpt-5.6-sol",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.57,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:06a854e7847cddf2d03ff391f3fe9dfc52e739180e0d30aed72aea2f0b909bdf",
+    "label": "proc-v3",
+    "pipeline_sha": "adcce636b96febaca4b39615cf5821730116fd28",
+    "stamped_at": "2026-08-20T19:07:36.218936Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260820T181919Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

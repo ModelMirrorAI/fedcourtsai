@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278467",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (CVSG cut, relist cut, sal-v3 band table, per-Term table)",
+    "courtlistener MCP: search, get_endpoint_item, read_document, search_document",
+    "provisioned documents (QP, petition, BIO)"
+  ],
+  "helpful": [
+    "The sal-v3 band table's bracketed reached rates with the frozen band made the scored baseline unambiguous to compute (pooled OT2017-2024).",
+    "The CVSG cut in the statpack is exactly the conditioning this moment needs.",
+    "Provisioned petition/BIO text made the vehicle assessment possible without burning retrieval budget."
+  ],
+  "gaps": [
+    "No statpack cut conditions on the hold-then-CVSG trajectory (CVSG issued after multiple distributions and a hold), which is a stronger signal than CVSG status alone; a distribution-gap or held-petition cut would sharpen post-CVSG cells.",
+    "fedcourts query has no CVSG or relist filter, so corpus priors for the CVSG'd population cannot be pulled directly.",
+    "CourtListener served no opinion text for a decision one day inside the snapshot cutoff (West Virginia v. B.P.J.); a provisioned companion-case note would have been decisive context here.",
+    "No published baseline for dissent-from-denial or the summary-disposition route conditional on a CVSG."
+  ],
+  "notes": "Forward-mode CVSG cell. The dominant unresolved variable is the SG's future recommendation, which no tooling can supply."
+}

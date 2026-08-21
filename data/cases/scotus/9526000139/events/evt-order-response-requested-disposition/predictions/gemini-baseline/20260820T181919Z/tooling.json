@@ -1,0 +1,12 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9526000139",
+  "helpful": [
+    "Google Web Search was extremely helpful for identifying the context of the stay application, which lacked accompanying document text in the record.",
+    "CourtListener MCP helped identify the lower court litigation."
+  ],
+  "role": "predictor",
+  "run_id": "20260820T181919Z",
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/9026000201",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "courtlistener MCP search (docket lookups)",
+    "metrics/statpack.md (committed)"
+  ],
+  "helpful": [
+    "The sal-v3 band segment table with bracketed reached rates — the federal-band pooled anchor did most of the calibration work for this arrival cell",
+    "Provisioned petition text (137pp, body complete) — the SG's related-proceedings list carried the whole companion-petition posture that CourtListener could not"
+  ],
+  "gaps": [
+    "fedcourts query cannot filter by petitioner class (e.g. SG/federal petitioner) or by posture (statute held unconstitutional below), so the closest comparators for a federal-band cell are unreachable by structured filter",
+    "CourtListener's docket search returned nothing for current SCOTUS paid dockets (26-199, 25-1325) — a supremecourt.gov docket lookup for companion petitions would have confirmed the consolidation posture live"
+  ],
+  "notes": "Arrival-moment cell: zero-distribution state made the docket itself nearly informationless; the provisioned documents plus the band table carried the prediction."
+}

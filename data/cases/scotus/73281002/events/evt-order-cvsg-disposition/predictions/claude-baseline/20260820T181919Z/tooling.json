@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281002",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service, ranged backend)",
+    "metrics/statpack.md (committed base rates)",
+    "courtlistener MCP (dockets endpoint, search)",
+    "provisioned documents (petition, QP, BIO concatenation)"
+  ],
+  "helpful": [
+    "The sal-v3 band table's bracketed reached rates with explicit pooling guidance — the scored yardstick was computable directly from the committed pack.",
+    "The CVSG cut in the statpack — exactly the conditional this moment's cell needs.",
+    "documents.json's per-document provenance (pages, truncation, URLs) made the six-brief BIO concatenation legible."
+  ],
+  "gaps": [
+    "fedcourts corpus-info errors in-cell (no local blob; connect_readonly traceback) so corpus vintage cannot be quoted; a service-backend fallback like query's would fix it.",
+    "fedcourts query has no free-text or subject filter usable on SCOTUS rows (--topic is circuit-only), so 'similar election-law petitions' cannot be retrieved as priors; I fell back on one broad era/disposition sweep.",
+    "No statpack cut conditions on a companion/vided state petition or en-banc-dissent signals; those adjustments were judgment, not measurement."
+  ],
+  "notes": "CVSG-moment cell with clean provisioned inputs; retrieval stayed well under budget (1 corpus query, 3 MCP calls)."
+}

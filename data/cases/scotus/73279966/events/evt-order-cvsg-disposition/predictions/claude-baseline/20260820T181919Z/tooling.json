@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279966",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search",
+    "provisioned documents (petition/QP/BIO)"
+  ],
+  "helpful": [
+    "The sal-v3 band table's bracketed reached rates matched my frozen context's salience_version, so pooling prior Terms was mechanical",
+    "Provisioned petition and BIO texts were rich enough that I needed almost no live retrieval for the merits framing",
+    "documents.json's truncation/pages metadata made clear what I was and wasn't reading"
+  ],
+  "gaps": [
+    "No statpack cut conditions the CVSG population on band or on time-since-CVSG, so the band anchor and CVSG cut cannot be combined except by judgment",
+    "A cheap known-case lookup (party name or docket number) in fedcourts query would beat the sparse --citation filter; my citation query cost 1335 ranged GETs (~350MB) to return nothing",
+    "No published baseline for dissent-from-denial or the summary-disposition route; both numbers are banked on judgment alone"
+  ],
+  "notes": "Forward-mode CVSG cell. The BIO file concatenates two separate briefs (Washington's and the Nwauzor class's), which is fine but worth knowing when reading its page-truncated tail."
+}

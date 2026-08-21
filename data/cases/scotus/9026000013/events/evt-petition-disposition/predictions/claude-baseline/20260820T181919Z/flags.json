@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000013",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "Frozen distribution_count=1 counts the June 10, 2026 distribution of the sealing motion (25M91) for the 6/25/2026 conference, not a distribution of the petition itself — the petition has never been conferenced (BIO due Aug 26, 2026, after this snapshot). The baseline band and my relist-increment claim are stated from that count as frozen; if the resolver counts only petition distributions the increment claim is unaffected (a first petition distribution is near-certain either way), but the band may understate the petition's eventual trajectory.",
+      "event_id": "evt-petition-disposition"
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "This case (the 9/11 military-commission plea-agreement mandamus litigation) was widely covered through the model's training cutoff, including the D.C. Circuit's July 2025 decision and the January 2026 en banc denial. The cert petition's disposition post-dates the cutoff and the docket confirms it is pending, so no outcome knowledge exists; background familiarity was used only as pre-snapshot public context.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

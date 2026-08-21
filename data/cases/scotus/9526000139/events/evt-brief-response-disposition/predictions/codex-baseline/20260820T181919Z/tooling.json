@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "CourtListener MCP search",
+    "CourtListener MCP endpoints",
+    "CourtListener MCP document reader",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The interim statpack supplied the strictly-prior scored baseline.",
+    "The CourtListener document reader exposed the lower-court order and the split panel's reasoning."
+  ],
+  "gaps": [
+    "The application and response text were not provisioned, and the SCOTUS filing was unavailable through the date-bounded CourtListener search."
+  ],
+  "notes": "Date-bounded lower-court retrieval materially distinguished the intervenor states' application from any separate federal application."
+}

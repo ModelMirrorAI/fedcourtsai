@@ -1,0 +1,7 @@
+# Forecast
+
+The petition has been distributed for two conferences, and the Court has now invited the Solicitor General's views. The Solicitor General will likely recommend denial, principally because the Affordable Care Act exempts qualifying ministry members from the federal individual mandate without displacing ordinary state regulation of entities that function as insurers. After the government's brief and the parties' responses, the petition will very likely be distributed at least once more, but the Court will ultimately deny certiorari.
+
+The strongest grant candidate is a narrowed version of question two: whether comparability under the Free Exercise Clause turns on the risks that religious and secular activities pose to the government's asserted interest, rather than on the organizations' purposes or on whether benefit payments are ancillary. The Court is unlikely to take the petition's broader neutrality, official-hostility, and ACA-preemption questions together. The preliminary-injunction posture and gaps in the record about allegedly comparable secular organizations make this a poor vehicle for resolving those broader questions.
+
+If the Court grants review, plenary review is substantially more likely than a disposition in the certiorari order. No intervening authority supplies an obvious GVR instruction, and the fact-dependent dispute is ill-suited to summary reversal. If review is denied, no Justice is likely to note a dissent or issue a statement respecting denial.

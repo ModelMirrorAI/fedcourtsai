@@ -1,0 +1,23 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/9526000139",
+  "gaps": [
+    "fedcourts query has no application-kind or ask filter, so an interim cell's query returns recency-ranked time-extension applications ahead of substantive stay analogues even with --include-applications",
+    "no statpack cut conditions the interim grant rate on the escalation-ladder state as-at-prediction (e.g. response-requested-at-arrival), which is exactly the conditioning this cell needed"
+  ],
+  "helpful": [
+    "the statpack interim section's per-Term substantive counts made the strictly-prior pooled baseline a two-line computation, with the floor rule stated in the caption",
+    "the frozen context.json escalation state (response_requested, referred, amicus count) made the increment claims unambiguous"
+  ],
+  "notes": "Forward cell on a high-salience shadow-docket application; web retrieval carried most of the case-specific signal since no documents were provisioned.",
+  "role": "predictor",
+  "run_id": "20260820T181919Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "web search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "The truncated snapshot's attorney roster appears to reflect capture-time state rather than the 2026-07-30 cutoff: it lists counsel for five amicus groups while the truncated proceedings show no amicus entries and the frozen context has amicus_briefs=0. I used the roster as signal for the amicus-increment claim; if the roster postdates the cutoff, that claim's evidence base is mildly post-cutoff for a forward cell (harmless here, but the seam may matter for replay provisioning)."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "A parallel federal-defendants' application in the same matter exists as its own corpus case (scotus/9526000124); I learned of it from a committed sibling prediction read for field conventions and used its existence and mid-August pendency as forward signal. Separately: this application's response was due 2026-08-03 and the run is 2026-08-20, so a disposition likely exists by now; I did not retrieve either SCOTUS docket's post-cutoff state and do not know the outcome (all CourtListener docket queries bounded to entries on/before 2026-07-29)."
+    }
+  ]
+}

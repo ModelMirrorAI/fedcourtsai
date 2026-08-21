@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279035",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "Corpus query surface was unusable in this cell: two fedcourts query attempts timed out against the corpus service (180s ReadTimeout on the first, a 100s wrapper kill on the second) and returned no rows. The cell degraded gracefully to the provisioned inputs, the committed statpack, and CourtListener MCP, but no corpus priors inform this prediction.",
+      "event_id": "evt-order-cvsg-disposition"
+    }
+  ]
+}

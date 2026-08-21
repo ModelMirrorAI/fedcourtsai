@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281057",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned documents (questions-presented, petition, brief-in-opposition)"
+  ],
+  "helpful": [
+    "The salience band table's bracketed reached rates made the pooled prior-Term anchor a mechanical computation",
+    "The CVSG status cut is exactly the moment-specific conditioning a cvsg-moment cell needs",
+    "All three provisioned documents had full extractable text, so the split and vehicle arguments could be weighed from the filings themselves"
+  ],
+  "gaps": [
+    "fedcourts query has no CVSG filter, so pulling resolved CVSG'd priors (to see how they resolved case-by-case) is not possible; the statpack cut is the only CVSG-conditioned view",
+    "An invalid --era value (e.g. 'modern') returns zero rows silently rather than erroring, and the failed attempt still cost ~190MB of ranged reads",
+    "A statpack cut of CVSG'd petitions by eventual SG recommendation (grant/deny) would sharpen exactly the uncertainty that dominates a CVSG-moment cell"
+  ],
+  "notes": "Skipped CourtListener MCP retrieval: the CVSG issued two months ago, the SG cannot plausibly have filed yet, and the provisioned filings plus statpack covered the decision-relevant evidence."
+}

@@ -1,0 +1,3 @@
+No retrieval beyond the provisioned inputs and the committed statpack base rates.
+
+(Tool `fedcourts query` was not successfully invoked for priors because the provisioned inputs clearly established a direct circuit split on the constitutionality of a federal statute with the SG as petitioner, rendering deep retrieval unnecessary. An MCP CourtListener search was performed to ensure the case was not already decided, which returned 0 results.)

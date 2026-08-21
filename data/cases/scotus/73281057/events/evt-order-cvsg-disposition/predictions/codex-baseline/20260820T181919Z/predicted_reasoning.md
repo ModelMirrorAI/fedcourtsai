@@ -1,0 +1,9 @@
+# Forecast
+
+The docket shows two distributions: one for the April 17, 2026 conference before a response was filed, and one for the June 18 conference after Oregon's brief in opposition. The Court then invited the Solicitor General's views on June 22. After the Solicitor General files, I expect the petition to be distributed at least once more and decided after one or two further conferences. A second CVSG is not expected because the invitation already issued at this prediction moment.
+
+Denial remains the single most likely disposition, but a plenary grant is a substantial possibility. If the Court grants, it is more likely to take the first question—possibly reformulated to ask what First Amendment scrutiny governs a product-specific government reporting mandate whose submissions may be published—than the second. The First Amendment issue produced a published, divided Ninth Circuit decision and presents a cleaner basis for review. The Takings Clause question is more likely to be left aside because the challenged public-interest disclosure had not yet been applied and the court below treated the case as a facial challenge.
+
+A cert-order disposition is unlikely conditional on a grant. No intervening decision identified in the record supplies an obvious basis for a GVR, and resolving the asserted First Amendment or Takings Clause conflicts would ordinarily require plenary briefing and argument. If certiorari is denied, the likeliest order has no separate writing, although the divided decision and constitutional stakes create a modest chance of a statement respecting or dissenting from denial.
+
+If the case receives plenary review, the likely merits dispute would center on whether Oregon's mandated narrative pricing explanations are commercial speech and whether reducing information asymmetries can satisfy intermediate scrutiny. Any merits prediction is conditional on a grant.

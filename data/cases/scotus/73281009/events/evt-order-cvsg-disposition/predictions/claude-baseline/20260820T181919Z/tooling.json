@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281009",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "record/documents (petition, questions-presented, brief-in-opposition)",
+    "web search"
+  ],
+  "helpful": [
+    "The sal-v3 band table's bracketed reached rates with an explicit strictly-prior pooling rule — the anchor arithmetic was unambiguous",
+    "The CVSG cut sitting directly beside the band table made the two anchors easy to cross-check",
+    "documents.json page/truncation metadata told me up front the BIO was a multi-brief concatenation"
+  ],
+  "gaps": [
+    "fedcourts query has no --cvsg filter, so pulling CVSG'd priors means over-fetching and filtering client-side; a cut of the band table conditioned on CVSG status (band-high x CVSG is exactly this cell's joint state) would replace judgment with a committed number",
+    "No committed baseline for summary-disposition-route conditional on a CVSG having issued — the cert-order share of grants likely differs sharply between CVSG'd and non-CVSG'd petitions",
+    "A statpack cut of CVSG-to-SG-brief filing lag would discipline the timing forecast"
+  ],
+  "notes": "Forward cell; MCP server not needed — the provisioned documents plus two web searches on the companion state case covered the case-specific evidence."
+}

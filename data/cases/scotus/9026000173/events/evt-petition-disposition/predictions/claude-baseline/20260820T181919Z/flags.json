@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000173",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The frozen distribution_count of 1 reflects the May 19, 2026 distribution (Conference of 6/4/2026), which belongs to the case's miscellaneous-docket motion phase (linked 25M81) and predates the petition's August 6, 2026 docketing as 26-173 — the docket's proceedings list carries the pre-docketing entries with out-of-order dates (petition entry dated Mar 19, distribution May 19, docketed Aug 6). The relist-increment claim is stated from the frozen count of 1 as required, but the petition proper has not yet been distributed, so the increment's baseline state conflates the motion's conference with the petition's.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

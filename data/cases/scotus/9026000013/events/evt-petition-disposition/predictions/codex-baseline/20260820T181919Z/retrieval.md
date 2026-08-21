@@ -1,0 +1,1 @@
+Consulted the committed aggregate base-rate report at `metrics/statpack.md`, specifically the modern discretionary-cert, relist, CVSG, and salience-band sections. No corpus query, CourtListener MCP lookup, or web search was used.

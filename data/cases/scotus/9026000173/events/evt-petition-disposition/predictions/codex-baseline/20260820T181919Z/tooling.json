@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000173",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed statpack",
+    "CourtListener MCP search"
+  ],
+  "helpful": [
+    "The provisioned petition and extracted questions presented exposed the vehicle problems.",
+    "The frozen context made the distribution-count anomaly identifiable.",
+    "The sal-v3 statpack provided the correct prior-Term paid risk-set anchor."
+  ],
+  "gaps": [
+    "CourtListener search did not expose the Fourth Circuit order text for docket 24-1166."
+  ],
+  "notes": "The case was predictable from the provisioned record and base rates. Lower-court text would have reduced reliance on the petitioner's characterization."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000203",
+  "run_id": "20260820T181919Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "The frozen context records amicus_briefs as 0, but the provisioned August 18 snapshot visibly lists six amicus submissions (one on August 16 and five on August 18). The amicus-increment probability is stated against the harness-owned frozen zero, as required, while the prose separately notes that few or no filings beyond the six visible are expected.",
+      "event_id": "evt-brief-response-disposition"
+    }
+  ]
+}

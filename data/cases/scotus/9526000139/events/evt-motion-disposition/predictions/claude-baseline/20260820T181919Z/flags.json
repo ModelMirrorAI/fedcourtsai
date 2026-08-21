@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/9526000139",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-motion-disposition",
+      "message": "Forward-mode web retrieval used a decisive companion signal: the Solicitor General's parallel stay application in the same litigation (26A124, filed 2026-07-27, pre-cutoff), plus press coverage of the underlying injunction. One surfaced headline post-dated the cutoff (a 2026-08-12 report of another injunction in parallel mail-voting litigation); it did not disclose this application's own disposition, was not opened, and no post-cutoff outcome material was folded into the forecast.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260820T181919Z",
+  "schema_version": "1.0"
+}

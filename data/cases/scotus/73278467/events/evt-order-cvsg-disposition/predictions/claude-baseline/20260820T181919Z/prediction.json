@@ -1,0 +1,68 @@
+{
+  "big_case_rationale": "Would set the constitutional standard (Turner deference vs. heightened scrutiny) for sex-based prison policies challenged by transgender inmates, with nationwide operational stakes for every jail and prison system; 23 states appeared as amici at the cert stage.",
+  "big_case_score": 0.8,
+  "case_id": "scotus/73278467",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.45
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.97
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.15
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.35
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": "2026-07-01",
+    "cvsg_date": "2026-06-30",
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-07-01",
+    "snapshot_provenance": "truncated",
+    "term": 2025
+  },
+  "created_at": "2026-08-20T18:41:00Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-cvsg-disposition",
+  "granted": 0,
+  "input_snapshot": "data/cases/scotus/73278467/record/snapshots/2026-07-01.json",
+  "judgment": null,
+  "model": "claude-fable-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.45,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v3",
+    "pipeline_sha": "adcce636b96febaca4b39615cf5821730116fd28",
+    "stamped_at": "2026-08-20T18:43:41.851224Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260820T181919Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

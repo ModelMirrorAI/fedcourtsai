@@ -1,0 +1,3 @@
+- `fedcourts query` / `open-events`: not used directly (read base rates from `metrics/statpack.md` per instructions).
+- CourtListener MCP: not used.
+- Web search: Google search for `"Aldridge v. Regions Bank" ERISA surcharge 1132(a)(3)` to confirm the circuit split and issue details.

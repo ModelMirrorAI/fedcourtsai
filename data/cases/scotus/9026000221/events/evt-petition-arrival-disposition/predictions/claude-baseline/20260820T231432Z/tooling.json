@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000221",
+  "run_id": "20260820T231432Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "statpack (metrics/statpack.md)",
+    "courtlistener-mcp search (opinions, dockets)",
+    "provisioned documents (petition.txt, questions-presented.txt)"
+  ],
+  "helpful": [
+    "The provisioned petition text was decisive: the QP section and the statement of the case carried nearly everything needed (en banc vote split, companion-case posture, related litigation), so only two MCP confirmation lookups were required.",
+    "The salience-band segment table's bracketed reached figures made the arrival-moment anchor unambiguous and cheap to pool."
+  ],
+  "gaps": [
+    "No free-text/semantic retrieval over corpus priors: fedcourts query filters on court/topic/judge/citation, so there is no way to pull 'petitions where a lower court declared a SCOTUS precedent abrogated' or issue-similar priors; the anchor-to-final-probability adjustment therefore rests on unquantified reference-class reasoning.",
+    "CourtListener's docket search does not cover SCOTUS dockets (the Roake conditional petition, No. 25-1360, was invisible), so companion-petition posture had to come from the petition's own footnote; a supremecourt.gov docket fetch tool would close that.",
+    "No committed cut conditions grant rate on petition-level features visible at arrival (counsel tier, en banc vs panel below, published dissents below), which is exactly what an arrival cell has to price from."
+  ],
+  "notes": "Forward arrival cell; ~4 retrieval calls total, well under budget. The 314-page petition text was truncated per documents.json but the provisioned portion covered the QPs, statement, and reasons for granting."
+}
