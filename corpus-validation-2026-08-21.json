@@ -107,7 +107,7 @@
       "problems": []
     },
     {
-      "checked": 13317,
+      "checked": 13320,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -139,7 +139,7 @@
       "problems": []
     },
     {
-      "checked": 838,
+      "checked": 844,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -147,7 +147,7 @@
       "problems": []
     },
     {
-      "checked": 214,
+      "checked": 217,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
