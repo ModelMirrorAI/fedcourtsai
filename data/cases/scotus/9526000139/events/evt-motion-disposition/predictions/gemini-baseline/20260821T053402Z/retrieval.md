@@ -1,0 +1,3 @@
+- CourtListener MCP Search for `26A139` (type: `d`).
+- Google Web Search for `"26A139" OR ("Alabama v. California" "First Circuit")`.
+- Read statpack interim base rates from `metrics/statpack.md`.
