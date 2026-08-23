@@ -1,0 +1,9 @@
+P(grant) 0.65. The context provided is an emergency application (`evt-motion-disposition`) at the `arrival` moment. A coalition of states led by Alabama is seeking a stay of a nationwide injunction blocking an executive order on citizenship verification for elections. 
+
+The statpack's pooled baseline for substantive interim applications (strictly prior to Term 2026) is 13.3% (30 grants out of 225 resolved substantive applications). However, this baseline severely understates the likelihood of a grant in this specific posture. This is a high-profile "shadow docket" case where the federal government (and intervening states) is defending a federal executive order against a nationwide injunction issued by a district court. 
+
+The current Supreme Court has shown a strong willingness to stay nationwide injunctions in such contexts. The presence of a parallel application from the Solicitor General (`26A124`) further signals the gravity of the federal interest. While the *Purcell* principle could theoretically weigh against a stay (as a stay would alter the status quo close to an election), the Court may view the district court's injunction itself as the disruptive action.
+
+Justice Jackson has already requested a response (due August 3). The `response-requested-increment` is set to 1.0 because the event has already occurred according to the snapshot. I estimate a 90% probability that Justice Jackson refers this to the full Court, given its national importance, and a 95% probability of amicus briefs being filed. I adjust the probability of a grant significantly upward from the base rate to 65% based on the Court's ideological composition and its historical handling of nationwide injunctions on the shadow docket.
+
+I used the Google web search tool to retrieve public context about the case, as the provisioned snapshot lacked document text. No final outcome for this application was found (it appears still pending as of mid-August 2026).

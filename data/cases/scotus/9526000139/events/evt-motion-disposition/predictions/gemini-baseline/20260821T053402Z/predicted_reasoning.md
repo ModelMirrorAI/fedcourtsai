@@ -1,0 +1,7 @@
+This is an emergency application (26A139) by a coalition of red states (led by Alabama and Missouri) to stay a nationwide injunction issued by a district court in Massachusetts blocking Executive Order 14399 regarding citizenship verification in federal elections. The application was submitted to Justice Jackson, who has already requested a response (due August 3, 2026). 
+
+Given the highly partisan nature of the case and its significant implications for the upcoming November 2026 midterm elections, the application will almost certainly be referred to the full Court by Justice Jackson. 
+
+A high number of amicus briefs is expected from voting rights organizations, other states, and political committees.
+
+Regarding the disposition, the Court is likely to grant the stay (or grant it in part) and lift the nationwide injunction, allowing the executive order to take effect. While the *Purcell* principle cautions against altering election rules close to an election, the Court's conservative majority has recently been highly skeptical of nationwide injunctions issued by single district judges, particularly when they enjoin federal executive action. A grant of the stay is the most probable outcome. We anticipate the disposition to be an unqualified grant of the stay pending appeal.
