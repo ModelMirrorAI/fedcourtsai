@@ -1,0 +1,68 @@
+{
+  "big_case_rationale": "The case tests presidential control of the southern border, access to asylum, and nationwide class relief affecting a central federal policy.",
+  "big_case_score": 0.98,
+  "case_id": "scotus/9026000239",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.92
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.99
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.001
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.22
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.2
+    }
+  ],
+  "confidence": 0.82,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cutoff": "2026-08-25",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v3",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-24",
+    "snapshot_provenance": "dated",
+    "term": 2026
+  },
+  "created_at": "2026-08-24T23:49:54Z",
+  "engine": "codex",
+  "event_id": "evt-petition-arrival-disposition",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/9026000239/record/snapshots/2026-08-24.json",
+  "judgment": null,
+  "model": "gpt-5.6-sol",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.92,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:06a854e7847cddf2d03ff391f3fe9dfc52e739180e0d30aed72aea2f0b909bdf",
+    "label": "proc-v3",
+    "pipeline_sha": "9639e54314e79a5db4ff7d288403a97d012129b4",
+    "stamped_at": "2026-08-24T23:51:27.545833Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260824T231410Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
