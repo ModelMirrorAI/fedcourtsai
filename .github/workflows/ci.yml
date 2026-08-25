@@ -84,19 +84,30 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Full history *and* every branch ref: the jail diff resolves
+          # origin/<base ref>, which only a non-shallow fetch populates.
           fetch-depth: 0
       - uses: ./.github/actions/setup-python-env
       - name: Enforce the data/ path jail on data-production branches
+        # Diff against the live base ref, not the event's pull_request.base.sha:
+        # that sha is frozen at PR creation while the checkout is the merge ref
+        # (the PR merged into the base's *current* tip), so on a base that has
+        # since advanced — routine here, with data writers landing on main every
+        # few hours — the frozen-sha diff re-attributes the base's own drift to
+        # the PR and false-fails the jail. The three-dot form takes the
+        # merge-base of the freshly fetched base tip and the merge ref, which
+        # is the merge ref's first parent even when the base has advanced
+        # since the ref was computed — leaving exactly the PR's own changes.
         env:
           HEAD_REF: ${{ github.head_ref }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
           case "$HEAD_REF" in
             predict/run-*|evaluate/run-*) ;;
             *) echo "not a data-production branch; path jail not applicable"; exit 0 ;;
           esac
-          git diff --name-status "${BASE_SHA}...HEAD" > changes.txt
+          git diff --name-status "origin/${BASE_REF}...HEAD" > changes.txt
           uv run fedcourts assert-paths --name-status-file changes.txt
 
   cleanup-paths:
@@ -117,19 +128,24 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Full history *and* every branch ref: the jail diff resolves
+          # origin/<base ref>, which only a non-shallow fetch populates.
           fetch-depth: 0
       - uses: ./.github/actions/setup-python-env
       - name: Enforce the cleanup jail on cleanup branches
+        # Live base ref rather than the frozen event sha, for the same reason
+        # as the `paths` job above: a base that advanced after the PR opened
+        # must not have its own drift attributed to the PR.
         env:
           HEAD_REF: ${{ github.head_ref }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
           case "$HEAD_REF" in
             cleanup/*) ;;
             *) echo "not a cleanup branch; cleanup jail not applicable"; exit 0 ;;
           esac
-          git diff --name-status "${BASE_SHA}...HEAD" > changes.txt
+          git diff --name-status "origin/${BASE_REF}...HEAD" > changes.txt
           uv run fedcourts assert-cleanup-paths --name-status-file changes.txt
 
   promotion-gate:
