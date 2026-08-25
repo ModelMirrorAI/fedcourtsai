@@ -400,6 +400,9 @@ def test_retry_after_hint_is_capped_at_backoff_max(tmp_path: Path) -> None:
         "the request timed out",
         "deadline exceeded",
         "Connection reset by peer",
+        # Gemini's INVALID_STREAM envelope, as the CLI writes it on exit.
+        '{"error":{"type":"INVALID_STREAM","message":"Invalid stream: The model '
+        + 'returned an empty response or malformed tool call."}}',
     ],
 )
 def test_transient_signatures_are_retryable(stderr: str) -> None:
@@ -418,6 +421,14 @@ def test_transient_signatures_are_retryable(stderr: str) -> None:
         # number): the narrowed 5xx set must not misread these as a transient 5xx.
         "content filter tripped on docket 555 near line 512",
         "invalid request: 511 tokens over the context window",
+        # The near-misses around Gemini's INVALID_STREAM: only the *stream*
+        # wording buys a retry. A prompt that elicits a malformed tool call
+        # elicits it again, and an empty response attributed to a safety block or
+        # a MAX_TOKENS truncation is deterministic in the same way a
+        # content-filter trip is — the class this set exists to leave alone.
+        "the model returned a malformed tool call",
+        "Response blocked by safety filter: the model returned an empty response",
+        "finishReason: MAX_TOKENS — model returned an empty response",
     ],
 )
 def test_permanent_signatures_are_not_retryable(stderr: str) -> None:
