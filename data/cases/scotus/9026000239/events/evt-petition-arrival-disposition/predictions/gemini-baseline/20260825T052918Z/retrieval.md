@@ -1,0 +1,2 @@
+1. Read `metrics/statpack.md` to establish the base rate for the `federal` salience band segment, observing rates ranging from 52.4% (2025) to 89.5% (2022).
+2. Searched CourtListener MCP for related DC Circuit opinions using the query `"Refugee and Immigrant Center for Education and Legal Services"` and court `cadc`, locating the April 24, 2026 opinion in *Refugee and Immigrant Center for Education and Legal Services v. Markwayne Mullin*.
