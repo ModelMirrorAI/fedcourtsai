@@ -473,9 +473,10 @@ class CommandResult:
     (:func:`_failure_is_transient`) reads to decide whether a non-zero exit is
     worth a retry: the CLIs surface the provider's HTTP fault as an exit code
     plus an error message on stderr, not as a distinguishable exit code, so a
-    429 / quota / 5xx / timeout is told from a content-filter or context-length
-    trip by the message text. Empty on success and for any runner that does not
-    capture stderr (an unclassifiable failure then reads as permanent).
+    429 / quota / 5xx / timeout / dropped-stream fault is told from a
+    content-filter or context-length trip by the message text. Empty on success
+    and for any runner that does not capture stderr (an unclassifiable failure
+    then reads as permanent).
     """
 
     returncode: int
@@ -716,6 +717,15 @@ _TRANSIENT_FAILURE = re.compile(
     | deadline[\s_-]*exceeded          # gRPC deadline
     | (?:temporarily[\s_-]*)?unavailable  # 503 UNAVAILABLE / temporarily unavailable
     | connection[\s_-]*(?:reset|error|refused|aborted)
+    # Gemini's INVALID_STREAM ("Invalid stream: The model returned an empty
+    # response or malformed tool call") arrives seconds into a cell while
+    # sibling cells on the same model run to completion — a serving hiccup,
+    # which is what this set is for. Anchored on the *stream* wording, which
+    # covers both the JSON `type` and the prose, and on nothing else in that
+    # message: "malformed tool call" a prompt can deterministically elicit, and
+    # a bare "empty response" is also how a safety block or a MAX_TOKENS
+    # truncation reads — both deterministic, both re-spent on every retry.
+    | invalid[\s_-]*stream             # Gemini INVALID_STREAM
     """,
     re.IGNORECASE | re.VERBOSE,
 )
@@ -788,7 +798,8 @@ class AgenticRunner:
     (:func:`_agent_base_env` — no cloud credentials, no other provider's key)
     with the cell contract, runs the command, and returns the artifacts the agent
     produced at the canonical paths. A non-zero exit is classified: a *transient*
-    fault (429 / quota / 5xx / timeout — :func:`_failure_is_transient`) is retried
+    fault (429 / quota / 5xx / timeout / dropped stream —
+    :func:`_failure_is_transient`) is retried
     with exponential backoff and jitter up to ``max_attempts``; a *permanent*
     fault (content filter, context length, auth) fails loudly and immediately.
     The ``command_runner`` seam lets tests assert on the built command — and drive
@@ -834,7 +845,8 @@ class AgenticRunner:
         """The shared spawn, with an engine-specific env overlay under the cell
         contract (CodexRunner's run-scoped auth home), retrying transient faults.
 
-        On a transient non-zero exit (429 / quota / 5xx / timeout) the command is
+        On a transient non-zero exit (429 / quota / 5xx / timeout / dropped
+        stream) the command is
         re-run after an exponential-backoff-with-jitter wait, up to
         ``max_attempts`` total tries; a permanent fault, or the attempt cap, is a
         hard failure (:class:`EngineFailed`). The same command and env are reused
