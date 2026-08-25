@@ -17,7 +17,7 @@
       "problems": []
     },
     {
-      "checked": 4308304,
+      "checked": 4308305,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -91,7 +91,7 @@
       ]
     },
     {
-      "checked": 4305231,
+      "checked": 4305232,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -99,7 +99,7 @@
       "problems": []
     },
     {
-      "checked": 4308304,
+      "checked": 4308305,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -107,7 +107,7 @@
       "problems": []
     },
     {
-      "checked": 13382,
+      "checked": 13383,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -139,7 +139,7 @@
       "problems": []
     },
     {
-      "checked": 848,
+      "checked": 850,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -147,7 +147,7 @@
       "problems": []
     },
     {
-      "checked": 219,
+      "checked": 220,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
@@ -203,7 +203,7 @@
       "problems": []
     }
   ],
-  "corpus_events": 2152674,
+  "corpus_events": 2152675,
   "corpus_rows": 2152557,
   "ok": false,
   "schema_version": "1.0",
