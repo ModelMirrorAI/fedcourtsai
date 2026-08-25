@@ -9041,11 +9041,13 @@ def scan_diff_for_secrets_cmd(
         str,
         typer.Option(
             help="The run being collected. Exempts that run's own ledger paths "
-            "(`predictions/<actor>/<run id>`, `evaluations/<actor>/<predictor>/"
-            "<run id>`) from the entropy heuristic only — a cell's logged shell "
-            "commands name its own output directory, which is neither secret nor "
-            "random but scores like one. Every other detector is unaffected, and "
-            "the trailing segment must equal this value exactly."
+            "— the `predictions/` / `evaluations/` layouts and the "
+            "cell-relative forms (`<actor>/<run id>[/<file stem>]`, "
+            "`<evaluator>/<predictor>/<run id>`) — from the entropy heuristic "
+            "only: a cell's logged shell commands name its own output paths, "
+            "which are neither secret nor random but score like one. Every "
+            "other detector is unaffected, and the run id segment (last, or "
+            "second-to-last before a file stem) must equal this value exactly."
         ),
     ] = "",
 ) -> None:

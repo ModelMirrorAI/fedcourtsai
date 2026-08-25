@@ -70,12 +70,13 @@ runbook, [docs/security.md](docs/security.md).
   (`fedcourts scan-diff-for-secrets`) over the run's changed files and the PR
   prose about to be posted: literal containment of the live token in the cheap
   encodings (base64, hex, URL-escaping), credential-shape patterns, and an
-  entropy heuristic — which skips exactly one shape: the collected run's own
-  ledger directory (`predictions/<actor>/<run id>` and the evaluations
-  analogue), named by `--run-id` with the trailing run id compared for
-  equality and the free segments pinned lowercase and shorter than the
-  heuristic's own minimum, so the skip can hide nothing the heuristic would
-  convict standalone. A hit **withholds the branch** — nothing is pushed and no
+  entropy heuristic — which skips exactly one family: the collected run's own
+  ledger paths (the `predictions/` / `evaluations/` layouts and the
+  cell-relative `<actor>/<run id>[/<file stem>]` /
+  `<evaluator>/<predictor>/<run id>` forms), named by `--run-id` with the run
+  id segment compared for equality and every free segment pinned lowercase
+  and capped far below the heuristic's own minimum, so the skip can hide
+  nothing the heuristic would convict standalone. A hit **withholds the branch** — nothing is pushed and no
   PR opens; a redacted file/rule/line report (never the matched text) lands on
   the trigger issue and the files stay in the run's cell artifacts for
   maintainer review. The scan fails closed: if its token env is missing, the

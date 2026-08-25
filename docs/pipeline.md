@@ -994,16 +994,44 @@ pools are read at re-grade time.
 `collect` is the single writer for a run's agent output, so an all-or-nothing
 failure would discard the whole run — one transient artifact download can carry
 dozens of successful cells with it. It therefore degrades per artifact, and
-what it could not collect is named rather than silently dropped. Two gaps, two
-remedies:
+what it could not collect is named rather than silently dropped. Three gaps,
+three remedies:
 
 | the PR body / run log says | what happened | fix |
 |---|---|---|
 | *artifact did not transfer* | the cell likely succeeded; its output still exists | **re-run the `collect` job** |
 | *no cell output at all* | the cell died before it could report | **re-queue** — no rerun helps |
+| *secret scan did not pass; withholding &lt;branch&gt;* (log), with a redacted report on the trigger issue | that branch was withheld — its cells' output sits only in the run's cell artifacts | **review the flagged content, then salvage by hand or accept a re-spend** — see below |
 
-Either gap keeps the trigger issue open, so a run never auto-merges presenting
-itself as complete while omitting cells.
+A secret-scan withhold starts with a judgment call the other two rows do not
+need. Locate the flagged content first: the scan runs per PR kind, so a hit
+withholds only the branch it fired on (the ready branch can merge while the
+draft is withheld, or the reverse), and its report names file and line but
+never the match. A finding in a cell's file is reviewable in that cell's
+artifact; a finding in the rendered `pr-body.md` or `run-flags.md` points
+back at the cells' `flags.json` free text, which the roll-up quotes; and the
+*misconfigured-scan* report is its own case — nothing was judged, so repair
+the configuration rather than reviewing content. Read the reported line
+*locally, without quoting it anywhere*. A real secret means the output must
+not be collected: delete the run's cell artifacts (`gh api -X DELETE
+repos/<owner>/<repo>/actions/artifacts/<artifact_id>`) and rotate whatever
+leaked. A false positive cannot be released by re-running `collect`: a re-run
+executes the ref the run was dispatched at — the scanner it ran included —
+so it re-trips the same rule regardless of what has landed since. The
+remedies are to **salvage by hand** — extract each withheld cell's run-scoped
+output from the artifacts into a data PR before the artifacts' 7-day
+retention lapses (the maintainer merges it, like every non-collect merge to
+`main`), then close the trigger issue yourself, since only a merged collect
+PR auto-closes it — or to **re-queue and accept the re-spend**. No
+stranded-run guard covers a withheld run in either role: the withhold leaves
+`collect` concluding success, which the predict census reads as collected,
+so a re-applied label re-spends every cell the withheld run already paid for.
+
+The first two gaps keep the trigger issue open, so a run never auto-merges
+presenting itself as complete while omitting cells; a withheld ready branch
+keeps it open the same way, while a hit confined to the draft or the flag
+roll-up leaves the ready PR to merge and close it — check the run log before
+trusting a closed issue as evidence the whole run landed.
 
 A **wholesale-failed run** — every cell died, so no ready or partial PR opens —
 still records one `attempt.json` fact per failed cell via a small auto-merging

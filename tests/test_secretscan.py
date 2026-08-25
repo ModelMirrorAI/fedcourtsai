@@ -421,29 +421,28 @@ def test_a_blob_in_the_actor_position_still_flags_for_the_collected_run() -> Non
 
 
 def test_a_prefixed_or_suffixed_candidate_is_not_exempt() -> None:
-    # The fullmatch anchor, pinned at both ends: the exemption's soundness
-    # argument is that a candidate can only ever contain the whole layout, so
-    # anything beyond the layout's bytes must defeat it. A later switch to
-    # `search`, or a widened segment charset, fails here first.
-    prefixed = _own_run_line().replace("predictions/", "xpredictions/")
-    assert "high-entropy" in _scan_for_run(prefixed, _OWN_RUN_ID)
-    # A suffixed candidate happens to score under the bar (the repeated tail
-    # dilutes its entropy), so pin the predicate itself: fullmatch refuses it.
+    # The anchor is fullmatch plus the segment charset: a lowercase, in-cap
+    # extension is absorbed as a free segment (the accepted residual the cap
+    # boundary test prices), while mixed-case or over-cap material defeats
+    # the exemption at whichever end it grew. A later switch to `search`, or
+    # a widened segment charset, fails here first.
+    assert _is_own_run_path(f"xpredictions/gemini-baseline/{_OWN_RUN_ID}", _OWN_RUN_ID)
+    assert not _is_own_run_path(f"Xpredictions/gemini-baseline/{_OWN_RUN_ID}", _OWN_RUN_ID)
     suffixed = f"predictions/gemini-baseline/{_OWN_RUN_ID}AAAAAAAA"
     assert not _is_own_run_path(suffixed, _OWN_RUN_ID)
-    assert not _is_own_run_path("x" + suffixed[:-8], _OWN_RUN_ID)
 
 
-def test_the_length_cap_boundary_is_exempt_at_39_and_not_above() -> None:
-    # The accepted residual, pinned at its boundary: a 39-char lowercase
+def test_the_length_cap_boundary_is_exempt_at_24_and_not_above() -> None:
+    # The accepted residual, pinned at its boundary: a 24-char lowercase
     # segment rides the exemption out — deliberately, because the same string
     # standalone sits below the length at which the entropy rule judges a run
     # at all, so no standalone conviction is lost. Raising the cap is a test
     # change, never a quiet widening.
     rng = random.Random(20260817)
-    at_cap = "".join(rng.choice("abcdefghijklmnopqrstuvwxyz0123456789") for _ in range(39))
+    at_cap = "".join(rng.choice("abcdefghijklmnopqrstuvwxyz0123456789") for _ in range(24))
     assert _scan_for_run(_own_run_line(actor=at_cap), _OWN_RUN_ID) == []
     assert _scan(at_cap) == []  # invisible standalone: the residual costs no detection
+    assert not _is_own_run_path(f"predictions/{at_cap}x/{_OWN_RUN_ID}", _OWN_RUN_ID)
 
 
 def test_an_uppercase_actor_segment_is_not_exempt() -> None:
@@ -464,6 +463,95 @@ def test_the_evaluations_ledger_path_is_clean_either_way() -> None:
     assert path.count("/") >= 3  # the reason: per-segment branch, never scored whole
     assert _scan(line, known=(_TOKEN,)) == []
     assert _scan_for_run(line, _OWN_RUN_ID, known=(_TOKEN,)) == []
+
+
+def _own_run_file_line(
+    actor: str = "codex-baseline", run_id: str = _OWN_RUN_ID, stem: str = "evaluation"
+) -> str:
+    """A cell's logged reference to its own output file, relative to the ledger parent.
+
+    The form a cell writes once it has changed into `predictions/` or
+    `evaluations/<evaluator>/`: `<actor>/<run id>/<file>`. Two slashes, so the
+    run is scored whole — and the `.json` suffix falls outside the candidate
+    charset, so the stem is what the detector sees.
+    """
+    return f'"query": "import json; json.load(open(\'{actor}/{run_id}/{stem}.json\'))"'
+
+
+def test_own_run_output_file_path_flags_without_the_run_id_and_is_clean_with_it() -> None:
+    # The evaluate-seam regression: a judge validating its own per-predictor
+    # output logged `codex-baseline/<run id>/evaluation` — 42 chars, four
+    # classes, 0.843 normalized entropy with this run id (0.826 in the run
+    # that surfaced it) — and the hit withheld a whole clean 18-cell run.
+    # Told which run it is collecting, the scan recognizes the layout.
+    line = _own_run_file_line()
+    assert _scan(line, known=(_TOKEN,)) == ["high-entropy"]
+    assert _scan_for_run(line, _OWN_RUN_ID, known=(_TOKEN,)) == []
+    # The predict seam writes the same relative form.
+    assert _scan_for_run(_own_run_file_line(stem="prediction"), _OWN_RUN_ID) == []
+
+
+def test_an_underscored_file_stem_is_exempt_in_the_file_position_only() -> None:
+    # `retrieval_log` carries the ledger's one extra separator; the file
+    # position admits it. The actor position does not — an underscored
+    # leading segment is outside the registry-slug charset and stays scored.
+    line = _own_run_file_line(actor="claude-judge", stem="retrieval_log")
+    assert _scan(line) == ["high-entropy"]
+    assert _scan_for_run(line, _OWN_RUN_ID) == []
+    underscored_actor = _own_run_file_line(actor="claude_judge", stem="retrieval_log")
+    assert "high-entropy" in _scan_for_run(underscored_actor, _OWN_RUN_ID)
+
+
+def test_evaluators_own_run_directory_is_exempt() -> None:
+    # `evaluations/<evaluator>/<run id>` is the evaluate cell's own run
+    # directory — two slashes, judged whole, and over the bar for every judge
+    # in the registry (0.850, 0.853, 0.871 with this run id).
+    for judge in ("claude-judge", "gemini-judge", "codex-judge"):
+        line = f'"query": "mkdir -p evaluations/{judge}/{_OWN_RUN_ID}"'
+        assert _scan(line) == ["high-entropy"]
+        assert _scan_for_run(line, _OWN_RUN_ID) == []
+
+
+def test_the_per_predictor_output_directory_is_exempt() -> None:
+    # `<evaluator>/<predictor>/<run id>` is what an evaluate cell logs once
+    # it has changed into `evaluations/` — two slashes, judged whole, 0.829-
+    # 0.837 across judge/predictor pairs with this run id — while the same
+    # layout under another run's id gets no relief.
+    line = f'"query": "ls codex-judge/gemini-baseline/{_OWN_RUN_ID}"'
+    assert _scan(line) == ["high-entropy"]
+    assert _scan_for_run(line, _OWN_RUN_ID) == []
+    assert "high-entropy" in _scan_for_run(line, "20260815T173750Z")
+
+
+def test_a_different_runs_output_file_path_still_flags() -> None:
+    # Equality, not shape, on the literal-free arm too: the same layout under
+    # another run's id is exactly what an agent could invent.
+    line = _own_run_file_line(run_id="20260815T173750Z")
+    assert "high-entropy" in _scan_for_run(line, _OWN_RUN_ID)
+
+
+def test_a_blob_in_the_file_position_still_flags() -> None:
+    # The trailing segment carries the same two pins as the actor position:
+    # base64 is mixed-case while the stem charset is lowercase, and the
+    # segment is capped below the detector's judging floor.
+    blob = base64.b64encode(bytes(range(7, 47))).decode().replace("/", "A")
+    assert "high-entropy" in _scan_for_run(
+        _own_run_file_line(stem=blob), _OWN_RUN_ID, known=(_TOKEN,)
+    )
+
+
+def test_the_literal_free_arm_is_pinned_by_fullmatch_at_both_ends() -> None:
+    # With no ledger literal to anchor on, fullmatch and the segment charset
+    # are the anchor together: any *short lowercase* leading segment rides
+    # (the same accepted residual the 39-char boundary test pins), while a
+    # candidate extended with mixed-case material — the charset both base64
+    # alphabets live in — fails at whichever end it grew.
+    assert _is_own_run_path(f"xcodex-baseline/{_OWN_RUN_ID}/evaluation", _OWN_RUN_ID)
+    assert not _is_own_run_path(f"Xcodex-baseline/{_OWN_RUN_ID}/evaluation", _OWN_RUN_ID)
+    assert not _is_own_run_path(f"codex-baseline/{_OWN_RUN_ID}/evaluationAAAAAAAA", _OWN_RUN_ID)
+    assert _is_own_run_path(f"codex-baseline/{_OWN_RUN_ID}/evaluation", _OWN_RUN_ID)
+    assert _is_own_run_path(f"codex-baseline/{_OWN_RUN_ID}", _OWN_RUN_ID)
+    assert _is_own_run_path(f"evaluations/codex-judge/{_OWN_RUN_ID}", _OWN_RUN_ID)
 
 
 def test_credential_length_segment_inside_a_path_still_flags() -> None:
