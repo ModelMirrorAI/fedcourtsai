@@ -523,9 +523,17 @@ arms it at 10 days, generous against the live poller's daily-ish refresh) refuse
 snapshot passes every content check by construction, because it was taken
 before anything it should disclose happened, and its case may be genuinely
 pending — the refusal is about the input being stale, not the case being
-decided. Only then does the **textual scan** ask whether the snapshot
-discloses **its own event's** outcome. A forward prediction on a decided
-event would be a mislabeled back-test. The question is keyed on the event
+decided. The age it reads is the **latest** payload's, before any cut, so it
+never reads a placed cell's own `snapshot_date`: a `truncated` cell's
+`snapshot_date` *is* its cutoff, which dates the moment rather than the pull,
+and a cell placed weeks back is not thereby a stale one — how far its frozen
+placement sits behind the day it ran is a separate measurement
+(`integrity.context_lag_days`, owed beside any figure over placed forward
+cells; the rule is the `salience-replay.json` bullet in
+[metrics/README.md](../metrics/README.md)). Only then does the **textual scan**
+ask whether the snapshot discloses **its own event's** outcome. A forward
+prediction on a decided event would be a mislabeled back-test. The question is
+keyed on the event
 (`--event`), because one docket carries several events' outcomes at once: a
 granted cert docket's grant order is a disclosed *cert* outcome and is also
 what opens the merits proceeding, so the entry that must refuse a cert cell

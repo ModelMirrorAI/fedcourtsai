@@ -1,4 +1,7 @@
-"""The mechanical integrity rules a scored cell must pass — clock, run, claim, stratum.
+"""The mechanical integrity rules a scored cell must pass, and what qualifies a pass.
+
+Clock, run, claim, stratum — four pass/fail rules — plus one description that
+a pass does not settle: how far behind its own frozen placement the cell ran.
 
 Four questions every scoring surface needs answered the same way, in one leaf
 module so no join can answer them differently:
@@ -30,7 +33,12 @@ clock's day is not a forecast — the claim and the record contradict each
 other, and no scored stratum is a valid home for the observation
 (:func:`forward_claim_breach`). What happens to such a cell is the
 pre-registered :data:`FORWARD_CLAIM_POLICY`; the boards publish the policy and
-the count beside their numbers so an exclusion can never be silent.
+the count beside their numbers so an exclusion can never be silent. A believable
+forward claim is still not an equally *forward* one, so the same clock answers
+the descriptive half: :func:`context_lag_days` measures how old the moment the
+cell was placed at was when it ran, which is what separates a cell forecasting
+its increments from one able to read them off a docket that moved since the
+cutoff.
 
 **Which stratum does the cell belong to?** The pre-registration split is the
 same question asked once more, and it rests on the same clock, so the
@@ -127,6 +135,71 @@ def cell_clock(prediction: Prediction) -> datetime:
     always compare.
     """
     return _harness_clock(prediction.process_version, prediction.created_at)
+
+
+def context_lag_days(prediction: Prediction) -> int | None:
+    """How old the moment a forward cell was placed at was when the cell ran.
+
+    Placement age, not freeze age: on a ``dated`` cell the payload itself was
+    frozen a day or more before the cutoff, and it is the placement the cohort
+    is filed under that this counts from. The days between the instant the cell
+    was placed at — ``context.cutoff``, else the provisioned
+    ``context.snapshot_date`` where no moment fixed one —
+    and the cell's harness clock day (:func:`cell_clock`). Derived rather than
+    stored, so it reads the same off every forward cell whose harness wrote a
+    context and can segment the committed ledger retroactively, where a stored
+    field could only ever describe cells minted after it.
+
+    **This is placement lag, not pull staleness, and the two are different
+    clocks.** Pull staleness is how old the corpus payload was, and
+    ``provision-snapshot --max-snapshot-age-days`` bounds it — on the *latest*
+    payload, before any cut. Placement lag is how long ago the moment the cell
+    was placed at happened. A ``truncated`` cell's own ``snapshot_date`` is its
+    cutoff (the reconstructed docket is dated by the moment, not by the pull
+    whose bytes it was rebuilt from), so reading lag as staleness reads the
+    moment's age as the corpus's — a cell provisioned from a same-day pull can
+    carry weeks of lag with no stale byte in it. The one place the two
+    coincide is the fallback branch: on an ``as-stored`` cell nothing fixed a
+    cutoff, so ``snapshot_date`` *is* the pull's date and the number returned
+    *is* payload age — bounded by the staleness gate wherever it is armed.
+    That is why the distribution is read segmented on
+    ``context.snapshot_provenance`` rather than pooled: pooled, it mixes the
+    two mechanisms under a heading that disclaims one of them.
+
+    **A nonzero lag is not a defect**, and it has two mechanisms that the
+    reading has to keep apart (``metrics/README.md`` states the segmentation).
+    *Cohort-completion lag* is the price of cohort comparability: every engine
+    of a cohort must read one information set, so a cohort completed late is
+    completed at the cutoff it opened with, not re-frozen to the day the last
+    cell happened to run. *Moment pendency* is structural and no scheduling
+    remedy touches it: a moment placed at an order whose disposition pends for
+    months puts every cell of it far behind its own cutoff however promptly the
+    cohort ran. What the lag costs is
+    within-stratum comparability of the *claims* — a cell whose retrieval can
+    observe weeks of post-cutoff docket is closer to reporting an increment
+    than to forecasting it — which is why any figure pooling forward cells owes
+    the lag distribution beside it (``metrics/README.md``).
+
+    ``None`` where the number would assert something the record does not: a
+    null-context cell did read a provisioned snapshot, but the record does not
+    say which, so no lag is derivable — never read that ``None`` as a zero. The
+    carve :func:`forward_claim_breach` makes holds here for the same reason — a
+    ``replay`` cell runs long after its cutoff by design, so its lag measures
+    the back-test's own age rather than any drift in what it could claim — and
+    a ``None`` from either cause belongs in a published not-derivable count,
+    not in the distribution.
+
+    ``-1`` on a cell run the day its moment **opened**, which is the floor: the
+    cutoff is the day *after* the opening
+    (:func:`fedcourtsai.provision.moment_cutoff`), so the earliest placement a
+    cell can be given is one day ahead of it. ``0`` is the cell run on its
+    cutoff. Kept signed rather than clamped, so the two stay distinguishable.
+    """
+    context = prediction.context
+    if context is None or context.mode != "forward":
+        return None
+    placed_at = context.cutoff if context.cutoff is not None else context.snapshot_date
+    return (cell_clock(prediction).date() - placed_at).days
 
 
 def evaluation_clock(evaluation: Evaluation) -> datetime:
