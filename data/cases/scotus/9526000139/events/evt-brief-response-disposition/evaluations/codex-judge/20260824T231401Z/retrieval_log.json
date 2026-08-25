@@ -1,0 +1,155 @@
+{
+  "actor_id": "codex-judge",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "917a6e77613186c6",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '1,260p' .claude/agents/stats-reviewer.md && sed -n '1,320p' .github/prompts/evaluate.md && sed -n '1,360p' AGENTS.md\",\"yield_time_ms\":10000,\"max_output_tokens\":40000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "f23261debfcd8810",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:27:30.816Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "485074a57a4789af",
+      "query": "const r = await tools.exec_command({cmd:\"wc -l .github/prompts/evaluate.md AGENTS.md .claude/agents/stats-reviewer.md && sed -n '1,180p' .github/prompts/evaluate.md && sed -n '181,360p' .github/prompts/evaluate.md && sed -n '361,540p' .github/prompts/evaluate.md\",\"yield_time_ms\":10000,\"max_output_tokens\":40000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "5efca7bc1cbf667e",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:27:33.369Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "06de149afaa35f77",
+      "query": "const a = await tools.exec_command({cmd:\"sed -n '321,500p' .github/prompts/evaluate.md\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\nconst b = await tools.exec_command({cmd:\"sed -n '501,683p' .github/prompts/evaluate.md\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\ntext(a.output); text(b.output);",
+      "result_capture": "captured",
+      "result_digest": "99ef5dc4723ef6a2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:27:38.171Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "fbbd1f15c53476aa",
+      "query": "const a = await tools.exec_command({cmd:\"sed -n '1,200p' AGENTS.md\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\nconst b = await tools.exec_command({cmd:\"sed -n '201,382p' AGENTS.md\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\ntext(a.output); text(b.output);",
+      "result_capture": "captured",
+      "result_digest": "4caf1aeb3b4cf27b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:27:41.030Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "4098aee4b4252410",
+      "query": "const r = await tools.exec_command({cmd:\"base=data/cases/scotus/9526000139/events/evt-brief-response-disposition; rg --files \\\"$base/evaluations/codex-judge\\\" \\\"$base\\\" data/cases/scotus/9526000139/record/blinded | rg '(^|/)(event\\\\.yaml|outcome\\\\.json|evaluations/codex-judge/|record/blinded/)' | sort; rg -n '^#|Segment base rate by salience band|salience|Term|\\\\| 20' metrics/statpack.md | head -n 120\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "efada1183477c2b6",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:27:46.604Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5568a065dd030574",
+      "query": "const r = await tools.exec_command({cmd:\"base=data/cases/scotus/9526000139; ev=$base/events/evt-brief-response-disposition; nl -ba \\\"$ev/event.yaml\\\"; nl -ba \\\"$ev/outcome.json\\\"; for c in codex-baseline claude-baseline gemini-baseline; do for f in prediction.json reasoning.md predicted_reasoning.md retrieval.md retrieval_log.json; do echo \\\"FILE $base/record/blinded/$c/$f\\\"; nl -ba \\\"$base/record/blinded/$c/$f\\\"; done; done\",\"yield_time_ms\":10000,\"max_output_tokens\":40000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "0796ca76c590c888",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:27:49.636Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "c6e3345331cd5736",
+      "query": "const r = await tools.exec_command({cmd:\"base=data/cases/scotus/9526000139/record/blinded; for c in codex-baseline claude-baseline gemini-baseline; do for f in prediction.json reasoning.md predicted_reasoning.md retrieval.md; do echo \\\"FILE $base/$c/$f\\\"; nl -ba \\\"$base/$c/$f\\\"; done; done\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "f5719c2e1b3e94f3",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:27:53.089Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "4fb7d603d0407f23",
+      "query": "const r = await tools.exec_command({cmd:\"base=data/cases/scotus/9526000139/events/evt-brief-response-disposition/evaluations/codex-judge; for f in $(rg --files \\\"$base\\\" | sort); do echo \\\"FILE $f\\\"; nl -ba \\\"$f\\\"; done\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "e95c3a25f32877b1",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:27:57.450Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "419d4daa2456bc65",
+      "query": "const r = await tools.exec_command({cmd:\"base=data/cases/scotus/9526000139/record/blinded; for c in codex-baseline claude-baseline gemini-baseline; do echo \\\"LOG $c\\\"; jq -r '.mode, (.calls[] | [.timestamp,.tool,(.retrieved_doc_date//\\\"\\\"),(.result_status//\\\"\\\"),(.query//\\\"\\\")] | @tsv)' \\\"$base/$c/retrieval_log.json\\\"; done\",\"yield_time_ms\":10000,\"max_output_tokens\":40000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "6366f05718f23955",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:28:02.350Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d7624256aa7bbf4e",
+      "query": "const r = await tools.exec_command({cmd:\"nl -ba metrics/statpack.md\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "98b00ea50e2c76a2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:28:11.254Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "7a9da941c33f2925",
+      "query": "{\"message\": \"[redacted:fernet-token]\", \"target\": \"/root\"}",
+      "result_capture": "captured",
+      "result_digest": null,
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:28:40.769Z",
+      "tool": "send_message"
+    }
+  ],
+  "case_id": "scotus/9526000139",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "result_capture_coverage": 1.0,
+  "role": "evaluator",
+  "run_id": "20260824T231401Z",
+  "schema_version": "1.0",
+  "throttled_calls": null
+}

@@ -1,0 +1,3 @@
+The cell is interim. The baseline and skill are the harness's. 
+The prediction of `granted` was incorrect.
+The reasoning correctly identified the stakes and the Purcell principle, adjusting upwards from the statpack baseline, but ultimately reached the wrong conclusion. The analysis was conceptually sound but less detailed regarding the specific weaknesses of the intervenors compared to other predictors.

@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000124",
+  "gaps": [
+    "gemini-baseline's staged log has result_capture_coverage 0.0 (every call unobserved), so its leakage grading rests on queries and prose alone; a per-call reason for non-capture would say whether that is an engine limitation or a capture fault",
+    "the disposing order's text is not in the record, so nothing here could check the outcome writer's granted/partial reading against the order itself"
+  ],
+  "helpful": [
+    "metrics/statpack.md interim section \u2014 let the write-ups state what the harness-stamped baseline should be, so a null stamp is distinguishable from a thin pool",
+    "staged retrieval_log.json per candidate \u2014 the mode field plus retrieved_doc_date made the forward leakage check concrete rather than trust-based"
+  ],
+  "notes": "Interim cell: baseline, skill, and claim scores are all the harness's here, so the evaluator surface was correct/brier/reasoning-quality/leakage/big-case only.",
+  "role": "evaluator",
+  "run_id": "20260824T231401Z",
+  "tools_used": [
+    "file-read",
+    "shell"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

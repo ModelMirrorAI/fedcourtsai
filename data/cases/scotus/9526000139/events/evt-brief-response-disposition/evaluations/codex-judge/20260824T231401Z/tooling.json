@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260824T231401Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned event, outcome, and blinded candidate files",
+    "harness-captured candidate retrieval logs",
+    "metrics/statpack.md interim docket section"
+  ],
+  "helpful": [
+    "The blinded staging tree preserved identity-independent grading.",
+    "Captured retrieval logs made the forward-cell leakage assessment auditable.",
+    "The statpack stated the interim pool and its coverage caveats."
+  ],
+  "gaps": [],
+  "notes": "No corpus, CourtListener, or web retrieval was needed beyond the provisioned repository inputs."
+}

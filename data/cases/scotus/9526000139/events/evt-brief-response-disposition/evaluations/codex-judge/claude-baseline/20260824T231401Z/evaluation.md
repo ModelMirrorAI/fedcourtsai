@@ -1,0 +1,9 @@
+# Evaluation
+
+The prediction correctly called the interim disposition as denied. Its 0.10 probability of a grant yields a Brier score of 0.0100 against `actual_granted = 0`.
+
+I assigned reasoning quality of 0.94. The rationale clearly anchors on the strictly prior interim pool, appropriately declines to overread a thin and recency-skewed corpus slice, and identifies several case-specific obstacles to relief: the intervenor applicants' attenuated injury, the lower-court posture, the status quo and election-timing concern, and the possibility that only partial relief was plausible under a denial-first event rule. It is candid about the absence of the application and response text and uncertainty over a companion application. The modest deduction reflects that some important inferences, particularly the absence of a companion and the significance attributed to the Solicitor General's apparent restraint, rest on a docket skeleton, and the numerical move from 13.3% to 10% remains qualitative. The forecast document and claims block were not scored.
+
+This is an interim cell. The harness owns the baseline and skill fields, so neither is written in `evaluation.json`; the committed statpack supports a strictly prior OT2024–OT2025 pool of 30 grants among 225 resolved substantive applications, above the 50-case floor. That raw pool has uneven parse coverage and is broader than the escalation-selected prediction population. The mechanical interim claim block is also harness-owned, and votes are not scoreable at this stage.
+
+Leakage is not suspected. The prediction is forward and predates the August 24 resolution. The August 5 material in the log concerns the underlying First Circuit docket and does not reveal this application's disposition; no disposing order or result appears in the captured record.
