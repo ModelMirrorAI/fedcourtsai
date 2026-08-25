@@ -1,0 +1,17 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000124",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate staging and captured retrieval logs supported blind, mode-aware scoring."
+  ],
+  "notes": "The provisioned event, outcome, masked prediction prose, and captured logs were sufficient; no external retrieval or evaluator-side base-rate calculation was needed for this interim cell.",
+  "role": "evaluator",
+  "run_id": "20260825T024608Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned blinded filesystem inputs"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

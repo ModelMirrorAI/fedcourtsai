@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000124",
+  "run_id": "20260825T024608Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "provisioned blinded prediction artifacts",
+    "captured retrieval logs"
+  ],
+  "helpful": [
+    "Opaque candidate aliases preserved blind grading",
+    "Captured timestamps made forward-mode leakage review straightforward"
+  ],
+  "gaps": [],
+  "notes": "The provisioned event, outcome, masked predictions, prose, and retrieval logs were sufficient; no external retrieval was needed."
+}

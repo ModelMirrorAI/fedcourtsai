@@ -1,0 +1,15 @@
+{
+  "case_id": "scotus/9526000124",
+  "run_id": "20260825T024608Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "schema_version": "1.0",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "Candidate B correctly flagged that the frozen context records 6 amicus_briefs, while the snapshot has 13 amicus entries. The counter appears to miss 'Brief amici curiae' (plural).",
+      "event_id": "evt-motion-disposition"
+    }
+  ]
+}

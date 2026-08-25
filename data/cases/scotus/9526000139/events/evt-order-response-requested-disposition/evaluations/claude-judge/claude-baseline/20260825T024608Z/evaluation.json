@@ -1,0 +1,76 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.9,
+    "notes": "Emergency application by twelve intervenor states to stay a final judgment enjoining a presidential executive order on federal election administration, traveling with a parallel presidential application (26A124), months before the November 2026 midterms; the pair's resolution stayed the injunction pending appeal. Among the highest-stakes interim matters of the Term."
+  },
+  "brier_score": 0.0225,
+  "brier_skill_score": -0.265625,
+  "case_id": "scotus/9526000139",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.13333333333333333,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": -0.004722222222222221
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.004722222222222221,
+    "total": -0.004722222222222221
+  },
+  "correct": 1,
+  "created_at": "2026-08-25T02:50:53Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Genuinely forward: prediction created 2026-08-20, event resolved 2026-08-24. The candidate self-bounded its CourtListener docket-entry queries to on/before 2026-07-29; a corpus recency query surfaced other applications' rows dated up to 2026-08-19 and a committed companion-case prediction file (scotus/9526000124, snapshot 2026-08-16) was read and disclosed \u2014 all pre-resolution forward signal, not outcome material; this application's disposition did not yet exist. No sign of a mis-provisioned decided case.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5",
+  "notes_doc": "evaluation.md",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3aeddcede4c0161ead222b0a2f984d61779560be6c0219951f7fc61267039e16",
+    "label": "proc-v3",
+    "pipeline_sha": "69eff73f0b743d41731dde7bfebf01680f060e6b",
+    "stamped_at": "2026-08-25T02:53:59.762788Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20260825T024608Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.13333333333333333,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

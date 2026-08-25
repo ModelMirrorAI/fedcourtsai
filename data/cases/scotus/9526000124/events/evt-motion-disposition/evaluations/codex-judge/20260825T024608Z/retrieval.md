@@ -1,0 +1,1 @@
+No corpus, CourtListener MCP, or web retrieval was performed. An initial local file inventory exposed committed predictor directory names but no prediction contents or alias mapping; this protocol deviation is recorded in `flags.json` and was disregarded in grading.

@@ -1,0 +1,22 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000124",
+  "gaps": [
+    "a stated convention for reading a sparse captured log against a candidate's richer retrieval.md self-report (codex-baseline's log holds 3 calls over 10 seconds at result_capture_coverage 1.0 while its retrieval.md reports five PDF reads and an MCP call) \u2014 hard to tell capture gap from coverage-metric bug"
+  ],
+  "helpful": [
+    "the staged retrieval_log.json's per-call timestamps and retrieved_doc_date, which settled all three forward-mode leakage gradings quickly",
+    "the statpack's interim section stating its own pooling rule and floor in the scope line"
+  ],
+  "notes": "Interim cell, so the baseline/skill stamp is the harness's; nothing blocked. The blinded staging and masked logs were sufficient to grade every candidate without leaving the repo.",
+  "role": "evaluator",
+  "run_id": "20260825T024608Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "file reads over the blinded staging area and committed record",
+    "metrics/statpack.md (interim docket section)",
+    "python3 for JSON inspection of the staged retrieval logs"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

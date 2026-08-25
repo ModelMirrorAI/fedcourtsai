@@ -1,0 +1,15 @@
+{
+  "case_id": "scotus/9526000124",
+  "run_id": "20260825T024608Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell"
+  ],
+  "helpful": [
+    "clear prompt instructions and well-organized prediction outputs"
+  ],
+  "notes": "Evaluation completed purely from provisioned inputs without needing to consult the corpus or base rates directly, as they were not required to grade this interim cell."
+}

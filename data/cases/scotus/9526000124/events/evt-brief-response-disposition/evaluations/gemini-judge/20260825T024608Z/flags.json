@@ -1,0 +1,15 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000124",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-brief-response-disposition",
+      "message": "Candidate claude-baseline noted that the pipeline/interim_signals.py _AMICUS_RE matches 'amicus curiae' but misses 'amici curiae' plural entries, causing undercounting in the amicus signal.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260825T024608Z",
+  "schema_version": "1.0"
+}

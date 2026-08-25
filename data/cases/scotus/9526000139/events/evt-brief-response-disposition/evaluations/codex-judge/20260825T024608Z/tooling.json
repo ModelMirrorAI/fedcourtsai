@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260825T024608Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "blinded candidate staging",
+    "captured retrieval logs",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The blinded staging area supplied complete candidate artifacts without exposing identities.",
+    "Captured retrieval logs made the forward leakage assessment auditable.",
+    "The interim statpack section made clear that the strictly prior pool clears its floor."
+  ],
+  "gaps": [],
+  "notes": "No external retrieval was needed to score this resolved interim event."
+}
