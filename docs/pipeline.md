@@ -897,15 +897,56 @@ even the facts-only PR of a wholesale-failed run, where starvation is a live
 candidate cause. It is the only per-run record there is: the 429 payload itself
 is digested away at capture, so without the marker a starved run and a well-fed
 one look identical afterwards.
-The `run-seed` historical walker has its own instance of that pattern: a `guard`
+
+The same walk asks the corpus-side version of that question and writes a second
+harness-rendered note beside it: which cells ran a `fedcourts` corpus query
+(`query` / `open-events`) and reported not having used the corpus. A query that
+times out against the corpus index fails no cell — it finishes and predicts from
+whatever else it had — so without a run-level count the only trace is one line
+in one cell's report. What the note prints is a **disagreement between two
+channels, not a diagnosis**: the *attempt* is harness-captured (a shell row in
+the cell's own log, screened so a `--help` or a `grep` of the CLI's name is not
+read as a query — declining to use a tool is not the tool failing), while the
+*service* is the cell's own `tooling.json` line. A failed query leaves that
+shape and is the reason it is worth printing, but so does a cell that queried,
+got rows, and answered the field on another reading; the rows cannot separate
+them, so the note names its cells (`case/event/actor`, walk order) for a reader
+to check rather than asserting a cause. Its denominator is the cells whose
+attempt was **legible**, printed against the run's legible cell logs, because
+capture sees a code-mode cell's shell only partially and so the coverage differs
+by engine — which is also why the counts are not comparable across engines or
+across runs. Like the throttle note that warning stays silent where every
+attempt was served, and rides whichever PR the run opens. A cell whose answer
+cannot be read at all gets its own line rather than the warning's, because
+unknown and starved are different claims.
+
+A **capture tripwire** prints beside those two — and, unlike them, *also on a
+fully-served run*, since it reports on what could be seen rather than on what
+happened, and an unseen attempt is least suspected exactly where nothing looks
+wrong. It carries its own denominator: cells that called the freeform `exec`
+builtin with no calls lifted out of its source, over the cells that called it at
+all. Three readings, none separable from the rows — the program called nothing
+worth a row, the lift no longer matches the engine's calling idiom, or the call
+was an ordinary shell call spelled the same way (the parser tells those apart by
+the transcript item's type, which no row records). Either way the attempt counts
+above are partial for such a cell: a shell command run from inside a program
+gets no row of its own and is counted only where it falls inside the parent
+row's truncated source slice (`call_source` in
+[predicted-artifacts.md](predicted-artifacts.md)). The ratio is there because
+this is a standing condition rather than a per-run event.
+
+The `run-seed` historical walker has its own instance of the latched-issue
+pattern: a `guard`
 job raises one long-lived **pipeline-health** issue if the checkpointed walk is
 ever cancelled or fails (e.g. a chunk overran the job's hard timeout), and clears
 it when a later walk finishes clean — so a silent, PR-less writer failure still
 reaches a durable home.
 Separately, every cell may also write a `tooling.json` self-report on its
-environment/tooling, committed with the cell's output rather than rolled into the
-per-run PR/issue; the `run-ops` dashboard scans these into a tooling-feedback
-digest. See the `flags.json` and `tooling.json` channels in
+environment/tooling, committed with the cell's output; only its
+`used_corpus_query` line is read per run (it is the served side of the
+prior-availability note above), while the report as a whole is scanned across
+runs by the `run-ops` dashboard into a tooling-feedback digest. See the
+`flags.json` and `tooling.json` channels in
 [data-pipeline.md](data-pipeline.md).
 
 To trigger prediction/evaluation for **one** case, open an issue whose body

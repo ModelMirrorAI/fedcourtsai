@@ -765,6 +765,13 @@ def summarize_tooling(
     CLIs; ``helpful`` / ``gaps`` rank the most-mentioned abilities and missing tools
     across the in-window reports; ``recent`` keeps the latest few full reports (by run
     id, newest first) for detail.
+
+    ``corpus_query_uses`` is denominated over **every** in-window report, which is
+    not what the run PR's prior-availability note counts: that one denominates over
+    the cells whose corpus attempt the harness could see in their retrieval log,
+    and reads the same boolean as one side of a two-channel comparison. Same
+    field, different questions — "how many cells report using the tool" here,
+    "does a cell that demonstrably ran it also report using it" there.
     """
     items = [r for r in reports if _within_window(r.run_id, generated_at, window_days)]
     recent = sorted(items, key=lambda r: (r.run_id, r.case_id, r.actor_id), reverse=True)[

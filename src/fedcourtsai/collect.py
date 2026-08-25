@@ -28,8 +28,9 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from typing import Literal
 
+from .blinding import neutral_tool_class
 from .finalize import FinalizeRole
-from .schemas import AgentFlags, CellFailure, FlagSeverity
+from .schemas import AgentFlags, CellFailure, FlagSeverity, RetrievalCall
 
 DATA_JAIL = "data/"
 
@@ -347,6 +348,13 @@ class CollectPlan:
     ahead of the flags to whichever PR body opens, ``facts_only`` included:
     starvation is a live candidate cause of the wholesale failure that PR
     exists for.
+
+    ``prior_availability_markdown`` is the other half of that question, and the
+    one about the corpus rather than the upstream: whether the cells that asked
+    the corpus index for priors got them. It travels the same way — appended to
+    whichever PR body opens, ``facts_only`` included — and carries the
+    code-mode capture tripwire beside it, because that is the blindness bound
+    on its own count.
     """
 
     ready: PrPlan | None
@@ -354,6 +362,7 @@ class CollectPlan:
     skipped: tuple[CellStatus, ...] = ()
     flags_markdown: str = ""
     throttle_markdown: str = ""
+    prior_availability_markdown: str = ""
     feedback_comment: str = ""
     stalled: bool = False
     dead_actors: tuple[str, ...] = ()
@@ -523,6 +532,253 @@ def render_throttle_note(rollup: ThrottleRollup | None) -> str:
     )
 
 
+# The freeform builtin a code-mode engine is given in place of direct tool
+# exposure; capture mints the parent row under this name, and the manifest
+# calls the program makes are lifted out of its source into rows of their own
+# marked `code_mode_source`. A parent standing beside no lifted row is what
+# :func:`code_mode_lift_blind` keys on. Held here rather than imported so the
+# retrieval parser stays the one place that mints rows; a test pins the two
+# spellings together so a rename fails rather than silences the tripwire.
+CODE_MODE_PARENT_TOOL = "exec"
+
+# The corpus-CLI commands that pull priors, as they appear in a captured
+# command line — the same pair `tooling.json`'s `used_corpus_query` asks the
+# cell about, so the harness-observed side and the self-reported side
+# denominate over one command family rather than two. Lenient about the
+# command's surroundings, because a row keeps only a 500-character slice of its
+# params and the invocation carries whatever prefix the cell typed (`uv run`, a
+# `timeout`): the pattern matches wherever in the command it sits.
+#
+# Strict about one thing, because it is the difference between a query and a
+# reading of the manual: `--help` does not touch the corpus. A cell that ran
+# `fedcourts query --help`, read the flags, and decided the committed statpack
+# answered its question **declined** — counting that as a service failure would
+# report a choice as an outage, and it is the single commonest shape a
+# code-mode cell's program takes.
+_CORPUS_QUERY_RE = re.compile(r"\bfedcourts\s+(?:query|open-events)\b(?![\s\"'\\]*(?:--help|-h)\b)")
+# Where one command in a captured line ends and the next begins. Only the
+# segment a match sits in decides whether it is an invocation, so a chained
+# `cat schemas/... && uv run fedcourts query ...` is still a query.
+_SHELL_SEGMENT_RE = re.compile(r"[\n;|&]+")
+# Commands that take the corpus CLI's *name* as a pattern or a path rather than
+# running it — a cell grepping `docs/cli.md` for the flags asked the
+# repository, not the corpus.
+_READS_THE_NAME_RE = re.compile(r"\b(?:rg|ripgrep|grep|egrep|fgrep|sed|awk|less|head|tail)\b")
+
+# How many starved cells the note names before it summarizes the rest. The
+# names are the actionable part — they say which predictions to read as
+# prior-thin — but a wide run could starve dozens, and a PR body that is mostly
+# one paragraph of cell ids stops being read at all.
+_NAMED_CELL_CAP = 8
+
+
+def attempted_corpus_query(calls: Sequence[RetrievalCall]) -> bool:
+    """Whether this cell's captured shell ran a corpus-prior query at least once.
+
+    The harness-observed half of :class:`PriorAvailabilityRollup` — read from
+    the cell's own ``retrieval_log.json`` rather than from what the agent said
+    about its tooling. Three screens, and each drops a row where the command's
+    *name* appears but no query ran, because every one of those would otherwise
+    report a cell's choice as the corpus failing it:
+
+    * the row must be a **shell** call, so only one that could have *run* the
+      command counts (which engine spellings those are comes from
+      :func:`~fedcourtsai.blinding.neutral_tool_class`, the one place this
+      vocabulary is defined, rather than a second copy that would drift from
+      it) — otherwise a cell that only *wrote* the command into its own
+      ``retrieval.md``, describing what it tried, would read as having run it;
+    * the subcommand must not be immediately followed by ``--help`` / ``-h``
+      (:data:`_CORPUS_QUERY_RE`) — a flag further along the line is not
+      screened, which errs toward counting the attempt;
+    * and the command *segment* it sits in must not be a `grep`-alike reading
+      the corpus CLI's name out of this repository's docs.
+
+    What survives is still syntactic, and still misses in one direction: an
+    invocation past the query slice's 500-character cut — where a code-mode
+    cell's often sits, since its shell runs from inside a program — is not
+    counted at all. The note it feeds is advisory, and says so.
+    """
+    for call in calls:
+        if neutral_tool_class(call.tool) != "shell":
+            continue
+        text = call.query or ""
+        for match in _CORPUS_QUERY_RE.finditer(text):
+            segment = _SHELL_SEGMENT_RE.split(text[: match.start()])[-1]
+            if not _READS_THE_NAME_RE.search(segment):
+                return True
+    return False
+
+
+def code_mode_lift_blind(calls: Sequence[RetrievalCall]) -> bool:
+    """Whether this cell ran a code-mode program and nothing was lifted from it.
+
+    The tripwire on the capture path the attempt count depends on. A code-mode
+    cell reaches everything — manifest tools and the shell alike — from inside
+    the program one freeform :data:`CODE_MODE_PARENT_TOOL` call carries, so the
+    only rows that can name what it did are the ones capture lifts out of that
+    program's source. Parents with no lifted row beside them is the shape a
+    lift that stopped matching the engine's calling idiom leaves.
+
+    It is a hint, not a finding, and it is loose at both ends. A program that
+    genuinely called no manifest tool leaves the same shape as a lift that
+    matched nothing, and the rows cannot separate the two. Nor can they
+    separate a code-mode parent from an ordinary shell call an engine happens
+    to spell the same way: the parser distinguishes them by the transcript
+    item's *type*, which no field of the row records. That is exactly why it is
+    worth printing — the reading a maintainer would otherwise default to is
+    that the cell simply retrieved nothing.
+    """
+    return any(call.tool == CODE_MODE_PARENT_TOOL for call in calls) and not any(
+        call.call_source == "code_mode_source" for call in calls
+    )
+
+
+@dataclass(frozen=True)
+class PriorAvailabilityRollup:
+    """Whether this run's corpus priors actually reached the cells that asked.
+
+    A cell whose ``fedcourts query`` times out against the corpus index is not
+    a failed cell: it finishes, predicts from whatever else it had, and the
+    only trace is one line in its own ``tooling.json``. Across a fan-out that
+    is invisible, which is what this counts — the run-level rate at which the
+    corpus-prior channel served the cells that reached for it.
+
+    The two sides are **different kinds of evidence** and must not be read as
+    one measurement. ``attempted`` is harness-captured: a shell row in the
+    cell's retrieval log whose command ran a corpus-prior query. ``served`` is
+    the cell's own word: the sibling ``tooling.json``'s ``used_corpus_query``.
+    So ``starved`` is not "the corpus failed this cell" — it is the *disagreement*
+    between the two channels, and at least three things produce it: a query
+    that failed or timed out, a cell that queried and answered the field on
+    some other reading, and a mis-parse on either side. The rows cannot
+    separate them, which is why the count is advisory and the note names the
+    disagreement rather than a cause.
+
+    The two sides do at least ask about roughly the same commands, and where
+    they differ it is in the safe direction: :data:`_CORPUS_QUERY_RE` covers the
+    ``query`` / ``open-events`` pair, while the tooling field's own wording
+    ("query/open-events/etc.") is a **superset** — so a broader reading of the
+    field can only move a cell out of ``starved``, never into it.
+
+    ``cells`` is every legible cell log this run, the count ``attempted`` is a
+    subset of. It rides along because ``attempted`` is not "the cells that
+    asked": a code-mode cell's query is visible only where it falls inside its
+    parent row's truncated source slice, so the denominator is **legibility**,
+    and a reader who cannot see how much of the run it covers will read it as
+    the run.
+
+    ``starved`` and ``unreported`` name their cells (``case/event/actor``)
+    rather than counting them. They are separate because the claims differ:
+    ``starved`` is a cell that reported no corpus use, ``unreported`` a cell
+    whose report could not be read at all, which is unknown rather than no.
+    Both lists are in artifact-walk order, so they are a prefix rather than a
+    ranking — the note says so, because the cap means only the first few show.
+
+    ``lift_blind_cells`` of ``code_mode_cells`` is the blindness bound on
+    everything above, the counterpart of :class:`ThrottleRollup`'s
+    ``blind_cells``. It carries its own denominator because it is a standing
+    condition rather than a per-run event: the lift matches one calling idiom,
+    and a bare numerator on a surface read once per run would present a
+    long-running gap as a fresh regression every time.
+    """
+
+    cells: int = 0
+    attempted: int = 0
+    served: int = 0
+    starved: tuple[str, ...] = ()
+    unreported: tuple[str, ...] = ()
+    code_mode_cells: int = 0
+    lift_blind_cells: int = 0
+
+
+def _named_cells(names: Sequence[str]) -> str:
+    """Cell ids as an inline code-quoted list, capped at :data:`_NAMED_CELL_CAP`.
+
+    Each id is collapsed to one line and stripped of the backtick that would
+    otherwise close the code span early — the same defence :func:`_md_cell`
+    gives an agent-authored flag message. Belt and braces here: the ids are
+    harness-written (capture stamps the log's ``case_id`` / ``actor_id`` from
+    the matrix after the agent has finished, and the event id comes from the
+    artifact path), so the no-agent-text property the facts-only PR body relies
+    on holds without this — but the file does sit in the cell's own tree, and
+    the escape costs nothing.
+    """
+    shown = ", ".join(f"`{_md_cell(name).replace('`', '')}`" for name in names[:_NAMED_CELL_CAP])
+    rest = len(names) - _NAMED_CELL_CAP
+    return f"{shown}, and {rest} more" if rest > 0 else shown
+
+
+def render_prior_availability_note(rollup: PriorAvailabilityRollup | None) -> str:
+    """The run PR's note on the corpus-prior channel, or ``""``.
+
+    Up to three paragraphs, each printed only when it has something to say: the
+    cells that asked the corpus for priors and reported not getting them, the
+    cells whose answer could not be read at all, and the tripwire on whether
+    code-mode capture could have seen such an attempt in the first place. The
+    first two are separate because the claims are: a warning that the channel
+    failed is not the same as a note that nobody can tell, and merging them
+    would let the louder one speak for both.
+
+    The two prior paragraphs are silent on a run where every attempt was
+    served, and on one where no cell asked — the same convention
+    :func:`render_throttle_note` keeps, and for the same reason: a standing "0
+    starved" paragraph on a surface read once per run trains the eye to skip
+    exactly the place the warning will one day appear. The denominator
+    therefore rides inside the warning, where a reader needs it, rather than
+    standing alone as a clean-run line.
+
+    The tripwire is **not** conditioned on either of them, so a fully-served run
+    still prints it whenever a code-mode program lifted nothing. That is
+    deliberate: it is a statement about what capture could see, and a
+    fully-served run is exactly where an unseen attempt would be least
+    suspected. It is the reason this function returning non-empty is not by
+    itself evidence that anything went wrong with the corpus.
+    """
+    if rollup is None:
+        return ""
+    paragraphs: list[str] = []
+    if rollup.starved:
+        paragraphs.append(
+            f"⚠️ **Cells ran a corpus query and reported no corpus use**: "
+            f"{len(rollup.starved)} of {rollup.attempted} cell(s) whose corpus attempt was "
+            f"legible, out of {rollup.cells} legible cell log(s) this run — "
+            f"{_named_cells(rollup.starved)} (walk order, not severity). **A disagreement "
+            f"between two channels, not a diagnosis.** The attempt is harness-captured (a "
+            f"shell row); the service is the cell's own `tooling.json`. A query that failed "
+            f"or timed out against the corpus index leaves this shape, and it is the reason "
+            f"the count is worth printing — but so does a cell that queried, got rows, and "
+            f"answered the field on some other reading, and the rows cannot tell those "
+            f"apart. Read the named cells' `tooling.json` notes before concluding anything "
+            f"about their priors. Not comparable across engines or across runs: the "
+            f"denominator is what capture could read, which differs by engine."
+        )
+    if rollup.unreported:
+        paragraphs.append(
+            f"❔ **Whether the corpus served {len(rollup.unreported)} of {rollup.attempted} "
+            f"cell(s) with a legible attempt cannot be read**: no `tooling.json` of their own "
+            f"parsed, so there is no answer either way — unknown, not served and not "
+            f"starved: {_named_cells(rollup.unreported)}."
+        )
+    if rollup.lift_blind_cells:
+        paragraphs.append(
+            f"🔍 **Code-mode capture may be blind**: {rollup.lift_blind_cells} of "
+            f"{rollup.code_mode_cells} cell(s) that called the freeform "
+            f"`{CODE_MODE_PARENT_TOOL}` builtin — how a code-mode engine runs a program — "
+            f"had **zero** calls lifted out of its source. Three readings, and the rows "
+            f"separate none of them: the program called nothing worth a row, the lift no "
+            f"longer matches the engine's calling idiom, or the call was an ordinary shell "
+            f"call an engine spells the same way (the parser tells those apart by the "
+            f"transcript item's type, which no row records). A standing condition rather "
+            f"than a fresh regression: check the ratio "
+            f"against earlier runs before reading it as new. Either way the attempt counts "
+            f"above are partial for such a cell — its shell runs from inside a program, so a "
+            f"query gets no row of its own and is counted only where it falls inside the "
+            f"parent row's truncated source slice. What a lifted row does and does not "
+            f"claim: `call_source` in `docs/predicted-artifacts.md`."
+        )
+    return "\n\n".join(paragraphs)
+
+
 def feedback_marker(role: FinalizeRole, run_id: str) -> str:
     """The hidden HTML marker that keys one run's note on the agent-feedback issue.
 
@@ -569,7 +825,7 @@ def render_stall_comment(role: FinalizeRole, run_url: str) -> str:
     )
 
 
-def collect_plan(
+def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the plan reads
     role: FinalizeRole,
     *,
     run_id: str,
@@ -579,6 +835,7 @@ def collect_plan(
     missing_artifacts: Sequence[str] = (),
     expected: Sequence[ExpectedCell] = (),
     throttle: ThrottleRollup | None = None,
+    prior_availability: PriorAvailabilityRollup | None = None,
 ) -> CollectPlan:
     """Partition a run's cells into one ready PR, one draft PR, and the skipped.
 
@@ -631,6 +888,13 @@ def collect_plan(
     is digested away at capture, so nothing else records that a run was starved.
     Silent on a run that was genuinely clean, but not on one that merely could
     not see — those two must not look alike.
+
+    ``prior_availability`` asks the same question of the *corpus* channel:
+    which cells reached for corpus priors and did not get them. It rides the
+    same bodies for the same reason. Its warning is likewise silent on a run
+    where every attempt was served; the code-mode capture tripwire it carries
+    beside that warning is not, because it reports on what could be seen rather
+    than on what happened.
     """
     if role not in _JUDGMENT_NOUN:
         raise ValueError(f"collect_plan supports predict/evaluate, not {role.value}")
@@ -731,6 +995,7 @@ def collect_plan(
         )
 
     throttle_md = render_throttle_note(throttle)
+    prior_md = render_prior_availability_note(prior_availability)
 
     # A wholesale-failed run — no ready PR and no draft — still has failure facts
     # to persist (skipped/salvage/uncovered), and no other PR to carry them. The
@@ -747,20 +1012,23 @@ def collect_plan(
             skipped=skipped,
             salvage=tuple(salvage),
             uncovered=uncovered,
-            throttle_md=throttle_md,
+            notes=(throttle_md, prior_md),
         )
 
     flags_md = render_flags(flags)
-    # Throttle first: it is a harness fact about what the run could see, which
-    # is the frame a maintainer needs before reading agents' accounts of what
-    # they found.
-    ready_plan, partial_plan = _append_sections(ready_plan, partial_plan, (throttle_md, flags_md))
+    # The harness facts first — what the run could see, and what reached it —
+    # because that is the frame a maintainer needs before reading the agents'
+    # own accounts of what they found.
+    ready_plan, partial_plan = _append_sections(
+        ready_plan, partial_plan, (throttle_md, prior_md, flags_md)
+    )
     return CollectPlan(
         ready=ready_plan,
         partial=partial_plan,
         skipped=skipped,
         flags_markdown=flags_md,
         throttle_markdown=throttle_md,
+        prior_availability_markdown=prior_md,
         feedback_comment=render_feedback_comment(role, run_id, flags_md),
         stalled=bool(cells) and not any(c.produced or c.agent_ok for c in cells),
         dead_actors=dead_actors,
@@ -779,7 +1047,7 @@ def _facts_only_plan(
     skipped: Sequence[CellStatus],
     salvage: Sequence[CellStatus],
     uncovered: Sequence[ExpectedCell],
-    throttle_md: str = "",
+    notes: Sequence[str] = (),
 ) -> PrPlan | None:
     """The auto-merging PR that persists a wholesale-failed run's failure facts.
 
@@ -793,11 +1061,13 @@ def _facts_only_plan(
     agent-authored text — so the producer-side secret scan can never withhold the
     branch and lose the very facts it exists to persist.
 
-    ``throttle_md`` rides along when the run's captured retrieval has anything
-    to say — the quota turning cells away, or no cell being able to tell —
-    because this is the one PR a wholesale-failed run opens and starvation is a
-    live candidate cause of one. It is harness-rendered from the cells' own
-    logs, so it keeps the body's no-agent-text property.
+    ``notes`` are the run-level retrieval roll-ups — the upstream quota turning
+    cells away (or no cell being able to tell), and the corpus index not
+    serving the cells that asked it for priors. They ride along when they have
+    anything to say, because this is the one PR a wholesale-failed run opens
+    and starvation on either channel is a live candidate cause of one. Both are
+    harness-rendered from the cells' own logs, so they keep the body's
+    no-agent-text property. Empty ones are dropped.
     """
     total = len(skipped) + len(salvage) + len(uncovered)
     if total == 0:
@@ -820,8 +1090,9 @@ def _facts_only_plan(
         f"The trigger issue stays open — the run genuinely failed and still needs "
         f"a successful retry or a human."
     )
-    if throttle_md:
-        body = f"{body}\n\n{throttle_md}"
+    for note in notes:
+        if note:
+            body = f"{body}\n\n{note}"
     return PrPlan(
         branch=f"{role.value}/run-{run_id}-facts",
         commit_message=f"{role.value}(run {run_id}): {total} cell-failure fact(s)",
@@ -841,19 +1112,20 @@ def _append_sections(
 ) -> tuple[PrPlan | None, PrPlan | None]:
     """Append the run-level roll-ups to the run's primary PR body (ready, else draft).
 
-    The flag roll-up and the throttle note belong to the run, not a single cell,
-    so they ride the one PR a maintainer reviews — the auto-merging ready PR
-    when there is one, otherwise the draft. Empty sections are dropped, so a run
-    with neither leaves the body untouched; with no PR at all each roll-up still
-    travels on the plan (``flags_markdown`` / ``throttle_markdown``) and out
-    through ``collect-plan``'s JSON.
+    The flag roll-up, the throttle note, and the prior-availability note belong
+    to the run, not a single cell, so they ride the one PR a maintainer reviews
+    — the auto-merging ready PR when there is one, otherwise the draft. Empty
+    sections are dropped, so a run with none leaves the body untouched; with no
+    PR at all each roll-up still travels on the plan (``flags_markdown`` /
+    ``throttle_markdown`` / ``prior_availability_markdown``) and out through
+    ``collect-plan``'s JSON.
 
-    The two are not equally surfaced. The flag roll-up also reaches the Actions
+    They are not equally surfaced. The flag roll-up also reaches the Actions
     summary and the agent-feedback issue, because the collect action reads it
-    off that JSON and echoes it; the throttle note reaches the PR body alone
-    until that action is wired to echo it too, which is a change to the
-    permission surface and so a maintainer's to make. Both are on the JSON so
-    the wiring is the only thing missing.
+    off that JSON and echoes it; the two harness-rendered notes reach the PR
+    body alone until that action is wired to echo them too, which is a change
+    to the permission surface and so a maintainer's to make. All three are on
+    the JSON so the wiring is the only thing missing.
     """
     body = "\n\n".join(section for section in sections if section)
     if not body:

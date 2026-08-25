@@ -72,15 +72,19 @@ from .cert_backtest import (
 )
 from .claim_metrics import agreement_summary, build_claim_scores
 from .collect import (
+    CODE_MODE_PARENT_TOOL,
     CellStatus,
     CollectPlan,
     ExpectedCell,
     PathJailError,
+    PriorAvailabilityRollup,
     PrPlan,
     ThrottleRollup,
     assert_cleanup_within_jail,
     assert_within_jail,
+    attempted_corpus_query,
     cell_failures,
+    code_mode_lift_blind,
     collect_plan,
     parse_name_status,
     render_stall_comment,
@@ -194,6 +198,7 @@ from .salience_replay import replay_gate
 from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
+    AgentToolingFeedback,
     CellFailure,
     ClaimScoreBlock,
     ConferenceBucket,
@@ -9348,6 +9353,14 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # `flags` into the Actions summary can echo this beside it without
         # re-reading a single artifact. Empty on a genuinely clean run.
         "throttle": plan.throttle_markdown,
+        # The corpus-side counterpart of `throttle`: which cells asked the
+        # corpus index for priors and did not get them, plus the tripwire on
+        # whether code-mode capture could have seen such an attempt at all. It
+        # rides the PR body and leaves the process here for the same reason.
+        # The warning half is empty on a run where every attempt was served;
+        # the tripwire half still prints there, because it reports on what
+        # capture could see rather than on what the corpus did.
+        "prior_availability": plan.prior_availability_markdown,
         "feedback_comment": plan.feedback_comment,
         "stalled": plan.stalled,
         "dead_actors": list(plan.dead_actors),
@@ -9436,8 +9449,109 @@ def _load_flag_sets(status_dir: Path, run_id: str) -> list[AgentFlags]:
     return flag_sets
 
 
-def _load_throttle(status_dir: Path, run_id: str) -> ThrottleRollup:
-    """Summarize this run's captured retrieval throttling from the cell artifacts.
+def _event_id_from_path(path: Path) -> str:
+    """The event id an artifact path carries (``.../events/<event id>/...``), or ``""``.
+
+    Neither ``RetrievalLog`` nor ``AgentToolingFeedback`` records the event, so
+    the path is the only place a per-cell identity can pick it up. Searched from
+    the right, because the case segments are upstream of it and a directory that
+    happens to be named ``events`` higher up must not win. A path that carries
+    none — a hand-built fixture, a layout change — yields ``""`` rather than
+    raising: it feeds a notification, and a missing segment must not take down
+    the aggregation carrying the run's only copy of its output.
+    """
+    parts = path.parts[:-1]
+    for index in range(len(parts) - 2, -1, -1):
+        if parts[index] == "events":
+            return parts[index + 1]
+    return ""
+
+
+def _cell_name(log: RetrievalLog, path: Path) -> str:
+    """One cell as ``case/event/actor``, for a note that names cells rather than counts."""
+    return "/".join(part for part in (log.case_id, _event_id_from_path(path), log.actor_id) if part)
+
+
+def _reported_corpus_use(log: RetrievalLog, path: Path) -> bool | None:
+    """This cell's own ``tooling.json`` answer on whether it used the corpus query.
+
+    ``None`` where there is no answer to read — no sibling report, one that
+    does not parse, or one describing a different cell (an earlier run's report
+    riding along in the artifact). Unknown is kept distinct from ``False``
+    throughout, because "the cell said it got nothing" and "the cell said
+    nothing" are different claims and only the first is evidence of starvation.
+    """
+    try:
+        report = AgentToolingFeedback.model_validate_json(
+            (path.parent / "tooling.json").read_text()
+        )
+    except (OSError, ValueError):
+        return None
+    if (report.case_id, report.run_id, report.actor_id, report.role) != (
+        log.case_id,
+        log.run_id,
+        log.actor_id,
+        log.role,
+    ):
+        return None
+    return report.used_corpus_query
+
+
+def _add_prior_cell(
+    rollup: PriorAvailabilityRollup, log: RetrievalLog, path: Path
+) -> PriorAvailabilityRollup:
+    """Fold one cell's log (and its sibling tooling report) into the prior rollup."""
+    rollup = replace(rollup, cells=rollup.cells + 1)
+    if any(call.tool == CODE_MODE_PARENT_TOOL for call in log.calls):
+        rollup = replace(rollup, code_mode_cells=rollup.code_mode_cells + 1)
+    if code_mode_lift_blind(log.calls):
+        rollup = replace(rollup, lift_blind_cells=rollup.lift_blind_cells + 1)
+    if not attempted_corpus_query(log.calls):
+        return rollup
+    rollup = replace(rollup, attempted=rollup.attempted + 1)
+    served = _reported_corpus_use(log, path)
+    if served:
+        return replace(rollup, served=rollup.served + 1)
+    name = _cell_name(log, path)
+    if served is None:
+        return replace(rollup, unreported=(*rollup.unreported, name))
+    return replace(rollup, starved=(*rollup.starved, name))
+
+
+def _add_throttle_cell(rollup: ThrottleRollup, log: RetrievalLog) -> ThrottleRollup:
+    """Fold one cell's log into the throttle rollup.
+
+    Denominated by :func:`~fedcourtsai.schemas.observed_mcp_conditions` — the
+    same helper the log's own ``throttled_calls`` and the corpus rollup's
+    per-engine rate denominate by — so the three figures a maintainer may read
+    side by side mean one thing. A cell it leaves empty (capture-blind, or
+    calling no manifest tool) is counted as ``blind_cells`` rather than as a
+    clean cell, because it could not have shown a throttle and must not read as
+    evidence of none.
+    """
+    observed = observed_mcp_conditions(log.calls)
+    if not observed:
+        return replace(rollup, blind_cells=rollup.blind_cells + 1)
+    throttled = sum(1 for call in observed if call.result_status == "throttled")
+    return replace(
+        rollup,
+        cells=rollup.cells + 1,
+        throttled_cells=rollup.throttled_cells + bool(throttled),
+        calls=rollup.calls + len(observed),
+        throttled_calls=rollup.throttled_calls + throttled,
+    )
+
+
+def _load_retrieval_rollups(
+    status_dir: Path, run_id: str
+) -> tuple[ThrottleRollup, PriorAvailabilityRollup]:
+    """Summarize this run's captured retrieval from the cell artifacts.
+
+    One walk, two roll-ups, because both read the same files and the fan-out
+    they are read across is wide: what the shared upstream quota did to the run
+    (:class:`~fedcourtsai.collect.ThrottleRollup`) and whether the corpus index
+    served the cells that asked it for priors
+    (:class:`~fedcourtsai.collect.PriorAvailabilityRollup`).
 
     The same walk shape as :func:`_load_flag_sets`, and for the same reason:
     each cell uploads its whole ``data/`` subtree, so the run's
@@ -9447,7 +9561,10 @@ def _load_throttle(status_dir: Path, run_id: str) -> ThrottleRollup:
     throttling is not this run's; and **identity**, keyed on the cell a log
     describes, because a log committed by an earlier cell of this same run rides
     along in later cells' artifacts and would otherwise be counted once per
-    cell.
+    cell. That identity takes its event id from the path, since a log records
+    the case and the actor but not the event: a run covering two events of one
+    case for one actor is two cells, and keying without the event would fold
+    the second away — invisibly, in a note that names cells one by one.
 
     The run-id filter runs twice, once in the glob and once on the parsed
     record, and the pair is not redundant. Both roles key a cell's directory on
@@ -9457,45 +9574,38 @@ def _load_throttle(status_dir: Path, run_id: str) -> ThrottleRollup:
     fan-out. The record's own ``run_id`` is what the count is actually keyed
     on, so the cheap path filter can never be the thing that decides.
 
-    Denominated by :func:`~fedcourtsai.schemas.observed_mcp_conditions` — the
-    same helper the log's own ``throttled_calls`` and the corpus rollup's
-    per-engine rate denominate by — so the three figures a maintainer may read
-    side by side mean one thing. A cell it leaves empty (capture-blind, or
-    calling no manifest tool) is counted as ``blind_cells`` rather than as a
-    clean cell, because it could not have shown a throttle and must not read as
-    evidence of none. A malformed or unreadable log lands there too rather than
-    being dropped: it is a cell of this run — its path carries the run id — whose
-    condition nothing can read, which is exactly what the counter means. It is
-    never fatal, because this is a notification and it must never take down the
-    aggregation that carries the run's only copy of its output.
+    A malformed or unreadable log counts as a throttle-blind cell rather than
+    being dropped: it is a cell of this run — its path carries the run id —
+    whose condition nothing can read, which is exactly what that counter means.
+    It contributes nothing to the prior roll-up, whose attempt side needs rows
+    it does not have. Neither is ever fatal, because these are notifications
+    and must never take down the aggregation that carries the run's only copy
+    of its output.
     """
-    seen: set[tuple[str, str, str, str]] = set()
-    rollup = ThrottleRollup()
+    seen: set[tuple[str, str, str, str, str]] = set()
+    throttle = ThrottleRollup()
+    priors = PriorAvailabilityRollup()
     for path in sorted(status_dir.glob(f"**/{run_id}/retrieval_log.json")):
         try:
             log = RetrievalLog.model_validate_json(path.read_text())
         except (OSError, ValueError):
-            rollup = replace(rollup, blind_cells=rollup.blind_cells + 1)
+            throttle = replace(throttle, blind_cells=throttle.blind_cells + 1)
             continue
         if log.run_id != run_id:
             continue
-        identity = (log.case_id, log.actor_id, str(log.role), log.run_id)
+        identity = (
+            log.case_id,
+            _event_id_from_path(path),
+            log.actor_id,
+            str(log.role),
+            log.run_id,
+        )
         if identity in seen:
             continue
         seen.add(identity)
-        observed = observed_mcp_conditions(log.calls)
-        if not observed:
-            rollup = replace(rollup, blind_cells=rollup.blind_cells + 1)
-            continue
-        throttled = sum(1 for call in observed if call.result_status == "throttled")
-        rollup = replace(
-            rollup,
-            cells=rollup.cells + 1,
-            throttled_cells=rollup.throttled_cells + bool(throttled),
-            calls=rollup.calls + len(observed),
-            throttled_calls=rollup.throttled_calls + throttled,
-        )
-    return rollup
+        throttle = _add_throttle_cell(throttle, log)
+        priors = _add_prior_cell(priors, log, path)
+    return throttle, priors
 
 
 @app.command("collect-plan")
@@ -9533,7 +9643,11 @@ def collect_plan_cmd(
     which the collect step echoes into the Actions summary; ``feedback_comment``
     is the same roll-up wrapped for the long-lived agent-feedback tracking issue
     (empty when no flags), which the collect step posts so a note survives even a
-    fully-failed run that opens no PR.
+    fully-failed run that opens no PR. ``throttle`` and ``prior_availability``
+    are the two harness-rendered retrieval notes, read from the cells' own
+    captured logs and likewise appended to the PR body: what the shared upstream
+    quota did to the run, and whether the corpus index served the cells that
+    asked it for priors. Both are empty on a run with nothing to report.
     """
     cells = []
     for status_path in sorted(status_dir.glob("**/status.json")):
@@ -9541,6 +9655,7 @@ def collect_plan_cmd(
         cells.append(
             CellStatus.from_dict(json.loads(status_path.read_text()), artifact_dir=artifact_dir)
         )
+    throttle, priors = _load_retrieval_rollups(status_dir, run_id)
     plan = collect_plan(
         role,
         run_id=run_id,
@@ -9562,7 +9677,12 @@ def collect_plan_cmd(
         # from the cells' harness-captured logs, not from what an agent said:
         # the 429 evidence lives only in the result payload, which capture
         # digests away, so the parse-time marker is the last place it is legible.
-        throttle=_load_throttle(status_dir, run_id),
+        throttle=throttle,
+        # And whether the corpus index served the cells that asked it for
+        # priors. A timed-out `fedcourts query` fails no cell — the cell
+        # predicts from whatever else it had — so without a run-level count the
+        # only trace is one line in one cell's tooling report.
+        prior_availability=priors,
     )
     typer.echo(
         json.dumps(_collect_plan_json(plan, role=role, run_id=run_id), separators=(",", ":"))
