@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000124",
+  "run_id": "20260825T024608Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell"],
+  "helpful": ["shell"],
+  "gaps": [],
+  "notes": "Evaluation complete using local files. No additional tools needed."
+}

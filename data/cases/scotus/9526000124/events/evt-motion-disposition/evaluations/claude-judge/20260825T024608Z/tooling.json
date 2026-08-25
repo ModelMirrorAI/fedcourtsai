@@ -1,0 +1,22 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000124",
+  "gaps": [
+    "a per-candidate note of the event's resolution date beside the staged log would save re-deriving the forward/replay timing comparison from outcome.json",
+    "gemini-baseline's log had result_capture_coverage 0.0, so leakage grading fell back to query text alone; captured result digests even without content would confirm what a web search returned"
+  ],
+  "helpful": [
+    "the staged retrieval_log.json's mode field and retrieved_doc_date column, which made the forward leakage check mechanical",
+    "the statpack's interim table caption stating the pooling rule and floor inline"
+  ],
+  "notes": "All quantitative inputs came from the provisioned cell and the committed statpack; the corpus service was not needed for an interim cell whose baseline is harness-stamped.",
+  "role": "evaluator",
+  "run_id": "20260825T024608Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "file reads over the blinded staging area and committed record",
+    "metrics/statpack.md (interim section)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

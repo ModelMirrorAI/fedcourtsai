@@ -1,0 +1,14 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000124",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "Multiple candidates (codex-baseline, claude-baseline) noted a discrepancy where the frozen context `amicus_briefs` count was 6 but the snapshot showed 13 amicus entries. The extraction logic may be missing plural 'amici curiae' wording.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260825T024608Z"
+}

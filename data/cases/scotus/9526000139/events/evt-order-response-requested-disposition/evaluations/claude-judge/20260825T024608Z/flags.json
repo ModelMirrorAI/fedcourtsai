@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000139",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "claude-baseline's disclosed retrieval includes another predictor's committed prediction.json for the companion case scotus/9526000124 (read 'for field conventions', also yielding forward signal about the companion application). Forward-mode retrieval is unrestricted and the disclosure was honest, so this is not leakage \u2014 but it is a cross-predictor anchoring channel: predictors reading each other's committed outputs weakens the independence of the cohort's forecasts. Maintainers may want the predict prompt to speak to it.",
+      "severity": "info"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "outcome.json records interim_signals.amicus_briefs = 2, but the provisioned 2026-08-24 snapshot's docket text shows five amicus filings on Aug 3 2026 (NSL4A, 56 Former Judges, Bipartisan Former Governors, Society for the Rule of Law, Asian Law Caucus et al.). Immaterial here \u2014 the frozen count was 0, so the amicus-increment claim resolves the same either way \u2014 but the resolver appears to undercount amicus entries on this docket.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260825T024608Z",
+  "schema_version": "1.0"
+}

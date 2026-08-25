@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260825T024608Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "read_file", "write_file"],
+  "helpful": ["read_file", "write_file"],
+  "gaps": [],
+  "notes": "No corpus query was needed as the ground truth outcome and candidates' reasoning and retrieval logs were sufficient to evaluate."
+}

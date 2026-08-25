@@ -1,0 +1,111 @@
+{
+  "actor_id": "codex-judge",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "55c3049e9644d75b",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '1,260p' AGENTS.md && sed -n '1,320p' .github/prompts/evaluate.md\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":50000}); text(r.output)",
+      "result_capture": "captured",
+      "result_digest": "734b20863217fa94",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-25T02:56:10.286Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "6d4b181d68ef09d2",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '261,620p' AGENTS.md && sed -n '321,760p' .github/prompts/evaluate.md && sed -n '1,320p' schemas/evaluation.schema.json\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":50000}); text(r.output)",
+      "result_capture": "captured",
+      "result_digest": "ed5ea125f508d2ac",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-25T02:56:13.511Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "7a1e0d262970ad5c",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '321,520p' .github/prompts/evaluate.md\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000}); text(r.output)",
+      "result_capture": "captured",
+      "result_digest": "8a4b3b741beb77a1",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-25T02:56:15.775Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "67212bb1a4f5e9f1",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '521,760p' .github/prompts/evaluate.md\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000}); text(r.output)",
+      "result_capture": "captured",
+      "result_digest": "344cff8f8ce05850",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-25T02:56:17.153Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "6e888718c954cdf4",
+      "query": "const r = await tools.exec_command({cmd:\"for f in prediction.json reasoning.md predicted_reasoning.md retrieval.md retrieval_log.json; do echo \\\"===== $f\\\"; sed -n '1,260p' \\\"data/cases/scotus/9526000124/record/blinded/gemini-baseline/$f\\\"; done\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000}); text(r.output)",
+      "result_capture": "captured",
+      "result_digest": "e499cd463c101419",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-25T02:56:19.353Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ecfaf0a8b551728e",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '261,520p' data/cases/scotus/9526000124/record/blinded/gemini-baseline/retrieval_log.json\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":20000}); text(r.output)",
+      "result_capture": "captured",
+      "result_digest": "230ab7d7626c2d35",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-25T02:56:21.145Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "398bc9fa3cf6fa80",
+      "query": "{\"message\": \"[redacted:fernet-token]\", \"target\": \"/root\"}",
+      "result_capture": "captured",
+      "result_digest": null,
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-25T02:56:38.349Z",
+      "tool": "send_message"
+    }
+  ],
+  "case_id": "scotus/9526000124",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "result_capture_coverage": 1.0,
+  "role": "evaluator",
+  "run_id": "20260825T024608Z",
+  "schema_version": "1.0",
+  "throttled_calls": null
+}
