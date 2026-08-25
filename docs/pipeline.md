@@ -417,6 +417,13 @@ pattern rather than rediscovering it:
   matched — otherwise an unrelated label cancels a real writer. See the
   `concurrency:` expression in `run-pull.yml`. To dispatch one of
   these reliably, prefer `workflow_dispatch` over labeling.
+- **The event payload is frozen; the checkout is live.** A `pull_request` job
+  checks out the merge ref — the PR merged into the base's *current* tip —
+  while `github.event.pull_request.base.sha` stays pinned at PR creation, so
+  diffing the two attributes every commit the base gained since to the PR.
+  Diff `origin/<base ref>...HEAD` instead (the `paths` / `cleanup-paths` jobs
+  in `ci.yml`); the promotion gate reads its label from the API at check time
+  for the same frozen-payload reason.
 - **`git add data/` aborts when `data/` is absent.** No `outcome.json` is written
   on most runs, so `data/` often does not exist; under `set -euo pipefail` the add
   fails the step before the no-op guard. Stage the always-present pointer
