@@ -30,13 +30,15 @@ Detectors, strongest first:
   content — citations, docket numbers, hex digests, run ids, URLs — passes
   clean. A raw opaque blob pasted into free text *does* flag, by design: the
   cost of a rare false positive is one human look at a withheld run. One
-  further shape is exempt, and only when the caller names the run being
+  further family is exempt, and only when the caller names the run being
   collected (``scan-diff-for-secrets --run-id``): that run's own ledger
-  directory, which a cell's logged shell commands name routinely. It cannot
-  mask a credential — the path is a fixed repo-relative literal, its trailing
-  segment is compared for *equality* with the run id the collect job is
-  scanning, and the one or two segments between are pinned to lowercase and to
-  a length below the floor at which this detector judges a run at all.
+  paths — the ``predictions/`` / ``evaluations/`` layouts and the
+  cell-relative forms (``<actor>/<run id>[/<file stem>]``,
+  ``<evaluator>/<predictor>/<run id>``) — which a cell's
+  logged shell commands name routinely. It cannot mask a credential: the run
+  id segment is compared for *equality* with the run id the collect job is
+  scanning, and every free segment is pinned to lowercase and capped far
+  below the floor at which this detector judges a run at all.
 
 One surface opts out of the entropy rule alone: an engine transcript
 (``scan-diff-for-secrets --transcript-file``) carries server-generated tool
@@ -198,55 +200,96 @@ _PATHLIKE_SLASHES = 3
 _HEX_RUN = re.compile(r"^[0-9a-f]+$")  # content digests (sha256 etc.)
 _RUN_ID_SHAPE = re.compile(r"(?i)^(?:run[_-]?)?20\d{6}t\d{6}z$")
 
-# The one shape the path-like rule above does not cover: a cell's *relative*
-# reference to its own ledger directory. `predictions/<actor>/<run id>` carries
-# two slashes, one short of `_PATHLIKE_SLASHES`, so it is judged whole — and
-# whole it clears the bar for every predictor in the registry (0.829 for
-# `gemini-baseline`, 0.836 for `claude-baseline`, 0.839 for `codex-baseline`,
-# against a threshold of 0.82). Nothing about it is random: a lowercase slug,
-# two separators, and a run id whose digits and `T`/`Z` spread the character
-# distribution flat enough to read as mixed alphabet. The absolute form of the
-# same path escapes because its leading directories push it over the slash
-# count; the relative form is what a cell writes once it has changed into the
-# event directory, so without this exemption a whole clean fan-out is withheld
-# over a directory the collect job itself provisioned.
+# The shapes the path-like rule above does not cover: a cell's *relative*
+# references to its own ledger directories, which carry at most two slashes —
+# one short of `_PATHLIKE_SLASHES` — so they are judged whole. Whole, they
+# clear the bar for many actor/run-id pairs: nothing about them is random —
+# lowercase slugs, separators, and a run id whose digits and `T`/`Z` spread
+# the character distribution flat enough to read as mixed alphabet — but the
+# aggregate crosses anyway. Measured against the 0.82 threshold (the first
+# bullet against the test suite's `20260816T173750Z`, the rest against the
+# incident run id `20260824T231401Z`):
+#
+# - `predictions/<actor>/<run id>`, the predict cell's own directory: 0.829
+#   for `gemini-baseline`, 0.836 for `claude-baseline`, 0.839 for
+#   `codex-baseline`;
+# - `evaluations/<evaluator>/<run id>`, the evaluate cell's own run
+#   directory: 0.832-0.852 for every judge in the registry;
+# - `<actor>/<run id>/<output file stem>`, the form a cell writes once it has
+#   changed into its ledger parent — `codex-baseline/<run id>/evaluation`
+#   scores 0.826, `claude-judge/<run id>/retrieval_log` 0.822;
+# - `<evaluator>/<predictor>/<run id>`, the per-predictor output directory
+#   written from inside `evaluations/` — `codex-judge/gemini-baseline/<run
+#   id>` scores 0.821.
+#
+# The absolute forms of the same paths escape because their leading
+# directories push them over the slash count; the relative forms are what a
+# cell logs once it has changed into the event directory, so without this
+# exemption a whole clean fan-out is withheld over a directory the collect
+# job itself provisioned.
 #
 # So the exemption is keyed on the run actually being collected, never on the
 # shape alone. Three properties carry the security argument, and each is worth
 # stating because a reviewer must be able to check them by reading the pattern:
 #
-# 1. **The run id is compared for equality, not matched by shape.** The
-#    trailing segment is the literal run id the collect job passed in, escaped
+# 1. **The run id is compared for equality, not matched by shape.** The run
+#    id segment (last, or second-to-last before a file stem) is the literal
+#    run id the collect job passed in, escaped
 #    into the pattern. `_RUN_ID_SHAPE` is deliberately *not* reused here: a
 #    shape match would exempt this directory layout under any plausible
 #    timestamp, including one an agent invented, whereas equality binds the
 #    exemption to the single run whose own output is being scanned.
-# 2. **Every free segment is shorter than `_MIN_ENTROPY_RUN`.** The actor
-#    segments are capped one character below the length at which this detector
-#    is willing to judge a run as credential material at all. So an exempted
-#    candidate can hold no run of secret material that the scan would have
-#    convicted had it stood alone — the exemption's channel sits inside the
-#    short-segment gap `_PATHLIKE_SLASHES` already documents, and opens no new
-#    class of miss. What it does forgo is the incidental *aggregate* hit,
-#    where the whole path crossed the bar only because a random sub-39-char
-#    segment was spliced into it — material the rule cannot see standalone.
+# 2. **Every free segment is capped at 24 characters.** The ledger's real
+#    segments top out at 19 (`predicted_reasoning`), so 24 keeps every real
+#    path exempt while holding each free segment far below the 40-char floor
+#    at which this detector is willing to judge a run as credential material
+#    at all. So an exempted candidate can hold no run of secret material that
+#    the scan would have convicted had it stood alone — the exemption's
+#    channel sits inside the short-segment gap `_PATHLIKE_SLASHES` already
+#    documents, and opens no new class of miss. In any candidate the
+#    whole-run branch can actually see (two slashes or fewer), its total
+#    free-lowercase capacity is two segments — 48 chars around an
+#    equality-pinned run id —
+#    and all-lowercase material is invisible to this detector standalone at
+#    *any* length (two character classes, below the three the rule demands).
+#    What the exemption forgoes is the incidental *aggregate* hit, where the
+#    whole path crossed the bar only because random sub-cap segments were
+#    spliced into it — material the rule cannot see standalone.
 # 3. **The free segments are lowercase-only.** Both base64 alphabets are
 #    mixed-case, so a pasted blob cannot occupy an actor position; re-encoding
 #    one into `[a-z0-9-]` would first have to survive the length cap above.
+#    The trailing output-file position additionally admits `_` (the ledger's
+#    file stems: `retrieval_log`), which changes nothing about the mixed-case
+#    pin — neither base64 alphabet is lowercase.
 #
-# The candidate always contains the whole `predictions/` or `evaluations/`
-# literal whenever the log line does, so a `fullmatch` is sufficient and no
-# mid-token prefix needs allowing for: every character of both literals is
-# inside `_ENTROPY_CANDIDATE`'s own charset, which means the candidate run can
-# only ever start *before* the literal, never inside it. Starting before it —
-# with a `/` or another path component — adds a slash and hands the run to the
-# per-segment branch, where this predicate is not what saves it.
+# `fullmatch` plus the segment charset is the anchor. Extending a candidate
+# with lowercase material inside the cap is absorbed as a free segment — the
+# same accepted residual property 2 prices — while anything mixed-case,
+# over-cap, or outside the charset fails the fullmatch and is scored as any
+# other run; extending it with another path component adds a slash, toward
+# the per-segment branch, where this predicate is not what saves it.
 #
-# The `evaluations/` arm carries three slashes of its own, so at the current
-# `_PATHLIKE_SLASHES` it never reaches the whole-run branch at all. It is here
-# so the exemption states the ledger's two writer layouts symmetrically, and so
-# that the fix does not silently depend on that knob keeping its exact value.
-_OWN_RUN_SEGMENT = rf"[a-z0-9-]{{1,{_MIN_ENTROPY_RUN - 1}}}"
+# The pattern itself is one generalized form — one to three free segments,
+# the run id, an optional file stem — because the ledger literals
+# (`predictions`, `evaluations`) are themselves lowercase segment-shaped, so
+# a single form covers the anchored layouts (`predictions/<actor>/<run id>`,
+# `evaluations/<evaluator>/<run id>`), the cell-relative forms written from
+# inside a ledger parent (`<actor>/<run id>/<file>`,
+# `<evaluator>/<predictor>/<run id>`), and — at three leading segments —
+# `evaluations/<evaluator>/<predictor>/<run id>`, which carries three
+# slashes and never reaches the whole-run branch at the current
+# `_PATHLIKE_SLASHES`; it is covered anyway so the exemption does not
+# silently depend on that knob keeping its exact value.
+# Free-segment cap: the ledger's real segments top out well under this
+# (actor ids at 15, file stems at 19, the layout literals at 11), and every
+# character of headroom is exemptable lowercase capacity, so the cap hugs
+# the ledger's shapes rather than the detector's 40-char floor.
+_OWN_RUN_SEGMENT_CAP = 24
+_OWN_RUN_SEGMENT = rf"[a-z0-9-]{{1,{_OWN_RUN_SEGMENT_CAP}}}"
+# The output-file stem position: the ledger's committed filenames are
+# lowercase with `_` as the only extra separator, and the candidate charset
+# excludes `.`, so a logged `evaluation.json` reaches here as `evaluation`.
+_OWN_RUN_FILE_SEGMENT = rf"[a-z0-9_-]{{1,{_OWN_RUN_SEGMENT_CAP}}}"
 
 
 @dataclass(frozen=True)
@@ -313,16 +356,16 @@ def is_run_id_shaped(value: str) -> bool:
 
 @lru_cache(maxsize=4)
 def _own_run_path_pattern(run_id: str) -> re.Pattern[str]:
-    """The two ledger directory layouts, pinned to one run id. See the note above.
+    """The ledger directory layouts, pinned to one run id. See the note above.
 
     Cached because the scan asks per candidate per line and the run id is
     fixed for a whole scan; the cache is keyed on that id, so a different run
     can never read another's pattern.
     """
     return re.compile(
-        rf"(?:predictions/{_OWN_RUN_SEGMENT}"
-        rf"|evaluations/{_OWN_RUN_SEGMENT}/{_OWN_RUN_SEGMENT})"
-        rf"/{re.escape(run_id)}"
+        rf"(?:{_OWN_RUN_SEGMENT}/){{1,3}}"
+        rf"{re.escape(run_id)}"
+        rf"(?:/{_OWN_RUN_FILE_SEGMENT})?"
     )
 
 
