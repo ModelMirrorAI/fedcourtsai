@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000241",
+  "run_id": "20260825T172743Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed statpack",
+    "CourtListener MCP opinion search",
+    "CourtListener MCP document search"
+  ],
+  "helpful": [
+    "The sal-v3 risk-set table supplied the correct arrival-time anchor.",
+    "CourtListener document search exposed the procedural limits in the cited Eighth Circuit opinion."
+  ],
+  "gaps": [
+    "CourtListener opinion search did not surface the unpublished Fifth Circuit decision by party name or docket number."
+  ],
+  "notes": "The provisioned petition and questions presented were complete. No brief in opposition was available at this arrival moment."
+}
