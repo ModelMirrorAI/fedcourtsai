@@ -1,0 +1,76 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.97,
+    "notes": "Emergency application by the President, through the Solicitor General, to stay lower-court injunctions against an executive order restructuring federal election administration, granted by the full Court roughly ten weeks before the 2026 midterms over heavy adverse amicus participation. Among the highest-stakes interim matters on the docket: separation of powers, federal-state control of elections, and immediate electoral consequences."
+  },
+  "brier_score": 0.5625,
+  "brier_skill_score": 0.25110946745562135,
+  "case_id": "scotus/9526000124",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.13333333333333333,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.25,
+        "score": 0.18861111111111117
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.18861111111111117,
+    "total": 0.18861111111111117
+  },
+  "correct": 0,
+  "created_at": "2026-08-25T02:50:06Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell against the 2026-08-16 snapshot; resolution came 2026-08-24. Retrieval was the provisioned inputs, the committed statpack, one CourtListener search that failed on HTTP 429 with no content, and one corpus query whose newest retrieved_doc_date is 2026-08-14 \u2014 all pre-resolution. The log also shows a read of a committed prediction.json from a different case (scotus/73279700), evidently as a format reference; it carries no outcome material about this case.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5",
+  "notes_doc": "evaluation.md",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3aeddcede4c0161ead222b0a2f984d61779560be6c0219951f7fc61267039e16",
+    "label": "proc-v3",
+    "pipeline_sha": "69eff73f0b743d41731dde7bfebf01680f060e6b",
+    "stamped_at": "2026-08-25T02:53:25.709364Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20260825T024608Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.13333333333333333,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

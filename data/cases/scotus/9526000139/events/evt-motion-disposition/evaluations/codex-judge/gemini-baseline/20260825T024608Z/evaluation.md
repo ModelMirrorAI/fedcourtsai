@@ -1,0 +1,9 @@
+# Evaluation
+
+This interim-stage prediction called an unqualified **grant**, while the application was denied. Its 0.65 grant probability yields a Brier score of `(0.65 - 0)^2 = 0.4225`.
+
+The reasoning had a recognizable legal structure: it started from the 13.3% prior-Term interim pool and identified the requested response, the parallel federal application, universal-injunction doctrine, election timing, and status-quo concerns. Its central weakness was the unsupported size of the adjustment from 13.3% to 65%. Broad assertions about the Court's composition and treatment of nationwide injunctions substituted for matched evidence or a disciplined application of the stay factors. It also did not adequately separate the likelihood of some partial relief from the event's scored axis—an unqualified grant—even though partial relief resolves denial-first. The analysis was plausible but only moderately substantiated, supporting `reasoning_quality = 0.62`.
+
+This is an interim cell, so the harness owns the baseline, skill score, and mechanical claim scores. The committed strictly prior-Term pool contains 225 resolved substantive applications and 30 grants, a 13.3% rate that clears the 50-case floor; its coverage is uneven across Terms, and the scored reserve is selected higher on the escalation ladder than the pooled cohort. I therefore wrote no segment rate or skill score and left the salience-band basis null.
+
+The prediction ran forward before the August 24 resolution. Hosted-search results were not captured, but the searches occurred before the outcome existed and the reasoning expressly stated that the application remained pending. No outcome-revealing material is evident, so leakage is not suspected. The independent big-case assessment is 0.78: the multi-state election-administration stakes are substantial, but an interim denial without a merits ruling limits the event's precedential significance.

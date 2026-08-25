@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000124",
+  "run_id": "20260825T024608Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The amicus counter undercounts this docket: the frozen contexts and the outcome's interim_signals both record amicus_briefs: 6, while the snapshot carries 13 amicus-captioned entries — the 6 captioned 'Brief amicus curiae' (singular) match the count exactly, so entries captioned 'Brief amici curiae' (plural) appear to be missed. All three candidates independently noticed this. Prediction-time and resolution-time counts are consistent with each other, so the amicus-increment claim resolves coherently, but the signal understates amicus participation by half on this case."
+    }
+  ]
+}

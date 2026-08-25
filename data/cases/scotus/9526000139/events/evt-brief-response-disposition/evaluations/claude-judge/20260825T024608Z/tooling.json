@@ -1,0 +1,23 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000139",
+  "gaps": [
+    "gemini-baseline's log has result_capture_coverage 0.0 (every call unobserved), so its leakage grade rests on query text and the candidate's own disclosure rather than captured results; per-call capture on that engine would strengthen the audit trail."
+  ],
+  "helpful": [
+    "The captured retrieval logs' retrieved_doc_date and per-call date bounds made the forward-mode leakage check fast and evidence-based.",
+    "The statpack interim caption's explicit pooling rule and floor made it easy to state what the harness stamp should produce without computing a rate into the record."
+  ],
+  "notes": "Interim cell: baseline and skill left to the harness stamp per the stage rules; vote_accuracy omitted on all three.",
+  "role": "evaluator",
+  "run_id": "20260825T024608Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "metrics/statpack.md interim section",
+    "blinded staging area (record/blinded/)",
+    "captured retrieval_log.json per candidate",
+    "committed snapshot (amicus-count verification)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

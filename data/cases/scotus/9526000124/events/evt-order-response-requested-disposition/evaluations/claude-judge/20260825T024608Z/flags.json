@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000124",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "The interim amicus counter appears to match only singular-form docket text: outcome.json records interim_signals.amicus_briefs=6, but the committed 2026-08-24 snapshot carries 13 amicus filings \u2014 6 entries starting 'Brief amicus curiae' and 7 starting 'Brief amici curiae' (plural). Two candidates independently disclosed the same defect against their 2026-08-16 snapshot; I verified it against the committed one. The frozen contexts and the amicus-increment claim resolution both condition on the undercount, so interim-v1 claim scoring on amicus-heavy cells is affected until the counter recognizes the plural form.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "gemini-baseline is a forward-mode cell provisioned a truncated snapshot (snapshot_date 2026-07-28, cutoff 2026-07-28, snapshot_provenance 'truncated', amicus_briefs 0) but run on 2026-08-20 with unrestricted forward retrieval, including a web search naming the case. No outcome leakage \u2014 the application was unresolved until 2026-08-24 \u2014 but its increment claims condition on the 2026-07-28 state while its retrieval could observe the post-cutoff docket (the amicus wave, completed briefing), making e.g. its amicus-increment 0.99 closer to an observation than a forecast. A provisioning-shape question for a maintainer: forward cells whose frozen context predates run date by weeks blur what the increment claims measure.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260825T024608Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260825T024608Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (interim section)",
+    "provisioned snapshot 2026-08-24 (docket text of the disposition order)",
+    "blinded candidate staging (prediction.json, prose, retrieval_log.json)"
+  ],
+  "helpful": [
+    "The blinded retrieval_log.json's retrieved_doc_date fields made the forward leakage check fast and evidence-based",
+    "The statpack interim table's per-Term substantive counts let the candidates' 13.3% pool be verified line by line",
+    "The snapshot's ProceedingsandOrder text captured the full 2026-08-24 order, including the companion 26A124 grant that explains the moot denial"
+  ],
+  "gaps": [
+    "outcome.json has no field distinguishing a merits denial from a denial-as-moot; the docket text carries it, but a structured disposition_route (here null) or basis note would let a grader see the duplicative-application shape without parsing order prose"
+  ],
+  "notes": "All three candidates ran forward and resolved cleanly against the recorded outcome; no corpus or network retrieval was needed beyond the committed statpack."
+}

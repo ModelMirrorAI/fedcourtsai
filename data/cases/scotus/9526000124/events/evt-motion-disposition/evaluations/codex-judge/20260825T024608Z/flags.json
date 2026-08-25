@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000124",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-motion-disposition",
+      "message": "Before reading the blinding instructions in full, the evaluator's initial local file inventory listed committed predictor directory and artifact paths. No committed prediction contents, repository history, redacted-text search, alias machinery, or alias map was read. The exposed names were disregarded, and all grading used only codex-baseline through gemini-baseline from record/blinded.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "All three blinded candidate rationales report that the frozen context counted 6 amicus briefs while the August 16 snapshot contained 13 amicus docket entries; one rationale attributes the difference to singular versus plural amicus captions. The resolved outcome also records 6. Maintainers should verify whether the interim amicus counter omits plural-caption entries.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260825T024608Z",
+  "schema_version": "1.0"
+}

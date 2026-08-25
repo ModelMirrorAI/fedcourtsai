@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260825T024608Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads over the blinded staging area and the provisioned snapshot",
+    "metrics/statpack.md (interim section)"
+  ],
+  "helpful": [
+    "The staged retrieval_log.json's retrieved_doc_date column made the forward-mode leakage check fast and concrete",
+    "The disposing order's full text in the provisioned snapshot (denied as moot alongside the 26A124 grant) was essential for judging reasoning quality, not just the label"
+  ],
+  "gaps": [
+    "A per-call result_capture rate varies a lot by engine (one candidate's log was entirely 'unobserved'), which limits how much a leakage grade can rest on the log rather than the candidate's own prose"
+  ],
+  "notes": "Interim cell: baseline and skill left to the harness stamp per the stage rules; no votes predicted, none scored."
+}

@@ -1,0 +1,76 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.9,
+    "notes": "Emergency application by twelve intervenor states to stay a final judgment enjoining a presidential executive order on federal election administration, traveling with a parallel presidential application (26A124), months before the November 2026 midterms; the pair's resolution stayed the injunction pending appeal. Among the highest-stakes interim matters of the Term."
+  },
+  "brier_score": 0.1444,
+  "brier_skill_score": -7.1225000000000005,
+  "case_id": "scotus/9526000139",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.13333333333333333,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.38,
+        "score": -0.12662222222222222
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.12662222222222222,
+    "total": -0.12662222222222222
+  },
+  "correct": 1,
+  "created_at": "2026-08-25T02:50:53Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Genuinely forward: prediction created 2026-08-20, event resolved 2026-08-24. The captured log shows CourtListener retrieval of the lower-court record (CA1 26-1774/26-1779, D. Mass. 1:26-cv-11581); every legible retrieved_doc_date is on or before 2026-07-31, weeks before resolution, and no query seeks this application's own disposition, which did not yet exist. No sign of a mis-provisioned decided case: the provisioned snapshot was 2026-07-30 and the reasoning treats the application as pending throughout.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5",
+  "notes_doc": "evaluation.md",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3aeddcede4c0161ead222b0a2f984d61779560be6c0219951f7fc61267039e16",
+    "label": "proc-v3",
+    "pipeline_sha": "69eff73f0b743d41731dde7bfebf01680f060e6b",
+    "stamped_at": "2026-08-25T02:53:59.762788Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20260825T024608Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.13333333333333333,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

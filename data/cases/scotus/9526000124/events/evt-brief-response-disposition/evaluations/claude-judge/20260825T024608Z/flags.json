@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000124",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-brief-response-disposition",
+      "message": "codex-baseline's staged retrieval_log.json records result_capture_coverage 1.0 but only three calls across a ten-second span (two statpack reads and one redacted credential-shaped 'other' row), while that candidate's own retrieval.md reports reading five docket-linked Supreme Court filing PDFs and making one rate-limited CourtListener MCP search. The self-reported retrieval is all pre-resolution (filings dated on or before 2026-08-12 against a 2026-08-24 resolution) so this is a capture-fidelity question, not a leakage finding \u2014 but a log that misses most of a cell's retrieval while reporting full coverage weakens the leakage grading the log exists to support.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260825T024608Z",
+  "schema_version": "1.0"
+}
