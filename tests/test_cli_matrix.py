@@ -745,8 +745,15 @@ def test_predict_matrix_drops_a_salience_unselected_case(tmp_path: Path) -> None
     body.write_text(_BATCH_BODY)
     # Both cases are in-scope SCOTUS cert dockets, but 24002 was scored by the
     # salience gate and NOT selected into the fundable slice, so the matrix defers
-    # it. 24001 is unscored → fail-open → still predicted.
-    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    # it. 24001 is unscored → fail-open → still predicted. Nothing is predicted
+    # anywhere (`seed_predictions=False`): a deferred case with no cohort to
+    # complete is the plain drop this test is about.
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        seed_predictions=False,
+    )
     with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         corpus.upsert_rows(
             conn,
@@ -764,6 +771,223 @@ def test_predict_matrix_drops_a_salience_unselected_case(tmp_path: Path) -> None
     assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {("scotus", 24001)}
     assert "24002" in result.stderr
     assert "not selected this salience round" in result.stderr
+    assert "cohort-completion" not in result.stderr
+
+
+def test_predict_matrix_keeps_a_deferred_case_narrowed_to_its_cohort_events(
+    tmp_path: Path,
+) -> None:
+    """Cohort completion at the plan-time backstop: a deferred case keeps the
+    listed events that already carry a prediction — the missing engines are the
+    only spend left on them — while its unpredicted event, which would be a new
+    cell on a case the funding gate declined, goes with the drop."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(
+        "```json\n"
+        '[{"court": "scotus", "docket": 24002, '
+        '"events": ["evt-petition-cert", "evt-petition-disposition"]}]\n'
+        "```\n"
+    )
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24002",), seed_predictions=False)
+    # One engine landed on one of the two listed events, in the frozen process
+    # partition: that is a cohort a claimable board counts.
+    seed_prediction(
+        tmp_path / "data",
+        "scotus",
+        24002,
+        "evt-petition-cert",
+        predictor_id="claude-baseline",
+        frozen=True,
+    )
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
+            "WHERE case_id = 'scotus/24002'"
+        )
+        conn.commit()
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+
+    assert result.exit_code == 0
+    # Narrowed to the cohort event, and within it to the engines still missing:
+    # two independent gates between a deferred case and any new cell.
+    assert {(c["event_id"], c["predictor_id"]) for c in _cells(result.stdout)} == {
+        ("evt-petition-cert", "codex-baseline"),
+        ("evt-petition-cert", "gemini-baseline"),
+    }
+    assert "Kept 1 of 2 listed event(s) for cohort completion" in result.stderr
+
+
+def test_predict_plan_names_the_events_the_cohort_narrowing_took_away(tmp_path: Path) -> None:
+    """The narrowing's casualties are their own drop class. The case is KEPT, so
+    it is in no case-drop list, and `requested` is the pre-gate listing — without
+    a record of its own the plan (and the approval report a maintainer reads at
+    the spend hold) would show a listed event simply gone."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(
+        "```json\n"
+        '[{"court": "scotus", "docket": 24002, '
+        '"events": ["evt-petition-cert", "evt-petition-disposition"]}]\n'
+        "```\n"
+    )
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24002",), seed_predictions=False)
+    seed_prediction(
+        tmp_path / "data",
+        "scotus",
+        24002,
+        "evt-petition-cert",
+        predictor_id="claude-baseline",
+        frozen=True,
+    )
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
+            "WHERE case_id = 'scotus/24002'"
+        )
+        conn.commit()
+
+    result = runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env)
+
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    assert plan["counts"]["provenance"]["dropped_cohort_narrowed_events"] == 1
+    assert plan["counts"]["provenance"]["dropped_out_of_scope_cases"] == 0
+    (narrowed,) = plan["dropped_cohort_narrowed"]
+    assert narrowed["case_id"] == "scotus/24002"
+    assert narrowed["event_id"] == "evt-petition-disposition"
+    # The reason names the ground that actually applied — here, no prediction at
+    # all, so a cell would be new spend.
+    assert "no committed prediction on this event" in narrowed["reason"]
+
+    # And the approval report — the maintainer's surface at the spend hold —
+    # carries the class rather than dropping it on the floor.
+    report = tmp_path / "approval.md"
+    runner.invoke(
+        app,
+        ["predict-plan", "--body-file", str(body), "--approval-report", str(report)],
+        env=env,
+    )
+    assert "1 event(s) narrowed away on a salience-deferred case" in report.read_text()
+
+
+def test_predict_plan_names_the_comparability_ground_when_that_is_what_refused(
+    tmp_path: Path,
+) -> None:
+    """The two bounds refuse for opposite reasons, and the drop reason is what a
+    maintainer reads in the approval report. An event whose cohort is merely
+    *unfrozen* does hold committed predictions, so a reason saying it holds none
+    would be false about the case it most needs to explain."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(
+        "```json\n"
+        '[{"court": "scotus", "docket": 24002, '
+        '"events": ["evt-petition-cert", "evt-petition-disposition"]}]\n'
+        "```\n"
+    )
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24002",), seed_predictions=False)
+    # One event's cohort is frozen (keeps the case); the other's is real but
+    # unstamped, so it is refused on comparability, not on absence.
+    seed_prediction(
+        tmp_path / "data",
+        "scotus",
+        24002,
+        "evt-petition-cert",
+        predictor_id="claude-baseline",
+        frozen=True,
+    )
+    seed_prediction(
+        tmp_path / "data",
+        "scotus",
+        24002,
+        "evt-petition-disposition",
+        predictor_id="claude-baseline",
+    )
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
+            "WHERE case_id = 'scotus/24002'"
+        )
+        conn.commit()
+
+    result = runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env)
+
+    assert result.exit_code == 0
+    (narrowed,) = json.loads(result.stdout)["dropped_cohort_narrowed"]
+    assert narrowed["event_id"] == "evt-petition-disposition"
+    assert "outside the frozen process scope" in narrowed["reason"]
+    assert "no committed prediction" not in narrowed["reason"]
+
+
+def test_predict_matrix_drops_a_deferred_case_whose_cohort_no_board_counts(
+    tmp_path: Path,
+) -> None:
+    """The comparability bound at the plan backstop, mirroring the sweep's. An
+    unstamped cohort is outside the frozen partition the boards score in, so a
+    freshly-stamped cell would not complete it — it would leave the board an
+    event scored on one engine while its rivals are structurally excluded."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(
+        '```json\n{"court": "scotus", "docket": 24002, "events": ["evt-petition-cert"]}\n```\n'
+    )
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24002",), seed_predictions=False)
+    # A prediction exists, but unstamped — the pre-freeze shakedown shape.
+    seed_prediction(
+        tmp_path / "data", "scotus", 24002, "evt-petition-cert", predictor_id="claude-baseline"
+    )
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
+            "WHERE case_id = 'scotus/24002'"
+        )
+        conn.commit()
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+
+    assert result.exit_code == 0
+    assert _cells(result.stdout) == []
+    assert "not selected this salience round" in result.stderr
+    assert "cohort completion" not in result.stderr
+
+
+def test_predict_matrix_drops_a_deferred_case_whose_request_lists_no_events(
+    tmp_path: Path,
+) -> None:
+    """The invariant standing between the carve-out and a full fan-out on a
+    declined case: an unlisted request means 'resolve this case's defaults',
+    which is a request for NEW cells, so a cohort cannot rescue it. This holds
+    only because the scope gate runs before default-event resolution."""
+    body = tmp_path / "issue-body.md"
+    body.write_text('```json\n[{"court": "scotus", "docket": 24002}]\n```\n')
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24002",), seed_predictions=False)
+    # A real, board-counted cohort exists on the case — it is the missing event
+    # list, not a missing prediction, that refuses it.
+    seed_prediction(
+        tmp_path / "data",
+        "scotus",
+        24002,
+        "evt-petition-cert",
+        predictor_id="claude-baseline",
+        frozen=True,
+    )
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
+            "WHERE case_id = 'scotus/24002'"
+        )
+        conn.commit()
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+
+    assert result.exit_code == 0
+    assert _cells(result.stdout) == []
+    assert "not selected this salience round" in result.stderr
+    assert "cohort completion" not in result.stderr
 
 
 def test_predict_matrix_keeps_an_unselected_case_with_an_open_merits_event(

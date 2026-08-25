@@ -1,5 +1,5 @@
 import dataclasses
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -19,11 +19,14 @@ from fedcourtsai.schemas import (
     MeritsTermination,
     Moment,
     Outcome,
+    Prediction,
     Stage,
     UsageRole,
 )
+from fedcourtsai.serialize import write_json
 from fedcourtsai.store import (
     cases_due_for_pull,
+    event_has_claimable_prediction,
     event_recorded_closed,
     forecastable_events,
     forward_refusal_reason,
@@ -35,7 +38,7 @@ from fedcourtsai.store import (
     resolved_events,
     unforecastable_listed_events,
 )
-from tests.conftest import seed_prediction
+from tests.conftest import frozen_stamp, seed_prediction
 
 
 def _event(event_id: str, *, resolved: bool) -> corpus.CorpusEvent:
@@ -1499,3 +1502,77 @@ def test_forward_refusal_reason_is_stricter_than_the_interim_queue_arm(tmp_path:
     reason = forward_refusal_reason(db, tmp_path / "data", "scotus", 27, "evt-motion-stay")
 
     assert reason is not None and "decided" in reason
+
+
+def test_event_has_claimable_prediction_reads_the_frozen_partition(tmp_path: Path) -> None:
+    """The comparability gate on cohort completion. It asks the question the
+    boards ask — is the scored predictor's LATEST prediction frozen — so an
+    event whose whole cohort is unstamped is refused, and one frozen sibling is
+    enough to admit it."""
+    data_root = tmp_path / "data"
+    assert not event_has_claimable_prediction(data_root, "scotus", 1, "evt-a")  # no ledger
+
+    # Two unstamped predictions: real cells, but outside the partition every
+    # claimable board scores in.
+    seed_prediction(data_root, "scotus", 1, "evt-a", predictor_id="claude-baseline")
+    seed_prediction(data_root, "scotus", 1, "evt-a", predictor_id="gemini-baseline")
+    assert not event_has_claimable_prediction(data_root, "scotus", 1, "evt-a")
+
+    # One frozen sibling is enough: the board counts that cohort, so completing
+    # it adds an engine to a comparison rather than manufacturing one.
+    seed_prediction(data_root, "scotus", 1, "evt-a", predictor_id="claude-baseline", frozen=True)
+    assert event_has_claimable_prediction(data_root, "scotus", 1, "evt-a")
+    # Per event, not per case.
+    assert not event_has_claimable_prediction(data_root, "scotus", 1, "evt-b")
+
+
+def test_event_has_claimable_prediction_keys_on_the_latest_run_per_predictor(
+    tmp_path: Path,
+) -> None:
+    """`stratify` joins an evaluation to the predictor's latest prediction, so a
+    predictor whose newest run is unstamped is out of the frozen partition even
+    though an older frozen run of its own survives on disk. This predicate must
+    read the same way or it answers a question no board asks."""
+    data_root = tmp_path / "data"
+    event = CasePaths(data_root, "scotus", 1).event("evt-a")
+    write_json(
+        event.prediction("claude-baseline", "20260101T000000Z"),
+        Prediction(
+            case_id="scotus/1",
+            event_id="evt-a",
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            model="claude-fable-5",
+            run_id="20260101T000000Z",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=0.05,
+            predicted_disposition=Disposition.denied,
+            process_version=frozen_stamp(),
+        ),
+    )
+    assert event_has_claimable_prediction(data_root, "scotus", 1, "evt-a")
+
+    # A later, unstamped re-run of the same predictor supersedes it for the
+    # join. Later by the *harness* clock (`cell_clock`), which reads the frozen
+    # cell's `stamped_at` and falls back to `created_at` only when unstamped —
+    # so the re-run has to postdate the freeze instant, not merely the sibling's
+    # authored date.
+    write_json(
+        event.prediction("claude-baseline", "20260901T000000Z"),
+        Prediction(
+            case_id="scotus/1",
+            event_id="evt-a",
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            model="claude-fable-5",
+            run_id="20260901T000000Z",
+            created_at=datetime(2026, 9, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-09-01.json",
+            granted=0,
+            probability=0.05,
+            predicted_disposition=Disposition.denied,
+        ),
+    )
+    assert not event_has_claimable_prediction(data_root, "scotus", 1, "evt-a")

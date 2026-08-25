@@ -31,7 +31,7 @@ from .integrity import (
 from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.moments import first_moment
-from .process_version import graded_post_freeze, is_frozen
+from .process_version import FROZEN_SINCE, graded_post_freeze, is_frozen
 from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
@@ -672,6 +672,43 @@ def forward_refusal_reason(
         events = corpus.events_for_case(conn, case_id)
         row = corpus.get_row(conn, case_id)
     return forward_refusal_reason_from_parts(data_root, court_id, docket_id, event_id, events, row)
+
+
+def event_has_claimable_prediction(
+    data_root: Path, court_id: str, docket_id: int, event_id: str
+) -> bool:
+    """Whether the event holds a prediction in the process scope a new cell would join.
+
+    The **comparability** gate on the predict sweep's cohort-completion
+    carve-out, and the reason that carve-out is not simply
+    :func:`fedcourtsai.matrix.event_has_predictions`. Completing a cohort is
+    only worth spending on when the completed cohort is one a claimable board
+    actually counts, and the board's scope is the frozen partition: `stratify`
+    keeps a cell only where the scored predictor's *latest* prediction
+    :func:`fedcourtsai.process_version.is_frozen`. A cell minted now is stamped
+    with a blessed digest at a post-freeze instant and so lands in that
+    partition — so completing an event whose existing cohort is entirely
+    **unfrozen** does not finish a cohort at all: it manufactures an event on
+    which one engine is scored and its rivals are structurally excluded, which
+    is the differential-coverage shape a cross-engine claim may not be read
+    over. The predicate refuses exactly that, and admits the case the carve-out
+    exists for — an event whose cohort a board already counts, missing an engine.
+
+    Keyed per predictor on the latest prediction, the same rule `stratify`
+    joins on, so this answers the question the board will ask rather than a
+    near-miss of it. While no freeze is in force there is a single process
+    scope and any committed prediction qualifies.
+    """
+    predictions_root = CasePaths(data_root, court_id, docket_id).event(event_id).predictions_dir
+    by_predictor: dict[str, list[Prediction]] = {}
+    for path in predictions_root.glob("*/*/prediction.json"):
+        prediction = read_model(path, Prediction)
+        by_predictor.setdefault(prediction.predictor_id, []).append(prediction)
+    if FROZEN_SINCE is None:
+        return bool(by_predictor)
+    return any(
+        is_frozen(max(runs, key=cell_clock).process_version) for runs in by_predictor.values()
+    )
 
 
 def iter_evaluations(data_root: Path) -> list[Evaluation]:

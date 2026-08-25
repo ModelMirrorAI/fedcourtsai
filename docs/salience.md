@@ -534,11 +534,14 @@ cleared-id set before the dispatch.
 
 - `predict-matrix`'s scope filter carries one skip branch — a hard-in-scope SCOTUS
   docket with `salience_selected == 0` is dropped from the tournament matrix with a
-  distinct "not selected this salience round" note (read-time, non-destructive).
+  distinct "not selected this salience round" note (read-time, non-destructive),
+  except where **cohort completion** keeps it narrowed to its already-predicted
+  events (below).
   The **evaluate** matrix reads the same filter *without* that branch: selection
   decides which cases earn new cells, never whether a committed prediction is
   scored, so a cleared or below-cap case's prediction still grades on resolution.
-- The pull queue declines to enqueue unselected cases.
+- The pull queue declines to enqueue unselected cases, with the same
+  cohort-completion exception at the sweep seam.
 - **Cleanup stays keyed to hard-scope only.** It never consults `salience_selected`;
   a below-cap-but-hard-in-scope case keeps its committed predictions and simply
   gets no *new* ones.
@@ -549,7 +552,8 @@ cleared-id set before the dispatch.
 live-channel cycle (`live-poll`), after the polls have ingested the day's
 distribution transitions and before the workflow pushes the corpus, so the
 committed pointer carries the **post-pass** latch state: every sweep pick is
-selected at the pointer the predict matrix gate reads, and a fail-open queue
+either selected at the pointer the predict matrix gate reads, or a
+cohort-completion pick that gate keeps narrowed rather than admits whole, and a fail-open queue
 entry (a never-scored petition queued at transition time) that the same
 cycle's pass scores-and-defers is dropped by that read-time gate,
 non-destructively. Ordering is the load-bearing detail: the queue-time
@@ -564,14 +568,100 @@ is per `(predictor, event)` cell — mirroring the evaluate backlog deriver — 
 case where two of three engines landed and one quota-failed is still swept for
 the missing engine, and the per-cell attempt cap `predict.max_attempts_per_cell`
 keeps one cell that fails every attempt from re-queuing forever without
-suppressing a sibling engine still owed the same event. The same sweep is the
-catch-up for petitions whose transitions all predate the first applied pass, and
-the retry for a selected petition whose queued run left a cell without a
-committed prediction; the `predict_queued_at` stamp the routing writes with every
+suppressing a sibling engine still owed the same event.
+
+**Cohort completion** is the one salience-gate ground on which a *deferred* case
+re-enters that sweep. (The sweep admits an unselected case on one other ground,
+outside this gate's frame: a granted docket's open merits event, where the Court
+has already made the selection this gate exists to make — see
+[pipeline.md](pipeline.md).) A petition selected when its run fired can drift below the
+capacity line before every engine landed, leaving an open event with a partial
+predictor cohort and no path back: its distribution transition has already
+passed, and the deferral check refuses it at queue time. So a case the ledger
+holds any committed prediction for is admitted as a sweep candidate — admission
+only, and deliberately the cheaper question — and on that ground the queue is narrowed to the events that pass **both**
+bounds below. The `predict-matrix` scope backstop applies the same two bounds
+to a deferred case's *listed* events, so a queued cell and a planned cell answer
+to the same test. The two seams are not identical at the edges, and both
+divergences refuse rather than admit: the plan seam reads
+`corpus.is_salience_deferred`, which treats an unscored row as fail-open
+selected and so keeps it whole, where the sweep's own predicate counts it
+unselected and narrows it; and a request listing *no* events is dropped outright
+at the plan seam rather than narrowed, since an unlisted request asks for
+defaults, which is a request for new cells. A deferred case with no prediction at all is never a candidate, and the
+per-cell owed check and attempt cap apply unchanged — so a complete or
+poison-pilled cohort is not swept either.
+
+The **spend bound** is the first: only the case's already-predicted events are
+queued. Finishing a cohort buys the missing engines on a case the project already
+funded, while the case's *untouched* open events would be new cells on a case the
+gate declined. This half mirrors the evaluate backlog's reading of the same gate
+(a prediction on a since-deferred case must still be graded): selection funds
+forecasts, and it does not un-fund one already made. The mirror reaches the
+funding question and stops there — grading scores a fixed artifact, while cohort
+completion mints a new forecast at a new information set, which is what the
+second bound answers.
+
+The **comparability bound** is the second: an event qualifies only if its
+existing cohort is one a claimable board will count once the event resolves and
+is graded — at least one committed prediction on it in the **frozen process
+scope** ([process-version.md](process-version.md)),
+keyed per predictor on the latest run, the same rule the boards' scope gate
+joins on. Without it the carve-out would defeat its own purpose. The completing
+cell is stamped with a blessed digest at a post-freeze instant — so long as the
+running process's digest is blessed, which a re-bless window briefly suspends —
+and so lands inside the frozen partition; if every sibling on the event sits outside it —
+an unstamped pre-freeze run, say — the board does not gain a completed cohort at
+all. It gains an event on which one engine is scored and its rivals are
+structurally excluded: the differential-coverage shape
+[../metrics/README.md](../metrics/README.md) refuses to license a cross-engine
+claim over, manufactured rather than inherited. An event no board counts is
+better left uncounted than half-counted.
+
+**What completing a cohort still costs in comparability.** Passing both bounds
+does not make the completed cohort a like-for-like comparison; it makes it one
+worth having. Three residues remain, and a number read off a completed cohort
+carries all three.
+
+- **Information asymmetry.** The completing cell is minted later than its
+  siblings, the cert petition baseline is the one moment that is *not*
+  cutoff-placed (it reads the latest snapshot), and the sweep re-polls the docket
+  immediately before queueing. So the late engine forecasts from a strictly
+  fresher docket — at unequal information, **in a direction the record does not
+  establish**: fresher is not monotonically better, and nothing here measures the
+  sign. The ordinary missing-engine retry has the same asymmetry, and it is not
+  bounded either: the daily `predict_queued_at` debounce bounds re-queue
+  *cadence*, never the age of the skew, and the per-cell attempt cap counts
+  committed `attempt.json` facts, so a whole-engine gap that recorded none never
+  reaches it at all. What separates the two is when they start. The ordinary
+  retry begins within a day of the gap appearing; cohort completion is the path
+  that reaches a gap already weeks old, which is where the skew is widest.
+- **Band and base-rate divergence.** `PredictionContext` is derived from the
+  provisioned snapshot payload and the salience band only ever strengthens, so a
+  cell provisioned from a fresher payload can freeze a stronger band than its
+  siblings. Its `brier_skill_score` is then scored against a different
+  `segment_base_rate`, possibly under a different basis. Nothing prevents this:
+  the base-rate section below enforces the *intra-cell* pairing (a basis that
+  carries its version, a band that matches the cell), and the cross-cell rule —
+  that a figure is only comparable within one basis — lives in
+  [../metrics/README.md](../metrics/README.md). Two siblings on one event
+  carrying different bands is exactly the case neither guard covers, which is
+  why it is a residue rather than an error.
+- **It is only identifiable where every cell carries `context`.** The honest key
+  to "this is a completed cohort" is the spread of `context.snapshot_date` within
+  the event's cohort; run-id spread is not the key, since ordinary cohorts
+  already span run ids within hours. Cells written before the harness wrote a
+  `context` block carry no such date, so for those the asymmetry is not
+  recoverable from the artifact at all — which is a further reason the
+  comparability bound refuses them.
+
+The same sweep is the catch-up for petitions whose transitions all predate the
+first applied pass, and the retry for a selected petition whose queued run left a
+cell without a committed prediction; the `predict_queued_at` stamp the routing writes with every
 queue entry debounces that retry to daily, so an open-but-unmerged run PR is not
 re-queued every cycle. Document provisioning follows the same gate: a deferred
 petition's transition fetches nothing, and its documents are provisioned by the
-sweep if it is ever latched.
+sweep — when it is latched, or when cohort completion admits it.
 
 **The relist requeue cooldown.** A **relist** — a distribution transition on a
 petition already distributed before, as opposed to its first distribution — inside

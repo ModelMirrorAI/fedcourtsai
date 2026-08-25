@@ -272,9 +272,10 @@ salience:
   # population, declared as such.
   arrival_sample_rate: 0.05
   # Per-cycle cap on the live channel's selection sweep — the path that queues
-  # selected petitions the distribution trigger alone would miss (same-cycle
-  # first selections, the catch-up backlog, daily retries of runs that
-  # committed nothing). Each swept case costs one docket fetch plus document
+  # petitions the distribution trigger alone would miss (same-cycle first
+  # selections, the catch-up backlog, daily retries of runs that committed
+  # nothing, and cohort completion on a since-deferred case, narrowed to the
+  # events already holding a board-countable cohort). Each swept case costs one docket fetch plus document
   # provisioning at the polite ~1 req/s, so the cap keeps the sweep a small
   # tail on the cycle; the backlog drains across cycles under the sticky latch.
   sweep_cases_per_cycle: 25

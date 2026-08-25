@@ -1155,7 +1155,8 @@ other channel's trigger issues arriving on their own.
 queue lives in the corpus, not in the issue — the issue is only a trigger
 carrying a snapshot of it. A **selected** case stays queueable for as long as any
 enabled predictor still *owes* an open event, and the live channel's selection
-sweep re-polls exactly that set each cycle (`pipeline/live.py`, gated per
+sweep re-polls that set each cycle — plus the cohort-completion candidates
+below (`pipeline/live.py`, gated per
 `(predictor, event)` on `event_has_predictions(predictor_id=...)` from
 `matrix.py`), debounced to daily by `predict_queued_at`. Owed is per cell, so a
 case where two of three engines committed a prediction and one quota-failed is
@@ -1166,8 +1167,24 @@ needs its issue re-filed or re-opened.
 The drain is paced, not instant: the sweep is capped at
 `salience.sweep_cases_per_cycle` (25 in `config/tracking.yaml`) and works stalest
 first, so a backlog larger than the cap spreads over the following cycles — the
-same behaviour [salience.md](salience.md) describes. A case that is unselected or
-latched out of scope is never re-queued at all. The per-cell owed check also
+same behaviour [salience.md](salience.md) describes. A case **latched out of
+scope** (`predict_excluded`) is never re-queued at all. A case that is merely
+**unselected** re-enters the sweep on two grounds — the merits bypass (the Court
+granted it, so the cert funding question no longer applies) and **cohort
+completion**: an event of it already carries a committed prediction, that cohort
+is one a claimable board will count once the event resolves and is graded, and some enabled engine is missing from it, so
+the sweep re-admits the case and queues *only those events*. Selection decides
+which petitions earn a forecast, and a case selected when its run fired can drift
+below the line before every engine landed, leaving a partial cohort with no path
+back — the distribution transition has already passed and the funding gate
+refuses it. Finishing that cohort buys the missing engines on a case the project
+already paid to predict. The narrowing carries two bounds on that ground: queueing
+the case's *other* open events would buy new cells on a case the gate declined,
+and completing an event whose cohort sits wholly outside the frozen process scope
+would hand the board an event scored on the completing engine alone. A deferred
+case the ledger holds nothing for is not even a candidate. What a number off a
+completed cohort does and does not support is in
+[salience.md](salience.md). The per-cell owed check also
 honors `predict.max_attempts_per_cell` via the ledger-derived failure facts
 (described below for evaluate), so one `(predictor, event)` cell that fails every
 attempt cannot re-queue forever while a sibling engine still owed the same event

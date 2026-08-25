@@ -27,10 +27,12 @@ from fedcourtsai.pipeline.live import (
     discover_live,
     ingest_live_payload,
     live_poll_all,
+    salience_sweep,
 )
 from fedcourtsai.pipeline.pull import PullQueues
-from fedcourtsai.schemas import CellFailure, Disposition, Outcome
+from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Outcome
 from fedcourtsai.serialize import read_model, write_json
+from fedcourtsai.store import forecastable_events
 from fedcourtsai.supremecourt import (
     SupremeCourtClient,
     current_docket_term,
@@ -2164,6 +2166,294 @@ def test_sweep_owed_honors_the_predict_attempt_cap(tmp_path: Path) -> None:
             today=date(2026, 7, 11),
         )
     assert [q["docket"] for q in uncapped.predict] == [docket_id]
+
+
+# --- cohort completion on a salience-deferred case -------------------------
+
+#: A selection pass that can select nothing: zero capacity at both conference
+#: kinds and an unreachable floor. Only a bypass can put a docket in front of
+#: the sweep under it, which is what makes the carve-out the sole cause below.
+_DEFERRING = dict(per_conference_capacity=0, long_conference_capacity=0, floor=1.0)
+
+
+def _distributed_deferred(tmp_path: Path) -> tuple[Path, Path, int]:
+    """A distributed petition the salience pass scores and does NOT select.
+
+    The shape the carve-out exists for: selected when its run fired, below the
+    funding line since — so the distribution transition has already passed and
+    the funding gate now refuses it.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 1)
+    distributed = _payload(
+        "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
+    )
+    ingest_live_payload(db, data_root, distributed, docket_id, today=date(2026, 7, 9))
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
+            "WHERE case_id = 'scotus/9025000001'"
+        )
+        conn.commit()
+    return db, data_root, docket_id
+
+
+def _deferred_cycle(
+    db: Path, data_root: Path, docket_id: int, *, day: date, max_attempts: int = 0
+) -> PullQueues:
+    """One gated live cycle over the deferred docket, with the registry wired."""
+    served = {
+        "25-1": _payload(
+            "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
+        )
+    }
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(**_DEFERRING),
+            predictors_path=_PREDICTORS,
+            predict_max_attempts=max_attempts,
+            today=day,
+        )
+    return queues
+
+
+def test_sweep_requeues_a_deferred_case_to_complete_a_partial_cohort(tmp_path: Path) -> None:
+    """The keystone: a case selected when its run fired, deferred since, left with
+    two of three engines on a still-open event. The distribution transition is
+    long past and the funding gate refuses it, so without the cohort carve-out
+    nothing ever mints the third engine — the gap is permanent."""
+    db, data_root, docket_id = _distributed_deferred(tmp_path)
+    for pid in ("claude-baseline", "gemini-baseline"):
+        seed_prediction(
+            data_root,
+            "scotus",
+            docket_id,
+            "evt-petition-disposition",
+            predictor_id=pid,
+            frozen=True,
+        )
+
+    queues = _deferred_cycle(db, data_root, docket_id, day=date(2026, 7, 10))
+
+    assert [q["docket"] for q in queues.predict] == [docket_id]
+    assert queues.predict[0]["events"] == ["evt-petition-disposition"]
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9025000001")
+    assert row is not None and not row.salience_selected  # the carve-out, not selection
+
+
+def test_the_cohort_bypass_queues_only_the_already_predicted_events_of_a_deferred_case(
+    tmp_path: Path,
+) -> None:
+    """The spend bound. A deferred case with a partial cohort on one open event
+    and a second, untouched open event must queue the first ONLY: the second
+    would be a brand-new cell on a case the funding gate declined, which is the
+    spend the salience slice exists to refuse."""
+    db, data_root, docket_id = _distributed_deferred(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-cert",
+                    case_id="scotus/9025000001",
+                    court="scotus",
+                    kind=EventKind.petition,
+                )
+            ],
+        )
+    # Precondition: both events are forecastable, so the narrowing (not the
+    # forecastability filter) is what leaves the untouched one out.
+    assert set(forecastable_events(db, "scotus", docket_id, today=date(2026, 7, 10))) == {
+        "evt-petition-disposition",
+        "evt-petition-cert",
+    }
+    for pid in ("claude-baseline", "gemini-baseline"):
+        seed_prediction(
+            data_root,
+            "scotus",
+            docket_id,
+            "evt-petition-disposition",
+            predictor_id=pid,
+            frozen=True,
+        )
+
+    queues = _deferred_cycle(db, data_root, docket_id, day=date(2026, 7, 10))
+
+    assert [q["docket"] for q in queues.predict] == [docket_id]
+    assert queues.predict[0]["events"] == ["evt-petition-disposition"]
+
+
+def test_the_cohort_bypass_narrows_before_the_fetch_not_only_after_it(tmp_path: Path) -> None:
+    """The pre-fetch narrowing earns its place: a deferred case whose predicted
+    event's cohort is COMPLETE, carrying a second untouched open event, is owed
+    nothing. Narrowing only after the re-poll would let the untouched event pass
+    the owed check, spend a fetch slot and a document provision, and file a
+    trigger whose matrix is empty — which the workflow auto-closes, so the waste
+    is silent."""
+    db, data_root, docket_id = _distributed_deferred(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-cert",
+                    case_id="scotus/9025000001",
+                    court="scotus",
+                    kind=EventKind.petition,
+                )
+            ],
+        )
+    # Every enabled engine has predicted evt-petition-disposition; nothing has
+    # touched evt-petition-cert.
+    for pid in ("claude-baseline", "codex-baseline", "gemini-baseline"):
+        seed_prediction(
+            data_root, "scotus", docket_id, "evt-petition-disposition", predictor_id=pid
+        )
+
+    # Drive the sweep directly, so every request the client serves is the
+    # sweep's own and the fetch count is unambiguous.
+    served = {
+        "25-1": _payload(
+            "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
+        )
+    }
+    fetches: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        name = request.url.path.rsplit("/", 1)[-1].removesuffix(".json")
+        fetches.append(name)
+        return httpx.Response(200, json=served[name]) if name in served else httpx.Response(404)
+
+    queues = PullQueues()
+    with _client(handler) as client:
+        salience_sweep(
+            client,
+            db,
+            data_root,
+            queues,
+            cap=25,
+            already_queued=set(),
+            predictors_path=_PREDICTORS,
+            today=date(2026, 7, 10),
+        )
+
+    assert queues.predict == []
+    # And no fetch was spent: the sweep declined the case before the re-poll,
+    # which is the point of checking owed before fetching.
+    assert fetches == []
+
+
+def test_the_cohort_bypass_refuses_an_event_no_claimable_board_counts(tmp_path: Path) -> None:
+    """The comparability bound, and the reason the carve-out is not just
+    'has any prediction'. A cell minted now is stamped into the frozen process
+    partition; the board keeps a predictor's cell only where its latest
+    prediction is frozen. So completing an event whose whole existing cohort is
+    UNFROZEN does not finish a cohort the board counts — it hands the board an
+    event on which the completing engine alone is scored and its rivals are
+    structurally excluded. That is manufactured differential coverage, and it is
+    worse than the gap it would close."""
+    db, data_root, docket_id = _distributed_deferred(tmp_path)
+    # Two engines landed, exactly as the frozen-cohort keystone above — but
+    # unstamped, the shape a pre-freeze shakedown run leaves.
+    for pid in ("claude-baseline", "gemini-baseline"):
+        seed_prediction(
+            data_root, "scotus", docket_id, "evt-petition-disposition", predictor_id=pid
+        )
+
+    queues = _deferred_cycle(db, data_root, docket_id, day=date(2026, 7, 10))
+    assert queues.predict == []
+
+    # The one thing that differs is the stamp: freeze the same cohort and the
+    # carve-out delivers the missing engine.
+    for pid in ("claude-baseline", "gemini-baseline"):
+        seed_prediction(
+            data_root,
+            "scotus",
+            docket_id,
+            "evt-petition-disposition",
+            predictor_id=pid,
+            frozen=True,
+        )
+    thawed = _deferred_cycle(db, data_root, docket_id, day=date(2026, 7, 11))
+    assert [q["docket"] for q in thawed.predict] == [docket_id]
+
+
+def test_a_deferred_case_with_no_prediction_at_all_is_still_not_swept(tmp_path: Path) -> None:
+    """The carve-out completes cohorts; it does not create them. A deferred case
+    the ledger holds nothing for is not even a sweep candidate."""
+    db, data_root, docket_id = _distributed_deferred(tmp_path)
+
+    queues = _deferred_cycle(db, data_root, docket_id, day=date(2026, 7, 10))
+
+    assert queues.predict == []
+
+
+def test_the_cohort_bypass_respects_the_per_cell_attempt_cap(tmp_path: Path) -> None:
+    """The carve-out is admission only — the per-cell owed check still decides.
+    A deferred case whose one missing engine is poison-pilled is not swept; with
+    the cap disabled the same cell is owed again and the carve-out delivers it."""
+    db, data_root, docket_id = _distributed_deferred(tmp_path)
+    for pid in ("claude-baseline", "gemini-baseline"):
+        seed_prediction(
+            data_root,
+            "scotus",
+            docket_id,
+            "evt-petition-disposition",
+            predictor_id=pid,
+            frozen=True,
+        )
+    for i in range(2):
+        run_id = f"20260101T0000{i:02d}Z"
+        write_json(
+            CasePaths(data_root, "scotus", docket_id)
+            .event("evt-petition-disposition")
+            .prediction_attempt("codex-baseline", run_id),
+            CellFailure(
+                seam="predict",
+                actor="codex-baseline",
+                court="scotus",
+                docket=docket_id,
+                event_id="evt-petition-disposition",
+                run_id=run_id,
+                error_class="no_output",
+            ),
+        )
+
+    capped = _deferred_cycle(db, data_root, docket_id, day=date(2026, 7, 10), max_attempts=2)
+    assert capped.predict == []
+
+    uncapped = _deferred_cycle(db, data_root, docket_id, day=date(2026, 7, 11), max_attempts=0)
+    assert [q["docket"] for q in uncapped.predict] == [docket_id]
+
+
+def test_the_cohort_bypass_does_not_survive_predict_excluded(tmp_path: Path) -> None:
+    """`predict_excluded` is a hard-scope latch, not a funding decision: the
+    carve-out rides beside it and never through it."""
+    db, data_root, docket_id = _distributed_deferred(tmp_path)
+    for pid in ("claude-baseline", "gemini-baseline"):
+        seed_prediction(
+            data_root,
+            "scotus",
+            docket_id,
+            "evt-petition-disposition",
+            predictor_id=pid,
+            frozen=True,
+        )
+    with corpus.connect(db) as conn:
+        conn.execute("UPDATE cases SET predict_excluded = 1 WHERE case_id = 'scotus/9025000001'")
+        conn.commit()
+
+    queues = _deferred_cycle(db, data_root, docket_id, day=date(2026, 7, 10))
+
+    assert queues.predict == []
 
 
 def test_sweep_respects_the_cap_and_the_ungated_scope(tmp_path: Path) -> None:

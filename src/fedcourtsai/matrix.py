@@ -458,6 +458,42 @@ def event_has_predictions(
     return any(predictions_root.glob(f"{predictor_id or '*'}/*/prediction.json"))
 
 
+def predicted_case_ids(data_root: Path) -> frozenset[str]:
+    """Every case id the git ledger holds at least one committed prediction for.
+
+    The **candidate-admission** read for the live predict sweep's
+    cohort-completion carve-out: a salience-deferred case whose event already
+    carries a partial predictor cohort is admitted back into the sweep so the
+    missing engines can be minted. Answering that at the case grain is what
+    makes it one glob for the whole ledger rather than a per-row probe of every
+    SCOTUS case in the corpus.
+
+    Membership says only that a cohort exists *somewhere* on the case — never
+    that any particular cell is owed, and never that a specific event may be
+    queued. The sweep re-checks both: the per-``(predictor, event)`` owed test
+    decides what is missing, and
+    :func:`fedcourtsai.store.event_has_claimable_prediction` narrows a
+    carve-out case to the events whose cohort a board would count. Membership
+    here is deliberately the weaker, cheaper question — one glob against a
+    per-row probe of every SCOTUS case in the corpus — so it must never be read
+    as the bound.
+
+    Committed predictions live at
+    ``cases/<court>/<docket>/events/<event>/predictions/<predictor>/<run>/prediction.json``,
+    so the glob is depth-anchored by that filename exactly as
+    :func:`event_has_predictions` is, and cannot match the shallower per-run
+    siblings (``usage.json`` and friends). An absent ``data_root`` — a fresh
+    checkout, an offline caller — yields the empty set, which admits nothing.
+    """
+    cases_root = data_root / "cases"
+    return frozenset(
+        # `<court>/<docket>/events/<event>/predictions/<predictor>/<run>/prediction.json`
+        # counted back from the file: parents[5] is the docket, parents[6] the court.
+        case_id(path.parents[6].name, int(path.parents[5].name))
+        for path in cases_root.glob("*/*/events/*/predictions/*/*/prediction.json")
+    )
+
+
 def event_has_evaluations(
     data_root: Path,
     court: str,
