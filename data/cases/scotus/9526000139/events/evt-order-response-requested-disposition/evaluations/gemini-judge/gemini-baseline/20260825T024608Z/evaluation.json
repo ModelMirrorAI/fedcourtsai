@@ -11,7 +11,7 @@
     "influenced_prediction": "none",
     "mode": "forward",
     "notes": "gemini-baseline operated in forward mode. Web search was executed during the run (which occurred before the event's resolution on 2026-08-24), but no leakage of the outcome was found because the event had not yet occurred.",
-    "retrieved_outcome_material": "none"
+    "retrieved_outcome_material": false
   },
   "leakage_suspected": false,
   "model": "gemini-3.1-pro-preview",
