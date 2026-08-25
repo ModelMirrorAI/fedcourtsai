@@ -1,0 +1,4 @@
+- `fedcourts` was not queried.
+- `cat metrics/statpack.md` to retrieve the interim docket base rate.
+- Used `mcp_courtlistener_search` which returned 0 results.
+- Used `google_web_search` for `"Katherine L. Hobbins Forester" "Adam Gerol"`, which revealed this is a pro se case with hallmarks of sovereign-citizen claims.

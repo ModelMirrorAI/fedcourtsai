@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000245",
+  "run_id": "20260825T231742Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "courtlistener-mcp search",
+    "courtlistener-mcp call_endpoint (docket-entries)",
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The statpack interim section's per-Term substantive counts made the strictly-prior pooled baseline (30/226) a two-line computation, floor check included.",
+    "RECAP lookup of the underlying district docket turned a bare one-line application entry into a full posture (pro se habeas, COA declined) in two calls.",
+    "fedcourts query --include-applications surfaced a near-exact recent pro se analogue (26A237) with its escalation signals and resolution speed."
+  ],
+  "gaps": [
+    "No provisioned document text for the application itself; the ask had to be read off the docket entry's one line. Even a first-page extract of an application would firm up the ask classification.",
+    "A statpack cut of the interim grant rate by applicant class (government / counseled / pro se) would let the large downward adjustment made here rest on a committed number instead of cohort reasoning."
+  ],
+  "notes": "fedcourts query has no free-text/caption filter (expected; documented as maintained-as-is), so finding same-ask priors (injunction pending appeal) relied on the MCP side plus manual scanning of returned rows."
+}
