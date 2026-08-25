@@ -8,6 +8,7 @@ from fedcourtsai.integrity import (
     RETROSPECTIVE,
     cell_clock,
     classify_stratum,
+    context_lag_days,
     evaluation_clock,
     forward_claim_breach,
     forward_claim_record,
@@ -29,11 +30,14 @@ def _prediction(
     created_at: datetime,
     stamped_at: datetime | None = None,
     mode: str | None = None,
+    snapshot_date: date = date(2026, 1, 5),
+    cutoff: date | None = None,
 ) -> Prediction:
     context = (
         PredictionContext(
             mode=mode,
-            snapshot_date=date(2026, 1, 5),
+            snapshot_date=snapshot_date,
+            cutoff=cutoff,
             signals_observable=True,
             distribution_count=1,
             band="baseline",
@@ -117,6 +121,88 @@ def test_the_breach_keys_on_the_stamp_not_the_agent_clock() -> None:
         mode="forward",
     )
     assert forward_claim_breach(prediction, _outcome(date(2026, 3, 1)))
+
+
+def test_context_lag_days_counts_from_the_cutoff_not_the_payload_date() -> None:
+    # The discriminating case, and the whole "placement, not pull staleness"
+    # claim: a `dated` cell's snapshot_date is the stored pull's own date and
+    # sits before the cutoff, so the two operands differ and the cutoff is the
+    # one that counts. (On a `truncated` cell they coincide — the reconstructed
+    # payload is re-dated to its cutoff — which is why this shape is the test.)
+    prediction = _prediction(
+        created_at=datetime(2026, 8, 20, 3, 0, tzinfo=UTC),
+        mode="forward",
+        snapshot_date=date(2026, 7, 27),
+        cutoff=date(2026, 7, 28),
+    )
+    assert context_lag_days(prediction) == 23
+
+
+def test_context_lag_days_measures_placement_not_pull_staleness() -> None:
+    # The issue's own shape: an event opened 2026-07-27, so provisioning froze
+    # the cutoff at 2026-07-28 and the truncated payload was re-dated to it;
+    # the cell ran 2026-08-20 as a late cohort completion.
+    prediction = _prediction(
+        created_at=datetime(2026, 8, 20, 3, 0, tzinfo=UTC),
+        mode="forward",
+        snapshot_date=date(2026, 7, 28),
+        cutoff=date(2026, 7, 28),
+    )
+    assert context_lag_days(prediction) == 23
+    # With no moment to fix a cutoff, the provisioned snapshot's own date is
+    # where the cell was placed — the one branch on which the number is payload
+    # age, which is why a distribution is read segmented on provenance.
+    unplaced = _prediction(
+        created_at=datetime(2026, 8, 20, 3, 0, tzinfo=UTC),
+        mode="forward",
+        snapshot_date=date(2026, 8, 20),
+    )
+    assert context_lag_days(unplaced) == 0
+
+
+def test_context_lag_days_reads_minus_one_on_a_cell_run_the_day_its_moment_opened() -> None:
+    # The floor, and it is signed on purpose: the cutoff is the day *after* the
+    # opening, so a cell provisioned the day the moment opened is one day ahead
+    # of its own placement. Clamping would fold it into a same-day cell.
+    prediction = _prediction(
+        created_at=datetime(2026, 7, 27, 12, 0, tzinfo=UTC),
+        mode="forward",
+        snapshot_date=date(2026, 7, 28),
+        cutoff=date(2026, 7, 28),
+    )
+    assert context_lag_days(prediction) == -1
+
+
+def test_context_lag_days_is_none_for_a_context_less_cell() -> None:
+    # Nothing was frozen, so nothing lagged.
+    prediction = _prediction(created_at=datetime(2026, 8, 20, tzinfo=UTC))
+    assert context_lag_days(prediction) is None
+
+
+def test_context_lag_days_is_none_on_a_replay_cell() -> None:
+    # Running long after the cutoff is replay's design, so the number would
+    # measure the back-test's age rather than drift in what the cell may claim
+    # — the same carve forward_claim_breach makes.
+    prediction = _prediction(
+        created_at=datetime(2026, 8, 20, tzinfo=UTC),
+        mode="replay",
+        snapshot_date=date(2026, 7, 28),
+        cutoff=date(2026, 7, 28),
+    )
+    assert context_lag_days(prediction) is None
+
+
+def test_context_lag_days_keys_on_the_harness_stamp() -> None:
+    # Same boundary discipline as every other clock here: the agent-written
+    # created_at cannot shrink a cell's reported lag.
+    prediction = _prediction(
+        created_at=datetime(2026, 7, 29, tzinfo=UTC),
+        stamped_at=datetime(2026, 8, 20, tzinfo=UTC),
+        mode="forward",
+        snapshot_date=date(2026, 7, 28),
+        cutoff=date(2026, 7, 28),
+    )
+    assert context_lag_days(prediction) == 23
 
 
 def test_forward_claim_record_carries_the_policy() -> None:

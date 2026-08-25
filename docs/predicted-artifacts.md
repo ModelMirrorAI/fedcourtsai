@@ -513,7 +513,13 @@ directory without knowing which part is which invites trusting the wrong half.
   against only ever strengthens, so a band re-derived at evaluation would
   condition a forecast's baseline on its own future — and the `mode` is a
   scoring input in its own right, since a forward claim the record contradicts
-  voids the cell (the forward-claim exclusion, `metrics/README.md`).
+  voids the cell (the forward-claim exclusion, `metrics/README.md`). The cutoff
+  and the run date are two clocks, and the gap between them is a real quantity:
+  a cell may be placed weeks before the day it ran, which
+  `integrity.context_lag_days` measures and a figure pooling placed forward
+  cells owes. Note especially that the gap says nothing about the snapshot
+  being stale — a `truncated` cell's `snapshot_date` *is* its cutoff, so it
+  dates the moment rather than the pull the payload was reconstructed from.
 
 ## What the prediction is then scored against
 

@@ -454,7 +454,13 @@ stays outside the gate:
   declarations, and every
   rule below are pre-registered in
   [outcome-decomposition.md](../docs/outcome-decomposition.md); this section is
-  the reading contract.
+  the reading contract. Nothing on this surface is a **placed** cell: it is the
+  cert stage's first moment only, and that moment's `opened_at` is the
+  docketing rather than its trigger, so provisioning fixes no cutoff and every
+  cell of it reads the latest snapshot (`as-stored`, lag 0). The
+  provenance-and-lag obligations stated under `salience-replay.json` below
+  therefore bind the *other* moments' claim totals — the ones that reach a
+  scoring surface through the unranked `stages` blocks — and not this one.
 
   **Advisory, never a rank key.** Nothing here alters or reorders the
   leaderboard, and the artifact assigns no standings — entries are
@@ -714,6 +720,12 @@ outcome's `resolved_at`, both committed artifacts (`classify_stratum` in
 `fedcourtsai.integrity` is the single definition). Retrospective cells remain
 valuable — they measure calibration and label-mapping fit — but only the forward
 stratum is evidence of forecasting skill, so no headline metric may mix them.
+The label is a *floor*, not a claim that the stratum is homogeneous: a forward
+cell **placed at a declared moment** differs from its neighbours both in how
+its snapshot was built and in how old that placement was when it ran, and both
+are owed beside a figure that pools them — the provenance counts
+(`as-stored`/`dated`/`truncated`) and the placement-lag distribution
+(`integrity.context_lag_days`), stated under `salience-replay.json` below.
 
 **The forward-claim exclusion.** A cell whose harness-written record *claims*
 `forward` (`context.mode`) while its event had resolved **strictly before**
@@ -977,6 +989,70 @@ the rendered table) and
   `truncated` from above (it reconstructs to the cutoff but carries the undated
   counsel/amici blocks as at a much later pull). Pooling them averages a
   selected mixture of two different biases.
+
+  **A third number is owed with them: the placement lag.** Provenance says how
+  the snapshot was built; it does not say how old the moment was when the cell
+  ran. `integrity.context_lag_days` is that number, derived off any **forward**
+  cell whose harness wrote a context — the days from where the cell was placed
+  (`context.cutoff`, else its `snapshot_date`) to its harness clock day — so a
+  forward figure owes its distribution as it owes the provenance counts. No
+  artifact and no `fedcourts` command publishes it: call
+  `fedcourtsai.integrity.context_lag_days` over the committed ledger when a
+  figure is read, because the obligation is on whoever publishes the figure and
+  not on a renderer. The distribution travels with its own `n` and with the
+  count of cells that yielded no number — a null-context cell did read a
+  snapshot and the record does not say which, and a replay cell is carved out
+  by design, so both are *not derivable*, never zero.
+
+  Read it **segmented on `snapshot_provenance` and on the moment** — provenance
+  alone is not enough, and the two cuts answer different questions. Provenance,
+  because on the `as-stored` arm no cutoff exists and the number falls back to
+  the payload's own date, where it measures pull age rather than placement. The
+  moment, because lag has two mechanisms and only one of them is a scheduling
+  fact. **Cohort-completion lag** is the run's cell cohort (the fan-out across
+  engines for one case-event, not a conference cohort of petitions) finishing
+  after the day it was placed at. **Moment pendency** is structural: a moment
+  placed at an order whose disposition pends for months — the CVSG being the long one — puts every
+  cell of it far behind its own cutoff no matter how promptly the cohort ran.
+  Pooled, the second swamps the first and a reader reaches for a scheduling
+  remedy that would not have moved the number. The moment cut also carries a
+  confound to state rather than pool through. The band is a function of the
+  petition, not of the moment, but the long-pendency moment is the CVSG — and a
+  CVSG petition scores into the top bands by that fact alone. So wherever the
+  long-lag cells are the CVSG ones, they are also the high-band ones, and since
+  the band is the key each cell's base-rate anchor is chosen on
+  (`prefix_est_grant_rate`), *"high-lag cells score differently"* and
+  *"high-band cells score differently"* are the same sentence. Neither is
+  separable from the other on a ledger where they coincide; check whether they
+  do before conditioning on either, and say which you found.
+
+  It is **not** a staleness measure and must not be read as one:
+  `--max-snapshot-age-days` bounds the *payload*'s age on the latest pull,
+  before any cut, while a `truncated` cell's own `snapshot_date` **is** its
+  cutoff, so a cell built from a same-day pull can carry weeks of lag with no
+  stale byte in it. Nor is it a defect to be driven to zero. The
+  cohort-completion half is the price of cohort comparability — all engines of
+  a cell cohort must read one information set, so a cohort completed late is
+  completed at the cutoff it opened with, not re-frozen — and the pendency half
+  is the moment being what it is.
+
+  The price is paid in the claim rather than in the input, and on one part of
+  the claim only. The **disposition** is unaffected: a forward-stratum cell's
+  event was by construction unresolved through the day before its harness clock
+  (`classify_stratum` puts a same-day resolution in the retrospective stratum,
+  and `forward_claim_breach` catches a record that says otherwise), so even a
+  long-lagged cell is still ex ante on the outcome. What a lagged cell can
+  observe is the *intervening docket* — it retrieves without restriction, so at
+  weeks of lag an **increment** claim (a relist landing, a CVSG arriving, the
+  amicus wave) can be read off a docket that moved since the cutoff, where a
+  same-day cell's is a forecast.
+
+  So the obligation binds the placed moments' increment totals, per stratum —
+  which on the published surfaces means the unranked `stages` blocks and the
+  non-baseline cert moments, never `claim-scores.json`, whose single moment is
+  unplaced by construction. Those cells wear one stratum label and one
+  provenance label while holding different information sets, and pooling them
+  without the lag beside them pools observation with forecast.
 - `statpack.json` / `statpack.md` — a corpus base-rate **statpack** (an independent
   published artifact): two cert-era populations side by side, plus the
   interim-docket and merits stage sections described below. The labeled full-corpus
