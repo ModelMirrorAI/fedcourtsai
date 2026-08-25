@@ -1,0 +1,76 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.95,
+    "notes": "Emergency application to stay a nationwide-scope injunction against a presidential executive order restructuring mail-ballot administration, resolved weeks before the November 2026 midterms, with 23 states plus D.C. opposing 12 supporting states, heavy amicus participation, and full-Court referral. The grant changes election administration on the eve of a national election; among the highest-stakes shadow-docket matters of the Term."
+  },
+  "brier_score": 0.7224999999999999,
+  "brier_skill_score": 0.03809171597633154,
+  "case_id": "scotus/9526000124",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.13333333333333333,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.15,
+        "score": 0.028611111111111254
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.93,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.028611111111111254,
+    "total": 0.028611111111111254
+  },
+  "correct": 0,
+  "created_at": "2026-08-24T23:18:00Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: predicted 2026-08-16, application resolved 2026-08-24, so no outcome existed to retrieve. Fully captured log (result_capture_coverage 1.0). The only non-null retrieved_doc_date is 2026-08-14 (a corpus query row), pre-snapshot. Web searches sought posture and commentary; retrieval.md states explicitly that no retrieval sought the application's disposition and searches confirmed pendency as of the snapshot date. No sign of a decided case provisioned forward.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5",
+  "notes_doc": "evaluation.md",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3aeddcede4c0161ead222b0a2f984d61779560be6c0219951f7fc61267039e16",
+    "label": "proc-v3",
+    "pipeline_sha": "9639e54314e79a5db4ff7d288403a97d012129b4",
+    "stamped_at": "2026-08-24T23:21:10.815121Z"
+  },
+  "reasoning_quality": 0.65,
+  "run_id": "20260824T231401Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.13333333333333333,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

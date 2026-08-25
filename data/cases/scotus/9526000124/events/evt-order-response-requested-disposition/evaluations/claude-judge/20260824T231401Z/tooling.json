@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000124",
+  "gaps": [
+    "A committed indicator of which docket-entry captions the interim amicus counter matches would have made the 6-vs-13 discrepancy checkable without re-deriving it from the snapshot text."
+  ],
+  "helpful": [
+    "The staged retrieval_log.json mode field made the forward/replay branch unambiguous for all three candidates.",
+    "The statpack's interim-docket caption states the pooling and floor rules precisely enough to predict what the stamp should produce."
+  ],
+  "notes": "gemini-baseline's log has result_capture_coverage 0.0 (every call unobserved); grading its one web search on the query alone was possible but is a thinner basis than the other candidates' captured logs.",
+  "role": "evaluator",
+  "run_id": "20260824T231401Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "file reads over the blinded staging area and committed record",
+    "jq/grep over the committed snapshot and metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

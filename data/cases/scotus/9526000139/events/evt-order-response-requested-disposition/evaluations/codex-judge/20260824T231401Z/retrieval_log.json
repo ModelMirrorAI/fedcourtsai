@@ -1,0 +1,89 @@
+{
+  "actor_id": "codex-judge",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "10b9877da78ccdee",
+      "query": "const r = await tools.exec_command({\n  cmd: \"sed -n '1,260p' .github/prompts/evaluate.md\",\n  workdir: \"/home/runner/work/fedcourtsai/fedcourtsai\",\n  yield_time_ms: 10000,\n  max_output_tokens: 30000\n});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "8761baca096b2f73",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:24:05.648Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5a70de291aa36829",
+      "query": "const r = await tools.exec_command({\n  cmd: \"sed -n '261,620p' .github/prompts/evaluate.md\",\n  workdir: \"/home/runner/work/fedcourtsai/fedcourtsai\",\n  yield_time_ms: 10000,\n  max_output_tokens: 30000\n});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "10cdd3f5b7d4a234",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:24:09.382Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "35bae80d3ffb7c39",
+      "query": "const r = await tools.exec_command({\n  cmd: \"jq . data/cases/scotus/9526000139/record/blinded/claude-baseline/prediction.json && sed -n '1,260p' data/cases/scotus/9526000139/record/blinded/claude-baseline/reasoning.md\",\n  workdir: \"/home/runner/work/fedcourtsai/fedcourtsai\",\n  yield_time_ms: 10000,\n  max_output_tokens: 30000\n});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "fbf645d7d72a6ff9",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:24:13.877Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "760ad2fd6418ff18",
+      "query": "const r = await tools.exec_command({\n  cmd: \"for f in predicted_reasoning.md retrieval.md retrieval_log.json; do p=\\\"data/cases/scotus/9526000139/record/blinded/claude-baseline/$f\\\"; if [ -f \\\"$p\\\" ]; then echo \\\"FILE:$f\\\"; if [ \\\"$f\\\" = retrieval_log.json ]; then jq . \\\"$p\\\"; else sed -n '1,260p' \\\"$p\\\"; fi; else echo \\\"MISSING:$f\\\"; fi; done\",\n  workdir: \"/home/runner/work/fedcourtsai/fedcourtsai\",\n  yield_time_ms: 10000,\n  max_output_tokens: 30000\n});\ntext(r.output);",
+      "result_capture": "captured",
+      "result_digest": "7cac02157dc9e61d",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:24:16.418Z",
+      "tool": "exec"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "0ce84f55058dde01",
+      "query": "{\"message\": \"[redacted:fernet-token]\", \"target\": \"/root\"}",
+      "result_capture": "captured",
+      "result_digest": null,
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-08-24T23:24:37.272Z",
+      "tool": "send_message"
+    }
+  ],
+  "case_id": "scotus/9526000139",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "result_capture_coverage": 1.0,
+  "role": "evaluator",
+  "run_id": "20260824T231401Z",
+  "schema_version": "1.0",
+  "throttled_calls": null
+}

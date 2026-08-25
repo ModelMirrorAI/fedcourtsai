@@ -1,0 +1,76 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.82,
+    "notes": "A nationally consequential dispute over federal election administration shortly before the 2026 midterms, tempered by this event's provisional-relief posture."
+  },
+  "brier_score": 0.09,
+  "brier_skill_score": -4.0625,
+  "case_id": "scotus/9526000139",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.13333333333333333,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": -0.07222222222222222
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.92,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.07222222222222222,
+    "total": -0.07222222222222222
+  },
+  "correct": 1,
+  "created_at": "2026-08-24T23:25:42Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The prediction preceded the August 24 resolution. The logged web and corpus retrieval included later pre-resolution context and a headline about separate litigation, but no disposition or other outcome material for this application.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-5.6-sol",
+  "notes_doc": "evaluation.md",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:8771a0c856344c81fa79716a5caa55ecd4ff04e080f7a35607095d66fda680d6",
+    "label": "proc-v3",
+    "pipeline_sha": "9639e54314e79a5db4ff7d288403a97d012129b4",
+    "stamped_at": "2026-08-24T23:28:37.308444Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20260824T231401Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.13333333333333333,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

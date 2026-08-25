@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/9526000139",
+  "run_id": "20260824T231401Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads over the provisioned cell and blinded staging",
+    "python for retrieval-log inspection",
+    "metrics/statpack.md for the interim baseline"
+  ],
+  "helpful": [
+    "the staged retrieval_log.json's retrieved_doc_date column made the forward-mode leakage check fast and concrete",
+    "candidates' own retrieval.md disclosures corroborated the logs"
+  ],
+  "gaps": [
+    "hosted web-search rows capture the query but not results, so a forward cell's web retrieval is graded on the query plus the candidate's disclosure alone"
+  ],
+  "notes": "Interim cell, three forward candidates, straight denial; no corpus query was needed since the statpack and the provisioned record settled everything a grade required."
+}

@@ -1,0 +1,14 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000124",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "Amicus counter appears to undercount on this docket: the frozen contexts and the outcome both record amicus_briefs = 6, while the 2026-08-16 snapshot carries 13 amicus docket entries; two candidates independently attributed the gap to the counter matching 'Brief amicus curiae' (singular) but not 'Brief amici curiae' (plural) captions. The interim-v1 amicus-increment claim therefore resolved on counter semantics rather than on filings (codex-baseline staked 0.99 on the recorded count rising past 6, and it stayed at 6). Worth a look at the amicus parser before the next interim scoring pass.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260824T231401Z"
+}

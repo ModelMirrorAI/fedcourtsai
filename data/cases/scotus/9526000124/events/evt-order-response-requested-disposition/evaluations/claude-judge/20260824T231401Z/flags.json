@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000124",
+  "run_id": "20260824T231401Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "The interim amicus counter undercounts: the committed 2026-08-24 snapshot shows 13 amicus filings on 26A124 before disposition, but the frozen context and outcome.json both record amicus_briefs = 6 — exactly the entries captioned singular 'Brief amicus curiae', suggesting the counter misses the 7 plural 'Brief amici curiae' entries. Two candidates reported this independently and I verified it against the snapshot. It contaminates the amicus-increment claim's conditioning state and resolution (frozen 6 vs outcome 6 reads as no increment while 13 briefs existed throughout), so the harness-computed claim_scores row for amicus-increment on this event should be read with caution."
+    }
+  ]
+}

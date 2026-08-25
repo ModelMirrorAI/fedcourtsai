@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260824T231401Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads over the blinded staging area and the event record",
+    "metrics/statpack.md (interim section) for baseline context"
+  ],
+  "helpful": [
+    "The blinded candidates' retrieval_log.json mode fields and per-call retrieved_doc_date made the forward-mode leakage check fast and evidence-based",
+    "The statpack interim section's per-Term table made it easy to state what the harness-stamped baseline will pool"
+  ],
+  "gaps": [
+    "A stamped copy of the outcome's resolution timestamp beside each candidate's created_at would make the forward-mode sanity check one comparison instead of three file reads"
+  ],
+  "notes": "Interim cell: baseline and skill left to the harness stamp per the stage rules; no flags raised."
+}
