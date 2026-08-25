@@ -1624,7 +1624,11 @@ class AgentToolingFeedback(_Strict):
     short, structured note about its *environment*: whether it used the ``fedcourts``
     corpus-query CLI, which abilities actually helped, and what was missing. Rolled up
     across runs on the run-ops dashboard, it tells maintainers whether the corpus
-    tooling earns its keep and where to invest next. It is the agent's own account —
+    tooling earns its keep and where to invest next; ``used_corpus_query`` alone is
+    also read per run by the ``collect`` job, as the self-reported side of the run
+    PR's prior-availability note (the field asks whether the cell *used* the CLI,
+    which that note weighs against what capture saw rather than treating as a
+    verdict on the corpus). It is the agent's own account —
     subjective, advisory, and never a gate. The token stays comment-only: the file is
     written locally and the trusted ``collect`` job commits it with the cell's output.
     """

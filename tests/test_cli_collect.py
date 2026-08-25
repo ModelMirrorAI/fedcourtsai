@@ -201,6 +201,9 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         # A run with no cells has no retrieval to have been throttled, and no
         # blind cell either — nothing to say, on this surface or in a PR body.
         "throttle": "",
+        # Nor any cell that asked the corpus for priors, which is not a claim
+        # that the priors arrived.
+        "prior_availability": "",
         "feedback_comment": "",
         "stalled": False,
         "dead_actors": [],
@@ -267,6 +270,212 @@ def _write_retrieval_log(
             }
         )
     )
+
+
+def _cell_dir(root: Path, cell: str, actor: str, *, run_id: str, case: str, event: str) -> Path:
+    path = root / cell / "data" / "cases" / "scotus" / case / "events" / event / actor / run_id
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _write_query_log(
+    root: Path,
+    cell: str,
+    actor: str,
+    *,
+    run_id: str = "R",
+    case: str = "1",
+    event: str = "evt-x",
+    calls: list[dict[str, object]] | None = None,
+) -> None:
+    """A cell log whose captured shell ran `fedcourts query`, unless told otherwise."""
+    rows = (
+        calls if calls is not None else [{"tool": "Bash", "query": "uv run fedcourts query -n 5"}]
+    )
+    cell_dir = _cell_dir(root, cell, actor, run_id=run_id, case=case, event=event)
+    (cell_dir / "retrieval_log.json").write_text(
+        json.dumps(
+            {
+                "case_id": f"scotus/{case}",
+                "run_id": run_id,
+                "role": "predictor",
+                "actor_id": actor,
+                "engine": "claude-code",
+                "calls": rows,
+            }
+        )
+    )
+
+
+def _write_tooling(
+    root: Path,
+    cell: str,
+    actor: str,
+    *,
+    used_corpus_query: bool,
+    run_id: str = "R",
+    case: str = "1",
+    event: str = "evt-x",
+) -> None:
+    cell_dir = _cell_dir(root, cell, actor, run_id=run_id, case=case, event=event)
+    (cell_dir / "tooling.json").write_text(
+        json.dumps(
+            {
+                "case_id": f"scotus/{case}",
+                "run_id": run_id,
+                "role": "predictor",
+                "actor_id": actor,
+                "used_corpus_query": used_corpus_query,
+            }
+        )
+    )
+
+
+def test_collect_plan_names_the_cells_the_corpus_did_not_serve(tmp_path: Path) -> None:
+    # The starvation this makes visible fails no cell: a `fedcourts query` that
+    # times out leaves a finished prediction built on thinner priors, and the
+    # only trace is one line in one cell's tooling report.
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    for name, actor in (("cell-a", "claude-baseline"), ("cell-b", "codex-baseline")):
+        _write_cell(
+            tmp_path, name, actor=actor, produced=True, validated=True, agent_ok=True, **base
+        )
+    # Asked and did not get it.
+    _write_query_log(tmp_path, "cell-a", "claude-baseline")
+    _write_tooling(tmp_path, "cell-a", "claude-baseline", used_corpus_query=False)
+    # Asked and got it.
+    _write_query_log(tmp_path, "cell-b", "codex-baseline", case="2")
+    _write_tooling(tmp_path, "cell-b", "codex-baseline", used_corpus_query=True, case="2")
+    # Asked, and wrote no report at all: unknown, not starved.
+    _write_query_log(tmp_path, "cell-b", "gemini-baseline", case="3")
+    # Never asked — outside the denominator entirely.
+    _write_query_log(
+        tmp_path,
+        "cell-a",
+        "quiet-baseline",
+        case="4",
+        calls=[{"tool": "Bash", "query": "uv run fedcourts paths --court scotus"}],
+    )
+    # A prior run's committed log, carried in every artifact — excluded.
+    _write_query_log(tmp_path, "cell-a", "claude-baseline", run_id="Q", case="9")
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    # The note leaves the process on the plan JSON as well as in the PR body.
+    assert "Cells ran a corpus query and reported no corpus use" in plan["prior_availability"]
+    body = plan["ready"]["body"]
+    assert "1 of 3 cell(s)" in body
+    # Named as case/event/actor, so a reader knows which predictions are thin.
+    assert "`scotus/1/evt-x/claude-baseline`" in body
+    # The report-less cell is unknown rather than starved, and gets its own line.
+    assert "Whether the corpus served 1 of 3 cell(s) with a legible attempt cannot be read" in body
+    assert "`scotus/3/evt-x/gemini-baseline`" in body
+
+
+def test_collect_plan_counts_two_events_of_one_case_as_two_cells(tmp_path: Path) -> None:
+    # A log records the case and the actor but not the event, so a run covering
+    # two events of one case for one actor would fold into a single cell — and
+    # a note that names cells one by one would silently print one of the two.
+    base = dict(court="scotus", docket=1, event_id="evt-a", run_id="R")
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="claude-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        **base,
+    )
+    for event in ("evt-a", "evt-b"):
+        _write_query_log(tmp_path, "cell-a", "claude-baseline", event=event)
+        _write_tooling(tmp_path, "cell-a", "claude-baseline", used_corpus_query=False, event=event)
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    body = json.loads(result.stdout)["ready"]["body"]
+    assert "2 of 2 cell(s)" in body
+    assert "`scotus/1/evt-a/claude-baseline`" in body
+    assert "`scotus/1/evt-b/claude-baseline`" in body
+
+
+def test_collect_plan_says_nothing_when_every_asking_cell_was_served(tmp_path: Path) -> None:
+    # The clean run stays quiet, exactly as the throttle note does: a standing
+    # paragraph on a surface read once per run trains the eye to skip it.
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="claude-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        **base,
+    )
+    _write_query_log(tmp_path, "cell-a", "claude-baseline")
+    _write_tooling(tmp_path, "cell-a", "claude-baseline", used_corpus_query=True)
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    assert plan["prior_availability"] == ""
+    assert "Cells ran a corpus query" not in plan["ready"]["body"]
+
+
+def test_collect_plan_trips_on_a_code_mode_cell_that_lifted_nothing(tmp_path: Path) -> None:
+    # A code-mode cell reaches everything from inside one program, so rows
+    # lifted from that program's source are the only evidence of what it did.
+    # None beside a program is either a silent program or a lift that stopped
+    # matching the engine's idiom — and the attempt count cannot see either.
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="codex-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        **base,
+    )
+    _write_query_log(
+        tmp_path,
+        "cell-a",
+        "codex-baseline",
+        calls=[{"tool": "exec", "query": "const r = await tools.exec_command({cmd: 'ls'})"}],
+    )
+    # A code-mode cell whose program DID yield a lifted row is not blind.
+    _write_query_log(
+        tmp_path,
+        "cell-a",
+        "codex-seeing",
+        case="2",
+        calls=[
+            {"tool": "exec", "query": "const r = await tools.mcp__courtlistener__search({})"},
+            {
+                "tool": "mcp__courtlistener__search",
+                "result_capture": "unobserved",
+                "result_status": "unobserved",
+                "call_source": "code_mode_source",
+            },
+        ],
+    )
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    body = json.loads(result.stdout)["ready"]["body"]
+    assert "Code-mode capture may be blind" in body
+    # One of the two code-mode cells, not one of nothing: the denominator says
+    # this is a ratio over the run's code-mode cells, not a fresh alarm.
+    assert "1 of 2 cell(s) that called the freeform" in body
 
 
 def test_collect_plan_counts_this_run_s_throttled_retrieval(tmp_path: Path) -> None:

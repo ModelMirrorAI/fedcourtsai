@@ -230,8 +230,12 @@ rolls every cell's flags into the run PR body, the Actions summary, and one
 long-lived **agent-feedback** tracking issue, so the note survives the trigger
 issue's closure, and `run-ops` surfaces recent flags. `tooling.json` (an
 `AgentToolingFeedback`) is solicited every run — a short self-report on the
-cell's tooling, scanned by `run-ops` into a tooling digest; advisory, never
-gating. `retrieval_log.json` is the harness-captured tool-call transcript the
+cell's tooling, scanned by `run-ops` into a tooling digest, and read per run by
+`collect` for its `used_corpus_query` line alone, which is the self-reported
+side of the run PR's prior-availability note — the field asks whether the cell
+*used* the CLI, and the note weighs that against what capture saw rather than
+reading it as a verdict on the corpus; advisory, never gating.
+`retrieval_log.json` is the harness-captured tool-call transcript the
 evaluators' leakage grading reads.
 
 The judgment file itself (`prediction.json` / `evaluation.json`) also carries one

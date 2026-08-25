@@ -401,7 +401,10 @@ Written briefly on **every** run, unlike `flags.json`: a short structured
 self-report on the *environment* the cell was given rather than on the data.
 Whether it used the corpus-query CLI and base-rate context, which abilities
 helped, and what was missing. Rolled up across runs so maintainers can see
-whether the corpus tooling earns its keep and where to invest next. It is the
+whether the corpus tooling earns its keep and where to invest next;
+`used_corpus_query` alone is also read per run by `collect`, as the
+self-reported side of the run PR's prior-availability note (see
+[pipeline.md](pipeline.md)). It is the
 agent's own account — subjective, advisory, and never a gate.
 
 ```json
