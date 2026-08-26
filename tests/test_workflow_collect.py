@@ -71,7 +71,10 @@ def test_the_hold_environment_name_agrees_with_the_report_it_gates() -> None:
     """The renderer's closing line names the environment a reviewer must find
     in the Actions UI, and the promotion gate greps for the same binding — a
     rename that misses one surface points the approver at a gate that does
-    not exist, exactly the drift a reader would have to catch otherwise."""
+    not exist, exactly the drift a reader would have to catch otherwise. The
+    same pass pins that every fan-out binds the one environment: a hold that
+    minted its own would fork the approver's surface and escape the gate's
+    reviewer check."""
     environments = {
         name: _load(WORKFLOWS / name)["jobs"]["approval"]["environment"] for name in FAN_OUTS
     }
@@ -327,21 +330,26 @@ def test_the_run_pr_loop_is_safe_to_repeat() -> None:
 
 
 def test_the_trigger_issue_reports_are_marker_deduped() -> None:
-    """Both reports are posted by steps that rerun with the job, so a plain
-    comment would stack one copy per recovery attempt."""
+    """Every trigger-issue report is posted by a step that reruns with its
+    job, so a plain comment would stack one copy per recovery attempt."""
     # Both carry a third marker-deduped poster: the plan-and-hold approval
-    # report, keyed on the fan-out's own run id.
-    expected = {"run-predict.yml": 3, "run-evaluate.yml": 3}
+    # report, keyed on the fan-out's own run id — and each fan-out's marker
+    # names its own stage, or two holds on one issue would dedupe against
+    # each other.
+    approval_markers = {
+        "run-predict.yml": "<!-- predict-plan: ${PLAN_RUN_ID} -->",
+        "run-evaluate.yml": "<!-- evaluate-plan: ${PLAN_RUN_ID} -->",
+    }
     for workflow in FAN_OUTS:
         body = (WORKFLOWS / workflow).read_text()
-        assert body.count("post-issue-comment") == expected[workflow], (
+        assert body.count("post-issue-comment") == 3, (
             f"{workflow}: every trigger-issue report posts through the deduped command"
         )
         assert "<!-- collect-stall: ${GITHUB_RUN_ID} -->" in body
         assert "<!-- collect-secret-scan: ${GITHUB_RUN_ID}-${digest} -->" in body
+        assert approval_markers[workflow] in body
         # The old unconditional form must not come back.
         assert "gh issue comment" not in body
-    assert "<!-- predict-plan: ${PLAN_RUN_ID} -->" in (WORKFLOWS / "run-predict.yml").read_text()
 
 
 def test_a_rerun_cannot_race_the_first_attempt_on_the_same_branch() -> None:

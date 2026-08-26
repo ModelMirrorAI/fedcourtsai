@@ -31,11 +31,10 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the AWS role for ranged corpus reads (scope gating)
-      issues: write # close the trigger issue when the matrix is empty (nothing in scope)
+      issues: write # post the plan report; close the trigger issue when the matrix is empty
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
-      run_id: ${{ steps.plan.outputs.run_id }}
     steps:
       # An issue *form* applies its declared labels on creation regardless of the
       # submitter's permissions, so on a public repo anyone could fire this agent
@@ -120,7 +119,7 @@ jobs:
 
       # The plan report the approval below is judged on: the tested plan
       # command re-derives the same fan-out the matrix step just minted (same
-      # helpers, zero spend) and renders per-judge counts, the would-grade
+      # helpers, zero spend) and renders per-step counts, the would-grade
       # cell list, and the spend estimate — whose basis the report itself
       # caveats, the evaluate side being a scaled assumption until a
       # post-freeze fan-out measures it. Posted to the trigger issue and the
@@ -149,7 +148,7 @@ jobs:
             echo '<details><summary>full plan document</summary>'
             echo ''
             echo '```json'
-            cat plan.json
+            jq . plan.json
             echo '```'
             echo ''
             echo '</details>'
@@ -196,7 +195,7 @@ jobs:
     permissions:
       issues: write
     steps:
-      - name: Close the trigger issue with the outcome
+      - name: Close the trigger issue when the hold did not release
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}

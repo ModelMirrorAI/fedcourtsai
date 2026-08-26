@@ -258,7 +258,7 @@ agents to anonymous rate limits; and by the collect jobs' secret scan, which
 needs the live value to search the run's output for it), the AWS role ARNs
 and region, and the corpus remote URL (referenced by role, never committed). Every job that needs any of
 them declares an environment, and every job outside `integration-test` declares
-`prod` — with two deliberate exceptions. The `approval` jobs of run-predict
+`prod` — with two deliberate exceptions, by environment. The `approval` jobs of run-predict
 and run-evaluate declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables, no role, and no deployment-branch
@@ -275,7 +275,10 @@ in *Waiting* until the thirty-day expiry — the hold is a deliberateness gate
 here, not two-person control, a call to revisit if a second maintainer
 joins. `staging-corpus-refresh` declares **`staging`** — the same environment
 the integration scenarios bind, because the staging read-write role's trust
-deliberately names it (see *The staging corpus* below).
+deliberately names it (see *The staging corpus* below). And among the fan-out
+workflows, the `rejected` closers declare no environment at all, holding only
+the ambient token and `issues: write`: closing a trigger issue needs no
+secret, and the step must work even when nothing else did.
 
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
 sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer

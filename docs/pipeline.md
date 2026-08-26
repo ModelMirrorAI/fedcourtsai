@@ -730,17 +730,22 @@ drops. This is the numeric backstop, distinct from the coarse
 **review hold**, the per-run gate between plan and spend on both fan-outs:
 each plan job posts its report to the trigger issue, and the matrix waits on
 a required reviewer approving the `review` deployment in the Actions UI —
-one environment serves both holds, so the reviewer's surface is the same
-whichever channel is asking (the evaluate report's spend line carries the
-weaker basis its plan states: a scaled assumption until a post-freeze
-evaluate fan-out measures it). A run
+one environment serves both holds, so the reviewer approves in the same
+place whichever channel is asking, though the evaluate report's spend line
+carries the weaker basis its plan states: a scaled assumption until a
+post-freeze evaluate fan-out measures it. A held run's trigger issue also
+shows on `run-ops`'s open-trigger list as a stalled fan-out — do not follow
+that list's re-fire advice while the hold is still *Waiting*, or the
+re-label mints a second plan behind the first. A run
 sitting in *Waiting* is a request for that decision, not a stall; a hold that
 does not release (rejected, cancelled, or expired) closes its trigger issue
 with the plan report as the record, and re-labelling re-queues with a fresh
 plan. Approve one held run at a time, and treat a hold older than a day as a
-stale plan to reject and re-queue rather than release: the already-predicted
-gate and the stranded-run guard were both evaluated at plan time, so a long
-hold un-anchors them — two simultaneously held plans over overlapping open
+stale plan to reject and re-queue rather than release: the plan-time gates —
+predict's already-predicted gate and stranded-run guard, evaluate's
+predictionless and already-graded drops — were all evaluated when the plan
+was minted, so a long
+hold un-anchors them — two simultaneously held plans over overlapping
 events were each minted before the other spent, and releasing both
 double-spends the overlap. The plan reports on the two issues make the
 overlap visible before either release; a mechanical post-release re-check

@@ -30,7 +30,7 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the AWS role for ranged corpus reads (scope gating)
-      issues: write # close the trigger issue when the matrix is empty (nothing in scope)
+      issues: write # post the plan report; close the trigger issue when the matrix is empty
       # List recent runs and their cell artifacts for the stranded-run guard below
       # (repo-wide read of run metadata and artifact *names*; the plan job runs no
       # agent code and downloads no artifact).
