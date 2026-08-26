@@ -199,6 +199,66 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      # A malformed dispatch-only input should cost seconds, not a walk window.
+      # Every refusal below is also enforced where it is used, in the
+      # dispatch-only steps at the tail of this job — a step has to be safe on
+      # whatever reaches it, so those are the checks of record and this one is a
+      # duplicate, not a substitute. It sits here, ahead of the first costly
+      # step (the corpus pull), so a typo fails inside the first minute instead
+      # of after the token mint, the pull, a full Term walk and five sweeps —
+      # and so a bad input never consumes a window on the shared corpus-write
+      # lock. Both halves are kept word-for-word identical to their late twins —
+      # the same grammar, the same splitting, the same all-or-nothing refusal,
+      # the same `::error::` text — so one mistake can never produce two
+      # differently worded refusals depending on where it was caught.
+      - name: Validate dispatch inputs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        # The inputs are maintainer-typed free text entering a shell, so they
+        # are handled as data here exactly as they are downstream: expanded from
+        # the environment, never interpolated into this script.
+        env:
+          DISPOSITION_MODE: ${{ inputs.disposition_convergence }}
+          DISPOSITION_MAX_RELABELS: ${{ inputs.disposition_max_relabels }}
+          REGRADE_MODE: ${{ inputs.regrade_stale }}
+          REGRADE_CELLS: ${{ inputs.regrade_cells }}
+        run: |
+          set -euo pipefail
+          # The bound is required on apply and ignored in every other mode, so
+          # a blank one is only an error when the apply would actually run.
+          if [ "${DISPOSITION_MODE}" = "apply" ] \
+            && ! [[ "${DISPOSITION_MAX_RELABELS}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::disposition_convergence=apply needs disposition_max_relabels set to a positive integer — the relabel count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          if [ "${REGRADE_MODE}" != "none" ]; then
+            # The grammar excludes `.` deliberately — with no dots no field can
+            # be a `..` path segment, whatever the command does with it.
+            pattern='^[a-z0-9-]+/[0-9]+/evt-[a-z0-9-]+/[0-9]{8}T[0-9]{6}Z/[a-z0-9-]+$'
+            malformed=0
+            cells=()
+            # `printf '%s\n'`, not '%s': `read` returns non-zero on a final line
+            # with no terminator, so an unterminated last cell would be dropped
+            # by the loop — silently, and past the all-or-nothing check below.
+            # The blank line this adds is absorbed by the emptiness guard.
+            while IFS= read -r line; do
+              [ -n "$line" ] || continue
+              if [[ "$line" =~ $pattern ]]; then
+                cells+=("$line")
+              else
+                echo "::error::malformed regrade cell (want court/docket/event/run_id/actor, e.g. scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge): ${line}"
+                malformed=1
+              fi
+            done < <(printf '%s\n' "${REGRADE_CELLS}" | tr -s ' \t\r' '\n')
+            if [ "$malformed" -ne 0 ]; then
+              echo "::error::refusing the whole list — correct the lines above and re-dispatch."
+              exit 1
+            fi
+            if [ "${#cells[@]}" -eq 0 ]; then
+              echo "::error::regrade_stale=${REGRADE_MODE} names no cells — set regrade_cells."
+              exit 1
+            fi
+          fi
+
       - name: Sync the working tree to the current tip of the default branch
         # actions/checkout pins this run's frozen github.sha — the branch tip when
         # the run was CREATED, not when it starts. A run that queues behind another
@@ -908,7 +968,10 @@ jobs:
           # guard: a dispatch that cannot legally apply should say so in
           # seconds, not after a full scan. The command refuses an unbounded
           # apply on its own too; this refusal is the one with the maintainer's
-          # procedure in it.
+          # procedure in it. `Validate dispatch inputs` up front duplicates it
+          # word for word so a bad dispatch dies before the corpus pull; this
+          # copy is the one of record, because the step has to be safe on
+          # whatever reaches it.
           if [ "${DISPOSITION_MODE}" = "apply" ] \
             && ! [[ "${DISPOSITION_MAX_RELABELS}" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::disposition_convergence=apply needs disposition_max_relabels set to a positive integer — the relabel count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
@@ -998,6 +1061,10 @@ jobs:
           # every line matched against the id grammar before a command sees
           # it. The grammar excludes `.` deliberately — with no dots no field
           # can be a `..` path segment, whatever the command does with it.
+          # `Validate dispatch inputs` up front duplicates this whole block
+          # word for word so a bad list dies before the corpus pull; this copy
+          # is the one of record, because the step has to be safe on whatever
+          # reaches it.
           pattern='^[a-z0-9-]+/[0-9]+/evt-[a-z0-9-]+/[0-9]{8}T[0-9]{6}Z/[a-z0-9-]+$'
           malformed=0
           cells=()
@@ -1075,8 +1142,18 @@ jobs:
       # produce the correctness verdict on the now-current corpus and publish it
       # for run-ops to present and escalate — loud-not-fatal by contract. Gated to
       # the same one-window/day cadence as the scope reconcile.
+      #
+      # `!cancelled()` is what makes that contract hold in both directions.
+      # `continue-on-error` protects the step from its OWN failure; without a
+      # status function the implicit `success()` still lets any unrelated
+      # upstream failure skip it — so a typo in a dispatch-only input would
+      # withhold the corpus data-health reading, which is exactly when it is
+      # most wanted. A trailing, non-blocking step should run anyway. NOT
+      # `always()`: a cancelled job (the hard timeout-minutes kill, an OOM — the
+      # case the guard job covers) leaves a half-finished walk, and a verdict
+      # over it would report a corpus state nobody committed.
       - name: Produce + publish the corpus validation verdict
-        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        if: ${{ !cancelled() && (github.event_name != 'schedule' || github.event.schedule == '31 2 * * *') }}
         continue-on-error: true
         uses: ./.github/actions/publish-corpus-verdict
         with:
