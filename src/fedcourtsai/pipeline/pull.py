@@ -186,7 +186,9 @@ class PullQueues:
     deferred: list[dict[str, object]] = field(default_factory=list)
 
 
-def _in_predict_scope(corpus_db_path: Path, case_id: str) -> bool:
+def _in_predict_scope(
+    corpus_db_path: Path, case_id: str, *, cohort_completion: bool = False
+) -> bool:
     """Whether a case is in predict scope: a SCOTUS docket, not excluded, and selected.
 
     The scope predicate is the immutable row property ``court == "scotus"``,
@@ -201,6 +203,28 @@ def _in_predict_scope(corpus_db_path: Path, case_id: str) -> bool:
     has not yet latched ``predict_excluded``). The salience check is fail-open: an
     unscored row is treated as selected, so the queue is unaffected until the
     selection pass has run.
+
+    ``cohort_completion`` is the caller's assertion that this queueing would
+    only *finish an existing predictor cohort worth finishing* — an event of
+    this case already carries a committed prediction, that cohort is one a
+    claimable board will count once the event resolves and is graded, some
+    enabled engine is missing from it, and the caller has already narrowed its
+    queue to exactly those events.
+    It bypasses the salience gate on the same reasoning :func:`evaluate_backlog`
+    scopes itself by: the gate is a **funding** decision about which petitions
+    earn a forecast, and a cohort that already exists was funded, so finishing
+    it buys the missing engines on a case the project already paid to predict —
+    the incremental spend is the gap, not a new case. The hard exclusions (court,
+    ``predict_excluded``, the shared reason rules) are untouched.
+
+    The analogy to :func:`evaluate_backlog` reaches the *funding* half only, and
+    stops there. Grading scores a fixed artifact and opens no new information
+    set, so refusing to strand a grading costs nothing; cohort completion mints
+    a **new forecast at a new information set**, weeks after its siblings. So
+    the caller owns two further bounds this flag cannot check for itself: it
+    must queue only events that already hold a prediction — never a cell for an
+    event nothing predicted — and only events whose cohort a claimable board
+    counts (:func:`fedcourtsai.store.event_has_claimable_prediction`).
     """
     with corpus.connect(corpus_db_path) as conn:
         row = corpus.get_row(conn, case_id)
@@ -213,7 +237,9 @@ def _in_predict_scope(corpus_db_path: Path, case_id: str) -> bool:
             # the question the gate answers — which of ~1,500 petitions is worth
             # a forecast — has no bearing on a population of ~65 grants a Term.
             and (
-                not corpus.is_salience_deferred(row) or corpus.has_open_merits_event(conn, case_id)
+                not corpus.is_salience_deferred(row)
+                or corpus.has_open_merits_event(conn, case_id)
+                or cohort_completion
             )
         )
 

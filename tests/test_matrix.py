@@ -11,6 +11,7 @@ from fedcourtsai.matrix import (
     event_has_predictions,
     parse_cases,
     predict_matrix,
+    predicted_case_ids,
 )
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
@@ -222,6 +223,37 @@ def test_event_has_predictions_can_ask_about_one_predictor(tmp_path: Path) -> No
     assert not event_has_predictions(data_root, "scotus", 1, "evt-x", predictor_id="codex-baseline")
     # No predictor named: any prediction at all counts (the original semantics).
     assert event_has_predictions(data_root, "scotus", 1, "evt-x")
+
+
+def test_predicted_case_ids_folds_every_committed_prediction_to_its_case(tmp_path: Path) -> None:
+    """The sweep's candidate-admission read: one glob over the whole ledger,
+    folded to `court/docket`, deduplicated across events, engines and runs — and
+    depth-anchored on the filename, so the per-run siblings cannot fabricate a
+    case."""
+    data_root = tmp_path / "data"
+    assert predicted_case_ids(data_root) == frozenset()  # no ledger admits nothing
+
+    seed_prediction(data_root, "scotus", 1, "evt-a", predictor_id="claude-baseline")
+    seed_prediction(data_root, "scotus", 1, "evt-a", predictor_id="codex-baseline")
+    seed_prediction(data_root, "scotus", 1, "evt-b", predictor_id="claude-baseline")
+    seed_prediction(data_root, "ca9", 7, "evt-a", predictor_id="claude-baseline")
+    # A case with an event directory but no committed prediction: not a member.
+    CasePaths(data_root, "scotus", 2).event("evt-a").predictions_dir.mkdir(parents=True)
+    # A per-run sibling one level shallower must not count as a prediction.
+    write_json(
+        CasePaths(data_root, "scotus", 3).event("evt-a").prediction_attempt("codex-baseline", "R"),
+        CellFailure(
+            seam="predict",
+            actor="codex-baseline",
+            court="scotus",
+            docket=3,
+            event_id="evt-a",
+            run_id="R",
+            error_class="no_output",
+        ),
+    )
+
+    assert predicted_case_ids(data_root) == frozenset({"scotus/1", "ca9/7"})
 
 
 def test_predict_matrix_mints_only_the_engines_that_have_not_predicted(tmp_path: Path) -> None:

@@ -236,6 +236,7 @@ from .store import (
     ExcludedCell,
     StratifiedRun,
     cases_due_for_pull,
+    event_has_claimable_prediction,
     forecastable_events,
     forward_refusal_reason,
     forward_refusal_reason_from_parts,
@@ -7085,8 +7086,9 @@ class _DropRecord:
     The reason string is the dropping step's own — printed verbatim, never
     re-worded here — so a plan that reports the wrong cell set names the step
     that decided it. ``event_id`` and ``actor_id`` are absent where the step
-    works at a coarser grain: the scope gate drops whole cases, and the
-    forecastability re-check whole events. ``actor_id`` is the predictor or
+    works at a coarser grain: the scope gate drops whole cases — except where
+    cohort completion keeps one narrowed, whose lost events are event-grained —
+    and the forecastability re-check drops whole events. ``actor_id`` is the predictor or
     evaluator whose cell the drop cost, the same union
     :class:`fedcourtsai.collect.ExpectedCell` calls an actor.
     """
@@ -7187,6 +7189,32 @@ def _resolve_cases(
     return kept
 
 
+def _cohort_narrowing_reason(data_root: Path, court: str, docket: int, event_id: str) -> str:
+    """Why cohort completion left this listed event behind, in its own words.
+
+    The two bounds refuse for opposite reasons and a single sentence can only
+    state one of them truthfully: an event with no prediction at all would be
+    **new spend** on a case the funding gate declined, while an event whose
+    whole cohort sits outside the frozen process scope has predictions and is
+    refused on **comparability** — completing it would leave a board an event
+    scored on the completing engine alone. This string reaches a maintainer
+    through the plan's approval report, so it names the ground that actually
+    applied.
+    """
+    if event_has_predictions(data_root, court, docket, event_id):
+        return (
+            "narrowed away on a salience-deferred case kept for cohort completion: this "
+            "event's whole cohort sits outside the frozen process scope, so a freshly "
+            "stamped cell would not complete a comparison but leave a board an event "
+            "scored on one engine alone."
+        )
+    return (
+        "narrowed away on a salience-deferred case kept for cohort completion: no committed "
+        "prediction on this event, so a cell here would be new spend rather than a missing "
+        "engine."
+    )
+
+
 def _scope_filtered(
     cases: list[CaseRequest],
     scope: PredictScope,
@@ -7194,7 +7222,9 @@ def _scope_filtered(
     corpus_backend: corpus.CorpusBackend,
     *,
     for_grading: bool = False,
+    data_root: Path | None = None,
     dropped_out: list[_DropRecord] | None = None,
+    cohort_narrowed_out: list[_DropRecord] | None = None,
 ) -> list[CaseRequest]:
     """Drop out-of-scope cases under ``scotus_docket``; the matrix backstop.
 
@@ -7234,9 +7264,31 @@ def _scope_filtered(
     stand in for the file, and a missing pointer/URL fails loud in
     :func:`corpus.connect_readonly` itself.
 
+    ``data_root`` enables the **cohort-completion** reading of the salience
+    drop, the plan-time mirror of the live sweep's carve-out: a deferred case
+    whose listed events hold a cohort a claimable board will count once the
+    event resolves and is graded
+    (:func:`fedcourtsai.store.event_has_claimable_prediction`) is kept, narrowed
+    to exactly those events, because finishing such a cohort buys only the
+    missing engines on a case the project already funded. Everything else about
+    the case goes with the drop — its unpredicted events, which would be new
+    spend on a case the funding gate declined, and its events whose whole cohort
+    sits outside the frozen process scope, where a freshly-stamped cell would
+    not complete a comparison but manufacture a one-engine one. A deferred case
+    with no qualifying listed event is dropped as before, and so is one whose
+    request lists no events at all: an unlisted request means "resolve this
+    case's defaults", which is a request for new cells, not for a cohort.
+    Without ``data_root`` (the evaluate reading, which ``for_grading`` already
+    exempts from the salience drop) the carve-out is off.
+
     ``dropped_out`` collects each skipped case as a structured record carrying
     the same reason the stderr note prints, so a plan can attribute a missing
-    case to this step.
+    case to this step. ``cohort_narrowed_out`` is the same channel for the
+    narrowing's *event* casualties: a kept-narrowed case appears in no drop
+    list, so without a record of its own the plan's machine-readable output
+    would show a listed event simply gone — and the approval report a
+    maintainer reads at the spend hold is built from that output, not from
+    stderr.
     """
     if scope == PredictScope.all:
         return cases
@@ -7268,6 +7320,47 @@ def _scope_filtered(
                 # cell, but once the Court grants it the funding question is a
                 # different one and the gate no longer answers it.
                 drop = "not selected this salience round (scored, below the capacity slice)."
+                if data_root is not None and (
+                    cohort := tuple(
+                        event_id
+                        for event_id in case.events
+                        if event_has_claimable_prediction(
+                            data_root, case.court, case.docket, event_id
+                        )
+                    )
+                ):
+                    # Cohort completion: these events were funded and predicted
+                    # already, so the missing engines are the only spend left on
+                    # them. `predict_matrix`'s per-(predictor, event) skip mints
+                    # exactly those; the narrowing here is what keeps the case's
+                    # *unpredicted* events out of the fan-out entirely.
+                    typer.echo(
+                        f"Narrowing {case.court}/{case.docket}: {drop} Kept "
+                        f"{len(cohort)} of {len(case.events)} listed event(s) for "
+                        f"cohort completion ({', '.join(cohort)}).",
+                        err=True,
+                    )
+                    if cohort_narrowed_out is not None:
+                        # Each event the narrowing took away, as its own record:
+                        # the case is kept, so it appears in no drop list, and
+                        # without this the plan's only machine-readable channel
+                        # would show a listed event simply gone. The reason is
+                        # per event because the two bounds refuse for opposite
+                        # reasons, and this string is what a maintainer reads in
+                        # the approval report.
+                        cohort_narrowed_out.extend(
+                            _DropRecord(
+                                ids.case_id(case.court, case.docket),
+                                _cohort_narrowing_reason(
+                                    data_root, case.court, case.docket, event_id
+                                ),
+                                event_id=event_id,
+                            )
+                            for event_id in case.events
+                            if event_id not in cohort
+                        )
+                    kept.append(replace(case, events=cohort))
+                    continue
             else:
                 drop = None
             if drop is None:
@@ -7658,6 +7751,11 @@ class _PredictFanout:
     requested: list[CaseRequest]
     resolved: list[CaseRequest]
     scope_dropped: tuple[_DropRecord, ...]
+    #: The events the scope gate's cohort-completion narrowing took off a
+    #: salience-deferred case it kept. Its own field because the case is kept:
+    #: it is in no drop list, and `requested` is the pre-gate listing, so
+    #: without this the difference between the two is unattributed.
+    cohort_narrowed: tuple[_DropRecord, ...]
     resolution: _ResolveReport
     guard: _StrandedGuardReport
     capped: CappedMatrix
@@ -7691,13 +7789,16 @@ def _predict_fanout(
     settings = get_settings()
     predict_config = load_predict_config(settings.config_root)
     scope_dropped: list[_DropRecord] = []
+    cohort_narrowed: list[_DropRecord] = []
     resolution = _ResolveReport()
     requested = _scope_filtered(
         requested_cases,
         predict_config.scope,
         settings.corpus_root,
         settings.corpus_backend,
+        data_root=settings.data_root,
         dropped_out=scope_dropped,
+        cohort_narrowed_out=cohort_narrowed,
     )
     # One clock for the whole plan, so a fan-out that straddles midnight cannot
     # apply a different staleness bound to selection than to the re-check.
@@ -7814,6 +7915,7 @@ def _predict_fanout(
         requested=requested_cases,
         resolved=cases,
         scope_dropped=tuple(scope_dropped),
+        cohort_narrowed=tuple(cohort_narrowed),
         resolution=resolution,
         guard=guard,
         capped=capped,
@@ -8394,12 +8496,17 @@ _APPROVAL_REPORT_TRUNCATED = (
 #: different things — as is an empty one: the counts block above already
 #: reconciles, so this section exists to name the classes that actually took
 #: something. Each label opens with its own grain because the classes do not
-#: share one: the scope gate drops whole *cases*, the forecastability re-check
+#: share one: the scope gate drops whole *cases* (and, where cohort completion
+#: keeps a case narrowed, the *events* it lost), the forecastability re-check
 #: drops *events*, and only the ledger-grain classes drop *cells*. Under a
 #: section a reader arrives at counting cells, an ungrained "3 dropped as out of
 #: scope" is read as three cells when it means three cases' worth of them.
 _APPROVAL_DROP_CLASSES: tuple[tuple[str, str], ...] = (
     ("dropped_out_of_scope", "case(s) dropped as out of scope"),
+    (
+        "dropped_cohort_narrowed",
+        "event(s) narrowed away on a salience-deferred case kept for cohort completion",
+    ),
     ("dropped_unforecastable", "event(s) dropped as no longer forecastable"),
     ("cases_with_no_default_events", "case(s) resolved to no default events"),
     ("dropped_by_request_narrowing", "cell(s) narrowed away by the request's event list"),
@@ -8730,6 +8837,7 @@ def predict_plan_cmd(
                 "requested_cases": len(fanout.requested),
                 "requested_listed_events": sum(len(c.events) for c in fanout.requested),
                 "dropped_out_of_scope_cases": len(fanout.scope_dropped),
+                "dropped_cohort_narrowed_events": len(fanout.cohort_narrowed),
                 "dropped_unforecastable_events": len(fanout.resolution.unforecastable),
                 "resolved_cases": len(fanout.resolved),
                 "resolved_events": sum(len(c.events) for c in fanout.resolved),
@@ -8752,6 +8860,7 @@ def predict_plan_cmd(
             },
         },
         "dropped_out_of_scope": [r.as_json() for r in fanout.scope_dropped],
+        "dropped_cohort_narrowed": [r.as_json() for r in fanout.cohort_narrowed],
         "dropped_unforecastable": [r.as_json() for r in fanout.resolution.unforecastable],
         "cases_with_no_default_events": [r.as_json() for r in fanout.resolution.no_default_events],
         "dropped_by_request_narrowing": [r.as_json() for r in gate.request_narrowed],

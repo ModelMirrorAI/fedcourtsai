@@ -20,7 +20,7 @@ from fedcourtsai import casestore, corpus, fixture, process_version
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.salience import SalienceScorer
-from fedcourtsai.schemas import Disposition, Evaluation, Prediction
+from fedcourtsai.schemas import Disposition, Evaluation, Prediction, ProcessVersion
 from fedcourtsai.serialize import write_json
 
 
@@ -79,6 +79,22 @@ def fixture_corpus(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FixtureCo
     return FixtureCorpus(corpus_root=corpus_root, data_root=data_root)
 
 
+def frozen_stamp() -> ProcessVersion:
+    """A harness stamp inside the frozen partition: blessed digest, post-freeze.
+
+    ``is_frozen`` is a membership test over
+    :data:`fedcourtsai.process_version.FROZEN_PROCESS_DIGESTS` plus a time
+    bound, so any blessed digest serves; the stamp is read off the module rather
+    than written out, so a freeze cutover moves it without touching a test.
+    """
+    since = process_version.FROZEN_SINCE or datetime(2026, 1, 1, tzinfo=UTC)
+    return ProcessVersion(
+        label=process_version.CURRENT_PROCESS_LABEL,
+        digest=sorted(process_version.FROZEN_PROCESS_DIGESTS)[0],
+        stamped_at=since,
+    )
+
+
 def seed_prediction(
     data_root: Path,
     court: str,
@@ -86,12 +102,19 @@ def seed_prediction(
     event_id: str,
     *,
     predictor_id: str = "claude-baseline",
+    frozen: bool = False,
 ) -> None:
     """Commit one minimal valid prediction into the ledger under ``data_root``.
 
     The evaluate paths now gate on a committed prediction existing for an event
     (nothing to score = no evaluator cell); tests asserting the evaluate
     handoff seed one with this instead of hand-rolling the layout.
+
+    ``frozen`` stamps it into the frozen process partition. The default leaves
+    it unstamped — a shakedown cell, which is what the pre-freeze ledger holds —
+    so a gate that asks whether a claimable board counts the cohort
+    (:func:`fedcourtsai.store.event_has_claimable_prediction`) sees the harder
+    case unless a test asks for the easier one.
     """
     run_id = "20260101T000000Z"
     write_json(
@@ -108,6 +131,7 @@ def seed_prediction(
             granted=0,
             probability=0.05,
             predicted_disposition=Disposition.denied,
+            process_version=frozen_stamp() if frozen else None,
         ),
     )
 
