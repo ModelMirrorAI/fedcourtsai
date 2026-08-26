@@ -1539,7 +1539,17 @@ does not carry.
   who knows anchors, and the agreement number would then partly measure the
   anchor. The harness delivers it through the blinding bracket, with the
   residuals its module names; a semantic grade inherits those residuals as
-  published caveats, not as license.
+  published caveats, not as license. One of those residuals is narrowed
+  structurally rather than by instruction: the committed `predictions/` and
+  `evaluations/` trees, which name every predictor beside the aliased staging
+  area, are moved out of the cell's working tree for the duration of the
+  agent's run and restored before the harness's own steps read them — so the
+  on-disk routes to a name are git history and the runner-local directory the
+  trees were moved to, both reachable only on purpose, rather than a directory
+  listing nobody had to intend. What that route leaves behind is
+  what the module's residual list already says it does: a tool call in a
+  best-effort capture, reviewable by a maintainer and checked by nothing
+  automatically.
 - **One grade per declared claim, and every declared claim graded.** The set is
   mandatory exactly as the mechanical set is, for the same reason: a grader who
   may skip claims selects the graded population. A grader that finds the record

@@ -3499,18 +3499,22 @@ def _require_reproducible_trio(
 def _echo_frozen_scope(records: Sequence[tuple[Path, Evaluation]]) -> None:
     """Name each re-graded cell's process scope, one line per target.
 
-    A re-grade leaves no ``superseded_gradings`` trace, so a cell whose stamp
-    is in the frozen set — one whose numbers a published claim may rest on —
-    would otherwise move with nothing outside ``data/``'s git history recording
-    that it did. The line puts that in the writer run's log and step summary,
-    where it is greppable after the fact. It reports the stamp the record
-    already carries, which is exactly the stamp the re-grade preserves.
+    A re-grade leaves no ``superseded_gradings`` trace, so a cell whose
+    numbers a published claim may rest on would otherwise move with nothing
+    outside ``data/``'s git history recording that it did. The line puts that
+    in the writer run's log and step summary, where it is greppable after the
+    fact. Scope is the evaluation-side gate the headline itself uses —
+    ``graded_post_freeze``, timing alone — because an evaluation's digest is
+    recorded but never enforced: a cell graded under a since-superseded
+    evaluator digest is still counted, so it must still print as
+    frozen-scope here. It reports the stamp the record already carries,
+    which is exactly the stamp the re-grade preserves.
     """
     for path, record in records:
         stamp = record.process_version
         if stamp is None:
             continue
-        scope = "frozen" if process_version.is_frozen(stamp) else "alpha"
+        scope = "frozen" if process_version.graded_post_freeze(stamp) else "alpha"
         typer.echo(f"regrade: {path} — {scope}-scope cell stamped {stamp.label}")
 
 
@@ -6379,6 +6383,89 @@ def unblind_evaluations_cmd(
     for alias, predictor_id in moved:
         typer.echo(f"{alias} -> {predictor_id}")
     typer.echo(f"un-aliased {len(moved)} evaluation(s) for {evaluator}")
+
+
+@app.command("hide-cell-record")
+def hide_cell_record_cmd(
+    stash_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Where the hidden trees are moved to. Point it outside the "
+            "checkout — a runner-local path such as the runner temp dir — so "
+            "the tree the grader browses does not contain its own hiding place.",
+        ),
+    ],
+) -> None:
+    """Move every committed ``predictions/``/``evaluations/`` tree out of the working tree.
+
+    The blinding bracket's second pre-agent step, run **after**
+    ``provision-blinded-predictions`` (which reads the committed predictions to
+    stage them). The blinding hands the grader opaque aliases, and then a plain
+    ``ls`` of the ledger names every predictor one directory above the staging
+    area — before the agent has read the contract that forbids that tree. This
+    moves both trees to ``--stash-dir`` for the duration of the run;
+    ``restore-cell-record`` puts them back.
+
+    Repo-wide, so it needs no cell coordinates and cannot be mis-keyed onto the
+    wrong event, and because a predictor's prose on another case identifies it
+    too. Only those two directory names, only directly under an event: the
+    gitignored ``record/`` tree the grader *is* sent to read is out of reach by
+    construction.
+
+    This narrows the accidental surface, not the deliberate one — the checkout
+    carries full history, so the hidden bytes stay one ``git show`` away, under
+    the prompt's prohibition and the logged-tool-call audit.
+
+    Exits 1 before moving anything when the stash already holds a manifest — any
+    earlier hide, restored or not, since a second sweep over an emptied tree
+    would move nothing and overwrite the one record of the first — and exits 1
+    after the sweep when it hid **nothing**, which a wrong data root or working
+    directory would otherwise turn into a green run that left the grader the
+    whole committed record.
+    """
+    settings = get_settings()
+    try:
+        hidden = blinding.hide_committed_cells(data_root=settings.data_root, stash_dir=stash_dir)
+    except blinding.BlindingError as exc:
+        typer.echo(f"hiding failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"hid {len(hidden)} committed cell tree(s) -> {stash_dir}")
+
+
+@app.command("restore-cell-record")
+def restore_cell_record_cmd(
+    stash_dir: Annotated[
+        Path,
+        typer.Option(help="The stash `hide-cell-record` wrote; pass the same value."),
+    ],
+) -> None:
+    """Move the hidden cell trees back into the working tree.
+
+    The other half of ``hide-cell-record``, and it runs the moment the agent
+    stops — before the usage/retrieval capture, the un-aliasing, the stamp, and
+    ``validate`` — so every later step sees a whole workspace rather than each
+    one having to know what was hidden.
+
+    Restores file by file and **refuses to overwrite**: the grader writes its
+    own ``evaluations/<evaluator>/<alias>/<run>/`` under a hidden tree's path
+    while it is hidden, so a directory-level replace would delete the cell's
+    output. The agent's bytes always win, and a collision exits 1 rather than
+    resolving silently.
+
+    Exits 1 on a missing or malformed manifest, on a manifest minted against a
+    different data root, and on a stashed tree that is no longer there — a cell
+    that continued with committed data missing would fail the stamp's prediction
+    join and ``validate``'s evaluation-target check with no sign of why.
+    """
+    settings = get_settings()
+    try:
+        restored = blinding.restore_committed_cells(
+            data_root=settings.data_root, stash_dir=stash_dir
+        )
+    except blinding.BlindingError as exc:
+        typer.echo(f"restoring failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"restored {restored} file(s) from {stash_dir}")
 
 
 @app.command("corpus-integration-check")

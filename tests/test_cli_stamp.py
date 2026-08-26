@@ -2297,6 +2297,37 @@ def test_regrade_echoes_each_cells_process_scope(
     assert CURRENT_PROCESS_LABEL in result.output
 
 
+def test_regrade_scope_survives_an_evaluator_digest_supersession(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An evaluation's digest is recorded but never enforced — the headline
+    gates on the stamp's timing alone — so a cell graded under a
+    since-superseded evaluator digest is still counted, and the re-grade
+    annotation must say frozen-scope rather than demote it to alpha."""
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event_paths = _seed_cert_cell(_data_root, 32, actual=Disposition.granted)
+    assert (
+        _stamp(
+            "evaluator",
+            "claude-judge",
+            32,
+            _CERT_EVENT,
+            "RID",
+            stamped_at="2026-08-20T00:00:00Z",
+        ).exit_code
+        == 0
+    )
+    target = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    record = json.loads(target.read_text())
+    record["process_version"]["digest"] = "sha256:" + "0" * 64
+    target.write_text(json.dumps(record))
+
+    _commit_cert_disposition(event_paths, 32, Disposition.gvr)
+    result = _regrade("evaluator", "claude-judge", 32, _CERT_EVENT, "RID")
+    assert result.exit_code == 0, result.output
+    assert "frozen-scope cell stamped" in result.output
+
+
 def test_regrade_fails_where_it_matched_no_artifact(_data_root: Path) -> None:
     """The ordinary stamp's no-op is the fan-out's contract — a no-output cell
     is already routed to a draft. A re-grade's coordinates are typed by hand

@@ -8,6 +8,12 @@ of them while every gate stays green:
   checkout deletes the directory first (the labeler in `run-analytics` instead
   moves it aside and restores from the commit, because its measure step needs
   the reference set back);
+* the **committed-record bracket** — the evaluate cell hides the committed
+  `predictions/`/`evaluations/` trees from its judge and restores them the
+  moment the agent stops, and both ends are step *order*: a hide before the
+  staging step finds nothing to stage, a hide that never runs grades with every
+  predictor name in view, and a late restore meets a consumer of the trees it
+  has not put back;
 * the **corpus-split env pair** — `FEDCOURTS_CORPUS_SPLIT` is inert without
   `FEDCOURTS_CASESTORE_URL`, and both must carry the same repo-variable
   expressions everywhere or one surface reads the blob while another reads the
@@ -404,6 +410,55 @@ def test_the_evaluate_cell_provisions_without_the_forward_guard() -> None:
     assert lines, "run-evaluate.yml no longer provisions a snapshot"
     for line in lines:
         assert "--refuse-terminal" not in line, line
+
+
+def test_the_evaluate_cell_brackets_its_agent_with_the_committed_record_hide() -> None:
+    """The judge's blinding is only as good as the tree beside the staging area.
+
+    `hide-cell-record` takes the committed `predictions/`/`evaluations/` trees
+    out of the working tree and `restore-cell-record` puts them back, and both
+    ends of that bracket are pure step *order* — nothing at runtime notices a
+    hide that moved before the staging step (which reads those predictions), a
+    hide that never runs (the judge grades with every predictor name in view and
+    the cell still validates), or a restore that landed after a consumer of the
+    committed trees. `docs/process-version.md` treats what the harness takes off
+    disk as part of the evaluator's information set, so dropping this step would
+    silently restore the old one under a freshly blessed digest.
+    """
+    steps = _load("run-evaluate.yml")["jobs"]["evaluate"]["steps"]
+    runs = [str(step.get("run") or "") for step in steps]
+
+    def index(needle: str) -> int:
+        found = [i for i, run in enumerate(runs) if needle in run]
+        assert len(found) == 1, f"expected exactly one step running {needle!r}, found {found}"
+        return found[0]
+
+    stage = index("provision-blinded-predictions")
+    hide = index("hide-cell-record")
+    restore = index("restore-cell-record")
+    # Every step that reads the committed trees after the agent stops: the two
+    # captures write *into* `evaluations/`, and the last three read it.
+    consumers = [
+        index("record-usage"),
+        index("record-retrieval"),
+        index("unblind-evaluations"),
+        index("stamp-cell"),
+        index("validate data"),
+    ]
+    agents = [
+        i for i, step in enumerate(steps) if str(step.get("id") or "").startswith("evaluate_")
+    ]
+    assert len(agents) == 3, "expected the three engine steps"
+
+    assert stage < hide < min(agents), "the hide runs after the staging step, before every agent"
+    assert max(agents) < restore < min(consumers), "the restore is the first post-agent step"
+    # Unconditional, like the oracle fence beside it: a condition that evaluates
+    # false re-admits the committed record with every check still green.
+    assert "if" not in steps[hide]
+    # The restore, by contrast, must run even behind a failed or timed-out
+    # agent, whose cell is still recorded from the committed trees.
+    assert steps[restore].get("if") == "${{ !cancelled() }}"
+    assert "continue-on-error" not in steps[restore]
 
 
 def test_the_forward_refusal_short_circuits_every_agent_step() -> None:

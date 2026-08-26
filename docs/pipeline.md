@@ -849,6 +849,17 @@ renames the evaluator's alias-keyed output back onto the real predictor ids. The
 staging area lives under the case's gitignored `record/`, so it rides the cell
 artifact and never reaches the ledger.
 
+A second pair of steps keeps the aliases worth having. The committed `predictions/` and
+`evaluations/` trees name every predictor one directory above the staging area,
+so a routine `ls` de-blinds a judge before it has read the contract that forbids
+that tree; `fedcourts hide-cell-record` moves both out of the working tree after
+the staging step and `fedcourts restore-cell-record` moves them back the moment
+the agent stops, ahead of every step that reads them. It narrows the accidental
+route only — the checkout carries full history — and nothing a cell hides or
+fails to restore can reach the run PR as a deletion: the collect job unions each
+cell's `data/` onto a freshly fetched clean `origin/main` checkout, and
+`assert-paths` rejects any non-addition.
+
 **The un-aliasing runs before the stamp, and the ordering is load-bearing.**
 `stamp-cell --role evaluator` joins each evaluation to the prediction it scored
 on the `predictor_id` field; under an alias the join misses and the cell's
@@ -858,10 +869,11 @@ which fails the stamp instead, and so is an interim cell's harness-stamped
 `segment_base_rate`, which reads the application Term off that same
 prediction). `validate`'s
 evaluation-target check resolves the same join and does fail loudly, so it is the
-backstop rather than the detector. The cell's order is therefore: blind →
-agent → capture usage → capture retrieval log → **un-alias** → stamp → validate.
-Wiring those two steps anywhere else in the sequence produces a run that looks
-green and quietly drops a scoring block.
+backstop rather than the detector. The cell's order is therefore: blind → hide
+the committed trees → agent → restore them → capture usage → capture retrieval
+log → **un-alias** → stamp → validate.
+Wiring the un-aliasing and the stamp anywhere else in that sequence produces a
+run that looks green and quietly drops a scoring block.
 
 How a cell's output becomes a PR is the same across **`run:predict`** and
 **`run:evaluate`**: each cell validates its own output and
