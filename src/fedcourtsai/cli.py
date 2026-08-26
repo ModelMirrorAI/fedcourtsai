@@ -3488,18 +3488,22 @@ def _require_reproducible_trio(
 def _echo_frozen_scope(records: Sequence[tuple[Path, Evaluation]]) -> None:
     """Name each re-graded cell's process scope, one line per target.
 
-    A re-grade leaves no ``superseded_gradings`` trace, so a cell whose stamp
-    is in the frozen set — one whose numbers a published claim may rest on —
-    would otherwise move with nothing outside ``data/``'s git history recording
-    that it did. The line puts that in the writer run's log and step summary,
-    where it is greppable after the fact. It reports the stamp the record
-    already carries, which is exactly the stamp the re-grade preserves.
+    A re-grade leaves no ``superseded_gradings`` trace, so a cell whose
+    numbers a published claim may rest on would otherwise move with nothing
+    outside ``data/``'s git history recording that it did. The line puts that
+    in the writer run's log and step summary, where it is greppable after the
+    fact. Scope is the evaluation-side gate the headline itself uses —
+    ``graded_post_freeze``, timing alone — because an evaluation's digest is
+    recorded but never enforced: a cell graded under a since-superseded
+    evaluator digest is still counted, so it must still print as
+    frozen-scope here. It reports the stamp the record already carries,
+    which is exactly the stamp the re-grade preserves.
     """
     for path, record in records:
         stamp = record.process_version
         if stamp is None:
             continue
-        scope = "frozen" if process_version.is_frozen(stamp) else "alpha"
+        scope = "frozen" if process_version.graded_post_freeze(stamp) else "alpha"
         typer.echo(f"regrade: {path} — {scope}-scope cell stamped {stamp.label}")
 
 
