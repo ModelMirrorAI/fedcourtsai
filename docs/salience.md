@@ -714,9 +714,12 @@ past Term inherits. What the numbers may and may not be read as:
 
 ## Capacity `N` — the funding knob
 
-`N` is the single parameter that scales inference cost, and the mechanism the
-budget's "more funding = more cases" equation and the milestones' funding milestone
-both hang on. It is a **per-conference** config value, and raising it **deepens the
+`N` is the parameter that scales *how many events* are forecast, and the mechanism
+the budget's "more funding = more cases" equation and the milestones' funding
+milestone both hang on. It is one of two dials on inference cost — the registry
+size `P` sets what one event costs, and takes over once `N` reaches full
+paid-gate coverage ([budget.md](budget.md)). It is a **per-conference** config
+value, and raising it **deepens the
 salience-ranked slice rather than changing the ranking**. The **OT2026 default** is
 sized to the **bootstrapping** budget — the flagship three-engine release fits the
 ~$18.5K envelope: ≈$13K inference at the $15 planning rate with the sal-v3
