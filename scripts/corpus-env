@@ -27,9 +27,14 @@
 #   eval "$(scripts/corpus-env staging)"      flip the current shell
 #   eval "$(scripts/corpus-env prod)"         flip it back
 #
-# Never run `corpus-seed-slice` under a flip: the seeder resolves "production"
-# (its refusal rail's reference point, and its source) from the very variables
-# this script redefines, so a flipped shell inverts what the rail protects.
+# `corpus-seed-slice` is flip-proof on the surfaces that matter: its source —
+# the refusal rail's reference point — is pinned by its own --source-*
+# options, never read from the variables this script redefines, and a shell
+# carrying the staging pointer override is refused outright rather than
+# re-based. The one residual is the `local` backend, which reads whatever
+# pulled blob is on disk (the pin does not govern a local file): after a
+# staging corpus-pull, re-pull production before a local-backend dry run —
+# the ranged backend needs no pull and follows the pin.
 #
 # The one-command form is the one that works from any shell — a coding agent's
 # per-call shells included, where an eval'd flip would not outlive the call.

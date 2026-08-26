@@ -2041,19 +2041,36 @@ def corpus_push() -> None:
 
 
 @app.command("corpus-seed-slice")
-def corpus_seed_slice(
+def corpus_seed_slice(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
+    source_remote: Annotated[
+        str,
+        typer.Option(
+            help="The PRODUCTION corpus remote the slice is read from, and the "
+            "destination rail's comparison basis. Pinned here rather than read "
+            "from the environment, so repointing the environment's corpus "
+            "variables cannot move it."
+        ),
+    ],
+    source_casestore: Annotated[
+        str,
+        typer.Option(
+            help="The PRODUCTION content store the slice's payloads are read "
+            "from — the other half of the pinned source the rail compares "
+            "destinations against."
+        ),
+    ],
     dest_remote: Annotated[
         str,
         typer.Option(
             help="Destination corpus remote as an s3 bucket URL with an optional "
-            "prefix; must NOT be the production remote."
+            "prefix; must NOT be the pinned source remote."
         ),
     ],
     dest_casestore: Annotated[
         str,
         typer.Option(
             help="Destination content store as an s3 bucket URL with an optional "
-            "prefix; must NOT be the production store."
+            "prefix; must NOT be the pinned source store."
         ),
     ],
     dockets: Annotated[
@@ -2098,13 +2115,20 @@ def corpus_seed_slice(
     new pointer always finds the payloads its rows refer to; within a case the
     documents manifest lands after the leaves it names.
 
-    Reads the production stores read-only: the source corpus comes through the
-    configured read backend (the ranged backend needs no pull — a bounded slice
-    is a handful of point lookups) and the source content store from the
-    configured content-store URL. **Refuses** a destination that *is* either
-    configured production store, or that sits inside either production bucket
-    at any prefix — a local second line behind the IAM policy, which is what
-    actually keeps the seeding role read-only on production.
+    Reads the source stores read-only, and the source is **pinned by
+    `--source-remote` / `--source-casestore`** — never resolved from the
+    environment, so a shell or Actions environment repointed at the staging
+    pair cannot move what the seeder reads or what its rail compares against.
+    The ranged backend resolves the checkout's committed pointer against the
+    pinned remote (no pull — a bounded slice is a handful of point lookups);
+    under the `local` backend the source blob is whatever pulled file is on
+    disk, which the pin does not govern — the workflow always runs ranged.
+    **Refuses**, in order: a corpus pointer override in the environment (the
+    index half of the self-seeding hazard — a dev shell flipped to staging
+    may carry one); a destination that *is* either pinned source store, or that
+    sits inside either source bucket at any prefix — a local second line
+    behind the IAM policy, which is what actually keeps the seeding role
+    read-only on production.
 
     Convergent rather than idempotent in the strict sense: the remote is
     content-addressed and add-only, and write-once keys (dated snapshots,
@@ -2120,24 +2144,28 @@ def corpus_seed_slice(
     thing the thrown-away runner would otherwise lose.
     """
     settings = get_settings()
-    destination = corpus_seed.Destination(remote_url=dest_remote, casestore_url=dest_casestore)
     staged = stage_db if stage_db is not None else settings.corpus_root / "staging-slice.db"
     try:
+        # Both store pairs fail closed at construction on an empty slot, so an
+        # unset workflow variable — which resolves to an empty string — is
+        # refused here, before anything else runs.
+        source = corpus_seed.Source(remote_url=source_remote, casestore_url=source_casestore)
+        destination = corpus_seed.Destination(remote_url=dest_remote, casestore_url=dest_casestore)
         case_ids = corpus_seed.parse_case_ids(dockets or [], path=dockets_file)
-        # Both rails run before a client is built or a store is opened, so a
-        # dispatch aimed at production — or at the checkout's own corpus blob —
-        # is refused in milliseconds and touches nothing. `seed_slice`
-        # re-asserts both, because a library entry point has to be safe on its
-        # own; these calls are a duplicate, not a substitute.
-        corpus_seed.assert_destination_is_not_production(destination, settings=settings)
+        # Every rail runs before a client is built or a store is opened, so a
+        # dispatch aimed at its own source — or at the checkout's own corpus
+        # blob, or under a pointer override — is refused in milliseconds and
+        # touches nothing. The pointer rail must fire HERE to precede the
+        # read: `seed_slice` takes an already-open connection, so its own
+        # re-assertion guards only the write half for a library caller. The
+        # other two are genuinely re-asserted there; these calls are a
+        # duplicate, not a substitute.
+        corpus_seed.assert_no_pointer_override(settings)
+        corpus_seed.assert_destination_is_not_the_source(destination, source=source)
         corpus_seed.assert_stage_db_is_not_the_corpus(staged, settings=settings)
     except corpus_seed.SeedSliceError as exc:
         typer.echo(f"corpus-seed-slice: {exc}", err=True)
         raise typer.Exit(code=2) from exc
-    # The rail already refused an unconfigured production content store — it is
-    # both the comparison basis and the slice's payload source — so by here the
-    # source URL is known present.
-    source_casestore_url = str(settings.casestore_url)
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if corpus.resolve_backend() == "local" and not db_path.exists():
         # `connect` would create an empty database and report every requested
@@ -2148,19 +2176,24 @@ def corpus_seed_slice(
             err=True,
         )
         raise typer.Exit(code=1)
-    bucket, prefix = casestore.parse_s3_url(source_casestore_url.strip())
-    source_objects = casestore.S3ObjectTransport(bucket, prefix=prefix or casestore.DEFAULT_PREFIX)
     try:
-        with corpus.connect_readonly(db_path) as conn:
+        # The pin's resolved identity, for the census: which source blob this
+        # run measured. Only the ranged read has one — a local file is
+        # whatever was pulled, and the committed pointer does not describe it.
+        source_pointer = (
+            corpus.resolve_read_pointer(db_path) if corpus.resolve_backend() == "ranged" else None
+        )
+        with corpus.connect_readonly(db_path, remote_url=source.remote_url) as conn:
             result = corpus_seed.seed_slice(
                 source_conn=conn,
-                source_objects=source_objects,
+                source=source,
                 case_ids=case_ids,
                 destination=destination,
                 settings=settings,
                 stage_db=staged,
                 apply=apply,
                 max_cases=max_cases,
+                source_pointer=source_pointer,
             )
     except (
         corpus_seed.SeedSliceError,

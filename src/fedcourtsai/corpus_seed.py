@@ -36,10 +36,16 @@ impossible to write production here is **IAM**: the seeding role's policy is
 read-only on the production stores, so no input and no bug in this module
 reaches the production write path. The rails are the second line, and they earn
 their place by turning a misconfiguration into a local refusal before anything
-is read rather than an ``AccessDenied`` part-way through:
-:func:`assert_destination_is_not_production` refuses a destination that is, or
-is *inside*, either configured production store — resolved through the same
-parsers the transports use, so no spelling of a location slips past — and
+is read rather than an ``AccessDenied`` part-way through. The source is a
+**pinned parameter** (:class:`Source`), never the ambient environment — the
+staging runbook repoints the environment's corpus variables at the staging
+pair, and a source that followed them would read staging as its own source
+while the rail protected the wrong stores. Three rails hang off that pin:
+:func:`assert_destination_is_not_the_source` refuses a destination that is, or
+is *inside*, either pinned source store — resolved through the same
+parsers the transports use, so no spelling of a location slips past —
+:func:`assert_no_pointer_override` refuses to read the source index through a
+pointer override (the index half of the same self-seeding hazard), and
 :func:`assert_stage_db_is_not_the_corpus` refuses a working file that would
 overwrite the checkout's committed pointer. Everything else about the operation
 is convergent rather than destructive — the remote is add-only and
@@ -121,7 +127,8 @@ class SeedSliceError(RuntimeError):
 
     Deliberately loud: every message names what was expected, because the
     command's failure modes are all "the operator meant something else" — a
-    malformed docket id, an unset store URL, a destination that is production.
+    malformed docket id, an unpinned store URL, a destination that is its
+    own source.
     """
 
 
@@ -194,11 +201,88 @@ class Destination:
     objects: ObjectTransport | None = None
     blob_transport: WholeFileTransport | None = None
 
+    def __post_init__(self) -> None:
+        # The same construction-time normalization and empty-slot refusal the
+        # source gets: an unset workflow variable resolves to the empty
+        # string, and all four store slots should fail closed in one voice —
+        # a named refusal, never a parse error over the empty string.
+        object.__setattr__(self, "remote_url", self.remote_url.strip())
+        object.__setattr__(self, "casestore_url", self.casestore_url.strip())
+        if not self.remote_url:
+            raise SeedSliceError(
+                "refusing to seed: the destination corpus remote URL is empty "
+                "(--dest-remote) — an unset destination variable is a "
+                "misconfiguration, not a default; see docs/security.md."
+            )
+        if not self.casestore_url:
+            raise SeedSliceError(
+                "refusing to seed: the destination content-store URL is empty "
+                "(--dest-casestore) — an unset destination variable is a "
+                "misconfiguration, not a default; see docs/security.md."
+            )
+
     def object_transport(self) -> ObjectTransport:
         """The destination content-store transport, built from the URL if unset."""
         if self.objects is not None:
             return self.objects
-        bucket, prefix = parse_s3_url(self.casestore_url.strip())
+        bucket, prefix = parse_s3_url(self.casestore_url)
+        return S3ObjectTransport(bucket, prefix=prefix or DEFAULT_PREFIX)
+
+
+@dataclass(frozen=True)
+class Source:
+    """Where a slice is read from — pinned by the caller, never ambient.
+
+    The seeder's source doubles as the destination rail's comparison basis,
+    so it is a parameter stated at the invocation rather than a value
+    resolved from the environment: the staging runbook repoints the
+    environment's corpus variables at the staging pair, and a source that
+    followed them would have the seeder read staging as its own source while
+    the rail protected the wrong stores. Construction fails closed — an
+    empty URL in either slot is a refusal before anything is read, because
+    half a comparison basis is no basis, and the content-store half is
+    doubly required as the slice's payload source.
+
+    **The rail sees only the URLs**, exactly as with :class:`Destination`:
+    an injected transport is trusted to be the store its URL names, and only
+    tests inject one. Reading *from* a pointer-overridden pair is
+    deliberately unsupported — the source index is always the pinned
+    remote's committed pointer (:func:`assert_no_pointer_override`); a
+    source-pointer input would be its own feature, omitted knowingly.
+    """
+
+    remote_url: str
+    casestore_url: str
+    objects: ObjectTransport | None = None
+
+    def __post_init__(self) -> None:
+        # Normalized once at construction, so the rail's parsers and every
+        # reader of these URLs see the same bytes — a padded variable value
+        # must not pass the rail and then reach a URL-echoing parser
+        # downstream (rail messages name slots, never URLs, and run logs are
+        # public).
+        object.__setattr__(self, "remote_url", self.remote_url.strip())
+        object.__setattr__(self, "casestore_url", self.casestore_url.strip())
+        if not self.remote_url:
+            raise SeedSliceError(
+                "refusing to seed: the source corpus remote URL is not pinned "
+                "(--source-remote), so the rail cannot tell a staging "
+                "destination from its source. Pin it to the production value "
+                "(the workflow does) — see docs/security.md."
+            )
+        if not self.casestore_url:
+            raise SeedSliceError(
+                "refusing to seed: the source content-store URL is not pinned "
+                "(--source-casestore). The rail cannot tell a staging "
+                "destination from its source without it, and it is the "
+                "slice's payload source — see docs/security.md."
+            )
+
+    def object_transport(self) -> ObjectTransport:
+        """The source content-store transport, built from the URL if unset."""
+        if self.objects is not None:
+            return self.objects
+        bucket, prefix = parse_s3_url(self.casestore_url)
         return S3ObjectTransport(bucket, prefix=prefix or DEFAULT_PREFIX)
 
 
@@ -240,41 +324,29 @@ def _store_location(url: str, *, described_as: str) -> _Location:
     return _fold((bucket, prefix or DEFAULT_PREFIX))
 
 
-def _production_locations(settings: Settings) -> dict[str, _Location]:
-    """Both production stores as ``(bucket, prefix)``, failing closed if unset.
+def _source_locations(source: Source) -> dict[str, _Location]:
+    """Both pinned source stores as ``(bucket, prefix)``.
 
-    An unset production URL is refused rather than skipped: without it the rail
-    cannot tell a staging destination from production at all, and a rail that
-    silently checks one half is worse than one that stops. The content-store
-    URL is doubly required — it is also the slice's payload source, so a seed
-    without it would publish rows with nothing to provision from.
+    The unset case cannot reach here — :class:`Source` refuses to construct
+    with an empty slot — so this is pure resolution: the same parsers the
+    transports use, over the two URLs the rail compares every destination
+    against.
     """
-    locations: dict[str, _Location] = {}
-    remote = settings.corpus_remote_url
-    if remote is None or not remote.strip():
-        raise SeedSliceError(
-            "refusing to seed: the production corpus remote URL is not configured, so "
-            "the rail cannot tell a staging destination from production. Set it to the "
-            "production value (the workflow does) — see docs/security.md."
-        )
-    locations["corpus remote"] = _remote_location(
-        remote, described_as="the production corpus remote URL"
-    )
-    store = settings.casestore_url
-    if store is None or not store.strip():
-        raise SeedSliceError(
-            "refusing to seed: the production content-store URL is not configured. The "
-            "rail cannot tell a staging destination from production without it, and it "
-            "is the slice's payload source — see docs/security.md."
-        )
-    locations["content store"] = _store_location(
-        store, described_as="the production content-store URL"
-    )
-    return locations
+    return {
+        "corpus remote": _remote_location(source.remote_url, described_as="--source-remote"),
+        "content store": _store_location(source.casestore_url, described_as="--source-casestore"),
+    }
 
 
-def assert_destination_is_not_production(destination: Destination, *, settings: Settings) -> None:
-    """Refuse a destination that is, or is inside, either production store.
+def assert_destination_is_not_the_source(destination: Destination, *, source: Source) -> None:
+    """Refuse a destination that is, or is inside, either pinned source store.
+
+    The invariant is that the seeder never writes what it reads. Its one
+    production caller pins the source to the production pair, so there this
+    is the production rail; pinned anywhere else it still refuses the
+    self-seed that would read a pair as its own source — which is exactly
+    what re-basing the comparison on the ambient environment would permit
+    the moment that environment is repointed at the staging pair.
 
     The one rail that cannot be convergent: everything else this module does is
     add-only and idempotent, but a seed pointed at production would publish a
@@ -287,16 +359,16 @@ def assert_destination_is_not_production(destination: Destination, *, settings: 
       with its ``DEFAULT_PREFIX`` fallback), so every spelling of a location
       compares equal to every other: a bare bucket, a doubled slash, a trailing
       slash;
-    * **bucket** — any destination sharing a bucket with either production
+    * **bucket** — any destination sharing a bucket with either source
       store is refused whatever its prefix. That is the runbook's own
       invariant, that the staging pair is a separate bucket and not a prefix
-      inside production's, enforced rather than merely stated — and it is what
+      inside the source's, enforced rather than merely stated — and it is what
       makes the rail robust to prefix spellings nobody enumerated.
 
-    Both checks run in **both** destination slots against **both** production
-    stores: a staging content store that happens to name the production corpus
+    Both checks run in **both** destination slots against **both** source
+    stores: a staging content store that happens to name the source corpus
     remote is just as wrong. Every exact-location check runs **before** any
-    bucket check, so a destination that is precisely a production store is
+    bucket check, so a destination that is precisely a source store is
     diagnosed as that rather than as the vaguer "inside its bucket" — the two
     production stores share a bucket, so the coarse rule would otherwise
     shadow the precise one and the operator would get the less useful message.
@@ -307,7 +379,7 @@ def assert_destination_is_not_production(destination: Destination, *, settings: 
     catches the misconfiguration the policy would turn into a confusing
     ``AccessDenied`` — and, being local, it catches it before anything is read.
     """
-    production = _production_locations(settings)
+    source_stores = _source_locations(source)
     slots = (
         ("--dest-remote", _remote_location(destination.remote_url, described_as="--dest-remote")),
         (
@@ -316,22 +388,46 @@ def assert_destination_is_not_production(destination: Destination, *, settings: 
         ),
     )
     for flag, location in slots:
-        for name, configured in production.items():
+        for name, configured in source_stores.items():
             if location == configured:
                 raise SeedSliceError(
-                    f"refusing to seed: {flag} names the configured production {name}. "
+                    f"refusing to seed: {flag} names the pinned source {name}. "
                     "The staging corpus is its own bucket/prefix pair — see the "
                     "staging corpus runbook in docs/security.md."
                 )
     for flag, location in slots:
-        for name, configured in production.items():
+        for name, configured in source_stores.items():
             if location[0] == configured[0]:
                 raise SeedSliceError(
-                    f"refusing to seed: {flag} is a prefix inside the production "
+                    f"refusing to seed: {flag} is a prefix inside the pinned source "
                     f"{name}'s bucket. The staging corpus is a SEPARATE bucket, not a "
-                    "prefix inside production's — see the staging corpus runbook in "
+                    "prefix inside its source's — see the staging corpus runbook in "
                     "docs/security.md."
                 )
+
+
+def assert_no_pointer_override(settings: Settings) -> None:
+    """Refuse to seed while a corpus pointer override is set.
+
+    The seeder's source index is the pinned remote's committed pointer; an
+    override in the environment asks for another blob — a dev shell flipped
+    to the staging pair may carry exactly that — which is the index-side
+    twin of the store hazard the pin closes. Resolved against the pinned
+    remote, a staging override is a missing key rather than a mis-read, so
+    what this rail buys is the ``corpus-push`` posture stated as a named
+    refusal: a command whose correctness depends on which blob it saw does
+    not run under one, and the refusal says why where the missing key would
+    not. Seeding *from* an overridden pair would need its own explicit
+    source-pointer input — a deliberate omission (:class:`Source`).
+    """
+    if settings.corpus_pointer is not None:
+        raise SeedSliceError(
+            "refusing to seed: a corpus pointer override is set in the "
+            "environment. The seeder reads the pinned source's committed "
+            "pointer, never an override — unset the pointer variable (a dev "
+            "shell flipped to the staging pair may carry one; see the staging "
+            "corpus runbook in docs/security.md)."
+        )
 
 
 def assert_stage_db_is_not_the_corpus(stage_db: Path, *, settings: Settings) -> None:
@@ -463,8 +559,9 @@ def _mirror_disabled() -> Iterator[None]:
     """Silence the casestore dual-write for the duration of a slice build.
 
     ``upsert_rows`` / ``upsert_events`` mirror through the **process-wide**
-    casestore transport, which in a seeding run is built from settings — i.e.
-    the *production* content store. The staging store's half is a faithful
+    casestore transport, which is built from ambient settings — whatever
+    content store a shell happens to name (the workflow names none; a dev
+    shell may name production's). The staging store's half is a faithful
     key-level copy instead, so the mirror is switched off outright rather than
     repointed: nothing in this module may write to production, and a sink that
     is off cannot. :func:`casestore.transport_override` puts back exactly what
@@ -606,6 +703,12 @@ class SeedResult:
     objects: CopyCounts
     blob_bytes: int
     pointer: IndexPointer | None
+    # The source index blob the census was taken over, where the caller
+    # resolved one (the ranged read does; a local file has no pointer of its
+    # own). Rendered so a stale source pin is visible in the census a
+    # maintainer reads before an apply — a pin naming a bucket that still
+    # resolves to an outdated blob is green and wrong everywhere else.
+    source_pointer: IndexPointer | None = None
 
     def render_markdown(self) -> str:
         """The step-summary rendering: the census table, then the verdict.
@@ -634,6 +737,14 @@ class SeedResult:
             f"- **{self.census.rows} row(s)**, {self.census.events} event(s), "
             + f"{self.census.objects} content-store object(s)",
         ]
+        if self.source_pointer is not None:
+            # The pin's resolved value: which source blob this census
+            # measured. A stale pin still resolves somewhere — this line is
+            # where a maintainer sees *what* it resolved to.
+            lines.append(
+                f"- source index blob `{self.source_pointer.key}` "
+                + f"({self.source_pointer.size} bytes)"
+            )
         if self.census.missing:
             missing = ", ".join(f"`{case_id}`" for case_id in self.census.missing)
             lines.append(f"- no row in the source corpus for: {missing}")
@@ -671,43 +782,57 @@ class SeedResult:
         return "\n".join(lines) + "\n"
 
 
-def seed_slice(
+def seed_slice(  # noqa: PLR0913 - keyword-only; one invocation's full coordinates
     *,
     source_conn: ReadConnection,
-    source_objects: ObjectTransport,
+    source: Source,
     case_ids: Sequence[str],
     destination: Destination,
     settings: Settings,
     stage_db: Path,
     apply: bool = False,
     max_cases: int = DEFAULT_MAX_CASES,
+    source_pointer: IndexPointer | None = None,
 ) -> SeedResult:
     """Measure — and on ``apply``, seed — the staging corpus slice.
 
-    Both rails run first, before a single read: a destination that is or is
-    inside either production store is refused, as is a working file that would
-    clobber the committed pointer. Then the slice is bounded, the census taken,
+    All three rails run first: a pointer override in the environment is
+    refused, then a destination that is or is inside either pinned source
+    store, then a working file that would clobber the committed pointer. The
+    two store rails genuinely precede every read and write; the pointer rail
+    here guards the **write** half only, because ``source_conn`` arrives
+    already open — a caller that resolved a pointer to open it has already
+    read under the override, which is why the command runs the same rail
+    before connecting. Then the slice is bounded, the census taken,
     and on an apply the content objects are copied **before** the rebuilt index
     blob is published — so a reader resolving the new pointer always finds the
     payloads its rows refer to. The reverse order would publish an index
     describing content that is not there yet, which is exactly the window a
     failed or interrupted run leaves open.
 
-    ``source_objects`` is required rather than optional: the source store is
-    where a split-mode corpus keeps every payload, so a seed without one would
-    publish rows with nothing to provision from — a hollow staging corpus that
-    looks seeded. (:func:`census_slice` keeps it optional, because measuring a
-    blob-only source is a coherent thing to want.)
+    ``source`` is the **pin**: where the slice is read from and what the
+    destination rail compares against, stated by the caller rather than
+    resolved from the environment — so a repointed environment cannot move
+    either. Its content store is required at construction: that store is
+    where a split-mode corpus keeps every payload, so a seed without one
+    would publish rows with nothing to provision from — a hollow staging
+    corpus that looks seeded. (:func:`census_slice` keeps its transport
+    optional, because measuring a blob-only source is a coherent thing to
+    want.) ``source_pointer`` is the source blob's resolved identity where
+    the caller has one — rendered into the census so a stale pin is visible
+    in the reading a maintainer does before an apply.
 
     ``stage_db`` is the runner-local working file the blob is built at; the
     published pointer is written beside it (:func:`upload_index`'s contract),
     which is where the caller reads the value a staging consumer must resolve.
-    The destination's transports default to S3 built from its URLs; tests
+    The transports default to S3 built from the pinned URLs; tests
     inject in-memory ones through the same seams the corpus transports already
     expose.
     """
-    assert_destination_is_not_production(destination, settings=settings)
+    assert_no_pointer_override(settings)
+    assert_destination_is_not_the_source(destination, source=source)
     assert_stage_db_is_not_the_corpus(stage_db, settings=settings)
+    source_objects = source.object_transport()
     kept, dropped = bound_cases(case_ids, max_cases)
     census = census_slice(
         source_conn, kept, objects=source_objects, requested=len(case_ids), dropped=dropped
@@ -721,6 +846,7 @@ def seed_slice(
             objects=CopyCounts(copied=0, skipped=0, unreadable=0),
             blob_bytes=0,
             pointer=None,
+            source_pointer=source_pointer,
         )
     objects = copy_case_objects(source_objects, destination.object_transport(), kept)
     rows, events = build_slice_blob(source_conn, kept, stage_db)
@@ -735,4 +861,5 @@ def seed_slice(
         objects=objects,
         blob_bytes=stage_db.stat().st_size,
         pointer=pointer,
+        source_pointer=source_pointer,
     )

@@ -708,17 +708,24 @@ untouched: the production read-write role's trust still names `prod` alone and
 no new job assumes it. **The guarantee is IAM** — the staging role's policy is
 read-only on the production stores, so nothing in this lane can reach the
 production write path whatever it is pointed at. The seeder's own rail, which
-refuses a destination that *is, or is inside*, either configured production
-store, is the second line: it turns a misconfiguration into a local refusal
-before anything is read. Codespaces stays read-only: against production for
+refuses a destination that *is, or is inside*, either store of its **pinned
+source**, is the second line: it turns a misconfiguration into a local refusal
+before anything is read. The source is pinned on the command line — dedicated
+production-source variables in the workflow, explicit options in a shell —
+never resolved from the ambient environment, so repointing the environment's
+corpus variables moves neither what the seeder reads nor what its rail
+compares against. Codespaces stays read-only: against production for
 both developer flows, and against the staging pair for the maintainer's
 role-assumed flow, whose read-only role's policy also reads it (see
 [data-pipeline.md](data-pipeline.md)'s *Developer access* for the
 `scripts/corpus-env` switch). A dev checkout can dry-run the seeder against
-the read-only role, and its write half exists nowhere but the workflow below —
-but dry-run it from a prod-pointed shell: the rail resolves "production" from
-the very variables the switcher rewrites, so a staging-flipped shell re-bases
-what the rail refuses.
+the read-only role, and its write half exists nowhere but the workflow below.
+The pin makes the dry run shell-proof for the ranged read and the rail alike:
+a staging-flipped shell cannot re-base what the rail refuses, and one carrying
+the staging pointer override is refused outright. The one residual is the
+`local` backend, which reads whatever pulled blob is on disk — the pin
+governs the content store, the rail, and the ranged read — so dry-run ranged,
+or re-pull production first.
 
 Provisioning is AWS-and-environment work only the maintainer can do. **Steps
 1-4 are the whole of what the refresh lane needs**, and they are ordered: each
@@ -727,14 +734,13 @@ closed (an unset role variable resolves empty and the assume-role step
 refuses). Do those four and the lane works — you can seed the staging corpus,
 and step 6's first half is its acceptance.
 
-**Step 5 and step 6's second half repoint the scenarios** at the seeded pair.
-Step 5 hands the `staging` environment all four corpus variables at once, the
-pointer among them (see *How a consumer resolves the staging index* below for
-why the pointer cannot be committed). It carries **one remaining
-prerequisite**, and it is not the pointer: the refresh lane still sources its
-slice from the same two variables step 5 repoints, so until that lane is given
-explicit production-source variables, running step 5 disables re-seeding. Read
-step 5's two ordering notes before doing either.
+**Step 5 and step 6's second half repoint the scenarios** at the seeded pair —
+and only the scenarios. Step 5 hands the `staging` environment all four
+scenario corpus variables at once, the pointer among them (see *How a consumer
+resolves the staging index* below for why the pointer cannot be committed).
+The refresh lane's source is pinned to its own production-source variables,
+which this step never touches, so re-seeding stays available before and after
+the repoint. Read step 5's two ordering notes before doing either.
 
 1. **Create the staging bucket/prefix pair.** Two destinations, named by role
    rather than by literal here as everywhere in this document: a *staging
@@ -746,8 +752,9 @@ step 5's two ordering notes before doing either.
    able to write staging is unable to **write** production at all — it reads
    and lists there, which is where the slice comes from (step 3), and that is
    the whole of its production reach. The seeder's rail enforces the separation
-   from the other side, refusing any destination sharing a bucket with
-   production. The licence travels with the slice: it is CourtListener content
+   from the other side, refusing any destination sharing a bucket with its
+   pinned source — production, in this lane. The licence travels with the
+   slice: it is CourtListener content
    under the same CC BY-ND no-republication posture
    ([data-sources.md](data-sources.md)), so the staging pair is access-gated on
    the same terms — **no wider read principal than production's**, nothing
@@ -800,16 +807,23 @@ step 5's two ordering notes before doing either.
    the production half explicitly read-only: this role must be unable to write
    the production corpus by policy, not merely by the command's refusal.
 4. **Set the variables on the `staging` environment** — the destinations
-   `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`, the role
-   `AWS_ROLE_TO_ASSUME_STAGING_RW` (`AWS_REGION` and the source variables
+   `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`, the pinned
+   sources `PROD_CORPUS_REMOTE_URL` and `PROD_CASESTORE_URL` (the production
+   pair, by value — the refresh lane reads its slice from these and its rail
+   compares destinations against them, so they are dedicated names step 5
+   never touches), and the role
+   `AWS_ROLE_TO_ASSUME_STAGING_RW` (`AWS_REGION` and the scenario variables
    `CORPUS_REMOTE_URL` / `CASESTORE_URL` are already there at their production
-   values for the integration runs, and the seeder reads the same pair as its
-   source). Values stay out of git, as the production ones do. Note the
-   coupling this creates with step 5: once those shared variables repoint to
-   the staging pair, the seeder's source moves with them — the wiring change
-   must give the refresh lane explicit production-source variables in the
-   same change, or the lane would seed staging from itself and the refusal
-   rail would refuse the now-"production" staging destination.
+   values for the integration runs; the seeder deliberately reads neither).
+   Values stay out of git, as the production ones do. The source pins live on
+   the environment rather than the repository because environment values are
+   the one slot nothing can shadow — and they join any store-rotation
+   checklist: a rotation that moves the production pair must move these two
+   with it, or the lane seeds from whatever the old bucket still resolves to
+   — the census's source-blob line (step 6) is where that staleness shows.
+   Type them carefully: the pin is also what the rail refuses to write to,
+   so a mis-set pin re-bases the local check with it — IAM, read-only on
+   production, is what keeps a typo harmless rather than the rail.
 5. **Point the `staging` environment at the staging corpus.** Set its
    `CORPUS_REMOTE_URL` and `CASESTORE_URL` to the staging pair,
    `FEDCOURTS_CORPUS_SPLIT=1`, and `FEDCOURTS_CORPUS_POINTER` to the pointer
@@ -832,22 +846,15 @@ step 5's two ordering notes before doing either.
    and still holds it — every production scenario would then certify the
    seams against an old corpus and pass.
 
-   **The refresh lane must never receive the pointer.** Its source is
-   production's index, which is exactly what the committed pointer names, so
-   `staging-corpus-refresh` deliberately forwards no pointer. Handing it one
-   is the index half of the self-seeding hazard the step-4 note names: the
-   seeder would read the slice as its own source and re-seed staging from
-   staging.
-
-   **Blocked until the refresh lane has its own production-source
-   variables.** `staging-corpus-refresh` reads its slice from
-   `CORPUS_REMOTE_URL` / `CASESTORE_URL` — the two this step repoints — so
-   after this step the seeder would read the staging pair as its own source
-   and re-seed staging from itself, which the refusal rail then blocks as a
-   destination that is now "production". Giving that lane explicit
-   production-source variables is a workflow change; until it lands, this
-   step trades re-seeding for repointed scenarios. The pointer is *not* what
-   blocks it — that half is wired.
+   **The refresh lane never receives the pointer, and the command enforces
+   it.** Its source is production's index, which is exactly what the
+   committed pointer names, so `staging-corpus-refresh` forwards no pointer
+   and `corpus-seed-slice` refuses to run while the pointer override is set
+   anywhere in its environment. An override asks the index read for another
+   blob than the pin's committed pointer — against the pinned production
+   remote a staging pointer is a missing key, not a mis-read — and a command
+   whose correctness depends on which blob it saw does not run under one;
+   the refusal names the cause where the missing key would not.
 
    **Order this after the override is live on the ref the scenarios run
    from.** An environment carrying the pointer variable while the running
@@ -885,8 +892,7 @@ step 5's two ordering notes before doing either.
    stale on a re-seed for the identical reason — reading the previous slice,
    green and wrong.
 
-   Two further consequences to accept deliberately (the seeder's source
-   variables are the prerequisite above, not a consequence): the production
+   Two further consequences to accept deliberately: the production
    **read-only** role that the `staging` environment binds must be able
    to read and list the staging pair (the read-side extension below, which may
    land at any time and is already absorbed if it landed early), and a
@@ -909,7 +915,9 @@ step 5's two ordering notes before doing either.
    ```
 
    **The observable is the apply run's step summary**: a per-case census (rows,
-   events, snapshots, documents, objects) plus the published-pointer JSON
+   events, snapshots, documents, objects, and the source index blob's
+   resolved key and size — the pin's value at this run, which is where a
+   stale source pin shows) plus the published-pointer JSON
    block. Both present, with the case counts you asked for, is the acceptance
    available today — it proves the role, the environment, the variables, and
    both destination stores are provisioned and writable.
