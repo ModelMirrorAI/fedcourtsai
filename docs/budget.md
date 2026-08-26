@@ -430,6 +430,13 @@ half is where the bases part.
 - The **measured basis** takes the two post-freeze evaluate runs at face value:
   `$6.44–6.69`, no uplift applied, summing to a per case of `$13.2–13.5`.
 
+**The measured basis is itself a mixed sum, and says so.** Its predict half is an
+all-stage figure; its evaluate half is six interim-stage gradings. Adding them
+prices a case whose predict cells span four moments and whose evaluate cells span
+one — the same mix mismatch the planning basis introduces in the other direction
+by assuming evaluate's mix broadens as predict's did. Neither sum is a
+like-for-like measurement of a case; the pair brackets one.
+
 Note what the +22% contains: it is the whole predict move, and only its mix half
 is measured. Applying it assumes evaluate's stage mix broadens as predict's has
 *and* that whatever level effect sits in the residual applies to judging too.
@@ -439,15 +446,16 @@ settles nothing about a population that is ~73–74% cert.
 
 Three numbers to hold apart. **$13.2–13.5** is the measured basis: measured
 predict plus post-freeze evaluate unadjusted — what the measurements literally
-sum to, with no assumption applied. (The pre-freeze pooled evaluate figure sums
-to `$13.2` as well, which is why the two readings coincide at the bottom.)
-**$14.6–15.0** is the expectation once the scaling is applied, the band running
-from the pooled anchor to the proc-v2 one. **$15** is the planning rate. Divided
-across the design mix of six cells, `$15` is the **$2.50 per-cell rate** the
-whole-docket ceilings above are priced on.
+sum to, with no assumption applied. (The pre-freeze pooled evaluate anchor
+happens to sum to `$13.2` too, so this reading lands where an unadjusted
+pre-freeze carryover would have; that is a coincidence of two anchors sitting a
+cent apart, not corroboration.) **$14.6–15.0** is the expectation once the
+scaling is applied, the band running from the pooled anchor to the proc-v2 one.
+**$15** is the planning rate. Divided across the design mix of six cells, `$15`
+is the **$2.50 per-cell rate** the whole-docket ceilings above are priced on.
 
 So: fund against `$15`. Against the *assumed* evaluate half it carries no
-headroom worth the name — ~2.6% over the pooled reading, effectively nil (~0.2%)
+headroom worth the name — ~2.5% over the pooled reading, effectively nil (~0.2%)
 over the better-matched one. Against the *measured* evaluate half it carries
 **≈11–13%**. Which of those is real turns on whether the interim-stage evaluate
 level generalizes, and six same-events-twice unstamped gradings do not establish
@@ -459,6 +467,12 @@ estimate down rather than up. But it carries no `process_version`, so it cannot
 be attributed to a blessed digest, and pre-registration holds on the digest.
 **The formal re-anchor waits on a stamped post-freeze evaluate fan-out over more
 than one stage**; that run, not a fuller ledger, is still what settles it.
+
+Which is also why the measured basis rides beside the planning rate rather than
+replacing it. The plan seams' per-cell rate table is a transcription of these
+figures and its per-event sums are pinned by test, so re-anchoring is a code
+change that re-prices every plan — deliberately visible, deliberately not
+something a document can do on its own.
 
 So `N ≈ inference_budget / (≈$15 per fully-tournamented case)`. Tier-1 salience
 scoring is itself ≈$0 (a deterministic pure function of corpus features, no model
@@ -545,9 +559,10 @@ resolved **engine**, not on the predictor id, and that cuts both ways:
   the one thing the parent's rate cannot be relied on for. An unmarked
   approximation on the dimension the ablation exists to change.
 
-So a `P = 4` step on a new engine costs a visibly approximate plan, and one on
-an ablation costs an invisibly approximate one. Neither is settled until a
-fan-out measures the new entry and the rate table gains its row.
+So a `P = 4` step on a new engine costs a visibly approximate plan, and one on an
+ablation costs an invisibly approximate one. Neither is settled until a fan-out
+measures the new entry: for a new engine that is a new row in the rate table, and
+for an ablation it is a rate an engine-keyed table has nowhere to put.
 
 **The evaluate half grows by an unmeasured margin `m`.** `E` holds at 3, so the
 cell count does not move — each judge instead grades one more prediction in the
