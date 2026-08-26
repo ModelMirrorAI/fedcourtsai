@@ -401,6 +401,30 @@ def test_connect_readonly_ranged_end_to_end(
 
 
 @mock_aws
+def test_connect_readonly_ranged_prefers_an_explicit_remote_url(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A caller may pin the remote the ranged read resolves against.
+
+    The staging seeder's source must not follow the ambient corpus variables
+    (a repointed environment would move it), so `connect_readonly` takes the
+    remote as a parameter: with every ambient spelling absent, an explicit
+    `remote_url` still serves the read.
+    """
+    db = build_fixture_corpus(tmp_path / "corpus.db")
+    pointer, _ = _write_pointer(db)
+    _stage_moto_bucket(pointer, db.read_bytes())
+    db.unlink()
+    monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "ranged")
+    for name in ("FEDCOURTS_CORPUS_REMOTE_URL", "CORPUS_REMOTE_URL", "FEDCOURTS_DVC_REMOTE_URL"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
+    with corpus.connect_readonly(db, remote_url=REMOTE_URL) as conn:
+        assert corpus.count(conn) == len(FIXTURE_CASES)
+
+
+@mock_aws
 def test_stub_cascade_reads_via_ranged_backend(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

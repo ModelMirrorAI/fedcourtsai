@@ -153,6 +153,10 @@ def _env_mappings(name: str) -> list[tuple[str, dict[str, Any]]]:
 # Every workflow whose reads the corpus-split mode forks: the cell workflows,
 # the writer lanes, and the integration scenarios. A workflow leaving this set
 # — or a new corpus-reading workflow not joining it — is a deliberate act.
+# staging-corpus-refresh.yml is deliberately absent: its source is pinned on
+# the command line from dedicated production-source variables, so it reads NO
+# ambient corpus variable at all — neither half of the pair — and the pinning
+# test below holds it to that.
 SPLIT_PAIR_WORKFLOWS = {
     "integration-test.yml",
     "run-backtest.yml",
@@ -160,7 +164,6 @@ SPLIT_PAIR_WORKFLOWS = {
     "run-predict.yml",
     "run-pull.yml",
     "run-seed.yml",
-    "staging-corpus-refresh.yml",
 }
 
 
@@ -195,6 +198,73 @@ def test_the_corpus_split_pair_travels_together_with_one_spelling() -> None:
     assert covered == SPLIT_PAIR_WORKFLOWS, (
         f"corpus-split pair coverage drifted: {sorted(covered ^ SPLIT_PAIR_WORKFLOWS)}"
     )
+
+
+# The four variables the staging runbook's scenario repoint sets on the
+# staging environment — the refresh lane must reference NONE of them, or the
+# repoint moves the seeder's source with it.
+_SCENARIO_REPOINT_VARS = (
+    "vars.CORPUS_REMOTE_URL",
+    "vars.CASESTORE_URL",
+    "vars.FEDCOURTS_CORPUS_SPLIT",
+    "vars.FEDCOURTS_CORPUS_POINTER",
+)
+
+
+def test_the_refresh_lane_pins_its_source_out_of_the_scenario_variables() -> None:
+    """The refresh lane's source and the scenarios' corpus wiring are disjoint.
+
+    The seeder reads from — and its refusal rail compares against — a source
+    pinned on the command line from dedicated production-source variables.
+    The staging runbook repoints the scenario variables at the staging pair,
+    so a reference to any of them here would have that repoint silently move
+    the seeder's source, and the rail with it: the seeder would read the
+    staging pair as its own source and refuse every legitimate re-seed. The
+    guard is textual on purpose — no expression anywhere in the file, not
+    just no env mapping — and the source/destination variables are held
+    pairwise distinct so the two halves can never be flipped together.
+    """
+    text = (WORKFLOWS / "staging-corpus-refresh.yml").read_text(encoding="utf-8")
+    for expression in _SCENARIO_REPOINT_VARS:
+        assert expression not in text, (
+            f"staging-corpus-refresh.yml references {expression}, which the "
+            "staging runbook's scenario repoint moves — the refresh lane's "
+            "source must come only from its dedicated production-source "
+            "variables"
+        )
+    pinned = {
+        "SOURCE_REMOTE": "${{ vars.PROD_CORPUS_REMOTE_URL }}",
+        "SOURCE_CASESTORE": "${{ vars.PROD_CASESTORE_URL }}",
+        "DEST_REMOTE": "${{ vars.STAGING_CORPUS_REMOTE_URL }}",
+        "DEST_CASESTORE": "${{ vars.STAGING_CASESTORE_URL }}",
+    }
+    seed_steps = [
+        step
+        for job in _load("staging-corpus-refresh.yml")["jobs"].values()
+        for step in job.get("steps", []) or []
+        if "corpus-seed-slice" in str(step.get("run", ""))
+    ]
+    assert len(seed_steps) == 1, "expected exactly one seeding step"
+    env = seed_steps[0].get("env") or {}
+    for key, expression in pinned.items():
+        assert env.get(key) == expression, (
+            f"seed step env {key} must be exactly {expression!r}, got {env.get(key)!r}"
+        )
+    backing = [
+        expression.removeprefix("${{ ").removesuffix(" }}") for expression in pinned.values()
+    ]
+    assert len(set(backing)) == len(backing), (
+        f"the source and destination halves must come from four distinct variables, got {backing}"
+    )
+    run_block = str(seed_steps[0]["run"])
+    for flag, variable in (
+        ("--source-remote", '"${SOURCE_REMOTE}"'),
+        ("--source-casestore", '"${SOURCE_CASESTORE}"'),
+    ):
+        assert f"{flag} {variable}" in run_block, (
+            f"the seed invocation must pass {flag} {variable} — the pin is "
+            "only a pin if the command consumes it"
+        )
 
 
 # The corpus-sidecar composite hydrates full-query bodies server-side, so its

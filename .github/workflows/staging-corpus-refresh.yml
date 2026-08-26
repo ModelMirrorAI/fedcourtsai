@@ -34,19 +34,26 @@ name: staging-corpus-refresh
 # **What guarantees this cannot write production is IAM, not the command.** The
 # role below is read-only on the production stores by policy, so no input, no
 # variable, and no bug here reaches the production write path. The command's own
-# rail — it refuses a destination that is, or is inside, either configured
-# production store — is the second line: it turns a misconfiguration into a
+# rail — it refuses a destination that is, or is inside, either store of its
+# **pinned source** — is the second line: it turns a misconfiguration into a
 # local refusal before anything is read, rather than a confusing AccessDenied
-# part-way through. Neither line covers everything: the rail cannot catch the
-# destination variables being set to some OTHER real bucket, and a swap of the
-# source and destination variables would have the seeder read staging and write
-# staging — wrong, but harmlessly so, and the policy is what keeps it that way.
-# Both together are why the write is dispatch-triggerable at all.
+# part-way through. The source and the destination come from **disjoint
+# variables**: the source is pinned on the command line from the environment's
+# production-source variables, which the staging runbook's scenario repoint
+# never touches, so repointing the environment's corpus variables at the
+# staging pair moves neither what the seeder reads nor what its rail compares
+# against — a destination equal to the pinned source is refused. Neither line
+# covers everything: the rail cannot catch the destination variables being set
+# to some OTHER real bucket, and a mis-set source pin re-bases the rail with
+# it — wrong, but harmlessly so, because the policy is what keeps production
+# unwritable. Both together are why the write is dispatch-triggerable at all.
 #
 # Provisioning the variables and the role is a maintainer task the workflow
 # cannot do for itself — see the staging corpus runbook in docs/security.md.
 # Until it is done, a dispatch fails closed: an unset role variable resolves
-# empty and the assume-role step refuses.
+# empty and the assume-role step refuses, and an unset source variable
+# resolves empty and the command refuses at its own rail before anything is
+# read.
 on:
   workflow_dispatch:
     inputs:
@@ -101,16 +108,15 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the staging read-write AWS role
-    # The SOURCE stores, read-only: the production corpus remote and content
-    # store, exactly as every consumer job names them. The ranged backend reads
-    # the index in place — a bounded slice is point lookups, so no full pull —
-    # and the split flag is inert here (the seeder reads the source content
-    # store explicitly and builds a payload-free slice either way), but it is
-    # set for parity with every other corpus-reading job.
+    # This job reads NO ambient corpus variable — deliberately. Its source
+    # stores are pinned on the command line from the environment's
+    # production-source variables (the seed step below), and the source index
+    # is this checkout's committed pointer, resolved by the ranged backend
+    # against the pinned remote — a bounded slice is point lookups, so no
+    # full pull. The scenario variables the staging runbook repoints
+    # (CORPUS_REMOTE_URL, CASESTORE_URL, the split flag, the pointer) never
+    # reach this job, so the repoint cannot move what the seeder reads.
     env:
-      CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
-      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
       FEDCOURTS_CORPUS_BACKEND: ranged
     steps:
       # The environment's deployment-branch policy is the real gate — a
@@ -164,6 +170,12 @@ jobs:
           # case-id grammar and refuses the whole list on any failure.
           DOCKETS: ${{ inputs.dockets }}
           APPLY: ${{ inputs.apply }}
+          # The pinned SOURCE: dedicated production-source variables the
+          # scenario repoint never touches, so source and destination can
+          # never be flipped together. Unset, each resolves empty and the
+          # command refuses before anything is read.
+          SOURCE_REMOTE: ${{ vars.PROD_CORPUS_REMOTE_URL }}
+          SOURCE_CASESTORE: ${{ vars.PROD_CASESTORE_URL }}
           DEST_REMOTE: ${{ vars.STAGING_CORPUS_REMOTE_URL }}
           DEST_CASESTORE: ${{ vars.STAGING_CASESTORE_URL }}
         run: |
@@ -184,6 +196,8 @@ jobs:
           seed() {
             uv run fedcourts corpus-seed-slice \
               --dockets-file "$dockets_file" \
+              --source-remote "${SOURCE_REMOTE}" \
+              --source-casestore "${SOURCE_CASESTORE}" \
               --dest-remote "${DEST_REMOTE}" \
               --dest-casestore "${DEST_CASESTORE}" \
               --summary-out "$GITHUB_STEP_SUMMARY" \

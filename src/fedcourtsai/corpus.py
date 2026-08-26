@@ -1044,7 +1044,7 @@ class RecordRow(Protocol):
 
 @contextmanager
 def connect_readonly(
-    db_path: Path, *, backend: CorpusBackend | None = None
+    db_path: Path, *, backend: CorpusBackend | None = None, remote_url: str | None = None
 ) -> Iterator[ReadConnection]:
     """Open the corpus for reading via the selected backend.
 
@@ -1053,6 +1053,9 @@ def connect_readonly(
     corpus remote (see :mod:`fedcourtsai.corpus_ranged`), resolving the
     committed ``.ref`` pointer next to ``db_path`` against the out-of-band
     remote URL. ``backend`` overrides the ``FEDCOURTS_CORPUS_BACKEND`` setting.
+    ``remote_url`` pins which remote the ranged read resolves against, for a
+    caller whose source must not follow the ambient setting (the staging
+    seeder); unset, the environment's value serves as ever.
     Writers never use this seam — they need the concrete local connection and
     always own the file.
 
@@ -1077,14 +1080,14 @@ def connect_readonly(
             "(see fedcourtsai.corpus_service)"
         )
     if effective == "ranged":
-        remote_url = get_settings().corpus_remote_url
-        if remote_url is None:
+        effective_remote = remote_url or get_settings().corpus_remote_url
+        if effective_remote is None:
             raise RangedBackendError(
                 "the ranged corpus backend needs the corpus remote URL from the "
                 "environment (the same out-of-band value the workflows use)"
             )
         pointer = resolve_read_pointer(db_path)
-        with connect_ranged(pointer, remote_url) as ranged:
+        with connect_ranged(pointer, effective_remote) as ranged:
             yield ranged
     else:
         with connect(db_path) as conn:

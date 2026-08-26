@@ -38,8 +38,19 @@ OTHER_CASE = "ca9/64512345"
 
 
 def _settings() -> Settings:
-    """Settings naming the production stores — what the safety rail compares to."""
+    """Settings naming the production stores — the ambient environment, which
+    the rail deliberately does NOT compare against."""
     return Settings(corpus_remote_url=PROD_REMOTE, casestore_url=PROD_CASESTORE)
+
+
+def _flipped_settings() -> Settings:
+    """The post-repoint environment: ambient variables naming the staging pair."""
+    return Settings(corpus_remote_url=STAGING_REMOTE, casestore_url=STAGING_CASESTORE)
+
+
+def _source() -> corpus_seed.Source:
+    """The pinned source — the production pair, as the workflow pins it."""
+    return corpus_seed.Source(remote_url=PROD_REMOTE, casestore_url=PROD_CASESTORE)
 
 
 def _row(case_id: str, **kwargs: object) -> corpus.CorpusRow:
@@ -121,7 +132,11 @@ def _seed(
     with corpus.connect(source_db) as conn:
         return corpus_seed.seed_slice(
             source_conn=conn,
-            source_objects=source_objects,
+            source=corpus_seed.Source(
+                remote_url=PROD_REMOTE,
+                casestore_url=PROD_CASESTORE,
+                objects=source_objects,
+            ),
             case_ids=case_ids,
             destination=corpus_seed.Destination(
                 remote_url=STAGING_REMOTE,
@@ -178,8 +193,8 @@ def test_an_empty_slice_is_refused() -> None:
 # bucket-disjointness rule — and a test that accepted either would pass with
 # the exact-location branch deleted, since the bucket check subsumes every case
 # it catches.
-_EXACT = "names the configured production"
-_INSIDE = "is a prefix inside the production"
+_EXACT = "names the pinned source"
+_INSIDE = "is a prefix inside the pinned source"
 
 
 @pytest.mark.parametrize(
@@ -207,13 +222,13 @@ _INSIDE = "is a prefix inside the production"
         (STAGING_REMOTE, f"s3://{PROD_BUCKET}/somewhere/else", _INSIDE),
     ],
 )
-def test_a_production_destination_is_refused(
+def test_a_destination_that_is_the_source_is_refused(
     dest_remote: str, dest_casestore: str, expected: str
 ) -> None:
     with pytest.raises(corpus_seed.SeedSliceError) as caught:
-        corpus_seed.assert_destination_is_not_production(
+        corpus_seed.assert_destination_is_not_the_source(
             corpus_seed.Destination(remote_url=dest_remote, casestore_url=dest_casestore),
-            settings=_settings(),
+            source=_source(),
         )
     assert "refusing to seed" in str(caught.value)
     assert expected in str(caught.value)
@@ -221,21 +236,69 @@ def test_a_production_destination_is_refused(
 
 def test_a_staging_destination_is_allowed() -> None:
     """The rail must not be so coarse that it refuses the intended pair."""
-    corpus_seed.assert_destination_is_not_production(
+    corpus_seed.assert_destination_is_not_the_source(
         corpus_seed.Destination(remote_url=STAGING_REMOTE, casestore_url=STAGING_CASESTORE),
-        settings=_settings(),
+        source=_source(),
     )
 
 
-@pytest.mark.parametrize("unset", ["corpus_remote_url", "casestore_url"])
-def test_an_unconfigured_production_url_fails_closed(unset: str) -> None:
-    """Half a comparison basis is no basis: the rail stops rather than skips."""
-    settings = _settings().model_copy(update={unset: None})
-    with pytest.raises(corpus_seed.SeedSliceError, match="not configured"):
-        corpus_seed.assert_destination_is_not_production(
-            corpus_seed.Destination(remote_url=STAGING_REMOTE, casestore_url=STAGING_CASESTORE),
-            settings=settings,
+def test_the_rail_follows_the_pin_not_the_environment() -> None:
+    """The rail's basis is the pinned source, never the ambient settings.
+
+    The staging runbook repoints the environment's corpus variables at the
+    staging pair. A rail based on those variables would then read the staging
+    destination as "production" and refuse every legitimate re-seed — while a
+    seeder sourcing from them would read the staging pair as its own source.
+    So: with the environment flipped and the pin on production, the staging
+    destination is allowed; with the pin itself naming the staging pair, the
+    same destination is refused as a self-seed, whatever the environment says.
+    """
+    staging_destination = corpus_seed.Destination(
+        remote_url=STAGING_REMOTE, casestore_url=STAGING_CASESTORE
+    )
+    # The flipped environment is not consulted: only the pin decides.
+    corpus_seed.assert_destination_is_not_the_source(staging_destination, source=_source())
+    with pytest.raises(corpus_seed.SeedSliceError, match="names the pinned source"):
+        corpus_seed.assert_destination_is_not_the_source(
+            staging_destination,
+            source=corpus_seed.Source(remote_url=STAGING_REMOTE, casestore_url=STAGING_CASESTORE),
         )
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+@pytest.mark.parametrize("slot", ["remote_url", "casestore_url"])
+def test_an_unpinned_source_url_fails_closed(slot: str, blank: str) -> None:
+    """Half a comparison basis is no basis: an empty pin refuses to construct."""
+    urls = {"remote_url": PROD_REMOTE, "casestore_url": PROD_CASESTORE, slot: blank}
+    with pytest.raises(corpus_seed.SeedSliceError, match="not pinned"):
+        corpus_seed.Source(**urls)
+
+
+def test_a_pointer_override_is_refused() -> None:
+    """The index half of the self-seeding hazard: no seed under an override."""
+    pointer = json.dumps(
+        {"key": "corpus/db/sha256/aa.db", "schema_version": "1", "sha256": "aa", "size": 1}
+    )
+    with pytest.raises(corpus_seed.SeedSliceError, match="pointer override"):
+        corpus_seed.assert_no_pointer_override(
+            _settings().model_copy(update={"corpus_pointer": pointer})
+        )
+    # Unset — and the empty spelling the settings validator maps to unset —
+    # both pass: only a live override is the hazard.
+    corpus_seed.assert_no_pointer_override(_settings())
+    corpus_seed.assert_no_pointer_override(Settings(corpus_pointer=""))
+
+
+def test_a_malformed_source_url_is_refused() -> None:
+    bad = "https://example.invalid/corpus"
+    with pytest.raises(corpus_seed.SeedSliceError) as caught:
+        corpus_seed.assert_destination_is_not_the_source(
+            corpus_seed.Destination(remote_url=STAGING_REMOTE, casestore_url=STAGING_CASESTORE),
+            source=corpus_seed.Source(remote_url=bad, casestore_url=PROD_CASESTORE),
+        )
+    # Names the slot, never the URL — same discipline as the destination's.
+    assert "--source-remote" in str(caught.value)
+    assert bad not in str(caught.value)
 
 
 def test_a_stage_db_on_the_committed_corpus_is_refused(tmp_path: Path) -> None:
@@ -266,7 +329,11 @@ def test_the_rail_refuses_before_anything_is_read(
     with corpus.connect(source_db) as conn, pytest.raises(corpus_seed.SeedSliceError):
         corpus_seed.seed_slice(
             source_conn=conn,
-            source_objects=source_objects,
+            source=corpus_seed.Source(
+                remote_url=PROD_REMOTE,
+                casestore_url=PROD_CASESTORE,
+                objects=source_objects,
+            ),
             case_ids=SLICE_CASES,
             destination=corpus_seed.Destination(
                 remote_url=PROD_REMOTE,
@@ -285,9 +352,9 @@ def test_the_rail_refuses_before_anything_is_read(
 def test_a_malformed_destination_url_is_refused() -> None:
     bad = "https://example.invalid/corpus"
     with pytest.raises(corpus_seed.SeedSliceError) as caught:
-        corpus_seed.assert_destination_is_not_production(
+        corpus_seed.assert_destination_is_not_the_source(
             corpus_seed.Destination(remote_url=bad, casestore_url=STAGING_CASESTORE),
-            settings=_settings(),
+            source=_source(),
         )
     # Names the slot, never the URL: a rail message reaches run logs and a PR,
     # and a store URL is supplied out of band and never published.
@@ -701,12 +768,28 @@ def test_the_summary_renders_the_census_and_the_published_pointer(
 
 
 def _prod_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setenv("FEDCOURTS_CORPUS_REMOTE_URL", PROD_REMOTE)
-    monkeypatch.setenv("FEDCOURTS_CASESTORE_URL", PROD_CASESTORE)
+    """The command's environment: only the corpus root.
+
+    Deliberately NO store URLs: the command's source is pinned on the command
+    line, so it must run — and its rails must hold — with no ambient corpus
+    variable at all.
+    """
+    monkeypatch.delenv("FEDCOURTS_CORPUS_REMOTE_URL", raising=False)
+    monkeypatch.delenv("CORPUS_REMOTE_URL", raising=False)
+    monkeypatch.delenv("FEDCOURTS_CASESTORE_URL", raising=False)
+    monkeypatch.delenv("CASESTORE_URL", raising=False)
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
 
 
-def test_the_command_refuses_a_production_destination(
+_SOURCE_FLAGS = [
+    "--source-remote",
+    PROD_REMOTE,
+    "--source-casestore",
+    PROD_CASESTORE,
+]
+
+
+def test_the_command_refuses_a_destination_that_is_the_pinned_source(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _prod_env(monkeypatch, tmp_path)
@@ -714,6 +797,7 @@ def test_the_command_refuses_a_production_destination(
         app,
         [
             "corpus-seed-slice",
+            *_SOURCE_FLAGS,
             "--dest-remote",
             PROD_REMOTE,
             "--dest-casestore",
@@ -727,12 +811,13 @@ def test_the_command_refuses_a_production_destination(
     assert "refusing to seed" in result.output
 
 
-def test_the_command_fails_closed_without_a_source_content_store(
+def test_the_command_requires_a_pinned_source(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The store URL is both the rail's comparison basis and the payload source."""
+    """No source options, no run: the pin is required, with no ambient fallback."""
     _prod_env(monkeypatch, tmp_path)
-    monkeypatch.setenv("FEDCOURTS_CASESTORE_URL", "")
+    monkeypatch.setenv("FEDCOURTS_CORPUS_REMOTE_URL", PROD_REMOTE)
+    monkeypatch.setenv("FEDCOURTS_CASESTORE_URL", PROD_CASESTORE)
     result = runner.invoke(
         app,
         [
@@ -746,7 +831,104 @@ def test_the_command_fails_closed_without_a_source_content_store(
         ],
     )
     assert result.exit_code == 2
-    assert "content-store URL is not configured" in result.output
+    assert "--source-remote" in result.output
+
+
+def test_the_command_refuses_an_empty_pinned_source(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An unset workflow variable resolves to the empty string — refused, never
+    quietly re-based on whatever the environment holds."""
+    _prod_env(monkeypatch, tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "corpus-seed-slice",
+            "--source-remote",
+            PROD_REMOTE,
+            "--source-casestore",
+            "",
+            "--dest-remote",
+            STAGING_REMOTE,
+            "--dest-casestore",
+            STAGING_CASESTORE,
+            "--dockets",
+            SLICE_CASES[0],
+        ],
+    )
+    assert result.exit_code == 2
+    assert "not pinned" in result.output
+
+
+def test_the_command_ignores_a_flipped_environment(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The `scripts/corpus-env staging` footgun, closed: a shell whose ambient
+    variables name the staging pair cannot re-base the rail.
+
+    The discriminator is which check stops the run. With the rail based on the
+    ambient environment, a staging destination reads as "production" the
+    moment the environment is flipped, and the run dies at the rail (exit 2).
+    With the rail based on the pin, the flipped run sails past the rails and
+    stops at the unrelated no-corpus check (exit 1) — while a destination
+    equal to the *pin* is still refused (exit 2), whatever the environment.
+    """
+    _prod_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_REMOTE_URL", STAGING_REMOTE)
+    monkeypatch.setenv("FEDCOURTS_CASESTORE_URL", STAGING_CASESTORE)
+    staging_destination = [
+        "--dest-remote",
+        STAGING_REMOTE,
+        "--dest-casestore",
+        STAGING_CASESTORE,
+    ]
+    allowed = runner.invoke(
+        app,
+        ["corpus-seed-slice", *_SOURCE_FLAGS, *staging_destination, "--dockets", SLICE_CASES[0]],
+    )
+    assert allowed.exit_code == 1, allowed.output
+    assert "no corpus at" in allowed.output
+    refused = runner.invoke(
+        app,
+        [
+            "corpus-seed-slice",
+            *_SOURCE_FLAGS,
+            "--dest-remote",
+            PROD_REMOTE,
+            "--dest-casestore",
+            PROD_CASESTORE,
+            "--dockets",
+            SLICE_CASES[0],
+        ],
+    )
+    assert refused.exit_code == 2
+    assert "names the pinned source" in refused.output
+
+
+def test_the_command_refuses_a_pointer_override(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _prod_env(monkeypatch, tmp_path)
+    sha = "0" * 64
+    monkeypatch.setenv(
+        "FEDCOURTS_CORPUS_POINTER",
+        json.dumps({"key": f"index/sha256/{sha}", "schema_version": "1", "sha256": sha, "size": 1}),
+    )
+    result = runner.invoke(
+        app,
+        [
+            "corpus-seed-slice",
+            *_SOURCE_FLAGS,
+            "--dest-remote",
+            STAGING_REMOTE,
+            "--dest-casestore",
+            STAGING_CASESTORE,
+            "--dockets",
+            SLICE_CASES[0],
+        ],
+    )
+    assert result.exit_code == 2
+    assert "pointer override" in result.output
 
 
 def test_the_command_refuses_a_stage_db_on_the_committed_corpus(
@@ -757,6 +939,7 @@ def test_the_command_refuses_a_stage_db_on_the_committed_corpus(
         app,
         [
             "corpus-seed-slice",
+            *_SOURCE_FLAGS,
             "--dest-remote",
             STAGING_REMOTE,
             "--dest-casestore",
@@ -779,6 +962,7 @@ def test_the_command_says_so_when_the_corpus_is_not_pulled(
         app,
         [
             "corpus-seed-slice",
+            *_SOURCE_FLAGS,
             "--dest-remote",
             STAGING_REMOTE,
             "--dest-casestore",
@@ -799,6 +983,7 @@ def test_the_command_refuses_a_malformed_case_id(
         app,
         [
             "corpus-seed-slice",
+            *_SOURCE_FLAGS,
             "--dest-remote",
             STAGING_REMOTE,
             "--dest-casestore",
