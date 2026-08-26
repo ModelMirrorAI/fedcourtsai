@@ -344,7 +344,11 @@ land; recording and tagging that commit complete the procedure:
    (`git log -1 --format=%cI <promotion merge>`). If the guess came in early,
    bump the constant in a follow-up promotion **before** tagging — the
    `prereg/` namespace blocks update and deletion, so a tag minted over a bad
-   instant burns the label. On a slip, also confirm no stamped cell carries a
+   instant burns the label. (One label shape is audited differently: an
+   evaluator-half re-bless that deliberately holds the instant — the second
+   supersession note below — replaces this date comparison with the
+   predictor-digest byte comparison, and its gap check covers only cells
+   stamped under the *newly blessed* digests, which step 0 proves are none.) On a slip, also confirm no stamped cell carries a
    `stamped_at` in the gap between the instant and the carrying merge: such a
    cell would read as frozen although it ran while the constant was still
    editable, and the retroactive-blessing tripwire only catches the opposite
@@ -380,6 +384,28 @@ under the superseded label (zero, or listed). The superseded `prereg/` tag
 stays: the namespace blocks deletion, and the tag remains the honest record
 that the label was registered and then superseded before any cell ran under
 it. Its headline is legitimately empty forever.
+
+**Re-blessing the evaluator half while the prior digests carry counted
+cells** is the other supersession shape, and it swaps which checks do the
+work. The evaluator entries are the freeze *record*, never the enforced
+filter — an evaluation's digest is recorded while only its timing is gated
+(`graded_post_freeze`) — so retiring them de-counts nothing; the freeze
+record in [milestones.md](milestones.md) must name the retired digests and
+the count of counted cells graded under them, since the constant no longer
+does. Where the predictor digests are **byte-identical** to the prior
+`prereg/` tag's, `FROZEN_SINCE` holds rather than moves: the instant does
+no work for anything newly blessed — nothing can carry the new evaluator
+bytes before the carrying promotion lands them on `main`, and step 0
+proves nothing already does — while moving it forward would drop every
+stamped prediction from the headline for a change that touched no
+predictor byte. Step 4's date comparison is therefore not such a label's
+audit (held deliberately, the instant *precedes* the carrying promotion);
+the auditor's check is the byte comparison instead — the predictor digests
+under the new tag must equal the prior tag's, whose own
+instant-versus-promotion audit stands. One consequence to record beside
+the count: the evaluator digest records but never partitions, so grading
+series pool across the rubric boundary the re-bless introduces, and the
+freeze record states the exposure.
 
 ## A note on local runs
 

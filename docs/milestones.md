@@ -202,10 +202,9 @@ each freeze commit is recorded here.
     reading path: a change to every evaluator's information set with no digest
     of its own, the masking-surface case
     [process-version.md](process-version.md) names. The promotion carrying it
-    lands some hours *after* the freeze instant, and the frozen partition is
-    homogeneous regardless: `run:predict` and `run:evaluate` are held until the
-    promotion lands, so zero frozen-scope cells are stamped before it and the
-    frozen information set carries the marker from its first cell. No label
+    lands some hours *before* the freeze instant, so the frozen partition is
+    homogeneous: no cell stamps as frozen before the instant, and the frozen
+    information set carries the marker from its first cell. No label
     bump;
   - the **retrieval-log condition marker** — `result_status` on every call and
     the log-level `throttled_calls` — which is the capture marker's case
@@ -214,8 +213,11 @@ each freeze commit is recorded here.
     evaluator's information set with no digest of its own. It is the same
     class of change and gets the same treatment rather than a quieter one,
     because what makes it a masking surface is that it survives the mask, not
-    how interesting the field is. Two things bound it: the evaluate prompt
-    names neither field, so nothing instructs a grader to read them, and a
+    how interesting the field is. Two things bound it: the evaluate prompt's
+    instruction to read both fields rides the proc-v4 evaluator digest (the
+    freeze entry below), so instruction and information-set change are
+    partitioned together from that label forward — the cells graded before it
+    saw the fields unmasked with nothing instructing the read — and a
     committed call's marker is `null` on every log written before capture
     minted it — the frozen partition's cells carry the field from their first
     cell or not at all. No label bump;
@@ -300,6 +302,68 @@ each freeze commit is recorded here.
   that still describes the snapshot as the latest** — the prompt text is the
   digest's input and moves only at a re-bless — so no cross-cohort claim should
   span that re-bless either.
+
+- Freeze commit: `c2a168eea`, to be tagged **`prereg/proc-v4`** at the
+  promotion that carries it — the tag and the step-0 re-grep against `main`
+  are that promotion's acts, per the cutover procedure. proc-v4 revises the
+  **evaluator half only**. What moved the three evaluator digests is
+  `.github/prompts/evaluate.md`: the judge-workspace prune (the committed
+  `predictions/` and `evaluations/` trees are hidden from a judge cell's
+  working tree for the run and restored after, landing with the prompt
+  passages that describe it, per the masking-surface rule) plus the folded
+  amendment batch — the `correct`/`brier_score` stamped-over provenance
+  note, the `result_capture` reading rule, the terminal-basis
+  machine-refusal mirror sentence, the moment-cutoff twin in the forward
+  leakage branch, and `retrieved_outcome_material` stated as a boolean. The
+  three predictor digests are **byte-identical** to the ones
+  `prereg/proc-v3` blessed and carry forward unchanged, so the frozen
+  prediction population is continuous across the labels: 226 stamped
+  predictions at authoring, every one under a carried-forward digest and at
+  or after the instant.
+
+  The freeze instant stays `2026-08-16T00:00:00Z`, deliberately unmoved
+  again — and this time the step-4 comparison reads the other way around:
+  the instant *precedes* the promotion that carries this commit, which for
+  an ordinary freeze would be the botched direction. It is sound here
+  because the instant does no work for anything this commit newly blesses.
+  The digests entering the set are evaluator-side, which the partition
+  records but never gates on (`graded_post_freeze` enforces timing alone),
+  and no cell can carry them before the promotion lands their bytes on
+  `main` — step 0 at authoring found zero stamped cells with any of the
+  three. The enforced half — the predictor digests — is byte-identical to
+  what `prereg/proc-v3` blessed, and its instant-versus-promotion audit is
+  that entry's, already passed. Moving the instant forward instead would
+  drop all 226 stamped predictions from the headline for a change that
+  touched no predictor byte. The auditor's check for this label is
+  therefore not the date comparison but the byte comparison: the predictor
+  digests under `prereg/proc-v4` must equal `prereg/proc-v3`'s. The rule
+  this instantiates — hold the instant where the enforced half is
+  byte-identical to the prior tag's, audit by the byte comparison — is the
+  evaluator-half supersession note in
+  [process-version.md](process-version.md#freezing-the-cutover-procedure).
+
+  **The retiring evaluator digests and what ran under them.** proc-v3's
+  evaluator digests (`sha256:3aeddcede…` claude-judge, `sha256:8771a0c85…`
+  codex-judge, `sha256:b2ed9c208…` gemini-judge) leave the set superseded,
+  and 105 committed evaluations carry them at authoring (36/36/33 by
+  judge), every one stamped at or after the instant. They stay counted: an
+  evaluation's digest is recorded but only its timing is enforced, so the
+  supersession changes no headline — this entry is where the blessed
+  grading process behind those cells stays recorded now that the constant
+  no longer names it. Membership, though, is not the numbers: because the
+  evaluator digest records but never partitions, the leakage and
+  reasoning-quality series pool across the rubric boundary with no artifact
+  marking it. The measured exposure at authoring is degenerate — all 105
+  are forward cells graded `not_applicable` and unsuspected, 96 recording a
+  boolean `retrieved_outcome_material` and 9 a null the boolean amendment
+  closes — so the amendments raise coverage rather than break observed
+  variation, and a cross-boundary coverage comparison is a coverage change,
+  not a behavior change. Two authoring-time facts complete the record: the
+  boards' `frozen_process.digests` provenance will name three evaluator
+  digests no counted evaluation carries until the first proc-v4 grading
+  run — for that interval the partition's evaluator half is answered by
+  this entry, not the artifact — and the counts here are refreshed by the
+  step-0 re-run at promotion.
 
 ## The near-term target: the OT2026 long-conference cert release
 
