@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000139",
+  "run_id": "20260825T024608Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [],
+  "helpful": [],
+  "gaps": [],
+  "notes": "No external retrieval tools were used; evaluated entirely based on provisioned inputs."
+}

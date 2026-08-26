@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260824T231401Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "run_shell_command"
+  ],
+  "helpful": [
+    "run_shell_command was sufficient to read all masked candidate logs"
+  ],
+  "gaps": [],
+  "notes": "Evaluation was mostly reading candidate logs. Candidate C encountered a 429 rate limit error when using CourtListener which severely limited its reasoning."
+}

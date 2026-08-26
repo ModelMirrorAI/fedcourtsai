@@ -1,0 +1,4 @@
+- CourtListener MCP search for `Gonzalez v. Trevino` to confirm the date and context of the Supreme Court's prior decision (602 U.S. 653, decided June 20, 2024).
+- Read the provisioned `questions-presented.txt`.
+- Read the provisioned `context.json` and `snapshots/2026-08-26.json`.
+- Read the committed `metrics/statpack.md` to compute the strictly-prior pooled bracketed reached rate for the `baseline` band (OT2017-OT2025).

@@ -1,0 +1,3 @@
+The cell is interim. The baseline and skill are the harness's. 
+The prediction of `denied` was correct.
+The reasoning quality is exceptional (0.95). The predictor demonstrated a deep understanding of the legal context, identifying the standing issue of the intervenor states, correctly applying the Purcell principle against the stay, and noting that partial relief reads as ungranted. The probability assignment was carefully argued and derived.

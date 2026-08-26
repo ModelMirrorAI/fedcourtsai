@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260824T231401Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (interim-docket section)",
+    "blinded staging (record/blinded/<alias>/)",
+    "candidate retrieval_log.json transcripts"
+  ],
+  "helpful": [
+    "The statpack's interim section caption states the pooling rule and floor inline, so describing the harness baseline in prose needed no code reading",
+    "retrieved_doc_date on log rows made the forward-mode leakage check fast",
+    "Candidates' own retrieval.md disclosures explained both post-cutoff document dates without guesswork"
+  ],
+  "gaps": [
+    "A per-call cutoff comparison flag in retrieval_log.json (doc date vs the prediction's frozen cutoff) would save each evaluator re-deriving it"
+  ],
+  "notes": "Interim cell: baseline, skill, and claim scores are the harness's here, so evaluator tooling needs were light — the statpack and the staged logs covered everything."
+}

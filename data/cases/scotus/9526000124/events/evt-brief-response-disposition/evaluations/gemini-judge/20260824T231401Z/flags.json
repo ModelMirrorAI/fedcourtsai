@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9526000124",
+  "run_id": "20260824T231401Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-brief-response-disposition",
+      "message": "Multiple predictors reported a data-quality issue with the amicus brief counter: the regex (_AMICUS_RE in pipeline/interim_signals.py) only matches the singular 'amicus curiae' and misses the plural 'amici curiae'. This resulted in the frozen count reading 6 instead of the true 13 filings."
+    }
+  ]
+}

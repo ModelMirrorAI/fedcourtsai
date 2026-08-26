@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000241",
+  "run_id": "20260825T172743Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus priors, citation filter)",
+    "metrics/statpack.md (committed base rates)",
+    "CourtListener MCP search (opinions)"
+  ],
+  "helpful": [
+    "The sal-v3 band table's bracketed reached rates with per-Term rows made the arrival-moment anchor a straightforward pooling exercise",
+    "documents.json plus extracted petition/QP text — the petition text was the single most informative input for adjusting off the anchor",
+    "CourtListener MCP opinion search cheaply verified the claimed circuit-split case's existence and published status"
+  ],
+  "gaps": [
+    "The decision under review (unpublished 5th Cir. opinion) was not retrievable — it is in the petition's appendix but the provisioned petition.txt cuts off before the appendix, so vehicle-quality assessment leaned on the petitioner's own characterization",
+    "Corpus citation coverage is too sparse (159 of ~590k SCOTUS rows) for known-case prior lookup to be useful",
+    "No published baseline for dissent-from-denial or the arrival moment's conditional cuts; stated those numbers from general knowledge"
+  ],
+  "notes": "One corpus query cost 1343 ranged GETs / ~352 MB for zero rows returned; a cheaper failure mode for sparse filters would help the retrieval budget."
+}

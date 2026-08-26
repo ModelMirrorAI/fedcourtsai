@@ -1,0 +1,17 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000139",
+  "gaps": [],
+  "helpful": [
+    "The blinded prediction, reasoning, forecast, and harness-captured retrieval log supplied enough evidence to score each candidate and assess leakage."
+  ],
+  "notes": "No corpus or external retrieval was needed for this interim evaluation.",
+  "role": "evaluator",
+  "run_id": "20260824T231401Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned blinded artifacts"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

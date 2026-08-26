@@ -1,0 +1,7 @@
+P(grant) 0.065. I anchor on the `baseline` band for paid cert petitions across the previous 9 Terms (OT2017-OT2025). The bracketed `reached` rate for the `baseline` band over those strictly prior Terms is approximately 6.5%.
+
+I find no strong reason to adjust significantly upward from this base rate. The Question Presented asks whether *Gonzalez v. Trevino* authorizes "any objective evidence" to defeat probable cause in a retaliatory arrest claim. *Gonzalez* was only recently decided (June 2024). The Fifth Circuit decided this case in March 2026, meaning it had the opportunity to apply *Gonzalez*. The Supreme Court generally waits for lower courts to percolate a new standard before stepping in again, making this a poor vehicle for immediate review unless the Fifth Circuit flagrantly defied the precedent (which is unlikely and not apparent from the QP).
+
+The petition is a paid filing from private petitioners against a municipality. It lacks the hallmarks of high-cert-probability cases, such as a deep, mature circuit split on a question the Court hasn't recently addressed, or a federal petitioner. Therefore, I leave the probability at the anchored baseline rate of 0.065.
+
+`documents.json` indicates the petition and QP were available, and I relied on the provided QP text to assess the legal issue.

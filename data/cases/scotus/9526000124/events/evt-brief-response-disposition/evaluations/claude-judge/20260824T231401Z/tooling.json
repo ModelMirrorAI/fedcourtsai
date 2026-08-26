@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000124",
+  "run_id": "20260824T231401Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads (blinded staging, event/outcome artifacts, schemas)",
+    "metrics/statpack.md (interim docket section)"
+  ],
+  "helpful": [
+    "The statpack's interim per-Term table made it easy to state what the harness stamp should pool and to check each candidate's baseline arithmetic.",
+    "The staged retrieval_log.json call classes and retrieved_doc_date fields made the forward-mode leakage check concrete."
+  ],
+  "gaps": [
+    "A per-candidate capture-coverage summary beside the staged log (calls captured vs. calls the engine made) would make it easier to distinguish a sparse log from a genuinely quiet cell; one candidate's disclosed retrieval is largely absent from its captured log."
+  ],
+  "notes": "Interim cell: baseline/skill left to the harness stamp per the stage rules; only correct, brier_score, reasoning_quality, leakage, and big_case were mine."
+}

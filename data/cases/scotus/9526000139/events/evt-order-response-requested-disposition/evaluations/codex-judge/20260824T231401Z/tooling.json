@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260824T231401Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "provisioned blinded prediction artifacts",
+    "harness-captured retrieval logs"
+  ],
+  "helpful": [
+    "The blinded retrieval logs made the forward-mode leakage assessment auditable."
+  ],
+  "gaps": [],
+  "notes": "The provisioned event, outcome, candidate records, and captured logs were sufficient; no external retrieval was needed."
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260824T231401Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [],
+  "helpful": [],
+  "gaps": [],
+  "notes": "Evaluation complete. No corpus queries or base rates were needed since this was an interim cell with straightforward forward predictions."
+}

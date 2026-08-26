@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000139",
+  "run_id": "20260824T231401Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "Two candidates independently observed that the frozen context's amicus count (2) undercounts the five amicus filings visible in the 2026-08-04 snapshot: the interim amicus counter matches the singular form 'amicus curiae' only, so the three entries styled 'amici curiae' sit outside it, and the outcome's interim_signals.amicus_briefs likewise reads 2. The amicus-increment claim therefore resolves against a counter that systematically misses plural-styled filings; consistent within this cell, but worth a look if the counter is meant to track actual amicus activity.",
+      "event_id": "evt-brief-response-disposition"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000124",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-brief-response-disposition",
+      "message": "codex-baseline's staged retrieval_log.json captures only three calls (two statpack reads and one payload redacted at capture as credential-shaped) while reporting result_capture_coverage 1.0, yet its retrieval.md discloses a CourtListener MCP query (HTTP 429) and reads of five supremecourt.gov filing PDFs that appear nowhere in the log. All disclosed material predates the snapshot and the cell is forward-mode, so the leakage verdict is unaffected (not_applicable) \u2014 but the retrieval log is the audit surface leakage grading rests on, and on a replay cell a capture gap of this shape would leave retrieval effectively unauditable. Worth checking whether that engine's fetch channel is being captured.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-brief-response-disposition",
+      "message": "Two candidates independently disclosed that the frozen amicus count (context.amicus_briefs = 6, matching outcome.interim_signals) counts only singular 'amicus curiae' docket entries and misses seven 'amici curiae' entries on this docket, so the frozen signal undercounts actual amicus participation roughly by half. Advisory: it affects the amicus-increment claim's semantics, not this cell's scoring.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260824T231401Z",
+  "schema_version": "1.0"
+}
