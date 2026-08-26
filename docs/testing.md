@@ -136,9 +136,11 @@ dispatch bound: where that environment carries no CourtListener token the
 sidecar runs token-free, the handshake and tool listing still succeed, and
 tool *calls* error — the shapes are then an errored call's, which still
 answers the question, but only a token-bearing dispatch also shows a settled
-one. The job log's sidecar replay is the second witness either way (requests
-with no MCP shapes is a capture gap; no requests at all is the engine
-declining to call). Observation, not a gate — the leg's verdict is
+one. The job log's sidecar replay is the second witness either way: requests there
+against a distillation showing only freeform `exec` items is code mode working
+as designed — the manifest calls are lifted from those items' source, not from
+an MCP-shaped item, which code mode never emits — while no requests at all is
+the engine declining to call. Observation, not a gate — the leg's verdict is
 still the cell's. Dispatch a scenario around the changes it guards: **before and after any
 change to corpus access** (the read seams, `corpus_ranged`, the sidecar
 composites, the blob's physical layout) **or to a corpus-consuming workflow**,
