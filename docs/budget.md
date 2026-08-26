@@ -303,7 +303,7 @@ reweighted by the Term's mix (613-640 cert / 98 interim / 127 merits)
 ```
 
 That is what stands behind `$6.79` — a stage-matched reconstruction over 75
-events and 219 cells, every one `proc-v3` stamped, rather than the raw pool.
+events and 225 cells, every one `proc-v3` stamped, rather than the raw pool.
 Read the raw `$7.01` as what a *merits-heavy* run costs, not as a Term rate.
 
 The evaluate side is measured on a **narrower and weaker** base, and its cohorts
