@@ -636,17 +636,18 @@ jobs:
       # launch step env, never the agent's) plus the generated client config
       # naming only that URL — in run-predict's order: corpus sidecar, MCP
       # sidecar, MCP config, cell. It is here rather than on all three
-      # because the codex rollout is the transcript whose MCP item shapes the
-      # `record-retrieval` parser reads and no committed log yet exhibits.
-      # What the leg evidences is exactly that: the engine boots in the cell
-      # posture, produces a rollout the parser can read, and its freeform
-      # `exec` sources carry the nested manifest calls the retrieval capture
-      # lifts into rows of their own. What it cannot evidence is anything read
-      # off a rollout carrying no MCP-shaped item — code mode dispatches every
-      # manifest call from inside its `exec` items and emits no MCP-shaped item
-      # at all, so that rollout is what the surface produces whether or not
-      # retrieval happened. (The retrieval *log* is a different artifact and
-      # does carry `mcp__` rows for those calls, lifted from the source.) Health
+      # because codex is the engine whose manifest use never arrives as an item
+      # of its own: code mode dispatches every call from inside a freeform
+      # `exec`, so the `record-retrieval` parser reaches it only by reading that
+      # call's source, and a real rollout with the surface wired is what
+      # exercises that path. What the leg evidences is that much — the engine
+      # boots in the cell posture and produces a rollout the parser's
+      # code-mode branch can read. What it cannot evidence is anything read off
+      # the ABSENCE of an MCP-shaped item, here or in the distillation below:
+      # code mode emits none whether or not retrieval happened, so that absence
+      # separates nothing. (Committed production cells do carry `mcp__` rows for
+      # these calls — lifted from the source, `call_source: code_mode_source` —
+      # but this leg runs no capture step and produces no retrieval log.) Health
       # stays warn-only, as in the cells: an unhealthy sidecar degrades the
       # cell to corpus tooling rather than failing the smoke, and the
       # `mcp-sidecar` scenario is the leg that gates on the sidecar itself.
@@ -829,13 +830,17 @@ jobs:
       # workflows do over the same two files, so a cold-read stall or a
       # mid-scenario sidecar death is diagnosable from the failed run instead
       # of a rerun. The MCP log is the codex leg's second witness: requests in
-      # this log against a distillation showing only freeform `exec` items is
-      # code mode working as designed — the capture lifts the manifest calls
-      # out of those items' source, not from an MCP-shaped item, which code
-      # mode never emits — while no requests at all is the engine declining to
-      # call, a distinction the shapes artifact alone cannot draw. Head and
-      # tail both, because the evidence lines are at the top and an
-      # engine-smoke's query records scroll them off a tail alone.
+      # this log against a distillation carrying `custom_tool_call` items and
+      # no `mcp_tool_call` / `mcp_call` ones is code mode working as designed —
+      # the capture lifts the manifest calls out of the freeform call's source,
+      # not from an MCP-shaped item, which code mode never emits. (The
+      # distillation replaces every value with its type name, so the tool name
+      # itself is not in it; the payload type is.) No requests at all is the
+      # engine never reaching the sidecar — a decline, or a sidecar that never
+      # came up, since health is warn-only here. Either way it is a distinction
+      # the shapes artifact alone cannot draw. Head and tail both, because the
+      # evidence lines are at the top and an engine-smoke's query records
+      # scroll them off a tail alone.
       - name: Show the sidecar logs
         if: ${{ always() && (matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' || matrix.scenario == 'mcp-sidecar') }}
         continue-on-error: true
