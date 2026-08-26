@@ -483,6 +483,33 @@ pattern rather than rediscovering it:
   `pyproject.toml`, `uv.lock`, `README.md`, and `src/` to `$RUNNER_TEMP`, syncs
   there, and exports the absolute path the rest of the step calls. A shape test
   fails on a bare `uv run fedcourts` reappearing in that composite.
+- **A GitHub API call has no retry unless you give it one.** The steps that
+  keep the run *record* — the ops and pipeline-runs dashboards, the weekly
+  digest, the data-validation escalation, the per-day `pull-log` / `live-log`
+  alarms, the seed guard — are bookkeeping about a run rather than the work,
+  and a transient 5xx there costs something the run never earned. Which cost
+  depends on the site, so read yours before deciding it is harmless: on the
+  run-ops steps and the guard's clear-the-incident path a blip reddens a run
+  that did its work, while on the dashboard (`continue-on-error`) and the
+  alarms (which only fire on an already-failed window) nothing turns red and
+  the *record* is what goes missing. `gh` also sets no client-side request
+  timeout, so a stalled connect hangs to the job's kill with nothing written.
+  Wrap each call in `gh_retry` (`scripts/gh_retry.sh`, sourced where a checkout
+  exists; copied inline in the steps that must fire without one, where a test
+  pins the copies identical), and give the step a `timeout-minutes` that admits
+  the retries — three attempts at `timeout 30` plus backoff is 105s per call.
+  The handoff writes (`open-run-handoff`, the trigger-issue closes in
+  run-predict / run-evaluate / run-backtest) are deliberately outside this
+  class: they are the work, not the record of it, and a failure there should
+  stop the round rather than be absorbed.
+- **Shape a retried lookup so its failure cannot read as an empty result.**
+  These lookups feed a find-or-create, so an empty `num` reads as "no issue
+  yet" and opens a duplicate or restarts a dashboard's rolling state. Never let
+  a retried call be a non-final element of a pipeline: filter with `gh`'s own
+  `--jq` inside the same command, or assign the output and filter the variable.
+  Either way `set -e` stops the step on the command itself. Note the limit of
+  that — it narrows the dependence from errexit *and* pipefail to errexit
+  alone; with `set -e` off the empty result still reaches the branch.
 
 Validate any `.github/` change locally with the linters CI enforces (see the
 local gate in [AGENTS.md](../AGENTS.md)), and run the **`workflow-reviewer`**

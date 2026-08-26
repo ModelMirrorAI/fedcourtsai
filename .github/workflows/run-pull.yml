@@ -349,6 +349,12 @@ jobs:
       # timestamp.
       - name: Update the pipeline-runs dashboard
         continue-on-error: true
+        # Bound the composite's retries explicitly rather than letting them run
+        # into the job budget: four sequential `gh_retry` calls, each worth up
+        # to 105s when every attempt times out, is ~7 min against a degraded
+        # API. Past that the row is not worth the window's remaining minutes —
+        # and `continue-on-error` means giving up on it costs only the row.
+        timeout-minutes: 8
         if: >-
           (success() || failure()) &&
           steps.checkout.conclusion == 'success'
@@ -405,6 +411,11 @@ jobs:
       # timeout or a human's stop, and both are windows that did not complete.
       - name: Open the failure run-log issue
         if: (failure() || cancelled()) && steps.authorize.conclusion != 'failure'
+        # Three sequential `gh_retry` calls, up to 105s each against a degraded
+        # API. This step already runs on a failed window, often one the job
+        # timeout cancelled, so its retries get an explicit bound rather than
+        # spending whatever grace is left before the runner is taken away.
+        timeout-minutes: 6
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -413,29 +424,56 @@ jobs:
           STATUS: ${{ job.status }}
         run: |
           set -euo pipefail
+          # Inline copy of scripts/gh_retry.sh's gh_retry — this step must fire
+          # even when the checkout or the App-token mint failed, so it cannot
+          # source the file; the workflow-invariants test pins the copies
+          # identical. Contract and rationale live in that script's header.
+          gh_retry() {
+            local attempt out what
+            what="${1:-} ${2:-} ${3:-}"
+            for attempt in 1 2 3; do
+              if out=$(timeout 30 "$@"); then
+                printf '%s\n' "$out"
+                return 0
+              fi
+              if [ "$attempt" -lt 3 ]; then
+                echo "::warning::${what} failed (attempt ${attempt}/3) — retrying" >&2
+                sleep $((attempt * 5))
+              fi
+            done
+            echo "::error::${what} failed after 3 attempts" >&2
+            return 1
+          }
           # `pull-log` is a NON-triggering label by design: it is not a `run:*`
           # label, so labeling this issue cannot re-fire the workflow
           # (issues: labeled) in a loop — unlike run:pull, which is the trigger.
           # Create it idempotently so a fresh repo's first failure does not
           # fail on a missing label.
-          gh label create pull-log --repo "$REPO" --force \
+          gh_retry gh label create pull-log --repo "$REPO" --force \
             --color b60205 --description "A run-pull refresh window failed (open until a human triages)"
           today=$(date -u +%Y-%m-%d)
           # One issue per broken day: a day's repeated failures collapse into
           # one thread, while an older day's still-open issue is its own
-          # record and is left alone.
-          num=$(gh issue list --repo "$REPO" --label pull-log --state open \
-            --limit 100 --json number,title | jq -r --arg d "$today" \
-            '[.[] | select(.title | endswith($d))][0].number // empty')
+          # record and is left alone. The retried listing lands in a variable and
+          # jq filters *that*, rather than the call feeding a pipe: an exhausted
+          # retry is then the assignment's own failure, which `set -e` above
+          # stops on, instead of a pipeline status the shell has to be
+          # configured to notice. What it would otherwise reach is the
+          # find-or-create below, where an empty `num` reads as "no issue for
+          # today" and opens a second thread for the same broken day.
+          listing=$(gh_retry gh issue list --repo "$REPO" --label pull-log --state open \
+            --limit 100 --json number,title)
+          num=$(jq -r --arg d "$today" \
+            '[.[] | select(.title | endswith($d))][0].number // empty' <<<"$listing")
           body=$(printf '### ❌ Pull refresh window did not complete\n\n- Run: %s\n- Window: `%s` at %s UTC — status: `%s`\n\nSee the run log for the failing step; the `Pipeline runs` dashboard carries the window history. Close this issue once triaged — an open `pull-log` issue means exactly "a pull window broke".\n' \
             "$RUN_URL" "$WINDOW" "$(date -u +%H:%M)" "$STATUS")
           if [ -z "$num" ]; then
-            url=$(gh issue create --repo "$REPO" \
+            url=$(gh_retry gh issue create --repo "$REPO" \
               --title "pull: window failure — ${today}" \
               --label pull-log --body "$body")
             echo "Opened pull-log failure issue: ${url}"
           else
-            gh issue comment "$num" --repo "$REPO" --body "$body"
+            gh_retry gh issue comment "$num" --repo "$REPO" --body "$body"
             echo "Reusing today's open pull-log issue #${num}"
           fi
 
@@ -613,6 +651,7 @@ jobs:
       # issue carries both channels.
       - name: Update the pipeline-runs dashboard
         continue-on-error: true
+        timeout-minutes: 8 # the retry bound; see `pull`'s copy of this step
         if: >-
           (success() || failure()) &&
           steps.checkout.conclusion == 'success'
@@ -659,6 +698,7 @@ jobs:
       # window broke"; a human closes it once triaged.
       - name: Open the failure run-log issue
         if: failure() || cancelled()
+        timeout-minutes: 6 # the retry bound; see `pull`'s copy of this step
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -667,25 +707,48 @@ jobs:
           STATUS: ${{ job.status }}
         run: |
           set -euo pipefail
+          # Inline copy of scripts/gh_retry.sh's gh_retry — this step must fire
+          # even when the checkout or the App-token mint failed, so it cannot
+          # source the file; the workflow-invariants test pins the copies
+          # identical. Contract and rationale live in that script's header.
+          gh_retry() {
+            local attempt out what
+            what="${1:-} ${2:-} ${3:-}"
+            for attempt in 1 2 3; do
+              if out=$(timeout 30 "$@"); then
+                printf '%s\n' "$out"
+                return 0
+              fi
+              if [ "$attempt" -lt 3 ]; then
+                echo "::warning::${what} failed (attempt ${attempt}/3) — retrying" >&2
+                sleep $((attempt * 5))
+              fi
+            done
+            echo "::error::${what} failed after 3 attempts" >&2
+            return 1
+          }
           # `live-log` mirrors `pull-log`: a NON-triggering label, created
           # idempotently, filed only when a window fails.
-          gh label create live-log --repo "$REPO" --force \
+          gh_retry gh label create live-log --repo "$REPO" --force \
             --color b60205 --description "A run-pull live-channel window failed (open until a human triages)"
           today=$(date -u +%Y-%m-%d)
           # One issue per broken day: a day's repeated failures collapse into
-          # one thread; an older day's still-open issue is left alone.
-          num=$(gh issue list --repo "$REPO" --label live-log --state open \
-            --limit 100 --json number,title | jq -r --arg d "$today" \
-            '[.[] | select(.title | endswith($d))][0].number // empty')
+          # one thread; an older day's still-open issue is left alone. Listing
+          # captured before filtering for the same reason as `pull` — see that
+          # step.
+          listing=$(gh_retry gh issue list --repo "$REPO" --label live-log --state open \
+            --limit 100 --json number,title)
+          num=$(jq -r --arg d "$today" \
+            '[.[] | select(.title | endswith($d))][0].number // empty' <<<"$listing")
           body=$(printf '### ❌ Live poll window did not complete\n\n- Run: %s\n- Window: `%s` at %s UTC — status: `%s`\n\nSee the run log for the failing step; the `Pipeline runs` dashboard carries the window history. Close this issue once triaged — an open `live-log` issue means exactly "a live window broke".\n' \
             "$RUN_URL" "$WINDOW" "$(date -u +%H:%M)" "$STATUS")
           if [ -z "$num" ]; then
-            url=$(gh issue create --repo "$REPO" \
+            url=$(gh_retry gh issue create --repo "$REPO" \
               --title "live: window failure — ${today}" \
               --label live-log --body "$body")
             echo "Opened live-log failure issue: ${url}"
           else
-            gh issue comment "$num" --repo "$REPO" --body "$body"
+            gh_retry gh issue comment "$num" --repo "$REPO" --body "$body"
             echo "Reusing today's open live-log issue #${num}"
           fi
 
