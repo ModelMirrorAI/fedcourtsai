@@ -924,14 +924,19 @@ A **capture tripwire** prints beside those two — and, unlike them, *also on a
 fully-served run*, since it reports on what could be seen rather than on what
 happened, and an unseen attempt is least suspected exactly where nothing looks
 wrong. It carries its own denominator: cells that called the freeform `exec`
-builtin with no calls lifted out of its source, over the cells that called it at
-all. Three readings, none separable from the rows — the program called nothing
-worth a row, the lift no longer matches the engine's calling idiom, or the call
-was an ordinary shell call spelled the same way (the parser tells those apart by
-the transcript item's type, which no row records). Either way the attempt counts
-above are partial for such a cell: a shell command run from inside a program
-gets no row of its own and is counted only where it falls inside the parent
-row's truncated source slice (`call_source` in
+builtin with no **manifest** calls lifted out of its source, over the cells that
+called it at all. Three readings, none separable from the rows — the program
+called no manifest tool worth a row, the lift no longer matches the engine's
+manifest calling idiom, or the call was an ordinary shell call spelled the same
+way (the parser tells those apart by the transcript item's type, which no row
+records). It watches the manifest half because capture lifts two idioms out of a
+program and each fails on its own: builtin call sites outnumber manifest ones
+several times over, so a tripwire that counted them would go quiet exactly where
+the manifest spelling drifted. Either way the attempt counts above are partial
+for such a cell: a shell command run from inside a program is lifted into a row
+naming the *builtin* rather than one of the shell spellings the attempt count
+reads, so the command is counted only where it falls inside the parent row's
+truncated source slice (`call_source` in
 [predicted-artifacts.md](predicted-artifacts.md)). The ratio is there because
 this is a standing condition rather than a per-run event.
 

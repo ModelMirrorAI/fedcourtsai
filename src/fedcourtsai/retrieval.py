@@ -19,12 +19,15 @@ log tool calls in the same places their token usage lives:
   ``web_search_call`` is the other exception: it runs provider-side and carries
   a query but no ``call_id`` and no output item, so such a row records what was
   asked and never what came back. A **code-mode** model is a third: it is given
-  one freeform builtin instead of direct tool exposure and reaches the manifest
-  tools from inside the program that call carries, so those invocations emit no
-  item of their own. They are lifted out of the program's source into rows
-  beside it (``call_source`` says which), because a walk that reads items only
-  records such an engine as having made no manifest call at all — a claim
-  indistinguishable from a cell that never retrieved.
+  one freeform builtin instead of direct tool exposure and reaches everything —
+  the manifest tools and the engine's own builtins alike — from inside the
+  program that call carries, so those invocations emit no item of their own.
+  They are lifted out of the program's source into rows beside it
+  (``call_source`` says which), because a walk that reads items only records
+  such an engine as having made one builtin call and no manifest call at all —
+  a claim indistinguishable from a cell that never retrieved, and one whose
+  single wrapping row is ``captured``, so the coverage rate reports a grader
+  who saw everything over a cell whose retrieval is entirely invisible.
 - **Gemini**: the OpenTelemetry log's ``gemini_cli.tool_call`` events carry
   ``function_name`` / ``function_args`` attributes, and no result payload at
   all.
@@ -95,10 +98,10 @@ from .usage import _gemini_attrs, _load_json, _load_json_objects, _newest_rollou
 # `tool` field to hide, and one the mask does not reach inside a query slice.
 # Widening the slice for this shape would carry more of that vocabulary into a
 # blinded log, and buy nothing: the calls it holds are lifted into rows of
-# their own, each with its own arguments, digest, and query, read from the
-# UNTRUNCATED source. So coverage of what was called never depended on this
-# width, and the narrow cut costs only how much of the surrounding program a
-# reader sees.
+# their own, each with its own arguments, digest, and query, scanned out to the
+# redaction window below rather than to this cut. So coverage of what was
+# called never depended on this width, and the narrow cut costs only how much
+# of the surrounding program a reader sees.
 _QUERY_CAP = 500
 # How much of a params payload is redacted before that slice is cut. A tool
 # call's arguments are unbounded — a file write carries its whole body — and
@@ -392,17 +395,46 @@ _CODEX_CODE_MODE_TOOL = "exec"
 # `_codex_tool` composes for a direct item, so a lifted row and a direct one
 # normalize identically and land in one offered denominator.
 #
-# It reads the *text* of a program rather than executing it, so it is a
-# syntactic count with syntactic limits, in both directions. It cannot see a
-# call reached indirectly — through a computed name or an alias bound earlier —
-# and it counts a call that appears in the source but never ran: one inside a
-# branch not taken, or commented out. Neither is worth a JavaScript parser to
-# close, and the cheap screens for the second are worse than the miss: `//`
-# earlier on the line is as often a URL in a query as a comment, so suppressing
-# on it would drop real calls in exchange for rare phantom ones. What the count
-# supports is therefore "the program asked for these tools", which is what the
-# offered-vs-called comparison reads it for — not an execution trace.
+# The lift reads the *text* of a program rather than executing it, so both
+# patterns below are a syntactic count with syntactic limits, in both
+# directions. Neither can see a call reached indirectly — through a computed
+# name or an alias bound earlier — and both count a call that appears in the
+# source but never ran: one inside a branch not taken, or commented out.
+# Neither is worth a JavaScript parser to close, and the cheap screens for the
+# second are worse than the miss: `//` earlier on the line is as often a URL in
+# a query as a comment, so suppressing on it would drop real calls in exchange
+# for rare phantom ones. What the count supports is therefore "the program
+# asked for these tools", which is what the offered-vs-called comparison reads
+# it for — not an execution trace.
 _CODE_MODE_CALL_RE = re.compile(r"\btools\.(mcp__[a-z0-9]+__[A-Za-z0-9_]+)\s*\(")
+# A builtin call inside the same source: `tools.<builtin>(`. The code-mode
+# surface hands the program the engine's own builtins through the same `tools`
+# object it reaches the manifest through, and a code-mode cell's real work runs
+# through them — a corpus query, a docket read, a fetched filing all arrive as
+# a shell command inside `exec_command`. Lifting the manifest idiom alone
+# leaves that work folded into the one freeform row wrapping it, whose result
+# *is* captured: the log then reports a program-driven cell as a handful of
+# captured calls at `result_capture_coverage` 1.0 — an assertion that capture
+# saw everything, made over a cell whose retrieval capture never saw at all.
+# The lifted rows put that share where it belongs, and carry each command's own
+# query slice, so a corpus-prior attempt made from inside a program is legible
+# as the row that made it rather than only as program text in the wrapper.
+#
+# The names are **enumerated**, not matched as `tools\.(\w+)\(`. The source is
+# agent-authored and nothing reserves the name `tools` in it, so a wildcard
+# lifts whatever a program happens to hang off an object of that name — its own
+# helpers — into rows naming tools no engine offers, each one unobserved by
+# construction and each one in the coverage denominator. An enumerated list
+# instead misses a builtin the surface adds, which is the same floor the
+# manifest pattern is and misses in the direction that costs only a row.
+#
+# It is also the idiom that puts real pressure on :data:`RETRIEVAL_CALL_CAP`,
+# since a program calls its shell many times more often than it calls the
+# manifest: the cut past 500 is a head-cut with no marker, and what it drops is
+# the *late* rows — the retrieval a leakage reading most wants.
+_CODE_MODE_BUILTIN_RE = re.compile(
+    r"\btools\.(exec_command|write_stdin|apply_patch|view_image|update_plan)\s*\("
+)
 # How far past a call's opening parenthesis its argument text is scanned for a
 # balancing close. Bounds the per-call walk over agent-authored source, which
 # is unbounded and may be unbalanced (a truncated program, a paren inside a
@@ -482,29 +514,33 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
                 call_source="transcript_item",
             )
         )
-        # The manifest calls this freeform call made from inside itself, lifted
-        # into rows of their own beside it — read from the UNTRUNCATED source,
-        # so a call sitting past the legible slice is still counted.
+        # The calls this freeform call made from inside itself, lifted into rows
+        # of their own beside it — read past the legible query slice, out to the
+        # redaction window, so a call sitting beyond the 500-character cut is
+        # still counted.
         if is_code_mode:
             calls.extend(_code_mode_nested_calls(_query_candidate(params), timestamp=timestamp))
     return calls[:RETRIEVAL_CALL_CAP]
 
 
 def _code_mode_nested_calls(source: str | None, *, timestamp: str | None) -> list[RetrievalCall]:
-    """Manifest calls made from inside code-mode source, as rows of their own.
+    """Tool calls made from inside code-mode source, as rows of their own.
 
     The freeform call keeps its own row — it is a real builtin invocation, and
-    it is what carries the program and the combined output — and each manifest
-    call the program asked for gets a row beside it, named in the composed
-    ``mcp__<server>__<tool>`` spelling a direct item would carry. Without them
-    a code-mode engine's manifest use is absent from every count that keys on
-    that spelling: the offered-vs-called comparison and the per-engine MCP
-    totals alike.
+    it is what carries the program and the combined output — and each call the
+    program asked for gets a row beside it, in source order: a manifest one
+    named in the composed ``mcp__<server>__<tool>`` spelling a direct item
+    would carry, a builtin one under the name the code-mode surface exposes it
+    as. Without the manifest rows a code-mode engine's manifest use is absent
+    from every count that keys on that spelling — the offered-vs-called
+    comparison and the per-engine MCP totals alike. Without the builtin rows
+    everything such a cell reads through its shell is one captured wrapper row,
+    and the log's capture rate reports a grader who saw all of it.
 
     **A lifted row is always ``unobserved``, and no result is read into it.**
     The freeform call returns one combined output for its whole program, and
     nothing in the transcript says which part of it — if any — belongs to a
-    given manifest call. Two things defeat every rule that would split it. A
+    given call inside it. Two things defeat every rule that would split it. A
     single call *site* is not a single invocation: a site inside a loop runs as
     many times as the loop does, against one output. And the output holds
     whatever else the program did — a shell command, a file read — so reading
@@ -513,16 +549,29 @@ def _code_mode_nested_calls(source: str | None, *, timestamp: str | None) -> lis
     where prose about a rate limit is not this call being refused. Both would
     fire wrongly rather than merely miss, into a field decided once at parse
     time and never recomputed. So the lift makes the *call* visible and claims
-    nothing about its answer: the manifest counts gain a code-mode engine, and
-    the throttle denominator, which needs a result, does not.
+    nothing about its answer: the manifest counts gain a code-mode engine, the
+    capture rate stops overstating what the transcript held, and the throttle
+    denominator, which needs a result, gains nothing.
     """
     if not source:
         return []
     rows: list[RetrievalCall] = []
     # The same window the redactor reads, for the same reason: how much source
     # there is to scan is a size the agent chooses, so the scan takes a fixed
-    # bite of it rather than however much was written.
-    for match in _CODE_MODE_CALL_RE.finditer(source[:_REDACT_WINDOW]):
+    # bite of it rather than however much was written. Both idioms are scanned
+    # over that one window and their matches merged by position, so the rows
+    # arrive in the order the program wrote its calls rather than grouped by
+    # which pattern found them — the same transcript order every other row list
+    # here carries. The window biases in one direction, like the schema's
+    # 500-row cut: a longer program loses its tail calls, and since every row
+    # they would have minted is unobserved, the log's capture rate reads *high*
+    # for the same reason it reads honest at all.
+    window = source[:_REDACT_WINDOW]
+    matches = sorted(
+        (*_CODE_MODE_CALL_RE.finditer(window), *_CODE_MODE_BUILTIN_RE.finditer(window)),
+        key=lambda match: match.start(),
+    )
+    for match in matches:
         args = _code_mode_arguments(source, match.end())
         rows.append(
             RetrievalCall(

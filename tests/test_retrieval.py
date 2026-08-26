@@ -710,6 +710,135 @@ def test_a_code_mode_log_supplies_no_throttle_denominator(tmp_path: Path) -> Non
     assert log.throttled_calls is None
 
 
+def test_codex_code_mode_lifts_builtin_calls_beside_manifest_calls(tmp_path: Path) -> None:
+    """Both calling idioms are lifted, into one list ordered by the source.
+
+    A code-mode program reaches the engine's builtins through the same `tools`
+    object it reaches the manifest through, and its shell is where a corpus
+    query and a filing read actually happen. Rows grouped by which pattern
+    found them would misreport the order the cell worked in.
+    """
+    source = (
+        'const a = await tools.exec_command({cmd:"uv run fedcourts query --court scotus"}); '
+        + 'const b = await tools.mcp__courtlistener__search({q:"chevron"}); '
+        + 'const c = await tools.exec_command({cmd:"cat record/snapshot.json"});'
+    )
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+    freeform, *lifted = parse_codex_retrieval(sessions)
+
+    assert freeform.tool == "exec"
+    assert freeform.call_source == "transcript_item"
+    assert [call.tool for call in lifted] == [
+        "exec_command",
+        "mcp__courtlistener__search",
+        "exec_command",
+    ]
+    assert all(call.call_source == "code_mode_source" for call in lifted)
+    # Each builtin row carries its own command, which is what makes a
+    # corpus-prior attempt made from inside a program legible as the call that
+    # made it rather than as a slice of the wrapper's program text.
+    assert lifted[0].query is not None
+    assert "fedcourts query --court scotus" in lifted[0].query
+    assert lifted[2].query is not None
+    assert "record/snapshot.json" in lifted[2].query
+
+
+def test_a_lifted_builtin_call_is_unobserved_and_lowers_coverage(tmp_path: Path) -> None:
+    """A lifted builtin claims nothing about its answer, exactly as a manifest one does.
+
+    The freeform call returns one combined output for its whole program; no
+    part of it belongs to a given call inside. So each lifted row is
+    `unobserved`, and the log-level rate falls to the share of rows the
+    transcript itself carried — which is the honest reading of a cell whose
+    retrieval capture never saw.
+    """
+    source = (
+        'await tools.exec_command({cmd:"curl -s https://example.test/brief.pdf"}); '
+        + 'await tools.exec_command({cmd:"pdftotext brief.pdf -"});'
+    )
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, '{"ok":true}'))
+    freeform, *lifted = parse_codex_retrieval(sessions)
+
+    assert all(call.result_capture == "unobserved" for call in lifted)
+    assert all(call.result_status == "unobserved" for call in lifted)
+    assert all(call.result_digest is None for call in lifted)
+    assert all(call.retrieved_doc_date is None for call in lifted)
+    # The wrapping call's own row still carries what came back for the program.
+    assert freeform.result_capture == "captured"
+    # One captured row of three: the rate is the transcript-item share.
+    assert _log([freeform, *lifted]).result_capture_coverage == pytest.approx(1 / 3)
+
+
+def test_a_lifted_builtin_call_never_enters_the_manifest_or_throttle_denominators(
+    tmp_path: Path,
+) -> None:
+    """A builtin is not what the manifest offers, lifted or not.
+
+    Every manifest surface gates on `normalize_call`, so a lifted builtin row
+    must fall outside it the way a directly-logged builtin item does —
+    otherwise the offered-vs-called comparison gains calls no server ever
+    advertised, and the throttle denominator gains a row whose text is whatever
+    the agent asked its shell to read.
+    """
+    source = 'await tools.exec_command({cmd:"cat notes.md"});'
+    sessions = _codex_rollout(
+        tmp_path, *_code_mode_call(source, "notes.md: Rate limit exceeded: HTTP 429: slow down.")
+    )
+    log = _log(parse_codex_retrieval(sessions))
+
+    assert [call.tool for call in log.calls] == ["exec", "exec_command"]
+    assert all(normalize_call(call.tool) is None for call in log.calls)
+    assert observed_mcp_conditions(log.calls) == []
+    assert log.throttled_calls is None
+
+
+def test_the_builtin_lift_is_keyed_on_named_tools_not_any_attribute_call(
+    tmp_path: Path,
+) -> None:
+    """The builtin names are enumerated, so a program's own helpers stay out.
+
+    Nothing reserves the name `tools` in agent-authored source. A wildcard over
+    every attribute call would mint rows naming tools no engine offers, each
+    unobserved by construction and each in the coverage denominator.
+    """
+    source = (
+        "const tools = {myHelper: parseDocket, fetchAll: pull}; "
+        + 'tools.myHelper("305"); await tools.fetchAll(["a","b"]); '
+        + 'await tools.exec_command({cmd:"ls record"});'
+    )
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+    rows = parse_codex_retrieval(sessions)
+
+    assert [row.tool for row in rows] == ["exec", "exec_command"]
+
+
+def test_a_program_that_retrieves_only_through_its_shell_is_not_full_coverage(
+    tmp_path: Path,
+) -> None:
+    """The shape the coverage stat has to stop overstating.
+
+    A code-mode cell that reads five filings and runs a corpus query through
+    `exec_command` emits ONE transcript item, whose result is captured. Left
+    unlifted, its log reports a handful of captured calls at coverage 1.0 — an
+    assertion that the grader saw everything, made over a cell whose retrieval
+    capture never saw at all, which is worse than a low number because nothing
+    in the log marks it as blind.
+    """
+    reads = " ".join(
+        f'await tools.exec_command({{cmd:"curl -sL https://example.test/filing-{n}.pdf"}});'
+        for n in range(5)
+    )
+    source = reads + ' await tools.exec_command({cmd:"uv run fedcourts query --court scotus"});'
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "6 files read"))
+    log = _log(parse_codex_retrieval(sessions))
+
+    assert [call.tool for call in log.calls] == ["exec"] + ["exec_command"] * 6
+    assert log.result_capture_coverage == pytest.approx(1 / 7)
+    # The capture the rate is honest about: the one item the transcript held.
+    captured = [call for call in log.calls if call.result_capture == "captured"]
+    assert [call.call_source for call in captured] == ["transcript_item"]
+
+
 def test_codex_local_shell_call_records_its_command(tmp_path: Path) -> None:
     # No `name` and no `arguments`: the invocation describes itself in `action`,
     # so the row is named by payload type and queried from the command.

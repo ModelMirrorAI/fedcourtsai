@@ -461,13 +461,16 @@ directory without knowing which part is which invites trusting the wrong half.
   `call_source` states where the row's *call* was read from. Most rows are
   `transcript_item`: the engine logged a tool-call item and the row is that
   item. A **code-mode** engine is the exception — it is given one freeform
-  builtin call and invokes the manifest tools from inside the program that call
-  carries, so those invocations emit no item of their own and are lifted out of
-  the source into rows marked `code_mode_source`, named in the same
-  `mcp__<server>__<tool>` spelling a direct item would carry. A lifted row is
-  always `unobserved`: the freeform call returns one combined output for its
-  whole program, and nothing says which part of it belongs to a given call. A
-  single call *site* is not a single invocation — one inside a loop runs as
+  builtin call and invokes everything from inside the program that call
+  carries, both the manifest tools and the engine's own builtins (its shell
+  above all), so those invocations emit no item of their own and are lifted out
+  of the source into rows marked `code_mode_source`, in source order: a
+  manifest one named in the same `mcp__<server>__<tool>` spelling a direct item
+  would carry, a builtin one under the name the code-mode surface exposes it
+  as. A lifted row is always `unobserved`: the freeform call returns one
+  combined output for its whole program, and nothing says which part of it
+  belongs to a given call. A single call *site* is not a single invocation —
+  one inside a loop runs as
   many times as the loop — and the output holds whatever else the program did,
   so reading it under a manifest tool's name would put builtin text through the
   throttle predicate the tool gate keeps it out of. The lift therefore makes
@@ -478,9 +481,21 @@ directory without knowing which part is which invites trusting the wrong half.
   reached through an alias or a computed name is not counted at all. The claim
   it supports is *the program asked for these tools* — enough for
   offered-vs-called, and not an execution trace. The freeform call keeps
-  its own row beside them, so a count over all rows counts both the builtin
-  call and the manifest calls it made; gate on the MCP spelling to separate
-  them.
+  its own row beside them, so a count over all rows counts both the wrapping
+  call and the calls it made; gate on the MCP spelling to separate them.
+  Because every lifted row is unobserved, a code-mode cell reads low on
+  `result_capture_coverage` **by construction** — the more of its work such a
+  cell does inside programs the lower the rate goes, whatever capture managed
+  to see. That is the honest answer to what the rate asks (what share of this
+  cell's calls could a reader see an answer for), so the whole-log rate is the
+  one to compare. What does not carry across engines is reading it as *capture
+  quality*: for a program-driven cell it is dominated by call shape, and the
+  quantity that separates such a cell from one calling the same tools as items
+  is its **`transcript_item` share**, which belongs beside the rate rather
+  than in place of its denominator. Restricting the rate to `transcript_item`
+  rows measures something else — whether the engine's log paired an output to
+  each item it emitted — and returns a code-mode cell to 1.0 over its program
+  wrappers alone, which is the reading the whole-log denominator forecloses.
   `call_source` is the one field the blinding mask **drops** rather than
   staging, because naming a row as lifted names the engine that lifts — so
   unlike the two markers below it never reaches a grader at all. The

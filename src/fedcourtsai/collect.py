@@ -30,7 +30,7 @@ from typing import Literal
 
 from .blinding import neutral_tool_class
 from .finalize import FinalizeRole
-from .schemas import AgentFlags, CellFailure, FlagSeverity, RetrievalCall
+from .schemas import AgentFlags, CellFailure, FlagSeverity, RetrievalCall, normalize_call
 
 DATA_JAIL = "data/"
 
@@ -596,7 +596,10 @@ def attempted_corpus_query(calls: Sequence[RetrievalCall]) -> bool:
     What survives is still syntactic, and still misses in one direction: an
     invocation past the query slice's 500-character cut — where a code-mode
     cell's often sits, since its shell runs from inside a program — is not
-    counted at all. The note it feeds is advisory, and says so.
+    counted at all. Capture lifts that program's shell calls into rows naming
+    the command in full, but under the *builtin's* name rather than one of the
+    shell spellings the first screen reads, so they do not close the gap. The
+    note it feeds is advisory, and says so.
     """
     for call in calls:
         if neutral_tool_class(call.tool) != "shell":
@@ -619,6 +622,16 @@ def code_mode_lift_blind(calls: Sequence[RetrievalCall]) -> bool:
     program's source. Parents with no lifted row beside them is the shape a
     lift that stopped matching the engine's calling idiom leaves.
 
+    Keyed on the **manifest** lifted rows, because capture lifts two idioms out
+    of that source and each fails on its own. A program's builtin calls are the
+    commoner shape by far, so a run whose manifest idiom stopped matching still
+    mints lifted rows — and a tripwire that counted those would go quiet
+    exactly where the manifest spelling drifted, which is the drift it exists
+    to catch. The asymmetry is deliberate and it leaves the other half
+    unwatched: a rename on the *builtin* side trips nothing here, and shows up
+    instead as a code-mode cell's capture rate climbing back toward 1.0 while
+    its program does all the work.
+
     It is a hint, not a finding, and it is loose at both ends. A program that
     genuinely called no manifest tool leaves the same shape as a lift that
     matched nothing, and the rows cannot separate the two. Nor can they
@@ -629,7 +642,8 @@ def code_mode_lift_blind(calls: Sequence[RetrievalCall]) -> bool:
     that the cell simply retrieved nothing.
     """
     return any(call.tool == CODE_MODE_PARENT_TOOL for call in calls) and not any(
-        call.call_source == "code_mode_source" for call in calls
+        call.call_source == "code_mode_source" and normalize_call(call.tool) is not None
+        for call in calls
     )
 
 
@@ -677,9 +691,10 @@ class PriorAvailabilityRollup:
     ``lift_blind_cells`` of ``code_mode_cells`` is the blindness bound on
     everything above, the counterpart of :class:`ThrottleRollup`'s
     ``blind_cells``. It carries its own denominator because it is a standing
-    condition rather than a per-run event: the lift matches one calling idiom,
-    and a bare numerator on a surface read once per run would present a
-    long-running gap as a fresh regression every time.
+    condition rather than a per-run event: the lift matches calling idioms
+    syntactically and this counts the cells whose *manifest* one produced
+    nothing, and a bare numerator on a surface read once per run would present
+    a long-running gap as a fresh regression every time.
     """
 
     cells: int = 0
@@ -764,17 +779,19 @@ def render_prior_availability_note(rollup: PriorAvailabilityRollup | None) -> st
             f"🔍 **Code-mode capture may be blind**: {rollup.lift_blind_cells} of "
             f"{rollup.code_mode_cells} cell(s) that called the freeform "
             f"`{CODE_MODE_PARENT_TOOL}` builtin — how a code-mode engine runs a program — "
-            f"had **zero** calls lifted out of its source. Three readings, and the rows "
-            f"separate none of them: the program called nothing worth a row, the lift no "
-            f"longer matches the engine's calling idiom, or the call was an ordinary shell "
-            f"call an engine spells the same way (the parser tells those apart by the "
-            f"transcript item's type, which no row records). A standing condition rather "
-            f"than a fresh regression: check the ratio "
+            f"had **zero** manifest calls lifted out of its source. Three readings, and the "
+            f"rows separate none of them: the program called no manifest tool worth a row, "
+            f"the lift no longer matches the engine's manifest calling idiom, or the call "
+            f"was an ordinary shell call an engine spells the same way (the parser tells "
+            f"those apart by the transcript item's type, which no row records). A standing "
+            f"condition rather than a fresh regression: check the ratio "
             f"against earlier runs before reading it as new. Either way the attempt counts "
-            f"above are partial for such a cell — its shell runs from inside a program, so a "
-            f"query gets no row of its own and is counted only where it falls inside the "
-            f"parent row's truncated source slice. What a lifted row does and does not "
-            f"claim: `call_source` in `docs/predicted-artifacts.md`."
+            f"above are partial for such a cell — its shell runs from inside a program, and "
+            f"the lifted row that names the command is a builtin rather than one of the "
+            f"shell spellings the attempt count reads, so a query made there is counted "
+            f"only where it falls inside the parent row's truncated source slice. What a "
+            f"lifted row does and does not claim: `call_source` in "
+            f"`docs/predicted-artifacts.md`."
         )
     return "\n\n".join(paragraphs)
 

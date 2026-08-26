@@ -1324,7 +1324,9 @@ per-tool dead-end rows **withheld** rather than printed as 100%, and where they
 are printed they are an upper bound.
 
 **For a code-mode engine, a call count counts call sites in program text.** Its
-manifest calls are written inside a freeform builtin call's program and lifted
+calls — the manifest tools, and the engine's own builtins beside them, which is
+where such a program does most of its work — are written inside a freeform
+builtin call's program and lifted
 from that source, so what `calls` and the offered-vs-called table's *called in*
 report is how many times a tool is *named* in the programs, not how many times
 it ran: a site inside a loop counts once however many times the loop turned, a
@@ -1335,10 +1337,12 @@ and the one the offered-vs-called cut needs — is *the program asked for these
 tools*. It is not an execution trace, and no per-call rate should be built on it.
 
 **A raw call total is not one row per invocation for every engine.** A
-code-mode engine reaches its manifest tools from inside a freeform builtin
+code-mode engine reaches everything from inside a freeform builtin
 call, and the log carries both: the builtin call's own row and a lifted row per
-manifest call the program made (`RetrievalCall.call_source`). So a program
-making three manifest calls contributes four rows, and any figure denominated
+call the program made, manifest or builtin (`RetrievalCall.call_source`). So a
+program making three manifest calls and six shell reads contributes ten rows —
+and the builtin term dominates in practice, since a program calls its shell
+many times more often than it calls the manifest. Any figure denominated
 on *every* call — the result-observability rate above, the call axis of the
 call-volume-against-Brier table — counts the wrapper beside the calls it
 wrapped, for that engine only. Three readings follow. Gate on the MCP predicate
@@ -1352,6 +1356,13 @@ counts, and which engines appear in the offered-vs-called table at all — as
 **scoped to the logs that could express it**, since a lifted row exists only
 where capture minted one. A code-mode engine appearing to call no manifest
 tool over a stretch of the ledger is a capture fact, not a behavioural one.
+Which idioms the lift matches decides how many rows a program leaves behind, so
+a ledger-wide cut over a code-mode engine pools logs captured under whatever
+lift each was minted with — exactly as a throttle count pools predicates, and
+for the same reason: rows are written once at parse time and no committed log
+is ever re-derived. That reaches the call total, the observability rate, and
+`result_capture_coverage` alike, so a move in any of them across runs may be a
+capture change rather than a behavioural one. Date the cut before reading it.
 
 **What may be claimed from the throttle counts.** `result_status` on a
 `RetrievalCall` marks a result the shared upstream quota refused, and the counts
@@ -1382,11 +1393,12 @@ call with its own result, its manifest calls are observable and its figure is a
 real ratio. Where the engine's telemetry logs no result payload at all, every
 row is `unobserved` by construction and it can never be observed being
 throttled — coverage that is **structural**, so an empty figure there is no
-evidence of a clean run. The third case is a **code-mode** engine, whose rows
-carry `RetrievalCall.call_source: code_mode_source`: it invokes the manifest
-tools from inside a freeform builtin call, and only that call's *combined*
+evidence of a clean run. The third case is a **code-mode** engine, whose
+lifted rows carry `RetrievalCall.call_source: code_mode_source`: it invokes its tools —
+manifest and builtin alike — from inside a freeform builtin call, and only that
+call's *combined*
 output is captured. No part of that output is attributable to an individual
-manifest call — a single call site may run many times, and the output also
+call inside it — a single call site may run many times, and the output also
 holds whatever else the program did — so every lifted row is `unobserved` by
 construction, and such an engine likewise **cannot be observed being
 throttled**. Its manifest calls are counted; its results are not read. Two
