@@ -455,18 +455,21 @@ project is actually building toward.
 - **The ~1-year decision point.** With a term of cost and calibration data in
   hand, an explicit pivot: academic collaboration, B2B legal-analytics, or holding
   as a public-artifact project. Sustained external support here is the
-  **well-funded** state ([budget.md](budget.md)), where `N` can approach the full
-  cert gate and the **scope** call opens up — widen past the SCOTUS-docket gate
+  **well-funded** state ([budget.md](budget.md)), where `N` is long since spent —
+  it exhausts inside initial funding — so the money is going to `P`, a registry
+  several times today's, and the **scope** call opens up — widen past the SCOTUS-docket gate
   toward the originating courts of appeals or a rotating appeals sample, or hold
   the gate as the durable scope. Options kept open until the data is in.
 
 **Housekeeping, in parallel:** verify the S3 egress projections against the split
 stores ([budget.md](budget.md)); unify the index's transport onto the same boto3
-pattern as the content store; finish re-anchoring the budget once evaluate-side
-per-run cost is measured (the predict side now is); and re-anchor the
-per-predictor grading margin at the first `P = 4` fan-out. The last two are
-distinct triggers — one prices the evaluate half at today's registry size, the
-other prices how that half grows when the registry does.
+pattern as the content store; finish re-anchoring the budget once a **stamped**
+evaluate-side per-run cost is measured over more than one stage (the predict side
+is measured; the post-freeze evaluate cells that exist carry no process digest and
+grade one stage); and re-anchor the per-predictor grading margin at the first
+`P = 4` fan-out. The last two are distinct triggers — one prices the evaluate half
+at today's registry size, the other prices how that half grows when the registry
+does.
 
 ## Beyond a year — the automated-research goal
 
