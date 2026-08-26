@@ -97,6 +97,74 @@ def test_query_unknown_disposition_errors(fixture_corpus: FixtureCorpus) -> None
     assert "Unknown disposition" in result.stderr
 
 
+def _unwrapped(text: str) -> str:
+    """Error output as one whitespace-free-ish line, past any box drawing.
+
+    Typer renders a usage error inside a Rich panel whose width follows the
+    terminal, so the sentences below arrive wrapped and column-padded at a
+    width no test can pin. Collapsing the border characters and the runs of
+    whitespace leaves the content, which is what the assertions are about.
+    """
+    return " ".join(text.replace("│", " ").replace("|", " ").split())
+
+
+def test_a_free_text_search_argument_is_refused_with_the_interface(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The failure this closes is behavioural: a cell guesses a search engine,
+    # gets one terse line, and abandons the corpus for the rest of its run
+    # rather than re-issuing the same question as structured filters.
+    result = runner.invoke(app, ["query", "--court", "scotus", "Anderson-Burdick mail voting"])
+    assert result.exit_code == 2
+    out = _unwrapped(result.output)
+    assert "unexpected extra argument" in out
+    assert "takes no free-text search argument" in out
+    # The rule, and the one invocation that shows what to do instead.
+    assert "none of them positional" in out
+    assert "fedcourts query --court scotus --disposition granted --limit 5" in out
+    assert "fedcourts query --help" in out
+
+
+def test_a_bad_flag_value_is_refused_with_the_interface(fixture_corpus: FixtureCorpus) -> None:
+    # `--full` is a boolean, so a case name after it parses as a positional and
+    # `--decided-before` takes a year rather than a date: two spellings of the
+    # same wrong mental model, and both teach the same screen.
+    for argv in (
+        ["query", "--court", "scotus", "--full", "Jennings v. Rodriguez"],
+        ["query", "--court", "scotus", "--decided-before", "2026-06-30"],
+    ):
+        result = runner.invoke(app, argv)
+        assert result.exit_code == 2, argv
+        out = _unwrapped(result.output)
+        assert "takes no free-text search argument" in out, argv
+        assert "a bare four-digit year, not a date" in out, argv
+
+
+def test_an_invented_era_is_refused_and_the_vocabulary_printed(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # An era is a decade token. A court-name era would otherwise filter every
+    # row away and read back as a corpus holding no priors at all.
+    result = runner.invoke(app, ["query", "--court", "scotus", "--era", "Roberts Court"])
+    assert result.exit_code == 2
+    out = _unwrapped(result.output)
+    assert "Unknown era 'Roberts Court'" in out
+    assert "1890s" in out and "2020s" in out
+    assert "fedcourts query --court scotus --disposition granted --limit 5" in out
+
+
+def test_a_valid_query_is_untouched_by_the_teaching_error_path(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The change is error reporting only: the rows, the read-stats line and the
+    # exit code of a well-formed invocation are exactly what they were.
+    result = runner.invoke(app, ["query", "--court", "ca9", "--judge", "smith", "--limit", "5"])
+    assert result.exit_code == 0, result.output
+    assert [r["case_id"] for r in _rows(result.stdout)] == ["ca9/102", "ca9/101"]
+    assert "takes no free-text search argument" not in result.output
+    assert "1790s" not in result.output
+
+
 def test_query_missing_corpus_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "absent"))
     result = runner.invoke(app, ["query"])

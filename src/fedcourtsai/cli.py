@@ -13,8 +13,9 @@ import os
 import sqlite3
 import sys
 import tempfile
+import textwrap
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
@@ -25,6 +26,16 @@ from urllib.parse import quote
 import typer
 import yaml
 from pydantic import BaseModel, ValidationError
+
+# Typer vendors click, and re-exports neither the base command class a `cls=`
+# override needs nor the parse-time error it raises. `typer.core` is the
+# documented home of the first; the second has no public spelling at all —
+# there is no installed `click` to import instead, and a real one would name a
+# different class. A typer bump that moved it fails here at import, which takes
+# every `fedcourts` command down at once: the gate cannot miss it, and no run
+# can degrade quietly around it.
+from typer._click.exceptions import UsageError
+from typer.core import TyperCommand
 
 from . import (
     analytics,
@@ -5182,7 +5193,108 @@ def build_index_cmd(
     )
 
 
-@app.command()
+#: The whole `query` interface, for an invocation that guessed a different one.
+#: `{dispositions}` / `{eras}` are filled from the live vocabularies at print
+#: time, so the tokens it offers are the ones the filters accept.
+_QUERY_INTERFACE_HELP = """\
+The `fedcourts query` interface, in full:
+
+It takes no free-text search argument. It is a structured filter over the
+corpus, not a search engine: a phrase, a case name or a docket caption is
+rejected as an extra argument. Say what you want in flags.
+
+Filters — every one optional, none of them positional:
+  --court TEXT           one CourtListener court id, e.g. scotus
+  --topic TEXT           nature-of-suit / subject, matched EXACTLY; the
+                         values come off the `topic` field of returned rows
+  --judge TEXT           repeatable; ranks on shared judges
+  --citation TEXT        repeatable, e.g. '597 U.S. 1' — this case's own
+                         parallel cite, not a cases-citing-it search
+  --disposition TEXT     one realized outcome label, listed below
+  --era TEXT             one decade token, listed below
+  --decided-before YEAR  a bare four-digit year, not a date
+  --limit N              how many priors to return
+  --corpus-backend NAME  transport only: local / ranged / service; the run
+                         environment sets this, so leave it alone
+  --include-open, --include-applications, --full   take no value
+
+The two closed vocabularies:
+  --disposition
+{dispositions}
+  --era
+{eras}
+
+`--topic`, `--judge` and `--citation` are sparsely populated: a filter on
+one can come back empty because the column is thin, not because no such
+prior exists. Widen rather than retry.
+
+Worked example:
+  fedcourts query --court scotus --disposition granted --limit 5
+
+Every flag with its own help: fedcourts query --help"""
+
+#: Where the vocabulary lists wrap. Narrow enough that the terse default
+#: terminal still renders each token list as a block rather than re-wrapping it
+#: into the flag column, which is what makes the screen scannable at all.
+_QUERY_HELP_WIDTH = 72
+
+
+def _query_interface_help() -> str:
+    """:data:`_QUERY_INTERFACE_HELP` with the current filter vocabularies in it."""
+
+    def block(tokens: Iterable[str]) -> str:
+        return textwrap.fill(
+            " ".join(tokens),
+            width=_QUERY_HELP_WIDTH,
+            initial_indent="    ",
+            subsequent_indent="    ",
+        )
+
+    return _QUERY_INTERFACE_HELP.format(
+        dispositions=block(d.value for d in Disposition),
+        eras=block(corpus.era_tokens()),
+    )
+
+
+class _TeachingQueryCommand(TyperCommand):
+    """A command whose usage errors carry the interface they rejected.
+
+    The failure this exists to stop is behavioural, not syntactic. An agent
+    cell that guesses a search-engine interface — a bare phrase, a case name
+    after ``--full``, a court-name era — gets one terse line naming what was
+    wrong and nothing saying what is right, and abandons the corpus for the
+    rest of its run, forecasting without priors. Appending the interface to
+    the error makes the same cell's next attempt the correct one.
+
+    Every parse-time usage error is augmented, not a chosen few: the guesses
+    that produce them are open-ended (an unknown flag, a date where a year
+    goes, a phrase left over after parsing), while what the reader needs back
+    is the same one screen in each case. Nothing else about the failure changes — the usage
+    line, the exit code, and the message click already wrote are as they were.
+
+    The augmentation is of the **formatted** message, not of ``message``
+    itself, and re-raised as a plain :class:`UsageError` rather than mutated in
+    place. Click's subclasses build their rendering *around* that attribute —
+    a near-miss flag appends "(Possible options: --court)" after it — so
+    editing it in place would bury the single most actionable line of the error
+    at the tail of a thirty-line screen. Formatting first keeps every
+    subclass's own framing intact and puts the screen after all of it.
+
+    Deliberately attached to one command rather than the app: it is worth doing
+    where the surface is both narrow and easy to mistake for a search engine,
+    and a CLI whose every misuse printed a page would teach nothing.
+    """
+
+    def parse_args(self, ctx: Any, args: list[str]) -> list[str]:
+        try:
+            return super().parse_args(ctx, args)
+        except UsageError as exc:
+            raise UsageError(
+                f"{exc.format_message()}\n\n{_query_interface_help()}", ctx=exc.ctx
+            ) from exc
+
+
+@app.command(cls=_TeachingQueryCommand)
 def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query filters
     *,
     court: Annotated[str, typer.Option(help="Restrict to one CourtListener court id.")] = "",
@@ -5264,6 +5376,28 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     cell leans on) rather than growing into a bespoke search engine.
     """
     settings = get_settings()
+    # The two closed vocabularies are judged before the corpus is looked for:
+    # a caller who spelled a filter wrong needs the interface back whatever the
+    # state of the blob, and "no corpus here" would send them to `corpus-pull`
+    # for a failure the pull cannot fix.
+    try:
+        disp = Disposition(disposition) if disposition else None
+    except ValueError as exc:
+        choices = ", ".join(d.value for d in Disposition)
+        typer.echo(f"Unknown disposition '{disposition}'; choose one of: {choices}", err=True)
+        typer.echo(_query_interface_help(), err=True)
+        raise typer.Exit(code=2) from exc
+    # An era is refused rather than silently returning nothing: a guess at a
+    # court-name era ("Roberts Court") would otherwise filter every row away
+    # and read back as a corpus that holds no priors.
+    if era and era not in corpus.era_tokens():
+        typer.echo(
+            f"Unknown era '{era}'; an era is one decade token — not a court, "
+            "a Term or a date range. The vocabulary is below.",
+            err=True,
+        )
+        typer.echo(_query_interface_help(), err=True)
+        raise typer.Exit(code=2)
     db_path = corpus.corpus_db_path(settings.corpus_root)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend, allow_service=True))
     if backend == "local" and not db_path.exists():
@@ -5272,12 +5406,6 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
             err=True,
         )
         raise typer.Exit(code=1)
-    try:
-        disp = Disposition(disposition) if disposition else None
-    except ValueError as exc:
-        choices = ", ".join(d.value for d in Disposition)
-        typer.echo(f"Unknown disposition '{disposition}'; choose one of: {choices}", err=True)
-        raise typer.Exit(code=2) from exc
     q = corpus.PriorQuery(
         court=court or None,
         topic=topic or None,
@@ -5467,6 +5595,19 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         choices = ", ".join(d.value for d in Disposition)
         typer.echo(f"Unknown disposition '{disposition}'; choose one of: {choices}", err=True)
         raise typer.Exit(code=2) from exc
+    # `query`'s era vocabulary, refused on the same terms: this command answers
+    # a base rate rather than returning rows, so an unrecognized era would come
+    # back as a well-formed report over zero cases — a number, and the wrong
+    # one, where `query` at least returned nothing visible.
+    eras = corpus.era_tokens()
+    if era and era not in eras:
+        typer.echo(
+            f"Unknown era '{era}'; choose one of: {', '.join(eras)}. A row dated "
+            "outside that window carries an era this filter cannot name — such a "
+            "row is unaddressable here, not absent from the corpus.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     dimension = next((g for g in analytics.STATS_DIMENSIONS if g.value == group_by), None)
     if group_by and dimension is None:
         choices = ", ".join(g.value for g in analytics.STATS_DIMENSIONS)

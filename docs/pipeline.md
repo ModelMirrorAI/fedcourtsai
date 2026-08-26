@@ -904,21 +904,26 @@ harness-rendered note beside it: which cells ran a `fedcourts` corpus query
 times out against the corpus index fails no cell — it finishes and predicts from
 whatever else it had — so without a run-level count the only trace is one line
 in one cell's report. What the note prints is a **disagreement between two
-channels, not a diagnosis**: the *attempt* is harness-captured (a shell row in
-the cell's own log, screened so a `--help` or a `grep` of the CLI's name is not
-read as a query — declining to use a tool is not the tool failing), while the
-*service* is the cell's own `tooling.json` line. A failed query leaves that
-shape and is the reason it is worth printing, but so does a cell that queried,
-got rows, and answered the field on another reading; the rows cannot separate
-them, so the note names its cells (`case/event/actor`, walk order) for a reader
-to check rather than asserting a cause. Its denominator is the cells whose
-attempt was **legible**, printed against the run's legible cell logs, because
-capture sees a code-mode cell's shell only partially and so the coverage differs
-by engine — which is also why the counts are not comparable across engines or
-across runs. Like the throttle note that warning stays silent where every
-attempt was served, and rides whichever PR the run opens. A cell whose answer
-cannot be read at all gets its own line rather than the warning's, because
-unknown and starved are different claims.
+channels, not a diagnosis**: the *attempt* is harness-captured (a row in the
+cell's own log that a command could have been run from — a shell call, or one
+lifted out of a code-mode program's source — screened so a `--help` or a `grep`
+of the CLI's name is not read as a query, since declining to use a tool is not
+the tool failing), while the *service* is the cell's own `tooling.json` line. A
+failed query leaves that shape and is the reason it is worth printing, but so
+does a cell that queried, got rows, and answered the field on another reading —
+and on a code-mode cell so does a call site in a branch the program never took,
+since the attempt there is read out of program *text* rather than observed
+running. The rows separate none of them, so the note names its cells
+(`case/event/actor`, walk order) for a reader to check rather than asserting a
+cause. Its denominator
+is the cells whose attempt was **legible**, printed against the run's legible
+cell logs, because what capture can read of a cell's commands differs by engine
+— a code-mode cell's are visible only as far as the lift matched its program —
+which is also why the counts are not comparable across engines, nor across runs
+whenever capture itself has moved between them. Like the throttle note that
+warning stays silent where every attempt was served, and rides whichever PR the
+run opens. A cell whose answer cannot be read at all gets its own line rather
+than the warning's, because unknown and starved are different claims.
 
 A **capture tripwire** prints beside those two — and, unlike them, *also on a
 fully-served run*, since it reports on what could be seen rather than on what
@@ -932,13 +937,22 @@ way (the parser tells those apart by the transcript item's type, which no row
 records). It watches the manifest half because capture lifts two idioms out of a
 program and each fails on its own: builtin call sites outnumber manifest ones
 several times over, so a tripwire that counted them would go quiet exactly where
-the manifest spelling drifted. Either way the attempt counts above are partial
-for such a cell: a shell command run from inside a program is lifted into a row
-naming the *builtin* rather than one of the shell spellings the attempt count
-reads, so the command is counted only where it falls inside the parent row's
-truncated source slice (`call_source` in
-[predicted-artifacts.md](predicted-artifacts.md)). The ratio is there because
-this is a standing condition rather than a per-run event.
+the manifest spelling drifted. The attempt counts above do read such a cell,
+through the other half: a command run from inside a program is lifted into a
+row naming the *builtin*, and a lifted row counts where it carries the lift
+marker (`call_source` in
+[predicted-artifacts.md](predicted-artifacts.md)) **and** names one of the two
+builtins that run a command — the patch and plan builtins are lifted too, and
+their argument text is prose the program wrote, so a plan step naming the
+command would otherwise be counted as the invocation it describes. That path is
+additional to the shell one, not a replacement: the code-mode parent row is
+itself shell-classed, so a command inside its truncated head slice still counts
+on its own. The two halves therefore watch different idioms, which is why the
+tripwire is **correlated with** the attempt counts' coverage rather than a bound
+on it — a drift on the builtin side would empty those counts for every code-mode
+cell while this ratio stayed silent, and only the capture rate climbing back
+toward 1.0 would show it. The ratio is there because this is a standing
+condition rather than a per-run event.
 
 The `run-seed` historical walker has its own instance of the latched-issue
 pattern: a `guard`

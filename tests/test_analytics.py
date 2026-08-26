@@ -347,6 +347,18 @@ def test_cli_bad_disposition_errors(fixture_corpus: FixtureCorpus) -> None:
     assert "Unknown disposition" in result.stderr
 
 
+def test_cli_bad_era_errors(fixture_corpus: FixtureCorpus) -> None:
+    # This command answers a base rate rather than returning rows, so an
+    # unrecognized era would come back as a well-formed report over zero
+    # cases — a number, and the wrong one. `query`'s vocabulary, same refusal.
+    result = runner.invoke(app, ["stats", "--era", "Roberts Court"])
+    assert result.exit_code == 2
+    assert "Unknown era" in result.stderr
+    assert "2020s" in result.stderr
+    # A real decade still runs, whether or not the fixture holds one.
+    assert runner.invoke(app, ["stats", "--era", "1890s"]).exit_code == 0
+
+
 def test_cli_bad_date_errors(fixture_corpus: FixtureCorpus) -> None:
     result = runner.invoke(app, ["stats", "--date-from", "not-a-date"])
     assert result.exit_code == 2
