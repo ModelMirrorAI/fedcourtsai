@@ -1817,7 +1817,10 @@ class RetrievalCall(_Strict):
         "`web_search_call`), or capture found no result to pair with the call — "
         "the parsers derive the marker from a pairing rule, so a call the engine "
         "logged without a pairing id, and one whose result sits past a truncated "
-        "transcript, both land here for a capture-side reason. "
+        "transcript, both land here for a capture-side reason. A row lifted out of a "
+        "code-mode program (`call_source` `code_mode_source`) is unobserved by "
+        "construction, and on such a log it is the commonest reason of all: the one "
+        "combined output belongs to the program, not to any call inside it. "
         "The digests cannot make that distinction on their own — `result_digest` is "
         "null both for a captured-empty result and for one never captured, and so is "
         "`retrieved_doc_date` — which is why a reader who treats a null digest as "
@@ -1866,20 +1869,25 @@ class RetrievalCall(_Strict):
         "not of its result. `transcript_item` is the ordinary case: the engine logged a "
         "tool-call item and this row is that item. `code_mode_source` means the row was "
         "lifted out of the SOURCE of a freeform code-mode call, which is how a code-mode "
-        "engine reaches its manifest tools: the model emits one builtin freeform call and "
-        "invokes the MCP tools from inside the program it carries, so those invocations "
+        "engine reaches everything: the model emits one builtin freeform call and invokes "
+        "the tools from inside the program it carries — the MCP manifest, and the engine's "
+        "own builtins beside it, which is where such a program does most of its work — so "
+        "those invocations "
         "never appear as items of their own and are invisible to any count that waits for "
-        "one. A lifted row names the same `mcp__<server>__<tool>` spelling a direct item "
-        "would, so it normalizes into the offered denominator identically. Read the two "
-        "differently on the RESULT side: a lifted row is ALWAYS `unobserved`, and no "
+        "one. A lifted MANIFEST row names the same `mcp__<server>__<tool>` spelling a "
+        "direct item would, so it normalizes into the offered denominator identically; a "
+        "lifted BUILTIN row names the builtin, so like any builtin it falls outside that "
+        "denominator and is counted separately. Read every lifted row "
+        "differently on the RESULT side: it is ALWAYS `unobserved`, and no "
         "result is read into it. The freeform call returns one combined output for its "
-        "whole program and nothing says which part of it belongs to a given manifest call "
+        "whole program and nothing says which part of it belongs to a given call inside "
         "— a single call SITE is not a single invocation (a site inside a loop runs as "
         "many times as the loop), and the output also holds whatever else the program did, "
         "so reading it under a manifest tool's name would put builtin text through the "
         "throttle predicate the tool gate exists to keep it out of. So the lift makes the "
         "CALL visible and claims nothing about its answer: manifest call counts gain a "
-        "code-mode engine, the throttle denominator does not. What is counted is CALL "
+        "code-mode engine, the log's capture rate stops reporting a program-driven cell as "
+        "fully seen, and the throttle denominator gains nothing. What is counted is CALL "
         "SITES IN PROGRAM TEXT, neither a floor nor a bound on invocations: a site inside "
         "a loop counts once however many times it ran, a site in an untaken branch or a "
         "comment counts though it never ran, and a call reached through an alias or a "
@@ -1887,12 +1895,12 @@ class RetrievalCall(_Strict):
         "for these tools`, not an execution trace. "
         "The freeform call keeps its own row beside the lifted ones — a real builtin "
         "invocation, carrying the program and the combined output — so a total over all "
-        "rows counts the builtin call AND the manifest calls it made; count with the MCP "
+        "rows counts the wrapping call AND the calls it made; count with the MCP "
         "gate (`normalize_call`) to avoid conflating them. This field is also the one the "
         "blinding mask DROPS rather than staging, since naming a row as lifted names the "
         "engine that lifts it. Null on records written before the field existed: "
         "provenance-unknown — and on a code-mode engine's log a null also marks a record "
-        "whose manifest calls were never captured at all.",
+        "whose calls inside the program were never captured at all.",
     )
 
     @model_validator(mode="after")
@@ -1924,6 +1932,13 @@ def _result_capture_coverage(calls: Sequence[RetrievalCall]) -> float | None:
     ``None`` when no call carries ``result_capture`` — an empty log, or one
     written before the marker existed — because zero-of-zero is not a rate and
     ``0.0`` would read as "captured nothing", which is a different claim.
+
+    Over every marker-carrying row, whatever its ``call_source``: a row lifted
+    from a code-mode program is unobserved by construction, so a cell that works
+    inside programs reads lower here than one calling the same tools as items.
+    That is the answer to the question the rate asks, so the denominator stays
+    whole; what a reader must not do with it is the field's description's
+    business.
     """
     marked = [call for call in calls if call.result_capture is not None]
     if not marked:
@@ -2014,10 +2029,29 @@ class RetrievalLog(_Strict):
         "`captured` — the log-level reading of what the grader could see. Derived from "
         "`calls`, never asserted independently, so the rate and the rows cannot "
         "disagree; its denominator is therefore the calls this log *retained*, after "
-        "capture's head-cut at the schema's 500-call maximum, not every call the cell "
-        "made. Null when no call carries the marker: an empty log, or one written "
+        "capture's head-cut at the schema's 500-call maximum and after the 16 KiB window "
+        "the code-mode lift scans, not every call the cell made. Null when no call "
+        "carries the marker: an empty log, or one written "
         "before the marker existed. A 0.0 is a real and different fact — every call ran "
-        "with its result unobserved, which is the standing shape of a Gemini cell.",
+        "with its result unobserved, which is the standing shape of a Gemini cell. "
+        "A code-mode cell reads low here BY CONSTRUCTION: every row lifted from a "
+        "program's source (`call_source` `code_mode_source`) is unobserved, because the "
+        "freeform call returns one combined output for the whole program and nothing "
+        "says which part of it belongs to a call inside. That is the honest answer to "
+        "the question this field asks — what share of the cell's calls could a reader "
+        "see an answer for — so the whole-log rate is the one to compare. What does NOT "
+        "carry across engines is reading it as capture QUALITY: for a program-driven "
+        "cell the rate is dominated by call shape, and the quantity that separates such "
+        "a cell from one calling the same tools as items is its `transcript_item` "
+        "SHARE, which belongs beside the rate rather than in place of its denominator. "
+        "Restricting the rate to `transcript_item` rows measures something else "
+        "entirely — whether the engine's own log paired an output to each item it "
+        "emitted, a plumbing check that returns a code-mode cell to 1.0 over its "
+        "program wrappers alone. Two more reasons it is not the restriction to make: "
+        "`call_source` is null on every row predating the marker, so the filter reads "
+        "unknown provenance as excluded; and the blinding mask drops `call_source` "
+        "while passing this rate through, so on the one surface where the number "
+        "reaches a grader the restriction cannot be performed at all.",
     )
     throttled_calls: int | None = Field(
         default=None,

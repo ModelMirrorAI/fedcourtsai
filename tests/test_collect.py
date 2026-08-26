@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from fedcourtsai import retrieval
+from fedcourtsai.blinding import neutral_tool_class
 from fedcourtsai.collect import (
     CODE_MODE_PARENT_TOOL,
     CellStatus,
@@ -795,6 +796,30 @@ def test_reading_the_manual_is_not_a_corpus_query() -> None:
     )
 
 
+def test_a_lifted_builtin_row_does_not_yet_close_the_code_mode_attempt_gap() -> None:
+    """The undercount the tripwire note reports, pinned rather than assumed.
+
+    Capture lifts a program's shell calls into rows carrying the command in
+    full, which looks like it should close the gap — but the first screen reads
+    the shared tool classifier, and the builtin's name is not one of the shell
+    spellings there. So the attempt is still counted only where the command
+    falls inside the parent row's truncated program slice. One dict entry away
+    from flipping in either direction, which is why it is a test.
+    """
+    lifted = _call(
+        "exec_command",
+        '{cmd:"uv run fedcourts query --court scotus --limit 5"}',
+        result_capture="unobserved",
+        call_source="code_mode_source",
+    )
+    assert neutral_tool_class(lifted.tool) != "shell"
+    assert not attempted_corpus_query([lifted])
+    # The parent row is shell-classed, so a command inside the legible slice is
+    # what the count actually sees for such a cell.
+    parent = _call(CODE_MODE_PARENT_TOOL, 'await tools.exec_command({cmd:"fedcourts query -n 5"})')
+    assert attempted_corpus_query([parent])
+
+
 def test_the_code_mode_tripwire_fires_only_where_a_program_lifted_nothing() -> None:
     # A program-running cell with no lifted row beside it is the shape a lift
     # that stopped matching the engine's idiom leaves — and the shape a program
@@ -810,6 +835,18 @@ def test_the_code_mode_tripwire_fires_only_where_a_program_lifted_nothing() -> N
     assert not code_mode_lift_blind([program, lifted])
     # No code-mode parent at all is not a claim about capture.
     assert not code_mode_lift_blind([_call("Bash", "ls")])
+    # Capture lifts two idioms out of a program, and each fails on its own. A
+    # program's builtin calls are the commoner shape by far, so lifted builtin
+    # rows must not vouch for the manifest idiom: a tripwire counting those
+    # would go quiet exactly where the manifest spelling drifted.
+    builtin = _call(
+        "exec_command",
+        '{cmd:"ls record"}',
+        result_capture="unobserved",
+        call_source="code_mode_source",
+    )
+    assert code_mode_lift_blind([program, builtin])
+    assert not code_mode_lift_blind([program, builtin, lifted])
     # The parser tells a code-mode parent from an ordinary shell call by the
     # transcript item's TYPE, which no field of the row records — so a plain
     # `exec` trips this too, and is simultaneously a legible attempt. The note
