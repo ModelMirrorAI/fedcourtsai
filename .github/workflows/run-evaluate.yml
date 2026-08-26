@@ -35,6 +35,7 @@ jobs:
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
+      run_id: ${{ steps.plan.outputs.run_id }}
     steps:
       # An issue *form* applies its declared labels on creation regardless of the
       # submitter's permissions, so on a public repo anyone could fire this agent
@@ -88,6 +89,10 @@ jobs:
           run_id=$(date -u +%Y%m%dT%H%M%SZ)
           matrix=$(uv run fedcourts evaluate-matrix --body-file issue-body.md --run-id "$run_id")
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          # The report step re-derives the plan under this same id: the run id
+          # is the join key between the approval record and the committed
+          # evaluation paths, so the two invocations must not mint their own.
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
           count=$(echo "$matrix" | jq '.include | length')
           if [ "$count" -gt 0 ]; then
             echo "has_jobs=true" >> "$GITHUB_OUTPUT"
@@ -113,8 +118,97 @@ jobs:
           gh issue close "$ISSUE" --repo "$REPO" --comment \
             "No evaluations in scope this run — every queued case was dropped by the scope gate (out of scope, nothing scorable, or already evaluated). Closing; nothing to evaluate."
 
-  evaluate:
+      # The plan report the approval below is judged on: the tested plan
+      # command re-derives the same fan-out the matrix step just minted (same
+      # helpers, zero spend) and renders per-judge counts, the would-grade
+      # cell list, and the spend estimate — whose basis the report itself
+      # caveats, the evaluate side being a scaled assumption until a
+      # post-freeze fan-out measures it. Posted to the trigger issue and the
+      # step summary BEFORE the hold, so the record of what was approved
+      # exists whether or not the release ever comes. Unlike predict's twin
+      # there is no stranded-run census to attach — the evaluate plan carries
+      # no stranded guard — so the call is the bare report form.
+      - name: Post the plan report for approval
+        if: ${{ steps.plan.outputs.has_jobs == 'true' && github.event.issue.number }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PLAN_RUN_ID: ${{ steps.plan.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts evaluate-plan --body-file issue-body.md \
+            --run-id "$PLAN_RUN_ID" \
+            --approval-report plan-report.md \
+            --approval-report-run-url "$RUN_URL" >plan.json 2>plan-stderr.txt \
+            || { cat plan-stderr.txt; exit 1; }
+          cat plan-report.md >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo ''
+            echo '<details><summary>full plan document</summary>'
+            echo ''
+            echo '```json'
+            cat plan.json
+            echo '```'
+            echo ''
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+          # The report must exist where the approver reads before the hold
+          # releases: the marker-deduped comment command posts exactly once
+          # per run and makes a plan-job re-run safe, and a sustained API
+          # fault fails the plan job loudly, so nothing spends unreported.
+          uv run fedcourts post-issue-comment --issue "$ISSUE" --repo "$REPO" \
+            --marker "<!-- evaluate-plan: ${PLAN_RUN_ID} -->" --body-file plan-report.md
+
+  # The hold. This job carries no code, no token, and no permissions — its one
+  # purpose is the deployment environment: the `review` environment's required
+  # reviewers gate it, so every downstream job that spends (the matrix and the
+  # collect writer behind it) waits on an explicit, audit-logged release. The
+  # wait happens before the job is scheduled, so timeout-minutes bounds only
+  # the no-op itself. The same `review` environment gates the predict hold —
+  # one environment serves every spend hold, which is what the plan report's
+  # closing line and the promotion gate's reviewer check both assume.
+  approval:
     needs: plan
+    if: needs.plan.outputs.has_jobs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: review
+    permissions: {}
+    steps:
+      - name: Release the held fan-out
+        run: echo "the review hold released — the matrix may spend."
+
+  # Any hold that did not release must not strand the trigger issue open:
+  # record the outcome where the request lives, pointing at the plan report
+  # the decision was made on. `!= 'success'` covers the whole class — the
+  # Reject button (a failed deployment), a cancelled or expired wait, and a
+  # plan job that died after minting the matrix (approval then skipped).
+  # Best-effort during a run cancellation, like any always() job: an expired
+  # hold whose runner was torn down may still need a manual close. Ambient
+  # token; closing triggers nothing.
+  rejected:
+    needs: [plan, approval]
+    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result != 'success' && github.event.issue.number }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Close the trigger issue with the outcome
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh issue close "$ISSUE" --repo "$REPO" --comment \
+            "The review hold did not release — rejected, cancelled, expired, or the plan failed — so no cell ran and nothing was spent. The plan report above is the record of what was declined; if no report appears above, the plan failed before posting one: ${RUN_URL}. Re-label to re-queue with a fresh plan."
+
+  evaluate:
+    needs: [plan, approval]
     if: needs.plan.outputs.has_jobs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -819,12 +913,15 @@ jobs:
     concurrency:
       group: collect-${{ github.workflow }}-${{ github.run_id }}
       cancel-in-progress: false
-    needs: [plan, evaluate]
+    needs: [plan, approval, evaluate]
     # Run after the whole fan-out even if some cells failed, as long as the plan
-    # queued jobs. This is the only writer: it unions the cells' artifacts into one
+    # queued jobs AND the hold released. Without the approval clause, always()
+    # would fire this writer on a rejected hold (evaluate merely skipped) and
+    # spin up the collect machinery over a run that spent nothing. This is the
+    # only writer: it unions the cells' artifacts into one
     # PR per run (auto-merged when green) plus, if any cell left salvageable
     # partial output, one draft PR a maintainer finishes.
-    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' }}
+    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success' }}
     runs-on: ubuntu-latest
     # The collect action downloads cell artifacts per artifact with bounded
     # parallelism (4 workers; each download is its own degradation boundary —

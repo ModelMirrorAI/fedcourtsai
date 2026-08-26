@@ -258,13 +258,14 @@ agents to anonymous rate limits; and by the collect jobs' secret scan, which
 needs the live value to search the run's output for it), the AWS role ARNs
 and region, and the corpus remote URL (referenced by role, never committed). Every job that needs any of
 them declares an environment, and every job outside `integration-test` declares
-`prod` — with two deliberate exceptions. run-predict's `approval` job declares
+`prod` — with two deliberate exceptions. The `approval` jobs of run-predict
+and run-evaluate declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables, no role, and no deployment-branch
-policy; the job it gates runs one echo under `permissions: {}`, so the
-environment grants nothing and merely withholds the matrix until a named
-reviewer releases it — and any later spend hold (the evaluate gate, when it
-lands) binds this same environment rather than minting its own. It must be
+policy; each job it gates runs one echo under `permissions: {}`, so the
+environment grants nothing and merely withholds that fan-out's matrix until
+a named reviewer releases it — one environment serves every spend hold
+rather than each minting its own. It must be
 created **with required reviewers configured before the gate promotes**:
 GitHub auto-creates a referenced environment unprotected, and an unprotected
 `review` environment is no gate at all. Leave **prevent self-review off**: the run's actor is the

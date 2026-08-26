@@ -358,7 +358,9 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  → predict[matrix] (artifact per cell)
                                  └─ collect → one auto-merged PR per run (+ a draft for partials;
                                               a facts-only PR when a run lands nothing)
-       run:evaluate → plan → evaluate[matrix] (artifact per cell)
+       run:evaluate → plan (build matrix, post the plan report)
+                                 → approval (the same review hold)
+                                 → evaluate[matrix] (artifact per cell)
                                  └─ collect → one auto-merged PR per run (+ a draft for partials;
                                               a facts-only PR when a run lands nothing)
 ```
@@ -725,9 +727,13 @@ count surfaced as a `::warning::` and in the plan's step summary; a deferred cas
 stays in the predict queue and re-runs next cycle, so the cap defers rather than
 drops. This is the numeric backstop, distinct from the coarse
 `PREDICT_HANDOFF_ENABLED` on/off pause below — and distinct again from the
-**review hold**, the per-run gate between plan and spend: the plan job posts
-its report to the trigger issue, and the matrix waits on a required reviewer
-approving the `review` deployment in the Actions UI. A run
+**review hold**, the per-run gate between plan and spend on both fan-outs:
+each plan job posts its report to the trigger issue, and the matrix waits on
+a required reviewer approving the `review` deployment in the Actions UI —
+one environment serves both holds, so the reviewer's surface is the same
+whichever channel is asking (the evaluate report's spend line carries the
+weaker basis its plan states: a scaled assumption until a post-freeze
+evaluate fan-out measures it). A run
 sitting in *Waiting* is a request for that decision, not a stall; a hold that
 does not release (rejected, cancelled, or expired) closes its trigger issue
 with the plan report as the record, and re-labelling re-queues with a fresh
@@ -741,9 +747,9 @@ overlap visible before either release; a mechanical post-release re-check
 belongs to the auto-release follow-up, where no human reads the reports. A
 rejected hold is an unsatisfied-gate report, not an incident — but unlike
 `promote`, whose failures the ops dashboard annotates as gate reports, the
-dashboard cannot distinguish a rejected hold from a real run-predict failure,
-so a depressed run-predict success rate during shakedown reads against this
-note rather than against the fleet.
+dashboard cannot distinguish a rejected hold from a real fan-out failure,
+so a depressed run-predict or run-evaluate success rate during shakedown
+reads against this note rather than against the fleet.
 
 A predict cell refuses to run for two reasons, both landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP
