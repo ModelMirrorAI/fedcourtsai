@@ -1178,10 +1178,18 @@ jobs:
       # leave the next run no baseline. A run whose walk failed between two
       # checkpoints has the opposite problem: rows in the local blob that no
       # pointer commit covers, published as a baseline the next run's pulled
-      # corpus cannot meet, which reads as a corpus shrink. Everything the
-      # gates still admit — a failed sweep, a refused dispatch-only step, a
-      # failed summary — leaves the corpus exactly as some commit describes it,
-      # which is the state worth reporting.
+      # corpus cannot meet, which reads as a corpus shrink. What the gates
+      # still admit — a refused dispatch-only step, a failed summary, a sweep
+      # that failed before it mutated anything — leaves the corpus exactly as
+      # some commit describes it, which is the state worth reporting.
+      #
+      # One case they do NOT cover, and deliberately: a sweep that mutated the
+      # blob and then failed its own push holds rows no pointer commit covers,
+      # the same hazard as the half-finished walk. Every sweep is
+      # continue-on-error, so the job stays successful and this step has always
+      # run over that state — the gates neither create the gap nor widen it.
+      # Closing it means giving each sweep the same outcome gate, which is a
+      # wider change than this one.
       - name: Produce + publish the corpus validation verdict
         if: >-
           ${{ !cancelled()
