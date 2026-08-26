@@ -448,7 +448,7 @@ project is actually building toward.
   grant, an academic collaboration, or a first B2B pilot — that lifts the budget
   from bootstrapping to **initial funding** ([budget.md](budget.md)) and,
   mechanically, **raises `N`**: deepening the salience-ranked slice from the
-  long-conference batch past the whole paid gate. `N` exhausts partway into that
+  long-conference batch to the whole paid gate. `N` exhausts partway into that
   step — the gate can select no more than the paid pool — so the balance of an
   initial-funding budget goes to the **predictor registry `P`**, more engines per
   event rather than more events. The evaluator count holds at three either way.
