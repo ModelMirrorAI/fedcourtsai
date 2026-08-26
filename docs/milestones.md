@@ -202,10 +202,9 @@ each freeze commit is recorded here.
     reading path: a change to every evaluator's information set with no digest
     of its own, the masking-surface case
     [process-version.md](process-version.md) names. The promotion carrying it
-    lands some hours *after* the freeze instant, and the frozen partition is
-    homogeneous regardless: `run:predict` and `run:evaluate` are held until the
-    promotion lands, so zero frozen-scope cells are stamped before it and the
-    frozen information set carries the marker from its first cell. No label
+    lands some hours *before* the freeze instant, so the frozen partition is
+    homogeneous: no cell stamps as frozen before the instant, and the frozen
+    information set carries the marker from its first cell. No label
     bump;
   - the **retrieval-log condition marker** — `result_status` on every call and
     the log-level `throttled_calls` — which is the capture marker's case
@@ -214,16 +213,22 @@ each freeze commit is recorded here.
     evaluator's information set with no digest of its own. It is the same
     class of change and gets the same treatment rather than a quieter one,
     because what makes it a masking surface is that it survives the mask, not
-    how interesting the field is. Two things bound it: the evaluate prompt
-    names neither field, so nothing instructs a grader to read them, and a
+    how interesting the field is. Two things bound it: the evaluate prompt's
+    instruction to read both fields rides the proc-v4 evaluator digest (the
+    freeze entry below), so instruction and information-set change are
+    partitioned together from that label forward — the cells graded before it
+    saw the fields unmasked with nothing instructing the read — and a
     committed call's marker is `null` on every log written before capture
     minted it — the frozen partition's cells carry the field from their first
     cell or not at all. No label bump;
-  - the **code-mode manifest calls** a code-mode engine makes from inside a
+  - the **code-mode calls** a code-mode engine makes from inside a
     freeform builtin call, lifted out of that call's source into
-    `RetrievalCall` rows of their own. It is the largest of these entries and
+    `RetrievalCall` rows of their own — the manifest tools, and the engine's
+    own builtins beside them, which is where such a program does most of its
+    work. It is the largest of these entries and
     the same class: a candidate whose staged log previously showed builtin rows
-    alone now shows manifest call classes and their query slices. So one
+    alone now shows the call classes reached from inside a program and their
+    query slices. So one
     candidate's information set on the grader's required reading path changes,
     with no digest of its own, which is what puts it here. Four things bound
     it. A lifted row carries no result — no digest, no `retrieved_doc_date`,
@@ -239,14 +244,33 @@ each freeze commit is recorded here.
     Unlike the two markers above, this one does **not** leave its partition
     homogeneous, and the difference is worth stating rather than inheriting
     their reasoning: the stamped code-mode cells already committed carry no
-    lifted rows and never can — their rollouts are gone — while every later
-    cell under the same blessed digest carries them, so that partition holds
-    two capture regimes distinguished in the artifact only by a null
-    `call_source`, which no surface reads. It still takes no label bump,
+    lifted rows and never can — their rollouts are gone — while later
+    cells under the same blessed digest carry them, so that partition holds
+    three capture regimes — no lifted rows, the manifest idiom alone, both
+    idioms — and nothing in a committed artifact names which one a cell was
+    minted under. `call_source` separates a lifted row from an item, which the
+    capture tripwire reads and the mask drops; what separates the two lifted
+    regimes is only whether builtin-named rows are there at all, a presence
+    rather than a marker. It still takes no label
+    bump,
     because what the split can reach is bounded: a lifted row carries no
     result, so the leakage assessment it feeds gains which tools a program
     asked for and nothing about what came back, and that assessment moves no
-    quantitative field. No scored number differs across the two regimes. No
+    quantitative field. No scored number differs across the regimes. The
+    summary fields that do move — a log's `result_capture_coverage`, and the
+    call total and observability rate built over its rows — are capture
+    statistics the scoring path does not read, and the coverage rate moves
+    toward the truth: a cell stamped under the manifest-only lift carries a
+    rate asserting that capture had seen retrieval it had not. Two standing
+    consequences belong on the record rather than only in the code. The
+    builtin names are enumerated, so a rename on that side mints no rows and
+    shows up as a code-mode cell's capture rate climbing back toward 1.0 —
+    a silent regime change with no tripwire, since the capture tripwire
+    deliberately watches the manifest idiom. And a lifted builtin row stages
+    under the neutral class `other` unless the tool-class map names it, so a
+    staged code-mode log carries rows whose query is plainly a shell command
+    under a class that is not `shell`; mapping those names is a change to what
+    the grader reads and belongs here when it happens. No
     label bump;
   - the **`sal-v3` activation**, whose own entry is above; it carries a
     data-visible boundary of its own (`context.salience_version`), so it is
@@ -300,6 +324,68 @@ each freeze commit is recorded here.
   that still describes the snapshot as the latest** — the prompt text is the
   digest's input and moves only at a re-bless — so no cross-cohort claim should
   span that re-bless either.
+
+- Freeze commit: `c2a168eea`, to be tagged **`prereg/proc-v4`** at the
+  promotion that carries it — the tag and the step-0 re-grep against `main`
+  are that promotion's acts, per the cutover procedure. proc-v4 revises the
+  **evaluator half only**. What moved the three evaluator digests is
+  `.github/prompts/evaluate.md`: the judge-workspace prune (the committed
+  `predictions/` and `evaluations/` trees are hidden from a judge cell's
+  working tree for the run and restored after, landing with the prompt
+  passages that describe it, per the masking-surface rule) plus the folded
+  amendment batch — the `correct`/`brier_score` stamped-over provenance
+  note, the `result_capture` reading rule, the terminal-basis
+  machine-refusal mirror sentence, the moment-cutoff twin in the forward
+  leakage branch, and `retrieved_outcome_material` stated as a boolean. The
+  three predictor digests are **byte-identical** to the ones
+  `prereg/proc-v3` blessed and carry forward unchanged, so the frozen
+  prediction population is continuous across the labels: 226 stamped
+  predictions at authoring, every one under a carried-forward digest and at
+  or after the instant.
+
+  The freeze instant stays `2026-08-16T00:00:00Z`, deliberately unmoved
+  again — and this time the step-4 comparison reads the other way around:
+  the instant *precedes* the promotion that carries this commit, which for
+  an ordinary freeze would be the botched direction. It is sound here
+  because the instant does no work for anything this commit newly blesses.
+  The digests entering the set are evaluator-side, which the partition
+  records but never gates on (`graded_post_freeze` enforces timing alone),
+  and no cell can carry them before the promotion lands their bytes on
+  `main` — step 0 at authoring found zero stamped cells with any of the
+  three. The enforced half — the predictor digests — is byte-identical to
+  what `prereg/proc-v3` blessed, and its instant-versus-promotion audit is
+  that entry's, already passed. Moving the instant forward instead would
+  drop all 226 stamped predictions from the headline for a change that
+  touched no predictor byte. The auditor's check for this label is
+  therefore not the date comparison but the byte comparison: the predictor
+  digests under `prereg/proc-v4` must equal `prereg/proc-v3`'s. The rule
+  this instantiates — hold the instant where the enforced half is
+  byte-identical to the prior tag's, audit by the byte comparison — is the
+  evaluator-half supersession note in
+  [process-version.md](process-version.md#freezing-the-cutover-procedure).
+
+  **The retiring evaluator digests and what ran under them.** proc-v3's
+  evaluator digests (`sha256:3aeddcede…` claude-judge, `sha256:8771a0c85…`
+  codex-judge, `sha256:b2ed9c208…` gemini-judge) leave the set superseded,
+  and 105 committed evaluations carry them at authoring (36/36/33 by
+  judge), every one stamped at or after the instant. They stay counted: an
+  evaluation's digest is recorded but only its timing is enforced, so the
+  supersession changes no headline — this entry is where the blessed
+  grading process behind those cells stays recorded now that the constant
+  no longer names it. Membership, though, is not the numbers: because the
+  evaluator digest records but never partitions, the leakage and
+  reasoning-quality series pool across the rubric boundary with no artifact
+  marking it. The measured exposure at authoring is degenerate — all 105
+  are forward cells graded `not_applicable` and unsuspected, 96 recording a
+  boolean `retrieved_outcome_material` and 9 a null the boolean amendment
+  closes — so the amendments raise coverage rather than break observed
+  variation, and a cross-boundary coverage comparison is a coverage change,
+  not a behavior change. Two authoring-time facts complete the record: the
+  boards' `frozen_process.digests` provenance will name three evaluator
+  digests no counted evaluation carries until the first proc-v4 grading
+  run — for that interval the partition's evaluator half is answered by
+  this entry, not the artifact — and the counts here are refreshed by the
+  step-0 re-run at promotion.
 
 ## The near-term target: the OT2026 long-conference cert release
 

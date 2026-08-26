@@ -454,7 +454,13 @@ stays outside the gate:
   declarations, and every
   rule below are pre-registered in
   [outcome-decomposition.md](../docs/outcome-decomposition.md); this section is
-  the reading contract.
+  the reading contract. Nothing on this surface is a **placed** cell: it is the
+  cert stage's first moment only, and that moment's `opened_at` is the
+  docketing rather than its trigger, so provisioning fixes no cutoff and every
+  cell of it reads the latest snapshot (`as-stored`, lag 0). The
+  provenance-and-lag obligations stated under `salience-replay.json` below
+  therefore bind the *other* moments' claim totals — the ones that reach a
+  scoring surface through the unranked `stages` blocks — and not this one.
 
   **Advisory, never a rank key.** Nothing here alters or reorders the
   leaderboard, and the artifact assigns no standings — entries are
@@ -540,6 +546,17 @@ stays outside the gate:
   figure to coverage. The same boundary moves the denominator, not only the
   anchor: under the bracket exactly one candidate is staged per predictor, so an
   event a predictor ran twice contributes one grade rather than several.
+
+  The anchor is not the only channel the bracket closes, and the second one
+  reaches further than `reasoning_quality`. The bracket also takes the committed
+  `evaluations/` tree out of the cell's working tree for the duration of its
+  run, so a judge cannot read another judge's — or its own earlier — committed
+  grade of the prediction it is grading. That is a herding channel, and grades
+  formed while it was open can agree for reasons other than the work: an
+  agreement figure spanning the boundary is demoted for the same reason a
+  `reasoning_quality` mean is, which covers the leaderboard's
+  `evaluator_agreement` and `semantic-summary`'s leave-one-out agreement as well
+  as the tau-b.
 
   **The judge validation is the headline.** Per stratum, the pre-registered
   Kendall tau-b between per-cell mechanical claim totals and
@@ -714,6 +731,12 @@ outcome's `resolved_at`, both committed artifacts (`classify_stratum` in
 `fedcourtsai.integrity` is the single definition). Retrospective cells remain
 valuable — they measure calibration and label-mapping fit — but only the forward
 stratum is evidence of forecasting skill, so no headline metric may mix them.
+The label is a *floor*, not a claim that the stratum is homogeneous: a forward
+cell **placed at a declared moment** differs from its neighbours both in how
+its snapshot was built and in how old that placement was when it ran, and both
+are owed beside a figure that pools them — the provenance counts
+(`as-stored`/`dated`/`truncated`) and the placement-lag distribution
+(`integrity.context_lag_days`), stated under `salience-replay.json` below.
 
 **The forward-claim exclusion.** A cell whose harness-written record *claims*
 `forward` (`context.mode`) while its event had resolved **strictly before**
@@ -977,6 +1000,70 @@ the rendered table) and
   `truncated` from above (it reconstructs to the cutoff but carries the undated
   counsel/amici blocks as at a much later pull). Pooling them averages a
   selected mixture of two different biases.
+
+  **A third number is owed with them: the placement lag.** Provenance says how
+  the snapshot was built; it does not say how old the moment was when the cell
+  ran. `integrity.context_lag_days` is that number, derived off any **forward**
+  cell whose harness wrote a context — the days from where the cell was placed
+  (`context.cutoff`, else its `snapshot_date`) to its harness clock day — so a
+  forward figure owes its distribution as it owes the provenance counts. No
+  artifact and no `fedcourts` command publishes it: call
+  `fedcourtsai.integrity.context_lag_days` over the committed ledger when a
+  figure is read, because the obligation is on whoever publishes the figure and
+  not on a renderer. The distribution travels with its own `n` and with the
+  count of cells that yielded no number — a null-context cell did read a
+  snapshot and the record does not say which, and a replay cell is carved out
+  by design, so both are *not derivable*, never zero.
+
+  Read it **segmented on `snapshot_provenance` and on the moment** — provenance
+  alone is not enough, and the two cuts answer different questions. Provenance,
+  because on the `as-stored` arm no cutoff exists and the number falls back to
+  the payload's own date, where it measures pull age rather than placement. The
+  moment, because lag has two mechanisms and only one of them is a scheduling
+  fact. **Cohort-completion lag** is the run's cell cohort (the fan-out across
+  engines for one case-event, not a conference cohort of petitions) finishing
+  after the day it was placed at. **Moment pendency** is structural: a moment
+  placed at an order whose disposition pends for months — the CVSG being the long one — puts every
+  cell of it far behind its own cutoff no matter how promptly the cohort ran.
+  Pooled, the second swamps the first and a reader reaches for a scheduling
+  remedy that would not have moved the number. The moment cut also carries a
+  confound to state rather than pool through. The band is a function of the
+  petition, not of the moment, but the long-pendency moment is the CVSG — and a
+  CVSG petition scores into the top bands by that fact alone. So wherever the
+  long-lag cells are the CVSG ones, they are also the high-band ones, and since
+  the band is the key each cell's base-rate anchor is chosen on
+  (`prefix_est_grant_rate`), *"high-lag cells score differently"* and
+  *"high-band cells score differently"* are the same sentence. Neither is
+  separable from the other on a ledger where they coincide; check whether they
+  do before conditioning on either, and say which you found.
+
+  It is **not** a staleness measure and must not be read as one:
+  `--max-snapshot-age-days` bounds the *payload*'s age on the latest pull,
+  before any cut, while a `truncated` cell's own `snapshot_date` **is** its
+  cutoff, so a cell built from a same-day pull can carry weeks of lag with no
+  stale byte in it. Nor is it a defect to be driven to zero. The
+  cohort-completion half is the price of cohort comparability — all engines of
+  a cell cohort must read one information set, so a cohort completed late is
+  completed at the cutoff it opened with, not re-frozen — and the pendency half
+  is the moment being what it is.
+
+  The price is paid in the claim rather than in the input, and on one part of
+  the claim only. The **disposition** is unaffected: a forward-stratum cell's
+  event was by construction unresolved through the day before its harness clock
+  (`classify_stratum` puts a same-day resolution in the retrospective stratum,
+  and `forward_claim_breach` catches a record that says otherwise), so even a
+  long-lagged cell is still ex ante on the outcome. What a lagged cell can
+  observe is the *intervening docket* — it retrieves without restriction, so at
+  weeks of lag an **increment** claim (a relist landing, a CVSG arriving, the
+  amicus wave) can be read off a docket that moved since the cutoff, where a
+  same-day cell's is a forecast.
+
+  So the obligation binds the placed moments' increment totals, per stratum —
+  which on the published surfaces means the unranked `stages` blocks and the
+  non-baseline cert moments, never `claim-scores.json`, whose single moment is
+  unplaced by construction. Those cells wear one stratum label and one
+  provenance label while holding different information sets, and pooling them
+  without the lag beside them pools observation with forecast.
 - `statpack.json` / `statpack.md` — a corpus base-rate **statpack** (an independent
   published artifact): two cert-era populations side by side, plus the
   interim-docket and merits stage sections described below. The labeled full-corpus
@@ -1248,7 +1335,9 @@ per-tool dead-end rows **withheld** rather than printed as 100%, and where they
 are printed they are an upper bound.
 
 **For a code-mode engine, a call count counts call sites in program text.** Its
-manifest calls are written inside a freeform builtin call's program and lifted
+calls — the manifest tools, and the engine's own builtins beside them, which is
+where such a program does most of its work — are written inside a freeform
+builtin call's program and lifted
 from that source, so what `calls` and the offered-vs-called table's *called in*
 report is how many times a tool is *named* in the programs, not how many times
 it ran: a site inside a loop counts once however many times the loop turned, a
@@ -1259,10 +1348,12 @@ and the one the offered-vs-called cut needs — is *the program asked for these
 tools*. It is not an execution trace, and no per-call rate should be built on it.
 
 **A raw call total is not one row per invocation for every engine.** A
-code-mode engine reaches its manifest tools from inside a freeform builtin
+code-mode engine reaches everything from inside a freeform builtin
 call, and the log carries both: the builtin call's own row and a lifted row per
-manifest call the program made (`RetrievalCall.call_source`). So a program
-making three manifest calls contributes four rows, and any figure denominated
+call the program made, manifest or builtin (`RetrievalCall.call_source`). So a
+program making three manifest calls and six shell reads contributes ten rows —
+and the builtin term dominates in practice, since a program calls its shell
+many times more often than it calls the manifest. Any figure denominated
 on *every* call — the result-observability rate above, the call axis of the
 call-volume-against-Brier table — counts the wrapper beside the calls it
 wrapped, for that engine only. Three readings follow. Gate on the MCP predicate
@@ -1276,6 +1367,13 @@ counts, and which engines appear in the offered-vs-called table at all — as
 **scoped to the logs that could express it**, since a lifted row exists only
 where capture minted one. A code-mode engine appearing to call no manifest
 tool over a stretch of the ledger is a capture fact, not a behavioural one.
+Which idioms the lift matches decides how many rows a program leaves behind, so
+a ledger-wide cut over a code-mode engine pools logs captured under whatever
+lift each was minted with — exactly as a throttle count pools predicates, and
+for the same reason: rows are written once at parse time and no committed log
+is ever re-derived. That reaches the call total, the observability rate, and
+`result_capture_coverage` alike, so a move in any of them across runs may be a
+capture change rather than a behavioural one. Date the cut before reading it.
 
 **What may be claimed from the throttle counts.** `result_status` on a
 `RetrievalCall` marks a result the shared upstream quota refused, and the counts
@@ -1306,11 +1404,12 @@ call with its own result, its manifest calls are observable and its figure is a
 real ratio. Where the engine's telemetry logs no result payload at all, every
 row is `unobserved` by construction and it can never be observed being
 throttled — coverage that is **structural**, so an empty figure there is no
-evidence of a clean run. The third case is a **code-mode** engine, whose rows
-carry `RetrievalCall.call_source: code_mode_source`: it invokes the manifest
-tools from inside a freeform builtin call, and only that call's *combined*
+evidence of a clean run. The third case is a **code-mode** engine, whose
+lifted rows carry `RetrievalCall.call_source: code_mode_source`: it invokes its tools —
+manifest and builtin alike — from inside a freeform builtin call, and only that
+call's *combined*
 output is captured. No part of that output is attributable to an individual
-manifest call — a single call site may run many times, and the output also
+call inside it — a single call site may run many times, and the output also
 holds whatever else the program did — so every lifted row is `unobserved` by
 construction, and such an engine likewise **cannot be observed being
 throttled**. Its manifest calls are counted; its results are not read. Two

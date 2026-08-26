@@ -59,9 +59,9 @@ import httpx
 
 from .. import corpus, ids
 from ..config import LiveConfig, PredictScope, SalienceConfig
-from ..matrix import cell_failure_count, event_has_predictions
+from ..matrix import cell_failure_count, event_has_predictions, predicted_case_ids
 from ..registry import enabled_predictors
-from ..store import forecastable_events
+from ..store import event_has_claimable_prediction, forecastable_events
 from ..supremecourt import (
     IFP_SERIAL_BASE,
     SupremeCourtClient,
@@ -725,7 +725,7 @@ def _predict_cell_capped(
     )
 
 
-def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/clock) + the per-cell owed fallback branch + the dual-form addressing
+def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/clock) + the per-cell owed fallback branch + the dual-form addressing + the cohort narrowing's two arms
     client: SupremeCourtClient,
     corpus_db_path: Path,
     data_root: Path,
@@ -740,16 +740,18 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
     deadline: float | None = None,
     time_fn: Callable[[], float] = time.monotonic,
 ) -> None:
-    """Queue selected petitions the distribution trigger alone would miss.
+    """Queue the petitions the distribution trigger alone would miss.
 
     The transition trigger only fires when a poll observes a membership change,
-    and the queue-time latch read predates the cycle's selection pass — so three
+    and the queue-time latch read predates the cycle's selection pass — so four
     real gaps remain: a petition whose first transition and first selection land
     in the same cycle (deferred at queue time), a petition latched when its
     transitions all predate the first applied pass (the catch-up backlog), and a
     selected petition whose queued run left a ``(predictor, event)`` cell without
-    a committed prediction (the retry). The sweep closes all three: every latched
-    case with an open event still *owed* a prediction is re-polled,
+    a committed prediction (the retry), and a petition **deferred since** its
+    run fired, whose event keeps a partial cohort no later transition can finish
+    (cohort completion, below). The sweep closes all four: every candidate case
+    with an open event still *owed* a prediction is re-polled,
     provisioned, and queued, up to ``cap`` fetches per cycle, stalest first.
     A reserve-selected **application** is swept on identical terms (addressed
     through the application form of the docket JSON): the interim analogue of
@@ -771,6 +773,43 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
     gate — any committed prediction suppresses — the same ``data_root=None``
     convention :func:`fedcourtsai.matrix.predict_matrix` uses to keep its skip off.
 
+    **Cohort completion re-admits a salience-deferred case, for its predicted
+    events only.** Selection decides which petitions earn a forecast, so a case
+    scored below the capacity slice is not a sweep candidate — but a case that
+    *was* selected when its run fired, and drifted below the line since, can be
+    left with an event carrying two of three engines and no path back: the
+    distribution transition already fired, and the funding gate refuses it. So a
+    case with any committed prediction (:func:`fedcourtsai.matrix.predicted_case_ids`)
+    is admitted as a candidate on that ground, and on that ground the queued
+    event list is narrowed to the events whose cohort a claimable board will
+    count once the event resolves and is graded
+    (:func:`fedcourtsai.store.event_has_claimable_prediction`).
+
+    That narrowing carries **two** bounds, and both are load-bearing. The spend
+    bound: a deferred case with a partial event and a second, untouched open
+    event would otherwise queue both and mint brand-new cells on a case the
+    funding gate declined. The comparability bound: an event whose whole
+    existing cohort is outside the frozen process scope is not completed by a
+    freshly-stamped cell — the new cell lands in the scope, its rivals do not,
+    and the board gains an event scored on one engine alone. Completing a cohort
+    the board does not count is not the gap this exists to close; it is a new
+    one. The per-cell owed check and the attempt cap apply unchanged, so a
+    deferred case whose cohort is complete — or whose only gap is poison-pilled
+    — is still not swept, and a deferred case with no prediction at all is never
+    a candidate.
+
+    The narrowing predicate is ``not row.salience_selected and case_id not in
+    merits_open`` — the candidate filter's own arms negated, so admission and
+    narrowing cannot disagree — which is **narrower** than
+    :func:`fedcourtsai.corpus.is_salience_deferred`: an *unscored* row (no
+    ``salience_version``) is fail-open *selected* to that predicate but
+    unselected to this one, so a cohort-bearing unscored row is narrowed to its
+    predicted events rather than queued whole. Deliberate, and the conservative
+    direction: the selection pass runs earlier in the same cycle, so an unscored
+    row here is a row selection has not yet had an opinion about, and the sweep
+    spends nothing new on it until it does. Reading
+    ``is_salience_deferred`` instead would widen spend, not narrow it.
+
     The ``predict_queued_at`` stamp debounces the retry to daily: a case queued
     today — by this cycle's routing or an earlier window — waits for tomorrow's
     sweep, so an open-but-unmerged run PR is not re-queued every cycle while a
@@ -785,6 +824,10 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
     predictor_ids = (
         [p.id for p in enabled_predictors(predictors_path)] if predictors_path is not None else None
     )
+    # One ledger glob per cycle, mirroring the `merits_open` read below: the
+    # candidate filter consults it per row, and a per-row probe would walk the
+    # predictions tree once for every SCOTUS case in the corpus.
+    predicted = predicted_case_ids(data_root)
     with corpus.connect(corpus_db_path) as conn:
         # Read once, not per row: this comprehension walks every SCOTUS row, and
         # the set is a small ordered slice of the partial open-events index.
@@ -804,7 +847,13 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
                 # question does not apply to a case the Court has already agreed
                 # to hear. `predict_excluded` still refuses, so the hard-scope
                 # rules are untouched.
-                if (row.salience_selected or row.case_id in merits_open)
+                #
+                # Cohort completion rides beside both, and is admission ONLY: a
+                # case with a committed prediction somewhere may re-enter the
+                # sweep, which never says a cell is owed — the per-cell owed
+                # check below decides that, and the in-loop narrowing confines
+                # the queue to the events holding a *claimable* cohort.
+                if (row.salience_selected or row.case_id in merits_open or row.case_id in predicted)
                 and not row.predict_excluded
             ),
             # Stalest first, so the catch-up backlog drains fairly under the
@@ -824,13 +873,27 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
         if row.predict_queued_at == today:
             continue
         events = forecastable_events(corpus_db_path, "scotus", docket_id, today=today)
+        # Which ground admitted this row. The expressions are the candidate
+        # filter's, verbatim, so admission and narrowing cannot disagree: only a
+        # row that neither selection nor the merits bypass admitted is here on
+        # the cohort ground, and only such a row is narrowed.
+        cohort_only = not row.salience_selected and row.case_id not in merits_open
+        if cohort_only:
+            events = [
+                event_id
+                for event_id in events
+                if event_has_claimable_prediction(data_root, "scotus", docket_id, event_id)
+            ]
         # The owed check runs BEFORE the fetch — a fully-predicted case costs no
         # docket fetch — exactly where the old any-prediction case gate sat.
         if not events:
             continue
         if predictor_ids is None:
             # Registry-free fallback: the case-level gate (any committed
-            # prediction suppresses the whole case), unchanged from before.
+            # prediction suppresses the whole case). A
+            # cohort-only candidate always falls here, because every event left
+            # after the narrowing holds a prediction by construction — without
+            # the registry there is no engine grain to be owed at.
             if any(
                 event_has_predictions(data_root, "scotus", docket_id, event_id)
                 for event_id in events
@@ -883,7 +946,19 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
             queues, corpus_db_path, data_root, result, gated=True, queue_predict=False, today=today
         )
         open_now = forecastable_events(corpus_db_path, "scotus", docket_id, today=today)
-        if not open_now or not _in_predict_scope(corpus_db_path, result.case_id):
+        if cohort_only:
+            # Re-narrow after the re-poll, not just before it: the fresh ingest
+            # may have minted a NEW open event on this case, and a new event has
+            # no cohort to complete — queueing it would be exactly the new spend
+            # the funding gate declined.
+            open_now = [
+                event_id
+                for event_id in open_now
+                if event_has_claimable_prediction(data_root, "scotus", docket_id, event_id)
+            ]
+        if not open_now or not _in_predict_scope(
+            corpus_db_path, result.case_id, cohort_completion=cohort_only
+        ):
             continue
         reason = _decided_reason(result)
         if reason:
@@ -950,7 +1025,8 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     transitions, the selection pass scores and latches against the fresh
     cohorts (:func:`apply_salience_selection` — before the caller's corpus
     push, so the committed pointer carries the post-pass latch: every sweep
-    pick is selected at the pointer the predict matrix gate reads, and a
+    pick is either selected at the pointer the predict matrix gate reads or a
+    cohort-completion pick that gate keeps narrowed rather than admits whole, and a
     fail-open queue entry the same pass scores-and-defers is dropped by that
     read-time gate, non-destructively), and under the gated scope the
     selection sweep queues what the transition trigger missed. ``None`` skips

@@ -17,6 +17,7 @@ case-insensitive substrings, in file bodies *and* in filenames.
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -946,3 +947,351 @@ def test_the_resolver_bounds_every_alternative(tmp_path: Path) -> None:
     )
 
     assert (root / "note.md").read_text() == "xcandidate-b y precandidate-a candidate-c1\n"
+
+
+# --- hiding the committed cell trees ------------------------------------------
+#
+# The staged aliases are only worth as much as the tree beside them: an `ls` of
+# the ledger names every predictor one directory above the staging area, which
+# is what a judge runs before it has read the contract forbidding that tree.
+# What is pinned here is the pair of failures that would cost real work — a hide
+# that reaches the gitignored `record/` the grader is *sent* to read, and a
+# restore that replaces the directory the agent just wrote its output into.
+
+
+def _stash(data_root: Path) -> Path:
+    """Runner-local, outside the checkout — where the real cell keeps the hidden trees."""
+    return data_root.parent / "hidden-record"
+
+
+def _hide(data_root: Path) -> tuple[Path, ...]:
+    return blinding.hide_committed_cells(data_root=data_root, stash_dir=_stash(data_root))
+
+
+def _restore(data_root: Path) -> int:
+    return blinding.restore_committed_cells(data_root=data_root, stash_dir=_stash(data_root))
+
+
+def _tree(root: Path) -> dict[str, str]:
+    """Every file under ``root`` by relative path, so a round trip is comparable."""
+    return {
+        str(path.relative_to(root)): path.read_text()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
+def _seed_second_case(data_root: Path) -> Path:
+    """Another case's committed cell, since the hide is repo-wide by design."""
+    other = CasePaths(data_root, COURT, DOCKET + 1).event(EVENT)
+    write_text(other.prediction_dir("claude-baseline", PREDICT_RUN) / "reasoning.md", "elsewhere\n")
+    return other.base
+
+
+def test_hiding_moves_every_committed_cell_tree(ledger: Path) -> None:
+    """Both trees, on every case — style on another case identifies a predictor too."""
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    write_text(
+        event_paths.evaluation_dir(EVALUATOR, "claude-baseline", EVALUATE_RUN) / "evaluation.md",
+        "an earlier run's committed grade\n",
+    )
+    other_base = _seed_second_case(ledger)
+
+    hidden = _hide(ledger)
+
+    assert not event_paths.predictions_dir.exists()
+    assert not event_paths.evaluations_dir.exists()
+    assert not (other_base / "predictions").exists()
+    assert set(hidden) == {
+        Path(f"cases/{COURT}/{DOCKET}/events/{EVENT}/predictions"),
+        Path(f"cases/{COURT}/{DOCKET}/events/{EVENT}/evaluations"),
+        Path(f"cases/{COURT}/{DOCKET + 1}/events/{EVENT}/predictions"),
+    }
+    manifest = json.loads((_stash(ledger) / blinding.HIDDEN_MANIFEST).read_text())
+    assert sorted(manifest["hidden"]) == sorted(str(path) for path in hidden)
+
+
+def test_hiding_leaves_the_event_definition_and_the_gitignored_record_dir(ledger: Path) -> None:
+    """The grader still has everything it grades from — and `record/` is unreachable by shape."""
+    result = _blind(ledger)
+    case_paths = CasePaths(ledger, COURT, DOCKET)
+    event_paths = case_paths.event(EVENT)
+    staged_before = _tree(case_paths.blinded_predictions)
+
+    _hide(ledger)
+
+    assert event_paths.event_file.is_file()
+    assert event_paths.outcome.is_file()
+    assert _tree(case_paths.blinded_predictions) == staged_before
+    assert staged_before, "the staging area is what the grader reads; it must survive"
+    assert result.map_path.is_file()
+
+
+def test_restoring_returns_every_hidden_file(ledger: Path) -> None:
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    before = _tree(event_paths.predictions_dir)
+
+    hidden_count = len(_hide(ledger))
+    restored = _restore(ledger)
+
+    assert hidden_count == 1
+    assert restored == len(before)
+    assert _tree(event_paths.predictions_dir) == before
+
+
+def test_restoring_merges_beside_output_the_agent_wrote_while_hidden(ledger: Path) -> None:
+    """The keystone: the cell writes its own `evaluations/` where a hidden tree stood.
+
+    An evaluate cell's output is ``evaluations/<evaluator>/<alias>/<run>/``, so
+    the directory the hide moved away reappears under the event while it is
+    hidden. A directory-level replace would delete the whole cell — the one
+    thing the run exists to produce — so the restore merges file by file.
+    """
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    write_text(
+        event_paths.evaluation_dir(EVALUATOR, "claude-baseline", "20260101T000000Z")
+        / "evaluation.md",
+        "an earlier run's committed grade\n",
+    )
+    _hide(ledger)
+    # What the agent writes into the emptied place, under a fresh alias + run.
+    agent_doc = (
+        event_paths.evaluation_dir(EVALUATOR, f"{ALIAS_PREFIX}a", EVALUATE_RUN) / "evaluation.md"
+    )
+    write_text(agent_doc, "this cell's grade\n")
+
+    _restore(ledger)
+
+    assert agent_doc.read_text() == "this cell's grade\n"
+    assert (
+        event_paths.evaluation_dir(EVALUATOR, "claude-baseline", "20260101T000000Z")
+        / "evaluation.md"
+    ).read_text() == "an earlier run's committed grade\n"
+
+
+def test_restoring_refuses_to_clobber_the_agents_output(ledger: Path) -> None:
+    """A collision is loud: the harness must not pick a winner between two claimants."""
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    contested = event_paths.prediction_dir("claude-baseline", PREDICT_RUN) / "reasoning.md"
+    _hide(ledger)
+    write_text(contested, "written while the tree was hidden\n")
+
+    with pytest.raises(BlindingError, match="refusing to overwrite"):
+        _restore(ledger)
+
+    assert contested.read_text() == "written while the tree was hidden\n"
+
+
+def test_hide_then_restore_is_a_round_trip_over_the_whole_tree(ledger: Path) -> None:
+    _seed_second_case(ledger)
+    before = _tree(ledger)
+
+    _hide(ledger)
+    assert _tree(ledger) != before
+    _restore(ledger)
+
+    assert _tree(ledger) == before
+
+
+def test_the_hidden_names_are_the_ledger_layout_the_paths_module_defines(tmp_path: Path) -> None:
+    """A renamed ledger directory must fail here, not un-blind a cell in silence.
+
+    The sweep matches two literal names at a fixed depth, and nothing else in
+    the tree would notice if `paths.py` renamed one of them: the glob would
+    simply match nothing. So the coupling is asserted rather than assumed.
+    """
+    event_paths = CasePaths(tmp_path, COURT, DOCKET).event(EVENT)
+
+    assert set(blinding.HIDDEN_CELL_TREES) == {
+        event_paths.predictions_dir.name,
+        event_paths.evaluations_dir.name,
+    }
+    assert event_paths.base.parent.name == "events"
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "../../etc",
+        "cases/scotus/1/events/evt-x/record",
+        "cases/../../etc/events/evt-x/predictions",
+        12345,
+    ],
+)
+def test_restoring_refuses_a_manifest_entry_outside_the_cell_trees(
+    ledger: Path, entry: object
+) -> None:
+    """The manifest is a file on a runner an agent has a shell on; entries are checked."""
+    _hide(ledger)
+    manifest_path = _stash(ledger) / blinding.HIDDEN_MANIFEST
+    manifest_path.write_text(json.dumps({"data_root": str(ledger.resolve()), "hidden": [entry]}))
+
+    with pytest.raises(BlindingError, match=r"does not name a committed cell tree|is not a path"):
+        _restore(ledger)
+
+
+def test_restoring_refuses_a_malformed_hidden_block(ledger: Path) -> None:
+    _hide(ledger)
+    manifest_path = _stash(ledger) / blinding.HIDDEN_MANIFEST
+    manifest_path.write_text(json.dumps({"data_root": str(ledger.resolve()), "hidden": "all"}))
+
+    with pytest.raises(BlindingError, match="no usable `hidden` block"):
+        _restore(ledger)
+
+
+def test_restoring_refuses_a_manifest_minted_against_another_data_root(ledger: Path) -> None:
+    """Both commands take only `--stash-dir`, so this check is what pairs them."""
+    _hide(ledger)
+
+    with pytest.raises(BlindingError, match="hid from"):
+        blinding.restore_committed_cells(
+            data_root=ledger.parent / "other-data", stash_dir=_stash(ledger)
+        )
+
+
+def test_restoring_refuses_when_the_stashed_tree_is_gone(ledger: Path) -> None:
+    """Committed data that cannot be put back is the loud case, not a skipped entry."""
+    hidden = _hide(ledger)
+    shutil.rmtree(_stash(ledger) / hidden[0])
+
+    with pytest.raises(BlindingError, match="is gone"):
+        _restore(ledger)
+
+
+def test_restoring_refuses_a_destination_linked_out_of_the_checkout(ledger: Path) -> None:
+    """`mkdir(exist_ok=True)` resolves through a link, and the agent can plant one.
+
+    The whole window the trees are hidden is a window in which the cell's shell
+    can create the paths the restore is about to write to. A link left at one of
+    them would land the committed record outside the checkout while the command
+    reported a clean restore — a fail-loud step turned green, which is the one
+    outcome this design exists to prevent.
+    """
+    hidden = _hide(ledger)
+    elsewhere = ledger.parent / "elsewhere"
+    elsewhere.mkdir()
+    linked = ledger / hidden[0]
+    linked.parent.mkdir(parents=True, exist_ok=True)
+    linked.symlink_to(elsewhere, target_is_directory=True)
+
+    with pytest.raises(BlindingError, match="resolves outside"):
+        _restore(ledger)
+
+    assert not any(elsewhere.rglob("*")), "nothing may be written through the link"
+
+
+def test_restoring_refuses_a_symlink_planted_inside_the_stash(ledger: Path) -> None:
+    """The stash is runner-local too, so a link inside it must not be re-created."""
+    hidden = _hide(ledger)
+    (_stash(ledger) / hidden[0] / "elsewhere").symlink_to(ledger.parent)
+
+    with pytest.raises(BlindingError, match="is a symlink"):
+        _restore(ledger)
+
+
+def test_restoring_without_a_manifest_is_a_hard_failure(ledger: Path) -> None:
+    """ "Never hidden" must not read as "hid nothing" to the restore half."""
+    with pytest.raises(BlindingError, match="nothing records what was hidden"):
+        _restore(ledger)
+
+
+def test_hiding_over_an_unrestored_stash_is_refused_before_anything_moves(ledger: Path) -> None:
+    """A second sweep finds an emptied tree, so it would overwrite the only record.
+
+    The first hide's manifest is the sole record of where the committed trees
+    went. A second pass would match nothing — they are already gone — rewrite
+    the manifest as empty, and strand every hidden tree in the stash with
+    nothing naming it: green, and unrecoverable without a maintainer reading
+    the stash by hand.
+    """
+    first = _hide(ledger)
+
+    with pytest.raises(BlindingError, match="records an earlier hide"):
+        _hide(ledger)
+
+    manifest = json.loads((_stash(ledger) / blinding.HIDDEN_MANIFEST).read_text())
+    assert manifest["hidden"] == [str(path) for path in first]
+    assert _restore(ledger) > 0
+
+
+def test_hiding_nothing_is_a_failure_not_a_quiet_success(tmp_path: Path) -> None:
+    """The feature's central failure mode: a sweep that matches nothing runs green.
+
+    A wrong data root, a wrong working directory, or a renamed ledger layout all
+    produce an empty sweep — and an empty sweep that exits 0 hands the grader
+    the whole committed record with nothing downstream to notice. The cell's
+    staging step has already failed unless a prediction exists, so there is
+    always something to hide by the time this runs.
+    """
+    empty = tmp_path / "data"
+    (empty / "cases").mkdir(parents=True)
+
+    with pytest.raises(BlindingError, match="hid nothing"):
+        blinding.hide_committed_cells(data_root=empty, stash_dir=tmp_path / "stash")
+
+
+def test_a_partial_hide_still_records_what_it_moved(
+    ledger: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A manifest written only on success would report a half-hide as "never ran"."""
+    real_move = shutil.move
+    moves = 0
+
+    def failing_move(src: str, dst: str) -> object:
+        nonlocal moves
+        moves += 1
+        if moves > 1:
+            raise OSError("the stash filesystem went away")
+        return real_move(src, dst)
+
+    monkeypatch.setattr(shutil, "move", failing_move)
+    _seed_second_case(ledger)
+    with pytest.raises(OSError, match="stash filesystem"):
+        _hide(ledger)
+
+    monkeypatch.undo()
+    manifest = json.loads((_stash(ledger) / blinding.HIDDEN_MANIFEST).read_text())
+    assert len(manifest["hidden"]) == 1
+    # What it got through is recoverable, rather than stranded in the stash.
+    assert _restore(ledger) > 0
+
+
+def test_blinding_still_sees_the_committed_tree_before_the_prune(ledger: Path) -> None:
+    """The ordering guard: staging reads the committed predictions, so it runs first."""
+    result = _blind(ledger)
+    assert len(result.candidates) == len(CANDIDATES)
+
+    _hide(ledger)
+
+    with pytest.raises(BlindingError, match="no prediction to blind"):
+        _blind(ledger, run_id="20260801T100000Z")
+
+
+def test_the_hide_and_restore_commands_drive_the_round_trip(
+    ledger: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(ledger))
+    stash = ["--stash-dir", str(_stash(ledger))]
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    before = _tree(event_paths.predictions_dir)
+
+    hide = runner.invoke(app, ["hide-cell-record", *stash])
+    assert hide.exit_code == 0, hide.output
+    assert "hid 1 committed cell tree(s)" in hide.output
+    assert not event_paths.predictions_dir.exists()
+
+    restore = runner.invoke(app, ["restore-cell-record", *stash])
+    assert restore.exit_code == 0, restore.output
+    assert f"restored {len(before)} file(s)" in restore.output
+    assert _tree(event_paths.predictions_dir) == before
+
+
+def test_the_restore_command_exits_non_zero_with_no_manifest(
+    ledger: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(ledger))
+
+    result = runner.invoke(app, ["restore-cell-record", "--stash-dir", str(_stash(ledger))])
+
+    assert result.exit_code == 1
+    assert "restoring failed" in result.output

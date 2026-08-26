@@ -810,7 +810,10 @@ def render_tool_usage_markdown(usage: ToolUsage) -> str:
         rows = ", ".join(f"`{name}` {count}" for name, count in shown)
         lines += [
             "",
-            f"**Engine built-ins** (not manifest tools, counted separately): {rows}.",
+            f"**Engine built-ins** (not manifest tools, counted separately): {rows}. "
+            + "A code-mode engine's counts nest rather than add up: the freeform builtin "
+            + "that carries a program is one call, and the builtins that program invokes "
+            + "are lifted into calls of their own, so both appear here.",
         ]
     lines += _render_observability(usage)
     lines += _render_dead_ends(usage)
@@ -866,9 +869,14 @@ def _render_observability(usage: ToolUsage) -> list[str]:
         + "column is a floor on how much of the answer side is observable, not a hit rate. "
         + "Its denominator is every call, builtins included — the MCP column beside it is "
         + "the one that speaks to the manifest tools. For a code-mode engine that "
-        + "denominator also gains one row per manifest call lifted from a freeform call's "
-        + "source, each unobserved by construction, so its rate falls for a reason of call "
-        + "shape rather than of capture quality._",
+        + "denominator also gains one row per call lifted from a freeform call's source — "
+        + "the engine's own builtins, which is where such a program does most of its work, "
+        + "as much as the manifest tools — each unobserved by construction, so its rate "
+        + "falls for a reason of call shape rather than of capture quality. Which idioms "
+        + "the lift matched decides how many rows a program left, and rows are written "
+        + "once at parse time, so a code-mode engine's row here pools logs minted under "
+        + "whatever lift each was captured with: a move across runs may be a capture "
+        + "change rather than a behavioural one._",
     ]
     if blind:
         lines += [
@@ -1188,9 +1196,11 @@ def _render_correlations(useful: ToolUsefulness) -> list[str]:
         "",
         "_The call axis is the row count, and that unit is **not uniform across engines "
         + "or across the ledger**. A code-mode engine's cell carries its freeform builtin "
-        + "call plus one row per manifest call lifted from that call's source, so its "
+        + "call plus one row per call lifted from that call's source — the builtins such "
+        + "a program leans on as much as the manifest tools, and the builtin term is the "
+        + "larger by far — so its "
         + "count sits higher than a direct-calling engine's for the same retrieval, and "
-        + "higher than its own pre-lift cells' for the same behaviour. Engines are pooled "
+        + "higher again than a cell of its own captured under a narrower lift. Engines are pooled "
         + "within a row, so read a coefficient over a population spanning both shapes as "
         + "carrying that mixture, not only the tool use it is meant to measure._",
     ]

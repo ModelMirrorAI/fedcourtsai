@@ -9,26 +9,41 @@ from __future__ import annotations
 
 import pytest
 
+from fedcourtsai import retrieval
+from fedcourtsai.blinding import neutral_tool_class
 from fedcourtsai.collect import (
+    CODE_MODE_PARENT_TOOL,
+    CODE_MODE_SHELL_BUILTINS,
     CellStatus,
     ExpectedCell,
     PathJailError,
+    PriorAvailabilityRollup,
     ThrottleRollup,
     assert_cleanup_within_jail,
     assert_within_jail,
+    attempted_corpus_query,
     cell_artifact_name,
     cell_failures,
+    code_mode_lift_blind,
     collect_plan,
     feedback_marker,
     parse_cell_artifact_name,
     parse_name_status,
     render_feedback_comment,
     render_flags,
+    render_prior_availability_note,
     render_stall_comment,
     render_throttle_note,
 )
 from fedcourtsai.finalize import FinalizeRole
-from fedcourtsai.schemas import AgentFlag, AgentFlags, FlagCategory, FlagSeverity, UsageRole
+from fedcourtsai.schemas import (
+    AgentFlag,
+    AgentFlags,
+    FlagCategory,
+    FlagSeverity,
+    RetrievalCall,
+    UsageRole,
+)
 
 
 def _flagset(actor: str, *flags: AgentFlag, case: str = "scotus/1") -> AgentFlags:
@@ -723,6 +738,343 @@ def test_the_throttle_note_reaches_a_draft_only_run_and_a_wholesale_failed_one()
     )
     assert failed.facts_only is not None
     assert "Retrieval was throttled this run" in failed.facts_only.body
+
+
+def _call(tool: str, query: str = "", **fields: object) -> RetrievalCall:
+    return RetrievalCall(tool=tool, query=query or None, **fields)
+
+
+def test_a_corpus_query_attempt_is_read_from_the_shell_row_not_a_written_file() -> None:
+    # The attempt side is harness-captured, and only a row that could have RUN
+    # the command counts. Every starved cell writes the command it tried into
+    # its own retrieval.md, so without the shell gate one attempt would be
+    # counted again for each file it was quoted into.
+    assert attempted_corpus_query(
+        [_call("Bash", "timeout 100 uv run fedcourts query --court scotus")]
+    )
+    assert attempted_corpus_query([_call("run_shell_command", "fedcourts query --limit 5")])
+    # Every engine's shell spelling counts, including the payload-type name
+    # capture falls back to — the gate reads the one shared classifier rather
+    # than a second list that could drift from it.
+    assert attempted_corpus_query([_call("local_shell_call", "uv run fedcourts query -n 3")])
+    # `open-events` is the other half of the command family `used_corpus_query`
+    # asks about, so both sides denominate over the same thing.
+    assert attempted_corpus_query([_call("Bash", "uv run fedcourts open-events --court scotus")])
+    assert not attempted_corpus_query(
+        [_call("Write", '{"content": "ran `uv run fedcourts query --court scotus`"}')]
+    )
+    assert not attempted_corpus_query([_call("Bash", "uv run fedcourts corpus-info")])
+    assert not attempted_corpus_query([])
+
+
+def test_reading_the_manual_is_not_a_corpus_query() -> None:
+    # The failure this screens out would report a CHOICE as an outage. A cell
+    # that reads the flags and then decides the committed statpack answers its
+    # question never touched the corpus — and `--help` inside a code-mode
+    # program is the commonest shape such a cell takes.
+    assert not attempted_corpus_query(
+        [
+            _call(
+                CODE_MODE_PARENT_TOOL,
+                'const r = await tools.exec_command({cmd:"uv run fedcourts query --help"})',
+            )
+        ]
+    )
+    assert not attempted_corpus_query([_call("Bash", "uv run fedcourts open-events -h")])
+    # Nor is grepping this repository's docs for the command's name.
+    assert not attempted_corpus_query([_call("Bash", "rg 'fedcourts query' docs/cli.md")])
+    # But only the segment the match sits in decides: a chained read before the
+    # real invocation must not disqualify it.
+    assert attempted_corpus_query(
+        [_call("Bash", "cat docs/cli.md | head -40; uv run fedcourts query --court scotus")]
+    )
+    # And a help read BESIDE a real query is still a cell that queried.
+    assert attempted_corpus_query(
+        [
+            _call("Bash", "uv run fedcourts query --help"),
+            _call("Bash", "timeout 100 uv run fedcourts query --court scotus --limit 5"),
+        ]
+    )
+
+
+def test_a_lifted_builtin_row_is_a_code_mode_cell_s_corpus_attempt() -> None:
+    """A code-mode cell's shell IS its lifted builtin rows, and the count reads them.
+
+    The row is not shell-classed — the classifier's vocabulary is the engine
+    tool names a judge sees, and the builtin is not one of them — so the
+    attempt count reaches it on the lift marker instead: a row out of a
+    program's own source that names no manifest tool. Deliberately not closed
+    the other way (mapping the builtin into the shell class), which would move
+    what a blinded staged log shows a judge; this decides one rollup and
+    nothing about the masking surface.
+    """
+    lifted = _call(
+        "exec_command",
+        '{cmd:"uv run fedcourts query --court scotus --limit 5"}',
+        result_capture="unobserved",
+        call_source="code_mode_source",
+    )
+    assert neutral_tool_class(lifted.tool) != "shell"
+    assert attempted_corpus_query([lifted])
+    # The parent row is shell-classed, so a command inside its legible slice
+    # still counts on its own — the two paths overlap rather than replace.
+    parent = _call(CODE_MODE_PARENT_TOOL, 'await tools.exec_command({cmd:"fedcourts query -n 5"})')
+    assert attempted_corpus_query([parent])
+    # Every other screen still applies to a lifted row: reading the manual is
+    # not a query, and a lifted MANIFEST row carries JSON arguments rather than
+    # a command line, so the command's name inside one is not an invocation.
+    assert not attempted_corpus_query(
+        [
+            _call(
+                "exec_command",
+                '{cmd:"uv run fedcourts query --help"}',
+                result_capture="unobserved",
+                call_source="code_mode_source",
+            )
+        ]
+    )
+    assert not attempted_corpus_query(
+        [
+            _call(
+                "mcp__courtlistener__search",
+                '{"q": "fedcourts query --court scotus"}',
+                result_capture="unobserved",
+                call_source="code_mode_source",
+            )
+        ]
+    )
+    # And the marker is what admits the row: the same tool name without it is
+    # not evidence a command ran (a transcript row named for a builtin is the
+    # engine's own wrapper record, not the program's source).
+    assert not attempted_corpus_query(
+        [_call("exec_command", '{cmd:"uv run fedcourts query --court scotus"}')]
+    )
+
+
+def test_a_lifted_builtin_that_runs_nothing_is_not_an_attempt() -> None:
+    """Writing the command down is not running it, from inside a program either.
+
+    The lift mints rows for five builtins and only two of them run anything;
+    the other three carry prose the program wrote, verbatim, into the row's
+    query slice. A patch that writes the attempted command into the cell's own
+    `retrieval.md`, or a plan step naming it as the next thing to do, is the
+    exact confusion the shell-class screen exists to prevent, arriving by
+    another door — and it would name that cell in the run PR's starved list on
+    evidence that no query ever ran.
+    """
+    plan = _call(
+        "update_plan",
+        '{plan:[{step:"pull priors with fedcourts query --court scotus"}]}',
+        result_capture="unobserved",
+        call_source="code_mode_source",
+    )
+    patch = _call(
+        "apply_patch",
+        '{input:"*** Update File: retrieval.md\\n+I tried `fedcourts query --court scotus`"}',
+        result_capture="unobserved",
+        call_source="code_mode_source",
+    )
+    assert not attempted_corpus_query([plan])
+    assert not attempted_corpus_query([patch])
+    # The other half of the pair does run one — a command fed to a process the
+    # program already opened is as much an invocation as the one that opened it.
+    fed = _call(
+        "write_stdin",
+        '{chars:"uv run fedcourts query --court scotus --limit 5\\n"}',
+        result_capture="unobserved",
+        call_source="code_mode_source",
+    )
+    assert attempted_corpus_query([fed])
+
+
+def test_the_command_running_builtins_are_a_subset_of_what_the_lift_mints() -> None:
+    # The attempt count classes the lift's builtin names by hand — which of
+    # them run a command — so a name ADDED to the lift must be classified
+    # rather than silently admitted or silently dropped. Pinned against the
+    # lift's own pattern, the same way the code-mode parent's name is.
+    minted = set(retrieval._CODE_MODE_BUILTIN_RE.pattern.split("(")[1].split(")")[0].split("|"))
+    assert minted == {"exec_command", "write_stdin", "apply_patch", "view_image", "update_plan"}
+    assert minted >= CODE_MODE_SHELL_BUILTINS
+
+
+def test_the_code_mode_tripwire_fires_only_where_a_program_lifted_nothing() -> None:
+    # A program-running cell with no lifted row beside it is the shape a lift
+    # that stopped matching the engine's idiom leaves — and the shape a program
+    # that called nothing leaves too, which is why the note hedges.
+    program = _call(CODE_MODE_PARENT_TOOL, "const r = await tools.exec_command({cmd: 'ls'})")
+    lifted = _call(
+        "mcp__courtlistener__search",
+        "{}",
+        result_capture="unobserved",
+        call_source="code_mode_source",
+    )
+    assert code_mode_lift_blind([program])
+    assert not code_mode_lift_blind([program, lifted])
+    # No code-mode parent at all is not a claim about capture.
+    assert not code_mode_lift_blind([_call("Bash", "ls")])
+    # Capture lifts two idioms out of a program, and each fails on its own. A
+    # program's builtin calls are the commoner shape by far, so lifted builtin
+    # rows must not vouch for the manifest idiom: a tripwire counting those
+    # would go quiet exactly where the manifest spelling drifted.
+    builtin = _call(
+        "exec_command",
+        '{cmd:"ls record"}',
+        result_capture="unobserved",
+        call_source="code_mode_source",
+    )
+    assert code_mode_lift_blind([program, builtin])
+    assert not code_mode_lift_blind([program, builtin, lifted])
+    # The parser tells a code-mode parent from an ordinary shell call by the
+    # transcript item's TYPE, which no field of the row records — so a plain
+    # `exec` trips this too, and is simultaneously a legible attempt. The note
+    # hedges rather than pretending the rows separate the two.
+    plain = _call(CODE_MODE_PARENT_TOOL, "uv run fedcourts query -n 5")
+    assert code_mode_lift_blind([plain]) and attempted_corpus_query([plain])
+
+
+def test_the_code_mode_parent_tool_matches_the_name_capture_mints_rows_under() -> None:
+    # The tripwire keys on the name the retrieval parser gives a code-mode
+    # parent row. A rename there must fail here rather than silently make the
+    # tripwire unfireable.
+    assert CODE_MODE_PARENT_TOOL == retrieval._CODEX_CODE_MODE_TOOL
+
+
+def test_a_prior_starved_run_names_its_cells_and_a_served_one_stays_quiet() -> None:
+    # A cell whose `fedcourts query` times out does not fail — it predicts from
+    # whatever else it had — so without this note the only trace is one line in
+    # one cell's tooling report, invisible across a fan-out.
+    starved = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline")],
+        prior_availability=PriorAvailabilityRollup(
+            attempted=5, served=2, starved=("scotus/1/evt-x/claude-baseline",)
+        ),
+    )
+    assert starved.ready is not None
+    assert "Cells ran a corpus query and reported no corpus use" in starved.ready.body
+    assert "1 of 5 cell(s)" in starved.ready.body
+    assert "`scotus/1/evt-x/claude-baseline`" in starved.ready.body
+    assert starved.prior_availability_markdown
+
+    # Every attempt served is the clean run, and it says nothing at all — the
+    # same convention the throttle note keeps, so the eye is not trained to
+    # skip the place the warning will appear.
+    served = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline")],
+        prior_availability=PriorAvailabilityRollup(attempted=5, served=5),
+    )
+    assert served.prior_availability_markdown == ""
+    assert "Cells ran a corpus query" not in (served.ready.body if served.ready else "")
+    # And a run where no cell asked is not a claim about anything.
+    assert render_prior_availability_note(None) == ""
+    assert render_prior_availability_note(PriorAvailabilityRollup()) == ""
+
+
+def test_an_unreadable_tooling_report_is_unknown_rather_than_starved() -> None:
+    # "The cell said it got nothing" and "the cell said nothing" are different
+    # claims, and only the first is evidence of starvation — so they get
+    # different paragraphs and the louder one never speaks for both.
+    note = render_prior_availability_note(
+        PriorAvailabilityRollup(
+            attempted=3, served=1, starved=("scotus/1/evt-x/a",), unreported=("scotus/2/evt-x/b",)
+        )
+    )
+    assert "1 of 3 cell(s)" in note
+    assert "cannot be read" in note
+    assert "unknown, not served and not starved" in note
+    assert "`scotus/2/evt-x/b`" in note
+
+    # A run where nothing was reported and nothing was starved raises no
+    # warning at all: `tooling.json` is invited, not required, so a run of
+    # silent cells is not a run the corpus failed.
+    unknown_only = render_prior_availability_note(
+        PriorAvailabilityRollup(attempted=3, served=2, unreported=("scotus/2/evt-x/b",))
+    )
+    assert "Cells ran a corpus query and reported" not in unknown_only
+    assert unknown_only.startswith("❔")
+    # And no dangling name list where there are no starved cells to name.
+    assert "— ." not in unknown_only
+
+
+def test_the_prior_note_caps_the_cells_it_names() -> None:
+    # The names are the actionable part, but a wide run could starve dozens and
+    # a PR body that is one paragraph of cell ids stops being read at all.
+    note = render_prior_availability_note(
+        PriorAvailabilityRollup(
+            attempted=20, starved=tuple(f"scotus/{n}/evt-x/a" for n in range(20))
+        )
+    )
+    assert "`scotus/7/evt-x/a`" in note
+    assert "`scotus/8/evt-x/a`" not in note
+    assert "and 12 more" in note
+
+
+def test_the_prior_note_cannot_be_broken_open_by_a_cell_id() -> None:
+    # The ids are read out of files living in the cell's own writable tree, so
+    # they get the same one-line, backtick-free treatment a flag message gets
+    # before it goes into a table.
+    note = render_prior_availability_note(
+        PriorAvailabilityRollup(attempted=1, starved=("scotus/1/evt-x/`a\nb`",))
+    )
+    assert "`scotus/1/evt-x/a b`" in note
+    assert "\n" not in note.split("\n\n")[0]
+
+
+def test_the_lift_blind_tripwire_prints_beside_the_prior_note_and_alone() -> None:
+    # The tripwire is the blindness bound on the count above it, so it rides
+    # the same note — including on a run where every attempt that COULD be seen
+    # was served, which is exactly when the blindness matters most.
+    both = render_prior_availability_note(
+        PriorAvailabilityRollup(
+            cells=6,
+            attempted=2,
+            starved=("scotus/1/evt-x/a",),
+            code_mode_cells=4,
+            lift_blind_cells=3,
+        )
+    )
+    assert "Cells ran a corpus query and reported no corpus use" in both
+    assert "Code-mode capture may be blind" in both
+
+    alone = render_prior_availability_note(
+        PriorAvailabilityRollup(
+            cells=6, attempted=2, served=2, code_mode_cells=4, lift_blind_cells=3
+        )
+    )
+    assert "Cells ran a corpus query and reported" not in alone
+    # Its own denominator, because a bare numerator on a standing condition
+    # reads as a fresh regression every run.
+    assert "3 of 4 cell(s) that called the freeform" in alone
+
+
+def test_the_prior_note_reaches_a_draft_only_run_and_a_wholesale_failed_one() -> None:
+    # Whichever PR the run opens is where a maintainer reads it, and on a
+    # wholesale-failed run that is the facts-only PR — priors that never
+    # arrived are a live candidate cause of exactly that failure.
+    rollup = PriorAvailabilityRollup(attempted=2, starved=("scotus/1/evt-x/a", "scotus/2/evt-x/a"))
+    draft_only = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline", validated=False)],
+        prior_availability=rollup,
+    )
+    assert draft_only.partial is not None
+    assert "Cells ran a corpus query and reported no corpus use" in draft_only.partial.body
+
+    failed = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline", produced=False)],
+        throttle=ThrottleRollup(cells=2, throttled_cells=2, calls=30, throttled_calls=30),
+        prior_availability=rollup,
+    )
+    assert failed.facts_only is not None
+    # Both harness notes ride that one PR, and neither displaces the other.
+    assert "Retrieval was throttled this run" in failed.facts_only.body
+    assert "Cells ran a corpus query and reported no corpus use" in failed.facts_only.body
 
 
 def test_facts_only_pr_covers_a_no_artifact_run_from_the_matrix_alone() -> None:

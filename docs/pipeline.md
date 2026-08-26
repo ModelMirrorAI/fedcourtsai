@@ -417,6 +417,13 @@ pattern rather than rediscovering it:
   matched — otherwise an unrelated label cancels a real writer. See the
   `concurrency:` expression in `run-pull.yml`. To dispatch one of
   these reliably, prefer `workflow_dispatch` over labeling.
+- **The event payload is frozen; the checkout is live.** A `pull_request` job
+  checks out the merge ref — the PR merged into the base's *current* tip —
+  while `github.event.pull_request.base.sha` stays pinned at PR creation, so
+  diffing the two attributes every commit the base gained since to the PR.
+  Diff `origin/<base ref>...HEAD` instead (the `paths` / `cleanup-paths` jobs
+  in `ci.yml`); the promotion gate reads its label from the API at check time
+  for the same frozen-payload reason.
 - **`git add data/` aborts when `data/` is absent.** No `outcome.json` is written
   on most runs, so `data/` often does not exist; under `set -euo pipefail` the add
   fails the step before the no-op guard. Stage the always-present pointer
@@ -842,6 +849,17 @@ renames the evaluator's alias-keyed output back onto the real predictor ids. The
 staging area lives under the case's gitignored `record/`, so it rides the cell
 artifact and never reaches the ledger.
 
+A second pair of steps keeps the aliases worth having. The committed `predictions/` and
+`evaluations/` trees name every predictor one directory above the staging area,
+so a routine `ls` de-blinds a judge before it has read the contract that forbids
+that tree; `fedcourts hide-cell-record` moves both out of the working tree after
+the staging step and `fedcourts restore-cell-record` moves them back the moment
+the agent stops, ahead of every step that reads them. It narrows the accidental
+route only — the checkout carries full history — and nothing a cell hides or
+fails to restore can reach the run PR as a deletion: the collect job unions each
+cell's `data/` onto a freshly fetched clean `origin/main` checkout, and
+`assert-paths` rejects any non-addition.
+
 **The un-aliasing runs before the stamp, and the ordering is load-bearing.**
 `stamp-cell --role evaluator` joins each evaluation to the prediction it scored
 on the `predictor_id` field; under an alias the join misses and the cell's
@@ -851,10 +869,11 @@ which fails the stamp instead, and so is an interim cell's harness-stamped
 `segment_base_rate`, which reads the application Term off that same
 prediction). `validate`'s
 evaluation-target check resolves the same join and does fail loudly, so it is the
-backstop rather than the detector. The cell's order is therefore: blind →
-agent → capture usage → capture retrieval log → **un-alias** → stamp → validate.
-Wiring those two steps anywhere else in the sequence produces a run that looks
-green and quietly drops a scoring block.
+backstop rather than the detector. The cell's order is therefore: blind → hide
+the committed trees → agent → restore them → capture usage → capture retrieval
+log → **un-alias** → stamp → validate.
+Wiring the un-aliasing and the stamp anywhere else in that sequence produces a
+run that looks green and quietly drops a scoring block.
 
 How a cell's output becomes a PR is the same across **`run:predict`** and
 **`run:evaluate`**: each cell validates its own output and
@@ -890,15 +909,75 @@ even the facts-only PR of a wholesale-failed run, where starvation is a live
 candidate cause. It is the only per-run record there is: the 429 payload itself
 is digested away at capture, so without the marker a starved run and a well-fed
 one look identical afterwards.
-The `run-seed` historical walker has its own instance of that pattern: a `guard`
+
+The same walk asks the corpus-side version of that question and writes a second
+harness-rendered note beside it: which cells ran a `fedcourts` corpus query
+(`query` / `open-events`) and reported not having used the corpus. A query that
+times out against the corpus index fails no cell — it finishes and predicts from
+whatever else it had — so without a run-level count the only trace is one line
+in one cell's report. What the note prints is a **disagreement between two
+channels, not a diagnosis**: the *attempt* is harness-captured (a row in the
+cell's own log that a command could have been run from — a shell call, or one
+lifted out of a code-mode program's source — screened so a `--help` or a `grep`
+of the CLI's name is not read as a query, since declining to use a tool is not
+the tool failing), while the *service* is the cell's own `tooling.json` line. A
+failed query leaves that shape and is the reason it is worth printing, but so
+does a cell that queried, got rows, and answered the field on another reading —
+and on a code-mode cell so does a call site in a branch the program never took,
+since the attempt there is read out of program *text* rather than observed
+running. The rows separate none of them, so the note names its cells
+(`case/event/actor`, walk order) for a reader to check rather than asserting a
+cause. Its denominator
+is the cells whose attempt was **legible**, printed against the run's legible
+cell logs, because what capture can read of a cell's commands differs by engine
+— a code-mode cell's are visible only as far as the lift matched its program —
+which is also why the counts are not comparable across engines, nor across runs
+whenever capture itself has moved between them. Like the throttle note that
+warning stays silent where every attempt was served, and rides whichever PR the
+run opens. A cell whose answer cannot be read at all gets its own line rather
+than the warning's, because unknown and starved are different claims.
+
+A **capture tripwire** prints beside those two — and, unlike them, *also on a
+fully-served run*, since it reports on what could be seen rather than on what
+happened, and an unseen attempt is least suspected exactly where nothing looks
+wrong. It carries its own denominator: cells that called the freeform `exec`
+builtin with no **manifest** calls lifted out of its source, over the cells that
+called it at all. Three readings, none separable from the rows — the program
+called no manifest tool worth a row, the lift no longer matches the engine's
+manifest calling idiom, or the call was an ordinary shell call spelled the same
+way (the parser tells those apart by the transcript item's type, which no row
+records). It watches the manifest half because capture lifts two idioms out of a
+program and each fails on its own: builtin call sites outnumber manifest ones
+several times over, so a tripwire that counted them would go quiet exactly where
+the manifest spelling drifted. The attempt counts above do read such a cell,
+through the other half: a command run from inside a program is lifted into a
+row naming the *builtin*, and a lifted row counts where it carries the lift
+marker (`call_source` in
+[predicted-artifacts.md](predicted-artifacts.md)) **and** names one of the two
+builtins that run a command — the patch and plan builtins are lifted too, and
+their argument text is prose the program wrote, so a plan step naming the
+command would otherwise be counted as the invocation it describes. That path is
+additional to the shell one, not a replacement: the code-mode parent row is
+itself shell-classed, so a command inside its truncated head slice still counts
+on its own. The two halves therefore watch different idioms, which is why the
+tripwire is **correlated with** the attempt counts' coverage rather than a bound
+on it — a drift on the builtin side would empty those counts for every code-mode
+cell while this ratio stayed silent, and only the capture rate climbing back
+toward 1.0 would show it. The ratio is there because this is a standing
+condition rather than a per-run event.
+
+The `run-seed` historical walker has its own instance of the latched-issue
+pattern: a `guard`
 job raises one long-lived **pipeline-health** issue if the checkpointed walk is
 ever cancelled or fails (e.g. a chunk overran the job's hard timeout), and clears
 it when a later walk finishes clean — so a silent, PR-less writer failure still
 reaches a durable home.
 Separately, every cell may also write a `tooling.json` self-report on its
-environment/tooling, committed with the cell's output rather than rolled into the
-per-run PR/issue; the `run-ops` dashboard scans these into a tooling-feedback
-digest. See the `flags.json` and `tooling.json` channels in
+environment/tooling, committed with the cell's output; only its
+`used_corpus_query` line is read per run (it is the served side of the
+prior-availability note above), while the report as a whole is scanned across
+runs by the `run-ops` dashboard into a tooling-feedback digest. See the
+`flags.json` and `tooling.json` channels in
 [data-pipeline.md](data-pipeline.md).
 
 To trigger prediction/evaluation for **one** case, open an issue whose body
@@ -994,16 +1073,44 @@ pools are read at re-grade time.
 `collect` is the single writer for a run's agent output, so an all-or-nothing
 failure would discard the whole run — one transient artifact download can carry
 dozens of successful cells with it. It therefore degrades per artifact, and
-what it could not collect is named rather than silently dropped. Two gaps, two
-remedies:
+what it could not collect is named rather than silently dropped. Three gaps,
+three remedies:
 
 | the PR body / run log says | what happened | fix |
 |---|---|---|
 | *artifact did not transfer* | the cell likely succeeded; its output still exists | **re-run the `collect` job** |
 | *no cell output at all* | the cell died before it could report | **re-queue** — no rerun helps |
+| *secret scan did not pass; withholding &lt;branch&gt;* (log), with a redacted report on the trigger issue | that branch was withheld — its cells' output sits only in the run's cell artifacts | **review the flagged content, then salvage by hand or accept a re-spend** — see below |
 
-Either gap keeps the trigger issue open, so a run never auto-merges presenting
-itself as complete while omitting cells.
+A secret-scan withhold starts with a judgment call the other two rows do not
+need. Locate the flagged content first: the scan runs per PR kind, so a hit
+withholds only the branch it fired on (the ready branch can merge while the
+draft is withheld, or the reverse), and its report names file and line but
+never the match. A finding in a cell's file is reviewable in that cell's
+artifact; a finding in the rendered `pr-body.md` or `run-flags.md` points
+back at the cells' `flags.json` free text, which the roll-up quotes; and the
+*misconfigured-scan* report is its own case — nothing was judged, so repair
+the configuration rather than reviewing content. Read the reported line
+*locally, without quoting it anywhere*. A real secret means the output must
+not be collected: delete the run's cell artifacts (`gh api -X DELETE
+repos/<owner>/<repo>/actions/artifacts/<artifact_id>`) and rotate whatever
+leaked. A false positive cannot be released by re-running `collect`: a re-run
+executes the ref the run was dispatched at — the scanner it ran included —
+so it re-trips the same rule regardless of what has landed since. The
+remedies are to **salvage by hand** — extract each withheld cell's run-scoped
+output from the artifacts into a data PR before the artifacts' 7-day
+retention lapses (the maintainer merges it, like every non-collect merge to
+`main`), then close the trigger issue yourself, since only a merged collect
+PR auto-closes it — or to **re-queue and accept the re-spend**. No
+stranded-run guard covers a withheld run in either role: the withhold leaves
+`collect` concluding success, which the predict census reads as collected,
+so a re-applied label re-spends every cell the withheld run already paid for.
+
+The first two gaps keep the trigger issue open, so a run never auto-merges
+presenting itself as complete while omitting cells; a withheld ready branch
+keeps it open the same way, while a hit confined to the draft or the flag
+roll-up leaves the ready PR to merge and close it — check the run log before
+trusting a closed issue as evidence the whole run landed.
 
 A **wholesale-failed run** — every cell died, so no ready or partial PR opens —
 still records one `attempt.json` fact per failed cell via a small auto-merging
@@ -1079,7 +1186,8 @@ other channel's trigger issues arriving on their own.
 queue lives in the corpus, not in the issue — the issue is only a trigger
 carrying a snapshot of it. A **selected** case stays queueable for as long as any
 enabled predictor still *owes* an open event, and the live channel's selection
-sweep re-polls exactly that set each cycle (`pipeline/live.py`, gated per
+sweep re-polls that set each cycle — plus the cohort-completion candidates
+below (`pipeline/live.py`, gated per
 `(predictor, event)` on `event_has_predictions(predictor_id=...)` from
 `matrix.py`), debounced to daily by `predict_queued_at`. Owed is per cell, so a
 case where two of three engines committed a prediction and one quota-failed is
@@ -1090,8 +1198,24 @@ needs its issue re-filed or re-opened.
 The drain is paced, not instant: the sweep is capped at
 `salience.sweep_cases_per_cycle` (25 in `config/tracking.yaml`) and works stalest
 first, so a backlog larger than the cap spreads over the following cycles — the
-same behaviour [salience.md](salience.md) describes. A case that is unselected or
-latched out of scope is never re-queued at all. The per-cell owed check also
+same behaviour [salience.md](salience.md) describes. A case **latched out of
+scope** (`predict_excluded`) is never re-queued at all. A case that is merely
+**unselected** re-enters the sweep on two grounds — the merits bypass (the Court
+granted it, so the cert funding question no longer applies) and **cohort
+completion**: an event of it already carries a committed prediction, that cohort
+is one a claimable board will count once the event resolves and is graded, and some enabled engine is missing from it, so
+the sweep re-admits the case and queues *only those events*. Selection decides
+which petitions earn a forecast, and a case selected when its run fired can drift
+below the line before every engine landed, leaving a partial cohort with no path
+back — the distribution transition has already passed and the funding gate
+refuses it. Finishing that cohort buys the missing engines on a case the project
+already paid to predict. The narrowing carries two bounds on that ground: queueing
+the case's *other* open events would buy new cells on a case the gate declined,
+and completing an event whose cohort sits wholly outside the frozen process scope
+would hand the board an event scored on the completing engine alone. A deferred
+case the ledger holds nothing for is not even a candidate. What a number off a
+completed cohort does and does not support is in
+[salience.md](salience.md). The per-cell owed check also
 honors `predict.max_attempts_per_cell` via the ledger-derived failure facts
 (described below for evaluate), so one `(predictor, event)` cell that fails every
 attempt cannot re-queue forever while a sibling engine still owed the same event

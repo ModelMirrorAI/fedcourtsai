@@ -16,8 +16,10 @@ deliberately excluded from the digest — see :class:`fedcourtsai.schemas.Proces
 The freeze is a deliberate, explicit event: one "freeze commit" fills
 :data:`FROZEN_PROCESS_DIGESTS` and :data:`FROZEN_SINCE` together — the
 digest(s) a maintainer reads off ``fedcourts process-digest --all``, and the
-instant a run's harness stamp must be at or after to count. The cutover
-procedure and its verification live in ``docs/process-version.md``.
+instant a run's harness stamp must be at or after to count. A later
+evaluator-half re-bless revises the set's evaluator entries while holding
+the instant. The cutover procedure, its verification, and the supersession
+notes live in ``docs/process-version.md``.
 """
 
 from __future__ import annotations
@@ -38,23 +40,24 @@ from .schemas import EvaluatorConfig, FrozenProcessRecord, PredictorConfig, Proc
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
-CURRENT_PROCESS_LABEL = "proc-v3"
+CURRENT_PROCESS_LABEL = "proc-v4"
 
-# The blessed process digests — the frozen-headline set: the six proc-v3
+# The blessed process digests — the frozen-headline set: the six proc-v4
 # baselines (claude/codex/gemini, predictor and evaluator each), read off
 # `fedcourts process-digest --all`; set together with FROZEN_SINCE below,
-# which a test pins. proc-v3 **supersedes** proc-v2 — the set holds one blessed
-# process per actor and `is_frozen` is a membership filter, so the retired
-# label's digests are replaced rather than kept beside these. No cell was ever
-# *counted* under proc-v2: 27 evaluations carry its stamp, every one of them
-# stamped before the freeze instant below and therefore mechanically excluded,
-# and no prediction carries it at all — the freeze record in
-# `docs/milestones.md` lists them. Keyed on the digest, never the label, so a
-# process that drifted under an unchanged label is not silently blessed. The
-# predictor digests are the enforced membership filter (`is_frozen`); the
-# evaluator entries are the freeze *record* of the blessed grading process — an
+# which a test pins. proc-v4 revises the **evaluator half only**: the three
+# predictor digests are byte-identical to the ones proc-v3 blessed, so the
+# frozen prediction population is continuous across the labels, while the
+# evaluator digests supersede proc-v3's — the set holds one blessed process
+# per actor, so the retired digests are replaced rather than kept beside
+# these (keeping both would bless two grading processes per judge at once).
+# The evaluations graded under the retiring digests stay counted — an
 # evaluation's digest is recorded but only its timing is enforced, via
-# `graded_post_freeze`.
+# `graded_post_freeze` — and the freeze record in `docs/milestones.md` names
+# them. Keyed on the digest, never the label, so a process that drifted
+# under an unchanged label is not silently blessed. The predictor digests
+# are the enforced membership filter (`is_frozen`); the evaluator entries
+# are the freeze *record* of the blessed grading process.
 FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
     {
         # predictors: claude-baseline, codex-baseline, gemini-baseline
@@ -62,9 +65,9 @@ FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
         "sha256:06a854e7847cddf2d03ff391f3fe9dfc52e739180e0d30aed72aea2f0b909bdf",
         "sha256:93dfaec3a09edc07a97fd871c032bc8388b4512f691ee7082b717473d76c9289",
         # evaluators: claude-judge, codex-judge, gemini-judge
-        "sha256:3aeddcede4c0161ead222b0a2f984d61779560be6c0219951f7fc61267039e16",
-        "sha256:8771a0c856344c81fa79716a5caa55ecd4ff04e080f7a35607095d66fda680d6",
-        "sha256:b2ed9c208fc5576eb7346b8b22a0f01b54991faa13e7b35b7c6bbfe06a718fb7",
+        "sha256:11a0afbcba271935c8ead785b5c13fc2b1e43a4e18e9450a04fa41df9658a0f2",
+        "sha256:9fb7b6f1683a7bcb363cb19ae2084dfec734a9e1251b7b9fcc41dd2564aaff78",
+        "sha256:b9f548f4f1e2cb1c07e9ba59f7d352220a2d8ae45d82e00f436dc044bd260b1a",
     }
 )
 
@@ -78,7 +81,11 @@ FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
 # merge that carried this commit to `main` (verified against
 # `promotion/<YYYY-MM-DD>` before the `prereg/` tag is minted) and before the
 # first run intended to count — see the cutover procedure in
-# `docs/process-version.md`.
+# `docs/process-version.md`. The exception is an evaluator-half re-bless,
+# which holds this instant while swapping only the evaluator entries above:
+# the enforced predictor half is byte-identical to the prior `prereg/` tag's,
+# so such a label is audited by that byte comparison rather than the date
+# rule (the supersession notes in the same doc).
 FROZEN_SINCE: datetime | None = datetime(2026, 8, 16, 0, 0, 0, tzinfo=UTC)
 
 # The retrieval surface each engine's cells run with. Folded into the digest

@@ -13,8 +13,9 @@ import os
 import sqlite3
 import sys
 import tempfile
+import textwrap
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
@@ -25,6 +26,16 @@ from urllib.parse import quote
 import typer
 import yaml
 from pydantic import BaseModel, ValidationError
+
+# Typer vendors click, and re-exports neither the base command class a `cls=`
+# override needs nor the parse-time error it raises. `typer.core` is the
+# documented home of the first; the second has no public spelling at all —
+# there is no installed `click` to import instead, and a real one would name a
+# different class. A typer bump that moved it fails here at import, which takes
+# every `fedcourts` command down at once: the gate cannot miss it, and no run
+# can degrade quietly around it.
+from typer._click.exceptions import UsageError
+from typer.core import TyperCommand
 
 from . import (
     analytics,
@@ -72,15 +83,19 @@ from .cert_backtest import (
 )
 from .claim_metrics import agreement_summary, build_claim_scores
 from .collect import (
+    CODE_MODE_PARENT_TOOL,
     CellStatus,
     CollectPlan,
     ExpectedCell,
     PathJailError,
+    PriorAvailabilityRollup,
     PrPlan,
     ThrottleRollup,
     assert_cleanup_within_jail,
     assert_within_jail,
+    attempted_corpus_query,
     cell_failures,
+    code_mode_lift_blind,
     collect_plan,
     parse_name_status,
     render_stall_comment,
@@ -194,6 +209,7 @@ from .salience_replay import replay_gate
 from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
+    AgentToolingFeedback,
     CellFailure,
     ClaimScoreBlock,
     ConferenceBucket,
@@ -231,6 +247,7 @@ from .store import (
     ExcludedCell,
     StratifiedRun,
     cases_due_for_pull,
+    event_has_claimable_prediction,
     forecastable_events,
     forward_refusal_reason,
     forward_refusal_reason_from_parts,
@@ -3482,18 +3499,22 @@ def _require_reproducible_trio(
 def _echo_frozen_scope(records: Sequence[tuple[Path, Evaluation]]) -> None:
     """Name each re-graded cell's process scope, one line per target.
 
-    A re-grade leaves no ``superseded_gradings`` trace, so a cell whose stamp
-    is in the frozen set — one whose numbers a published claim may rest on —
-    would otherwise move with nothing outside ``data/``'s git history recording
-    that it did. The line puts that in the writer run's log and step summary,
-    where it is greppable after the fact. It reports the stamp the record
-    already carries, which is exactly the stamp the re-grade preserves.
+    A re-grade leaves no ``superseded_gradings`` trace, so a cell whose
+    numbers a published claim may rest on would otherwise move with nothing
+    outside ``data/``'s git history recording that it did. The line puts that
+    in the writer run's log and step summary, where it is greppable after the
+    fact. Scope is the evaluation-side gate the headline itself uses —
+    ``graded_post_freeze``, timing alone — because an evaluation's digest is
+    recorded but never enforced: a cell graded under a since-superseded
+    evaluator digest is still counted, so it must still print as
+    frozen-scope here. It reports the stamp the record already carries,
+    which is exactly the stamp the re-grade preserves.
     """
     for path, record in records:
         stamp = record.process_version
         if stamp is None:
             continue
-        scope = "frozen" if process_version.is_frozen(stamp) else "alpha"
+        scope = "frozen" if process_version.graded_post_freeze(stamp) else "alpha"
         typer.echo(f"regrade: {path} — {scope}-scope cell stamped {stamp.label}")
 
 
@@ -5176,7 +5197,108 @@ def build_index_cmd(
     )
 
 
-@app.command()
+#: The whole `query` interface, for an invocation that guessed a different one.
+#: `{dispositions}` / `{eras}` are filled from the live vocabularies at print
+#: time, so the tokens it offers are the ones the filters accept.
+_QUERY_INTERFACE_HELP = """\
+The `fedcourts query` interface, in full:
+
+It takes no free-text search argument. It is a structured filter over the
+corpus, not a search engine: a phrase, a case name or a docket caption is
+rejected as an extra argument. Say what you want in flags.
+
+Filters — every one optional, none of them positional:
+  --court TEXT           one CourtListener court id, e.g. scotus
+  --topic TEXT           nature-of-suit / subject, matched EXACTLY; the
+                         values come off the `topic` field of returned rows
+  --judge TEXT           repeatable; ranks on shared judges
+  --citation TEXT        repeatable, e.g. '597 U.S. 1' — this case's own
+                         parallel cite, not a cases-citing-it search
+  --disposition TEXT     one realized outcome label, listed below
+  --era TEXT             one decade token, listed below
+  --decided-before YEAR  a bare four-digit year, not a date
+  --limit N              how many priors to return
+  --corpus-backend NAME  transport only: local / ranged / service; the run
+                         environment sets this, so leave it alone
+  --include-open, --include-applications, --full   take no value
+
+The two closed vocabularies:
+  --disposition
+{dispositions}
+  --era
+{eras}
+
+`--topic`, `--judge` and `--citation` are sparsely populated: a filter on
+one can come back empty because the column is thin, not because no such
+prior exists. Widen rather than retry.
+
+Worked example:
+  fedcourts query --court scotus --disposition granted --limit 5
+
+Every flag with its own help: fedcourts query --help"""
+
+#: Where the vocabulary lists wrap. Narrow enough that the terse default
+#: terminal still renders each token list as a block rather than re-wrapping it
+#: into the flag column, which is what makes the screen scannable at all.
+_QUERY_HELP_WIDTH = 72
+
+
+def _query_interface_help() -> str:
+    """:data:`_QUERY_INTERFACE_HELP` with the current filter vocabularies in it."""
+
+    def block(tokens: Iterable[str]) -> str:
+        return textwrap.fill(
+            " ".join(tokens),
+            width=_QUERY_HELP_WIDTH,
+            initial_indent="    ",
+            subsequent_indent="    ",
+        )
+
+    return _QUERY_INTERFACE_HELP.format(
+        dispositions=block(d.value for d in Disposition),
+        eras=block(corpus.era_tokens()),
+    )
+
+
+class _TeachingQueryCommand(TyperCommand):
+    """A command whose usage errors carry the interface they rejected.
+
+    The failure this exists to stop is behavioural, not syntactic. An agent
+    cell that guesses a search-engine interface — a bare phrase, a case name
+    after ``--full``, a court-name era — gets one terse line naming what was
+    wrong and nothing saying what is right, and abandons the corpus for the
+    rest of its run, forecasting without priors. Appending the interface to
+    the error makes the same cell's next attempt the correct one.
+
+    Every parse-time usage error is augmented, not a chosen few: the guesses
+    that produce them are open-ended (an unknown flag, a date where a year
+    goes, a phrase left over after parsing), while what the reader needs back
+    is the same one screen in each case. Nothing else about the failure changes — the usage
+    line, the exit code, and the message click already wrote are as they were.
+
+    The augmentation is of the **formatted** message, not of ``message``
+    itself, and re-raised as a plain :class:`UsageError` rather than mutated in
+    place. Click's subclasses build their rendering *around* that attribute —
+    a near-miss flag appends "(Possible options: --court)" after it — so
+    editing it in place would bury the single most actionable line of the error
+    at the tail of a thirty-line screen. Formatting first keeps every
+    subclass's own framing intact and puts the screen after all of it.
+
+    Deliberately attached to one command rather than the app: it is worth doing
+    where the surface is both narrow and easy to mistake for a search engine,
+    and a CLI whose every misuse printed a page would teach nothing.
+    """
+
+    def parse_args(self, ctx: Any, args: list[str]) -> list[str]:
+        try:
+            return super().parse_args(ctx, args)
+        except UsageError as exc:
+            raise UsageError(
+                f"{exc.format_message()}\n\n{_query_interface_help()}", ctx=exc.ctx
+            ) from exc
+
+
+@app.command(cls=_TeachingQueryCommand)
 def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query filters
     *,
     court: Annotated[str, typer.Option(help="Restrict to one CourtListener court id.")] = "",
@@ -5258,6 +5380,28 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     cell leans on) rather than growing into a bespoke search engine.
     """
     settings = get_settings()
+    # The two closed vocabularies are judged before the corpus is looked for:
+    # a caller who spelled a filter wrong needs the interface back whatever the
+    # state of the blob, and "no corpus here" would send them to `corpus-pull`
+    # for a failure the pull cannot fix.
+    try:
+        disp = Disposition(disposition) if disposition else None
+    except ValueError as exc:
+        choices = ", ".join(d.value for d in Disposition)
+        typer.echo(f"Unknown disposition '{disposition}'; choose one of: {choices}", err=True)
+        typer.echo(_query_interface_help(), err=True)
+        raise typer.Exit(code=2) from exc
+    # An era is refused rather than silently returning nothing: a guess at a
+    # court-name era ("Roberts Court") would otherwise filter every row away
+    # and read back as a corpus that holds no priors.
+    if era and era not in corpus.era_tokens():
+        typer.echo(
+            f"Unknown era '{era}'; an era is one decade token — not a court, "
+            "a Term or a date range. The vocabulary is below.",
+            err=True,
+        )
+        typer.echo(_query_interface_help(), err=True)
+        raise typer.Exit(code=2)
     db_path = corpus.corpus_db_path(settings.corpus_root)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend, allow_service=True))
     if backend == "local" and not db_path.exists():
@@ -5266,12 +5410,6 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
             err=True,
         )
         raise typer.Exit(code=1)
-    try:
-        disp = Disposition(disposition) if disposition else None
-    except ValueError as exc:
-        choices = ", ".join(d.value for d in Disposition)
-        typer.echo(f"Unknown disposition '{disposition}'; choose one of: {choices}", err=True)
-        raise typer.Exit(code=2) from exc
     q = corpus.PriorQuery(
         court=court or None,
         topic=topic or None,
@@ -5461,6 +5599,19 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         choices = ", ".join(d.value for d in Disposition)
         typer.echo(f"Unknown disposition '{disposition}'; choose one of: {choices}", err=True)
         raise typer.Exit(code=2) from exc
+    # `query`'s era vocabulary, refused on the same terms: this command answers
+    # a base rate rather than returning rows, so an unrecognized era would come
+    # back as a well-formed report over zero cases — a number, and the wrong
+    # one, where `query` at least returned nothing visible.
+    eras = corpus.era_tokens()
+    if era and era not in eras:
+        typer.echo(
+            f"Unknown era '{era}'; choose one of: {', '.join(eras)}. A row dated "
+            "outside that window carries an era this filter cannot name — such a "
+            "row is unaddressable here, not absent from the corpus.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     dimension = next((g for g in analytics.STATS_DIMENSIONS if g.value == group_by), None)
     if group_by and dimension is None:
         choices = ", ".join(g.value for g in analytics.STATS_DIMENSIONS)
@@ -6232,6 +6383,89 @@ def unblind_evaluations_cmd(
     for alias, predictor_id in moved:
         typer.echo(f"{alias} -> {predictor_id}")
     typer.echo(f"un-aliased {len(moved)} evaluation(s) for {evaluator}")
+
+
+@app.command("hide-cell-record")
+def hide_cell_record_cmd(
+    stash_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Where the hidden trees are moved to. Point it outside the "
+            "checkout — a runner-local path such as the runner temp dir — so "
+            "the tree the grader browses does not contain its own hiding place.",
+        ),
+    ],
+) -> None:
+    """Move every committed ``predictions/``/``evaluations/`` tree out of the working tree.
+
+    The blinding bracket's second pre-agent step, run **after**
+    ``provision-blinded-predictions`` (which reads the committed predictions to
+    stage them). The blinding hands the grader opaque aliases, and then a plain
+    ``ls`` of the ledger names every predictor one directory above the staging
+    area — before the agent has read the contract that forbids that tree. This
+    moves both trees to ``--stash-dir`` for the duration of the run;
+    ``restore-cell-record`` puts them back.
+
+    Repo-wide, so it needs no cell coordinates and cannot be mis-keyed onto the
+    wrong event, and because a predictor's prose on another case identifies it
+    too. Only those two directory names, only directly under an event: the
+    gitignored ``record/`` tree the grader *is* sent to read is out of reach by
+    construction.
+
+    This narrows the accidental surface, not the deliberate one — the checkout
+    carries full history, so the hidden bytes stay one ``git show`` away, under
+    the prompt's prohibition and the logged-tool-call audit.
+
+    Exits 1 before moving anything when the stash already holds a manifest — any
+    earlier hide, restored or not, since a second sweep over an emptied tree
+    would move nothing and overwrite the one record of the first — and exits 1
+    after the sweep when it hid **nothing**, which a wrong data root or working
+    directory would otherwise turn into a green run that left the grader the
+    whole committed record.
+    """
+    settings = get_settings()
+    try:
+        hidden = blinding.hide_committed_cells(data_root=settings.data_root, stash_dir=stash_dir)
+    except blinding.BlindingError as exc:
+        typer.echo(f"hiding failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"hid {len(hidden)} committed cell tree(s) -> {stash_dir}")
+
+
+@app.command("restore-cell-record")
+def restore_cell_record_cmd(
+    stash_dir: Annotated[
+        Path,
+        typer.Option(help="The stash `hide-cell-record` wrote; pass the same value."),
+    ],
+) -> None:
+    """Move the hidden cell trees back into the working tree.
+
+    The other half of ``hide-cell-record``, and it runs the moment the agent
+    stops — before the usage/retrieval capture, the un-aliasing, the stamp, and
+    ``validate`` — so every later step sees a whole workspace rather than each
+    one having to know what was hidden.
+
+    Restores file by file and **refuses to overwrite**: the grader writes its
+    own ``evaluations/<evaluator>/<alias>/<run>/`` under a hidden tree's path
+    while it is hidden, so a directory-level replace would delete the cell's
+    output. The agent's bytes always win, and a collision exits 1 rather than
+    resolving silently.
+
+    Exits 1 on a missing or malformed manifest, on a manifest minted against a
+    different data root, and on a stashed tree that is no longer there — a cell
+    that continued with committed data missing would fail the stamp's prediction
+    join and ``validate``'s evaluation-target check with no sign of why.
+    """
+    settings = get_settings()
+    try:
+        restored = blinding.restore_committed_cells(
+            data_root=settings.data_root, stash_dir=stash_dir
+        )
+    except blinding.BlindingError as exc:
+        typer.echo(f"restoring failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"restored {restored} file(s) from {stash_dir}")
 
 
 @app.command("corpus-integration-check")
@@ -7080,8 +7314,9 @@ class _DropRecord:
     The reason string is the dropping step's own — printed verbatim, never
     re-worded here — so a plan that reports the wrong cell set names the step
     that decided it. ``event_id`` and ``actor_id`` are absent where the step
-    works at a coarser grain: the scope gate drops whole cases, and the
-    forecastability re-check whole events. ``actor_id`` is the predictor or
+    works at a coarser grain: the scope gate drops whole cases — except where
+    cohort completion keeps one narrowed, whose lost events are event-grained —
+    and the forecastability re-check drops whole events. ``actor_id`` is the predictor or
     evaluator whose cell the drop cost, the same union
     :class:`fedcourtsai.collect.ExpectedCell` calls an actor.
     """
@@ -7182,6 +7417,32 @@ def _resolve_cases(
     return kept
 
 
+def _cohort_narrowing_reason(data_root: Path, court: str, docket: int, event_id: str) -> str:
+    """Why cohort completion left this listed event behind, in its own words.
+
+    The two bounds refuse for opposite reasons and a single sentence can only
+    state one of them truthfully: an event with no prediction at all would be
+    **new spend** on a case the funding gate declined, while an event whose
+    whole cohort sits outside the frozen process scope has predictions and is
+    refused on **comparability** — completing it would leave a board an event
+    scored on the completing engine alone. This string reaches a maintainer
+    through the plan's approval report, so it names the ground that actually
+    applied.
+    """
+    if event_has_predictions(data_root, court, docket, event_id):
+        return (
+            "narrowed away on a salience-deferred case kept for cohort completion: this "
+            "event's whole cohort sits outside the frozen process scope, so a freshly "
+            "stamped cell would not complete a comparison but leave a board an event "
+            "scored on one engine alone."
+        )
+    return (
+        "narrowed away on a salience-deferred case kept for cohort completion: no committed "
+        "prediction on this event, so a cell here would be new spend rather than a missing "
+        "engine."
+    )
+
+
 def _scope_filtered(
     cases: list[CaseRequest],
     scope: PredictScope,
@@ -7189,7 +7450,9 @@ def _scope_filtered(
     corpus_backend: corpus.CorpusBackend,
     *,
     for_grading: bool = False,
+    data_root: Path | None = None,
     dropped_out: list[_DropRecord] | None = None,
+    cohort_narrowed_out: list[_DropRecord] | None = None,
 ) -> list[CaseRequest]:
     """Drop out-of-scope cases under ``scotus_docket``; the matrix backstop.
 
@@ -7229,9 +7492,31 @@ def _scope_filtered(
     stand in for the file, and a missing pointer/URL fails loud in
     :func:`corpus.connect_readonly` itself.
 
+    ``data_root`` enables the **cohort-completion** reading of the salience
+    drop, the plan-time mirror of the live sweep's carve-out: a deferred case
+    whose listed events hold a cohort a claimable board will count once the
+    event resolves and is graded
+    (:func:`fedcourtsai.store.event_has_claimable_prediction`) is kept, narrowed
+    to exactly those events, because finishing such a cohort buys only the
+    missing engines on a case the project already funded. Everything else about
+    the case goes with the drop — its unpredicted events, which would be new
+    spend on a case the funding gate declined, and its events whose whole cohort
+    sits outside the frozen process scope, where a freshly-stamped cell would
+    not complete a comparison but manufacture a one-engine one. A deferred case
+    with no qualifying listed event is dropped as before, and so is one whose
+    request lists no events at all: an unlisted request means "resolve this
+    case's defaults", which is a request for new cells, not for a cohort.
+    Without ``data_root`` (the evaluate reading, which ``for_grading`` already
+    exempts from the salience drop) the carve-out is off.
+
     ``dropped_out`` collects each skipped case as a structured record carrying
     the same reason the stderr note prints, so a plan can attribute a missing
-    case to this step.
+    case to this step. ``cohort_narrowed_out`` is the same channel for the
+    narrowing's *event* casualties: a kept-narrowed case appears in no drop
+    list, so without a record of its own the plan's machine-readable output
+    would show a listed event simply gone — and the approval report a
+    maintainer reads at the spend hold is built from that output, not from
+    stderr.
     """
     if scope == PredictScope.all:
         return cases
@@ -7263,6 +7548,47 @@ def _scope_filtered(
                 # cell, but once the Court grants it the funding question is a
                 # different one and the gate no longer answers it.
                 drop = "not selected this salience round (scored, below the capacity slice)."
+                if data_root is not None and (
+                    cohort := tuple(
+                        event_id
+                        for event_id in case.events
+                        if event_has_claimable_prediction(
+                            data_root, case.court, case.docket, event_id
+                        )
+                    )
+                ):
+                    # Cohort completion: these events were funded and predicted
+                    # already, so the missing engines are the only spend left on
+                    # them. `predict_matrix`'s per-(predictor, event) skip mints
+                    # exactly those; the narrowing here is what keeps the case's
+                    # *unpredicted* events out of the fan-out entirely.
+                    typer.echo(
+                        f"Narrowing {case.court}/{case.docket}: {drop} Kept "
+                        f"{len(cohort)} of {len(case.events)} listed event(s) for "
+                        f"cohort completion ({', '.join(cohort)}).",
+                        err=True,
+                    )
+                    if cohort_narrowed_out is not None:
+                        # Each event the narrowing took away, as its own record:
+                        # the case is kept, so it appears in no drop list, and
+                        # without this the plan's only machine-readable channel
+                        # would show a listed event simply gone. The reason is
+                        # per event because the two bounds refuse for opposite
+                        # reasons, and this string is what a maintainer reads in
+                        # the approval report.
+                        cohort_narrowed_out.extend(
+                            _DropRecord(
+                                ids.case_id(case.court, case.docket),
+                                _cohort_narrowing_reason(
+                                    data_root, case.court, case.docket, event_id
+                                ),
+                                event_id=event_id,
+                            )
+                            for event_id in case.events
+                            if event_id not in cohort
+                        )
+                    kept.append(replace(case, events=cohort))
+                    continue
             else:
                 drop = None
             if drop is None:
@@ -7653,6 +7979,11 @@ class _PredictFanout:
     requested: list[CaseRequest]
     resolved: list[CaseRequest]
     scope_dropped: tuple[_DropRecord, ...]
+    #: The events the scope gate's cohort-completion narrowing took off a
+    #: salience-deferred case it kept. Its own field because the case is kept:
+    #: it is in no drop list, and `requested` is the pre-gate listing, so
+    #: without this the difference between the two is unattributed.
+    cohort_narrowed: tuple[_DropRecord, ...]
     resolution: _ResolveReport
     guard: _StrandedGuardReport
     capped: CappedMatrix
@@ -7686,13 +8017,16 @@ def _predict_fanout(
     settings = get_settings()
     predict_config = load_predict_config(settings.config_root)
     scope_dropped: list[_DropRecord] = []
+    cohort_narrowed: list[_DropRecord] = []
     resolution = _ResolveReport()
     requested = _scope_filtered(
         requested_cases,
         predict_config.scope,
         settings.corpus_root,
         settings.corpus_backend,
+        data_root=settings.data_root,
         dropped_out=scope_dropped,
+        cohort_narrowed_out=cohort_narrowed,
     )
     # One clock for the whole plan, so a fan-out that straddles midnight cannot
     # apply a different staleness bound to selection than to the re-check.
@@ -7809,6 +8143,7 @@ def _predict_fanout(
         requested=requested_cases,
         resolved=cases,
         scope_dropped=tuple(scope_dropped),
+        cohort_narrowed=tuple(cohort_narrowed),
         resolution=resolution,
         guard=guard,
         capped=capped,
@@ -8389,12 +8724,17 @@ _APPROVAL_REPORT_TRUNCATED = (
 #: different things — as is an empty one: the counts block above already
 #: reconciles, so this section exists to name the classes that actually took
 #: something. Each label opens with its own grain because the classes do not
-#: share one: the scope gate drops whole *cases*, the forecastability re-check
+#: share one: the scope gate drops whole *cases* (and, where cohort completion
+#: keeps a case narrowed, the *events* it lost), the forecastability re-check
 #: drops *events*, and only the ledger-grain classes drop *cells*. Under a
 #: section a reader arrives at counting cells, an ungrained "3 dropped as out of
 #: scope" is read as three cells when it means three cases' worth of them.
 _APPROVAL_DROP_CLASSES: tuple[tuple[str, str], ...] = (
     ("dropped_out_of_scope", "case(s) dropped as out of scope"),
+    (
+        "dropped_cohort_narrowed",
+        "event(s) narrowed away on a salience-deferred case kept for cohort completion",
+    ),
     ("dropped_unforecastable", "event(s) dropped as no longer forecastable"),
     ("cases_with_no_default_events", "case(s) resolved to no default events"),
     ("dropped_by_request_narrowing", "cell(s) narrowed away by the request's event list"),
@@ -8725,6 +9065,7 @@ def predict_plan_cmd(
                 "requested_cases": len(fanout.requested),
                 "requested_listed_events": sum(len(c.events) for c in fanout.requested),
                 "dropped_out_of_scope_cases": len(fanout.scope_dropped),
+                "dropped_cohort_narrowed_events": len(fanout.cohort_narrowed),
                 "dropped_unforecastable_events": len(fanout.resolution.unforecastable),
                 "resolved_cases": len(fanout.resolved),
                 "resolved_events": sum(len(c.events) for c in fanout.resolved),
@@ -8747,6 +9088,7 @@ def predict_plan_cmd(
             },
         },
         "dropped_out_of_scope": [r.as_json() for r in fanout.scope_dropped],
+        "dropped_cohort_narrowed": [r.as_json() for r in fanout.cohort_narrowed],
         "dropped_unforecastable": [r.as_json() for r in fanout.resolution.unforecastable],
         "cases_with_no_default_events": [r.as_json() for r in fanout.resolution.no_default_events],
         "dropped_by_request_narrowing": [r.as_json() for r in gate.request_narrowed],
@@ -9041,11 +9383,13 @@ def scan_diff_for_secrets_cmd(
         str,
         typer.Option(
             help="The run being collected. Exempts that run's own ledger paths "
-            "(`predictions/<actor>/<run id>`, `evaluations/<actor>/<predictor>/"
-            "<run id>`) from the entropy heuristic only — a cell's logged shell "
-            "commands name its own output directory, which is neither secret nor "
-            "random but scores like one. Every other detector is unaffected, and "
-            "the trailing segment must equal this value exactly."
+            "— the `predictions/` / `evaluations/` layouts and the "
+            "cell-relative forms (`<actor>/<run id>[/<file stem>]`, "
+            "`<evaluator>/<predictor>/<run id>`) — from the entropy heuristic "
+            "only: a cell's logged shell commands name its own output paths, "
+            "which are neither secret nor random but score like one. Every "
+            "other detector is unaffected, and the run id segment (last, or "
+            "second-to-last before a file stem) must equal this value exactly."
         ),
     ] = "",
 ) -> None:
@@ -9346,6 +9690,14 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # `flags` into the Actions summary can echo this beside it without
         # re-reading a single artifact. Empty on a genuinely clean run.
         "throttle": plan.throttle_markdown,
+        # The corpus-side counterpart of `throttle`: which cells asked the
+        # corpus index for priors and did not get them, plus the tripwire on
+        # whether code-mode capture could have seen such an attempt at all. It
+        # rides the PR body and leaves the process here for the same reason.
+        # The warning half is empty on a run where every attempt was served;
+        # the tripwire half still prints there, because it reports on what
+        # capture could see rather than on what the corpus did.
+        "prior_availability": plan.prior_availability_markdown,
         "feedback_comment": plan.feedback_comment,
         "stalled": plan.stalled,
         "dead_actors": list(plan.dead_actors),
@@ -9434,8 +9786,109 @@ def _load_flag_sets(status_dir: Path, run_id: str) -> list[AgentFlags]:
     return flag_sets
 
 
-def _load_throttle(status_dir: Path, run_id: str) -> ThrottleRollup:
-    """Summarize this run's captured retrieval throttling from the cell artifacts.
+def _event_id_from_path(path: Path) -> str:
+    """The event id an artifact path carries (``.../events/<event id>/...``), or ``""``.
+
+    Neither ``RetrievalLog`` nor ``AgentToolingFeedback`` records the event, so
+    the path is the only place a per-cell identity can pick it up. Searched from
+    the right, because the case segments are upstream of it and a directory that
+    happens to be named ``events`` higher up must not win. A path that carries
+    none — a hand-built fixture, a layout change — yields ``""`` rather than
+    raising: it feeds a notification, and a missing segment must not take down
+    the aggregation carrying the run's only copy of its output.
+    """
+    parts = path.parts[:-1]
+    for index in range(len(parts) - 2, -1, -1):
+        if parts[index] == "events":
+            return parts[index + 1]
+    return ""
+
+
+def _cell_name(log: RetrievalLog, path: Path) -> str:
+    """One cell as ``case/event/actor``, for a note that names cells rather than counts."""
+    return "/".join(part for part in (log.case_id, _event_id_from_path(path), log.actor_id) if part)
+
+
+def _reported_corpus_use(log: RetrievalLog, path: Path) -> bool | None:
+    """This cell's own ``tooling.json`` answer on whether it used the corpus query.
+
+    ``None`` where there is no answer to read — no sibling report, one that
+    does not parse, or one describing a different cell (an earlier run's report
+    riding along in the artifact). Unknown is kept distinct from ``False``
+    throughout, because "the cell said it got nothing" and "the cell said
+    nothing" are different claims and only the first is evidence of starvation.
+    """
+    try:
+        report = AgentToolingFeedback.model_validate_json(
+            (path.parent / "tooling.json").read_text()
+        )
+    except (OSError, ValueError):
+        return None
+    if (report.case_id, report.run_id, report.actor_id, report.role) != (
+        log.case_id,
+        log.run_id,
+        log.actor_id,
+        log.role,
+    ):
+        return None
+    return report.used_corpus_query
+
+
+def _add_prior_cell(
+    rollup: PriorAvailabilityRollup, log: RetrievalLog, path: Path
+) -> PriorAvailabilityRollup:
+    """Fold one cell's log (and its sibling tooling report) into the prior rollup."""
+    rollup = replace(rollup, cells=rollup.cells + 1)
+    if any(call.tool == CODE_MODE_PARENT_TOOL for call in log.calls):
+        rollup = replace(rollup, code_mode_cells=rollup.code_mode_cells + 1)
+    if code_mode_lift_blind(log.calls):
+        rollup = replace(rollup, lift_blind_cells=rollup.lift_blind_cells + 1)
+    if not attempted_corpus_query(log.calls):
+        return rollup
+    rollup = replace(rollup, attempted=rollup.attempted + 1)
+    served = _reported_corpus_use(log, path)
+    if served:
+        return replace(rollup, served=rollup.served + 1)
+    name = _cell_name(log, path)
+    if served is None:
+        return replace(rollup, unreported=(*rollup.unreported, name))
+    return replace(rollup, starved=(*rollup.starved, name))
+
+
+def _add_throttle_cell(rollup: ThrottleRollup, log: RetrievalLog) -> ThrottleRollup:
+    """Fold one cell's log into the throttle rollup.
+
+    Denominated by :func:`~fedcourtsai.schemas.observed_mcp_conditions` — the
+    same helper the log's own ``throttled_calls`` and the corpus rollup's
+    per-engine rate denominate by — so the three figures a maintainer may read
+    side by side mean one thing. A cell it leaves empty (capture-blind, or
+    calling no manifest tool) is counted as ``blind_cells`` rather than as a
+    clean cell, because it could not have shown a throttle and must not read as
+    evidence of none.
+    """
+    observed = observed_mcp_conditions(log.calls)
+    if not observed:
+        return replace(rollup, blind_cells=rollup.blind_cells + 1)
+    throttled = sum(1 for call in observed if call.result_status == "throttled")
+    return replace(
+        rollup,
+        cells=rollup.cells + 1,
+        throttled_cells=rollup.throttled_cells + bool(throttled),
+        calls=rollup.calls + len(observed),
+        throttled_calls=rollup.throttled_calls + throttled,
+    )
+
+
+def _load_retrieval_rollups(
+    status_dir: Path, run_id: str
+) -> tuple[ThrottleRollup, PriorAvailabilityRollup]:
+    """Summarize this run's captured retrieval from the cell artifacts.
+
+    One walk, two roll-ups, because both read the same files and the fan-out
+    they are read across is wide: what the shared upstream quota did to the run
+    (:class:`~fedcourtsai.collect.ThrottleRollup`) and whether the corpus index
+    served the cells that asked it for priors
+    (:class:`~fedcourtsai.collect.PriorAvailabilityRollup`).
 
     The same walk shape as :func:`_load_flag_sets`, and for the same reason:
     each cell uploads its whole ``data/`` subtree, so the run's
@@ -9445,7 +9898,10 @@ def _load_throttle(status_dir: Path, run_id: str) -> ThrottleRollup:
     throttling is not this run's; and **identity**, keyed on the cell a log
     describes, because a log committed by an earlier cell of this same run rides
     along in later cells' artifacts and would otherwise be counted once per
-    cell.
+    cell. That identity takes its event id from the path, since a log records
+    the case and the actor but not the event: a run covering two events of one
+    case for one actor is two cells, and keying without the event would fold
+    the second away — invisibly, in a note that names cells one by one.
 
     The run-id filter runs twice, once in the glob and once on the parsed
     record, and the pair is not redundant. Both roles key a cell's directory on
@@ -9455,45 +9911,38 @@ def _load_throttle(status_dir: Path, run_id: str) -> ThrottleRollup:
     fan-out. The record's own ``run_id`` is what the count is actually keyed
     on, so the cheap path filter can never be the thing that decides.
 
-    Denominated by :func:`~fedcourtsai.schemas.observed_mcp_conditions` — the
-    same helper the log's own ``throttled_calls`` and the corpus rollup's
-    per-engine rate denominate by — so the three figures a maintainer may read
-    side by side mean one thing. A cell it leaves empty (capture-blind, or
-    calling no manifest tool) is counted as ``blind_cells`` rather than as a
-    clean cell, because it could not have shown a throttle and must not read as
-    evidence of none. A malformed or unreadable log lands there too rather than
-    being dropped: it is a cell of this run — its path carries the run id — whose
-    condition nothing can read, which is exactly what the counter means. It is
-    never fatal, because this is a notification and it must never take down the
-    aggregation that carries the run's only copy of its output.
+    A malformed or unreadable log counts as a throttle-blind cell rather than
+    being dropped: it is a cell of this run — its path carries the run id —
+    whose condition nothing can read, which is exactly what that counter means.
+    It contributes nothing to the prior roll-up, whose attempt side needs rows
+    it does not have. Neither is ever fatal, because these are notifications
+    and must never take down the aggregation that carries the run's only copy
+    of its output.
     """
-    seen: set[tuple[str, str, str, str]] = set()
-    rollup = ThrottleRollup()
+    seen: set[tuple[str, str, str, str, str]] = set()
+    throttle = ThrottleRollup()
+    priors = PriorAvailabilityRollup()
     for path in sorted(status_dir.glob(f"**/{run_id}/retrieval_log.json")):
         try:
             log = RetrievalLog.model_validate_json(path.read_text())
         except (OSError, ValueError):
-            rollup = replace(rollup, blind_cells=rollup.blind_cells + 1)
+            throttle = replace(throttle, blind_cells=throttle.blind_cells + 1)
             continue
         if log.run_id != run_id:
             continue
-        identity = (log.case_id, log.actor_id, str(log.role), log.run_id)
+        identity = (
+            log.case_id,
+            _event_id_from_path(path),
+            log.actor_id,
+            str(log.role),
+            log.run_id,
+        )
         if identity in seen:
             continue
         seen.add(identity)
-        observed = observed_mcp_conditions(log.calls)
-        if not observed:
-            rollup = replace(rollup, blind_cells=rollup.blind_cells + 1)
-            continue
-        throttled = sum(1 for call in observed if call.result_status == "throttled")
-        rollup = replace(
-            rollup,
-            cells=rollup.cells + 1,
-            throttled_cells=rollup.throttled_cells + bool(throttled),
-            calls=rollup.calls + len(observed),
-            throttled_calls=rollup.throttled_calls + throttled,
-        )
-    return rollup
+        throttle = _add_throttle_cell(throttle, log)
+        priors = _add_prior_cell(priors, log, path)
+    return throttle, priors
 
 
 @app.command("collect-plan")
@@ -9531,7 +9980,11 @@ def collect_plan_cmd(
     which the collect step echoes into the Actions summary; ``feedback_comment``
     is the same roll-up wrapped for the long-lived agent-feedback tracking issue
     (empty when no flags), which the collect step posts so a note survives even a
-    fully-failed run that opens no PR.
+    fully-failed run that opens no PR. ``throttle`` and ``prior_availability``
+    are the two harness-rendered retrieval notes, read from the cells' own
+    captured logs and likewise appended to the PR body: what the shared upstream
+    quota did to the run, and whether the corpus index served the cells that
+    asked it for priors. Both are empty on a run with nothing to report.
     """
     cells = []
     for status_path in sorted(status_dir.glob("**/status.json")):
@@ -9539,6 +9992,7 @@ def collect_plan_cmd(
         cells.append(
             CellStatus.from_dict(json.loads(status_path.read_text()), artifact_dir=artifact_dir)
         )
+    throttle, priors = _load_retrieval_rollups(status_dir, run_id)
     plan = collect_plan(
         role,
         run_id=run_id,
@@ -9560,7 +10014,12 @@ def collect_plan_cmd(
         # from the cells' harness-captured logs, not from what an agent said:
         # the 429 evidence lives only in the result payload, which capture
         # digests away, so the parse-time marker is the last place it is legible.
-        throttle=_load_throttle(status_dir, run_id),
+        throttle=throttle,
+        # And whether the corpus index served the cells that asked it for
+        # priors. A timed-out `fedcourts query` fails no cell — the cell
+        # predicts from whatever else it had — so without a run-level count the
+        # only trace is one line in one cell's tooling report.
+        prior_availability=priors,
     )
     typer.echo(
         json.dumps(_collect_plan_json(plan, role=role, run_id=run_id), separators=(",", ":"))
