@@ -636,10 +636,16 @@ jobs:
       # launch step env, never the agent's) plus the generated client config
       # naming only that URL — in run-predict's order: corpus sidecar, MCP
       # sidecar, MCP config, cell. It is here rather than on all three
-      # because the codex rollout is the transcript whose MCP item shapes the
-      # `record-retrieval` parser reads and no committed log yet exhibits;
-      # only a real codex cell with the surface wired can say whether a
-      # zero-MCP-row log is the engine's behaviour or a capture gap. Health
+      # because the codex rollout is the transcript whose item shapes the
+      # `record-retrieval` parser reads and no committed log yet exhibits.
+      # What the leg evidences is exactly that: the engine boots in the cell
+      # posture, produces a rollout the parser can read, and its freeform
+      # `exec` sources carry the nested manifest calls the retrieval capture
+      # lifts into rows of their own. What it cannot evidence is anything read
+      # off a zero-MCP-row log — code mode dispatches every manifest call from
+      # inside one `exec` item and emits no MCP-shaped item at all, so that
+      # log is what the surface produces whether or not retrieval
+      # happened. Health
       # stays warn-only, as in the cells: an unhealthy sidecar degrades the
       # cell to corpus tooling rather than failing the smoke, and the
       # `mcp-sidecar` scenario is the leg that gates on the sidecar itself.
@@ -821,11 +827,13 @@ jobs:
       # credentials regardless): surface them in the job log, as the cell
       # workflows do over the same two files, so a cold-read stall or a
       # mid-scenario sidecar death is diagnosable from the failed run instead
-      # of a rerun. The MCP log is the codex leg's second witness, and the
-      # question needs both: requests in this log with no MCP shapes in the
-      # uploaded distillation is a capture gap, no requests at all is the
-      # engine declining to call — a distinction the shapes artifact alone
-      # cannot draw. Head and tail both, because the evidence lines are at the
+      # of a rerun. The MCP log is the codex leg's second witness: requests in
+      # this log against a distillation showing only the freeform `exec` item
+      # is code mode working as designed — the capture lifts the manifest
+      # calls out of that item's source, never from an MCP-shaped item —
+      # while no requests at all is the engine declining to call, a
+      # distinction the shapes artifact alone cannot draw. Head and tail
+      # both, because the evidence lines are at the
       # top and an engine-smoke's query records scroll them off a tail alone.
       - name: Show the sidecar logs
         if: ${{ always() && (matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' || matrix.scenario == 'mcp-sidecar') }}
