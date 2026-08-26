@@ -325,9 +325,23 @@ each freeze commit is recorded here.
   digest's input and moves only at a re-bless — so no cross-cohort claim should
   span that re-bless either.
 
-- Freeze commit: `c2a168eea`, to be tagged **`prereg/proc-v4`** at the
-  promotion that carries it — the tag and the step-0 re-grep against `main`
-  are that promotion's acts, per the cutover procedure. proc-v4 revises the
+- Freeze commit: `c2a168eea`, carried to `main` by the promotion tagged
+  `promotion/2026-08-26` (merge commit `6d92ed81b`, merged
+  `2026-08-26T14:46:40Z`). **`prereg/proc-v4` sits on that carrying merge
+  itself, not on the freeze commit** — unlike the three entries above,
+  whose tags mark their freeze commits. The placement is stated here
+  outright because the `prereg/` namespace blocks update and deletion, so
+  it is permanent: the pre-registered baseline tree at this tag is the
+  promoted batch's rather than the freeze commit's, and the two carry
+  byte-identical process inputs (prompts, registry config, the constants) —
+  `c2a168eea` is an ancestor of the tagged merge, so the freeze point
+  remains findable through it. The audit, run against the merge tree
+  before the tag was minted: the predictor digests are **byte-identical**
+  to `prereg/proc-v3`'s (the byte comparison this label substitutes for
+  step 4's date comparison — the held-instant paragraph later in this
+  entry), and the step-0 re-run held exactly at the authoring counts —
+  zero cells under any newly blessed digest, 226 stamped predictions,
+  105 retiring-digest evaluations. proc-v4 revises the
   **evaluator half only**. What moved the three evaluator digests is
   `.github/prompts/evaluate.md`: the judge-workspace prune (the committed
   `predictions/` and `evaluations/` trees are hidden from a judge cell's
@@ -380,12 +394,12 @@ each freeze commit is recorded here.
   boolean `retrieved_outcome_material` and 9 a null the boolean amendment
   closes — so the amendments raise coverage rather than break observed
   variation, and a cross-boundary coverage comparison is a coverage change,
-  not a behavior change. Two authoring-time facts complete the record: the
+  not a behavior change. One authoring-time fact completes the record: the
   boards' `frozen_process.digests` provenance will name three evaluator
   digests no counted evaluation carries until the first proc-v4 grading
   run — for that interval the partition's evaluator half is answered by
-  this entry, not the artifact — and the counts here are refreshed by the
-  step-0 re-run at promotion.
+  this entry, not the artifact. The step-0 re-run at the promotion
+  confirmed the counts here unmoved.
 
 ## The near-term target: the OT2026 long-conference cert release
 
