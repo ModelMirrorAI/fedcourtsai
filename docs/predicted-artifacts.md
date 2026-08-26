@@ -170,7 +170,7 @@ absent optional field as null.
     "term": 2025
   },
   "process_version": {
-    "label": "proc-v3",
+    "label": "proc-v4",
     "digest": "sha256:1f0a9c7e5b3d2648a0c1e4f78b95d2360a7c4e18b5d9f0632a1c8e7d40b6f925",
     "algo": "sha256",
     "pipeline_sha": "9f2c1ab7d40e5836c2b90f14a7de3c58b1042ef6",
@@ -484,13 +484,13 @@ directory without knowing which part is which invites trusting the wrong half.
   `call_source` is the one field the blinding mask **drops** rather than
   staging, because naming a row as lifted names the engine that lifts — so
   unlike the two markers below it never reaches a grader at all. The
-  evaluate prompt does not name `result_capture` — the process the frozen
-  partition keys on cannot gain a reading instruction without moving
-  ([process-version.md](process-version.md)) — so that marker serves a
-  maintainer, and is available to the tool-usage rollup, which does not yet
-  read it, until the next re-blessing carries the instruction. `result_status`
-  is under the same silence for the same reason, though the rollup does read
-  it: both reach an evaluator's information set unmasked regardless, which is
+  evaluate prompt instructs the judge to read `result_capture` before
+  weighing any absence in a staged log — an `unobserved` call is graded on
+  its query, never credited as having returned nothing — and to read a
+  `result_status` of `unobserved` as the same capture fact restated. The
+  marker also serves a maintainer and is available to the tool-usage rollup,
+  which does not read it (the rollup does read `result_status`).
+  Both reach an evaluator's information set unmasked, which is
   recorded as a masking-surface entry in
   [milestones.md](milestones.md).
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable

@@ -243,7 +243,11 @@ fails the cell.
     mismatch. Do not relabel the number as `terminal` and carry on: that basis
     is for a prediction with no frozen band at all, and applying it to a frozen
     band would pair a risk-set population with a terminal rate — the exact
-    mispairing the two bases exist to keep apart. Omit
+    mispairing the two bases exist to keep apart. The relabel is also
+    machine-refused: a `terminal` basis recorded against a prediction that
+    froze a band **fails the cell at the harness stamp**, the same refusal an
+    unresolvable `risk_set` meets, so the omission — rate, basis, and skill
+    nulled together — is the correction that survives the record here. Omit
     likewise when the case has no Term or no prior-Term
     band resolved.
   - `brier_skill_score` — `1 - brier_score / (segment_base_rate - actual_granted)**2`:
@@ -390,6 +394,19 @@ fails the cell.
     write there is overwritten rather than read (the stage rules above). On a
     **cert** cell both are yours, because which band population the rate is
     taken over is a judgment about the scored prediction's frozen band.
+  - `correct` and `brier_score` are **stamped over** too — `correct` on every
+    stage, cert included; `brier_score` on a merits or an interim cell (on a
+    **cert** cell the Brier stays yours) — each recomputed in code at the
+    stamp from the latest committed prediction and the outcome, so the
+    committed number is never your word. **Write them anyway, per their
+    definitions above** — this is the one pair where the overwrite does not
+    mean "leave it absent": your elicited value is the only independent read
+    of the same quantity anywhere in the run, and the stamp compares the two,
+    surfacing a material disagreement as a run-log warning — the one place a
+    systematic mis-read (the wrong binary axis, a stale probability) can
+    surface at all. An elicited number the stamp overwrites is that check
+    working, not wasted work; a null `correct` is a contract miss that costs
+    the stamped bit its only independent read.
   - `leakage` — the structured assessment from the leakage grading below
     (`mode`, `retrieved_outcome_material`, `influenced_prediction`, `notes`),
     and `leakage_suspected` kept in step with it (`true` iff
@@ -539,7 +556,23 @@ candidate:
    (`shell`, `file-read`, `web-search`, `mcp:<server>:<method>`, …; an
    unrecognised tool reads as `other` — a collapsed name, not a suspicious
    call): call classes, query slices, and `retrieved_doc_date` where
-   a document date was legible. Two kinds of `[redacted:…]` marker appear and
+   a document date was legible. Each call also carries a `result_capture`
+   marker, and it gates every absence you might weigh: `captured` means the
+   engine's log carried the call's result — an empty or failed result is
+   still captured — while `unobserved` means no result ever reached the log
+   (an engine whose telemetry records no results, a call that ran
+   provider-side and echoed nothing back, a result past a truncated
+   transcript). On an `unobserved` call a null `retrieved_doc_date` or
+   result digest says the result was never seen, not that nothing was found:
+   grade the call on its query, and never credit it as having returned
+   nothing. A null marker predates the field — capture-unknown, not
+   unobserved. The log's `result_capture_coverage` is the **captured** share
+   of the calls that carry the marker — a log written before the marker
+   existed carries none and reads null there, and a 0.0 (every
+   marker-carrying call unobserved) is an engine's standing shape, not a
+   defect — and a `result_status` of
+   `unobserved` restates the same capture fact, never the call failing.
+   Two kinds of `[redacted:…]` marker appear and
    neither is evidence of leakage on its own — `[redacted:identity]` is the
    blinding removing a name, and any other marker is the harness removing a
    credential-shaped run at capture. Read both as removed text rather than as
@@ -559,9 +592,16 @@ candidate:
    you find it, grade `retrieved_outcome_material` / `influenced_prediction` as in
    the `replay` case below, put the evidence in `leakage.notes`, and add a
    `flags.json` `data-quality` note that a decided case was provisioned forward.
-   Information that merely *predates* the snapshot — a companion or lead case's
-   ruling, news context — is legitimate forward signal, not leakage; a predictor's
-   own honest disclosure of such a signal is a point *for* the cell, not against it.
+   Information that merely predates the event's *resolution* — a companion or
+   lead case's ruling, news context, and this docket's own entries dated after
+   the prediction's `context.cutoff` — is legitimate forward signal, not
+   leakage. A forward cell's `cutoff`, non-null wherever its event's declared
+   moment fixed one, is not a retrieval clock: a placed cell's snapshot stops
+   at that moment, so the cutoff bounds only the provisioned **baseline**,
+   and what it means for retrieval is keyed on `mode` — an open case's cell
+   retrieves without restriction, and material later than its own baseline is
+   the ordinary forward shape, not a breach. A predictor's own honest
+   disclosure of such a signal is a point *for* the cell, not against it.
 3. **`replay`** → grade two things. **First, know what the cell was legitimately
    given.** A replay snapshot now carries the case's own docket *as it stood
    before the cell's cutoff* — filings, distributions, a CVSG — with only the
@@ -575,7 +615,10 @@ candidate:
    is unavailable and the honest grade falls back to the event's resolution date;
    say so in `evaluation.md` rather than substituting a date that is later.
 
-   `retrieved_outcome_material`: does the log
+   `retrieved_outcome_material` is a **boolean** — write `true` or `false`
+   (`null` only where the record supports no answer at all), never a word:
+   `none` belongs to `influenced_prediction`'s vocabulary below, and a word
+   written here fails the schema. The question it answers: does the log
    or reasoning show outcome-revealing material about *this case* was retrieved
    — a `retrieved_doc_date` on or after the event's resolution, queries for the
    case's own docket/caption reaching past the event date, the disposing order
@@ -585,9 +628,10 @@ candidate:
    (an honest disclosure is a point *for* the cell's integrity, not against it —
    and note the candidate's `flags.json`, the other place such a disclosure
    lives, is not staged into the blinded set, so its absence proves nothing)? A hosted
-   web search runs provider-side, so its log row records the query but never
-   the results: a null `retrieved_doc_date` there means the results were not
-   captured, not that nothing was found — grade such a row on its query.
+   web search runs provider-side, and on some engines its row is `unobserved`
+   — read the marker rather than the call class: where the row is uncaptured,
+   grade it on its query, as step 1's marker rule says; where it is captured,
+   its digest and date are real evidence like any other call's.
    `influenced_prediction`: did that material plausibly shape the prediction —
    `none` (retrieved but demonstrably unused, or nothing retrieved), `possible`,
    or `likely` (reasoning presupposes the result, cites post-decision facts, or
