@@ -9,7 +9,9 @@ semantic side of the pre-registered judge-validation tau-b
 until opinion ingestion lands. `docs/outcome-decomposition.md` states blinding as
 the precondition on scoring semantic claims; it applies with equal force here.
 
-Two pure, deterministic halves bracket the agent call:
+Two deterministic brackets close around the agent call. The first *derives*: it
+reads the committed record to build a masked view of it, and afterwards reads
+its own map back to rename what the grader wrote.
 
 1. :func:`provision_blinded_predictions` copies each predictor's latest
    prediction into ``record/blinded/<alias>/``, masking the identity fields and
@@ -22,6 +24,12 @@ Two pure, deterministic halves bracket the agent call:
    rewrites the ``predictor_id`` field inside each ``evaluation.json``, and
    resolves every alias the evaluator wrote into its prose, flags, and captured
    log — so nothing alias-keyed reaches the ledger or the run PR.
+
+The second bracket *moves*, because an alias is worth nothing beside the tree
+that names the candidate: :func:`hide_committed_cells` takes the committed
+``predictions/`` and ``evaluations/`` trees out of the working tree for the
+duration of the run, and :func:`restore_committed_cells` merges them back before
+any harness step reads them again.
 
 **Ordering.** Un-aliasing must run **before** ``stamp-cell --role evaluator``.
 The stamp joins the evaluation to its prediction through
@@ -40,17 +48,24 @@ reaches the grader incidentally: no predictor id, evaluator id, engine name, or
 model name survives in the staged bytes or in a staged filename, the alias order
 is not the registry's order, and the map does not sit in the tree the grader is
 told to open. It does not, and cannot, stop a grader that sets out to break it —
-three routes stay open by construction, and the honest reading of any blinded
-number depends on naming them:
+the routes below stay open by construction, and the honest reading of any
+blinded number depends on naming them:
 
 - **The permutation is recomputable.** The shuffle is keyed on the run, case, and
   event — all three stated in the evaluator's own kickoff prompt — and this
   module is in the checkout the cell runs in. Deliberately re-deriving the
   mapping is a few lines. What the keying buys is that the alias is not the
   registry's sort order, so nothing is inverted by *accident* or by inspection.
-- **The committed record is still on disk.** ``events/<event_id>/predictions/``
-  names every predictor, and the checkout carries its history. The prompt
-  forbids reading it; nothing prevents it.
+- **The committed record is still in the checkout's history.**
+  ``events/<event_id>/predictions/`` names every predictor. Both it and the
+  sibling ``evaluations/`` tree are moved out of the working tree for the
+  duration of the agent's run (:func:`hide_committed_cells`, restored by
+  :func:`restore_committed_cells` before the harness's own steps read them), so
+  a routine inventory cannot land on the names. That is the *accidental* route
+  closed, not the route: the checkout is not shallow, so every hidden byte is
+  one ``git show`` away, and the runner-local directory they were moved to is
+  as readable as the alias map beside it. The prompt forbids all of it; nothing
+  prevents any of it.
 - **The call-class profile is not masked, though the tool names are.** The
   staged ``calls`` keep everything the leakage grading reads, with each
   ``tool`` normalized to the engine-neutral classes below — each engine's raw
@@ -729,6 +744,215 @@ def provision_blinded_predictions(
         },
     )
     return BlindingResult(root=root, map_path=map_path, candidates=candidates)
+
+
+# --- hiding the committed cell trees ------------------------------------------
+
+
+#: The two committed cell trees moved out of the agent's checkout while it runs.
+#: Named one at a time rather than matched by a wildcard: this pair is what
+#: decides whether the gitignored ``record/`` tree — which holds the staged
+#: candidates the grader is *sent* to read, and the cell's provisioned snapshot
+#: and context — can be swept up by a widened glob. Two literal names at a fixed
+#: depth under the event cannot reach it.
+HIDDEN_CELL_TREES: Final[tuple[str, ...]] = ("predictions", "evaluations")
+
+#: What :func:`hide_committed_cells` writes into the stash and
+#: :func:`restore_committed_cells` requires: the record of what was moved, so
+#: putting it back is driven by what actually happened rather than by re-globbing
+#: a tree whose contents changed while it was hidden.
+HIDDEN_MANIFEST: Final = "manifest.json"
+
+#: The shape a manifest entry must have:
+#: ``cases/<court>/<docket>/events/<event>/<tree>``. The manifest is a file on a
+#: runner an agent has a shell on and every entry is joined into a move
+#: *destination* inside the checkout, so the shape is re-checked on read rather
+#: than trusted — the same posture :func:`read_blinding_map` takes.
+_HIDDEN_DEPTH: Final = 6
+
+
+def _hidden_relative(entry: object, source: Path) -> Path:
+    """One manifest entry, confirmed to name a committed cell tree and nothing else.
+
+    Every component is checked, not only the fixed ones: the court, docket, and
+    event segments are as much a part of the destination path as the literals
+    around them, and ``_SAFE_COMPONENT`` is the same screen
+    :func:`read_blinding_map` puts on both sides of an alias entry.
+    """
+    if not isinstance(entry, str) or not entry:
+        raise BlindingError(f"{source}: {entry!r} is not a path")
+    relative = Path(entry)
+    parts = relative.parts
+    if (
+        relative.is_absolute()
+        or len(parts) != _HIDDEN_DEPTH
+        or parts[0] != "cases"
+        or parts[3] != "events"
+        or parts[5] not in HIDDEN_CELL_TREES
+        or not all(_SAFE_COMPONENT.match(part) for part in (parts[1], parts[2], parts[4]))
+    ):
+        raise BlindingError(f"{source}: {entry!r} does not name a committed cell tree")
+    return relative
+
+
+def hide_committed_cells(*, data_root: Path, stash_dir: Path) -> tuple[Path, ...]:
+    """Move every committed ``predictions/`` and ``evaluations/`` tree out of the checkout.
+
+    The staging area hands the grader opaque aliases, and then the grader's
+    first ``ls`` of the ledger lands on ``events/<event_id>/predictions/<predictor_id>/``
+    — the real names, in the same checkout, one directory above what it was sent
+    to read. This moves both trees under ``stash_dir`` for the duration of the
+    agent's run, preserving their paths relative to ``data_root``;
+    :func:`restore_committed_cells` puts them back before the harness's own
+    steps read them. The stash belongs outside the checkout for the reason the
+    alias map does (:func:`map_path_for`): a hiding place inside the tree the
+    grader browses is not one.
+
+    **What this is, and what it is not.** It narrows the *accidental* surface
+    and nothing else. The cell's checkout carries full history, so every hidden
+    byte is one ``git show`` away; the stash is runner-local, not unreachable,
+    exactly as the alias map is; and this module is in that checkout too. What
+    it buys is that a routine inventory — the first thing most agents run,
+    before they have read the contract that forbids the tree — cannot land on
+    the predictor names. Reading them stays forbidden by the prompt and visible
+    afterwards in the cell's captured tool calls: anti-anchoring, not a sandbox.
+
+    **Repo-wide, deliberately.** The accidental routes are not confined to the
+    graded event: a predictor's prose style on *another* case identifies it just
+    as well, and style is a named open route (see the module docstring).
+    Repo-wide also means the operation takes no cell coordinates, so there is no
+    way to mis-key it onto the wrong event and leave the graded one exposed. The
+    cost is a directory rename per tree wherever the stash shares a filesystem
+    with the checkout, which is what the runner's temp directory does; across
+    devices ``shutil.move`` degrades to a copy.
+
+    Returns the moved paths, relative to ``data_root``, and records them in
+    ``stash_dir/manifest.json`` — written in a ``finally``, so a move that fails
+    part way through still leaves a record of what it got through and the
+    restore half can put that much back.
+
+    Two hard failures, both guarding the same silent outcome — a green run whose
+    judge saw every predictor name:
+
+    - **A stash that has already been swept into.** Refused before anything
+      moves, on the presence of the manifest — which says only that *some* hide
+      ran against this stash, restored or not, and is deliberately not read for
+      more than that. A second pass over an already-emptied tree would move
+      nothing and overwrite the one record of where the first pass put things,
+      so each run gets a stash of its own.
+    - **Hiding nothing at all.** A wrong ``data_root``, a wrong working
+      directory, or a renamed ledger layout all yield an empty sweep, which
+      would otherwise exit green having hidden nothing. The cell's staging step
+      exits non-zero unless the event carries a prediction, so by the time this
+      runs at least one ``predictions/`` tree provably exists; an empty sweep is
+      therefore a fault in the sweep, not a fact about the ledger.
+    """
+    manifest_path = stash_dir / HIDDEN_MANIFEST
+    if manifest_path.exists():
+        raise BlindingError(
+            f"{manifest_path} records an earlier hide into this stash; point at a fresh one"
+        )
+    cases_root = data_root / "cases"
+    moved: list[Path] = []
+    try:
+        for tree in HIDDEN_CELL_TREES:
+            for source in sorted(cases_root.glob(f"*/*/events/*/{tree}")):
+                if not source.is_dir():
+                    continue
+                relative = source.relative_to(data_root)
+                destination = stash_dir / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(source), str(destination))
+                moved.append(relative)
+    finally:
+        write_raw_json(
+            manifest_path,
+            {
+                "data_root": str(data_root.resolve()),
+                "hidden": [str(path) for path in sorted(moved)],
+            },
+        )
+    if not moved:
+        raise BlindingError(
+            f"no committed cell tree found under {cases_root}: the sweep hid nothing, "
+            "which would leave the grader the whole committed record"
+        )
+    return tuple(sorted(moved))
+
+
+def restore_committed_cells(*, data_root: Path, stash_dir: Path) -> int:
+    """Move the hidden cell trees back into the checkout, file by file.
+
+    Manifest-driven, and a **merge** rather than a directory-level replace,
+    because the agent legitimately writes into a hidden tree's place while it is
+    hidden: an evaluate cell's own output is
+    ``evaluations/<evaluator>/<alias>/<run>/``, so an ``evaluations/`` directory
+    reappears under the event the moment the grader writes one. Moving the
+    stashed directory back over that would delete the cell's whole output — the
+    one thing the run exists to produce.
+
+    A destination file that already exists is a hard failure, never an
+    overwrite: a collision means a committed file and an agent-written file
+    claim one path, and resolving that silently in either direction either
+    discards the cell's work or ships a file nobody wrote knowingly.
+
+    Returns the number of files restored. Raises :class:`BlindingError` on a
+    missing or malformed manifest, a manifest minted against another data root,
+    a stashed tree that is no longer there, a symlink on either side, or a
+    refused overwrite — each of which would otherwise leave committed data out
+    of the tree the stamp and ``validate`` read next. The data-root check is why
+    the manifest records one: both commands take only ``--stash-dir``, so
+    without it a restore pointed at a different root would move the committed
+    trees somewhere new and report success.
+
+    **Why symlinks are refused rather than followed.** The agent has a shell for
+    the whole window the trees are hidden, and every destination here is a path
+    it can create first. ``mkdir(exist_ok=True)`` resolves through a link, so a
+    link planted at a destination — or inside the stash — would land the
+    committed record outside the checkout while this reported a clean restore:
+    the one shape that turns a fail-loud step into a green one. It costs the
+    ledger nothing, which carries no symlinks.
+    """
+    manifest_path = stash_dir / HIDDEN_MANIFEST
+    if not manifest_path.is_file():
+        raise BlindingError(f"no manifest at {manifest_path}: nothing records what was hidden")
+    payload = _read_json(manifest_path)
+    hidden_from = payload.get("data_root")
+    if hidden_from != str(data_root.resolve()):
+        raise BlindingError(
+            f"{manifest_path} hid from {hidden_from!r}, not {str(data_root.resolve())!r}"
+        )
+    entries = payload.get("hidden")
+    if not isinstance(entries, list):
+        raise BlindingError(f"{manifest_path} carries no usable `hidden` block")
+    root = data_root.resolve()
+    restored = 0
+    for entry in entries:
+        relative = _hidden_relative(entry, manifest_path)
+        source = stash_dir / relative
+        if not source.is_dir():
+            raise BlindingError(f"{source} is gone: the hidden tree cannot be restored")
+        destination = data_root / relative
+        # Resolved before it exists, so a link anywhere along the path — the leaf
+        # or an ancestor the agent created — moves the answer and fails here.
+        if destination.resolve() != root / relative:
+            raise BlindingError(f"{destination} resolves outside {root}; refusing to restore")
+        destination.mkdir(parents=True, exist_ok=True)
+        for path in sorted(source.rglob("*")):
+            target = destination / path.relative_to(source)
+            if path.is_symlink() or target.is_symlink():
+                raise BlindingError(f"{path if path.is_symlink() else target} is a symlink")
+            if path.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            if target.exists():
+                raise BlindingError(
+                    f"{target} was written while the tree was hidden; refusing to overwrite it"
+                )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(path), str(target))
+            restored += 1
+    return restored
 
 
 # --- un-aliasing --------------------------------------------------------------

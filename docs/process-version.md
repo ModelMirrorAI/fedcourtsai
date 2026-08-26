@@ -61,7 +61,11 @@ masking surface — staging a file that was dropped, dropping one that was stage
 widening or narrowing the scrub — changes the evaluator's **information set**
 under an unchanged digest. Two evaluations can carry the same digest and have
 been formed from different inputs, which is exactly what the digest exists to
-rule out.
+rule out. What the harness takes *off* disk counts identically: the cell hides
+the committed `predictions/` and `evaluations/` trees for the duration of the
+run (`fedcourts hide-cell-record`) and deletes the labeling oracle beside them,
+so which directories those steps name — and whether they run at all — move the
+information set the same way the mask does.
 
 The discipline that follows, since the mechanism cannot enforce it: treat a
 change to the masking surface as a process change even though nothing

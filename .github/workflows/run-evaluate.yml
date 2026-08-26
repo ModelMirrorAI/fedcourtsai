@@ -333,14 +333,27 @@ jobs:
           fi
           echo "agent env is credential-free"
 
-      # data/qp-topics membership encodes cert outcomes (docs/qp-topic.md), so
-      # the prompts forbid cells from reading it. Deleting it leaves the agent's
-      # working tree nothing to read; deliberate access through git history
-      # stays covered by the prompt prohibition and the logged-tool-call audit.
-      # The collect union only copies cell output, so the deletion never
-      # propagates.
-      - name: Remove the labeling-measurement oracle from the agent's tree
-        run: rm -rf data/qp-topics
+      # Two surfaces the agent must not read, both taken out of its working tree
+      # rather than left to instruction alone. Deliberate access through git
+      # history stays covered by the prompt prohibition and the logged-tool-call
+      # audit. Neither the deletion nor the move can propagate to the run PR:
+      # the collect job unions each cell's data/ onto a freshly fetched clean
+      # origin/main checkout, and `assert-paths` rejects any non-addition.
+      #
+      # 1. data/qp-topics membership encodes cert outcomes (docs/qp-topic.md),
+      #    so the prompts forbid cells from reading it.
+      # 2. The committed predictions/ and evaluations/ trees name every
+      #    predictor, one directory above the aliased staging area the judge is
+      #    sent to read — so a routine `ls` de-blinds the cell before it has
+      #    read the contract that forbids that tree. The judge grades from
+      #    record/blinded and needs neither tree. Runs after the staging step
+      #    above, which reads the committed predictions to build the candidates;
+      #    the trees come back the moment the agent stops.
+      - name: Remove the de-blinding surfaces from the agent's tree
+        run: |
+          set -euo pipefail
+          rm -rf data/qp-topics
+          uv run fedcourts hide-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
 
       - name: Evaluate with Claude Code
         id: evaluate_claude
@@ -563,12 +576,44 @@ jobs:
           set -euo pipefail
           gemini --yolo --model "$MODEL_ID" --prompt "$PROMPT" --output-format json
 
+      # Put the hidden predictions/evaluations trees back the moment the agent
+      # stops — first of the post-agent steps, so the workspace is whole for all
+      # of them and the invariant is one line rather than a per-consumer audit.
+      # Two of them need it for more than tidiness: the usage and retrieval
+      # capture *write into* evaluations/<evaluator>/, i.e. into a hidden tree's
+      # own path, so capturing first would manufacture the collisions the
+      # restore refuses. The rest read the committed trees — the un-aliasing,
+      # the stamp's prediction join, and `validate`'s evaluation-target check.
+      # It restores file by file and refuses to overwrite, because the agent
+      # writes its own evaluations/ output where a hidden tree stood.
+      # `!cancelled()` on the same terms as the un-aliasing step below: a failed
+      # or timed-out agent still has its cell recorded, and that recording reads
+      # the committed trees — and deliberately no `success()` gate on the hide
+      # step, since a skipped restore behind a green-looking job is the failure
+      # this exists to prevent; where the hide never ran this fails loudly
+      # behind an already-failed cell, which is the cheaper side.
+      # No failure here can lose committed data: the collect job unions each
+      # cell's data/ onto a freshly fetched clean origin/main checkout with
+      # `cp -a` and never syncs, and `assert-paths` rejects any non-addition —
+      # so a tree missing from a cell's artifact is a no-op, never a deletion.
+      - name: Restore the committed cell record
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts restore-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
+
       # Record measured token usage + estimated cost next to the evaluation so a
       # maintainer can sum it into a real $/run (docs/budget.md). Best-effort: the
       # engine logs are read here, never the agent's word, and a miss must not
       # fail the evaluation — hence continue-on-error.
+      # The explicit `!cancelled()` is what keeps the agent-conclusion test the
+      # *only* gate: without it GitHub ANDs an implicit success(), and a failed
+      # restore above would silently drop the usage record of a cell that had
+      # already spent its whole agent budget. A skipped agent step's conclusion
+      # is `skipped`, so the broadened guard still cannot fire on a cell whose
+      # engine never ran. Same shape as the retrieval capture below.
       - name: Capture model usage
-        if: steps.evaluate_claude.conclusion == 'success' || steps.evaluate_codex.conclusion == 'success' || steps.evaluate_gemini.conclusion == 'success'
+        if: ${{ !cancelled() && (steps.evaluate_claude.conclusion == 'success' || steps.evaluate_codex.conclusion == 'success' || steps.evaluate_gemini.conclusion == 'success') }}
         continue-on-error: true
         env:
           COURT_ID: ${{ matrix.court }}

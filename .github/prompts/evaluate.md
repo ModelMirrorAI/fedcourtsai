@@ -83,7 +83,14 @@ Then:
    which aliases exist and evaluate every one of them. This staging area is the
    only prediction you read: the committed `events/$EVENT_ID/predictions/…` tree
    names the predictors, so reading it would undo the blinding, and doing so is a
-   contract breach whether or not it changes your grade.
+   contract breach whether or not it changes your grade. The harness moves that
+   tree (and the sibling `evaluations/`) out of your working tree for the
+   duration of your run and restores it afterwards, so a directory listing
+   cannot land on it by accident; the prohibition stands regardless, because
+   this checkout's history still carries it. `git status` therefore shows those
+   files as deleted — that is the harness at work and not yours to tidy: do not
+   `git restore`, `git checkout`, or otherwise re-materialize anything under
+   `data/`, which would both undo the blinding and break the restore.
    The staged `prediction.json` is a deliberately masked *view*, so it does not
    validate against `schemas/prediction.schema.json` — a null `engine` is the
    mask working, not a defect, and never something to flag or penalize. Everything
@@ -655,15 +662,18 @@ advisory and never graded.
 - **Keep the blind.** Read candidates only from `record/blinded/<alias>/`, key
   every output on the alias, and do not try to work out who a candidate is by any
   route. The routes are named so there is no ambiguity about what is off limits:
-  the committed `events/$EVENT_ID/predictions/` tree and the repository history
-  that carries it; the alias map the harness wrote (it is deliberately not in
-  this tree — do not go looking for it); re-deriving the alias assignment by
-  running or reading `fedcourtsai.blinding`; searching for the redacted text; and
-  reasoning from style. If a suspicion forms anyway, it is not evidence and must
-  not appear in any field or document you write. Every one of those routes is a
-  tool call, and your tool calls are captured harness-side into this cell's own
-  `retrieval_log.json` — the blind is a contract with an audit trail, not a wall,
-  and a cell that breaks it is visible to a maintainer afterwards.
+  the committed `events/$EVENT_ID/predictions/` tree — absent from your working
+  tree while you run, and no less off limits for that — the repository history
+  that carries it either way, and the runner-local directory the harness moved
+  it to; the alias map the harness wrote (both of those are deliberately not in
+  this tree — do not go looking for either); re-deriving the alias assignment
+  by running or reading `fedcourtsai.blinding`; searching for
+  the redacted text; and reasoning from style. If a suspicion forms anyway, it
+  is not evidence and must not appear in any field or document you write. Every
+  one of those routes is a tool call, and your tool calls are captured
+  harness-side into this cell's own `retrieval_log.json` — the blind is a
+  contract with an audit trail, not a wall, and a cell that breaks it is
+  visible to a maintainer afterwards.
 - Before finishing, confirm your directories and every `predictor_id` you wrote
   carry the alias you were given — you know no predictor's name, so that is the
   whole check. The harness resolves the aliases after you.
@@ -676,8 +686,10 @@ advisory and never graded.
 - **Do not commit, push, or open a PR** — the workflow handles git.
 - Before finishing, make sure each `evaluation.json` you wrote validates against
   `schemas/evaluation.schema.json`. Do **not** expect `uv run fedcourts validate
-  data` to pass while your output is still alias-keyed: its evaluation-target
-  check resolves `predictor_id` against the committed `predictions/` tree, and an
-  alias matches nothing there by design. That check is the harness's self-check
-  on the un-aliasing step that runs after you, and it passes once that step has
-  run — an alias that survives it fails the gate loudly, which is the intent.
+  data` to pass while you are running — for two reasons, both by design. Its
+  evaluation-target check resolves `predictor_id` against the committed
+  `predictions/` tree; your output is still alias-keyed, and that tree is not in
+  the working tree while you run. The harness order after you is: restore the
+  committed trees, un-alias your output, stamp it, then run that check itself as
+  its own self-check on all three — an alias that survives it fails the gate loudly,
+  which is the intent.

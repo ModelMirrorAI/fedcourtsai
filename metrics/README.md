@@ -547,6 +547,17 @@ stays outside the gate:
   anchor: under the bracket exactly one candidate is staged per predictor, so an
   event a predictor ran twice contributes one grade rather than several.
 
+  The anchor is not the only channel the bracket closes, and the second one
+  reaches further than `reasoning_quality`. The bracket also takes the committed
+  `evaluations/` tree out of the cell's working tree for the duration of its
+  run, so a judge cannot read another judge's — or its own earlier — committed
+  grade of the prediction it is grading. That is a herding channel, and grades
+  formed while it was open can agree for reasons other than the work: an
+  agreement figure spanning the boundary is demoted for the same reason a
+  `reasoning_quality` mean is, which covers the leaderboard's
+  `evaluator_agreement` and `semantic-summary`'s leave-one-out agreement as well
+  as the tau-b.
+
   **The judge validation is the headline.** Per stratum, the pre-registered
   Kendall tau-b between per-cell mechanical claim totals and
   `reasoning_quality` grades, over the **intersection** population only —
