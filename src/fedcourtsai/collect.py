@@ -572,6 +572,49 @@ _READS_THE_NAME_RE = re.compile(r"\b(?:rg|ripgrep|grep|egrep|fgrep|sed|awk|less|
 _NAMED_CELL_CAP = 8
 
 
+#: The code-mode builtins that **run a command**, out of the enumerated set the
+#: retrieval lift mints rows for. The other three carry prose the program wrote
+#: — a patch body, a plan step, an image path — and their argument text becomes
+#: the row's query slice verbatim, so a plan step reading "pull priors with
+#: `fedcourts query`" or a patch that writes the attempted command into the
+#: cell's own `retrieval.md` would otherwise be counted as the invocation it
+#: describes. That is the same confusion between running a command and writing
+#: one down that the shell-class screen exists to prevent, arriving by another
+#: door. `test_the_command_running_builtins_are_a_subset_of_what_the_lift_mints`
+#: pins this against the lift's own list, so a name added there is classified
+#: rather than silently admitted.
+CODE_MODE_SHELL_BUILTINS = frozenset({"exec_command", "write_stdin"})
+
+
+def _ran_commands(call: RetrievalCall) -> bool:
+    """Whether this row is one a corpus query could have been *run* from.
+
+    Two shapes qualify, and the second is the whole reason this is a function
+    rather than one comparison:
+
+    * a **shell** call — which engine spellings those are comes from
+      :func:`~fedcourtsai.blinding.neutral_tool_class`, the one place this
+      vocabulary is defined, rather than a second copy that would drift from
+      it;
+    * a row **lifted out of a code-mode program's source** naming one of the
+      command-running builtins (:data:`CODE_MODE_SHELL_BUILTINS`). A code-mode
+      cell runs every command from inside a program, so those rows are its
+      shell, and reading only the first shape would count such a cell's corpus
+      attempts at nearly zero however many it made.
+
+    What neither shape admits is a row that merely *carries* the command as
+    content — a ``Write`` of the cell's own ``retrieval.md`` describing what it
+    tried, or the patch/plan builtins that do the same from inside a program —
+    which is why both tests are on the tool rather than on the text. A lifted
+    row is weaker evidence than a shell row either way, since the lift reads
+    program *text*: a call site in an untaken branch counts though it never
+    ran. The note this feeds is advisory and says so.
+    """
+    if neutral_tool_class(call.tool) == "shell":
+        return True
+    return call.call_source == "code_mode_source" and call.tool in CODE_MODE_SHELL_BUILTINS
+
+
 def attempted_corpus_query(calls: Sequence[RetrievalCall]) -> bool:
     """Whether this cell's captured shell ran a corpus-prior query at least once.
 
@@ -581,12 +624,10 @@ def attempted_corpus_query(calls: Sequence[RetrievalCall]) -> bool:
     *name* appears but no query ran, because every one of those would otherwise
     report a cell's choice as the corpus failing it:
 
-    * the row must be a **shell** call, so only one that could have *run* the
-      command counts (which engine spellings those are comes from
-      :func:`~fedcourtsai.blinding.neutral_tool_class`, the one place this
-      vocabulary is defined, rather than a second copy that would drift from
-      it) — otherwise a cell that only *wrote* the command into its own
-      ``retrieval.md``, describing what it tried, would read as having run it;
+    * the row must be one a command could have been run from
+      (:func:`_ran_commands`) — otherwise a cell that only *wrote* the command
+      into its own ``retrieval.md``, describing what it tried, would read as
+      having run it;
     * the subcommand must not be immediately followed by ``--help`` / ``-h``
       (:data:`_CORPUS_QUERY_RE`) — a flag further along the line is not
       screened, which errs toward counting the attempt;
@@ -594,15 +635,18 @@ def attempted_corpus_query(calls: Sequence[RetrievalCall]) -> bool:
       the corpus CLI's name out of this repository's docs.
 
     What survives is still syntactic, and still misses in one direction: an
-    invocation past the query slice's 500-character cut — where a code-mode
-    cell's often sits, since its shell runs from inside a program — is not
-    counted at all. Capture lifts that program's shell calls into rows naming
-    the command in full, but under the *builtin's* name rather than one of the
-    shell spellings the first screen reads, so they do not close the gap. The
-    note it feeds is advisory, and says so.
+    invocation past a row's 500-character query cut is not counted at all. That
+    bites hardest on a code-mode parent, whose slice holds only the head of a
+    whole program — which is why the lifted rows count too, each carrying one
+    call at its own head. What no row can show is a command the lift never
+    matched, and nothing here watches for that: :func:`code_mode_lift_blind`
+    beside it keys on the *manifest* half of the lift, so it is correlated with
+    this count's coverage rather than a bound on it — a drift in the *builtin*
+    idiom would empty this count for every code-mode cell and leave the
+    tripwire silent. The note both feed is advisory, and says so.
     """
     for call in calls:
-        if neutral_tool_class(call.tool) != "shell":
+        if not _ran_commands(call):
             continue
         text = call.query or ""
         for match in _CORPUS_QUERY_RE.finditer(text):
@@ -658,28 +702,46 @@ class PriorAvailabilityRollup:
     corpus-prior channel served the cells that reached for it.
 
     The two sides are **different kinds of evidence** and must not be read as
-    one measurement. ``attempted`` is harness-captured: a shell row in the
-    cell's retrieval log whose command ran a corpus-prior query. ``served`` is
+    one measurement. ``attempted`` is harness-captured: a row in the cell's
+    retrieval log that a command could have been run from — a shell call, or
+    one lifted out of a code-mode program — whose command ran a corpus-prior
+    query. ``served`` is
     the cell's own word: the sibling ``tooling.json``'s ``used_corpus_query``.
     So ``starved`` is not "the corpus failed this cell" — it is the *disagreement*
     between the two channels, and at least three things produce it: a query
     that failed or timed out, a cell that queried and answered the field on
-    some other reading, and a mis-parse on either side. The rows cannot
-    separate them, which is why the count is advisory and the note names the
-    disagreement rather than a cause.
+    some other reading, and a mis-parse on either side. On a **code-mode** cell
+    there is a fourth, and it is why the two halves of ``attempted`` are not one
+    kind of evidence either: such a cell's commands are read out of its
+    program's source rather than observed running, so a call site in a branch
+    the program never took is counted as an attempt. On a shell cell the
+    statistic is "ran it, and did not report using it"; on a code-mode cell it
+    is "asked for it in the program text, and did not report using it". The
+    rows separate none of this, which is why the count is advisory and the note
+    names the disagreement rather than a cause.
 
-    The two sides do at least ask about roughly the same commands, and where
-    they differ it is in the safe direction: :data:`_CORPUS_QUERY_RE` covers the
-    ``query`` / ``open-events`` pair, while the tooling field's own wording
-    ("query/open-events/etc.") is a **superset** — so a broader reading of the
-    field can only move a cell out of ``starved``, never into it.
+    On the ``served`` side the two channels do at least ask about roughly the
+    same commands, and where they differ it is in the safe direction:
+    :data:`_CORPUS_QUERY_RE` covers the ``query`` / ``open-events`` pair, while
+    the tooling field's own wording ("query/open-events/etc.") is a
+    **superset** — so a broader reading of the field can only move a cell out
+    of ``starved``, never into it. That is a property of that side alone: the
+    code-mode reading above moves cells the other way.
 
     ``cells`` is every legible cell log this run, the count ``attempted`` is a
     subset of. It rides along because ``attempted`` is not "the cells that
-    asked": a code-mode cell's query is visible only where it falls inside its
-    parent row's truncated source slice, so the denominator is **legibility**,
-    and a reader who cannot see how much of the run it covers will read it as
-    the run.
+    asked": what capture could read of a cell's commands differs by
+    engine — a code-mode cell's are visible only as far as the lift matched its
+    program — so the denominator is **legibility**, and a reader who cannot see
+    how much of the run it covers will read it as the run. For the same reason
+    the rate is a within-run reading rather than a series: what capture can see
+    of an engine moves with the parser, so two runs' rates are comparable only
+    where nothing about capture changed between them. Unlike the row-level
+    capture figures, which are baked at parse time and never re-derived, this
+    rollup is computed **at collect time over committed rows** — so re-running
+    ``collect-plan`` over an old run answers with today's predicate rather than
+    the one that wrote that run's PR body, and nothing on either surface
+    records which produced it.
 
     ``starved`` and ``unreported`` name their cells (``case/event/actor``)
     rather than counting them. They are separate because the claims differ:
@@ -756,23 +818,32 @@ def render_prior_availability_note(rollup: PriorAvailabilityRollup | None) -> st
         paragraphs.append(
             f"⚠️ **Cells ran a corpus query and reported no corpus use**: "
             f"{len(rollup.starved)} of {rollup.attempted} cell(s) whose corpus attempt was "
-            f"legible, out of {rollup.cells} legible cell log(s) this run — "
+            f"legible — an attempt is counted differently by engine, see below — out of "
+            f"{rollup.cells} legible cell log(s) this run — "
             f"{_named_cells(rollup.starved)} (walk order, not severity). **A disagreement "
             f"between two channels, not a diagnosis.** The attempt is harness-captured (a "
-            f"shell row); the service is the cell's own `tooling.json`. A query that failed "
-            f"or timed out against the corpus index leaves this shape, and it is the reason "
-            f"the count is worth printing — but so does a cell that queried, got rows, and "
-            f"answered the field on some other reading, and the rows cannot tell those "
-            f"apart. Read the named cells' `tooling.json` notes before concluding anything "
-            f"about their priors. Not comparable across engines or across runs: the "
-            f"denominator is what capture could read, which differs by engine."
+            f"row a command could have run from — a shell call, or one lifted out of a "
+            f"code-mode program); the service is the cell's own `tooling.json`. Three "
+            f"things leave this shape and the rows tell none of them apart: a query that "
+            f"failed or timed out against the corpus index (the reason the count is worth "
+            f"printing), a cell that queried, got rows, and answered the field on some "
+            f"other reading, and a mis-parse on either side. On a **code-mode** cell there "
+            f"is a fourth, because its attempt is not an execution: its commands are read "
+            f"out of the program's own source, so a call site in a branch the program "
+            f"never took counts as an attempt. Read the named cells' `tooling.json` notes "
+            f"before concluding anything about their priors. Not comparable across engines "
+            f"— a shell row is an execution, a lifted row a source-text site — nor across "
+            f"runs whenever capture itself has moved between them; and a drift in the "
+            f"code-mode builtin idiom would empty these counts for such cells with nothing "
+            f"here to show it."
         )
     if rollup.unreported:
         paragraphs.append(
             f"❔ **Whether the corpus served {len(rollup.unreported)} of {rollup.attempted} "
             f"cell(s) with a legible attempt cannot be read**: no `tooling.json` of their own "
             f"parsed, so there is no answer either way — unknown, not served and not "
-            f"starved: {_named_cells(rollup.unreported)}."
+            f"starved: {_named_cells(rollup.unreported)}. The denominator is what capture "
+            f"could read of each engine's commands, so it is a within-run figure."
         )
     if rollup.lift_blind_cells:
         paragraphs.append(
@@ -785,13 +856,11 @@ def render_prior_availability_note(rollup: PriorAvailabilityRollup | None) -> st
             f"was an ordinary shell call an engine spells the same way (the parser tells "
             f"those apart by the transcript item's type, which no row records). A standing "
             f"condition rather than a fresh regression: check the ratio "
-            f"against earlier runs before reading it as new. Either way the attempt counts "
-            f"above are partial for such a cell — its shell runs from inside a program, and "
-            f"the lifted row that names the command is a builtin rather than one of the "
-            f"shell spellings the attempt count reads, so a query made there is counted "
-            f"only where it falls inside the parent row's truncated source slice. What a "
-            f"lifted row does and does not claim: `call_source` in "
-            f"`docs/predicted-artifacts.md`."
+            f"against earlier runs before reading it as new. It watches the **manifest** "
+            f"half of the lift while any attempt count above reads the **builtin** half, "
+            f"so it is correlated with their coverage rather than a bound on it — neither "
+            f"implies the other. What a lifted row does and does not claim: `call_source` "
+            f"in `docs/predicted-artifacts.md`."
         )
     return "\n\n".join(paragraphs)
 

@@ -376,6 +376,51 @@ def test_collect_plan_names_the_cells_the_corpus_did_not_serve(tmp_path: Path) -
     assert "`scotus/3/evt-x/gemini-baseline`" in body
 
 
+def test_collect_plan_sees_a_code_mode_cell_s_corpus_attempt(tmp_path: Path) -> None:
+    # A code-mode cell runs every command from inside one program, so its
+    # corpus attempt reaches the log as a row lifted out of that program's
+    # source under the builtin's name. Without this the engine that predicts
+    # this way is absent from the note's denominator however often it queried,
+    # and the note's engine split reads as "that engine never asks".
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="codex-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        **base,
+    )
+    _write_query_log(
+        tmp_path,
+        "cell-a",
+        "codex-baseline",
+        calls=[
+            # The wrapper row: the program's head, which here says nothing
+            # about the corpus — the whole point being that the command sits
+            # past what this row's own query slice would show.
+            {"tool": "exec", "query": "const rows = await Promise.all(reads.map(run));"},
+            {
+                "tool": "exec_command",
+                "query": '{cmd:"uv run fedcourts query --court scotus --limit 5"}',
+                "result_capture": "unobserved",
+                "result_status": "unobserved",
+                "call_source": "code_mode_source",
+            },
+        ],
+    )
+    _write_tooling(tmp_path, "cell-a", "codex-baseline", used_corpus_query=False)
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    body = json.loads(result.stdout)["ready"]["body"]
+    assert "1 of 1 cell(s)" in body
+    assert "`scotus/1/evt-x/codex-baseline`" in body
+
+
 def test_collect_plan_counts_two_events_of_one_case_as_two_cells(tmp_path: Path) -> None:
     # A log records the case and the actor but not the event, so a run covering
     # two events of one case for one actor would fold into a single cell — and

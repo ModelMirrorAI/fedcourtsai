@@ -13,6 +13,7 @@ from fedcourtsai import retrieval
 from fedcourtsai.blinding import neutral_tool_class
 from fedcourtsai.collect import (
     CODE_MODE_PARENT_TOOL,
+    CODE_MODE_SHELL_BUILTINS,
     CellStatus,
     ExpectedCell,
     PathJailError,
@@ -796,15 +797,16 @@ def test_reading_the_manual_is_not_a_corpus_query() -> None:
     )
 
 
-def test_a_lifted_builtin_row_does_not_yet_close_the_code_mode_attempt_gap() -> None:
-    """The undercount the tripwire note reports, pinned rather than assumed.
+def test_a_lifted_builtin_row_is_a_code_mode_cell_s_corpus_attempt() -> None:
+    """A code-mode cell's shell IS its lifted builtin rows, and the count reads them.
 
-    Capture lifts a program's shell calls into rows carrying the command in
-    full, which looks like it should close the gap — but the first screen reads
-    the shared tool classifier, and the builtin's name is not one of the shell
-    spellings there. So the attempt is still counted only where the command
-    falls inside the parent row's truncated program slice. One dict entry away
-    from flipping in either direction, which is why it is a test.
+    The row is not shell-classed — the classifier's vocabulary is the engine
+    tool names a judge sees, and the builtin is not one of them — so the
+    attempt count reaches it on the lift marker instead: a row out of a
+    program's own source that names no manifest tool. Deliberately not closed
+    the other way (mapping the builtin into the shell class), which would move
+    what a blinded staged log shows a judge; this decides one rollup and
+    nothing about the masking surface.
     """
     lifted = _call(
         "exec_command",
@@ -813,11 +815,86 @@ def test_a_lifted_builtin_row_does_not_yet_close_the_code_mode_attempt_gap() -> 
         call_source="code_mode_source",
     )
     assert neutral_tool_class(lifted.tool) != "shell"
-    assert not attempted_corpus_query([lifted])
-    # The parent row is shell-classed, so a command inside the legible slice is
-    # what the count actually sees for such a cell.
+    assert attempted_corpus_query([lifted])
+    # The parent row is shell-classed, so a command inside its legible slice
+    # still counts on its own — the two paths overlap rather than replace.
     parent = _call(CODE_MODE_PARENT_TOOL, 'await tools.exec_command({cmd:"fedcourts query -n 5"})')
     assert attempted_corpus_query([parent])
+    # Every other screen still applies to a lifted row: reading the manual is
+    # not a query, and a lifted MANIFEST row carries JSON arguments rather than
+    # a command line, so the command's name inside one is not an invocation.
+    assert not attempted_corpus_query(
+        [
+            _call(
+                "exec_command",
+                '{cmd:"uv run fedcourts query --help"}',
+                result_capture="unobserved",
+                call_source="code_mode_source",
+            )
+        ]
+    )
+    assert not attempted_corpus_query(
+        [
+            _call(
+                "mcp__courtlistener__search",
+                '{"q": "fedcourts query --court scotus"}',
+                result_capture="unobserved",
+                call_source="code_mode_source",
+            )
+        ]
+    )
+    # And the marker is what admits the row: the same tool name without it is
+    # not evidence a command ran (a transcript row named for a builtin is the
+    # engine's own wrapper record, not the program's source).
+    assert not attempted_corpus_query(
+        [_call("exec_command", '{cmd:"uv run fedcourts query --court scotus"}')]
+    )
+
+
+def test_a_lifted_builtin_that_runs_nothing_is_not_an_attempt() -> None:
+    """Writing the command down is not running it, from inside a program either.
+
+    The lift mints rows for five builtins and only two of them run anything;
+    the other three carry prose the program wrote, verbatim, into the row's
+    query slice. A patch that writes the attempted command into the cell's own
+    `retrieval.md`, or a plan step naming it as the next thing to do, is the
+    exact confusion the shell-class screen exists to prevent, arriving by
+    another door — and it would name that cell in the run PR's starved list on
+    evidence that no query ever ran.
+    """
+    plan = _call(
+        "update_plan",
+        '{plan:[{step:"pull priors with fedcourts query --court scotus"}]}',
+        result_capture="unobserved",
+        call_source="code_mode_source",
+    )
+    patch = _call(
+        "apply_patch",
+        '{input:"*** Update File: retrieval.md\\n+I tried `fedcourts query --court scotus`"}',
+        result_capture="unobserved",
+        call_source="code_mode_source",
+    )
+    assert not attempted_corpus_query([plan])
+    assert not attempted_corpus_query([patch])
+    # The other half of the pair does run one — a command fed to a process the
+    # program already opened is as much an invocation as the one that opened it.
+    fed = _call(
+        "write_stdin",
+        '{chars:"uv run fedcourts query --court scotus --limit 5\\n"}',
+        result_capture="unobserved",
+        call_source="code_mode_source",
+    )
+    assert attempted_corpus_query([fed])
+
+
+def test_the_command_running_builtins_are_a_subset_of_what_the_lift_mints() -> None:
+    # The attempt count classes the lift's builtin names by hand — which of
+    # them run a command — so a name ADDED to the lift must be classified
+    # rather than silently admitted or silently dropped. Pinned against the
+    # lift's own pattern, the same way the code-mode parent's name is.
+    minted = set(retrieval._CODE_MODE_BUILTIN_RE.pattern.split("(")[1].split(")")[0].split("|"))
+    assert minted == {"exec_command", "write_stdin", "apply_patch", "view_image", "update_plan"}
+    assert minted >= CODE_MODE_SHELL_BUILTINS
 
 
 def test_the_code_mode_tripwire_fires_only_where_a_program_lifted_nothing() -> None:

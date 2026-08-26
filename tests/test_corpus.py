@@ -738,6 +738,20 @@ def test_case_era_prefers_term_year_then_dates() -> None:
     assert corpus.case_era(bare) is None
 
 
+def test_era_tokens_span_the_judiciary_and_hold_what_case_era_mints() -> None:
+    # The `--era` vocabulary the CLI offers a caller that guessed one. It is
+    # derived from case_era's own arithmetic rather than typed out again, so
+    # the tokens offered are the ones rows can actually carry: a decade the
+    # corpus could never hold must not be offered, and one it can must not be
+    # refused.
+    tokens = corpus.era_tokens(date(2026, 8, 26))
+    assert tokens[0] == "1780s" and tokens[-1] == "2020s"
+    old = corpus.CorpusRow(case_id="scotus/2", court="scotus", date_decided=date(1873, 3, 1))
+    assert corpus.case_era(old) in tokens
+    # It follows the clock, so the decade a cell is predicting in is offered.
+    assert corpus.era_tokens(date(2031, 1, 1))[-1] == "2030s"
+
+
 def test_case_year_prefers_term_year_then_dates() -> None:
     # The year behind case_era and the decided_before cutoff, same signal order.
     scotus = corpus.CorpusRow(

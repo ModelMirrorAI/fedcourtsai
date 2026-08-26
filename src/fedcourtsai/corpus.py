@@ -1815,6 +1815,29 @@ def case_era(row: CorpusRow) -> str | None:
     return f"{year - year % 10}s"
 
 
+#: The floor of the ``era`` vocabulary, and the reason that vocabulary is
+#: enumerable at all: the federal judiciary opened under the Judiciary Act of
+#: 1789, so nothing older can be dated at all. The decade rather than the year,
+#: since eras are decade buckets.
+FIRST_ERA_DECADE = 1780
+
+
+def era_tokens(today: date | None = None) -> tuple[str, ...]:
+    """Every decade token the ``era`` filter accepts, oldest first.
+
+    :func:`case_era`'s range over a well-dated row, derived from that
+    function's own arithmetic rather than typed out a second time — so the CLI
+    can tell an agent that guessed a court-name era ("Roberts Court") what the
+    tokens actually are, without offering a decade no row could ever carry.
+    Bounded rather than open because a vocabulary is only useful printed: the
+    cost is that a row carrying a date outside the window (a corrupt year, a
+    docket dated into a decade that has not begun) has an era this refuses,
+    which is why the refusal prints the whole list rather than just failing.
+    """
+    now = today if today is not None else date.today()
+    return tuple(f"{decade}s" for decade in range(FIRST_ERA_DECADE, now.year + 1, 10))
+
+
 #: How long after its cert grant a merits proceeding may sit with neither a
 #: parsed judgment nor a recorded termination before the row reads as stale
 #: rather than pending. Two October Terms, against the six-to-eighteen-month
