@@ -720,9 +720,12 @@ role-assumed flow, whose read-only role's policy also reads it (see
 [data-pipeline.md](data-pipeline.md)'s *Developer access* for the
 `scripts/corpus-env` switch). A dev checkout can dry-run the seeder against
 the read-only role, and its write half exists nowhere but the workflow below.
-The pin makes the dry run shell-proof: a staging-flipped shell cannot re-base
-the rail, and one carrying the staging pointer override is refused outright
-rather than reading the slice as its own source.
+The pin makes the dry run shell-proof for the ranged read and the rail alike:
+a staging-flipped shell cannot re-base what the rail refuses, and one carrying
+the staging pointer override is refused outright. The one residual is the
+`local` backend, which reads whatever pulled blob is on disk — the pin
+governs the content store, the rail, and the ranged read — so dry-run ranged,
+or re-pull production first.
 
 Provisioning is AWS-and-environment work only the maintainer can do. **Steps
 1-4 are the whole of what the refresh lane needs**, and they are ordered: each
@@ -750,7 +753,8 @@ the repoint. Read step 5's two ordering notes before doing either.
    and lists there, which is where the slice comes from (step 3), and that is
    the whole of its production reach. The seeder's rail enforces the separation
    from the other side, refusing any destination sharing a bucket with its
-   pinned source — production, in this lane. The licence travels with the slice: it is CourtListener content
+   pinned source — production, in this lane. The licence travels with the
+   slice: it is CourtListener content
    under the same CC BY-ND no-republication posture
    ([data-sources.md](data-sources.md)), so the staging pair is access-gated on
    the same terms — **no wider read principal than production's**, nothing
@@ -815,7 +819,8 @@ the repoint. Read step 5's two ordering notes before doing either.
    the environment rather than the repository because environment values are
    the one slot nothing can shadow — and they join any store-rotation
    checklist: a rotation that moves the production pair must move these two
-   with it, or the lane seeds from whatever the old bucket still resolves to.
+   with it, or the lane seeds from whatever the old bucket still resolves to
+   — the census's source-blob line (step 6) is where that staleness shows.
 5. **Point the `staging` environment at the staging corpus.** Set its
    `CORPUS_REMOTE_URL` and `CASESTORE_URL` to the staging pair,
    `FEDCOURTS_CORPUS_SPLIT=1`, and `FEDCOURTS_CORPUS_POINTER` to the pointer
@@ -842,9 +847,11 @@ the repoint. Read step 5's two ordering notes before doing either.
    it.** Its source is production's index, which is exactly what the
    committed pointer names, so `staging-corpus-refresh` forwards no pointer
    and `corpus-seed-slice` refuses to run while the pointer override is set
-   anywhere in its environment. Handing the lane one would be the index half
-   of the self-seeding hazard the source pin closes: the seeder would read
-   the slice as its own source and re-seed staging from staging.
+   anywhere in its environment. An override asks the index read for another
+   blob than the pin's committed pointer — against the pinned production
+   remote a staging pointer is a missing key, not a mis-read — and a command
+   whose correctness depends on which blob it saw does not run under one;
+   the refusal names the cause where the missing key would not.
 
    **Order this after the override is live on the ref the scenarios run
    from.** An environment carrying the pointer variable while the running
@@ -905,7 +912,9 @@ the repoint. Read step 5's two ordering notes before doing either.
    ```
 
    **The observable is the apply run's step summary**: a per-case census (rows,
-   events, snapshots, documents, objects) plus the published-pointer JSON
+   events, snapshots, documents, objects, and the source index blob's
+   resolved key and size — the pin's value at this run, which is where a
+   stale source pin shows) plus the published-pointer JSON
    block. Both present, with the case counts you asked for, is the acceptance
    available today — it proves the role, the environment, the variables, and
    both destination stores are provisioned and writable.

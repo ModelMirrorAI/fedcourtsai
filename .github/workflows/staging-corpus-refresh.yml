@@ -51,9 +51,9 @@ name: staging-corpus-refresh
 # Provisioning the variables and the role is a maintainer task the workflow
 # cannot do for itself — see the staging corpus runbook in docs/security.md.
 # Until it is done, a dispatch fails closed: an unset role variable resolves
-# empty and the assume-role step refuses, and an unset source variable
-# resolves empty and the command refuses at its own rail before anything is
-# read.
+# empty and the assume-role step refuses, and an unset source or destination
+# variable resolves empty and the command refuses at construction, before
+# anything is read.
 on:
   workflow_dispatch:
     inputs:
@@ -108,7 +108,7 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the staging read-write AWS role
-    # This job reads NO ambient corpus variable — deliberately. Its source
+    # This job reads NO ambient corpus location variable — deliberately. Its source
     # stores are pinned on the command line from the environment's
     # production-source variables (the seed step below), and the source index
     # is this checkout's committed pointer, resolved by the ranged backend

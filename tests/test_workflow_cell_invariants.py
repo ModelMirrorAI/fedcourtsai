@@ -265,6 +265,25 @@ def test_the_refresh_lane_pins_its_source_out_of_the_scenario_variables() -> Non
             f"the seed invocation must pass {flag} {variable} — the pin is "
             "only a pin if the command consumes it"
         )
+    # The textual guard above is name-based, so also pin the env surfaces
+    # exactly: a corpus URL smuggled in under a different name would land in
+    # one of these mappings.
+    assert set(env) == {
+        "DOCKETS",
+        "APPLY",
+        "SOURCE_REMOTE",
+        "SOURCE_CASESTORE",
+        "DEST_REMOTE",
+        "DEST_CASESTORE",
+    }, f"unexpected seed-step env keys: {sorted(env)}"
+    job_envs = [
+        job["env"]
+        for job in _load("staging-corpus-refresh.yml")["jobs"].values()
+        if isinstance(job.get("env"), dict)
+    ]
+    assert job_envs == [{"FEDCOURTS_CORPUS_BACKEND": "ranged"}], (
+        f"the refresh job's env must be exactly the backend literal, got {job_envs}"
+    )
 
 
 # The corpus-sidecar composite hydrates full-query bodies server-side, so its

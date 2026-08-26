@@ -2125,7 +2125,7 @@ def corpus_seed_slice(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
     disk, which the pin does not govern — the workflow always runs ranged.
     **Refuses**, in order: a corpus pointer override in the environment (the
     index half of the self-seeding hazard — a dev shell flipped to staging
-    carries one); a destination that *is* either pinned source store, or that
+    may carry one); a destination that *is* either pinned source store, or that
     sits inside either source bucket at any prefix — a local second line
     behind the IAM policy, which is what actually keeps the seeding role
     read-only on production.

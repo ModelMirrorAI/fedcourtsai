@@ -177,8 +177,9 @@ maintainer-run `contexts` stage reports whether that policy is actually set
 default**: the per-case census is the reading an apply is dispatched on, so the
 procedure is two dispatches. What keeps it off production is IAM: the role is
 read-only there. The seeder's own rail is the second line, refusing any
-destination that is, or sits inside the bucket of, either configured production
-store. **One repointing is still outstanding**: a consumer resolves the committed
+destination that is, or sits inside the bucket of, either store of its pinned
+source — dedicated production-source variables the staging repoint never
+touches. **One repointing is still outstanding**: a consumer resolves the committed
 `corpus/corpus.db.ref` — whose digest names the production blob — unless the
 out-of-band pointer override names the staging blob instead (*Developer
 access* in [data-pipeline.md](data-pipeline.md)), and the scenarios read

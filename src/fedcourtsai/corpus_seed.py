@@ -200,11 +200,31 @@ class Destination:
     objects: ObjectTransport | None = None
     blob_transport: WholeFileTransport | None = None
 
+    def __post_init__(self) -> None:
+        # The same construction-time normalization and empty-slot refusal the
+        # source gets: an unset workflow variable resolves to the empty
+        # string, and all four store slots should fail closed in one voice —
+        # a named refusal, never a parse error over the empty string.
+        object.__setattr__(self, "remote_url", self.remote_url.strip())
+        object.__setattr__(self, "casestore_url", self.casestore_url.strip())
+        if not self.remote_url:
+            raise SeedSliceError(
+                "refusing to seed: the destination corpus remote URL is empty "
+                "(--dest-remote) — an unset destination variable is a "
+                "misconfiguration, not a default; see docs/security.md."
+            )
+        if not self.casestore_url:
+            raise SeedSliceError(
+                "refusing to seed: the destination content-store URL is empty "
+                "(--dest-casestore) — an unset destination variable is a "
+                "misconfiguration, not a default; see docs/security.md."
+            )
+
     def object_transport(self) -> ObjectTransport:
         """The destination content-store transport, built from the URL if unset."""
         if self.objects is not None:
             return self.objects
-        bucket, prefix = parse_s3_url(self.casestore_url.strip())
+        bucket, prefix = parse_s3_url(self.casestore_url)
         return S3ObjectTransport(bucket, prefix=prefix or DEFAULT_PREFIX)
 
 
@@ -235,14 +255,21 @@ class Source:
     objects: ObjectTransport | None = None
 
     def __post_init__(self) -> None:
-        if not self.remote_url.strip():
+        # Normalized once at construction, so the rail's parsers and every
+        # reader of these URLs see the same bytes — a padded variable value
+        # must not pass the rail and then reach a URL-echoing parser
+        # downstream (rail messages name slots, never URLs, and run logs are
+        # public).
+        object.__setattr__(self, "remote_url", self.remote_url.strip())
+        object.__setattr__(self, "casestore_url", self.casestore_url.strip())
+        if not self.remote_url:
             raise SeedSliceError(
                 "refusing to seed: the source corpus remote URL is not pinned "
                 "(--source-remote), so the rail cannot tell a staging "
                 "destination from its source. Pin it to the production value "
                 "(the workflow does) — see docs/security.md."
             )
-        if not self.casestore_url.strip():
+        if not self.casestore_url:
             raise SeedSliceError(
                 "refusing to seed: the source content-store URL is not pinned "
                 "(--source-casestore). The rail cannot tell a staging "
@@ -254,7 +281,7 @@ class Source:
         """The source content-store transport, built from the URL if unset."""
         if self.objects is not None:
             return self.objects
-        bucket, prefix = parse_s3_url(self.casestore_url.strip())
+        bucket, prefix = parse_s3_url(self.casestore_url)
         return S3ObjectTransport(bucket, prefix=prefix or DEFAULT_PREFIX)
 
 
@@ -382,20 +409,22 @@ def assert_no_pointer_override(settings: Settings) -> None:
     """Refuse to seed while a corpus pointer override is set.
 
     The seeder's source index is the pinned remote's committed pointer; an
-    override in the environment would swap another blob in under it — a dev
-    shell flipped to the staging pair carries exactly that — which is the
-    index half of the self-seeding hazard the pinned source closes. Same
-    posture as ``corpus-push``, which refuses to publish while the override
-    is set: a command whose correctness depends on which blob it saw does
-    not run under one. Seeding *from* an overridden pair would need its own
-    explicit source-pointer input — a deliberate omission (:class:`Source`).
+    override in the environment asks for another blob — a dev shell flipped
+    to the staging pair may carry exactly that — which is the index-side
+    twin of the store hazard the pin closes. Resolved against the pinned
+    remote, a staging override is a missing key rather than a mis-read, so
+    what this rail buys is the ``corpus-push`` posture stated as a named
+    refusal: a command whose correctness depends on which blob it saw does
+    not run under one, and the refusal says why where the missing key would
+    not. Seeding *from* an overridden pair would need its own explicit
+    source-pointer input — a deliberate omission (:class:`Source`).
     """
     if settings.corpus_pointer is not None:
         raise SeedSliceError(
             "refusing to seed: a corpus pointer override is set in the "
             "environment. The seeder reads the pinned source's committed "
             "pointer, never an override — unset the pointer variable (a dev "
-            "shell flipped to the staging pair carries one; see the staging "
+            "shell flipped to the staging pair may carry one; see the staging "
             "corpus runbook in docs/security.md)."
         )
 

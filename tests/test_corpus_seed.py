@@ -269,9 +269,31 @@ def test_the_rail_follows_the_pin_not_the_environment() -> None:
 @pytest.mark.parametrize("slot", ["remote_url", "casestore_url"])
 def test_an_unpinned_source_url_fails_closed(slot: str, blank: str) -> None:
     """Half a comparison basis is no basis: an empty pin refuses to construct."""
-    urls = {"remote_url": PROD_REMOTE, "casestore_url": PROD_CASESTORE, slot: blank}
+    remote = blank if slot == "remote_url" else PROD_REMOTE
+    store = blank if slot == "casestore_url" else PROD_CASESTORE
     with pytest.raises(corpus_seed.SeedSliceError, match="not pinned"):
-        corpus_seed.Source(**urls)
+        corpus_seed.Source(remote_url=remote, casestore_url=store)
+
+
+@pytest.mark.parametrize("slot", ["remote_url", "casestore_url"])
+def test_an_empty_destination_fails_closed_by_name(slot: str) -> None:
+    """All four store slots refuse the empty string in one voice — a named
+    refusal at construction, never a parse error over the empty string."""
+    remote = "" if slot == "remote_url" else STAGING_REMOTE
+    store = "" if slot == "casestore_url" else STAGING_CASESTORE
+    with pytest.raises(corpus_seed.SeedSliceError, match="refusing to seed: the destination"):
+        corpus_seed.Destination(remote_url=remote, casestore_url=store)
+
+
+def test_a_padded_source_url_is_normalized_at_construction() -> None:
+    """A whitespace-padded pin must not pass the rail and then reach a
+    URL-echoing parser downstream — construction strips, so the rail and
+    every reader see the same bytes."""
+    padded = corpus_seed.Source(
+        remote_url=f"  {PROD_REMOTE} ", casestore_url=f" {PROD_CASESTORE}  "
+    )
+    assert padded.remote_url == PROD_REMOTE
+    assert padded.casestore_url == PROD_CASESTORE
 
 
 def test_a_pointer_override_is_refused() -> None:

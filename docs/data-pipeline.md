@@ -637,10 +637,11 @@ the staging bucket).
 The override passes the committed pointer's exact validation, key↔digest
 binding included, so it only ever selects which already-published immutable
 blob is read; writers never honor it — `corpus-push` refuses to run while it
-is set, and `corpus-seed-slice` likewise refuses under it (that command is
-otherwise exempt from the flip entirely: its source is pinned by its own
-`--source-*` options, so a flipped shell cannot re-base what it reads or what
-its rail refuses). The split flag rides along because the slice is payload-free by
+is set, and `corpus-seed-slice` likewise refuses under it (that command's
+source is pinned by its own `--source-*` options, so a flipped shell cannot
+re-base what its rail refuses, nor — under the ranged backend — what it
+reads; the `local` backend still reads whatever pulled blob is on disk, per
+the surgery note above). The split flag rides along because the slice is payload-free by
 construction: without it, payload reads bypass the casestore and find
 nothing, silently.
 

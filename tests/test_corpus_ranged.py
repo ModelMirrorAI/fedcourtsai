@@ -416,7 +416,12 @@ def test_connect_readonly_ranged_prefers_an_explicit_remote_url(
     _stage_moto_bucket(pointer, db.read_bytes())
     db.unlink()
     monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "ranged")
-    for name in ("FEDCOURTS_CORPUS_REMOTE_URL", "CORPUS_REMOTE_URL", "FEDCOURTS_DVC_REMOTE_URL"):
+    for name in (
+        "FEDCOURTS_CORPUS_REMOTE_URL",
+        "CORPUS_REMOTE_URL",
+        "FEDCOURTS_DVC_REMOTE_URL",
+        "DVC_REMOTE_URL",
+    ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
 
