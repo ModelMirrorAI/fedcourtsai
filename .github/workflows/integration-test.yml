@@ -643,9 +643,8 @@ jobs:
       # `exec` sources carry the nested manifest calls the retrieval capture
       # lifts into rows of their own. What it cannot evidence is anything read
       # off a zero-MCP-row log — code mode dispatches every manifest call from
-      # inside one `exec` item and emits no MCP-shaped item at all, so that
-      # log is what the surface produces whether or not retrieval
-      # happened. Health
+      # inside one `exec` item and emits no MCP-shaped item at all, so that log
+      # is what the surface produces whether or not retrieval happened. Health
       # stays warn-only, as in the cells: an unhealthy sidecar degrades the
       # cell to corpus tooling rather than failing the smoke, and the
       # `mcp-sidecar` scenario is the leg that gates on the sidecar itself.
@@ -831,10 +830,10 @@ jobs:
       # this log against a distillation showing only the freeform `exec` item
       # is code mode working as designed — the capture lifts the manifest
       # calls out of that item's source, never from an MCP-shaped item —
-      # while no requests at all is the engine declining to call, a
-      # distinction the shapes artifact alone cannot draw. Head and tail
-      # both, because the evidence lines are at the
-      # top and an engine-smoke's query records scroll them off a tail alone.
+      # while no requests at all is the engine declining to call, a distinction
+      # the shapes artifact alone cannot draw. Head and tail both, because the
+      # evidence lines are at the top and an engine-smoke's query records
+      # scroll them off a tail alone.
       - name: Show the sidecar logs
         if: ${{ always() && (matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' || matrix.scenario == 'mcp-sidecar') }}
         continue-on-error: true
