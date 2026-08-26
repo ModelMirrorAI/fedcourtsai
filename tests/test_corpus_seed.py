@@ -8,6 +8,7 @@ corpus transports already expose — no boto3, no network — mirroring
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 from pathlib import Path
 
@@ -804,6 +805,14 @@ _SOURCE_FLAGS = [
 ]
 
 
+def _plain(text: str) -> str:
+    """Typer's usage panels are Rich-styled and wrapped wherever a capable
+    sink is detected — GitHub Actions included — so the ANSI codes and the
+    panel borders must go before any substring assertion on them."""
+    stripped = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text)
+    return " ".join(stripped.replace("│", " ").split())
+
+
 def test_the_command_refuses_a_destination_that_is_the_pinned_source(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -846,7 +855,7 @@ def test_the_command_requires_a_pinned_source(
         ],
     )
     assert result.exit_code == 2
-    assert "--source-remote" in result.output
+    assert "--source-remote" in _plain(result.output)
 
 
 def test_the_command_refuses_an_empty_destination(
