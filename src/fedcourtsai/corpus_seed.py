@@ -127,7 +127,8 @@ class SeedSliceError(RuntimeError):
 
     Deliberately loud: every message names what was expected, because the
     command's failure modes are all "the operator meant something else" — a
-    malformed docket id, an unset store URL, a destination that is production.
+    malformed docket id, an unpinned store URL, a destination that is its
+    own source.
     """
 
 
@@ -558,8 +559,9 @@ def _mirror_disabled() -> Iterator[None]:
     """Silence the casestore dual-write for the duration of a slice build.
 
     ``upsert_rows`` / ``upsert_events`` mirror through the **process-wide**
-    casestore transport, which in a seeding run is built from settings — i.e.
-    the *production* content store. The staging store's half is a faithful
+    casestore transport, which is built from ambient settings — whatever
+    content store a shell happens to name (the workflow names none; a dev
+    shell may name production's). The staging store's half is a faithful
     key-level copy instead, so the mirror is switched off outright rather than
     repointed: nothing in this module may write to production, and a sink that
     is off cannot. :func:`casestore.transport_override` puts back exactly what
@@ -794,10 +796,14 @@ def seed_slice(  # noqa: PLR0913 - keyword-only; one invocation's full coordinat
 ) -> SeedResult:
     """Measure — and on ``apply``, seed — the staging corpus slice.
 
-    All three rails run first, before a single read: a pointer override in
-    the environment is refused, then a destination that is or is inside
-    either pinned source store, then a working file that would clobber the
-    committed pointer. Then the slice is bounded, the census taken,
+    All three rails run first: a pointer override in the environment is
+    refused, then a destination that is or is inside either pinned source
+    store, then a working file that would clobber the committed pointer. The
+    two store rails genuinely precede every read and write; the pointer rail
+    here guards the **write** half only, because ``source_conn`` arrives
+    already open — a caller that resolved a pointer to open it has already
+    read under the override, which is why the command runs the same rail
+    before connecting. Then the slice is bounded, the census taken,
     and on an apply the content objects are copied **before** the rebuilt index
     blob is published — so a reader resolving the new pointer always finds the
     payloads its rows refer to. The reverse order would publish an index

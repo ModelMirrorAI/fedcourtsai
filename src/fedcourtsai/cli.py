@@ -2144,20 +2144,22 @@ def corpus_seed_slice(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
     thing the thrown-away runner would otherwise lose.
     """
     settings = get_settings()
-    destination = corpus_seed.Destination(remote_url=dest_remote, casestore_url=dest_casestore)
     staged = stage_db if stage_db is not None else settings.corpus_root / "staging-slice.db"
     try:
-        # `Source` fails closed at construction on an empty pin, so an unset
-        # workflow variable — which resolves to an empty string — is refused
-        # here, before anything else runs.
+        # Both store pairs fail closed at construction on an empty slot, so an
+        # unset workflow variable — which resolves to an empty string — is
+        # refused here, before anything else runs.
         source = corpus_seed.Source(remote_url=source_remote, casestore_url=source_casestore)
+        destination = corpus_seed.Destination(remote_url=dest_remote, casestore_url=dest_casestore)
         case_ids = corpus_seed.parse_case_ids(dockets or [], path=dockets_file)
         # Every rail runs before a client is built or a store is opened, so a
         # dispatch aimed at its own source — or at the checkout's own corpus
         # blob, or under a pointer override — is refused in milliseconds and
-        # touches nothing. `seed_slice` re-asserts them all, because a library
-        # entry point has to be safe on its own; these calls are a duplicate,
-        # not a substitute.
+        # touches nothing. The pointer rail must fire HERE to precede the
+        # read: `seed_slice` takes an already-open connection, so its own
+        # re-assertion guards only the write half for a library caller. The
+        # other two are genuinely re-asserted there; these calls are a
+        # duplicate, not a substitute.
         corpus_seed.assert_no_pointer_override(settings)
         corpus_seed.assert_destination_is_not_the_source(destination, source=source)
         corpus_seed.assert_stage_db_is_not_the_corpus(staged, settings=settings)

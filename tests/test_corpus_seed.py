@@ -43,11 +43,6 @@ def _settings() -> Settings:
     return Settings(corpus_remote_url=PROD_REMOTE, casestore_url=PROD_CASESTORE)
 
 
-def _flipped_settings() -> Settings:
-    """The post-repoint environment: ambient variables naming the staging pair."""
-    return Settings(corpus_remote_url=STAGING_REMOTE, casestore_url=STAGING_CASESTORE)
-
-
 def _source() -> corpus_seed.Source:
     """The pinned source — the production pair, as the workflow pins it."""
     return corpus_seed.Source(remote_url=PROD_REMOTE, casestore_url=PROD_CASESTORE)
@@ -243,20 +238,18 @@ def test_a_staging_destination_is_allowed() -> None:
 
 
 def test_the_rail_follows_the_pin_not_the_environment() -> None:
-    """The rail's basis is the pinned source, never the ambient settings.
+    """The rail's basis is the passed pin — its signature takes no Settings.
 
-    The staging runbook repoints the environment's corpus variables at the
-    staging pair. A rail based on those variables would then read the staging
-    destination as "production" and refuse every legitimate re-seed — while a
-    seeder sourcing from them would read the staging pair as its own source.
-    So: with the environment flipped and the pin on production, the staging
-    destination is allowed; with the pin itself naming the staging pair, the
-    same destination is refused as a self-seed, whatever the environment says.
+    Both directions over one destination: pinned to production, the staging
+    destination is allowed; pinned to the staging pair itself, the same
+    destination is refused as a self-seed. Ambient variables are structurally
+    out of the rail's reach (no ``Settings`` parameter exists to consult) —
+    the command-level proof that a flipped shell changes nothing is
+    ``test_the_command_ignores_a_flipped_environment`` below.
     """
     staging_destination = corpus_seed.Destination(
         remote_url=STAGING_REMOTE, casestore_url=STAGING_CASESTORE
     )
-    # The flipped environment is not consulted: only the pin decides.
     corpus_seed.assert_destination_is_not_the_source(staging_destination, source=_source())
     with pytest.raises(corpus_seed.SeedSliceError, match="names the pinned source"):
         corpus_seed.assert_destination_is_not_the_source(
@@ -854,6 +847,29 @@ def test_the_command_requires_a_pinned_source(
     )
     assert result.exit_code == 2
     assert "--source-remote" in result.output
+
+
+def test_the_command_refuses_an_empty_destination(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The destination half fails closed in the same voice as the source's —
+    a one-line named refusal at exit 2, never a traceback."""
+    _prod_env(monkeypatch, tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "corpus-seed-slice",
+            *_SOURCE_FLAGS,
+            "--dest-remote",
+            "",
+            "--dest-casestore",
+            STAGING_CASESTORE,
+            "--dockets",
+            SLICE_CASES[0],
+        ],
+    )
+    assert result.exit_code == 2
+    assert "refusing to seed" in result.output
 
 
 def test_the_command_refuses_an_empty_pinned_source(

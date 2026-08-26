@@ -821,6 +821,9 @@ the repoint. Read step 5's two ordering notes before doing either.
    checklist: a rotation that moves the production pair must move these two
    with it, or the lane seeds from whatever the old bucket still resolves to
    — the census's source-blob line (step 6) is where that staleness shows.
+   Type them carefully: the pin is also what the rail refuses to write to,
+   so a mis-set pin re-bases the local check with it — IAM, read-only on
+   production, is what keeps a typo harmless rather than the rail.
 5. **Point the `staging` environment at the staging corpus.** Set its
    `CORPUS_REMOTE_URL` and `CASESTORE_URL` to the staging pair,
    `FEDCOURTS_CORPUS_SPLIT=1`, and `FEDCOURTS_CORPUS_POINTER` to the pointer
