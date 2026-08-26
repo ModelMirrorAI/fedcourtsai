@@ -1,4 +1,5 @@
 import json
+import re
 import threading
 from datetime import date
 from pathlib import Path
@@ -102,10 +103,13 @@ def _unwrapped(text: str) -> str:
 
     Typer renders a usage error inside a Rich panel whose width follows the
     terminal, so the sentences below arrive wrapped and column-padded at a
-    width no test can pin. Collapsing the border characters and the runs of
+    width no test can pin — and Rich emits ANSI style codes wherever it
+    detects a capable sink (GitHub Actions included), so the codes must go
+    the same way as the borders. Stripping both and collapsing the runs of
     whitespace leaves the content, which is what the assertions are about.
     """
-    return " ".join(text.replace("│", " ").replace("|", " ").split())
+    plain = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text)
+    return " ".join(plain.replace("│", " ").replace("|", " ").split())
 
 
 def test_a_free_text_search_argument_is_refused_with_the_interface(
