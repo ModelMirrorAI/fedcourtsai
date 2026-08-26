@@ -441,26 +441,36 @@ project is actually building toward.
   decisions land, predictions and evaluations across the full cohort publish as a
   retrospective accuracy report — the **capstone of the year's cohort-follow**, and
   the first full term of cost and calibration data.
-- **Get funded at all — model-agnostic, tied to `N`.** Inference dominates the
-  budget, so the near-term play is **bootstrapping** on credit programs (Anthropic
-  startup credits primary, AWS Activate the runner-up) to run the cert release. The
-  milestone proper is a first **external funding event** — a grant, an academic
-  collaboration, or a first B2B pilot — that lifts the budget from bootstrapping to
-  **initial funding** ([budget.md](budget.md)) and, mechanically, **raises `N`**:
-  deepening the salience-ranked slice from the long-conference batch toward most of
-  a cert term.
+- **Get funded at all — model-agnostic, tied to `N`, then `P`.** Inference
+  dominates the budget, so the near-term play is **bootstrapping** on credit
+  programs (Anthropic startup credits primary, AWS Activate the runner-up) to run
+  the cert release. The milestone proper is a first **external funding event** — a
+  grant, an academic collaboration, or a first B2B pilot — that lifts the budget
+  from bootstrapping to **initial funding** ([budget.md](budget.md)) and,
+  mechanically, **raises `N`**: deepening the salience-ranked slice from the
+  long-conference batch to the whole paid gate. `N` exhausts partway into that
+  step — the gate can select no more than the paid pool — so the balance of an
+  initial-funding budget goes to the **predictor registry `P`**, more engines per
+  event rather than more events. The evaluator count holds at three either way.
 - **The ~1-year decision point.** With a term of cost and calibration data in
   hand, an explicit pivot: academic collaboration, B2B legal-analytics, or holding
   as a public-artifact project. Sustained external support here is the
-  **well-funded** state ([budget.md](budget.md)), where `N` can approach the full
-  cert gate and the **scope** call opens up — widen past the SCOTUS-docket gate
-  toward the originating courts of appeals or a rotating appeals sample, or hold
-  the gate as the durable scope. Options kept open until the data is in.
+  **well-funded** state ([budget.md](budget.md)), where `N` is long since spent —
+  it exhausts inside initial funding — so incremental money goes to `P`, a
+  registry many times today's. Here the **scope** call also opens up: widen past
+  the SCOTUS-docket gate toward the originating courts of appeals or a rotating
+  appeals sample, or hold the gate as the durable scope. Options kept open until
+  the data is in.
 
 **Housekeeping, in parallel:** verify the S3 egress projections against the split
 stores ([budget.md](budget.md)); unify the index's transport onto the same boto3
-pattern as the content store; finish re-anchoring the budget once evaluate-side
-per-run cost is measured (the predict side now is).
+pattern as the content store; finish re-anchoring the budget once a **`proc-v4`**
+evaluate-side per-run cost is measured at the cert stage (the predict side is
+measured; the post-freeze evaluate cells that exist grade one interim population
+under the superseded `proc-v3` evaluator digests); and re-anchor the
+per-predictor grading margin at the first `P = 4` fan-out. The last two are
+distinct triggers — one prices the evaluate half at today's registry size, the
+other prices how that half grows when the registry does.
 
 ## Beyond a year — the automated-research goal
 
