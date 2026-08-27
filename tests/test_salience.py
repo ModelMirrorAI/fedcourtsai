@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+from types import MappingProxyType
 
 import pytest
 import yaml
+from typer.testing import CliRunner
 
 from fedcourtsai import corpus
+from fedcourtsai.cli import app
 from fedcourtsai.config import SalienceConfig, load_salience_config
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import cell_context
@@ -35,7 +38,7 @@ from fedcourtsai.pipeline.salience import (
     scorer,
     unlatch_overselected,
 )
-from fedcourtsai.schemas import EventKind, Stage
+from fedcourtsai.schemas import Disposition, EventKind, Stage
 
 REGULAR_CONFERENCE = date(2026, 1, 9)  # a Term conference (Oct-June)
 LONG_CONFERENCE = date(2025, 9, 29)  # the Term's opening long conference (September)
@@ -1350,19 +1353,43 @@ def test_the_distribution_census_counts_both_parses_over_one_frame(tmp_path: Pat
     assert (census.count_changed, census.band_changed) == (1, 1)
     assert census.count_changed_case_ids == ["scotus/1"]
     assert census.band_changed_case_ids == ["scotus/1"]
-    # One relist under dist-v1 (two conferences), none under dist-v2.
-    assert [(t.from_band, t.to_band, t.n) for t in census.transitions] == [
+    # One relist under dist-v1 (two conferences), none under dist-v2. The matrix
+    # is the whole square, so the two occupied cells sit among zeros rather than
+    # alone: a reader can tell "measured, none" from "cell never emitted".
+    vocabulary = SCORERS[census.salience_version].bands
+    assert [(t.from_band, t.to_band) for t in census.transitions] == [
+        (from_band, to_band) for from_band in vocabulary for to_band in vocabulary
+    ]
+    assert [(t.from_band, t.to_band, t.n) for t in census.transitions if t.n] == [
         ("elevated", "baseline", 1),
         ("baseline", "baseline", 1),
     ]
     # Maturity and the unobservable denominator ride per Term, not just in the
-    # totals: both frame rows are undecided, and the snapshot-less row is the
-    # Term's own unobservable rather than a repo-wide footnote.
+    # totals: both observable rows are undecided, the snapshot-less row is the
+    # Term's own unobservable rather than a repo-wide footnote, and it is pending
+    # too — so the frame's pending count exceeds the observable one.
     assert [
-        (t.term, t.cases, t.pending, t.unobservable, t.count_changed, t.band_changed)
+        (t.term, t.cases, t.pending, t.frame_pending, t.unobservable, t.count_changed)
         for t in census.terms
-    ] == [(2024, 2, 2, 1, 1, 1)]
-    assert [(t.pending_count_changed, t.pending_band_changed) for t in census.terms] == [(1, 1)]
+    ] == [(2024, 2, 2, 3, 1, 1)]
+    assert [
+        (t.band_changed, t.pending_count_changed, t.pending_band_changed) for t in census.terms
+    ] == [(1, 1, 1)]
+    # The frame's pending count is the unobservable row's too; the direction
+    # split says the one moved count fell, which is what makes the square's empty
+    # band-strengthening half an observation rather than an assertion.
+    assert (census.frame_pending, census.count_increased, census.count_decreased) == (3, 0, 1)
+    # The top-level observable pending is the per-Term tallies' own sum.
+    assert census.pending == sum(t.pending for t in census.terms)
+    # The per-band cut: the moving case is banded `elevated` by the incumbent
+    # parse, so that is the band a reader sees the movement under, and every band
+    # of the version is emitted whether or not the frame reached it.
+    assert [b.band for b in census.bands] == list(vocabulary)
+    assert [
+        (b.band, b.cases, b.pending, b.count_changed, b.band_changed)
+        for b in census.bands
+        if b.cases
+    ] == [("elevated", 1, 1, 1, 1), ("baseline", 1, 1, 0, 0)]
 
 
 def test_the_distribution_census_is_a_no_op_when_both_parses_agree(tmp_path: Path) -> None:
@@ -1387,9 +1414,12 @@ def test_the_distribution_census_is_a_no_op_when_both_parses_agree(tmp_path: Pat
     assert census.cases == 1
     assert (census.count_changed, census.band_changed) == (0, 0)
     assert census.count_changed_case_ids == []
-    assert [(t.from_band, t.to_band, t.n) for t in census.transitions] == [
+    # The square is emitted whole, so the single unmoved case sits on its own
+    # diagonal cell and every other cell reads as a measured zero.
+    assert [(t.from_band, t.to_band, t.n) for t in census.transitions if t.n] == [
         ("elevated", "elevated", 1)
     ]
+    assert len(census.transitions) == len(SCORERS[census.salience_version].bands) ** 2
 
 
 def test_the_distribution_census_refuses_an_unregistered_parse_or_version(tmp_path: Path) -> None:
@@ -1464,6 +1494,237 @@ def test_the_distribution_census_refuses_a_subsampled_frame(tmp_path: Path) -> N
         )
         with pytest.raises(ValueError, match="sample_weight"):
             distribution_census(conn, candidate_parse="dist-v2")
+
+
+def test_the_distribution_census_per_band_cut_adds_up_to_the_totals(tmp_path: Path) -> None:
+    """The per-band cut is a partition of the observable frame, keyed on the incumbent band.
+
+    Every band of the version is emitted whether the frame reached it or not, so
+    an empty band reads as measured-empty; and the per-band counters sum to the
+    census totals, which is what makes "which band would move" answerable from
+    the artifact rather than only by joining the changed ids back to the corpus.
+    """
+    db = tmp_path / "corpus.db"
+    ancillary = "Motion (25M82) DISTRIBUTED for Conference of 5/19/2026."
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [_census_row(f"scotus/{n}", f"24-10{n}") for n in (1, 2, 3)],
+        )
+        # Two relists under dist-v1 and one under dist-v2: `high` -> `elevated`.
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1",
+            date(2026, 8, 1),
+            _census_payload(
+                "DISTRIBUTED for Conference of 3/24/2023.",
+                "DISTRIBUTED for Conference of 4/14/2023.",
+                ancillary,
+            ),
+        )
+        # One relist under dist-v1 and none under dist-v2: `elevated` -> `baseline`.
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/2",
+            date(2026, 8, 1),
+            _census_payload("DISTRIBUTED for Conference of 3/24/2023.", ancillary),
+        )
+        # Unmoved, and the band the other two land in.
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/3",
+            date(2026, 8, 1),
+            _census_payload("DISTRIBUTED for Conference of 3/24/2023."),
+        )
+        census = distribution_census(conn, candidate_parse="dist-v2")
+    assert [b.band for b in census.bands] == list(SCORERS[census.salience_version].bands)
+    assert sum(b.cases for b in census.bands) == census.cases == 3
+    # The per-band pending is the OBSERVABLE one, so it matches the per-Term
+    # observable count and sits at or under the frame's — never chained to it.
+    assert sum(b.pending for b in census.bands) == sum(t.pending for t in census.terms) == 3
+    assert sum(b.pending for b in census.bands) <= census.frame_pending
+    assert sum(b.count_changed for b in census.bands) == census.count_changed == 2
+    assert sum(b.band_changed for b in census.bands) == census.band_changed == 2
+    # Keyed on the BASELINE band: both movers are counted under the band the
+    # baseline parse implies, not under the one they would move to.
+    assert [(b.band, b.cases, b.count_changed) for b in census.bands if b.cases] == [
+        ("high", 1, 1),
+        ("elevated", 1, 1),
+        ("baseline", 1, 0),
+    ]
+
+
+def test_the_distribution_census_square_separates_a_zero_from_an_unreachable_cell(
+    tmp_path: Path,
+) -> None:
+    """The matrix is the whole square, so an unoccupied cell is a measured zero.
+
+    A subset candidate can only lower the count and every band function is
+    monotone in it, so no case can move to a stronger band — the census reports
+    that as zero-filled cells plus ``count_increased == 0``, an observation,
+    rather than by omitting the cells and leaving a reader to infer it.
+    """
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_census_row("scotus/1", "24-100")])
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1",
+            date(2026, 8, 1),
+            _census_payload(
+                "DISTRIBUTED for Conference of 3/24/2023.",
+                "Motion (25M82) DISTRIBUTED for Conference of 5/19/2026.",
+            ),
+        )
+        census = distribution_census(conn, candidate_parse="dist-v2")
+    vocabulary = SCORERS[census.salience_version].bands
+    cells = {(t.from_band, t.to_band): t.n for t in census.transitions}
+    assert len(census.transitions) == len(cells) == len(vocabulary) ** 2
+    assert cells[("elevated", "baseline")] == 1
+    # The band-strengthening cells are present and zero rather than absent.
+    assert cells[("baseline", "elevated")] == 0
+    assert (census.count_increased, census.count_decreased) == (0, 1)
+    assert census.count_increased + census.count_decreased == census.count_changed
+
+
+def test_the_distribution_census_counts_pending_over_the_whole_frame(tmp_path: Path) -> None:
+    """Two pending denominators, because they are two populations.
+
+    The per-Term ``pending`` rides the observable rows; the frame holds the
+    unreadable ones too. Maturity is a property of the docket and readability a
+    property of the pull, so publishing one number would leave a reader to guess
+    which denominator it sat over.
+    """
+    db = tmp_path / "corpus.db"
+    resolved = _census_row("scotus/1", "24-100").model_copy(
+        update={"disposition": Disposition.denied}
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [resolved, _census_row("scotus/2", "24-101")])
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1",
+            date(2026, 8, 1),
+            _census_payload("DISTRIBUTED for Conference of 3/24/2023."),
+        )  # scotus/2 is pending and stores no snapshot: unobservable, and pending
+        census = distribution_census(conn, candidate_parse="dist-v2")
+    assert (census.cases, census.unobservable) == (1, 1)
+    assert census.frame_pending == 1
+    assert [(t.cases, t.pending, t.frame_pending, t.unobservable) for t in census.terms] == [
+        (1, 0, 1, 1)
+    ]
+    # The relation the two counters exist to make visible, over every Term.
+    assert all(t.frame_pending >= t.pending for t in census.terms)
+    assert census.frame_pending >= sum(t.pending for t in census.terms)
+
+
+def test_the_distribution_census_banner_states_its_coverage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``cases`` is printed against the frame it is a share of, not on its own.
+
+    A census that could read a tenth of its frame and one that read all of it
+    otherwise announce themselves identically, and the difference is exactly
+    what a reviewer weighing the artifact needs first.
+    """
+    corpus_root = tmp_path / "corpus"
+    with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
+        corpus.upsert_rows(
+            conn, [_census_row("scotus/1", "24-100"), _census_row("scotus/2", "24-101")]
+        )
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1",
+            date(2026, 8, 1),
+            _census_payload(
+                "DISTRIBUTED for Conference of 3/24/2023.",
+                "Motion (25M82) DISTRIBUTED for Conference of 5/19/2026.",
+            ),
+        )  # scotus/2 stores no snapshot, so half the frame is unreadable
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    result = CliRunner().invoke(app, ["distribution-census", "--candidate-parse", "dist-v2"])
+    assert result.exit_code == 0, result.output
+    assert "cases=1 (50.0% of the 2-row frame)" in result.stderr
+    assert "pending=2 of the frame" in result.stderr
+    assert "and 1 of the 1 observable" in result.stderr
+    # The occupied cells as a count, never as a share of the square: how many
+    # cells a parse pair can reach is a property of the pair, so a density would
+    # read as sparsity where the unreached cells are an identity.
+    assert "elevated -> baseline: 1" in result.stderr
+    bands = len(SCORERS[SALIENCE_VERSION].bands)
+    assert (
+        f"occupied off-diagonal transition cells: 1 (the square carries all {bands**2} zero-filled"
+        in result.stderr
+    )
+    assert "count moved up in 0 case(s), down in 1" in result.stderr
+
+
+def test_every_registered_band_function_is_monotone_in_the_distribution_count() -> None:
+    """The premise the census's empty transition half rests on, pinned over the registry.
+
+    A subset candidate parse can only lower the count, so "no case moves to a
+    stronger band" holds only while every registered band function is monotone
+    in the count. ``count_increased`` observes the nesting on a frame; nothing
+    else observes this, and the headroom is thin — the never-parsed sentinel
+    scores above relist-0, and only the band cutpoints keep that from crossing a
+    boundary. A version that read the count non-monotonically would falsify the
+    census's own docstring while every other test stayed green.
+    """
+    for version in registered_versions():
+        entry = SCORERS[version]
+        rank = {band: index for index, band in enumerate(entry.bands)}
+        for cvsg in (None, date(2026, 3, 1)):
+            for court in ("ca9", "cadc", None):
+                for name in ("John Doe v. Roe", "United States v. Roe", "California v. Roe"):
+                    row = corpus.CorpusRow(
+                        case_id="scotus/1",
+                        court="scotus",
+                        docket_number="24-100",
+                        case_name=name,
+                        originating_court=court,
+                        cvsg_date=cvsg,
+                    )
+                    banded = [
+                        entry.band(row.model_copy(update={"distribution_count": n}))
+                        for n in (None, 0, 1, 2, 3, 4, 5)
+                    ]
+                    ranks = [rank[band] for band in banded]
+                    # Strongest band first in the vocabulary, so a rising count
+                    # must never raise the rank index (never weaken the band).
+                    assert ranks == sorted(ranks, reverse=True), (version, name, banded)
+
+
+def test_the_census_refuses_a_band_outside_the_versions_declared_vocabulary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The per-band cut and the square are emitted from the declared bands.
+
+    A band function returning a label outside that tuple would drop cases out of
+    both while the totals still counted them — an artifact that silently does
+    not add up, which is worse than a failed run.
+    """
+    stray = SalienceScorer(
+        version="sal-test",
+        score=SCORERS[SALIENCE_VERSION].score,
+        band=lambda row: "invented",
+        bands=SCORERS[SALIENCE_VERSION].bands,
+        carve_out=SCORERS[SALIENCE_VERSION].carve_out,
+    )
+    # The registry is a read-only mapping by design, so the stand-in is one too.
+    monkeypatch.setattr(
+        salience_module, "SCORERS", MappingProxyType({**SCORERS, "sal-test": stray})
+    )
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_census_row("scotus/1", "24-100")])
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1",
+            date(2026, 8, 1),
+            _census_payload("DISTRIBUTED for Conference of 3/24/2023."),
+        )
+        with pytest.raises(ValueError, match="outside sal-test's declared bands"):
+            distribution_census(conn, candidate_parse="dist-v2", version="sal-test")
 
 
 def test_the_active_scorers_parse_is_the_one_the_corpus_column_holds() -> None:

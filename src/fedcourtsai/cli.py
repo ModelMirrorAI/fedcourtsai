@@ -705,9 +705,19 @@ def distribution_census_cmd(
     snapshot — the entry-initial rule is a claim about the live channel's entry
     conventions, so counting a REST payload under it would report a channel
     artifact as a parse delta — and are banded by one salience version's band
-    function, so the reported delta (changed counts, the band-transition matrix,
-    a per-Term rollup split by docket maturity, and every changed case id) is
+    function, so the reported delta (changed counts split by direction, the
+    band-transition matrix, a per-Term rollup split by docket maturity, a
+    per-band rollup keyed on the incumbent label, and every changed case id) is
     attributable to the phrase-reading alone.
+
+    Every cut carries its denominator. The banner prints `cases` as a fraction
+    of the `cases + unobservable` frame; pending rides both denominators
+    (`frame_pending` over the whole frame, the per-Term `pending` over the
+    observable rows); and the matrix is the full band-by-band square,
+    zero-filled, so an observed zero is never an omitted cell — which half of it
+    a parse pair can occupy is a property of the pair (a subset candidate can
+    only lower the count and every band function is monotone in it, so no case
+    moves to a stronger band), with `count_increased` as the observed check.
 
     The **input-level** cut only, and conditional: the corpus column, the
     statpack's band base rates, and the relist-tier cutpoints were all fitted
@@ -774,21 +784,43 @@ def distribution_census_cmd(
             candidate_parse=candidate_parse,
             version=version,
         )
+    # `cases` is the observable rows, not the frame, so it is printed against
+    # its own denominator: a census that could read a tenth of its frame and one
+    # that read all of it otherwise announce themselves identically.
+    frame = census.cases + census.unobservable
+    coverage = f"{100 * census.cases / frame:.1f}% of the {frame}-row frame" if frame else "no rows"
     typer.echo(
         f"distribution census {census.baseline_parse} -> {census.candidate_parse} "
-        f"({census.salience_version}): cases={census.cases} "
+        f"({census.salience_version}): cases={census.cases} ({coverage}) "
         f"unobservable={census.unobservable} count-changed={census.count_changed} "
         f"band-changed={census.band_changed}",
         err=True,
     )
+    # Both pending denominators, in the line that names the frame: the divergence
+    # between them is the reason the census carries two.
     typer.echo(
         "frame: live-slice paid modern-cert SCOTUS, pending included, "
-        f"latest live snapshot; corpus sha256={census.corpus_sha256 or '(unknown)'}",
+        f"latest live snapshot; pending={census.frame_pending} of the frame "
+        f"and {census.pending} of the {census.cases} observable; "
+        f"corpus sha256={census.corpus_sha256 or '(unknown)'}",
         err=True,
     )
-    for cell in census.transitions:
-        if cell.from_band != cell.to_band:
-            typer.echo(f"{cell.from_band} -> {cell.to_band}: {cell.n}", err=True)
+    # The occupied off-diagonal cells, as a count and never as a share of the
+    # square: how many cells a parse pair can reach at all is a property of the
+    # pair (a subset candidate only lowers counts, so it only moves a case down
+    # the band order), so a density over every off-diagonal cell would read as
+    # sparsity where the unreached cells are an identity. The artifact carries
+    # every cell zero-filled, so an unprinted cell is an observed zero.
+    moves = [cell for cell in census.transitions if cell.from_band != cell.to_band and cell.n]
+    for cell in moves:
+        typer.echo(f"{cell.from_band} -> {cell.to_band}: {cell.n}", err=True)
+    typer.echo(
+        f"occupied off-diagonal transition cells: {len(moves)} (the square carries all "
+        f"{len(census.transitions)} zero-filled; which are reachable depends on the parse "
+        f"pair); count moved up in {census.count_increased} case(s), "
+        f"down in {census.count_decreased}",
+        err=True,
+    )
     typer.echo(census.model_dump_json())
 
 
