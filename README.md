@@ -291,7 +291,10 @@ Requires [uv](https://docs.astral.sh/uv/). A devcontainer is included
 (`.devcontainer/`) and is the recommended way to work in Codespaces; its
 features resolve through the committed lockfile
 (`.devcontainer/devcontainer-lock.json`), so a rebuild's inputs are a tracked
-diff, while the base image floats on `1-3.12` deliberately.
+diff, while the base image floats on `1-3.12` deliberately. The Claude Code
+CLI is not a feature: `.devcontainer/install-claude.sh` installs it natively
+at create time, so its auto-updates swap a symlink atomically instead of
+rewriting a shared npm prefix in place.
 
 ```bash
 uv sync                       # install deps into .venv
