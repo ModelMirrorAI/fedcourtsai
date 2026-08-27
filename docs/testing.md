@@ -301,8 +301,8 @@ bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants
 (`test_workflow_cell_invariants`: the qp-topics oracle fence, the corpus-split
-env pair, the forward leakage guard, the run-record retry and its inline
-copies), and the predict plan job's stranded-run
+env pair, the forward leakage guard, the run-surface retry with its inline
+copies and its still-fatal handoff writes), and the predict plan job's stranded-run
 guard (`test_workflow_plan_census`: the census runs before the matrix step and
 feeds it, degrades open rather than failing the job, and lets a fully-superseded
 run close with the recovery note) — so deleting a load-bearing line fails a
