@@ -173,21 +173,25 @@ runbook, [docs/security.md](docs/security.md).
   buy is deliberately small: the corpus is public court data, neither principal
   can write or delete anything, and a billing alarm bounds egress abuse. See
   *Developer access* in [docs/data-pipeline.md](docs/data-pipeline.md).
-- **A second Codespaces exception: write, one repository, the maintainer's
-  own.** The devcontainer requests `contents: write` on the maintainer's
-  dotfiles repository for the codespace token, so the Claude project-memory
+- **The codespace GitHub token reaches one repository beyond this one — a
+  write grant, conditioned on a control this repo cannot enforce.** The
+  devcontainer requests `contents: write` on the maintainer's dotfiles
+  repository for the codespace token (an exception to that token's repo
+  scope, not to the corpus rules above), so the Claude project-memory
   snapshot that repository seeds into new codespaces can be pushed back from
   the codespace that wrote it. The grant reaches only a creator who can
   already write that repository — anyone else's codespace is created without
   it — but where it is live it is ambient: every process in the codespace,
   agent sessions included, holds it, and the repository it writes has an
-  installer that runs at the maintainer's next codespace creation. What keeps
-  the grant durability rather than execution is a restriction on the dotfiles
-  repository itself: a no-bypass push ruleset over its executing file paths,
-  leaving only the memory-snapshot directory writable with the ambient token.
+  installer that runs at the maintainer's next codespace creation. The grant
+  is therefore conditioned on a restriction the dotfiles repository must
+  carry **before any codespace authorizes the grant**: a no-bypass push
+  ruleset over its executing file paths, leaving only the memory-snapshot
+  directory writable with the ambient token — durability without execution.
+  This repository can neither configure nor verify that ruleset; *The
+  codespace token* in [docs/security.md](docs/security.md) specifies it.
   Snapshot prose follows the standing norm for committed files — no
-  credential, no bucket URL. Setup: *The codespace token* in
-  [docs/security.md](docs/security.md).
+  credential, no bucket URL.
 - **Label triggers are maintainer-gated, two ways.** Applying a `run:*` label is
   the trust boundary for the pipeline. (1) No issue form auto-applies a `run:*`
   label — a maintainer applies it after triage. (2) Each issue-triggered

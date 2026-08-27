@@ -8,6 +8,9 @@
     "ghcr.io/devcontainers/features/aws-cli:1": {}
   },
   "onCreateCommand": "uv sync",
+  // The ~/.claude chown guards the config directory, which can pre-exist
+  // root-owned at create time; the CLI install itself (install-claude.sh)
+  // needs neither root nor repair.
   "postCreateCommand": "mkdir -p \"$HOME/.claude\" && sudo chown -R \"$(id -un)\" \"$HOME/.claude\"; bash .devcontainer/install-claude.sh; bash .devcontainer/setup-corpus-access.sh",
   "postStartCommand": "bash .devcontainer/check-corpus-session.sh",
   "waitFor": "postCreateCommand",

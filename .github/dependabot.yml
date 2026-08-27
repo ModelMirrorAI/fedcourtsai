@@ -28,9 +28,11 @@ updates:
 
   # Dev container Features, resolved into .devcontainer/devcontainer-lock.json so
   # a rebuild's inputs are a tracked diff. This ecosystem covers Features only —
-  # the base image (mcr.microsoft.com/devcontainers/python:1-3.12) stays knowingly
-  # floating — and has no security-update lane, so it buys freshness and
-  # traceability, not vulnerability response.
+  # the base image (mcr.microsoft.com/devcontainers/python:1-3.12) and the
+  # Claude Code CLI (installed natively by .devcontainer/install-claude.sh,
+  # outside any ecosystem Dependabot watches) stay knowingly floating — and it
+  # has no security-update lane, so it buys freshness and traceability, not
+  # vulnerability response.
   - package-ecosystem: devcontainers
     directory: /
     schedule:

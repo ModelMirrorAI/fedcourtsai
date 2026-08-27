@@ -254,16 +254,23 @@ grant at creation; a creator without write access to that repository gets a
 codespace without the grant, and no tooling in this repository assumes it is
 present.
 
-The restriction that keeps the grant durability rather than execution lives on
-the dotfiles repository, not here: a push ruleset with **no bypass actors**
-restricting its executing file paths — the installer and the settings and
-status-line files it copies into `~/.claude` — so those change only by pull
-request, while the project-memory directory stays writable with the ambient
-token. Without that ruleset the grant is a persistence channel (a push can
-alter what executes at the next codespace creation), so the ruleset is a
-precondition of the grant, not an optional hardening. Snapshot content follows
-the standing norm for committed files: memory prose names no credential and no
-bucket URL.
+The grant's safety argument requires a control on the dotfiles repository, and
+this repository can neither configure nor verify it — so it is a setup step,
+to complete **before any codespace authorizes the grant**:
+
+- **On the dotfiles repository**: add a push ruleset (rule type: *restrict
+  file paths*) covering `install.sh`, `claude/settings.json`, and
+  `claude/statusline-command.sh` — every file the installer executes or copies
+  into `~/.claude` — with **no bypass actors**. Extend the path list whenever
+  the installer grows a new executing surface.
+
+With the ruleset in place, those files change only by pull request while the
+`claude/project-memory/` directory stays writable with the ambient token: the
+grant buys durability, not execution. Without it, the grant is a persistence
+channel — a push can alter what executes at the maintainer's next codespace
+creation — so authorizing the grant first is the one ordering this section
+forbids. Snapshot content follows the standing norm for committed files:
+memory prose names no credential and no bucket URL.
 
 ## The `prod` environment
 
