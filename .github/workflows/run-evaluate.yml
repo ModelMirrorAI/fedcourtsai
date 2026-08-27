@@ -59,6 +59,10 @@ jobs:
       # mints any token, assumes the S3 role, or reads the corpus. (The label name is
       # already checked in the job `if:`.)
       - name: Authorize the trigger (label from the pipeline App or a maintainer)
+        # One retried permission lookup, worth up to 105s against a degraded
+        # API; the plan job declares no cap, so bound the retries here rather
+        # than leaving them to the six-hour default.
+        timeout-minutes: 3
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -139,6 +143,12 @@ jobs:
       # report form.
       - name: Post the plan report for approval
         if: ${{ steps.plan.outputs.has_jobs == 'true' && github.event.issue.number }}
+        # Two retried gh calls inside the marker-deduped issue-comment
+        # command (the marker read, then the comment), each worth up to 105s
+        # against a degraded API, on top of the plan render; the plan job
+        # declares no cap, so bound the step rather than leaving it to the
+        # six-hour default.
+        timeout-minutes: 10
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -1026,6 +1036,11 @@ jobs:
         # App token stays out of it. Runs even if the aggregate step failed; the
         # file is absent whenever the run produced output.
         if: ${{ always() && github.event.issue.number }}
+        # Two retried gh calls inside the deduped issue-comment command,
+        # each worth up to 105s against a degraded API — bounded per step so a
+        # degraded API at one report cannot spend the collect job's cap that
+        # the later always()-gated report steps still need.
+        timeout-minutes: 5
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1047,6 +1062,8 @@ jobs:
         # stall step above; the file is absent whenever the scan came back
         # clean.
         if: ${{ always() && github.event.issue.number }}
+        # Same bound as the stall step above, for the same reason.
+        timeout-minutes: 5
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1080,6 +1097,11 @@ jobs:
         # pass, since the roll-up is written (scanned) at that step's end: the
         # latch is best-effort, deliberately fail-closed on agent free text.
         if: ${{ always() }}
+        # Up to five retried gh calls behind the find-or-create (the label
+        # ensure, the listing, the issue create on first use, the marker read,
+        # the comment), each worth up to 105s against a degraded API — 525s
+        # worst case, plus margin for the env spin-up.
+        timeout-minutes: 12
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
