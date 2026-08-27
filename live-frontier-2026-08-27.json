@@ -66,7 +66,7 @@
     },
     {
       "conference": "2026-05-01",
-      "petitions": 3
+      "petitions": 2
     },
     {
       "conference": "2026-05-14",
@@ -78,7 +78,7 @@
     },
     {
       "conference": "2026-05-28",
-      "petitions": 7
+      "petitions": 6
     },
     {
       "conference": "2026-06-04",
@@ -94,7 +94,7 @@
     },
     {
       "conference": "2026-06-25",
-      "petitions": 16
+      "petitions": 15
     },
     {
       "conference": "2026-06-29",
@@ -102,13 +102,13 @@
     },
     {
       "conference": "2026-09-28",
-      "petitions": 544
+      "petitions": 547
     }
   ],
   "documents_provisioned": 215,
   "generated_on": "2026-08-27",
   "next_conference": "2026-09-28",
-  "next_conference_petitions": 544,
+  "next_conference_petitions": 547,
   "schema_version": "1.0",
   "skipped": false,
   "watchlist": 630
