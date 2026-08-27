@@ -54,5 +54,8 @@ runs:
         set -euo pipefail
         # corpus-pull resolves the committed pointer (corpus/corpus.db.ref)
         # against the remote URL and verifies the blob's checksum + size
-        # before it lands.
+        # before it lands — *committed*, because every caller of this composite
+        # hard-codes `environment: prod`, where the out-of-band pointer
+        # override is unset, and none forwards one. A shell carrying the
+        # override resolves that instead of the pointer file.
         uv run fedcourts corpus-pull --missing-pointer "$MISSING_POINTER"
