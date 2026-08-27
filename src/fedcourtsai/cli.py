@@ -8431,13 +8431,16 @@ _PLANNING_USD_PER_CELL = 2.50
 #: predict row is the whole-run column of *Per-cell cost is keyed on the stage*
 #: — the first post-freeze fan-out, 81 cells over 27 events. The evaluate row is
 #: that section's evaluate-cohort table, ``proc-v2`` row (the better-matched of
-#: its two anchors), scaled by the whole predict move (x1.218) exactly as the
-#: doc's own per-case derivation does. The two sum to $6.79 + $8.18 = $14.97 a
-#: case — the top of the doc's $14.6-15.0 band, which the $2.50 fallback is the
-#: six-cell rounding of — so a full three-engine, both-seam fan-out prices within
-#: a cent either way. What conditioning buys is the *narrowed* plan: within a
-#: seam the engines differ ~7x, so an engine-narrowed backfill priced at the flat
-#: rate is wrong by up to ~4x.
+#: its two pre-freeze anchors), scaled by the whole predict move (x1.218)
+#: exactly as the doc's own per-case derivation does. The doc's post-freeze
+#: evaluate rows are interim-stage and stamped under superseded evaluator
+#: digests, so they re-anchor nothing here; see the caveats below. The two sum
+#: to $6.79 + $8.18 = $14.97 a case — the top of the doc's $14.6-15.0 band,
+#: which the $2.50 fallback is the six-cell rounding of — so a full
+#: three-engine, both-seam fan-out prices within a cent either way. What
+#: conditioning buys is the *narrowed* plan: within a seam the engines differ
+#: ~7x, so an engine-narrowed backfill priced at the flat rate is wrong by up
+#: to ~4x.
 #:
 #: Engine keys, not actor ids: a cell carries its resolved ``engine``, and the
 #: doc's per-actor columns are one actor per engine in the shipped registries.
@@ -8461,14 +8464,21 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "ledger as an UPPER BOUND on any level effect, not a measurement of one.",
     ],
     "evaluate": [
-        "An ASSUMPTION, not a measurement: no evaluate fan-out has run since the "
-        + "pre-registration freeze, so docs/budget.md scales a pre-freeze anchor "
-        + "by the whole predict move (~+22%). The anchor these rates use is its "
-        + "`proc-v2` row — THREE graded events, the process-stamped subset of the "
-        + "four pre-freeze gradings — taken as the better-matched of the doc's "
-        + "two anchors; the pooled four-grading row is the more cautious one and "
-        + "is NOT what these rates carry. All four are cert-stage, so the anchor "
-        + "is stage-narrow either way.",
+        "An ASSUMPTION, not a measurement: docs/budget.md scales a pre-freeze "
+        + "anchor by the whole predict move (~+22%). The anchor these rates use "
+        + "is its `proc-v2` row — THREE graded events, the process-stamped subset "
+        + "of the four pre-freeze gradings — taken as the better-matched of the "
+        + "doc's two pre-freeze anchors; the pooled four-grading row is the more "
+        + "cautious one and is NOT what these rates carry. All four are "
+        + "cert-stage, so the anchor is stage-narrow either way.",
+        "A post-freeze evaluate measurement EXISTS, and these rates do not use "
+        + "it: two runs independently graded one six-event INTERIM population "
+        + "($6.44 and $6.69 an event, one figure per run), under evaluator "
+        + "digests `proc-v4` has "
+        + "superseded. It lands below the scaled projection, but no pre-freeze "
+        + "anchor covers the interim stage, so it bounds nothing — the rates "
+        + "hold the pre-freeze anchor until a `proc-v4` evaluate fan-out reaches "
+        + "the cert stage.",
     ],
 }
 
@@ -8479,8 +8489,8 @@ def _shared_spend_caveats(seam: str) -> list[str]:
     The moment caveat is a statement about the *predict* measurements. It still
     belongs on an evaluate plan, because the evaluate rates are the predict
     move applied to a pre-freeze anchor — so whatever the predict mix carries,
-    they carry — but it has to say so, or it reads as a claim about measured
-    evaluate moments that do not exist.
+    they carry — but it has to say so, or it reads as a moment conditioning on
+    the evaluate side that these rates do not carry.
     """
     moment = (
         "Not conditioned on the forecast moment. Of the four predict MOMENTS "
@@ -9196,10 +9206,16 @@ def evaluate_plan_cmd(
     ``predict-plan``: the backstop's verdict is reported, never applied.
 
     Its ``estimated_spend_usd`` carries a weaker basis than predict's, and says
-    so: no evaluate fan-out has run since the pre-registration freeze, so the
-    rates are ``docs/budget.md``'s scaled assumption rather than a measurement.
-    ``spend_estimate_basis.caveats`` states it on every plan, and
+    so: the rates are ``docs/budget.md``'s pre-freeze cert-stage anchor scaled
+    by the whole predict move, an assumption rather than a measurement.
+    ``spend_estimate_basis.caveats`` states that on every plan, and
     ``--approval-report`` carries it into the rendered report's spend sentence.
+
+    Why the assumption stands while a post-freeze evaluate measurement exists —
+    that measurement grades one six-event interim population under evaluator
+    digests ``proc-v4`` has superseded, at a stage no pre-freeze anchor covers,
+    so the anchor holds until a ``proc-v4`` evaluate fan-out reaches the cert
+    stage — rides in ``spend_estimate_basis.caveats`` alone.
     """
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()
