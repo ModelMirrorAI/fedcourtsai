@@ -82,6 +82,10 @@ runs:
         ENABLED: ${{ inputs.enabled }}
       run: |
         set -euo pipefail
+        # The composite is reached through `uses: ./.github/actions/...`, which
+        # resolves relative to the workspace — so this action running at all
+        # already proves a default-path checkout put `scripts/` there.
+        source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
 
         count=$(jq 'length' "$QUEUE")
         echo "count=${count}" >> "$GITHUB_OUTPUT"
@@ -102,8 +106,27 @@ runs:
         fi
 
         body=$(jq '[.[] | {court, docket, events}]' "$QUEUE")
-        gh issue create --repo "$REPO" \
+        # Retried, but still fatal on exhaustion: three attempts (105s at worst,
+        # well inside every caller's job cap) absorb a blip, while a sustained
+        # outage still fails the window loudly.
+        # Read the residue before widening this. `gh issue create` is not
+        # idempotent and this site has no find-or-create to converge on, so a
+        # write that lands server-side and is then cut off at `timeout 30` files
+        # a second trigger issue for the same queue — and two issues are two
+        # concurrency groups, so nothing serializes the rounds they trigger.
+        # Released twice, that is a duplicate full-width fan-out: double model
+        # spend and a second prediction per (predictor, event). The guard is a
+        # human one — each round waits on the review hold, and two identical
+        # approval requests seconds apart are the signal to decline the second.
+        # The trade is still worth taking, because the failures are not equally
+        # likely: nearly every transient failure here lands nothing at all and
+        # is absorbed, while the duplicate needs a write that both succeeded and
+        # outran the timeout. What a lost window costs is bounded the other way
+        # — both channels are level-triggered (see this action's description),
+        # so the queue is re-derived on a later cycle.
+        url=$(gh_retry gh issue create --repo "$REPO" \
           --title "${NOUN}: ${count} case(s)" \
           --body "$(printf '```json\n%s\n```\n' "$body")" \
-          --label "$LABEL"
+          --label "$LABEL")
+        echo "Filed the ${NOUN} trigger issue: ${url}"
         printf 'filed=true\nheld=false\nnote=\n' >> "$GITHUB_OUTPUT"

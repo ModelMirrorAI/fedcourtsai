@@ -1817,8 +1817,21 @@ def test_evaluate_plan_enumerates_exactly_the_cells_evaluate_matrix_would_mint(
         "gemini": 0.96,
     }
     assert plan["estimated_spend_usd"] == round(5.92 + 1.30 + 0.96, 2)
+    caveats = plan["spend_estimate_basis"]["caveats"]
+    assert any("ASSUMPTION, not a measurement" in c for c in caveats)
+    # An assumption is the right basis for a reason that keeps changing, so the
+    # caveat carries the reason and not just the label: a post-freeze evaluate
+    # measurement exists, and what disqualifies it from re-anchoring these
+    # rates is its stage and its superseded digests. Pinned because the failure
+    # mode is silent — a caveat that goes stale against docs/budget.md still
+    # renders, and the approval report quotes it as the basis of a spend
+    # decision.
     assert any(
-        "ASSUMPTION, not a measurement" in c for c in plan["spend_estimate_basis"]["caveats"]
+        "post-freeze evaluate measurement EXISTS" in c
+        and "INTERIM" in c
+        and "`proc-v4`" in c
+        and "cert stage" in c
+        for c in caveats
     )
 
 

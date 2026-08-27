@@ -288,7 +288,15 @@ design: [`docs/data-pipeline.md`](docs/data-pipeline.md).
 ## Develop
 
 Requires [uv](https://docs.astral.sh/uv/). A devcontainer is included
-(`.devcontainer/`) and is the recommended way to work in Codespaces.
+(`.devcontainer/`) and is the recommended way to work in Codespaces; its
+features resolve through the committed lockfile
+(`.devcontainer/devcontainer-lock.json`), so a rebuild's inputs are a tracked
+diff, while the base image floats on `1-3.12` deliberately. The Claude Code
+CLI is not a feature: `.devcontainer/install-claude.sh` installs it natively
+at create time — fetched latest, deliberately outside the lockfile, since a
+pin would not hold past the CLI's first-launch auto-update — and the
+native layout swaps a symlink per update instead of rewriting a shared npm
+prefix in place.
 
 ```bash
 uv sync                       # install deps into .venv

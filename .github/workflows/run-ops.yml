@@ -44,7 +44,15 @@ concurrency:
 jobs:
   ops:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Setup + report is a couple of minutes; the cap is sized for the degraded
+    # API this job's `gh_retry` calls exist to survive. Twelve retryable calls
+    # across the five latching steps, each worth up to 105s when every attempt
+    # times out (3 × `timeout 30` plus 5s + 10s of backoff), is ~21 min of
+    # retry alone — under a 15 min cap the job would be killed mid-recovery,
+    # after posting the dashboard but before the data-validation escalation.
+    # This job holds no corpus lock, so a wider cap costs only runner minutes
+    # on a day the API is already broken.
+    timeout-minutes: 30
     permissions:
       contents: write # read the ledger + push the snapshot to the ops-metrics branch
       actions: read # read the workflow run history for the health section
@@ -63,9 +71,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
           # The health section groups these by workflow; 200 runs is a few weeks
           # across the daily pipelines.
-          gh run list --repo "$REPO" --limit 200 \
+          gh_retry gh run list --repo "$REPO" --limit 200 \
             --json workflowName,status,conclusion,createdAt,startedAt,updatedAt \
             > runs.json
 
@@ -75,12 +86,14 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
           # A still-open run:* trigger issue is a stalled fan-out (its run's ready
           # PR closes it on merge; an empty matrix closes it with a note). One gh
           # call per trigger label, merged; the tested `summarize_trigger_issues`
           # does the filtering/ordering.
           for label in run:predict run:evaluate; do
-            gh issue list --repo "$REPO" --label "$label" --state open --limit 100 \
+            gh_retry gh issue list --repo "$REPO" --label "$label" --state open --limit 100 \
               --json number,title,labels,createdAt
           done | jq -s 'add | unique_by(.number)' > trigger-issues.json
 
@@ -151,18 +164,20 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
           # `ops-dashboard` is a NON-triggering label by design (no run:* workflow
           # keys on it). Create it idempotently so the first run does not fail.
-          gh label create ops-dashboard --repo "$REPO" --force \
+          gh_retry gh label create ops-dashboard --repo "$REPO" --force \
             --color 0e8a16 --description "Long-lived operational analytics dashboard (run-ops)"
-          num=$(gh issue list --repo "$REPO" --label ops-dashboard --state open \
+          num=$(gh_retry gh issue list --repo "$REPO" --label ops-dashboard --state open \
             --json number --jq '.[0].number')
           if [ -z "$num" ]; then
-            gh issue create --repo "$REPO" --title "Ops dashboard" \
+            gh_retry gh issue create --repo "$REPO" --title "Ops dashboard" \
               --label ops-dashboard --body-file ops.md
           else
             # Update the single dashboard in place so it is always the current view.
-            gh issue edit "$num" --repo "$REPO" --body-file ops.md
+            gh_retry gh issue edit "$num" --repo "$REPO" --body-file ops.md
           fi
 
       # The weekly digest: a short interrogative comment on the dashboard issue —
@@ -177,14 +192,19 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          num=$(gh issue list --repo "$REPO" --label ops-dashboard --state open \
+          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
+          # The digest is a once-a-week post, so a blip on this lookup costs a
+          # whole week rather than the next window — worth the 15s the retry can
+          # spend before giving up.
+          num=$(gh_retry gh issue list --repo "$REPO" --label ops-dashboard --state open \
             --json number --jq '.[0].number')
           if [ -z "$num" ]; then
             echo "No open dashboard issue; the digest lives in the step summary."
             cat digest.md >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          gh issue comment "$num" --repo "$REPO" --body-file digest.md
+          gh_retry gh issue comment "$num" --repo "$REPO" --body-file digest.md
 
       - name: Escalate a failing data-validation verdict
         env:
@@ -192,27 +212,29 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
           # Loud-but-non-blocking escalation: on a failing data-health verdict, open
           # OR update ONE long-lived data-validation issue (reuse, don't spam — the
           # same find-or-create idiom as the dashboard / pull-log); when it goes green
           # again, close that issue. `data-validation` is a NON-triggering label by
           # design (no run:* workflow keys on it). Create it idempotently.
-          gh label create data-validation --repo "$REPO" --force \
+          gh_retry gh label create data-validation --repo "$REPO" --force \
             --color b60205 --description "Long-lived data-validation failure (run-ops escalation)"
           ok=$(jq -r '.data_health.ok' new-ops.json)
-          num=$(gh issue list --repo "$REPO" --label data-validation --state open \
+          num=$(gh_retry gh issue list --repo "$REPO" --label data-validation --state open \
             --json number --jq '.[0].number')
           if [ "$ok" = "false" ]; then
             if [ -z "$num" ]; then
-              gh issue create --repo "$REPO" --title "Data validation failing" \
+              gh_retry gh issue create --repo "$REPO" --title "Data validation failing" \
                 --label data-validation --body-file data-health.md
             else
               # Refresh the single open issue in place with the latest failing checks.
-              gh issue edit "$num" --repo "$REPO" --body-file data-health.md
+              gh_retry gh issue edit "$num" --repo "$REPO" --body-file data-health.md
             fi
           elif [ -n "$num" ]; then
             # Resolved: data validation is green again, so close the escalation issue.
-            gh issue comment "$num" --repo "$REPO" \
+            gh_retry gh issue comment "$num" --repo "$REPO" \
               --body "✅ Data validation is green again as of the latest ops run — closing."
-            gh issue close "$num" --repo "$REPO" --reason completed
+            gh_retry gh issue close "$num" --repo "$REPO" --reason completed
           fi

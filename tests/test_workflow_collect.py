@@ -71,9 +71,17 @@ def test_the_hold_environment_name_agrees_with_the_report_it_gates() -> None:
     """The renderer's closing line names the environment a reviewer must find
     in the Actions UI, and the promotion gate greps for the same binding — a
     rename that misses one surface points the approver at a gate that does
-    not exist, exactly the drift a reader would have to catch otherwise."""
-    workflow = _load(WORKFLOWS / "run-predict.yml")
-    environment = workflow["jobs"]["approval"]["environment"]
+    not exist, exactly the drift a reader would have to catch otherwise. The
+    same pass pins that every fan-out binds the one environment: a hold that
+    minted its own would fork the approver's surface and escape the gate's
+    reviewer check."""
+    environments = {
+        name: _load(WORKFLOWS / name)["jobs"]["approval"]["environment"] for name in FAN_OUTS
+    }
+    assert len(set(environments.values())) == 1, (
+        f"one `review` environment serves every spend hold, got {environments}"
+    )
+    environment = environments["run-predict.yml"]
     plan = {
         "stage": "predict",
         "run_id": "20260817T000000Z",
@@ -94,21 +102,22 @@ def test_the_two_call_sites_differ_only_by_role() -> None:
     """Anything else that diverges is drift the composite was meant to end."""
     predict, evaluate = (_collect_job(w) for w in FAN_OUTS)
 
-    # The matrix job each waits on is legitimately per-workflow, and predict
-    # alone carries the approval hold between plan and spend. Pop outside the
+    # The matrix job each waits on is legitimately per-workflow; both carry
+    # the approval hold between plan and spend. Pop outside the
     # assert: a mutating expression inside one vanishes under `python -O`.
     predict_needs = predict.pop("needs")
     evaluate_needs = evaluate.pop("needs")
     assert predict_needs == ["plan", "approval", "predict"]
-    assert evaluate_needs == ["plan", "evaluate"]
+    assert evaluate_needs == ["plan", "approval", "evaluate"]
 
-    # Predict's collect must not fire on a hold that never released; evaluate
-    # is ungated by decision. The clause is the one sanctioned divergence in
-    # the `if:` — strip exactly it, then the conditions must agree too.
+    # Neither collect may fire on a hold that never released — without the
+    # approval clause, always() would spin the writer up over a run that
+    # spent nothing. The clause must appear in both, identically.
     predict_if = predict.pop("if")
     evaluate_if = evaluate.pop("if")
     assert "needs.approval.result == 'success'" in predict_if
-    assert predict_if.replace(" && needs.approval.result == 'success'", "") == evaluate_if
+    assert "needs.approval.result == 'success'" in evaluate_if
+    assert predict_if == evaluate_if
 
     # The delegating step differs only in `role`; normalize it out, then the two
     # jobs must be byte-equal — setup steps, permissions, timeout, everything.
@@ -321,21 +330,26 @@ def test_the_run_pr_loop_is_safe_to_repeat() -> None:
 
 
 def test_the_trigger_issue_reports_are_marker_deduped() -> None:
-    """Both reports are posted by steps that rerun with the job, so a plain
-    comment would stack one copy per recovery attempt."""
-    # run-predict carries a third marker-deduped poster: the plan-and-hold
-    # approval report, keyed on the fan-out's own run id.
-    expected = {"run-predict.yml": 3, "run-evaluate.yml": 2}
+    """Every trigger-issue report is posted by a step that reruns with its
+    job, so a plain comment would stack one copy per recovery attempt."""
+    # Both carry a third marker-deduped poster: the plan-and-hold approval
+    # report, keyed on the fan-out's own run id — and each fan-out's marker
+    # names its own stage, or two holds on one issue would dedupe against
+    # each other.
+    approval_markers = {
+        "run-predict.yml": "<!-- predict-plan: ${PLAN_RUN_ID} -->",
+        "run-evaluate.yml": "<!-- evaluate-plan: ${PLAN_RUN_ID} -->",
+    }
     for workflow in FAN_OUTS:
         body = (WORKFLOWS / workflow).read_text()
-        assert body.count("post-issue-comment") == expected[workflow], (
+        assert body.count("post-issue-comment") == 3, (
             f"{workflow}: every trigger-issue report posts through the deduped command"
         )
         assert "<!-- collect-stall: ${GITHUB_RUN_ID} -->" in body
         assert "<!-- collect-secret-scan: ${GITHUB_RUN_ID}-${digest} -->" in body
+        assert approval_markers[workflow] in body
         # The old unconditional form must not come back.
         assert "gh issue comment" not in body
-    assert "<!-- predict-plan: ${PLAN_RUN_ID} -->" in (WORKFLOWS / "run-predict.yml").read_text()
 
 
 def test_a_rerun_cannot_race_the_first_attempt_on_the_same_branch() -> None:

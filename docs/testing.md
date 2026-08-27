@@ -136,9 +136,13 @@ dispatch bound: where that environment carries no CourtListener token the
 sidecar runs token-free, the handshake and tool listing still succeed, and
 tool *calls* error — the shapes are then an errored call's, which still
 answers the question, but only a token-bearing dispatch also shows a settled
-one. The job log's sidecar replay is the second witness either way (requests
-with no MCP shapes is a capture gap; no requests at all is the engine
-declining to call). Observation, not a gate — the leg's verdict is
+one. The job log's sidecar replay is the second witness either way: requests there
+against a distillation carrying `custom_tool_call` items and no
+`mcp_tool_call` / `mcp_call` ones is code mode working as designed — the
+manifest calls are lifted from the freeform call's source, not from an
+MCP-shaped item, which code mode never emits. No requests at all is the engine
+never reaching the sidecar — a decline, or a sidecar that never came up, since
+health is warn-only on this leg. Observation, not a gate — the leg's verdict is
 still the cell's. Dispatch a scenario around the changes it guards: **before and after any
 change to corpus access** (the read seams, `corpus_ranged`, the sidecar
 composites, the blob's physical layout) **or to a corpus-consuming workflow**,
@@ -297,7 +301,8 @@ bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants
 (`test_workflow_cell_invariants`: the qp-topics oracle fence, the corpus-split
-env pair, the forward leakage guard), and the predict plan job's stranded-run
+env pair, the forward leakage guard, the run-surface retry with its inline
+copies and its still-fatal handoff writes), and the predict plan job's stranded-run
 guard (`test_workflow_plan_census`: the census runs before the matrix step and
 feeds it, degrades open rather than failing the job, and lets a fully-superseded
 run close with the recovery note) — so deleting a load-bearing line fails a

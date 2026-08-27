@@ -31,7 +31,7 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the AWS role for ranged corpus reads (scope gating)
-      issues: write # close the trigger issue when the matrix is empty (nothing in scope)
+      issues: write # post the plan report; close the trigger issue when the matrix is empty
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
@@ -88,6 +88,10 @@ jobs:
           run_id=$(date -u +%Y%m%dT%H%M%SZ)
           matrix=$(uv run fedcourts evaluate-matrix --body-file issue-body.md --run-id "$run_id")
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          # The report step re-derives the plan under this same id: the run id
+          # is the join key between the approval record and the committed
+          # evaluation paths, so the two invocations must not mint their own.
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
           count=$(echo "$matrix" | jq '.include | length')
           if [ "$count" -gt 0 ]; then
             echo "has_jobs=true" >> "$GITHUB_OUTPUT"
@@ -103,18 +107,141 @@ jobs:
       # Uses the ambient GITHUB_TOKEN (closing triggers nothing) — least privilege.
       - name: Close the trigger issue when nothing is in scope
         if: ${{ steps.plan.outputs.has_jobs == 'false' && github.event.issue.number }}
+        # One retried close, worth up to 105s against a degraded API; the job
+        # itself declares no cap, so bound the retries here rather than leaving
+        # them to the six-hour default.
+        timeout-minutes: 3
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
           # One atomic call: close with the explanatory comment (no commented-but-open state).
-          gh issue close "$ISSUE" --repo "$REPO" --comment \
+          # Retried because an issue left open by a blip is what run-ops reads
+          # as a stalled fan-out — a false alarm over a run that finished. Three
+          # attempts, and exhaustion still fails the step: a close that never
+          # lands is a real stall, and should look like one.
+          gh_retry gh issue close "$ISSUE" --repo "$REPO" --comment \
             "No evaluations in scope this run — every queued case was dropped by the scope gate (out of scope, nothing scorable, or already evaluated). Closing; nothing to evaluate."
 
-  evaluate:
+      # The plan report the approval below is judged on: the tested plan
+      # command re-derives the same fan-out the matrix step just minted (same
+      # helpers, zero spend) and renders per-step counts, the would-grade
+      # cell list, and the spend estimate — whose basis the report itself
+      # caveats, the evaluate side being a scaled pre-freeze anchor until a
+      # `proc-v4` evaluate fan-out measures the cert stage. Posted to the
+      # trigger issue and the step summary BEFORE the hold, so the record of
+      # what was approved exists whether or not the release ever comes.
+      # Unlike predict's twin there is no stranded-run census to attach — the
+      # evaluate plan carries no stranded guard — so the call is the bare
+      # report form.
+      - name: Post the plan report for approval
+        if: ${{ steps.plan.outputs.has_jobs == 'true' && github.event.issue.number }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PLAN_RUN_ID: ${{ steps.plan.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts evaluate-plan --body-file issue-body.md \
+            --run-id "$PLAN_RUN_ID" \
+            --approval-report plan-report.md \
+            --approval-report-run-url "$RUN_URL" >plan.json 2>plan-stderr.txt \
+            || { cat plan-stderr.txt; exit 1; }
+          cat plan-report.md >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo ''
+            echo '<details><summary>full plan document</summary>'
+            echo ''
+            echo '```json'
+            jq . plan.json
+            echo '```'
+            echo ''
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+          # The report must exist where the approver reads before the hold
+          # releases: the marker-deduped comment command posts exactly once
+          # per run and makes a plan-job re-run safe, and a sustained API
+          # fault fails the plan job loudly, so nothing spends unreported.
+          uv run fedcourts post-issue-comment --issue "$ISSUE" --repo "$REPO" \
+            --marker "<!-- evaluate-plan: ${PLAN_RUN_ID} -->" --body-file plan-report.md
+
+  # The hold. This job carries no code, no token, and no permissions — its one
+  # purpose is the deployment environment: the `review` environment's required
+  # reviewers gate it, so every downstream job that spends (the matrix and the
+  # collect writer behind it) waits on an explicit, audit-logged release. The
+  # wait happens before the job is scheduled, so timeout-minutes bounds only
+  # the no-op itself. The same `review` environment gates the predict hold —
+  # one environment serves every spend hold, which is what the plan report's
+  # closing line and the promotion gate's reviewer check both assume.
+  approval:
     needs: plan
+    if: needs.plan.outputs.has_jobs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: review
+    permissions: {}
+    steps:
+      - name: Release the held fan-out
+        run: echo "the review hold released — the matrix may spend."
+
+  # Any hold that did not release must not strand the trigger issue open:
+  # record the outcome where the request lives, pointing at the plan report
+  # the decision was made on. `!= 'success'` covers the whole class — the
+  # Reject button (a failed deployment), a cancelled or expired wait, and a
+  # plan job that died after minting the matrix (approval then skipped).
+  # Best-effort during a run cancellation, like any always() job: an expired
+  # hold whose runner was torn down may still need a manual close. Ambient
+  # token; closing triggers nothing.
+  rejected:
+    needs: [plan, approval]
+    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result != 'success' && github.event.issue.number }}
+    runs-on: ubuntu-latest
+    # One retried close, worth up to 105s against a degraded API — the cap
+    # admits it with room for the runner's own setup.
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Close the trigger issue when the hold did not release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Inline copy of scripts/gh_retry.sh's gh_retry — this job exists only
+          # to keep a declined request from stranding its issue open, so it
+          # takes no checkout to source the file from: adding one would add the
+          # very failure mode the job is here to remove. The workflow-invariants
+          # test pins the copies identical; contract and rationale live in that
+          # script's header.
+          gh_retry() {
+            local attempt out what
+            what="${1:-} ${2:-} ${3:-}"
+            for attempt in 1 2 3; do
+              if out=$(timeout 30 "$@"); then
+                printf '%s\n' "$out"
+                return 0
+              fi
+              if [ "$attempt" -lt 3 ]; then
+                echo "::warning::${what} failed (attempt ${attempt}/3) — retrying" >&2
+                sleep $((attempt * 5))
+              fi
+            done
+            echo "::error::${what} failed after 3 attempts" >&2
+            return 1
+          }
+          gh_retry gh issue close "$ISSUE" --repo "$REPO" --comment \
+            "The review hold did not release — rejected, cancelled, expired, or the plan failed — so no cell ran and nothing was spent. The plan report above is the record of what was declined; if no report appears above, the plan failed before posting one: ${RUN_URL}. Re-label to re-queue with a fresh plan."
+
+  evaluate:
+    needs: [plan, approval]
     if: needs.plan.outputs.has_jobs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -362,7 +489,7 @@ jobs:
         # (leaving the finalize step to salvage its work) instead of the job-level
         # timeout, which would cancel the runner and discard everything.
         timeout-minutes: 50
-        uses: anthropics/claude-code-action@9d7150bc8a3dae8149739a88019d192b579ad90c # v1.0.193
+        uses: anthropics/claude-code-action@c81e3bc69d1b18badbb63ba39581218f02421678 # v1.0.201
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
@@ -437,7 +564,7 @@ jobs:
         if: matrix.engine == 'codex'
         # Same buffer as the Claude step: trip this step, not the job, on overrun.
         timeout-minutes: 50
-        uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1.11
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
@@ -819,12 +946,15 @@ jobs:
     concurrency:
       group: collect-${{ github.workflow }}-${{ github.run_id }}
       cancel-in-progress: false
-    needs: [plan, evaluate]
+    needs: [plan, approval, evaluate]
     # Run after the whole fan-out even if some cells failed, as long as the plan
-    # queued jobs. This is the only writer: it unions the cells' artifacts into one
+    # queued jobs AND the hold released. Without the approval clause, always()
+    # would fire this writer on a rejected hold (evaluate merely skipped) and
+    # spin up the collect machinery over a run that spent nothing. This is the
+    # only writer: it unions the cells' artifacts into one
     # PR per run (auto-merged when green) plus, if any cell left salvageable
     # partial output, one draft PR a maintainer finishes.
-    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' }}
+    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success' }}
     runs-on: ubuntu-latest
     # The collect action downloads cell artifacts per artifact with bounded
     # parallelism (4 workers; each download is its own degradation boundary —

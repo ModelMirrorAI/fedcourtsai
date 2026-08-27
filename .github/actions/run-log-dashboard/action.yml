@@ -74,10 +74,17 @@ runs:
         EVALUATE_NOTE: ${{ inputs.evaluate-note }}
       run: |
         set -euo pipefail
+        # Every GitHub API call below is retried (contract and rationale in the
+        # script's header). This action lives inside the checkout, so reaching it
+        # at all already proves the checkout succeeded — the callers gate this
+        # step on exactly that — and sourcing the shared copy is safe here in a
+        # way it is not in the caller's no-checkout failure alarms.
+        # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+        source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
         # `run-log-dashboard` is a NON-triggering label by design (no `run:*`
         # workflow keys on it, so labeling the dashboard cannot fire anything).
         # Create it idempotently so a fresh repo's first window does not fail.
-        gh label create run-log-dashboard --repo "$REPO" --force \
+        gh_retry gh label create run-log-dashboard --repo "$REPO" --force \
           --color 0e8a16 --description "Long-lived pipeline-runs dashboard (run-pull; updated in place each window)"
 
         # Counts come from the window's queue files when the run got far enough
@@ -104,12 +111,26 @@ runs:
         # Find the dashboard by label AND exact title, so a stray issue that
         # merely carries the label cannot shadow the dashboard and feed its
         # body into the parse below.
-        num=$(gh issue list --repo "$REPO" --label run-log-dashboard --state open \
-          --limit 100 --json number,title | jq -r '[.[] | select(.title == "Pipeline runs")][0].number // empty')
+        # The retried listing lands in a variable and jq filters *that*, rather
+        # than the call feeding a pipe: an exhausted retry is then the
+        # assignment's own failure, which `set -e` above stops on, instead of a
+        # pipeline status the shell has to be configured to notice. What it
+        # would otherwise reach is the find-or-create below, where an empty
+        # `num` reads as "no dashboard yet" and opens a second one.
+        listing=$(gh_retry gh issue list --repo "$REPO" --label run-log-dashboard --state open \
+          --limit 100 --json number,title)
+        num=$(jq -r '[.[] | select(.title == "Pipeline runs")][0].number // empty' <<<"$listing")
         state='[]'
         if [ -n "$num" ]; then
-          gh issue view "$num" --repo "$REPO" --json body --jq .body \
-            | tr -d '\r' > "${RUNNER_TEMP}/dashboard-body.md"
+          # This is the read whose loss costs the most: the rolling 14-day table
+          # lives inside the body being fetched, so without it the render below
+          # has nothing to prepend to. Exhausting the retry fails the step (the
+          # caller runs it `continue-on-error`, so the window itself stays
+          # green), which leaves the existing dashboard body untouched — the
+          # right outcome, since re-rendering from empty state would replace a
+          # fortnight of window history with this one row.
+          body=$(gh_retry gh issue view "$num" --repo "$REPO" --json body --jq .body)
+          printf '%s\n' "$body" | tr -d '\r' > "${RUNNER_TEMP}/dashboard-body.md"
           # The state fence is anchored by the sentinel line the renderer
           # emits, not by the first ```json in the body; rendered state strings
           # are newline-stripped below, so body content cannot mint a fake
@@ -190,10 +211,10 @@ runs:
         done
 
         if [ -z "$num" ]; then
-          url=$(gh issue create --repo "$REPO" --title "Pipeline runs" \
+          url=$(gh_retry gh issue create --repo "$REPO" --title "Pipeline runs" \
             --label run-log-dashboard --body-file "${RUNNER_TEMP}/dashboard.md")
           echo "Opened the pipeline-runs dashboard: ${url}"
         else
-          gh issue edit "$num" --repo "$REPO" --body-file "${RUNNER_TEMP}/dashboard.md"
+          gh_retry gh issue edit "$num" --repo "$REPO" --body-file "${RUNNER_TEMP}/dashboard.md"
           echo "Updated the pipeline-runs dashboard (#${num})."
         fi

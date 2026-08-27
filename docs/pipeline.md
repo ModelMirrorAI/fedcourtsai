@@ -177,8 +177,9 @@ maintainer-run `contexts` stage reports whether that policy is actually set
 default**: the per-case census is the reading an apply is dispatched on, so the
 procedure is two dispatches. What keeps it off production is IAM: the role is
 read-only there. The seeder's own rail is the second line, refusing any
-destination that is, or sits inside the bucket of, either configured production
-store. **One repointing is still outstanding**: a consumer resolves the committed
+destination that is, or sits inside the bucket of, either store of its pinned
+source — dedicated production-source variables the staging repoint never
+touches. **One repointing is still outstanding**: a consumer resolves the committed
 `corpus/corpus.db.ref` — whose digest names the production blob — unless the
 out-of-band pointer override names the staging blob instead (*Developer
 access* in [data-pipeline.md](data-pipeline.md)), and the scenarios read
@@ -357,7 +358,9 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  → predict[matrix] (artifact per cell)
                                  └─ collect → one auto-merged PR per run (+ a draft for partials;
                                               a facts-only PR when a run lands nothing)
-       run:evaluate → plan → evaluate[matrix] (artifact per cell)
+       run:evaluate → plan (build matrix, post the plan report)
+                                 → approval (the same review hold)
+                                 → evaluate[matrix] (artifact per cell)
                                  └─ collect → one auto-merged PR per run (+ a draft for partials;
                                               a facts-only PR when a run lands nothing)
 ```
@@ -482,6 +485,58 @@ pattern rather than rediscovering it:
   `pyproject.toml`, `uv.lock`, `README.md`, and `src/` to `$RUNNER_TEMP`, syncs
   there, and exports the absolute path the rest of the step calls. A shape test
   fails on a bare `uv run fedcourts` reappearing in that composite.
+- **A GitHub API call has no retry unless you give it one.** Two classes of
+  call route through `gh_retry`. The steps that keep the run *record* — the ops
+  and pipeline-runs dashboards, the weekly digest, the data-validation
+  escalation, the per-day `pull-log` / `live-log` alarms, the seed guard,
+  run-backtest's result comment — are bookkeeping about a run rather than the
+  work. The **handoff writes** are the work: `open-run-handoff`'s trigger-issue
+  create, and the trigger-issue closes in run-predict / run-evaluate. Outside
+  those two lists a bare call is fine and a repo-wide rule would be one nobody
+  could keep — the collect jobs' own PR plumbing and ci.yml's label read are
+  not on this surface. A transient 5xx costs something the run never earned,
+  and what it costs depends on the site, so read yours: on the run-ops steps
+  and the guard's clear-the-incident path a blip reddens a run that did its
+  work; on the dashboard (`continue-on-error`), the alarms (which only fire on
+  an already-failed window), and the back-test comment (`continue-on-error`
+  too) nothing turns red and the *record* is what goes missing; at
+  `open-run-handoff` a blip costs the whole predict/evaluate round, and a lost
+  trigger-issue close leaves an issue that run-ops reads as a stalled fan-out.
+  `gh` also sets no client-side request timeout, so a stalled connect hangs to
+  the job's kill with nothing written.
+  Wrap each call in `gh_retry` (`scripts/gh_retry.sh`, sourced where a checkout
+  exists and no agent has run in it; copied inline — a test pins the copies
+  identical — wherever sourcing is unavailable or unsafe: the steps that must
+  fire even when the checkout failed, the `rejected` jobs that are *given* no
+  checkout because one is another way to strand the issue they exist to close,
+  and the back-test's report step, whose workspace its own agent cells could
+  have rewritten), and give the step a `timeout-minutes` that admits
+  the retries — three attempts at `timeout 30` plus backoff is 105s per call.
+  A call that routes through `agent_feedback.py`'s runner carries the bound
+  already: that module's default `GhRunner` applies the same three attempts at
+  the same 30s cap to every `gh` call it makes, so the `post-issue-comment` and
+  `post-agent-feedback` commands — the plan report each non-empty
+  predict/evaluate round posts before the review hold, the collect job's stall
+  and secret-scan reports, and the flag roll-up latch itself — are covered at
+  the seam, and a new caller of it inherits the bound rather than adding a copy.
+  That is the seam's coverage, not Python's: a `gh` call made anywhere else in
+  the package is as bare as an unwrapped shell one. Budget for it the same way —
+  105s per call, against whatever cap the calling step or job carries.
+  Retrying never changes what a failure *means*: exhaustion returns non-zero
+  (raises, on the Python side), so a handoff write that never lands still fails
+  its run loudly, exactly as an unretried call would. What the retry buys is
+  that a blip does not decide it.
+- **Shape a retried lookup so its failure cannot read as an empty result.**
+  Most of these lookups feed a find-or-create, so an empty `num` reads as "no
+  issue yet" and opens a duplicate or restarts a dashboard's rolling state.
+  (The back-test's PR lookup feeds none — an empty result there costs only the
+  review-PR back-link — but it takes the same shape, so the rule has no
+  exception to remember.) Never let
+  a retried call be a non-final element of a pipeline: filter with `gh`'s own
+  `--jq` inside the same command, or assign the output and filter the variable.
+  Either way `set -e` stops the step on the command itself. Note the limit of
+  that — it narrows the dependence from errexit *and* pipefail to errexit
+  alone; with `set -e` off the empty result still reaches the branch.
 
 Validate any `.github/` change locally with the linters CI enforces (see the
 local gate in [AGENTS.md](../AGENTS.md)), and run the **`workflow-reviewer`**
@@ -649,6 +704,10 @@ three namespaces:
 - **`prereg/<label>`** — a pre-registration freeze commit, e.g.
   `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS` and sets
   `FROZEN_SINCE` (docs/process-version.md carries the freeze procedure).
+  One tag deviates: `prereg/proc-v4` sits on the promotion merge that
+  carried its freeze commit rather than on the freeze commit itself — the
+  namespace blocks moving it, and the freeze record in docs/milestones.md
+  states the placement and its consequence.
 - **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit; a
   `-2` suffix distinguishes a same-day second batch.
 - **`results/<term>-<milestone>`** — the commit carrying a published metrics
@@ -720,25 +779,34 @@ count surfaced as a `::warning::` and in the plan's step summary; a deferred cas
 stays in the predict queue and re-runs next cycle, so the cap defers rather than
 drops. This is the numeric backstop, distinct from the coarse
 `PREDICT_HANDOFF_ENABLED` on/off pause below — and distinct again from the
-**review hold**, the per-run gate between plan and spend: the plan job posts
-its report to the trigger issue, and the matrix waits on a required reviewer
-approving the `review` deployment in the Actions UI. A run
-sitting in *Waiting* is a request for that decision, not a stall; a hold that
+**review hold**, the per-run gate between plan and spend on both fan-outs:
+each plan job posts its report to the trigger issue, and the matrix waits on
+a required reviewer approving the `review` deployment in the Actions UI —
+one environment serves both holds, so the reviewer approves in the same
+place whichever channel is asking, though the evaluate report's spend line
+carries the weaker basis its plan states: a scaled pre-freeze anchor until a
+`proc-v4` evaluate fan-out measures the cert stage. A held run's trigger
+issue also shows on `run-ops`'s open-trigger list as a stalled fan-out — do
+not follow that list's re-fire advice while the hold is still *Waiting*, or
+the re-label mints a second plan behind the first. A run sitting in
+*Waiting* is a request for that decision, not a stall; a hold that
 does not release (rejected, cancelled, or expired) closes its trigger issue
 with the plan report as the record, and re-labelling re-queues with a fresh
 plan. Approve one held run at a time, and treat a hold older than a day as a
-stale plan to reject and re-queue rather than release: the already-predicted
-gate and the stranded-run guard were both evaluated at plan time, so a long
-hold un-anchors them — two simultaneously held plans over overlapping open
+stale plan to reject and re-queue rather than release: the plan-time gates —
+predict's already-predicted gate and stranded-run guard, evaluate's
+predictionless and already-graded drops — were all evaluated when the plan
+was minted, so a long
+hold un-anchors them — two simultaneously held plans over overlapping
 events were each minted before the other spent, and releasing both
 double-spends the overlap. The plan reports on the two issues make the
 overlap visible before either release; a mechanical post-release re-check
 belongs to the auto-release follow-up, where no human reads the reports. A
 rejected hold is an unsatisfied-gate report, not an incident — but unlike
 `promote`, whose failures the ops dashboard annotates as gate reports, the
-dashboard cannot distinguish a rejected hold from a real run-predict failure,
-so a depressed run-predict success rate during shakedown reads against this
-note rather than against the fleet.
+dashboard cannot distinguish a rejected hold from a real fan-out failure,
+so a depressed run-predict or run-evaluate success rate during shakedown
+reads against this note rather than against the fleet.
 
 A predict cell refuses to run for two reasons, both landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP
@@ -1297,6 +1365,47 @@ lists every still-open `run:*` issue as a **stalled fan-out**, so a
 workflow-disabled-only pause steadily reddens the ops dashboard with what looks
 like broken runs. Holding the handoff avoids that; for a full pause of either
 channel, hold the handoff *and* disable the workflow.
+
+### Recovering from a manual disable
+
+A workflow paused with a disable (`disabled_manually` in `gh workflow list
+--all` — the bare listing hides disabled workflows, and the ops dashboard
+gives the state no distinct marker, so the `--all` listing is the one
+surface that shows it) comes back in a fixed order, because the label
+step's mechanics are silent about what they drop:
+
+1. **Re-enable first — the maintainer's act.** `gh workflow enable
+   <workflow>` (or the Actions UI); an interactive session's token is refused
+   on it, like every workflow-administration call, so an agent session
+   composes the command and continues with what does not depend on it. An
+   enabled workflow with the handoff still held creates nothing, so this
+   order has no window in which events fire into a disabled workflow.
+2. **Then restore the handoff, if it was held** — variable administration,
+   on the same maintainer-only list. A full pause holds the handoff *and*
+   disables the workflow (above); restoring the handoff while the workflow
+   is still disabled would file trigger issues whose label events are
+   dropped, manufacturing exactly the re-label work of the next step.
+3. **Re-apply the `run:*` label on each trigger issue that should now run.**
+   Label events fired while the workflow was disabled were dropped, and an
+   already-applied label fires no event (both GitHub's own event mechanics,
+   like the handoff-token gotcha above), so re-enabling alone resumes
+   nothing: remove the label where it is still applied, then re-apply it —
+   the re-apply is the trigger, and a run still queued or held from before
+   the pause serializes ahead of it under the per-issue concurrency group.
+   Three outcomes of the re-label are the machinery working, not the
+   recovery failing: with cells sitting in an uncollected run's artifacts,
+   the stranded-run guard withholds them for its 48-hour window and the
+   re-label closes the trigger issue saying so (*Recovering a run whose
+   `collect` failed*, above); a label re-applied after a secret-scan
+   withhold re-spends every cell the withheld run already paid for (same
+   section); and a queued event that resolved during the pause closes as
+   out of scope — the forecastability re-check working across the gap.
+4. **The hold, not the enable, is still the spend gate.** A re-applied label
+   starts at the plan job, which posts a fresh plan report, and the matrix
+   waits behind the approval job on the `review` environment's required
+   reviewers — so a recovery cannot leak spend past the hold, and the fresh
+   plan re-anchors the already-predicted gate and the stranded-run guard
+   exactly as the review-hold rules above require of a re-queue.
 
 ## Snapshot sequencing
 

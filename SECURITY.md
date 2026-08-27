@@ -209,8 +209,9 @@ runbook, [docs/security.md](docs/security.md).
   and its own engine keys for the pre-promotion integration runs. A third,
   `review`, holds no secret, no role, and no branch policy: its entire content
   is a required-reviewer rule, and it exists only as the audit-logged hold
-  between a paid fan-out's plan and its token spend (run-predict today; any
-  later spend hold binds the same environment). The promotion gate's
+  between a paid fan-out's plan and its token spend — run-predict and
+  run-evaluate both bind it; one environment serves every spend hold rather
+  than each minting its own. The promotion gate's
   admin-read stage verifies the rule is present, because an auto-created
   environment is unprotected and an unprotected hold releases instantly.
   Self-review is deliberately permitted: with a single maintainer the hold is

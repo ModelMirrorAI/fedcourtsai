@@ -199,6 +199,69 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      # A malformed dispatch-only input should cost seconds, not a walk window.
+      # Every refusal below is also enforced where it is used, in the
+      # dispatch-only steps at the tail of this job — a step has to be safe on
+      # whatever reaches it, so those are the checks of record and this one is a
+      # duplicate, not a substitute. It sits here, ahead of the first costly
+      # step (the corpus pull), so a typo fails inside the first minute instead
+      # of after the pull, a full Term walk and five sweeps — and so a bad
+      # input never consumes a window on the shared corpus-write lock. Only the
+      # token mint and the checkout run before it, which is also why the
+      # trailing verdict stays skipped on this refusal rather than publishing:
+      # no corpus has been pulled yet, and the gate on that step says so.
+      # Both halves are kept word-for-word identical to their late twins —
+      # the same grammar, the same splitting, the same all-or-nothing refusal,
+      # the same `::error::` text — so one mistake can never produce two
+      # differently worded refusals depending on where it was caught.
+      - name: Validate dispatch inputs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        # The inputs are maintainer-typed free text entering a shell, so they
+        # are handled as data here exactly as they are downstream: expanded from
+        # the environment, never interpolated into this script.
+        env:
+          DISPOSITION_MODE: ${{ inputs.disposition_convergence }}
+          DISPOSITION_MAX_RELABELS: ${{ inputs.disposition_max_relabels }}
+          REGRADE_MODE: ${{ inputs.regrade_stale }}
+          REGRADE_CELLS: ${{ inputs.regrade_cells }}
+        run: |
+          set -euo pipefail
+          # The bound is required on apply and ignored in every other mode, so
+          # a blank one is only an error when the apply would actually run.
+          if [ "${DISPOSITION_MODE}" = "apply" ] \
+            && ! [[ "${DISPOSITION_MAX_RELABELS}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::disposition_convergence=apply needs disposition_max_relabels set to a positive integer — the relabel count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          if [ "${REGRADE_MODE}" != "none" ]; then
+            # The grammar excludes `.` deliberately — with no dots no field can
+            # be a `..` path segment, whatever the command does with it.
+            pattern='^[a-z0-9-]+/[0-9]+/evt-[a-z0-9-]+/[0-9]{8}T[0-9]{6}Z/[a-z0-9-]+$'
+            malformed=0
+            cells=()
+            # `printf '%s\n'`, not '%s': `read` returns non-zero on a final line
+            # with no terminator, so an unterminated last cell would be dropped
+            # by the loop — silently, and past the all-or-nothing check below.
+            # The blank line this adds is absorbed by the emptiness guard.
+            while IFS= read -r line; do
+              [ -n "$line" ] || continue
+              if [[ "$line" =~ $pattern ]]; then
+                cells+=("$line")
+              else
+                echo "::error::malformed regrade cell (want court/docket/event/run_id/actor, e.g. scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge): ${line}"
+                malformed=1
+              fi
+            done < <(printf '%s\n' "${REGRADE_CELLS}" | tr -s ' \t\r' '\n')
+            if [ "$malformed" -ne 0 ]; then
+              echo "::error::refusing the whole list — correct the lines above and re-dispatch."
+              exit 1
+            fi
+            if [ "${#cells[@]}" -eq 0 ]; then
+              echo "::error::regrade_stale=${REGRADE_MODE} names no cells — set regrade_cells."
+              exit 1
+            fi
+          fi
+
       - name: Sync the working tree to the current tip of the default branch
         # actions/checkout pins this run's frozen github.sha — the branch tip when
         # the run was CREATED, not when it starts. A run that queues behind another
@@ -239,6 +302,10 @@ jobs:
           action-timeout-s: 120
 
       - name: Pull the current corpus from the remote
+        # Named so the trailing verdict can require it: `validate-corpus` is
+        # graceful when no corpus is on disk and returns a *skipped* verdict,
+        # which would otherwise be published over the last real one.
+        id: corpus-pull
         env:
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
@@ -276,6 +343,10 @@ jobs:
           uv run fedcourts refresh-historical "${args[@]}" --apply
 
       - name: Walk the Terms in checkpointed chunks until done or out of time
+        # Named for the trailing verdict too: the loop publishes at its
+        # checkpoints, so a walk that died between two of them leaves ingested
+        # rows in the local blob that no pointer commit covers.
+        id: term-walk
         env:
           # The loop's checkpoints push the corpus blob, so the remote URL must be
           # job-step env here (CORPUS_REMOTE_URL variable).
@@ -908,7 +979,10 @@ jobs:
           # guard: a dispatch that cannot legally apply should say so in
           # seconds, not after a full scan. The command refuses an unbounded
           # apply on its own too; this refusal is the one with the maintainer's
-          # procedure in it.
+          # procedure in it. `Validate dispatch inputs` up front duplicates it
+          # word for word so a bad dispatch dies before the corpus pull; this
+          # copy is the one of record, because the step has to be safe on
+          # whatever reaches it.
           if [ "${DISPOSITION_MODE}" = "apply" ] \
             && ! [[ "${DISPOSITION_MAX_RELABELS}" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::disposition_convergence=apply needs disposition_max_relabels set to a positive integer — the relabel count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
@@ -998,6 +1072,10 @@ jobs:
           # every line matched against the id grammar before a command sees
           # it. The grammar excludes `.` deliberately — with no dots no field
           # can be a `..` path segment, whatever the command does with it.
+          # `Validate dispatch inputs` up front duplicates this whole block
+          # word for word so a bad list dies before the corpus pull; this copy
+          # is the one of record, because the step has to be safe on whatever
+          # reaches it.
           pattern='^[a-z0-9-]+/[0-9]+/evt-[a-z0-9-]+/[0-9]{8}T[0-9]{6}Z/[a-z0-9-]+$'
           malformed=0
           cells=()
@@ -1071,12 +1149,53 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "re-grade ledger"
 
-      # Trailing, NON-BLOCKING data-validation, exactly as on run-pull's jobs:
-      # produce the correctness verdict on the now-current corpus and publish it
-      # for run-ops to present and escalate — loud-not-fatal by contract. Gated to
+      # Trailing, NON-BLOCKING data-validation, as on run-pull's jobs: produce
+      # the correctness verdict on the now-current corpus and publish it for
+      # run-ops to present and escalate — loud-not-fatal by contract. Gated to
       # the same one-window/day cadence as the scope reconcile.
+      #
+      # The condition is what makes "non-blocking" hold in both directions, and
+      # each conjunct answers a different way of getting it wrong.
+      #
+      # `continue-on-error` protects the step from its OWN failure; without a
+      # status function the implicit `success()` still lets any unrelated
+      # upstream failure skip it — so a refused dispatch input would withhold
+      # the corpus data-health reading, which is exactly when it is most
+      # wanted. `!cancelled()` restores it — NOT `always()`, because a
+      # cancelled job (the hard timeout-minutes kill, an OOM — the case the
+      # guard job covers) is stopped mid-step, and a verdict over that reports
+      # a corpus state nobody committed. This gate is the one divergence from
+      # run-pull's copy of the step, which carries no `if:` at all: run-pull's
+      # tail holds no step that fails by refusing, so it has nothing to keep
+      # the reading alive for.
+      #
+      # The two step gates are the same argument applied to the corpus on disk,
+      # because publishing is not free: the verdict overwrites the latest file
+      # on ops-metrics, which is also the next run's monotonic row-count
+      # baseline. A run that failed before `corpus-pull` has no corpus, and
+      # `validate-corpus` is graceful about that — it returns a *skipped*
+      # verdict, which would replace the last real reading with a blank one and
+      # leave the next run no baseline. A run whose walk failed between two
+      # checkpoints has the opposite problem: rows in the local blob that no
+      # pointer commit covers, published as a baseline the next run's pulled
+      # corpus cannot meet, which reads as a corpus shrink. What the gates
+      # still admit — a refused dispatch-only step, a failed summary, a sweep
+      # that failed before it mutated anything — leaves the corpus exactly as
+      # some commit describes it, which is the state worth reporting.
+      #
+      # One case they do NOT cover, and deliberately: a sweep that mutated the
+      # blob and then failed its own push holds rows no pointer commit covers,
+      # the same hazard as the half-finished walk. Every sweep is
+      # continue-on-error, so the job stays successful and this step has always
+      # run over that state — the gates neither create the gap nor widen it.
+      # Closing it means giving each sweep the same outcome gate, which is a
+      # wider change than this one.
       - name: Produce + publish the corpus validation verdict
-        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        if: >-
+          ${{ !cancelled()
+          && steps.corpus-pull.outcome == 'success'
+          && steps.term-walk.outcome != 'failure'
+          && (github.event_name != 'schedule' || github.event.schedule == '31 2 * * *') }}
         continue-on-error: true
         uses: ./.github/actions/publish-corpus-verdict
         with:
@@ -1113,46 +1232,45 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          # Every call below goes to the GitHub API, and a transient 5xx on any
-          # of them turns this watchdog's own bookkeeping into a red run over a
-          # clean walk — or leaves a stale incident open over a healthy one. A
-          # short bounded retry absorbs the blip; a sustained outage still
-          # fails the step loudly, which is the right residue when the API
-          # itself is down.
-          # Each attempt is bounded: gh sets no client-side request timeout, so
-          # a stalled connect against a degraded API would otherwise hang into
-          # the job's own kill — leaving no issue written, the one outcome this
-          # job exists to prevent. Capture-then-print keeps a failed attempt's
-          # partial stdout out of command substitutions. Retrying a
-          # deterministic 4xx costs only the 15s of sleeps, accepted here for
-          # simplicity over push_with_retry.sh's transient/genuine split.
-          retry() {
-            local attempt out
+          # Inline copy of scripts/gh_retry.sh's gh_retry — this job deliberately
+          # has no checkout (it must fire even when the walk died before one), so
+          # it cannot source the file; the workflow-invariants test pins the
+          # copies identical. Contract and rationale live in that script's header.
+          gh_retry() {
+            local attempt out what
+            what="${1:-} ${2:-} ${3:-}"
             for attempt in 1 2 3; do
               if out=$(timeout 30 "$@"); then
-                printf '%s' "$out"
+                printf '%s\n' "$out"
                 return 0
               fi
-              if [ "$attempt" -lt 3 ]; then sleep $((attempt * 5)); fi
+              if [ "$attempt" -lt 3 ]; then
+                echo "::warning::${what} failed (attempt ${attempt}/3) — retrying" >&2
+                sleep $((attempt * 5))
+              fi
             done
+            echo "::error::${what} failed after 3 attempts" >&2
             return 1
           }
           # `pipeline-health` is a NON-triggering label by design (no run:* workflow
           # keys on it). Create it idempotently, as run-ops does for its label.
           # Non-fatal after retries: in steady state the label exists, and if it
-          # truly does not, the issue write below fails loudly on its own.
-          retry gh label create pipeline-health --repo "$REPO" --force \
+          # truly does not, the issue write below fails loudly on its own. The
+          # retry's own exhaustion annotation still shows on the run — an API
+          # unwell enough to lose three attempts is worth surfacing even where
+          # this particular call is optional.
+          gh_retry gh label create pipeline-health --repo "$REPO" --force \
             --color b60205 --description "Long-lived corpus-writer failure" \
             || echo "::warning::pipeline-health label create failed after retries; continuing"
-          num=$(retry gh issue list --repo "$REPO" --label pipeline-health --state open \
+          num=$(gh_retry gh issue list --repo "$REPO" --label pipeline-health --state open \
             --json number --jq '.[0].number')
           # Only 'success' clears; 'failure'/'cancelled' (or any non-skipped
           # not-clean result — this job's always() runs it regardless) escalate.
           if [ "$RESULT" = "success" ]; then
             if [ -n "$num" ]; then
-              retry gh issue comment "$num" --repo "$REPO" \
+              gh_retry gh issue comment "$num" --repo "$REPO" \
                 --body "✅ The seed walk finished cleanly again ($RUN_URL) — closing."
-              retry gh issue close "$num" --repo "$REPO" --reason completed
+              gh_retry gh issue close "$num" --repo "$REPO" --reason completed
             fi
             exit 0
           fi
@@ -1165,7 +1283,7 @@ jobs:
           # one would degrade this to the unnamed branch below, never break it.
           # A failed lookup only costs the step name, so it stays non-fatal — but
           # it is NOT silenced, so a 403/404 is in the log for whoever triages.
-          step=$(retry gh api "repos/${REPO}/actions/runs/${GITHUB_RUN_ID}/jobs" \
+          step=$(gh_retry gh api "repos/${REPO}/actions/runs/${GITHUB_RUN_ID}/jobs" \
             --jq '[.jobs[] | select(.name == "seed") | .steps[]
                    | select(.conclusion != "success" and .conclusion != "skipped")][0].name' \
             || true)
@@ -1176,8 +1294,8 @@ jobs:
           fi
           body="⚠️ The seed (historical) run ended \`${RESULT}\` — ${where}. It commits directly to main with no PR gate, so this needs a look: ${RUN_URL}"
           if [ -n "$num" ]; then
-            retry gh issue comment "$num" --repo "$REPO" --body "$body"
+            gh_retry gh issue comment "$num" --repo "$REPO" --body "$body"
           else
-            retry gh issue create --repo "$REPO" --label pipeline-health \
+            gh_retry gh issue create --repo "$REPO" --label pipeline-health \
               --title "Seed walk failing" --body "$body"
           fi

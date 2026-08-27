@@ -13,10 +13,38 @@ Every non-inference line — runners, storage, memberships, subscriptions — su
 a near-constant **≈$5.5K/yr floor**. Agentic model usage for prediction and
 evaluation is one to two orders of magnitude larger and scales linearly with how
 many events, by how many predictors, scored by how many evaluators. So the budget
-is that fixed floor plus one dominant line, and that line has a single dial — the
-salience gate's **capacity `N`**, the number of petitions per conference the
-tournament actually runs. Funding moves `N`; the whole budget re-cuts as
-`fixed floor + N × per-case`.
+is that fixed floor plus one dominant line, and that line has **two dials**:
+
+- **`N` — the salience gate's capacity**, the number of petitions per conference
+  the tournament actually runs ([salience.md](salience.md)). `N` sets **how many
+  events** are forecast.
+- **`P` — the size of the predictor registry**
+  ([config/predictors.yaml](../config/predictors.yaml)), the number of engines
+  that forecast each event. `P` sets **what one event costs**.
+
+The third count is deliberately *not* a dial. The evaluator registry size **`E`
+holds at 3**: a new predictor is not a judge by default, because promoting an
+engine to judge changes the graded process rather than the budget, and is a
+separately-registered process-version decision
+([process-version.md](process-version.md)). So the whole budget re-cuts as
+`fixed floor + events(N) × per-case(P)`.
+
+**The phase policy: one dial at a time.** Bootstrapping holds `P = 3` and spends
+every incremental dollar on `N`. Depth before breadth — a fourth opinion on an
+event the gate never selected is worth less than a first opinion on one it did,
+and the coverage claims the project is judged on are claims about `N`. That
+holds until `N` has nothing left to buy: **full paid-gate coverage**, the state
+in which every paid petition the gate can reach is rank-filled.
+
+Two figures name that state and they are not the same one. `N`'s **own** ceiling
+is the first-distribution slice it fills — at most `1,498 × $15 ≈ $22K/yr`. The
+**whole-Term bill** in that state is larger, because four channels ride beside
+`N` rather than inside it: **≈$28K/yr inference, ≈$33K with the floor** (derived
+under *What `N` can ever buy*). Both are upper bounds, since 1,498 is itself an
+upper bound on the pool. Past that state raising `N` buys nothing — the gate can
+never select more than those petitions — and **incremental dollars switch to
+`P`**, which buys another engine's read of each event instead of more events.
+Everything below prices one dial or the other.
 
 The flat **Claude Max** subscription cannot absorb automated volume — it is
 metered for interactive use, and per Anthropic's policy the subscription token is
@@ -86,8 +114,11 @@ counts cert decisions across both fee streams; the gate excludes IFP at Tier 0
 **1,498** paid petitions — an upper bound, because seven further rules in
 `OUT_OF_SCOPE_RULES` cut it again, as does the snapshot-aware bare-import rule
 that `out_of_scope_reason_full` adds. So the ≈$83K below is the whole-docket
-ceiling, and full coverage of what the gate can actually predict is
-`1,498 × 6 cells × $2.50 ≈ $22K`.
+ceiling, and rank-filling every paid petition once costs
+`1,498 × 6 cells × $2.50 ≈ $22K`. That last figure is the **first-distribution
+slice** — the most the capacity dial can ever buy — not the cost of the state it
+describes: CVSG, arrival, interim and merits moments ride beside it and carry the
+whole-Term bill to ≈$28K (*What `N` can ever buy*, below).
 
 **The cap is sized to bind, and the gate replay at the shipped capacity
 measures that it does.** Raw paid cohorts run a median 34 petitions (p90 82,
@@ -192,8 +223,8 @@ artifacts over several tool-use turns — so effective token usage (≈280–400
 input, the large majority cache-served, plus ≈6K output) far exceeds the visible
 artifacts. Every run records its tokens and estimated cost (rates kept in
 `fedcourtsai.pricing`) to a `usage.json`, rolled up by `fedcourts usage-summary` —
-**≈$971 total inference spend on the ledger to date**, across the 503 cells the
-per-cell figures below draw on.
+**≈$1,395 total inference spend on the ledger to date**, across the 684 cells the
+per-cell figures below draw on (636 predict, 48 evaluate).
 That estimate is token-derived, so hosted web search — billed per call rather
 than per token on all three APIs — sits outside it and makes a searching cell's
 recorded cost a mild undercount. The ledger also counts **collected cells only**:
@@ -202,7 +233,7 @@ run — one whose cells burned tokens but whose output never landed — spends
 against the provider bill and never appears here. Every measured figure below is
 therefore a floor on provider-side spend, not a reconciliation of it.
 Measured per-cell cost spans **≈$0.25–8.30 by model mix** (blended mean
-**≈$1.93** over the 503 cells on the ledger).
+**≈$2.04** over the 684 cells on the ledger).
 
 **Per-cell cost is keyed on the stage.** The first predict fan-out to land after
 the pre-registration freeze instant ([process-version.md](process-version.md)) —
@@ -230,7 +261,10 @@ at $5.49, which sits inside the per-event range of the cert arrival stage
 ($4.66–$8.94) *and* inside that of merits ($5.45–$10.77), the most expensive
 stage. A single draw that is consistent with every other stage ranks nothing.
 Take interim as a placeholder to be re-read at the next fan-out, not as the
-cheapest stage.
+cheapest stage — and the wider post-freeze population below now reads it at
+**$6.41 over 12 events**, so it is *not* the cheap stage this single draw
+suggested. That wider read leaves the row's one finding standing but narrows it:
+merits still runs above cert, $7.60 against $6.71, by ≈$0.9 rather than ≈$1.2.
 
 The larger-sample reference is the pre-freeze cert-era ledger — **410 predict
 cells over 137 events** (an incomplete grid: 138 / 132 / 140 cells by engine,
@@ -253,27 +287,104 @@ that digest is defined over the prompt bytes and resolved config
 count. Treat **≈+20% as an upper bound on any level effect**, not a measurement
 of one. Plan against $6.79 and expect it to move.
 
-Evaluate has no post-freeze measurement at all, and its four pre-freeze graded
-events are **not one cohort** — they split the same way the predict cells do:
+**The wider post-freeze predict population corroborates `$6.79`, but only once
+it is mix-matched.** Further fan-outs and top-up runs have landed, and pooling them raw does not
+settle anything: across all post-freeze predict cells the **complete-grid**
+population is 75 events at **`$7.01`** an event — but that population is ~45%
+cert, ~16% interim and ~39% merits, against a Term the volumes table puts at
+~73% cert, ~12% interim and ~15% merits. It is dominated by the most expensive
+stage. Reweighting its own per-stage rates by the Term's event mix is the
+comparison that means something:
+
+```
+complete-grid post-freeze predict, by stage   cert    $6.71  (n=34)
+                                              interim $6.41  (n=12)
+                                              merits  $7.60  (n=29)
+
+reweighted by the Term's mix (613-640 cert / 98 interim / 127 merits)
+                                              ≈ $6.80-6.81 an event
+```
+
+Read the raw `$7.01` as what a *merits-heavy* run costs, not as a Term rate — and
+note that the same objection lands on `$6.79` itself, which is the raw mean of a
+run that was 11/27 merits. Reweighted the same way, that run reads `$6.44`. The
+planning anchor is a run mean, not a Term rate; what the reconstruction supplies
+is the Term rate to check it against.
+
+**And the check is not independent.** Twenty-seven of those 75 events *are* the
+anchor fan-out — about a third of the population. Over the 48 events it does not
+contain, the same reweighting gives:
+
+```
+non-anchor complete-grid post-freeze   cert    $6.97  (n=19)
+                                       interim $6.50  (n=11)
+                                       merits  $7.68  (n=18)
+reweighted by the Term's mix                   ≈ $7.02 an event
+```
+
+So the honest reading is **corroboration of the magnitude, not of the point**:
+independently of the anchor, a Term reweights to `$7.02`, some **3% above**
+`$6.79`. That direction matters below — it eats what little headroom the planning
+rate has rather than adding to it.
+
+The evaluate side is measured on a **narrower and weaker** base, and its cohorts
+do not pool — they split the same way the predict cells do:
 
 | Evaluate cohort | Events | `claude-judge` | `codex-judge` | `gemini-judge` | Per event |
 |---|---:|---:|---:|---:|---:|
-| `proc-v2` stamped (run `20260814T033644Z`) | 3 | $4.86 | $1.07 | $0.79 | $6.71 |
-| unstamped (run `20260718T000134Z`) | 1 | $4.16 | $0.92 | $0.52 | $5.60 |
-| pooled | 4 | $4.68 | $1.03 | $0.72 | $6.43 |
+| `proc-v2` stamped, pre-freeze (run `20260814T033644Z`) | 3 | $4.86 | $1.07 | $0.79 | $6.71 |
+| unstamped, pre-freeze (run `20260718T000134Z`) | 1 | $4.16 | $0.92 | $0.52 | $5.60 |
+| pre-freeze pooled | 4 | $4.68 | $1.03 | $0.72 | $6.43 |
+| `proc-v3` stamped, post-freeze (run `20260824T231401Z`) | 6 | $4.16 | $1.51 | $0.77 | $6.44 |
+| `proc-v3` stamped, post-freeze (run `20260825T024608Z`) | 6 | $4.79 | $1.22 | $0.68 | $6.69 |
 
-All four are cert-stage, so the anchor is stage-narrow whichever row is read;
-but pooling across the process boundary is the same defect the predict side is
-careful to avoid, and the single month-older unstamped event pulls the pooled
-figure down ≈4%. **$6.71 is the better-matched anchor and $6.43 the more
-cautious one**, which is why the per-case figure below is a band rather than a
-point.
+The four pre-freeze events are all cert-stage, so that anchor is stage-narrow
+whichever row is read; pooling across the process boundary is the same defect the
+predict side is careful to avoid, and the single month-older unstamped event
+pulls the pre-freeze pooled figure down ≈4%. **$6.71 is the better-matched
+pre-freeze anchor and $6.43 the more cautious one**, which is why the per-case
+figure below is a band rather than a point.
 
-**The ledger's $1.93 is its mix, not the design's**:
-491 of the 503 cells are predict, and evaluate cells cost more, so the mean the
+**The two post-freeze rows are one six-event population read twice**, not twelve
+events: both runs graded the same six moments (two interim dockets × three
+interim moments each), so the second adds no coverage. It is not a re-grading
+either: neither run's judges could see the other's output, since each collected
+before or independently of the other. They are two **independent first gradings**
+of one population — which makes the `$6.44`/`$6.69` spread a clean ≈4%
+run-to-run variance under one process, the only such measurement the ledger
+holds.
+Two passes over the same six events, so grading them actually cost `$13.13` an
+event of *coverage* — not the steady state a per-case rate models, but not a
+number to lose either.
+
+Two defects and a supersession qualify these rows. **n = 6**, on two application
+dockets. **One stage**: all six moments are interim, against a Term whose
+forecast events run ~73–74% cert and only ~11–12% interim. And the digests —
+105 of their 108 `evaluation.json` records carry `proc-v3`'s evaluator digests
+(the three exceptions sit on one partial cell), so these gradings are
+attributable but for three records — and attributable to a **grading process
+since superseded**. `proc-v4` retired those evaluator digests over a batch of
+judge-prompt changes, of which the token-count-relevant one is the
+judge-workspace prune: it hides the committed `predictions/` and `evaluations/`
+trees from a judge cell's working tree. A hidden tree is a tree not read. **The
+first `proc-v4` grading run will re-price these cells**, in a direction the
+prune's mechanics suggest is downward — which is a prediction, not a reading.
+
+What the rows do **not** establish is the tempting reading. They are **not**
+evidence that the assumed ≈+22% uplift failed to appear, because the pre-freeze
+anchors they would be compared against (`$6.43`, `$6.71`) are **cert-stage**, and
+no pre-freeze interim-stage evaluate measurement exists at all. What can be said
+is narrower: the first post-freeze evaluate measurement comes in **below** what
+the uplift assumption projects, at a stage the pre-freeze anchor does not cover —
+so it bounds nothing until a cert-stage post-freeze grading exists. It is a
+signal to check, not a correction to apply. That is why the figures below carry a
+**measured-basis** reading beside the planning-rate one rather than replacing it.
+
+**The ledger's $2.04 is its mix, not the design's**:
+636 of the 684 cells are predict, and evaluate cells cost more, so the mean the
 funding knob has to cover is the one at the design mix of three predict and
 three evaluate cells per case — **$2.44–2.49** ($14.6–15.0 ÷ 6, the derivation
-under *Capacity `N`* below). Read $1.93 as what has been spent per cell so far
+under *Capacity `N`* below). Read $2.04 as what has been spent per cell so far
 and $2.44–2.49 as what a fully-tournamented case implies. The cheapest cells
 approach ≈$0.25 only when the
 byte-stable prefix (AGENTS.md + prompt template + schema) is served from the prompt
@@ -304,83 +415,362 @@ The unit throughout is the **agent cell**, and both roles fan out the same way:
 one predict cell per (predictor, event) and one evaluate cell per (evaluator,
 event) — a judge grades *every* predictor for its event in a single invocation,
 so cross-evaluation multiplies the `evaluation.json` count but not the cell
-count. Three engines cross-evaluated is therefore **6 cells per case**, not 12.
+count. A case therefore costs **`P + E` cells, not `P × E`**, and at the shipped
+`P = E = 3` that is **6 cells per case**, not 12.
 
-Full 14-court scope is the reference ceiling:
+That identity is the seam between the two dials, and the two halves of it grow
+differently. Raising `P` adds predict *cells* — one more per event, priced at
+that engine's own rate. It adds no evaluate cell, because `E` is fixed; it makes
+each existing evaluate cell **larger**, since every judge now reads one more
+prediction. Cell count is linear in `P`; evaluate cell *size* is the part that
+is not measured, and *Registry size `P`* below bounds it.
+
+Full 14-court scope is the reference ceiling, held at `P = E = 3`:
 
 ```
-predictions  ≈ 48,000 events   × 3 predictors × $2.50   ≈ $360K
-evaluations  ≈ 42,000 resolved × 3 evaluators × $2.50   ≈ $315K
-                                                          ────────
-full scope                                                ≈ $675K / yr
+predictions  ≈ 48,000 events   × 3 predictors (P) × $2.50   ≈ $360K
+evaluations  ≈ 42,000 resolved × 3 evaluators (E) × $2.50   ≈ $315K
+                                                              ────────
+full scope                                                    ≈ $675K / yr
 ```
+
+At any other `P` the whole block re-cuts on `per-case(P)` rather than on the
+`$2.50` design-mix cell rate. And it prices a scope change that is **deferred**
+— see *Deferred scope, unpriced* — so read it as a reference ceiling, not a plan.
 
 The SCOTUS gate is roughly 1/8 of that — ≈5,500 cert decisions per term:
 
 ```
-predict   ≈ 5,500 × 3 × $2.50   ≈ $41K
-evaluate  ≈ 5,500 × 3 × $2.50   ≈ $41K
-                                 ───────
-full cert gate                   ≈ $83K / yr
+predict   ≈ 5,500 × 3 (P) × $2.50   ≈ $41K
+evaluate  ≈ 5,500 × 3 (E) × $2.50   ≈ $41K
+                                     ───────
+full cert gate                       ≈ $83K / yr
 ```
 
 That is the whole-docket ceiling, both fee streams. The gate never selects an
-IFP petition, so the figure to fund full coverage of what it *can* predict is
-the paid pool: `1,498 × ≈$15 ≈ $22K / yr` (see *What there is to predict: measured volumes*).
+IFP petition, so the pool it can rank-fill is the 1,498 paid petitions:
+`1,498 × ≈$15 ≈ $22K / yr` (see *What there is to predict: measured volumes*).
+Read that as the **first-distribution slice**, not as the cost of the state it
+describes — the CVSG, arrival, interim and merits moments ride beside it and
+carry the whole-Term bill to ≈$28K (*What `N` can ever buy*, below).
 
-**Capacity `N`: the funding knob.** Within the gate, [salience.md](salience.md)'s
+**Capacity `N`: the funding knob.** `N` is the depth dial, and within the gate
+[salience.md](salience.md)'s
 capacity `N` bounds *how many* — the tournament runs on the top-`N` salient
 petitions per conference plus a few always-include carve-outs, so inference spend
-is `N × per-case`. One fully-tournamented case:
+is `events(N) × per-case(P)`. One fully-tournamented case at the shipped
+`P = E = 3`:
 
 ```
-predict:   3 predictor cells, measured             =  $6.79
-evaluate:  3 evaluator cells, scaled assumption    ≈  $7.84-8.18
-                                                      ───────────
-                                                   ≈ $14.6-15.0
-per case ≈ $15   (planning rate, three engines cross-evaluated)
+PLANNING BASIS — the Term-wide rate the pipeline is funded on
+  predict:   P = 3 cells, measured over the first post-freeze
+             fan-out (27 events, merits-heavy)            =  $6.79
+  evaluate:  E = 3 cells, scaled assumption               ≈  $7.84-8.18
+                                                             ───────────
+  per case                                                ≈ $14.6-15.0
+  per case ≈ $15   (the planning rate, three engines cross-evaluated)
+
+MEASURED BASIS — one matched population, six interim events
+  predict:   those six events' own predict cells          =  $6.76
+  evaluate:  those six events' own evaluate cells         =  $6.44 / $6.69
+                                                             ───────────
+  per case (matched)                                      ≈ $13.20 / $13.45
 ```
 
-**The two halves have different standing, and the planning rate says so.** The
-predict half is measured: `$6.79` per event over the 27 events of the first
-post-freeze fan-out (claude `$4.27` + codex `$1.88` + gemini `$0.64`). The
-evaluate half is not — its only measurement is four pre-freeze cert-stage graded
-events, which split `$6.71` (proc-v2, 3 events) / `$5.60` (unstamped, 1) and
-pool to `$6.43`. Rather than carry a pre-freeze cert-only figure beside a
-post-freeze all-stage one, the evaluate half is **assumed to scale by the whole
-predict move** (`$5.57 → $6.79`, ≈+22%): `$6.43 × 1.218 ≈ $7.84` on the pooled
-anchor, `$6.71 × 1.218 ≈ $8.18` on the better-matched proc-v2 one. So `$15` is
-**measured predict plus scaled-assumption evaluate**, and it is the figure to
-**re-anchor at the first post-freeze evaluate measurement** — that run, not a
-fuller ledger, is what settles it.
+**The two bases answer different questions, and neither is a substitute for the
+other.** The planning basis prices *a Term*: an all-stage predict figure plus an
+evaluate half the ledger cannot yet supply, so the gap is filled by assumption.
+The measured basis prices *six interim events*: every cell in it is measured, on
+the same events, at the same registry size, under one process label — but it is one
+stage, `n = 6`, and its evaluate half ran under a superseded grading process.
 
-Note what that +22% contains: it is the whole predict move, and only its mix
-half is measured. Applying it therefore assumes evaluate's stage mix broadens as
-predict's has *and* that whatever level effect sits in the residual applies to
-judging too. Both are assumptions, and neither is testable from this ledger.
+- The **planning basis** assumes the evaluate half **scales by the whole predict
+  move** (`$5.57 → $6.79`, ≈+22%): `$6.43 × 1.218 ≈ $7.84` on the pooled
+  pre-freeze anchor, `$6.71 × 1.218 ≈ $8.18` on the better-matched proc-v2 one.
+  That is where `$15` comes from, and `$15` remains **the stated planning rate**
+  — it is what the ceilings above, the scenario table below, and the plan seams'
+  per-cell rates are all priced on.
+- The **measured basis** is the only fully-measured per-case figure the ledger
+  contains. It is *not* a cross-stage sum: the `$6.76` predict half is those same
+  six events' own predict cells, not the Term-wide `$6.79`. That is what makes it
+  a measurement rather than an assembly — and also what confines it to the
+  interim stage.
 
-Three numbers to hold apart. **$13.2** is measured-plus-carryover: measured
-predict plus the pooled pre-freeze evaluate figure unadjusted — what the two
-existing measurements literally sum to, with no assumption applied. **$14.6–15.0**
-is the expectation once the scaling is applied, the band running from the pooled
-anchor to the proc-v2 one. **$15** is the planning rate, and it sits at the *top*
-of that band, not above it: the cushion is ~2.6% against the pooled reading and
-**effectively nil (~0.2%) against the better-matched one**. Divided across the
-design mix of six cells, `$15` is the **$2.50 per-cell rate** the whole-docket
-ceilings above are priced on.
+So the pair does not bracket a Term rate; one prices a Term on an assumption, the
+other prices a corner of it on evidence. Where they are shown side by side below,
+the measured column answers "what would a Term cost if it were interim moments
+all the way down" — which it is not.
 
-So: fund against `$15`, expect `$15`, and do not treat the difference as
-headroom — there is none to speak of. The honest statement is that the planning
-rate is **at** the current best estimate rather than above it, held there
-because the estimate's weakest input is an unmeasured evaluate half that could
-move either way. The re-anchor trigger is already effectively met on the
-proc-v2 reading, so the first post-freeze evaluate run should be treated as due
-rather than as confirmation.
+Note what the +22% contains: it is the whole predict move, and only its mix half
+is measured. Applying it assumes evaluate's stage mix broadens as predict's has
+*and* that whatever level effect sits in the residual applies to judging too.
+Both remain assumptions; the interim-stage measurement above bears on neither,
+since the anchor it would be differenced against does not cover that stage.
+
+The +22% is also **two differently-built means**. `$5.57` sums per-engine means
+over an *incomplete* 410-cell grid (138 / 132 / 140 cells by engine); `$6.79` is
+a *complete*-grid per-event mean. Matched to the complete grid, the pre-freeze
+figure is `$5.65` over 132 events and the move is **+20%**, not +22%. The `$15`
+rate keeps the +22% factor — it is the one the plan seams transcribe — but the
+factor is ~2 points generous, which is a small offset against the `$7.02`
+independent predict reading pulling the other way.
+
+Three numbers to hold apart. **$13.20–13.45** is the matched measured basis, over
+six interim events. **$14.6–15.0** is the Term expectation once the scaling is
+applied, the band running from the pooled anchor to the proc-v2 one. **$15** is
+the planning rate. Divided across the design mix of six cells, `$15` is the
+**$2.50 per-cell rate** the whole-docket ceilings above are priced on.
+
+So: fund against `$15`, and do not treat any of the gaps as headroom.
+
+Against the *assumed* evaluate half on the `$6.79` anchor, `$15` clears the band
+by ~2.5% at the pooled reading and effectively nil (~0.2%) at the
+better-matched one. Swap in the **independent** predict reading — `$7.02`, the
+48 events the anchor does not contain — and the band becomes `$14.86–15.20`:
+`$15` sits **inside** it, ~1.3% short at the top. That is the reading to plan
+against, because it is the one no anchor-selection can flatter.
+
+Against the matched interim measurement `$15` carries **≈11–14%**. That is not a
+third reading of one quantity — it is a Term rate held against one stage's
+measured cost, and interim is ~11–12% of the Term.
+
+Two gaps pointing opposite ways, neither settled: the wider predict population
+says the rate may be slightly low, the interim gradings say the evaluate half may
+be high. Hold `$15`, and read both as reasons to want the cert-stage `proc-v4`
+grading run rather than as slack to spend.
+
+**The re-anchor trigger is half met.** It asks for a post-freeze evaluate
+measurement, and one exists — stamped, attributable, and below the projection.
+Two things still block the re-anchor. It covers **one stage**, and the stage it
+covers is not the one the Term is mostly made of. And it ran under evaluator
+digests `proc-v4` has **superseded**, on a prompt change that bears directly on
+judge token count. **The re-anchor waits on a `proc-v4` evaluate fan-out reaching
+the cert stage**; that run, not a fuller ledger, is what settles it.
+
+Which is also why the measured basis rides beside the planning rate rather than
+replacing it. The plan seams' per-cell rate table is a transcription of these
+figures and its per-event sums are pinned by test, so re-anchoring is a code
+change that re-prices every plan — deliberately visible, deliberately not
+something a document can do on its own.
 
 So `N ≈ inference_budget / (≈$15 per fully-tournamented case)`. Tier-1 salience
 scoring is itself ≈$0 (a deterministic pure function of corpus features, no model
 call), so the gate spends nothing to *decide* what the tournament runs on. Raising
 `N` deepens the salience-ranked slice; it never reshuffles the ranking.
+
+**What `N` can ever buy.** That `≈$22K` is `N`'s own ceiling — the
+first-distribution slice it rank-fills — and so the phase policy's switch point.
+The *whole-Term* bill in that state is larger, because four channels ride beside
+`N` rather than inside it: CVSG re-forecasts, the arrival slice, the
+reserve-bounded interim stream, and the merits stage, whose volume the Court
+sets.
+
+```
+cert-stage  1,498 first distribution + 20 CVSG + 98 arrival  = 1,616 events
+other            98 interim + 127 merits                     =   225 events
+                                                               ───────────
+                                                               1,841 events
+
+cert-stage  1,616 × $15          ≈ $24.2K / yr  (N's own slice within it ≈ $22K)
+whole Term  1,841 × $14.6-15.0   ≈ $27-28K / yr   planning basis
+            1,841 × $13.20-13.45   ≈ $24-25K / yr   measured (interim, n=6)
+plus the ≈$5.5K floor            ≈ $33K / yr all-in  ( ≈$30K measured, interim )
+```
+
+**Every figure in that block is an upper bound.** 1,498 is itself an upper bound
+on the pool — `OUT_OF_SCOPE_RULES` and the snapshot-aware bare-import rule cut it
+further (*What there is to predict: measured volumes*) — so the state costs at
+most this, over at most 1,841 events. One thing can carry it past the bound:
+deliberate re-forecasting (`skip_predicted=False`), whose multiplier on the
+relist-selected population runs above the docket-wide 1.46 (*A re-queue is not a
+re-run*). The bound holds for the shipped default, where a relist costs runner
+minutes rather than inference.
+
+The four beside-`N` channels are held at their measured sizes, since none is set
+by `N`. One of them is a spend step in its own right, and one can never be:
+
+- **`interim_reserve_slots` is the cheapest step at the switch point.** The
+  reserve is set to `5` against the ≈13 concurrent slots OT2025-to-date's arrival
+  rate implies, so raising it to 13 scales the whole interim slice:
+  `98 × (13/5 − 1) ≈ +157 events ≈ +$2.4K/yr` at the planning rate (≈$2.1K on
+  the measured basis). That is **cheaper than the cheapest `P` step below** at
+  the `m`-at-ceiling corner those steps are costed on (≈$5.3–6.2K a year for an
+  ablation-class engine); at `m` = 0 a cheap fourth predictor would undercut it,
+  which is one more reason `m` is the figure worth measuring. It is also where
+  the interim stream stops being a ladder-ordered subsample of the substantive
+  stream and becomes the stream. The step belongs *at* the switch point rather
+  than before it because the reserve is defined inside `N`: while `N` binds,
+  every added slot costs a cert pick.
+- **`salience.arrival_sample_rate` is not a dial at all.** The 1-in-20 draw runs
+  under a registration-fixed key and is effectively frozen once the cohort runs;
+  moving it declares a new pre-registered population rather than widening an
+  existing one ([salience.md](salience.md)). Money cannot buy arrival coverage.
+- The merits stage is the Court's own volume, and CVSG is a rate on the paid
+  pool — neither answers to funding.
+
+**Registry size `P`: the breadth dial.** Past that switch point the money goes to
+`P`, and `P` prices differently from
+`N`. `N` multiplies a **fixed** per-case rate; `P` changes the rate itself:
+
+```
+per-case(P)  =  Σ over the registry of predict_i     (P cells, one per registry entry)
+             +  Σ over the judges  of evaluate_j(P)  (E = 3 cells, each growing with P)
+```
+
+Both halves are sums, and the asymmetry is in what `P` does to each: it adds a
+term to the first sum and enlarges every term of the second.
+
+**The predict half is a sum over the registry, not a multiple of an average.**
+The per-provider table below measures the three engines at `$4.27` /
+`$1.88` / `$0.64` an event — a **6.7× spread** (6.9× on the wider complete-grid
+post-freeze population, `$0.64–4.40`, so the figures below understate the top
+corner slightly), so *which* engine is added matters more than *that* one is. A fourth predictor adds its own line to that
+sum, and — if it is a new engine rather than an ablation variant of one already
+there — its own row to the engine rate table under driver #1. Nothing else in
+the predict half moves.
+
+**Which is also how the plan seams price it, and the two ways they can be
+wrong.** `predict-plan` and `evaluate-plan` cost a matrix from a per-(seam,
+engine) rate table drawn from the tables above. The table is keyed on the
+resolved **engine**, not on the predictor id, and that cuts both ways:
+
+- A predictor on a **new engine** prices at the `$2.50` design-mix fallback —
+  and the plan says so rather than hiding it, counting those cells in
+  `cells_at_fallback_rate` and carrying a caveat that names the fallback. A
+  flagged approximation.
+- An **ablation variant** of an engine already in the registry prices at its
+  *parent's* rate, and is **not** flagged — the engine key matches, so nothing
+  in the plan marks it. But an ablation varies exactly the inputs that set token
+  count (prompt bytes, retrieval surface, resolved config), so its true rate is
+  the one thing the parent's rate cannot be relied on for. An unmarked
+  approximation on the dimension the ablation exists to change.
+
+So a `P = 4` step on a new engine costs a visibly approximate plan, and one on an
+ablation costs an invisibly approximate one. Neither is settled until a fan-out
+measures the new entry: for a new engine that is a new row in the rate table, and
+for an ablation it is a rate an engine-keyed table has nowhere to put.
+
+**The evaluate half grows by an unmeasured margin `m`.** `E` holds at 3, so the
+cell count does not move — each judge instead grades one more prediction in the
+same invocation. Call `m` the per-case evaluate growth per added predictor,
+summed across the three judges. It is **unmeasured, and not measurable from this
+ledger** — not because evaluate is unmeasured (48 evaluate cells now sit on the
+ledger, 36 of them post-freeze) but because **every one of them ran at `P = 3`**.
+`m` is a difference between two registry sizes, and the ledger holds exactly one.
+
+What can be said is the bound. A judge's fixed costs — the prompt, the snapshot,
+the case record it reads once — are shared across every prediction it grades, so
+`m` should sit below a proportional share; the **fully-linear case** (evaluate
+cost proportional to `P`) bounds it above, on each basis:
+
+```
+m  ≤  evaluate(3) / 3
+
+  planning basis   $7.84 / 3  ≈  $2.61      measured basis   $6.44 / 3  ≈  $2.15
+                   $8.18 / 3  ≈  $2.73                       $6.69 / 3  ≈  $2.23
+
+  0 ≤ m ≤ ≈$2.6-2.7  (planning)             0 ≤ m ≤ ≈$2.15-2.23  (measured)
+```
+
+Neither ceiling is a measurement of `m`. The planning one rests on the assumed
++22% uplift; the measured one rests on six interim-stage gradings under a
+superseded evaluator digest. Both
+inherit everything the evaluate-half rule above says, and re-anchoring that
+figure re-cuts `m`'s ceiling with it.
+
+So the `P = 4` step, built on the same two anchors as the `$15` planning rate:
+
+```
+                      planning basis (Term)           measured basis (interim)
+predict half   $6.79 + p₄                      $6.76 + p₄
+               p₄ ∈ $0.64-4.27  (registry spread, both bases)
+evaluate half  $7.84-8.18 + m                  $6.44-6.69 + m
+               m ∈ $0-2.73                     m ∈ $0-2.23
+                ─────────────                   ─────────────
+per case(4)    ≈ $15.3-22.0                    ≈ $13.8-20.0
+```
+
+A fourth predictor therefore costs **$0.6–7.0 a case** on the planning basis
+(`p₄ + m` at the two corners) and **$0.6–6.5** on the measured one — a range wide
+enough, either way, that the class of engine added is a budget decision rather
+than a rounding one. Annualized at full paid-gate coverage (1,841 events, itself
+an upper bound):
+
+| `P` | per-case(`P`) | Full coverage, inference / yr |
+|---:|---|---|
+| **3** (shipped) | $14.6–15.0 planning · $13.20–13.45 measured (interim, n=6) | ≈$27–28K · ≈$24–25K |
+| 4 | $15.3–22.0 · $13.8–20.0 | ≈$28–40K · ≈$26–37K |
+| 5 | $15.9–29.0 · $14.5–26.5 | ≈$29–53K · ≈$27–49K |
+
+(Each row takes the corners of the block above `P − 3` times over: the low end
+adds the cheapest engine with `m` at zero to the low base — `$14.63` planning,
+`$13.20` measured — and the high end adds the dearest engine with `m` at its
+ceiling to the high base, `$14.97` / `$13.45`. The annual column multiplies by
+1,841 events.)
+
+Read each band's top as a worst-corner bound, not a forecast: it stacks the
+dearest engine on the fully-linear `m`, two worst cases at once. But note what it
+is a bound *over* — `$4.27` is the dearest **currently-priced** class, not a
+ceiling on what a cell can cost: a new frontier engine could price above it, and
+hosted web search is billed per call and sits outside the token estimate
+entirely, so a search-heavy predictor exceeds any of these figures. Read the
+bottom as a bound too — the cheapest engine with `m` at zero, which cannot be
+right either. And read the linear bound as an assumption about *shape*: a judge
+reading a fourth prediction lengthens its context, and nothing measured here
+rules out that pricing superlinearly rather than sublinearly.
+
+**The first `P = 4` fan-out is the re-anchor point** for `m`, the same discipline
+the evaluate half already carries: `m` is settled by differencing that run's
+evaluate cells against a `P = 3` evaluate measurement on the same stage mix, and
+until that pair exists the bands above are arithmetic rather than estimates.
+Nothing here should be extrapolated far past `P = 5`.
+
+**Which predictors to add, in value-per-dollar order.** The criterion is not
+diversity of opinion — it is **causal attribution**: how much of what the
+registry learns from a new entry can be attributed to a named cause, per dollar
+spent. A held-constant control buys attribution; a differently-trained model
+buys a second opinion whose difference is unattributable to anything. On that
+criterion the cheapest class ranks first, which is convenient but not the reason:
+
+1. **Ablation variants of engines already in the registry** — the same engine
+   with a changed prompt, config, or retrieval surface. Cheapest to add (no new
+   provider account, an existing measured `predict_i` for its parent) and the
+   only class where a difference in score is attributable to a named factor,
+   because everything except the ablated one is held constant by construction.
+   The process digest moves with the prompt bytes and resolved config, so the
+   variant partitions from its parent rather than pooling with it
+   ([process-version.md](process-version.md)). Note what an ablation is *not*:
+   it is the **least** independent addition the registry can take — a variant of
+   an engine already in it — so it widens attribution, not coverage. That it
+   yields the most per dollar is a design expectation about where the registry's
+   open questions sit, not a measured return.
+2. **Open-weight models, Bedrock-hosted** — a family the current registry cannot
+   reach on the credit stack it runs on. AWS Activate is the runner-up credit
+   program in [milestones.md](milestones.md), and its credits apply to AWS
+   services — so Bedrock-hosted inference converts a credit line the Anthropic /
+   OpenAI / Google registry has no way to spend. Their per-token rates are
+   **unmeasured here**; the registry sum takes a new open-weight entry at the
+   bottom of the measured spread until a fan-out prices it.
+3. **Additional frontier providers** — the dearest line in the registry sum, and
+   the one whose forecasts the design expects to overlap most with what three
+   frontier engines already produce (an expectation, not a measured correlation
+   — the board's agreement figures are inter-*evaluator*, and no inter-predictor
+   agreement number exists, [metrics/README.md](../metrics/README.md)). Worth
+   adding, last.
+
+**Only the first class is a registry edit.** `engine` is a closed enumeration —
+`claude-code`, `codex`, `gemini` — mirrored into the exported predictor schema,
+so classes 2 and 3 are **code changes, not config ones**: a fourth engine needs
+an entry in the enum, a default model in the pricing table, a retrieval-surface
+entry in the process-version registry (indexed rather than looked up, so a new
+engine fails loudly until it is declared), a runner, and its own workflow steps.
+An ablation variant needs none of that — a registry entry and a prompt. That
+adapter cost is real and it is not in any dollar figure above; it reinforces the
+ordering rather than qualifying it.
+
+**`E` stays at 3 through all of this** — the policy is stated in *The shape: a
+fixed floor plus one dominant scaling line* above. A new predictor being cheap to grade is not an argument for making it a
+judge, and no step on the `P` dial moves `E`.
 
 **The interim docket: a quota'd stream, capped at five cases in flight.**
 [salience.md](salience.md)'s interim-docket section carries a second selection
@@ -517,32 +907,54 @@ from its displayed entries by a cent. The evaluate column uses the **pooled**
 `$6.43` anchor — the cautious one; on the proc-v2 anchor every evaluate entry
 rises ≈4%.)
 
+**This table is the predict half's registry sum, written out.** Its predict
+column *is* `Σ predict_i` at `P = 3`, and the **6.7× spread** between $4.27 and
+$0.64 is why *Registry size `P`* treats a fourth predictor's class rather than
+its existence as the budget question. Raising `P` adds a row here — a new
+provider bill if the engine is a new provider's, or a second line on an existing
+one for an ablation variant — though an ablation's parent rate is exactly what
+its own cells cannot be trusted to cost. The evaluate column does **not** gain a
+row when `P` rises (`E` holds at 3); each of its three entries grows by that
+engine's share of `m` instead, which is the part no measurement covers at any
+registry size.
+
 **The two columns are not the same kind of number.** The predict column is
 measured over the 27 events of the first post-freeze fan-out — 27 cells per
-engine, all four stages — and is the newer but smaller sample; the 410-cell
-pre-freeze cert-era ledger behind $5.57 remains the larger-sample cert
-reference. The evaluate column is **not measured**: it is the pooled four
-pre-freeze cert-stage graded events with the **aggregate** ≈+22% applied flat to
-each engine.
+engine, all four stages — and is corroborated at `$6.80–6.81` once the wider
+post-freeze population is reweighted to the Term's stage mix; the
+410-cell pre-freeze cert-era ledger behind $5.57 remains the larger-sample cert
+reference. The evaluate column is **projected, not measured**: it is the pooled
+four pre-freeze cert-stage graded events with the **aggregate** ≈+22% applied
+flat to each engine.
 
-That flat application is the weakest thing in the table, and the predict data
-says which way it is wrong. Engine by engine the predict move was strongly
-non-uniform — claude **+17%**, codex **+36%**, gemini **+17%** — so scaling the
-evaluate split by one aggregate factor **over-weights Anthropic and
-under-weights OpenAI**. Matching each engine to its own predict move instead
-gives claude-judge $5.48, codex-judge $1.40, gemini-judge $0.85, and shares of
-≈67% / ≈22% / ≈10%. The flat factor is kept because it is the one the `$15`
-planning rate is built from and the two readings differ by about a point of
-share; read the split as ±1–2 points per provider rather than as measured.
-Roughly
-**seven dollars in ten go to Anthropic** — size that provider's spend limit
-accordingly, and expect a limit breach there to cost a third of a run's coverage
+That flat application is the weakest thing in the table, and both the predict
+data and the post-freeze evaluate rows say which way it is wrong. Engine by
+engine the predict move was strongly non-uniform — claude **+17%**, codex
+**+36%**, gemini **+17%** — so scaling the evaluate split by one aggregate factor
+**over-weights Anthropic and under-weights OpenAI**. Matching each engine to its
+own predict move instead gives claude-judge $5.48, codex-judge $1.40,
+gemini-judge $0.85, and shares of ≈67% / ≈22% / ≈10%. The two post-freeze
+evaluate runs, averaged, measure **claude-judge $4.47, codex-judge $1.37,
+gemini-judge $0.72** — same direction, larger gap: combined with the predict
+column that is a split of ≈**66% / ≈24% / ≈10%** against the table's ≈68 / ≈21 /
+≈10. So the measured interim rows put the split **≈3 points off the table's on
+each of the two large providers** — Anthropic over-weighted, OpenAI
+under-weighted, in the direction the predict data already indicated — while
+**Google's ≈10% is stable across all three constructions**, which is the more
+useful fact about it. Read that as an offset, not an error: those figures rest on
+six interim gradings under a superseded digest, and combine an all-stage predict
+column with an interim-only evaluate one. The flat factor is kept because it is the one the `$15`
+planning rate is built from. Roughly
+**roughly seven dollars in ten go to Anthropic** on the table's own projected
+split, nearer two in three on the interim-measured one — size that provider's
+spend limit on the larger figure, which is the conservative one, and expect a limit
+breach there to cost a third of a run's coverage
 (the other engines are billed independently). The `C` = 60 column is a
 reference month built from the caps — the long-conference cycle at its
 24-petition cap plus three regular conferences at the 12 cap (24 + 3 × 12 =
 60; `C` counts cases per month) — roughly a *mean* Term month, not a peak. At
-the $15 planning rate that capped component is ≈60 × $15 ≈ **$900** (≈$790 at
-the $13.2 measured-plus-carryover figure); the floor/CVSG carve-outs ride above
+the $15 planning rate that capped component is ≈60 × $15 ≈ **$900** (≈$790–810
+on the measured basis); the floor/CVSG carve-outs ride above
 the caps and add on the order
 of $230–290/month at the planning rate in relist-heavy months. The caps make
 the capped component insensitive to the one cohort whose realized size is not
@@ -616,32 +1028,94 @@ predictor count.
 
 > **Line item: $350/mo flat** (a fixed floor, not a variable).
 
-## Summary: scaling `N` with funding
+## Deferred scope, unpriced
+
+Two expansions are named here so they are not read as omissions. Both are
+deliberately carried **without figures**, and neither is on the `N`-then-`P`
+path above.
+
+**Widening past the SCOTUS-docket gate.** Predicting the originating courts of
+appeals, or a rotating appeals sample, is the ~1-year scope decision in
+[milestones.md](milestones.md) — held open until a Term of cost and calibration
+data is in hand, alongside the academic / B2B / public-artifact fork. The
+14-court reference ceiling under driver #1 sizes that decision's extreme at
+`P = E = 3`; nothing between today's gate and that extreme is planned or costed.
+Under the phase policy the `P` dial is spent out **before** a scope widening is
+considered at all — breadth of forecast comes before breadth of docket. A scope
+change is also not a pure budget question: cross-court figures are not
+comparable, so widening buys events at the cost of a pooled population
+([salience.md](salience.md)).
+
+**Free Law Project's partnership-gated services.** Three ingestion upgrades wait
+on an established relationship with Free Law Project rather than on engineering
+([milestones.md](milestones.md); *The planned end-state* in
+[data-pipeline.md](data-pipeline.md)): a hosted Postgres **replica** under FLP's
+replication agreement, docket-alert **webhooks**, and **opinion bodies served
+from the replica**. They stay **qualitative and unpriced, pending Free Law
+Project's terms** — the only CourtListener figures in this document are the
+public membership tiers under driver #2, and the pilot's funded line stays
+Tier 4.
+
+Two of the three are also not cost-justified at the current scope, which is the
+substantive reason they are deferred rather than merely unpriced. The
+**replica** buys full field coverage, replication-lag currency, and freedom from
+request caps — but the live channel polls supremecourt.gov without rate limits
+and already owns the freshness budget at $0, and Tier 4 leaves ≈1,000
+requests/day of standing headroom, so at SCOTUS-gated scope it would be paying
+to relieve a constraint that does not bind. **Webhooks** replace polling for
+liveness, which matters mainly once the gate widens past the one court whose own
+site the live channel already polls. The third — **opinion bodies from the
+replica** — would retire the content store's opinion-text path, so its case is a
+storage and read-path one rather than a coverage one, and it moves with the
+replica. All three become live questions at the scope decision, not before.
+
+## Summary: scaling `N`, then `P`
 
 The non-inference lines — misc floor ($350/mo), CourtListener ($1,000/yr), S3
 (≈$15/mo, the one line that grows with the corpus blob), Codespaces ($0–50/mo),
-Actions ($0) — sum to a near-constant **≈$5.5K/yr floor**. Everything
-above it is inference `= events × per-case`, and `N` is the dial that moves the
-cert stage — much the largest of the three. The other stages scale on the
-Court's own volume rather than on funding: every granted petition is forecast at
-the merits stage whatever `N` is, and the interim stream is bounded by
-`interim_reserve_slots`. So a scenario is read as "how much of the *cert* docket,
-plus a fixed ~220 events from the other two":
+Actions ($0) — sum to a near-constant **≈$5.5K/yr floor**. Everything above it
+is inference `= events(N) × per-case(P)`. `N` moves the cert rank fill — much the
+largest single channel — while **343 events ride beside it**, unbought by `N`:
+20 CVSG re-forecasts and the ~98-case arrival cohort, which are
+cert-stage but not `N`'s, plus ~98 interim (bounded by `interim_reserve_slots`)
+and ~127 merits (every granted petition, whatever `N` is). `P` moves the rate
+every one of those events is priced at, whichever channel produced it. So a
+scenario states both dials: "how much of the cert rank fill, plus the 343 events
+that ride beside it, times how many engines".
 
-| Scenario | ≈ Annual | Inference (= total − ≈$5.5K floor) | Reach |
+Where a row shows two figures, the first is the **planning basis** (`$15` a case,
+the rate to fund against) and the second the **measured basis** — and that second
+figure carries a heavy caveat everywhere it appears: it extrapolates a Term from
+`$13.20–13.45`, a matched per-case cost measured over **six interim moments on
+two application dockets, graded twice, under `proc-v3` evaluator digests that
+`proc-v4` has superseded**. It answers "what if a Term were interim moments all
+the way down", which it is not. Fund on the first column; read the second as the
+open question.
+
+| Scenario | ≈ Annual (planning · measured†) | Inference (= total − ≈$5.5K floor) | Dials, and what they reach |
 |----------|----------|----------------------------------|-------|
-| Bootstrapping | ≈$18.5K | ≈$13K | ≈838–865 forecast events across all three stages, sal-v3 arrival cohort included — a **whole OT2026 Term**, not a slice of one: 613–640 cert (`per_conference_capacity: 12`, long conference 24; the OT2022–24 gate replay measures 495–522 selected a Term — rank fill plus uncapped carve-outs — plus 20 CVSG re-forecasts and the ~98-case arrival cohort), ~98 interim, ~127 merits. Keeps 0.76–0.81 of the Term's replay-reconstructable grant-family outcomes (0.80–0.84 of selectable ones), mostly via the carve-out band; a cap of 150 keeps 0.944–0.967 (measured, same pool) and would cost ≈$24K |
-| Initial funding | ≈$100K | ≈$95K | ≈6,300 cases — past the ≈5,500-event whole-docket ceiling (≈$83K uncapped), and several times the ≈1,498 paid petitions the gate can actually select (≈$22K). The cert term is fully covered here, so salience is already a public ranking rather than a spend control |
-| Well funded | ≈$1M | ≈$995K | covers all-14-court full scope outright (every event, ≈$675K), with room for deeper panels or more engines |
-| **Floor (all scenarios)** | **≈$5.5K** | **—** | **misc + CourtListener + S3 + Actions; does not scale with `N`** |
+| Bootstrapping | ≈$18.5K · ≈$17K | ≈$13K · ≈$11–12K | `N` = `per_conference_capacity: 12` (long conference 24), `P` = 3. ≈838–865 forecast events across all three stages, sal-v3 arrival cohort included — a **whole OT2026 Term**, not a slice of one: 613–640 cert (the OT2022–24 gate replay measures 495–522 selected a Term — rank fill plus uncapped carve-outs — plus 20 CVSG re-forecasts and the ~98-case arrival cohort), ~98 interim, ~127 merits. Keeps 0.76–0.81 of the Term's replay-reconstructable grant-family outcomes (0.80–0.84 of selectable ones), mostly via the carve-out band; a cap of 150 keeps 0.944–0.967 (measured, same pool) and would cost ≈$24K |
+| Full paid-gate coverage — **the dial switch** | ≈$33K · ≈$30K | ≈$28K · ≈$24–25K | `N` at its ceiling, `P` = 3. All 1,498 paid petitions rank-filled (`1,498 × $15 ≈ $22K` — `N`'s own slice) plus the 343 beside-`N` events: `1,841 × $15 ≈ $28K`, or `× $13.20–13.45 ≈ $24–25K` measured. Both are **upper bounds** — 1,498 is itself one. `N` can buy nothing further, so salience survives here as the public ranking and the replay story rather than as a spend control ([salience.md](salience.md)), and incremental dollars move to `P` — or, cheaper, to `interim_reserve_slots` first: ≈$2.4K buys ~157 more interim events, an **alternative to the first `P` increment** rather than something taken alongside it (the `P` arithmetic in the next row prices engines over 1,841 events, which is the count *before* any reserve step) |
+| Initial funding | ≈$100K | ≈$95K | Full paid-gate coverage at `P` = 3 (≈$28K planning · ≈$24K measured), with the remaining **≈$67K · ≈$71K on `P`**. Each added predictor costs `1,841 × (p + m)` a year — at the top of the `m` band, `≈$12.9K` planning / `≈$12.0K` measured for a frontier-class engine, `≈$6.2K` / `≈$5.3K` for an ablation- or open-weight-class one. That funds a registry of roughly **8 to 13 engines** on the planning basis, **8 to 16** on the measured one (whole engines only; the next one up is part-funded in each case). Read it as "many more than four", not as a target — it extrapolates the fully-linear `m` bound far past any run yet produced |
+| Well funded | ≈$1M | ≈$995K | Either dial taken far. At the SCOTUS gate this funds a registry of dozens of engines; it is also the band in which the deferred scope decision first becomes affordable (the 14-court reference ceiling is ≈$675K at `P` = `E` = 3). Which it buys is the ~1-year scope call, not a budget one |
+| **Floor (all scenarios)** | **≈$5.5K** | **—** | **misc + CourtListener + S3 + Actions; scales with neither `N` nor `P`** |
 
-The ladder is shorter than it looks: the corrected cell count puts **full cert
-coverage inside the initial-funding step**, not beyond it. That makes the case for
-salience-as-spend-control a *bootstrapping* argument specifically — above that
-step it survives as the public ranking and the replay story, which is how
-[salience.md](salience.md) frames it.
+† The Initial-funding and Well-funded rows carry one figure because they are
+*funding levels* rather than derived costs; the basis split appears inside them,
+on what the money reaches. Every measured-basis figure inherits the six-interim-
+event caveat above.
 
-Start at **bootstrapping** with a small `N`, let the ledger keep measuring real
-per-case cost against the ≈$15 planning rate, then raise `N` as funding lifts it. The funding path
-to each state — credit programs and external support — is tracked in
-[milestones.md](milestones.md).
+Two things the ladder makes visible. **Full cert coverage sits well inside the
+initial-funding step** — it is the switch row above, at about a third of it —
+which is why salience-as-spend-control is a *bootstrapping* argument
+specifically. And the second half of that step is not more coverage but more
+opinions per event: past the switch, extra funding buys `P`, and the cheapest
+useful `P` is an ablation of an engine already in the registry rather than a
+fourth frontier bill.
+
+Start at **bootstrapping** with a small `N` and `P` = 3, let the ledger keep
+measuring real per-case cost against the ≈$15 planning rate — the matched interim
+measurement is the first hint it may be running conservative, on far too narrow a
+base to act on — then raise `N` as funding lifts it, and `P` once `N` is spent.
+`E` holds at 3 throughout. The funding path to each state — credit programs and
+external support — is tracked in [milestones.md](milestones.md).
