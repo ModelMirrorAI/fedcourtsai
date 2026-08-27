@@ -121,12 +121,13 @@ jobs:
       # command re-derives the same fan-out the matrix step just minted (same
       # helpers, zero spend) and renders per-step counts, the would-grade
       # cell list, and the spend estimate — whose basis the report itself
-      # caveats, the evaluate side being a scaled assumption until a
-      # post-freeze fan-out measures it. Posted to the trigger issue and the
-      # step summary BEFORE the hold, so the record of what was approved
-      # exists whether or not the release ever comes. Unlike predict's twin
-      # there is no stranded-run census to attach — the evaluate plan carries
-      # no stranded guard — so the call is the bare report form.
+      # caveats, the evaluate side being a scaled pre-freeze anchor until a
+      # `proc-v4` evaluate fan-out measures the cert stage. Posted to the
+      # trigger issue and the step summary BEFORE the hold, so the record of
+      # what was approved exists whether or not the release ever comes.
+      # Unlike predict's twin there is no stranded-run census to attach — the
+      # evaluate plan carries no stranded guard — so the call is the bare
+      # report form.
       - name: Post the plan report for approval
         if: ${{ steps.plan.outputs.has_jobs == 'true' && github.event.issue.number }}
         env:
