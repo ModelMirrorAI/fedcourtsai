@@ -108,6 +108,10 @@ jobs:
       # by GitHub, so it skips this.)
       - name: Authorize the trigger (label from the pipeline App or a maintainer)
         if: github.event_name == 'issues'
+        # One retried permission lookup, worth up to 105s against a degraded
+        # API — bounded so a stalled check cannot draw on this job's replay
+        # budget before refusing.
+        timeout-minutes: 3
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
