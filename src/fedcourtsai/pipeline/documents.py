@@ -93,12 +93,40 @@ def _is_bio_entry(text: str) -> bool:
 # front-matter heading. Petitions front the QP page, so the section runs from
 # the QUESTION(S) PRESENTED heading to the first of these that is *set as a
 # heading* (:func:`_is_heading_match`), not merely spelled like one.
+#
+# The words of a phrase are joined by `\s+`, never a literal space, because a
+# printed heading's words are separated by whatever the layout left between
+# them and the extraction preserves that: one space, the extra blanks a
+# justified caps line extracts with ("PARTIES  TO  THE  PROCEEDING"), a run of
+# TABS where the filing sets its front matter in a table — some petitions
+# extract with tabs as their only separator, no line break after the heading
+# and the question running on the heading's own line — or a line break the
+# printed heading wrapped at ("RELATED\nCASES"). A literal space reads every
+# one of those as no terminator at all, and the cost is not a long section: the
+# capture runs past the front matter into the table of contents, where the
+# leader-dot rule discards it, so the heading is found and nothing is derived.
+# Widening the separator shortens sections in practice (every corpus change it
+# produced was a strict prefix of the old value); it is NOT shorten-only by
+# construction — a new match rejected as a heading can consume span that hides
+# a later old-accepted one — but that path degrades to an over-capture, never a
+# fragment, which the section-end docstring already declares tolerated.
+# Authoring constraint for the phrase tuple: word sequences whose only regex
+# constructs are (?:...) groups and escaped literals — the blanket
+# space-to-\s+ rewrite below would corrupt a space inside a character class.
 _QP_START_RE = re.compile(r"QUESTIONS?\s+PRESENTED", re.IGNORECASE)
+_QP_END_PHRASES = (
+    "PARTIES TO THE PROCEEDING",
+    "CORPORATE DISCLOSURE",
+    r"RULE 29\.6",
+    "RELATED (?:CASES|PROCEEDINGS)",
+    "TABLE OF CONTENTS",
+    "TABLE OF AUTHORITIES",
+    "LIST OF (?:ALL )?(?:PARTIES|PROCEEDINGS)",
+    "OPINIONS? BELOW",
+    "IN THE SUPREME COURT",
+)
 _QP_END_RE = re.compile(
-    r"PARTIES TO THE PROCEEDING|CORPORATE DISCLOSURE|RULE 29\.6|RELATED (?:CASES|PROCEEDINGS)"
-    r"|TABLE OF CONTENTS|TABLE OF AUTHORITIES|LIST OF (?:ALL )?(?:PARTIES|PROCEEDINGS)"
-    r"|OPINIONS? BELOW|IN THE\s+SUPREME COURT",
-    re.IGNORECASE,
+    "|".join(phrase.replace(" ", r"\s+") for phrase in _QP_END_PHRASES), re.IGNORECASE
 )
 # Title case as a petition sets a heading: a capitalized first word, then
 # capitalized words and the lower-case function words that stay small in a title

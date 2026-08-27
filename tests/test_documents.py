@@ -16,6 +16,7 @@ from fedcourtsai.cert_backtest import redact_snapshot
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.documents import (
+    _QP_END_RE,
     _QP_MIN_CHARS,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_PETITION,
@@ -420,6 +421,113 @@ def test_extract_questions_presented_ends_at_a_title_case_heading() -> None:
         "Whether a reviewing court may affirm on a ground the agency never reached.\n"
         "Parties to the Proceeding\n"
         "Petitioner is Acme Corp. Respondents are the agency and its administrator."
+    )
+    assert extract_questions_presented(petition) == (
+        "Whether a reviewing court may affirm on a ground the agency never reached."
+    )
+
+
+def test_extract_questions_presented_reads_a_tab_delimited_petition() -> None:
+    # A petition that sets its front matter in a table extracts with tabs as the
+    # only separator: no line break after the heading, the question running on
+    # the heading's own line, and the next heading tab-separated too. A
+    # terminator matching a literal space finds no end at all, so the capture
+    # runs on into the table of contents and the leader-dot rule discards it —
+    # heading found, nothing derived.
+    petition = (
+        "i\t\t\n\t\n"
+        "QUESTION\tPRESENTED\tWhether\t a\tclaim\t for\t wrongful\t death\t under"
+        "\tMassachusetts\tlaw\tis\tpreempted\tby\tERISA.\t\t \t\n"
+        "ii\t\t\n\t\n"
+        "RELATED\tPROCEEDINGS\t\tUnited\tStates\tDistrict\tCourt\t(D.\tMass)\t"
+        "Judgment\tentered\tAugust\t22,\t2024.\t\t\n"
+        "iii\t\t\n\t\n"
+        "TABLE\tOF\tCONTENTS\t\tQuestion presented "
+        ".................................................................. i\n"
+    )
+    section = extract_questions_presented(petition)
+    # Exact equality: this text is the labeler's entire evidentiary input, so
+    # the fixture pins the artifact, trailing page-folio crumb included — the
+    # crumb is pre-existing extractor residue on every layout, not this shape's.
+    assert section == (
+        "Whether\t a\tclaim\t for\t wrongful\t death\t under"
+        + "\tMassachusetts\tlaw\tis\tpreempted\tby\tERISA.\t\t \t\nii"
+    )
+
+
+def test_the_terminator_vocabulary_never_binds_on_a_literal_space() -> None:
+    """The construction, not just the outcome: a phrase added to the vocabulary
+    with a literal space would silently reintroduce the tab blind spot for that
+    phrase alone, and every outcome test would keep passing."""
+    assert " " not in _QP_END_RE.pattern
+    # Representative separated spellings of vocabulary entries still terminate.
+    for separated in (
+        "PARTIES\tTO\tTHE\tPROCEEDING",
+        "RELATED\nCASES",
+        "TABLE\tOF\nAUTHORITIES",
+        "LIST\tOF\tALL\tPARTIES",
+    ):
+        assert _QP_END_RE.search(separated), separated
+
+
+def test_extract_questions_presented_reads_a_body_after_a_tab_run() -> None:
+    # The blank-run folio rule fires only where alignment and a folio are ALL
+    # that follows the heading on the line: a question opening after the same
+    # run of tabs is a question, not a contents entry.
+    petition = (
+        "QUESTION\tPRESENTED\t\t\t\t"
+        "Whether a reviewing court may affirm on a ground the agency never reached.\n"
+        "PARTIES\tTO\tTHE\tPROCEEDING\tPetitioner is Acme Corp."
+    )
+    assert extract_questions_presented(petition) == (
+        "Whether a reviewing court may affirm on a ground the agency never reached."
+    )
+
+
+def test_extract_questions_presented_skips_a_tab_aligned_toc_entry() -> None:
+    # A table of contents aligns its folios with tab runs as readily as with
+    # blanks, and the blank-run rule reads either: the entry stays a contents
+    # capture — including where the following entries are outside the
+    # end-heading vocabulary, so the floor cannot help — and the real QP page
+    # later in the petition is the answer.
+    petition = (
+        "TABLE\tOF\tCONTENTS\n"
+        "QUESTIONS\tPRESENTED\t\t\t\ti\n"
+        "STATEMENT\tOF\tJURISDICTION\t\t\t4\n"
+        "SUMMARY\tOF\tARGUMENT\t\t\t9\n"
+        "\n"
+        "QUESTIONS PRESENTED\n"
+        "Whether a reviewing court may affirm on a ground the agency never reached.\n"
+        "PARTIES TO THE PROCEEDING Petitioner is Acme Corp."
+    )
+    assert extract_questions_presented(petition) == (
+        "Whether a reviewing court may affirm on a ground the agency never reached."
+    )
+
+
+def test_extract_questions_presented_ends_at_a_double_spaced_heading() -> None:
+    # A justified caps heading extracts with the blanks the typesetting left
+    # between its words; the parties list must not ride along on the question
+    # because of them.
+    petition = (
+        "QUESTIONS PRESENTED\n"
+        "Whether a reviewing court may affirm on a ground the agency never reached.\n"
+        "PARTIES  TO  THE  PROCEEDING\n"
+        "Petitioners were the defendants-appellants below."
+    )
+    assert extract_questions_presented(petition) == (
+        "Whether a reviewing court may affirm on a ground the agency never reached."
+    )
+
+
+def test_extract_questions_presented_ends_at_a_heading_wrapped_mid_phrase() -> None:
+    # The extraction puts a line break where the printed heading wrapped, in the
+    # middle of the phrase. A caps heading is a heading wherever its words fall.
+    petition = (
+        "QUESTIONS PRESENTED\n"
+        "Whether a reviewing court may affirm on a ground the agency never reached.\n"
+        "RELATED\nCASES\n"
+        "State v. Moehle, No. 2021-CF-4832 (Fla. 1st Cir. Ct.). Judgment entered 2021."
     )
     assert extract_questions_presented(petition) == (
         "Whether a reviewing court may affirm on a ground the agency never reached."
