@@ -5665,6 +5665,44 @@ class DistributionBandTransition(_Strict):
     n: int = Field(ge=0, description="Cases making this transition (diagonal cells are unmoved)")
 
 
+class DistributionCensusBand(_Strict):
+    """One baseline band's distribution-parse deltas — the honest per-band cut.
+
+    Keyed on the band the **baseline** parse's count implies, because that is
+    the incumbent reading: the question a reader has is "what share of what this
+    parse bands here would move", and the candidate band is the answer, not the
+    key. It is the incumbent *reading* of the snapshot, not necessarily the
+    label the case carries in the corpus — that comes off the max-latched
+    ``distribution_count`` column, which neither side of the census reads. Every
+    band of the census's salience version is reported, zero-filled, so an empty
+    band reads as measured-empty rather than as a row someone forgot to emit.
+
+    The cut covers the observable frame only: an ``unobservable`` case has no
+    count and so no baseline band, and these ``cases`` therefore sum to the
+    census's ``cases``, never to its frame. That missing mass is not
+    band-random — an unobservable row is one whose proceedings were never
+    live-read, the same population the corpus's never-parsed sentinel stands
+    for, which bands weak — so the weak bands' denominators are the depleted
+    ones and a per-band share is conditional on observability, not a population
+    rate. Maturity rides here as it does per Term: a pending docket has had
+    fewer conferences to accumulate the ancillary traffic the readings differ
+    on, and the bands are built from the conference count, so band and maturity
+    are correlated by construction.
+    """
+
+    band: str = Field(description="The band the baseline parse's count implies")
+    cases: int = Field(
+        default=0, ge=0, description="Observable frame cases the baseline parse bands here"
+    )
+    pending: int = Field(default=0, ge=0, description="Of those, cases carrying no disposition yet")
+    count_changed: int = Field(
+        default=0, ge=0, description="Of those, cases whose distribution count differs"
+    )
+    band_changed: int = Field(
+        default=0, ge=0, description="Of those, cases whose implied salience band differs"
+    )
+
+
 class DistributionCensusTerm(_Strict):
     """One October Term's distribution-parse deltas, split by docket maturity.
 
@@ -5677,6 +5715,14 @@ class DistributionCensusTerm(_Strict):
     term: int = Field(description="The October Term year")
     cases: int = Field(ge=0, description="Frame cases with an observable distribution count")
     pending: int = Field(default=0, ge=0, description="Of those, cases carrying no disposition yet")
+    frame_pending: int = Field(
+        default=0,
+        ge=0,
+        description="Pending cases across the Term's whole frame (`cases + unobservable`) — "
+        "the denominator `pending` is not: maturity is a property of the docket and "
+        "readability a property of the pull, so neither count may stand in for the other "
+        "and which way they diverge is itself a finding",
+    )
     unobservable: int = Field(
         default=0,
         ge=0,
@@ -5736,11 +5782,57 @@ class DistributionCensus(_Strict):
         description="Frame cases with no live-shaped snapshot or no disclosed proceedings — "
         "the parses are unreadable there, which is not evidence that they agree",
     )
-    count_changed: int = Field(ge=0, default=0, description="Cases whose counts differ")
-    band_changed: int = Field(ge=0, default=0, description="Cases whose implied bands differ")
+    frame_pending: int = Field(
+        default=0,
+        ge=0,
+        description="Pending cases across the whole frame (`cases + unobservable`), counted "
+        "before observability is decided — the per-Term `pending` counts only the observable "
+        "rows, so the two denominators are published side by side rather than one being read "
+        "as the other",
+    )
+    pending: int = Field(
+        description="Pending dockets among the observable rows — the numerator the "
+        "banner prints beside frame_pending, published so a JSON consumer reads "
+        "it directly instead of summing terms[].pending"
+    )
+    count_changed: int = Field(
+        ge=0,
+        default=0,
+        description="Of the `cases` rows and never of the frame: those whose counts differ",
+    )
+    band_changed: int = Field(
+        ge=0, default=0, description="Of the `cases` rows: those whose implied bands differ"
+    )
+    count_increased: int = Field(
+        ge=0,
+        default=0,
+        description="Of the count-changed cases, those the candidate parse counts HIGHER — "
+        "with `count_decreased` it splits `count_changed` by direction. Zero here is the "
+        "observation that the candidate's readings nested inside the baseline's ON THIS "
+        "FRAME; that no case could move to a stronger band needs the band function's "
+        "monotonicity in the count too, which is a property of the registered version",
+    )
+    count_decreased: int = Field(
+        ge=0, default=0, description="Of the count-changed cases, those the candidate counts lower"
+    )
     transitions: list[DistributionBandTransition] = Field(
         default_factory=list,
-        description="The band-transition matrix, occupied cells only, in band order",
+        description="The band-transition matrix as the FULL band-by-band square, zero-filled, "
+        "in band order on both axes — so a zero is a measured zero and never an omitted row. "
+        "Which cells a given parse pair can occupy at all is a property of that pair, not of "
+        "this artifact: where the candidate's matches are a subset of the baseline's (the "
+        "entry-anchored reading against the entry-anywhere one) the count can only fall, and "
+        "every registered band function is monotone in the count, so every band-strengthening "
+        "cell is zero by construction. `count_increased` observes the nesting on the frame "
+        "read; the monotonicity is a property of the registered version. Emitting the square "
+        "whole rather than as one triangle is what keeps that orientation-independent — it "
+        "flips with the parse arguments",
+    )
+    bands: list[DistributionCensusBand] = Field(
+        default_factory=list,
+        description="The per-baseline-band cut, every band of `salience_version` zero-filled, "
+        "in band order — the share of each band that moves, in the artifact rather than "
+        "recoverable only by joining the changed case ids back against the corpus",
     )
     terms: list[DistributionCensusTerm] = Field(default_factory=list)
     count_changed_case_ids: list[str] = Field(

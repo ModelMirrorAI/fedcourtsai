@@ -75,6 +75,7 @@ from ..paths import CasePaths
 from ..schemas import (
     DistributionBandTransition,
     DistributionCensus,
+    DistributionCensusBand,
     DistributionCensusTerm,
     Moment,
     SalienceSelectionResult,
@@ -446,9 +447,48 @@ class _TermTally:
     count_changed: int = 0
     band_changed: int = 0
     pending: int = 0
+    # Pending across the Term's whole frame, unobservable rows included, and so
+    # counted before observability is decided. `pending` above rides the
+    # observable rows only, over a frame that holds more; publishing one number
+    # would leave a reader to guess which denominator it sits over.
+    frame_pending: int = 0
     pending_count_changed: int = 0
     pending_band_changed: int = 0
     unobservable: int = 0
+
+
+@dataclass
+class _BandTally:
+    """One baseline band's census counters — the per-band cut, keyed on the incumbent label.
+
+    Keyed on the band the baseline parse implies — the incumbent reading of the
+    snapshot, not the max-latched corpus column, which neither side of the
+    census reads. Only observable rows reach it: an unobservable case has no
+    count and so no band to key on.
+    """
+
+    cases: int = 0
+    pending: int = 0
+    count_changed: int = 0
+    band_changed: int = 0
+
+
+def _require_declared_bands(active: SalienceScorer, observed: set[str], *, case_id: str) -> None:
+    """Refuse a census whose observed bands escape the version's declared vocabulary.
+
+    The census emits its per-band cut and its transition square from
+    :attr:`SalienceScorer.bands`, so a band function returning a label outside
+    that tuple would drop cases out of both while the totals still counted them
+    — a matrix that silently does not add up. Louder than a wrong artifact, and
+    checked per row so the refusal names the first offending case rather than
+    a set discovered after the whole frame was walked.
+    """
+    stray = observed - set(active.bands)
+    if stray:
+        raise ValueError(
+            f"{case_id}: band function returned {sorted(stray)}, outside "
+            f"{active.version}'s declared bands {list(active.bands)}"
+        )
 
 
 def distribution_census(
@@ -489,6 +529,23 @@ def distribution_census(
     could not produce the candidate's count nor be compared against it on equal
     terms.
 
+    **Every cut is published, and every denominator with it.** The delta is
+    reported per Term, per **baseline** band (the incumbent reading's label, so a
+    reader can see what share of a band would move without joining the changed
+    ids back against the corpus), and as the band-transition matrix. The matrix
+    is the full band-by-band square, zero-filled, because an omitted cell and an
+    observed zero are different findings; which half of it a parse pair can
+    occupy at all is a property of the pair rather than of this artifact — where
+    the candidate's matches are a subset of the baseline's the count can only
+    fall, and every registered band function is monotone in the count (a test
+    pins that over the registry), so no case can move to a stronger band.
+    ``count_increased`` is the frame-level observation of the first half — the
+    parses nested on the rows actually read — and the zero-filled strengthening
+    cells are the conclusion itself, measured. Maturity is carried over two denominators
+    that are not the same population: ``frame_pending`` counts pending across
+    the whole frame, before observability is decided, while the per-Term
+    ``pending`` counts it among the observable rows only.
+
     The frame **must not be subsampled**: a ``sample_weight`` other than 1 raises,
     as it does in the caption census, because every figure here is a raw count
     and a denial-sampled row would silently stand for ten.
@@ -524,10 +581,13 @@ def distribution_census(
     cert_signals.distribution_pattern(candidate_parse)
     transitions: dict[tuple[str, str], int] = defaultdict(int)
     per_term: dict[int, _TermTally] = defaultdict(_TermTally)
+    per_band: dict[str, _BandTally] = defaultdict(_BandTally)
     count_changed: list[str] = []
     band_changed: list[str] = []
     cases = 0
     unobservable = 0
+    frame_pending = 0
+    count_increased = 0
     for row in corpus.iter_rows(conn, court="scotus"):
         if not corpus.is_live_slice(row) or not caption._scored_segment(row):
             continue
@@ -540,6 +600,12 @@ def distribution_census(
                 "counts raw and must not run over a subsampled frame"
             )
         term_cell = per_term[term]
+        # Maturity is a property of the docket and readability a property of the
+        # pull, so pending is counted here — over the whole frame — and again
+        # below over the observable rows. Two denominators, both published.
+        pending = row.disposition is None
+        frame_pending += int(pending)
+        term_cell.frame_pending += int(pending)
         # The live channel only: see the docstring on why the newest snapshot of
         # either shape would report a channel artifact as a parse delta.
         found = corpus.latest_live_snapshot(conn, row.case_id)
@@ -558,23 +624,29 @@ def distribution_census(
         # One row, two counts: every other band input — caption, CVSG, circuit —
         # is held at the corpus's own value, so the band delta isolates the parse.
         bands = tuple(active.band(row.model_copy(update={"distribution_count": n})) for n in counts)
-        # Maturity is tracked per Term because it confounds the trend outright: a
-        # recent Term is mostly pending, and a pending docket has had fewer
-        # conferences to accumulate ancillary traffic than a resolved one.
-        pending = row.disposition is None
+        _require_declared_bands(active, set(bands), case_id=row.case_id)
+        # Maturity is tracked per Term and per band because it confounds the
+        # trend outright: a recent Term is mostly pending, and a pending docket
+        # has had fewer conferences to accumulate ancillary traffic than a
+        # resolved one.
+        band_cell = per_band[bands[0]]
         cases += 1
         transitions[(bands[0], bands[1])] += 1
         term_cell.cases += 1
         term_cell.pending += int(pending)
+        band_cell.cases += 1
+        band_cell.pending += int(pending)
         if counts[0] != counts[1]:
             count_changed.append(row.case_id)
+            count_increased += int(counts[1] > counts[0])
             term_cell.count_changed += 1
             term_cell.pending_count_changed += int(pending)
+            band_cell.count_changed += 1
         if bands[0] != bands[1]:
             band_changed.append(row.case_id)
             term_cell.band_changed += 1
             term_cell.pending_band_changed += int(pending)
-    order = {band: index for index, band in enumerate(active.bands)}
+            band_cell.band_changed += 1
     return DistributionCensus(
         baseline_parse=baseline_parse,
         candidate_parse=candidate_parse,
@@ -582,17 +654,43 @@ def distribution_census(
         corpus_sha256=corpus_sha256,
         cases=cases,
         unobservable=unobservable,
+        frame_pending=frame_pending,
+        # Observable pending is the per-Term tallies' own sum, published at the
+        # top level so a JSON consumer reads it beside frame_pending directly.
+        pending=sum(cell.pending for cell in per_term.values()),
         count_changed=len(count_changed),
         band_changed=len(band_changed),
+        count_increased=count_increased,
+        count_decreased=len(count_changed) - count_increased,
+        # The full band-by-band square, zero-filled, rather than the occupied
+        # cells: an absent row and an observed zero are different findings, and
+        # which half of the square a parse pair can reach at all depends on the
+        # arguments (a subset candidate can only lower the count, so it can only
+        # move a case down the band order — reverse the two parses and the empty
+        # half is the other one). `count_increased` is the direction check.
         transitions=[
-            DistributionBandTransition(from_band=cell[0], to_band=cell[1], n=transitions[cell])
-            for cell in sorted(transitions, key=lambda cell: (order[cell[0]], order[cell[1]]))
+            DistributionBandTransition(
+                from_band=from_band, to_band=to_band, n=transitions[(from_band, to_band)]
+            )
+            for from_band in active.bands
+            for to_band in active.bands
+        ],
+        bands=[
+            DistributionCensusBand(
+                band=band,
+                cases=per_band[band].cases,
+                pending=per_band[band].pending,
+                count_changed=per_band[band].count_changed,
+                band_changed=per_band[band].band_changed,
+            )
+            for band in active.bands
         ],
         terms=[
             DistributionCensusTerm(
                 term=term,
                 cases=per_term[term].cases,
                 pending=per_term[term].pending,
+                frame_pending=per_term[term].frame_pending,
                 unobservable=per_term[term].unobservable,
                 count_changed=per_term[term].count_changed,
                 band_changed=per_term[term].band_changed,

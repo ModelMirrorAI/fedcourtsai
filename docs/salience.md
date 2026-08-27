@@ -395,11 +395,48 @@ The evidence a new parse would be argued from is the **`distribution-census`**
 artifact ([cli.md](cli.md)): two parses counted over one frame — the gate's scored
 segment with pending rows kept, since the count is a banding input read long
 before a petition resolves — banded by one scorer, reporting changed counts, the
-band-transition matrix, a per-Term rollup split by docket maturity, and every
-changed case id. Both counts come off each case's latest **live-shaped**
-snapshot, because the entry-initial rule is a claim about the live channel's
-entry conventions and counting a REST payload under it would report a channel
-artifact as a parse delta.
+band-transition matrix, a per-Term rollup split by docket maturity, a per-band
+rollup keyed on the baseline parse's band, and every changed case id. Both
+counts come off each case's latest **live-shaped** snapshot, because the
+entry-initial rule is a claim about the live channel's entry conventions, and
+counting a REST payload under it would report a channel artifact as a parse
+delta.
+
+Three things about the artifact's shape decide what may be read off it:
+
+- **Every cut carries its own denominator.** `cases` is the rows whose latest
+  **live-shaped** snapshot disclosed a proceedings list, not the frame: a case
+  with no live-shaped snapshot at all — a REST-only docket among them, whose
+  entries the entry-initial rule may not be read against — counts `unobservable`
+  instead, and the frame is `cases + unobservable`. The banner prints the
+  coverage fraction, so a census that read a tenth of its frame cannot announce
+  itself like one that read all of it. Maturity likewise has two denominators,
+  at both levels: `frame_pending` (census-wide and per Term) counts pending
+  across the whole frame, while the per-Term `pending` counts it among the
+  observable rows only. Which way the two diverge is itself a finding — maturity
+  is a property of the docket and readability a property of the pull, so neither
+  count may stand in for the other.
+- **The transition matrix is the full band-by-band square, zero-filled.** An
+  omitted cell and an observed zero are different findings. Which half of the
+  square a parse pair can occupy at all is a property of the pair, not of the
+  artifact: where the candidate's matches are a subset of the baseline's — the
+  entry-anchored reading against the entry-anywhere one — the count can only
+  fall, and every registered band function is monotone in it (pinned by a test
+  over the registry), so no case can move to a stronger band. `count_increased`
+  is the frame-level check on the nesting; the zero-filled strengthening cells
+  are the conclusion, measured. The empty half is an identity, not a finding,
+  and reversing the two parse arguments moves it — which is why the banner
+  counts occupied cells rather than reporting a density over the whole square.
+- **The per-band cut is keyed on the baseline band** — the incumbent *reading*
+  of the same snapshot, which is not necessarily the label the case carries in
+  the corpus (that comes off the max-latched `distribution_count` column, which
+  no side of this census reads). So "what share of `elevated` would move" is
+  answerable from the artifact rather than only by joining the changed ids back
+  against the corpus. It partitions the observable rows: an unobservable case
+  has no count and so no band, and the per-band `cases` sum to `cases`, never to
+  the frame. Each band carries its own `pending`, because the bands are built
+  from the conference count and a pending docket has had fewer conferences —
+  band and maturity are correlated by construction.
 
 **Activating a parse is three pieces of work, not one.** The census is the
 *input-level* cut and its matrix is conditional on the first of them:
