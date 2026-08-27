@@ -995,15 +995,19 @@ def test_every_inline_gh_retry_copy_matches_the_shared_script() -> None:
 
 
 def test_the_python_seams_bounds_match_the_shared_script() -> None:
-    """The Python-side `gh` seam is a fourth site holding the same three numbers.
+    """The Python-side `gh` seams hold the same three numbers as the script.
 
-    `agent_feedback.py`'s default runner bounds its calls itself, because the
-    commands it backs are invoked from Python rather than wrapped in shell. Its
-    constants say they are kept identical to the script's, which is only true
-    while something compares them — the same reason the inline copies above are
-    pinned. A longer timeout or a fourth attempt applied on one side alone would
-    otherwise leave the two surfaces silently disagreeing about how long a
-    degraded API is tolerated.
+    Two Python seams bound their calls themselves, because the commands they
+    back are invoked from Python rather than wrapped in shell:
+    `agent_feedback.py`'s default runner, whose constants this test compares to
+    the script directly, and `authz.py`'s default permission lookup, whose
+    constants `test_authz.py` pins equal to `agent_feedback.py`'s — so the pin
+    to the script is transitive, and deleting either link breaks the chain.
+    The constants say they are kept identical to the script's, which is only
+    true while something compares them — the same reason the inline copies
+    above are pinned. A longer timeout or a fourth attempt applied on one side
+    alone would otherwise leave the surfaces silently disagreeing about how
+    long a degraded API is tolerated.
     """
     canonical = _gh_retry_body(GH_RETRY_SCRIPT.read_text())
     assert f"timeout {_GH_TIMEOUT_SECONDS}" in canonical

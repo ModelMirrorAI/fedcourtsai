@@ -519,13 +519,22 @@ pattern rather than rediscovering it:
   predict/evaluate round posts before the review hold, the collect job's stall
   and secret-scan reports, and the flag roll-up latch itself — are covered at
   the seam, and a new caller of it inherits the bound rather than adding a copy.
-  That is the seam's coverage, not Python's: a `gh` call made anywhere else in
-  the package is as bare as an unwrapped shell one. Budget for it the same way —
+  `authz.py`'s collaborator-permission lookup — behind the `authorize-trigger`
+  gate the label-triggered fan-outs run before privileged work — carries the
+  same bound in its own default lookup, because its fail-closed posture makes
+  an unretried call worse than a lost record: a blip at check time reads as
+  `"none"` and refuses a legitimate actor's round, and an unbounded stall
+  hangs the gate itself. (run-pull's label gate still runs the same check
+  inline and bare — the one permission lookup not on this surface.) That is
+  the seams' coverage, not Python's: a `gh` call made anywhere else in the
+  package is as bare as an unwrapped shell one. Budget for it the same way —
   105s per call, against whatever cap the calling step or job carries.
   Retrying never changes what a failure *means*: exhaustion returns non-zero
-  (raises, on the Python side), so a handoff write that never lands still fails
-  its run loudly, exactly as an unretried call would. What the retry buys is
-  that a blip does not decide it.
+  (raises, on the Python side; at the authorization lookup, the fail-closed
+  `"none"` any error yields, on which the command still exits non-zero — a
+  sustained outage still refuses), so a handoff write that never lands still
+  fails its run loudly, exactly as an unretried call would. What the retry
+  buys is that a blip does not decide it.
 - **Shape a retried lookup so its failure cannot read as an empty result.**
   Most of these lookups feed a find-or-create, so an empty `num` reads as "no
   issue yet" and opens a duplicate or restarts a dashboard's rolling state.
