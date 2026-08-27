@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000249",
+  "run_id": "20260827T155120Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP endpoint access"
+  ],
+  "helpful": [
+    "The frozen context made the arrival moment and zero-distribution state explicit.",
+    "The statpack supplied the leakage-safe prior-Term arrival anchor.",
+    "CourtListener docket access exposed the lower-court procedural posture despite missing petition text."
+  ],
+  "gaps": [
+    "No petition or questions-presented text was provisioned.",
+    "The Ninth Circuit memorandum was listed but not readable through CourtListener."
+  ],
+  "notes": "The available docket metadata was sufficient for a conservative forecast, but the missing merits-facing documents materially limit issue and vehicle analysis."
+}

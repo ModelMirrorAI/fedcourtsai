@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000249",
+  "run_id": "20260827T155120Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "courtlistener-mcp search",
+    "courtlistener-mcp call_endpoint",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The sal-v3 band table's bracketed reached rates made the arrival anchor a single pooled computation",
+    "CourtListener docket search resolved the lower-court posture (pro se, private dispute, early dismissal) in four calls"
+  ],
+  "gaps": [
+    "No provisioned questions-presented text for this arrival cell, so petition substance had to be inferred from docket metadata and the lower-court record",
+    "fedcourts query ranks by recency; a similarity cut (pro se / same originating circuit / counsel-of-record status) would surface actual comparables"
+  ],
+  "notes": "Statpack carried everything the number rests on; retrieval only confirmed the case's nature."
+}
