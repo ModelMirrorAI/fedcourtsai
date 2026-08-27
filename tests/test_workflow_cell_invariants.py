@@ -48,6 +48,12 @@ from typing import Any
 
 import yaml
 
+from fedcourtsai.agent_feedback import (
+    _GH_ATTEMPTS,
+    _GH_BACKOFF_SECONDS,
+    _GH_TIMEOUT_SECONDS,
+)
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 ACTIONS = REPO_ROOT / ".github" / "actions"
@@ -986,6 +992,23 @@ def test_every_inline_gh_retry_copy_matches_the_shared_script() -> None:
         # And the copy must say it is one, so the next editor knows to keep it
         # in step rather than "improving" it locally.
         assert "Inline copy of scripts/gh_retry.sh" in run
+
+
+def test_the_python_seams_bounds_match_the_shared_script() -> None:
+    """The Python-side `gh` seam is a fourth site holding the same three numbers.
+
+    `agent_feedback.py`'s default runner bounds its calls itself, because the
+    commands it backs are invoked from Python rather than wrapped in shell. Its
+    constants say they are kept identical to the script's, which is only true
+    while something compares them — the same reason the inline copies above are
+    pinned. A longer timeout or a fourth attempt applied on one side alone would
+    otherwise leave the two surfaces silently disagreeing about how long a
+    degraded API is tolerated.
+    """
+    canonical = _gh_retry_body(GH_RETRY_SCRIPT.read_text())
+    assert f"timeout {_GH_TIMEOUT_SECONDS}" in canonical
+    assert f"for attempt in {' '.join(str(n) for n in range(1, _GH_ATTEMPTS + 1))}" in canonical
+    assert f"sleep $((attempt * {_GH_BACKOFF_SECONDS}))" in canonical
 
 
 def test_the_agent_free_post_checkout_steps_source_the_shared_script() -> None:

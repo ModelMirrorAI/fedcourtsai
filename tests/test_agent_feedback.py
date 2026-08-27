@@ -3,10 +3,18 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import time
 from collections.abc import Sequence
+from typing import Any
+
+import pytest
 
 from fedcourtsai.agent_feedback import (
+    _GH_ATTEMPTS,
+    _GH_TIMEOUT_SECONDS,
     LABEL,
+    _gh,
     already_posted,
     choose_feedback_issue,
     post_agent_feedback,
@@ -137,3 +145,161 @@ def test_post_once_distinguishes_the_two_report_kinds() -> None:
         "posted"
     )
     assert gh.commented()
+
+
+# --- the default runner: bounded retry and a per-call timeout -----------------
+
+
+class FakeRun:
+    """Stands in for ``subprocess.run``, replaying one scripted outcome per attempt.
+
+    Each outcome is either the stdout of a run that succeeded or the exception that
+    attempt raises, so a test can script "a blip, then the answer" and assert on how
+    many attempts it took and which attempt's output came back.
+    """
+
+    def __init__(self, outcomes: Sequence[str | BaseException]):
+        self._outcomes = list(outcomes)
+        self.calls: list[tuple[list[str], dict[str, Any]]] = []
+
+    def __call__(self, command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        assert len(self.calls) < len(self._outcomes), "more attempts than the test scripted"
+        outcome = self._outcomes[len(self.calls)]
+        self.calls.append((list(command), dict(kwargs)))
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return subprocess.CompletedProcess(command, 0, stdout=outcome, stderr="")
+
+
+def _blip() -> subprocess.CalledProcessError:
+    """One transient non-zero exit, shaped as ``check=True`` raises it."""
+    return subprocess.CalledProcessError(
+        1, ["gh", "issue", "comment"], output="", stderr="HTTP 502\n"
+    )
+
+
+def test_gh_returns_the_first_attempts_output_when_it_works(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run = FakeRun(["ok\n"])
+    monkeypatch.setattr(subprocess, "run", run)
+    slept: list[float] = []
+    assert _gh(["gh", "issue", "view", "7"], sleeper=slept.append) == "ok\n"
+    assert len(run.calls) == 1
+    assert slept == []  # a call that works is never delayed
+
+
+def test_gh_retries_a_transient_failure_and_returns_the_final_attempts_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run = FakeRun([_blip(), _blip(), '[{"number": 42}]'])
+    monkeypatch.setattr(subprocess, "run", run)
+    slept: list[float] = []
+    assert _gh(["gh", "issue", "list"], sleeper=slept.append) == '[{"number": 42}]'
+    assert len(run.calls) == 3  # two blips absorbed
+    assert slept == [5, 10]  # linear backoff between attempts, none after the last
+
+
+def test_gh_retries_a_stalled_attempt_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The timeout exists to cut a stalled connect short; cutting it short must retry."""
+    stalled = subprocess.TimeoutExpired(["gh", "issue", "comment"], _GH_TIMEOUT_SECONDS)
+    run = FakeRun([stalled, "ok\n"])
+    monkeypatch.setattr(subprocess, "run", run)
+    slept: list[float] = []
+    assert _gh(["gh", "issue", "comment", "7"], sleeper=slept.append) == "ok\n"
+    assert len(run.calls) == 2
+    assert slept == [5]  # a stall backs off exactly as a non-zero exit does
+
+
+def test_gh_exhaustion_still_raises_what_callers_expect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Retrying changes when a call fails, never what its failure means: a sustained
+    outage still raises, so a report that never lands fails its step as loudly as an
+    unretried call would."""
+    run = FakeRun([_blip(), _blip(), _blip()])
+    monkeypatch.setattr(subprocess, "run", run)
+    slept: list[float] = []
+    with pytest.raises(subprocess.CalledProcessError) as raised:
+        _gh(["gh", "issue", "comment", "7"], sleeper=slept.append)
+    assert raised.value.stderr == "HTTP 502\n"  # the captured streams still ride along
+    assert len(run.calls) == _GH_ATTEMPTS  # bounded, not indefinite
+    assert slept == [5, 10]
+
+
+def test_gh_exhaustion_by_stall_raises_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The timeout adds a failure mode callers could not see before, so pin that it
+    still ends in a raise rather than a silent empty return."""
+    stalls = [
+        subprocess.TimeoutExpired(["gh", "issue", "view"], _GH_TIMEOUT_SECONDS)
+        for _ in range(_GH_ATTEMPTS)
+    ]
+    run = FakeRun(stalls)
+    monkeypatch.setattr(subprocess, "run", run)
+    slept: list[float] = []
+    with pytest.raises(subprocess.TimeoutExpired):
+        _gh(["gh", "issue", "view", "7"], sleeper=slept.append)
+    assert len(run.calls) == _GH_ATTEMPTS
+
+
+def test_gh_bounds_every_attempt_with_a_client_side_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``gh`` sets none of its own, so an unbounded attempt would hang a stalled
+    connect to the job's own kill with nothing written."""
+    run = FakeRun([_blip(), "ok\n"])
+    monkeypatch.setattr(subprocess, "run", run)
+    slept: list[float] = []
+    _gh(["gh", "issue", "view", "7"], sleeper=slept.append)
+    for _, kwargs in run.calls:
+        assert kwargs["timeout"] == _GH_TIMEOUT_SECONDS
+        # The capture the callers rely on is unchanged: they parse stdout as JSON
+        # or as a created issue's URL, and a non-zero exit must still raise.
+        assert kwargs["capture_output"] is True
+        assert kwargs["text"] is True
+        assert kwargs["check"] is True
+
+
+def test_gh_annotates_a_retry_on_stderr_without_echoing_the_body(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The annotation names only the call, so an issue body passed as an argument
+    never lands in the job log."""
+    run = FakeRun([_blip(), "ok\n"])
+    monkeypatch.setattr(subprocess, "run", run)
+    slept: list[float] = []
+    body = "a flag roll-up nobody wants pasted into an annotation"
+    assert _gh(["gh", "issue", "comment", "7", "--body", body], sleeper=slept.append) == "ok\n"
+    captured = capsys.readouterr()
+    assert "::warning::gh issue comment failed (attempt 1/3)" in captured.err
+    assert body not in captured.err
+    assert captured.out == ""  # annotations never contaminate the command's own stdout
+
+
+def test_gh_annotates_exhaustion_as_an_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    run = FakeRun([_blip(), _blip(), _blip()])
+    monkeypatch.setattr(subprocess, "run", run)
+    slept: list[float] = []
+    with pytest.raises(subprocess.CalledProcessError):
+        _gh(["gh", "label", "create", LABEL], sleeper=slept.append)
+    assert "::error::gh label create failed after 3 attempts" in capsys.readouterr().err
+
+
+def test_the_posting_entry_points_inherit_the_bound(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The seam's whole point is that callers need no wrapper of their own, so pin
+    that with no injected runner — a blip on the way to a post is absorbed rather
+    than reaching the caller."""
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+    run = FakeRun([_blip(), '{"comments": []}', ""])
+    monkeypatch.setattr(subprocess, "run", run)
+    assert post_once(repo="o/r", issue=7, marker=_STALL_MARKER, body="the run stalled") == (
+        "posted to #7"
+    )
+    # Three subprocess calls for two gh calls: the comment read was retried once.
+    assert [command[1:3] for command, _ in run.calls] == [
+        ["issue", "view"],
+        ["issue", "view"],
+        ["issue", "comment"],
+    ]
