@@ -1303,6 +1303,47 @@ workflow-disabled-only pause steadily reddens the ops dashboard with what looks
 like broken runs. Holding the handoff avoids that; for a full pause of either
 channel, hold the handoff *and* disable the workflow.
 
+### Recovering from a manual disable
+
+A workflow paused with a disable (`disabled_manually` in `gh workflow list
+--all` — the bare listing hides disabled workflows, and the ops dashboard
+gives the state no distinct marker, so the `--all` listing is the one
+surface that shows it) comes back in a fixed order, because the label
+step's mechanics are silent about what they drop:
+
+1. **Re-enable first — the maintainer's act.** `gh workflow enable
+   <workflow>` (or the Actions UI); an interactive session's token is refused
+   on it, like every workflow-administration call, so an agent session
+   composes the command and continues with what does not depend on it. An
+   enabled workflow with the handoff still held creates nothing, so this
+   order has no window in which events fire into a disabled workflow.
+2. **Then restore the handoff, if it was held** — variable administration,
+   on the same maintainer-only list. A full pause holds the handoff *and*
+   disables the workflow (above); restoring the handoff while the workflow
+   is still disabled would file trigger issues whose label events are
+   dropped, manufacturing exactly the re-label work of the next step.
+3. **Re-apply the `run:*` label on each trigger issue that should now run.**
+   Label events fired while the workflow was disabled were dropped, and an
+   already-applied label fires no event (both GitHub's own event mechanics,
+   like the handoff-token gotcha above), so re-enabling alone resumes
+   nothing: remove the label where it is still applied, then re-apply it —
+   the re-apply is the trigger, and a run still queued or held from before
+   the pause serializes ahead of it under the per-issue concurrency group.
+   Three outcomes of the re-label are the machinery working, not the
+   recovery failing: with cells sitting in an uncollected run's artifacts,
+   the stranded-run guard withholds them for its 48-hour window and the
+   re-label closes the trigger issue saying so (*Recovering a run whose
+   `collect` failed*, above); a label re-applied after a secret-scan
+   withhold re-spends every cell the withheld run already paid for (same
+   section); and a queued event that resolved during the pause closes as
+   out of scope — the forecastability re-check working across the gap.
+4. **The hold, not the enable, is still the spend gate.** A re-applied label
+   starts at the plan job, which posts a fresh plan report, and the matrix
+   waits behind the approval job on the `review` environment's required
+   reviewers — so a recovery cannot leak spend past the hold, and the fresh
+   plan re-anchors the already-predicted gate and the stranded-run guard
+   exactly as the review-hold rules above require of a re-queue.
+
 ## Snapshot sequencing
 
 `run-pull` pushes factual snapshots **to the corpus** — the per-case content
