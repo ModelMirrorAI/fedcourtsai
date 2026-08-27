@@ -243,6 +243,28 @@ cells that already ran, the grant is repo-wide because Actions scopes cannot be
 run-scoped, and `plan` runs no agent code — the census step's only inputs are
 this workflow's own run history.
 
+## The codespace token
+
+A codespace's ambient GitHub token is scoped to this repository, plus the one
+addition `devcontainer.json` requests: `contents: write` on the maintainer's
+dotfiles repository (`ModelMirror/dotfiles`), which seeds Claude project
+memory into new codespaces and receives the refreshed snapshot back from the
+codespace that wrote it. GitHub asks the codespace's creator to authorize the
+grant at creation; a creator without write access to that repository gets a
+codespace without the grant, and no tooling in this repository assumes it is
+present.
+
+The restriction that keeps the grant durability rather than execution lives on
+the dotfiles repository, not here: a push ruleset with **no bypass actors**
+restricting its executing file paths — the installer and the settings and
+status-line files it copies into `~/.claude` — so those change only by pull
+request, while the project-memory directory stays writable with the ambient
+token. Without that ruleset the grant is a persistence channel (a push can
+alter what executes at the next codespace creation), so the ruleset is a
+precondition of the grant, not an optional hardening. Snapshot content follows
+the standing norm for committed files: memory prose names no credential and no
+bucket URL.
+
 ## The `prod` environment
 
 Every secret and the two production S3 role ARNs live on the `prod`

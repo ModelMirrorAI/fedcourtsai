@@ -52,8 +52,14 @@
   },
   "customizations": {
     "codespaces": {
+      // The one write grant the codespace token carries beyond this
+      // repository: it lets the Claude project-memory snapshot in the
+      // maintainer's dotfiles be pushed back from the codespace that wrote
+      // it. Preconditioned on a no-bypass push ruleset over that
+      // repository's executing files — posture: SECURITY.md, setup:
+      // docs/security.md ("The codespace token").
       "repositories": {
-        "modelmirror/dotfiles": {
+        "ModelMirror/dotfiles": {
           "permissions": {
             "contents": "write"
           }
