@@ -57,15 +57,28 @@ class AuthDecision:
     message: str
 
 
-def decide_authorization(sender_type: str, actor: str, permission: str) -> AuthDecision:
+def decide_authorization(
+    sender_type: str, actor: str, permission: str, *, bot_actor: str | None = None
+) -> AuthDecision:
     """Authorize a label trigger from the sender type and the actor's permission.
 
     Pure decision: a ``Bot`` sender is the trusted App handoff; any other sender
     needs a write-or-higher ``permission``. The ``permission`` is ignored for a
-    ``Bot`` sender (the lookup is skipped upstream). Returns the same human-facing
-    text the workflow logs.
+    ``Bot`` sender (the lookup is skipped upstream). ``bot_actor`` pins the
+    handoff to one login: with it set, a ``Bot`` sender with any other login is
+    refused outright — no permission lookup, because an App is never a
+    collaborator and a lookup could only delay the refusal. Without the pin,
+    "Bot" means "any admin-installed App"; a caller whose gate is the only
+    check on its path (run-pull) passes it so the branch means "the pipeline
+    App". Returns the same human-facing text the workflow logs.
     """
     if sender_type == _BOT_SENDER:
+        if bot_actor is not None and actor != bot_actor:
+            return AuthDecision(
+                False,
+                f"{actor} is a Bot sender but not the pinned App handoff "
+                + f"({bot_actor}); refusing to run.",
+            )
         return AuthDecision(True, f"Authorized {actor} (pipeline App handoff).")
     if permission in WRITE_PERMISSIONS:
         return AuthDecision(True, f"Authorized {actor} ({permission} access).")
@@ -166,13 +179,15 @@ def authorize_trigger(
     repo: str,
     *,
     lookup: PermissionLookup = _gh_permission,
+    bot_actor: str | None = None,
 ) -> AuthDecision:
     """Resolve the authorization decision, looking up the actor's permission if needed.
 
-    A ``Bot`` sender authorizes without a lookup; any other sender's collaborator
-    permission is fetched via ``lookup`` (default: the GitHub API) and fed to
-    :func:`decide_authorization`. The ``lookup`` seam lets tests exercise the gate
-    without a network call.
+    A ``Bot`` sender resolves without a lookup — authorized as the App handoff,
+    or refused outright when ``bot_actor`` pins the handoff to a different
+    login; any other sender's collaborator permission is fetched via ``lookup``
+    (default: the GitHub API) and fed to :func:`decide_authorization`. The
+    ``lookup`` seam lets tests exercise the gate without a network call.
     """
     permission = "" if sender_type == _BOT_SENDER else lookup(repo, actor)
-    return decide_authorization(sender_type, actor, permission)
+    return decide_authorization(sender_type, actor, permission, bot_actor=bot_actor)

@@ -297,6 +297,10 @@ including `py/implicit-string-concatenation-in-list`, the dropped-comma guard
 AGENTS.md leans on — with results in the Security tab rather than a required
 check. Beside them, a family of pytest
 workflow-shape tests pins the YAML *contracts* the linters cannot see — the
+label-trigger authorization shape (`test_workflow_auth_gate`: every gated
+workflow's gate is the tested `authorize-trigger` command, nothing but a
+credential-free checkout and the env sync may precede it, and nothing
+privileged runs ahead of it), the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants

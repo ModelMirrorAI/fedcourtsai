@@ -179,9 +179,19 @@ runbook, [docs/security.md](docs/security.md).
   privileged job re-checks, before any privileged work, that the triggering
   actor has **write access** (failing closed), so a label applied by anyone
   else is inert — nothing privileged runs ahead of that check in any `run:*`
-  workflow. The App-driven handoffs `run-pull` files are recognized and allowed
-  — only a maintainer-installed App can apply a label that fires a workflow at
-  all.
+  workflow. Every `run:*` gate — the fan-outs and the deterministic
+  writer — treats a `Bot` sender as the trusted App handoff without a
+  permission lookup. That allowance rests on two platform facts: installing a
+  GitHub App requires admin on the repository, and label writes made with the
+  default `GITHUB_TOKEN` do not fire workflows — so no unprivileged actor can
+  produce an `issues: labeled` event with a `Bot` sender. What those facts do
+  not cover is a *second* admin-installed App (the repo carries more than one):
+  its label writes are `Bot` senders too. `run-pull`, which no handoff files
+  today, closes that residue by pinning the handoff to the data App's own
+  login (`--bot-actor`); the fan-out gates are unpinned — `run-predict` /
+  `run-evaluate` narrow their claude/codex agent steps to the data App's login
+  (`allowed_bots`), while their gemini steps and `run-backtest` rely on the
+  gate alone.
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
   is the sole bypass actor, so the deterministic writer jobs (`run-pull`,

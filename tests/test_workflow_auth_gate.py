@@ -19,6 +19,7 @@ RUN_LABELS = {
     "run-pull.yml": ("run:pull", "pull"),
     "run-predict.yml": ("run:predict", "plan"),
     "run-evaluate.yml": ("run:evaluate", "plan"),
+    "run-backtest.yml": ("run:backtest", "backtest"),
 }
 
 # Step markers that mean "privileged work has started": minting an App token,
@@ -42,25 +43,22 @@ def _steps(job: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _is_authorize_step(step: dict[str, Any]) -> bool:
-    """The fail-closed actor gate, in either supported form.
+    """The fail-closed actor gate: the tested ``authorize-trigger`` command.
 
-    The fan-out workflows (predict/evaluate) delegate the decision to the
-    tested ``authorize-trigger`` command; the deterministic writer (pull)
-    still carry the inline collaborators-API check. Recognize both — the security
-    *shape* (a gate before any privileged step) is what this file locks in; the
-    decision logic itself is unit-tested in ``test_authz.py``.
+    Every gated workflow — the fan-outs (predict/evaluate/backtest) and the
+    deterministic writer (pull) — delegates the decision to the one
+    unit-tested command (``test_authz.py``), which also carries the bounded
+    permission lookup. An inline collaborators-API check is deliberately NOT
+    recognized: the decision logic must live in exactly one tested place, so a
+    workflow that reintroduces an inline copy fails this test rather than
+    quietly forking the gate. The security *shape* (a gate before any
+    privileged step) is what this file locks in.
     """
     name = step.get("name", "")
     run = step.get("run", "")
     if "Authorize the trigger" not in name:
         return False
-    if "fedcourts authorize-trigger" in run:
-        return True
-    return (
-        "collaborators/${ACTOR}/permission" in run
-        and "refusing to run" in run
-        and "set -euo pipefail" in run
-    )
+    return "fedcourts authorize-trigger" in run
 
 
 def test_every_run_label_workflow_triggers_on_issue_label() -> None:
@@ -84,13 +82,24 @@ def test_entry_job_authorizes_before_any_privileged_step() -> None:
         assert steps, f"{name}:{entry_job} has no steps"
         # The gate must run before any privileged step, so refusal happens before a
         # token is minted, the S3 role assumed, or an agent run. The command-based
-        # gate needs a checkout + Python env ahead of it (both unprivileged), so the
-        # invariant is "nothing privileged precedes the gate", not "the gate is first".
+        # gate needs a checkout + Python env ahead of it, so the invariant is not
+        # "the gate is first" — but what may precede it is an ALLOWLIST, not merely
+        # "nothing matching PRIVILEGED_USES": a credential-free checkout and the
+        # env sync, and nothing else. A pre-gate `run:` step, or a checkout that
+        # drops `persist-credentials: false`, fails here rather than sliding past
+        # a substring blocklist.
         authorize_idx = next((i for i, step in enumerate(steps) if _is_authorize_step(step)), None)
         assert authorize_idx is not None, f"{name}:{entry_job} has no fail-closed authorize step"
         for step in steps[:authorize_idx]:
-            assert not any(p in step.get("uses", "") for p in PRIVILEGED_USES), (
-                f"{name}:{entry_job} runs a privileged step before the authorize gate"
+            uses = step.get("uses", "")
+            if uses.startswith("actions/checkout@"):
+                assert step.get("with", {}).get("persist-credentials") is False, (
+                    f"{name}:{entry_job} checks out with credentials before the gate"
+                )
+                continue
+            assert uses == "./.github/actions/setup-python-env", (
+                f"{name}:{entry_job} runs a non-allowlisted step before the authorize gate: "
+                + (step.get("name") or uses or str(step)[:80])
             )
 
 

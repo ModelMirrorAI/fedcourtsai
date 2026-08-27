@@ -150,27 +150,49 @@ jobs:
     steps:
       # An issue *form* applies its declared labels on creation regardless of the
       # submitter's permissions, so on a public repo anyone could fire this
-      # privileged run by filing the pull form. Require the triggering actor to
-      # hold write access; deny everyone else. Fail closed if it can't be read.
+      # privileged run by filing a form that declares `run:pull`. Require the triggering actor to
+      # be the pipeline App or to hold write access; deny everyone else, failing
+      # closed. The decision — Bot handoff trusted, write required otherwise,
+      # bounded permission lookup — lives in the tested `authorize-trigger`
+      # command, the same gate every label-triggered fan-out runs — pinned here
+      # to the data App's own login, because this job's gate is the only check
+      # on its path and an unpinned "Bot" means any admin-installed App. It
+      # refuses BEFORE the App-token mint, the credentialed checkout, and the
+      # S3 role below. The command needs a working tree and a synced env, so a
+      # credential-free checkout precedes it; both run only on the label path
+      # this gate exists for, and neither carries anything the gate protects
+      # (setup-uv's default github-token input does see the ambient token, but
+      # both actions are SHA-pinned and that token's writes trigger nothing).
+      # Two accepted costs of that shape: the credentialed checkout below wipes
+      # this venv, so the label path pays `uv sync` twice (~1 min, against a
+      # 45-minute job), and an unauthorized label holds the shared
+      # corpus-write lock for that minute — bounded; per the concurrency note
+      # above, sustained label spam can evict a queued scheduled window from
+      # the group's one pending slot, costing that window's freshness (the
+      # rotation resumes next window), never its data.
       # (The label name is already checked in the job `if:`.)
-      - name: Authorize the trigger (issue label must come from a maintainer)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'issues'
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        if: github.event_name == 'issues'
+      - name: Authorize the trigger (label from the pipeline App or a maintainer)
         id: authorize
         if: github.event_name == 'issues'
+        # One retried permission lookup, worth up to 105s against a degraded
+        # API — bounded so a stalled check cannot draw on this job's 45-minute
+        # budget before refusing.
+        timeout-minutes: 3
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           ACTOR: ${{ github.actor }}
+          SENDER_TYPE: ${{ github.event.sender.type }}
         run: |
-          set -euo pipefail
-          perm=$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" \
-            --jq '.permission' 2>/dev/null || echo none)
-          case "$perm" in
-            admin | maintain | write) echo "Authorized ${ACTOR} (${perm} access)." ;;
-            *)
-              echo "::error::${ACTOR} lacks write access (permission: ${perm}); refusing to run." >&2
-              exit 1
-              ;;
-          esac
+          uv run fedcourts authorize-trigger \
+            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO" \
+            --bot-actor "fedcourtsai-data[bot]"
 
       - name: Mint app token
         id: app-token
@@ -401,10 +423,16 @@ jobs:
       # this automatically; a human closes it once triaged. Inline (no
       # checkout needed) and on the ambient GITHUB_TOKEN (non-triggering write,
       # same doctrine as the dashboard step above), so it fires for any broken
-      # window — including one whose App-token mint itself failed. The one
-      # suppression is a failed authorize step: an unauthorized labeling
-      # attempt must stay fail-closed and file nothing (the step is skipped,
-      # not failed, on schedule/dispatch runs, so those alarm normally).
+      # window — including one whose App-token mint itself failed, and one
+      # whose pre-gate checkout or env sync broke (there the authorize step
+      # never runs, its conclusion stays empty, and the alarm fires — a window
+      # lost to infrastructure is a broken window). The one suppression is a
+      # failed authorize step: an unauthorized labeling attempt must stay
+      # fail-closed and file nothing (on schedule/dispatch runs the step is
+      # skipped, not failed, so those alarm normally). A gate killed at its
+      # own timeout lands in the same suppressed branch — GitHub records a
+      # timed-out step as failed (documented behavior, not exercised by any
+      # test here) — and stays silent by the same fail-closed rule.
       # `cancelled()` is included because the shared lock never cancels an
       # in-flight run (cancel-in-progress is false; a superseded run dies
       # queued, before any step) — so an in-flight cancellation is the job

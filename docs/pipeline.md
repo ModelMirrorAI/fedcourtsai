@@ -520,12 +520,11 @@ pattern rather than rediscovering it:
   and secret-scan reports, and the flag roll-up latch itself — are covered at
   the seam, and a new caller of it inherits the bound rather than adding a copy.
   `authz.py`'s collaborator-permission lookup — behind the `authorize-trigger`
-  gate the label-triggered fan-outs run before privileged work — carries the
-  same bound in its own default lookup, because its fail-closed posture makes
-  an unretried call worse than a lost record: a blip at check time reads as
-  `"none"` and refuses a legitimate actor's round, and an unbounded stall
-  hangs the gate itself. (run-pull's label gate still runs the same check
-  inline and bare — the one permission lookup not on this surface.) That is
+  gate every label-triggered `run:*` workflow (the fan-outs and run-pull) runs
+  before privileged work — carries the same bound in its own default lookup,
+  because its fail-closed posture makes an unretried call worse than a lost
+  record: a blip at check time reads as `"none"` and refuses a legitimate
+  actor's round, and an unbounded stall hangs the gate itself. That is
   the seams' coverage, not Python's: a `gh` call made anywhere else in the
   package is as bare as an unwrapped shell one. Budget for it the same way —
   105s per call, against whatever cap the calling step or job carries.

@@ -245,3 +245,6 @@ __marimo__/
 # here — `actions/checkout` forces the path under the workspace, so this keeps a
 # second repository out of `git status` and out of any future `git add -A`.
 /.transcript-scanner/
+# Subagent worktrees parked inside the repo by the harness — full checkouts,
+# never content to commit.
+/.claude/worktrees/
