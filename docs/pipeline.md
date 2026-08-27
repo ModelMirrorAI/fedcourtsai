@@ -485,28 +485,42 @@ pattern rather than rediscovering it:
   `pyproject.toml`, `uv.lock`, `README.md`, and `src/` to `$RUNNER_TEMP`, syncs
   there, and exports the absolute path the rest of the step calls. A shape test
   fails on a bare `uv run fedcourts` reappearing in that composite.
-- **A GitHub API call has no retry unless you give it one.** The steps that
-  keep the run *record* — the ops and pipeline-runs dashboards, the weekly
-  digest, the data-validation escalation, the per-day `pull-log` / `live-log`
-  alarms, the seed guard — are bookkeeping about a run rather than the work,
-  and a transient 5xx there costs something the run never earned. Which cost
-  depends on the site, so read yours before deciding it is harmless: on the
-  run-ops steps and the guard's clear-the-incident path a blip reddens a run
-  that did its work, while on the dashboard (`continue-on-error`) and the
-  alarms (which only fire on an already-failed window) nothing turns red and
-  the *record* is what goes missing. `gh` also sets no client-side request
-  timeout, so a stalled connect hangs to the job's kill with nothing written.
+- **A GitHub API call has no retry unless you give it one.** Two classes of
+  call route through `gh_retry`. The steps that keep the run *record* — the ops
+  and pipeline-runs dashboards, the weekly digest, the data-validation
+  escalation, the per-day `pull-log` / `live-log` alarms, the seed guard,
+  run-backtest's result comment — are bookkeeping about a run rather than the
+  work. The **handoff writes** are the work: `open-run-handoff`'s trigger-issue
+  create, and the trigger-issue closes in run-predict / run-evaluate. Outside
+  those two lists a bare call is fine and a repo-wide rule would be one nobody
+  could keep — the collect jobs' own PR plumbing and ci.yml's label read are
+  not on this surface. A transient 5xx costs something the run never earned,
+  and what it costs depends on the site, so read yours: on the run-ops steps
+  and the guard's clear-the-incident path a blip reddens a run that did its
+  work; on the dashboard (`continue-on-error`), the alarms (which only fire on
+  an already-failed window), and the back-test comment (`continue-on-error`
+  too) nothing turns red and the *record* is what goes missing; at
+  `open-run-handoff` a blip costs the whole predict/evaluate round, and a lost
+  trigger-issue close leaves an issue that run-ops reads as a stalled fan-out.
+  `gh` also sets no client-side request timeout, so a stalled connect hangs to
+  the job's kill with nothing written.
   Wrap each call in `gh_retry` (`scripts/gh_retry.sh`, sourced where a checkout
-  exists; copied inline in the steps that must fire without one, where a test
-  pins the copies identical), and give the step a `timeout-minutes` that admits
+  exists and no agent has run in it; copied inline — a test pins the copies
+  identical — wherever sourcing is unavailable or unsafe: the steps that must
+  fire even when the checkout failed, the `rejected` jobs that are *given* no
+  checkout because one is another way to strand the issue they exist to close,
+  and the back-test's report step, whose workspace its own agent cells could
+  have rewritten), and give the step a `timeout-minutes` that admits
   the retries — three attempts at `timeout 30` plus backoff is 105s per call.
-  The handoff writes (`open-run-handoff`, the trigger-issue closes in
-  run-predict / run-evaluate / run-backtest) are deliberately outside this
-  class: they are the work, not the record of it, and a failure there should
-  stop the round rather than be absorbed.
+  Retrying never changes what a failure *means*: exhaustion returns non-zero,
+  so a handoff write that never lands still fails its run loudly, exactly as an
+  unretried call would. What the wrapper buys is that a blip does not decide it.
 - **Shape a retried lookup so its failure cannot read as an empty result.**
-  These lookups feed a find-or-create, so an empty `num` reads as "no issue
-  yet" and opens a duplicate or restarts a dashboard's rolling state. Never let
+  Most of these lookups feed a find-or-create, so an empty `num` reads as "no
+  issue yet" and opens a duplicate or restarts a dashboard's rolling state.
+  (The back-test's PR lookup feeds none — an empty result there costs only the
+  review-PR back-link — but it takes the same shape, so the rule has no
+  exception to remember.) Never let
   a retried call be a non-final element of a pipeline: filter with `gh`'s own
   `--jq` inside the same command, or assign the output and filter the variable.
   Either way `set -e` stops the step on the command itself. Note the limit of

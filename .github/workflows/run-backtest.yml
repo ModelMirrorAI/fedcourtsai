@@ -367,6 +367,12 @@ jobs:
       - name: Comment the result on the trigger issue
         if: always() && github.event_name == 'issues'
         continue-on-error: true
+        # Bound the retries explicitly rather than letting them run into the
+        # job budget: two sequential `gh_retry` calls, each worth up to 105s
+        # when every attempt times out. Past that the comment is not worth the
+        # run's remaining minutes — `continue-on-error` means giving up on it
+        # costs only the back-link, the PR itself having already landed.
+        timeout-minutes: 5
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -375,10 +381,35 @@ jobs:
           OUTCOME: ${{ job.status }}
         run: |
           set -euo pipefail
-          pr_url=$(gh pr list --repo "$REPO" --state open --head metrics/cert-backtest \
+          # Inline copy of scripts/gh_retry.sh's gh_retry — the replay cells run
+          # their agents in this job's own checkout, so by this step every file
+          # in the workspace is agent-writable and sourcing one would run
+          # agent-authored shell against this job's issue-write token. The
+          # workflow-invariants test pins the copies identical; contract and
+          # rationale live in that script's header.
+          gh_retry() {
+            local attempt out what
+            what="${1:-} ${2:-} ${3:-}"
+            for attempt in 1 2 3; do
+              if out=$(timeout 30 "$@"); then
+                printf '%s\n' "$out"
+                return 0
+              fi
+              if [ "$attempt" -lt 3 ]; then
+                echo "::warning::${what} failed (attempt ${attempt}/3) — retrying" >&2
+                sleep $((attempt * 5))
+              fi
+            done
+            echo "::error::${what} failed after 3 attempts" >&2
+            return 1
+          }
+          # The lookup lands in a variable and `--jq` filters inside the same
+          # command, so an exhausted retry is the assignment's own failure
+          # rather than an empty result that silently drops the PR back-link.
+          pr_url=$(gh_retry gh pr list --repo "$REPO" --state open --head metrics/cert-backtest \
             --json url --jq '.[0].url // empty')
           body="Cert back-test run finished (${OUTCOME}): ${RUN_URL}"
           if [ -n "$pr_url" ]; then
             body=$(printf '%s\nReview PR: %s' "$body" "$pr_url")
           fi
-          gh issue comment "$ISSUE" --repo "$REPO" --body "$body"
+          gh_retry gh issue comment "$ISSUE" --repo "$REPO" --body "$body"

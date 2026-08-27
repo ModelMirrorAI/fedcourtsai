@@ -107,14 +107,23 @@ jobs:
       # Uses the ambient GITHUB_TOKEN (closing triggers nothing) — least privilege.
       - name: Close the trigger issue when nothing is in scope
         if: ${{ steps.plan.outputs.has_jobs == 'false' && github.event.issue.number }}
+        # One retried close, worth up to 105s against a degraded API; the job
+        # itself declares no cap, so bound the retries here rather than leaving
+        # them to the six-hour default.
+        timeout-minutes: 3
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
           # One atomic call: close with the explanatory comment (no commented-but-open state).
-          gh issue close "$ISSUE" --repo "$REPO" --comment \
+          # Retried because an issue left open by a blip is what run-ops reads
+          # as a stalled fan-out — a false alarm over a run that finished. Three
+          # attempts, and exhaustion still fails the step: a close that never
+          # lands is a real stall, and should look like one.
+          gh_retry gh issue close "$ISSUE" --repo "$REPO" --comment \
             "No evaluations in scope this run — every queued case was dropped by the scope gate (out of scope, nothing scorable, or already evaluated). Closing; nothing to evaluate."
 
       # The plan report the approval below is judged on: the tested plan
@@ -191,6 +200,8 @@ jobs:
     needs: [plan, approval]
     if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result != 'success' && github.event.issue.number }}
     runs-on: ubuntu-latest
+    # One retried close, worth up to 105s against a degraded API — the cap
+    # admits it with room for the runner's own setup.
     timeout-minutes: 5
     permissions:
       issues: write
@@ -203,7 +214,29 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          gh issue close "$ISSUE" --repo "$REPO" --comment \
+          # Inline copy of scripts/gh_retry.sh's gh_retry — this job exists only
+          # to keep a declined request from stranding its issue open, so it
+          # takes no checkout to source the file from: adding one would add the
+          # very failure mode the job is here to remove. The workflow-invariants
+          # test pins the copies identical; contract and rationale live in that
+          # script's header.
+          gh_retry() {
+            local attempt out what
+            what="${1:-} ${2:-} ${3:-}"
+            for attempt in 1 2 3; do
+              if out=$(timeout 30 "$@"); then
+                printf '%s\n' "$out"
+                return 0
+              fi
+              if [ "$attempt" -lt 3 ]; then
+                echo "::warning::${what} failed (attempt ${attempt}/3) — retrying" >&2
+                sleep $((attempt * 5))
+              fi
+            done
+            echo "::error::${what} failed after 3 attempts" >&2
+            return 1
+          }
+          gh_retry gh issue close "$ISSUE" --repo "$REPO" --comment \
             "The review hold did not release — rejected, cancelled, expired, or the plan failed — so no cell ran and nothing was spent. The plan report above is the record of what was declined; if no report appears above, the plan failed before posting one: ${RUN_URL}. Re-label to re-queue with a fresh plan."
 
   evaluate:

@@ -30,10 +30,12 @@ of them while every gate stays green:
   (the scan gate, the retention window, the survive-failure condition, and the
   post-agent checkout the scanner is installed from, since the scan holds the
   engine key) is a YAML attribute nothing else checks;
-* the **run-record retry** — every step that keeps the run record rather than
-  doing the work routes its `gh` calls through `scripts/gh_retry.sh`'s
-  `gh_retry`, and the steps that must fire without a checkout carry an inline
-  copy of it, which only stays a copy while something compares the two.
+* the **run-surface retry** — the run-record steps and the handoff writes both
+  route their `gh` calls through `scripts/gh_retry.sh`'s `gh_retry`; the steps
+  that cannot safely source it carry an inline copy, which only stays a copy
+  while something compares the two; and the handoff writes stay fatal on
+  exhaustion, since a retry that quietly became tolerated would turn a lost
+  round into a green run.
 
 Each would regress silently: the cell still runs, the artifact still validates,
 the integration gate stays green. So the contracts get pinned here instead.
@@ -853,11 +855,9 @@ def test_the_staging_seed_accepts_the_only_list_shape_its_form_can_produce() -> 
     assert "sed '/^$/d'" in build
 
 
-# The latching steps, by the surface they live on. The `run-ops` steps and the
-# dashboard composite run after a checkout and therefore `source` the shared
-# script; `run-pull`'s two failure alarms and `run-seed`'s guard must fire even
-# when the checkout or the App-token mint failed, so they carry an inline copy
-# instead — pinned identical below.
+# The retried steps, by the surface they live on. A step sources the shared
+# script when it runs after a checkout into a workspace no agent has written
+# to; every other one carries an inline copy instead — pinned identical below.
 SOURCING_OPS_STEPS = (
     "Collect recent workflow runs",
     "Collect open trigger issues",
@@ -865,11 +865,42 @@ SOURCING_OPS_STEPS = (
     "Post the weekly digest comment",
     "Escalate a failing data-validation verdict",
 )
+BACKTEST_REPORT_STEP = (
+    "run-backtest.yml",
+    "backtest",
+    "Comment the result on the trigger issue",
+)
+# `(workflow, job, step name)` for the handoff writes that source the script:
+# each runs after its own job's checkout, in a workspace no agent has touched.
+SOURCING_HANDOFF_STEPS = (
+    ("run-predict.yml", "plan", "Close the trigger issue when nothing is in scope"),
+    ("run-evaluate.yml", "plan", "Close the trigger issue when nothing is in scope"),
+)
+# The composites, whose `uses: ./.github/actions/...` resolution already proves
+# a workspace checkout put `scripts/` on disk.
+SOURCING_COMPOSITES = ("run-log-dashboard", "open-run-handoff")
 # `(workflow, job, step name)` for each step that inlines its own copy.
 INLINE_GH_RETRY_STEPS = (
     ("run-pull.yml", "pull", "Open the failure run-log issue"),
     ("run-pull.yml", "live", "Open the failure run-log issue"),
     ("run-seed.yml", "guard", "Escalate a cancelled or failed seed walk"),
+    ("run-predict.yml", "rejected", "Close the trigger issue when the hold did not release"),
+    ("run-evaluate.yml", "rejected", "Close the trigger issue when the hold did not release"),
+    BACKTEST_REPORT_STEP,
+)
+# The find-or-create alarms, where an exhausted listing that reads as an empty
+# result opens a second thread for the same broken day.
+FIND_OR_CREATE_ALARM_STEPS = (
+    ("run-pull.yml", "pull", "Open the failure run-log issue"),
+    ("run-pull.yml", "live", "Open the failure run-log issue"),
+)
+# The handoff writes that decide whether a queued round runs at all: retried,
+# never tolerated. An exhausted retry must still fail its step.
+FATAL_HANDOFF_STEPS = (
+    ("run-predict.yml", "plan", "Close the trigger issue when nothing is in scope"),
+    ("run-evaluate.yml", "plan", "Close the trigger issue when nothing is in scope"),
+    ("run-predict.yml", "rejected", "Close the trigger issue when the hold did not release"),
+    ("run-evaluate.yml", "rejected", "Close the trigger issue when the hold did not release"),
 )
 # Any `gh` invocation, with the `gh_retry` prefix when it carries one — the
 # assertion below is that every match has the prefix. `\b` anchors the prefix so
@@ -904,8 +935,8 @@ def _named_step(workflow: str, job: str, name: str) -> dict[str, Any]:
     return step
 
 
-def _dashboard_composite_run() -> str:
-    action = yaml.safe_load((ACTIONS / "run-log-dashboard" / "action.yml").read_text())
+def _composite_run(name: str) -> str:
+    action = yaml.safe_load((ACTIONS / name / "action.yml").read_text())
     (step,) = action["runs"]["steps"]
     return str(step["run"])
 
@@ -922,18 +953,23 @@ def _uncommented(run: str) -> list[str]:
 
 
 def test_every_inline_gh_retry_copy_matches_the_shared_script() -> None:
-    """The no-checkout steps duplicate `gh_retry`; nothing else would notice drift.
+    """The steps that cannot source `gh_retry` duplicate it; nothing else notices drift.
 
     `run-pull`'s failure alarms and `run-seed`'s guard exist precisely to fire
     when the run fell over early, so they cannot `source` a file the checkout
-    may never have produced. That leaves three hand-maintained copies of the
-    retry, and a fix applied to the script alone — a longer timeout, a fourth
-    attempt — would silently reach only half the call sites. Compare them here
-    so the divergence fails a test instead of being discovered during an
-    outage.
+    may never have produced; the `rejected` jobs take no checkout at all,
+    because one added to a job whose whole purpose is to close a stranded issue
+    is one more way to strand it; and the back-test's report step runs in a
+    workspace its own agent cells have had write access to, where sourcing a
+    file would run agent-authored shell against the job's token. That leaves
+    several hand-maintained copies of
+    the retry, and a fix applied to the script alone — a longer timeout, a
+    fourth attempt — would silently reach only some of the call sites. Compare
+    them here so the divergence fails a test instead of being discovered during
+    an outage.
     """
     canonical = _gh_retry_body(GH_RETRY_SCRIPT.read_text())
-    # A body that lost its bounds would still "match" three identical copies,
+    # A body that lost its bounds would still "match" every identical copy,
     # so pin the shape the script's header promises as well.
     assert "timeout 30" in canonical
     assert "for attempt in 1 2 3" in canonical
@@ -952,8 +988,8 @@ def test_every_inline_gh_retry_copy_matches_the_shared_script() -> None:
         assert "Inline copy of scripts/gh_retry.sh" in run
 
 
-def test_the_latching_steps_that_have_a_checkout_source_the_shared_script() -> None:
-    """Post-checkout latching steps use the file, not a fourth private copy.
+def test_the_agent_free_post_checkout_steps_source_the_shared_script() -> None:
+    """Where sourcing is safe, the step uses the file, not another private copy.
 
     One spelling everywhere, and an absolute one: a relative `source` would
     also work today but would silently depend on the step's working directory
@@ -967,28 +1003,40 @@ def test_the_latching_steps_that_have_a_checkout_source_the_shared_script() -> N
         assert source_line in run, f"run-ops step {name!r} must source the retry"
         assert "gh_retry() {" not in run, f"run-ops step {name!r} must not re-define it"
 
-    # The composite is reached through `uses: ./.github/actions/...`, and a
+    for site in SOURCING_HANDOFF_STEPS:
+        run = str(_named_step(*site)["run"])
+        assert source_line in run, f"{site} must source the retry"
+        assert "gh_retry() {" not in run, f"{site} must not re-define it"
+
+    # A composite is reached through `uses: ./.github/actions/...`, and a
     # local action ref resolves relative to the workspace — so the action
     # running at all already proves a default-path checkout put `scripts/`
     # there. That is the same assumption, not an extra one.
-    composite = _dashboard_composite_run()
-    assert source_line in composite
-    assert "gh_retry() {" not in composite
+    for name in SOURCING_COMPOSITES:
+        composite = _composite_run(name)
+        assert source_line in composite, f"{name} must source the retry"
+        assert "gh_retry() {" not in composite, f"{name} must not re-define it"
 
 
-def test_no_latching_step_makes_an_unretried_github_api_call() -> None:
+def test_no_retried_step_makes_an_unretried_github_api_call() -> None:
     """Every `gh` call in these steps goes through the wrapper.
 
-    Scoped to the record-keeping steps rather than the whole workflows:
-    elsewhere a bare `gh` call is fine — the handoff writes deliberately fail
-    the round rather than absorb a blip — and a repo-wide ban would be a rule
-    nobody could keep. Here it is the whole point.
+    Scoped to the run surfaces' record-keeping and handoff writes rather than
+    the whole repository: elsewhere — ci.yml's label read, the collect jobs'
+    own PR plumbing — a bare `gh` call is fine, and a repo-wide ban would be a
+    rule nobody could keep. Here it is the whole point.
     """
     ops_steps = _load("run-ops.yml")["jobs"]["ops"]["steps"]
     by_name = {s.get("name"): s for s in ops_steps}
     blocks = [str(by_name[name]["run"]) for name in SOURCING_OPS_STEPS]
-    blocks += [str(_named_step(*site)["run"]) for site in INLINE_GH_RETRY_STEPS]
-    blocks.append(_dashboard_composite_run())
+    # `FATAL_HANDOFF_STEPS` is a cross-cut of the other two rather than a third
+    # set, so the union is de-duplicated — included anyway, so that a fatal site
+    # added there and nowhere else is still scanned.
+    sites = list(
+        dict.fromkeys(INLINE_GH_RETRY_STEPS + SOURCING_HANDOFF_STEPS + FATAL_HANDOFF_STEPS)
+    )
+    blocks += [str(_named_step(*site)["run"]) for site in sites]
+    blocks += [_composite_run(name) for name in SOURCING_COMPOSITES]
 
     for block in blocks:
         for line in _uncommented(block):
@@ -996,6 +1044,41 @@ def test_no_latching_step_makes_an_unretried_github_api_call() -> None:
                 if call.split()[-1] in LOCAL_GH_SUBCOMMANDS:
                     continue
                 assert call.startswith("gh_retry"), f"unretried GitHub API call: {line.strip()}"
+
+
+def test_the_handoff_writes_stay_fatal_on_exhaustion() -> None:
+    """A retry absorbs a blip; it must never turn a real outage into a pass.
+
+    These writes *are* the work — the trigger issue a queued round runs from,
+    and the closes that keep a finished or declined round from reading as a
+    stalled fan-out. So none of them may tolerate an exhausted retry: no
+    `continue-on-error` on the step, and no `|| true` swallowing the non-zero
+    return the wrapper exists to deliver at the end of three attempts.
+    """
+    for site in FATAL_HANDOFF_STEPS:
+        step = _named_step(*site)
+        assert "continue-on-error" not in step, f"{site} must fail its job on exhaustion"
+        for line in _uncommented(str(step["run"])):
+            if "gh_retry gh" in line:
+                assert "||" not in line, f"{site} swallows an exhausted retry: {line.strip()}"
+
+    handoff = _composite_run("open-run-handoff")
+    for line in _uncommented(handoff):
+        if "gh_retry gh" in line:
+            assert "||" not in line, f"open-run-handoff swallows an exhausted retry: {line.strip()}"
+    # And no caller may absorb it either: a held or empty queue files nothing
+    # and exits 0, so a failure here means the window really did lose its round.
+    for job in ("pull", "live"):
+        callers = [
+            step
+            for step in _load("run-pull.yml")["jobs"][job]["steps"]
+            if str(step.get("uses") or "").endswith("open-run-handoff")
+        ]
+        assert callers, f"run-pull {job!r} no longer files a handoff"
+        for step in callers:
+            assert "continue-on-error" not in step, (
+                f"run-pull {job!r} handoff must fail the window, not absorb it"
+            )
 
 
 def test_the_list_of_retried_ops_steps_is_complete() -> None:
@@ -1025,8 +1108,8 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
     retried listing lands in a variable, making an exhausted retry the
     assignment's own failure.
     """
-    blocks = [str(_named_step(*site)["run"]) for site in INLINE_GH_RETRY_STEPS[:2]]
-    blocks.append(_dashboard_composite_run())
+    blocks = [str(_named_step(*site)["run"]) for site in FIND_OR_CREATE_ALARM_STEPS]
+    blocks.append(_composite_run("run-log-dashboard"))
     for block in blocks:
         assert "listing=$(gh_retry gh issue list" in block
         assert '<<<"$listing"' in block
@@ -1037,6 +1120,12 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
 
     # The dashboard's body read had the same silent failure and the worst
     # consequence, so it is captured too rather than redirected from a pipe.
-    composite = _dashboard_composite_run()
+    composite = _composite_run("run-log-dashboard")
     assert "body=$(gh_retry gh issue view" in composite
     assert "dashboard-body.md" in composite
+
+    # The back-test comment's PR lookup is the same shape: assigned, filtered
+    # by `gh`'s own `--jq`, so an exhausted retry fails the assignment instead
+    # of silently dropping the review-PR back-link from the comment.
+    report = str(_named_step(*BACKTEST_REPORT_STEP)["run"])
+    assert "pr_url=$(gh_retry gh pr list" in report
