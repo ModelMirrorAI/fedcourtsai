@@ -512,9 +512,20 @@ pattern rather than rediscovering it:
   and the back-test's report step, whose workspace its own agent cells could
   have rewritten), and give the step a `timeout-minutes` that admits
   the retries — three attempts at `timeout 30` plus backoff is 105s per call.
-  Retrying never changes what a failure *means*: exhaustion returns non-zero,
-  so a handoff write that never lands still fails its run loudly, exactly as an
-  unretried call would. What the wrapper buys is that a blip does not decide it.
+  A call that routes through `agent_feedback.py`'s runner carries the bound
+  already: that module's default `GhRunner` applies the same three attempts at
+  the same 30s cap to every `gh` call it makes, so the `post-issue-comment` and
+  `post-agent-feedback` commands — the plan report each non-empty
+  predict/evaluate round posts before the review hold, the collect job's stall
+  and secret-scan reports, and the flag roll-up latch itself — are covered at
+  the seam, and a new caller of it inherits the bound rather than adding a copy.
+  That is the seam's coverage, not Python's: a `gh` call made anywhere else in
+  the package is as bare as an unwrapped shell one. Budget for it the same way —
+  105s per call, against whatever cap the calling step or job carries.
+  Retrying never changes what a failure *means*: exhaustion returns non-zero
+  (raises, on the Python side), so a handoff write that never lands still fails
+  its run loudly, exactly as an unretried call would. What the retry buys is
+  that a blip does not decide it.
 - **Shape a retried lookup so its failure cannot read as an empty result.**
   Most of these lookups feed a find-or-create, so an empty `num` reads as "no
   issue yet" and opens a duplicate or restarts a dashboard's rolling state.
