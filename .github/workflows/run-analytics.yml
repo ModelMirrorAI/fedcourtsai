@@ -538,7 +538,7 @@ jobs:
         # and leave nothing to report.
         id: label
         timeout-minutes: 40
-        uses: anthropics/claude-code-action@c81e3bc69d1b18badbb63ba39581218f02421678 # v1.0.201
+        uses: anthropics/claude-code-action@e5ad3c7725bc2459721893f88879fef9dbcf97b0 # v1.0.202
         env:
           QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
