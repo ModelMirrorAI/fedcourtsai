@@ -214,6 +214,124 @@ The rule is **pack, don't proliferate**: millions of per-case files would choke
 store — while the reasoning stays readable text in git, because that diff is
 the explainability trail a reviewer actually reads.
 
+### Index retention: keep every version
+
+`corpus-push` never overwrites and never deletes. Each push writes a **new
+immutable object** at `index/sha256/<digest>` under the remote's prefix, and
+nothing in the system removes one. The control is the explicit `Deny` on every
+delete in the read-write role ([security.md](security.md)); the shape of
+`fedcourtsai.corpus_remote`'s transport mirrors it, offering upload, download,
+and existence checks and no list or delete primitive to call. So the prefix
+only grows. The scale: the blob is ~1.1 GB and the writers hold twelve
+scheduled windows a day (`run-pull`'s two cron entries, four pull windows and
+four live, plus `run-seed`'s four historical ones), with dispatches and label
+runs on top and several pushes possible inside one window — in practice the
+committed pointer moves a median of **13 times a day**, on the order of 14 GB a
+day of new objects. That is a floor on the accretion, not a count of it: a push
+whose pointer commit never lands still leaves its object behind.
+
+The accumulation is deliberate. `corpus/corpus.db.ref` is a git file, so **every
+pointer any commit ever carried stays resolvable**: check out a historical
+commit, `corpus-pull`, and you get byte-for-byte the index that commit's runs
+read, checksum-verified against the `sha256` the pointer itself records. That is
+the index half of the reproducibility contract underneath the pre-registration
+record — the scannable state any commit's runs read is recoverable whole, while
+the bulk payloads a cell was provisioned rest on the content store's own
+write-once discipline — and it holds only for as long as no object is ever
+collected. Reclaiming the tail would buy storage by making old commits
+unresolvable, which is the one thing the corpus is committed against.
+
+Cost is therefore managed by **storage class, not deletion**. A bucket lifecycle
+rule transitions objects under the index prefix to **S3 Glacier Instant
+Retrieval** 30 days after creation:
+
+```json
+{
+  "Rules": [
+    {
+      "ID": "corpus-index-glacier-ir",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "<prefix>/index/sha256/" },
+      "Transitions": [
+        { "Days": 30, "StorageClass": "GLACIER_IR" }
+      ]
+    },
+    {
+      "ID": "corpus-index-abort-stale-multipart",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "<prefix>/index/sha256/" },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
+    }
+  ]
+}
+```
+
+`<prefix>` is the remote URL's own key prefix, ahead of the `index/sha256/` the
+pointer records — substituted from `CORPUS_REMOTE_URL`, which each operator
+holds out of band. The rule is the **account owner's** to apply — this
+repository holds no infrastructure-as-code for the bucket, the workflow roles
+grant enumerated object actions rather than `s3:*`, and the read-write role
+denies lifecycle configuration outright, because a rule installed there would
+expire objects under S3's own principal and so route around its delete `Deny`
+([security.md](security.md)). Apply it by
+*adding* the rule to whatever the bucket already carries:
+`put-bucket-lifecycle-configuration` replaces the entire configuration, so read
+the current one, merge, and put back the union.
+
+**A transition, never an expiration.** A lifecycle rule is age-based, and age
+cannot tell it which object the committed pointer currently names — a writer
+pause long enough would eventually catch the live blob. That is survivable only
+because Glacier Instant Retrieval is instant: first-byte latency in
+milliseconds, the same as Standard, with no restore step — nothing in the read
+path needs `s3:RestoreObject`, so the read-only role's grant is untouched by
+the rule. The difference is price: a per-GB retrieval charge, and dearer GETs
+for the ranged readers that issue hundreds of them. So the worst case for a
+rule that does catch the current object is a costlier week, not a broken
+`corpus-pull`. An expiration, or a class that *does* require a restore (Glacier
+Flexible Retrieval, Deep Archive), turns that same scenario into an outage —
+and would need a permission no role holds to get out of.
+Glacier IR's two billing floors are both free here: the 90-day minimum billable
+duration costs nothing where nothing is ever deleted, and the 128 KB minimum
+billable object size is irrelevant to a ~1.1 GB blob. The read side of the
+contract is the same either way — historical pulls are rare and deliberate, so
+paying retrieval for one is the right trade against holding the whole tail hot.
+
+**Why 30 days.** Across the pointer's history the median gap between revisions
+is under two hours and the longest is 47, so an object is superseded within
+hours and anything past a fortnight is noncurrent with near-certainty; a
+tighter threshold would already be safe. Thirty is chosen because the
+difference is a *constant, not a growth term*: the threshold fixes how much of
+the prefix stays in Standard — thirty days of accretion, ~430 GB — while
+everything older transitions under either choice. A fixed extra fortnight of
+Standard storage is
+what buys a month of headroom for an unusual writer pause (an expired
+credential, an upstream outage, a deliberate freeze) to be noticed and resolved
+before ordinary reads start paying retrieval.
+
+**The index prefix only.** The rule names `index/sha256/` and nothing else; the
+per-case content store is deliberately outside it. Its write-once leaves have no
+age past which they stop being read on a hot path — a `replay` cell provisions
+the dated snapshot of an event that may be a Term old, and `cert-backtest`
+replays historical snapshots wholesale — so a retrieval charge there would land
+on exactly the scan-heavy consumers. The store also scales with case churn
+rather than run count (only *changed* cases upload), so it is not the
+accumulation this rule addresses.
+
+**The second rule is hygiene, not tiering.** A ~1.1 GB push goes up as a
+managed multipart upload, and the writer role that cannot delete also cannot
+abort its own parts, so a push interrupted mid-upload strands them. Orphaned
+parts bill as storage and show up in no prefix-filtered view of the bucket, so
+only the bucket can clean them: seven days is far past any push that will ever
+complete.
+
+**Versioning does not overlap it.** The bucket keeps versioning on and a
+lifecycle rule expiring *noncurrent* versions after a recovery window. Neither
+touches the other: content-addressed keys mean supersession writes a **new
+key**, never a new version of an existing one, so an index object essentially
+never becomes noncurrent — the noncurrent rule is there to reclaim an
+accidental overwrite. That is precisely why the transition has to be age-based
+on current versions.
+
 ### The ledger (case-centric)
 
 Everything in git is keyed by `case_id` / `event_id` (always derived via

@@ -10,7 +10,9 @@ the **on-demand API**. For how the phases work, see
 ## The shape: a fixed floor plus one dominant scaling line
 
 Every non-inference line — runners, storage, memberships, subscriptions — sums to
-a near-constant **≈$5.5K/yr floor**. Agentic model usage for prediction and
+a **≈$5.6K/yr floor**, near-constant but for one slow ratchet: retained corpus
+history adds ≈$0.25K to each further year the writers run (*4. S3 corpus
+storage* below). Agentic model usage for prediction and
 evaluation is one to two orders of magnitude larger and scales linearly with how
 many events, by how many predictors, scored by how many evaluators. So the budget
 is that fixed floor plus one dominant line, and that line has **two dials**:
@@ -574,7 +576,7 @@ other            98 interim + 127 merits                     =   225 events
 cert-stage  1,616 × $15          ≈ $24.2K / yr  (N's own slice within it ≈ $22K)
 whole Term  1,841 × $14.6-15.0   ≈ $27-28K / yr   planning basis
             1,841 × $13.20-13.45   ≈ $24-25K / yr   measured (interim, n=6)
-plus the ≈$5.5K floor            ≈ $33K / yr all-in  ( ≈$30K measured, interim )
+plus the ≈$5.6K floor            ≈ $33K / yr all-in  ( ≈$30K measured, interim )
 ```
 
 **Every figure in that block is an upper bound.** 1,498 is itself an upper bound
@@ -1007,15 +1009,35 @@ The raw-fact corpus (a payload-free index plus a per-case content store) lives i
 a private S3 bucket ([S3 Standard, us-east-1](https://aws.amazon.com/s3/pricing/):
 $0.023/GB-mo storage; egress free for the first 100 GB/mo account-wide, then
 $0.09/GB). GitHub-hosted runners are Azure-hosted, so every byte a workflow reads
-out of the bucket is S3 internet egress. Storage (≈10–100 GB) is ≈$0.25–2.50/mo;
-predict/evaluate cells make ranged point queries (≈10–50 MB and a few hundred
-GETs each), so the dominant term is the **recurring full pulls** by the
-scan-shaped writers and analytics — ≈250–300 blob pulls/mo, which at today's
-≈1 GB blob is ≈250–300 GB/mo, just over the free tier ⇒ ≈$15/mo, scaling
+out of the bucket is S3 internet egress. **Storage** is the retained index
+history, which dwarfs the content store enough that the two are carried as one
+line here (the store itself is unmeasured; it scales with case churn, not run
+count). Every push adds an immutable ~1.1 GB object and none is ever
+removed (*Index retention: keep every version* in
+[data-pipeline.md](data-pipeline.md)), so the index prefix accretes ≈430 GB/mo.
+The lifecycle transition to Glacier Instant Retrieval
+($0.004/GB-mo) holds only the last 30 days in Standard — a constant ≈430 GB,
+≈$10/mo — and bills everything older at a tenth of that, so the line rises
+≈$2/mo for each further month of history instead of the ≈$10/mo-per-month it
+would climb at in Standard. It is the one floor component with no asymptote:
+≈$10/mo today, ≈$28/mo at a year of history, ≈$48/mo at two (≈$225 over year
+one, ≈$465 over year two). At a 10 GB blob the same arithmetic gives ≈$90/mo
+constant and ≈$16/mo per month.
+
+**Reads** mostly ignore the tier: a pull resolves the current pointer, whose
+object is Standard in any ordinary week, since the pointer moves ~13×/day. A
+pull of a pinned historical pointer — or of a current one after a writer pause
+past 30 days — reads from Glacier IR and pays $0.03/GB retrieval on top of
+egress, ≈$0.13 for a full blob. Rare and deliberate, by design. Predict/evaluate
+cells make ranged point queries (≈10–50 MB and a few hundred GETs each), so the
+dominant read term is the **recurring full pulls** by the scan-shaped writers
+and analytics — ≈250–300 blob pulls/mo, which at today's ≈1.1 GB blob is
+≈275–330 GB/mo against a 100 GB account-wide free tier ⇒ ≈$15–20/mo, scaling
 linearly with the blob (≈$230/mo at a 10 GB blob, where the lever is moving those
 consumers to ranged/incremental reads).
 
-> **Line item: ≈$15/mo at today's ≈1 GB blob; ≈$230/mo at a 10 GB blob.**
+> **Line item: egress ≈$17/mo at today's ≈1.1 GB blob (≈$230/mo at a 10 GB
+> blob); storage ≈$10/mo today, ≈$28/mo at a year of retained history.**
 
 ### 5. Misc fixed costs — the non-scaling floor
 
@@ -1072,8 +1094,9 @@ replica. All three become live questions at the scope decision, not before.
 ## Summary: scaling `N`, then `P`
 
 The non-inference lines — misc floor ($350/mo), CourtListener ($1,000/yr), S3
-(≈$15/mo, the one line that grows with the corpus blob), Codespaces ($0–50/mo),
-Actions ($0) — sum to a near-constant **≈$5.5K/yr floor**. Everything above it
+(≈$28/mo today — egress growing with the corpus blob, storage with retained
+history, and the one floor line with no asymptote), Codespaces ($0–50/mo),
+Actions ($0) — sum to a **≈$5.6K/yr floor**. Everything above it
 is inference `= events(N) × per-case(P)`. `N` moves the cert rank fill — much the
 largest single channel — while **343 events ride beside it**, unbought by `N`:
 20 CVSG re-forecasts and the ~98-case arrival cohort, which are
@@ -1092,13 +1115,13 @@ two application dockets, graded twice, under `proc-v3` evaluator digests that
 the way down", which it is not. Fund on the first column; read the second as the
 open question.
 
-| Scenario | ≈ Annual (planning · measured†) | Inference (= total − ≈$5.5K floor) | Dials, and what they reach |
+| Scenario | ≈ Annual (planning · measured†) | Inference (= total − ≈$5.6K floor) | Dials, and what they reach |
 |----------|----------|----------------------------------|-------|
 | Bootstrapping | ≈$18.5K · ≈$17K | ≈$13K · ≈$11–12K | `N` = `per_conference_capacity: 12` (long conference 24), `P` = 3. ≈838–865 forecast events across all three stages, sal-v3 arrival cohort included — a **whole OT2026 Term**, not a slice of one: 613–640 cert (the OT2022–24 gate replay measures 495–522 selected a Term — rank fill plus uncapped carve-outs — plus 20 CVSG re-forecasts and the ~98-case arrival cohort), ~98 interim, ~127 merits. Keeps 0.76–0.81 of the Term's replay-reconstructable grant-family outcomes (0.80–0.84 of selectable ones), mostly via the carve-out band; a cap of 150 keeps 0.944–0.967 (measured, same pool) and would cost ≈$24K |
 | Full paid-gate coverage — **the dial switch** | ≈$33K · ≈$30K | ≈$28K · ≈$24–25K | `N` at its ceiling, `P` = 3. All 1,498 paid petitions rank-filled (`1,498 × $15 ≈ $22K` — `N`'s own slice) plus the 343 beside-`N` events: `1,841 × $15 ≈ $28K`, or `× $13.20–13.45 ≈ $24–25K` measured. Both are **upper bounds** — 1,498 is itself one. `N` can buy nothing further, so salience survives here as the public ranking and the replay story rather than as a spend control ([salience.md](salience.md)), and incremental dollars move to `P` — or, cheaper, to `interim_reserve_slots` first: ≈$2.4K buys ~157 more interim events, an **alternative to the first `P` increment** rather than something taken alongside it (the `P` arithmetic in the next row prices engines over 1,841 events, which is the count *before* any reserve step) |
 | Initial funding | ≈$100K | ≈$95K | Full paid-gate coverage at `P` = 3 (≈$28K planning · ≈$24K measured), with the remaining **≈$67K · ≈$71K on `P`**. Each added predictor costs `1,841 × (p + m)` a year — at the top of the `m` band, `≈$12.9K` planning / `≈$12.0K` measured for a frontier-class engine, `≈$6.2K` / `≈$5.3K` for an ablation- or open-weight-class one. That funds a registry of roughly **8 to 13 engines** on the planning basis, **8 to 16** on the measured one (whole engines only; the next one up is part-funded in each case). Read it as "many more than four", not as a target — it extrapolates the fully-linear `m` bound far past any run yet produced |
 | Well funded | ≈$1M | ≈$995K | Either dial taken far. At the SCOTUS gate this funds a registry of dozens of engines; it is also the band in which the deferred scope decision first becomes affordable (the 14-court reference ceiling is ≈$675K at `P` = `E` = 3). Which it buys is the ~1-year scope call, not a budget one |
-| **Floor (all scenarios)** | **≈$5.5K** | **—** | **misc + CourtListener + S3 + Actions; scales with neither `N` nor `P`** |
+| **Floor (all scenarios)** | **≈$5.6K** | **—** | **misc + CourtListener + S3 + Actions; scales with neither `N` nor `P`** |
 
 † The Initial-funding and Well-funded rows carry one figure because they are
 *funding levels* rather than derived costs; the basis split appears inside them,

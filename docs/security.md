@@ -522,8 +522,14 @@ S3 stores — the corpus remote (the index blob under its content-addressed
 pair the third one writes:
 
 - **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull` and `run-seed`) —
-  **append-only**: it can read, list, and add objects, with an explicit
-  `Deny` on every delete and on bucket-versioning changes. The
+  **append-only**: it grants *enumerated object actions* — get, put, list —
+  never `s3:*`, with an explicit `Deny` on every delete and on the two
+  bucket-configuration changes that are delete-equivalent, **versioning** and
+  **lifecycle configuration**. The lifecycle Deny is not redundant with the
+  delete one: a lifecycle expiration is executed by S3 under its own principal,
+  so a role able to install a rule could expire a whole prefix while every
+  `DeleteObject` call it made was still refused. Both bucket-configuration
+  knobs are the account owner's alone. The
   content-addressed `fedcourts corpus-push` only ever adds objects (an
   existing digest key is left untouched), no run garbage-collects the remote,
   and the content store's write-once objects and versioned
@@ -702,8 +708,18 @@ holds: **no write or delete** (append-only remote, explicit deny, versioning
 on), the cell-blast-radius bound stated above.
 
 On the bucket: **Versioning on** (recover from any accidental overwrite/delete),
-a **lifecycle rule** expiring noncurrent versions after a recovery window, and
-**Block Public Access on**.
+a **lifecycle rule** expiring noncurrent versions after a recovery window, an
+age-based **storage-class transition** on the index prefix, and **Block Public
+Access on**. The transition is a cost measure and not a retention one — nothing
+under that prefix is ever deleted, and the contract it serves (why the prefix
+keeps every version it has ever held, and why moving old objects to an
+instant-retrieval class cannot break a pull) is *Index retention: keep every
+version* in [data-pipeline.md](data-pipeline.md). Lifecycle configuration is set
+bucket-side by the account owner, and stays there: the roles grant enumerated
+object actions rather than `s3:*`, and the read-write role denies lifecycle
+configuration outright for the reason given above, so the posture — append-only,
+explicit delete deny — is unchanged by the rule's existence and out of reach of
+any workflow that might want to edit it.
 
 ## The staging corpus (provisioning runbook)
 
@@ -760,7 +776,10 @@ the repoint. Read step 5's two ordering notes before doing either.
    corpus remote* (the content-addressed index blobs) and a *staging content
    store* (the per-case objects). Same bucket posture as production —
    versioning on, a noncurrent-version lifecycle rule, Block Public Access on —
-   because it holds the same court-derived content, just less of it. Separate
+   because it holds the same court-derived content, just less of it. The
+   index-prefix storage-class transition is production's alone: the staging
+   slice is refreshed by dispatch, so its index prefix accretes a handful of
+   objects rather than a daily tide, and there is nothing to tier. Separate
    from the production bucket, not a prefix inside it: the point is that a role
    able to write staging is unable to **write** production at all — it reads
    and lists there, which is where the slice comes from (step 3), and that is

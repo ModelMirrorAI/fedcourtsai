@@ -19,7 +19,11 @@ The corpus has two halves:
   sha256 + schema version; see
   [`fedcourtsai.corpus_remote`](../src/fedcourtsai/corpus_remote.py))
   is committed to git (the blob and its
-  sidecars are gitignored). In production (the corpus-split mode,
+  sidecars are gitignored). Every push adds a version and none is ever removed,
+  so any commit's pointer stays pullable — the retention contract and the
+  storage-class rule that pays for it are *Index retention: keep every version*
+  in [docs/data-pipeline.md](../docs/data-pipeline.md). In production (the
+  corpus-split mode,
   `FEDCOURTS_CORPUS_SPLIT=1` on the prod environment) the writers keep it
   **payload-free**: the `snapshots`/`documents` tables stay empty and
   `cases.opinion_text` stays NULL (a `has_opinion` presence bit is retained),
