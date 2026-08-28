@@ -172,6 +172,7 @@ from .pipeline.cert_signals import (
 )
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
+from .pipeline.distribution_rederive import rederive_distribution_counts
 from .pipeline.documents import (
     KIND_PETITION,
     TextCoverage,
@@ -568,6 +569,212 @@ def scrub_bulk_cluster_fields_cmd(
         f"scrub-bulk-cluster-fields ({'applied' if apply else 'dry-run'}): "
         f"{verb} {result.scrubbed} bulk-marked non-SCOTUS row(s)"
     )
+
+
+@app.command("rederive-distribution-counts")
+def rederive_distribution_counts_cmd(
+    parse: Annotated[
+        str,
+        typer.Option(
+            "--parse",
+            help="The registered distribution parse to re-derive the column under "
+            "(`pipeline.cert_signals.DISTRIBUTION_PARSES`). Required — a re-derivation "
+            "names its reading rather than inheriting a default.",
+        ),
+    ],
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the re-derived counts; omit for a dry-run plan."),
+    ] = False,
+    max_changes: Annotated[
+        int,
+        typer.Option(
+            "--max-changes",
+            help="Blast-radius bound: refuse to apply more count rewrites than this.",
+        ),
+        # The basis, so raising it is a decision rather than a reflex. Measured
+        # for dist-v2 over the live slice: 378 rows of the ~22.7k walked whose
+        # stored count differs from a dist-v2 reading, of which 181 fall in the
+        # census's narrower scored-segment frame — the census's own figure. That
+        # the incumbent parse moves 0 rows on the same blob is what licenses
+        # reading those 378 as the parse's doing rather than stored drift. The
+        # bound sits ~5x the measured delta and about an order of magnitude
+        # under the walked population, which makes it a guard against a
+        # catastrophic write rather than a wrong one: the sharper signal is
+        # `increased`, since under a narrowing parse a rise means the stored
+        # column sat below its own reading — a corpus-integrity finding, not a
+        # parse effect.
+    ] = 2_000,
+    version: Annotated[
+        str,
+        typer.Option(
+            "--version",
+            help="Which registered salience version's band function keys the band-move matrix.",
+        ),
+    ] = SALIENCE_VERSION,
+) -> None:
+    """Re-derive the corpus `distribution_count` column under a registered parse.
+
+    The first of the three pieces of work that activate a new distribution parse
+    (`docs/salience.md`): until the stored column is re-derived, every downstream
+    consumer — the gate's banding, the statpack's per-band base rates, the
+    relist-tier cutpoints — is still reading the incumbent parse's counts.
+
+    Over every **live-slice SCOTUS row** — where the column is populated, the
+    bulk import having parsed no proceedings text — recount the conferences the
+    case's latest **live-shaped** snapshot discloses (split-aware: the read
+    serves from the per-case content store under the corpus-split mode) and
+    write the result with a **direct UPDATE that deliberately bypasses the
+    upsert path's max latch**. The latch exists so a degraded payload's
+    confident 0 cannot wipe a stored count; a narrower parse moves every changed
+    row down, which is precisely the write it rejects, so routing this through
+    `upsert_rows` would write nothing while reporting success. What replaces the
+    latch is narrower than the latch: a row with no live-shaped snapshot, or one
+    disclosing no proceedings **entries**, is counted `unobservable` and left
+    untouched — never written to 0 — but nothing here detects a merely
+    *truncated* entry list. **So run the incumbent parse first**: that pass must
+    report `changed = 0`, or what a candidate moves is stored-column drift
+    rather than the reading. A row carrying no stored count at all is reported
+    and left alone too (the null is the live-signal family's coverage sentinel;
+    `backfill-live-signals` owns it), which is also where interim application
+    dockets sit.
+
+    One pass **per invocation**, so a dry run and the apply inside one call
+    cannot describe different work; across two dispatches the plan is a reading,
+    not a guarantee, which is why the apply prints its own report. `--apply`
+    refuses above `--max-changes` (default sized off a measured delta — see the
+    code comment), printing the report first so the refusal is triageable, and
+    writes the whole batch in one transaction. Idempotent.
+    Band moves are reported over the **census frame** (paid, modern-cert,
+    parseable Term), since a band label is only meaningful where the gate
+    scores, while the write covers the whole live slice; every count carries its
+    own denominator, unreadable residue included, and all of them are raw row
+    counts rather than denial-reweighted estimates. The matrix's `from` side is
+    the **stored** column, not a second reading of the snapshot, so it carries
+    whatever the max latch accumulated — which is what the gate is really
+    reading today, and why it need not agree cell for cell with
+    `distribution-census`.
+
+    **Corpus-side only**: `data/` is never touched. A frozen `record/context.json`
+    records the count the cell was handed and a committed prediction is a
+    judgment made on that input; rewriting either would retcon an information
+    set. Note the durability limit: the live channel re-polls pending petitions
+    and open merits proceedings and upserts a count read under the ingest
+    default, which the max latch takes where it is higher — so a re-polled row
+    reverts unless `cert_signals.DEFAULT_DISTRIBUTION_PARSE` moves to the same
+    parse in the same batch. Run where the corpus is pulled (run-seed's writer
+    lane in production; a dev checkout serves the dry run). Prints a
+    `DistributionRederiveResult`. Fails loud if the corpus is absent or the
+    parse or version label is unregistered.
+    """
+    if parse not in DISTRIBUTION_PARSES:
+        typer.echo(
+            f"unregistered distribution parse {parse!r}; "
+            f"registered: {', '.join(sorted(DISTRIBUTION_PARSES))}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if version not in SCORERS:
+        typer.echo(
+            f"unregistered salience version {version!r}; registered: {', '.join(sorted(SCORERS))}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before re-deriving the distribution counts.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    # The blob this pass read, resolved exactly as the census resolves it: the
+    # ledger of a latch-bypassing write has to name the corpus state it is
+    # re-derivable against, and a count quoted beside a census figure is
+    # comparable only where both name one blob.
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+    elif settings.corpus_pointer is None:
+        pointer_file = corpus_remote.pointer_path_for(db_path)
+        corpus_sha = (
+            corpus_ranged.read_index_pointer(pointer_file).sha256 if pointer_file.is_file() else ""
+        )
+    else:
+        corpus_sha = corpus.resolve_read_pointer(db_path).sha256
+        typer.echo(
+            "corpus provenance: out-of-band pointer override in effect — the "
+            "recorded corpus_sha256 names the override's blob",
+            err=True,
+        )
+    with corpus.connect(db_path) as conn:
+        result = rederive_distribution_counts(
+            conn,
+            parse=parse,
+            apply=apply,
+            corpus_sha256=corpus_sha,
+            max_changes=max_changes,
+            version=version,
+        )
+    verb = "rewrote" if apply else "would rewrite"
+    if result.refused:
+        verb = "refused to rewrite"
+    # `observable` is the denominator, not the frame: a pass that could read a
+    # tenth of the live slice and one that read all of it otherwise announce
+    # themselves identically, and an unobservable row is untouched rather than
+    # agreed with. Under the corpus split a store miss and "no live snapshot
+    # was ever stored" land in the same bucket, so the fraction is a coverage
+    # figure as much as a docket one.
+    frame = result.observable + result.unobservable
+    coverage = f"{100 * result.observable / frame:.1f}% of {frame}" if frame else "no rows"
+    typer.echo(
+        f"rederive-distribution-counts {result.parse} "
+        f"({'applied' if apply else 'dry-run'}): {verb} {result.changed} of "
+        f"{result.observable} observable row(s) ({coverage}); "
+        f"{result.decreased} down, {result.increased} up; "
+        f"{result.unobservable} unobservable and {result.no_stored_count} "
+        "never-counted, both untouched"
+    )
+    # The frame's parts sum: banded, unreadable, and readable-but-never-counted.
+    census_frame = (
+        result.scored_segment
+        + result.scored_segment_unobservable
+        + result.scored_segment_no_stored_count
+    )
+    typer.echo(
+        f"band moves ({result.salience_version}, over {result.scored_segment} of the "
+        f"{census_frame}-row census frame): {result.band_changed} banded row(s) move, "
+        f"{result.scored_segment_changed} counts change"
+    )
+    if not apply and result.changed > max_changes:
+        # The dry run never consults the bound, so without this the refusal
+        # would surface only on the second dispatch — after the reading that
+        # was supposed to decide whether to make it.
+        typer.echo(
+            f"note: {result.changed} changes is above --max-changes {max_changes}; "
+            "an apply would refuse. Triage, or dispatch with a bound you can justify.",
+            err=True,
+        )
+    for move in result.band_moves:
+        # The diagonal is the unmoved mass; printing only the off-diagonal
+        # occupied cells keeps the banner readable, and the full zero-filled
+        # square is in the JSON below either way.
+        if move.from_band != move.to_band and move.n:
+            typer.echo(f"  {move.from_band} -> {move.to_band}: {move.n}")
+    typer.echo(result.model_dump_json())
+    if result.refused:
+        # After the report, never instead of it: the message tells a maintainer
+        # to triage, and the denominators, the band matrix and the changed ids
+        # are what triage reads.
+        typer.echo(
+            f"rederive-distribution-counts: refusing to apply {result.changed} count "
+            f"rewrite(s) (--max-changes {max_changes}). Nothing was written. The bound "
+            "is sized off a measured delta; a count past it means the predicate widened "
+            "or the parse is not a narrowing of the incumbent — triage the report above "
+            "before raising it.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command("reconcile-salience-selection")

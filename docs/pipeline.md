@@ -294,9 +294,9 @@ own blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
-any other corpus write. Four further writer steps run **after the loop**, are
+any other corpus write. Five further writer steps run **after the loop**, are
 not among the seven, and never run on a schedule, each gated behind its own
-dispatch input; the three
+dispatch input; the four
 that read corpus rows also require the dedupe to have succeeded, since each
 must weigh a merged row rather than a twin. (Two more sit *ahead* of the loop
 on the same dispatch-only footing — the `refresh_terms` cursor reset and the
@@ -315,6 +315,26 @@ re-running the dry-run (under the corpus split the durable write is the
 content store's, so the pointer alone cannot witness it), and pushes. The
 dry-run ledger is a maintainer's reading, so the intended procedure is two
 dispatches: `dry-run`, read, then `apply`.
+`rederive-distribution-counts` (the `rederive_distribution_parse` mode, with
+the parse label in `rederive_parse`) re-derives the corpus
+`distribution_count` column under a registered distribution parse — the first
+of the three pieces of work that activate a new parse (`docs/salience.md`).
+Its write is a direct `UPDATE` that bypasses the column's max latch, because
+the upsert path would reject a narrower reading's every row and report success;
+a row whose latest live-shaped snapshot discloses no proceedings entries is
+counted and left untouched instead, which is as much of the latch's guard as a
+single pass can carry. The rest is procedure: the **first** dispatch names the
+*incumbent* parse and must report `changed = 0`, since anything the incumbent
+reading moves is stored-column drift rather than a parse effect and would
+otherwise be folded into the candidate's count. One pass in
+either mode — the plan the dry run prints is exactly the write set, and a
+separate dry run ahead of an apply would only repeat a full-population read of
+the content store — so the two-dispatch procedure is a maintainer's reading of
+the first run, not a re-scan. It is never scheduled: the parse to run under is
+a decision read off a `distribution-census` artifact, not a state a window can
+converge toward. The label input is refused up front and again in the step
+unless it is a lowercase parse label; whether the label is *registered* is the
+command's own refusal.
 
 The last two are sequenced after every converging sweep, and in this order —
 **labels first, then the grades computed from them** — because a label rewrite

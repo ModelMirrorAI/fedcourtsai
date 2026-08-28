@@ -103,6 +103,50 @@ on:
           - none
           - dry-run
           - apply
+      rederive_distribution_parse:
+        description: >-
+          Re-derive the corpus `distribution_count` column under a registered
+          distribution parse (`fedcourts rederive-distribution-counts`), naming
+          the parse in `rederive_parse`. The first of the three pieces of work
+          that activate a new parse (`docs/salience.md`): the write is a direct
+          UPDATE that bypasses the upsert path's max latch, because a narrower
+          reading routed through the upsert is a silent no-op. `dry-run` prints
+          the plan — changed counts by direction, the band-move matrix over the
+          census frame, the unobservable count — and writes nothing; `apply`
+          writes and pushes, refusing above the command's blast-radius bound —
+          which is fixed in code, not a dispatch input, because the population
+          is finite and its delta was measured before the surface existed;
+          moving it is a code change with the new basis stated beside it.
+          One pass either way, so the dry run's plan is exactly the apply's
+          write set. **Dispatch the INCUMBENT parse first**, as a `dry-run`
+          control: it must report `changed = 0`, since the stored column is the
+          incumbent reading of those same snapshots, and anything it moves is
+          stored-column drift rather than the parse — until it is zero, a
+          candidate's changed set is a sum nothing can decompose. Dispatch it
+          alone: it and `qp_backfill` are both sized in tens of minutes, and
+          two of them beside a walk do not fit the job cap. Only fires on an
+          explicit dispatch naming it; never on the schedule.
+        required: false
+        default: none
+        type: choice
+        options:
+          - none
+          - dry-run
+          - apply
+      rederive_parse:
+        description: >-
+          The distribution parse `rederive_distribution_parse` re-derives the
+          column under: a label registered in
+          `pipeline.cert_signals.DISTRIBUTION_PARSES`, e.g. `dist-v2`. Required
+          in every mode that runs — a re-derivation names its reading rather
+          than inheriting the ingest default, since which reading produced a
+          stored count is the whole question. Refused before the corpus pull
+          unless it is a lowercase label; whether the label is registered is the
+          command's own refusal, and an unregistered one exits non-zero rather
+          than falling back.
+        required: false
+        default: ""
+        type: string
       disposition_convergence:
         description: >-
           Converge stored disposition labels against the current classifier
@@ -256,7 +300,7 @@ jobs:
       # token mint and the checkout run before it, which is also why the
       # trailing verdict stays skipped on this refusal rather than publishing:
       # no corpus has been pulled yet, and the gate on that step says so.
-      # Both halves are kept word-for-word identical to their late twins —
+      # Every refusal here is kept word-for-word identical to its late twin —
       # the same grammar, the same splitting, the same all-or-nothing refusal,
       # the same `::error::` text — so one mistake can never produce two
       # differently worded refusals depending on where it was caught.
@@ -267,6 +311,8 @@ jobs:
         # the environment, never interpolated into this script.
         env:
           REFRESH_DOCKETS: ${{ inputs.refresh_dockets }}
+          REDERIVE_MODE: ${{ inputs.rederive_distribution_parse }}
+          REDERIVE_PARSE: ${{ inputs.rederive_parse }}
           DISPOSITION_MODE: ${{ inputs.disposition_convergence }}
           DISPOSITION_MAX_RELABELS: ${{ inputs.disposition_max_relabels }}
           INCLUDE_SCORED: ${{ inputs.include_scored }}
@@ -313,6 +359,16 @@ jobs:
               echo "::error::refresh_dockets names ${#dockets[@]} docket(s), past the 50 this step is sized to serve — re-open the Term with refresh_terms instead, or split the list across dispatches."
               exit 1
             fi
+          fi
+          # The parse label is required in BOTH running modes, not just apply:
+          # the dry run's whole product is a plan attributable to one reading,
+          # so a re-derivation with no reading named is not a cheaper dry run,
+          # it is an unanswerable one. Whether the label is *registered* is the
+          # command's refusal, not this one's — the registry lives in Python.
+          if [ "${REDERIVE_MODE}" != "none" ] \
+            && ! [[ "${REDERIVE_PARSE}" =~ ^[a-z][a-z0-9-]*$ ]]; then
+            echo "::error::rederive_distribution_parse needs rederive_parse set to a distribution parse label — lowercase, e.g. dist-v2. A re-derivation names its reading rather than inheriting the ingest default, so there is no default to fall back on. Re-dispatch with the label."
+            exit 1
           fi
           # The bound is required on apply and ignored in every other mode, so
           # a blank one is only an error when the apply would actually run.
@@ -590,7 +646,7 @@ jobs:
           # dispatch-only steps absent from the list are absent deliberately —
           # `unlatch_overselected` and the `refresh_terms` cursor reset are
           # local, second-scale edits with no upstream traffic to pay for.
-          LOOP_BUDGET_SECONDS: ${{ (github.event.schedule == '31 2 * * *' || (github.event_name == 'workflow_dispatch' && (inputs.refresh_dockets != '' || inputs.qp_backfill != 'none' || inputs.disposition_convergence != 'none' || inputs.regrade_stale != 'none'))) && '1500' || '2400' }}
+          LOOP_BUDGET_SECONDS: ${{ (github.event.schedule == '31 2 * * *' || (github.event_name == 'workflow_dispatch' && (inputs.refresh_dockets != '' || inputs.qp_backfill != 'none' || inputs.rederive_distribution_parse != 'none' || inputs.disposition_convergence != 'none' || inputs.regrade_stale != 'none'))) && '1500' || '2400' }}
         run: |
           set -euo pipefail
           gh auth setup-git
@@ -1166,15 +1222,109 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "cluster-scrub pointer"
 
+      # Re-deriving `distribution_count` under a named parse is the first of
+      # the three pieces of work that activate a new distribution parse
+      # (`docs/salience.md`), and the only one that touches stored state. It is
+      # dispatch-only and never scheduled: the parse a re-derivation runs under
+      # is a maintainer's decision read off a `distribution-census` artifact,
+      # and there is no standing reading for a window to converge toward.
+      #
+      # It writes with a direct UPDATE that bypasses the column's max latch —
+      # the upsert path would eat a narrower reading's every row and report
+      # success — so the guard the latch was providing is the command's own:
+      # a row whose latest live-shaped snapshot discloses no proceedings is
+      # counted and left untouched, never written to 0. The apply refuses above
+      # the command's blast-radius bound, sized off the census's measured delta.
+      # Corpus-only, so a pointer-only commit like the scrub above; idempotent,
+      # since a converged column recomputes to itself.
+      #
+      # It sits here, after the converging sweeps, because it fails hard: a
+      # fail-hard step ahead of them would skip every one under the implicit
+      # success(). The cost is that anything earlier in the same run weighed
+      # incumbent-parse counts — the scope reconcile self-heals next window,
+      # but `unlatch_overselected` does not, since its write erases the sticky
+      # set it recomputed. So the two do not belong in one dispatch: clear the
+      # overhang under the bands the re-derivation leaves behind, not before.
+      - name: Re-derive the distribution counts (dispatch-only)
+        # The event_name conjunct is load-bearing for the reason the sibling
+        # dispatch-only steps document: on a schedule the inputs context is
+        # empty and the `!= 'none'` comparison evaluates TRUE. The dedupe
+        # conjunct is theirs too — this one recounts off corpus rows, and an
+        # unmerged twin is a second row for the same petition, so the count
+        # must land on the merged one.
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.rederive_distribution_parse != 'none' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Network-bound like the questions-presented backfill rather than the
+        # local sweeps: under the corpus split the pass reads one content-store
+        # object per live-slice SCOTUS row (tens of thousands), pooled by the
+        # shared prefetch, then pays the blob push. The generous bound is NOT
+        # the qp sibling's reasoning — that one can afford a loose cap because
+        # continue-on-error absorbs a cap hit, and this step deliberately has
+        # none, so a cap hit reddens the run and opens a pipeline-health issue.
+        # It is sized off the pooled read instead, and the first `dry-run`
+        # dispatch is what re-sizes it. For the same reason this input and
+        # `qp_backfill` belong to separate dispatches: two 30-minute steps do
+        # not fit under the job cap beside a walk, and a cap hit is a
+        # cancellation rather than a failure.
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REDERIVE_MODE: ${{ inputs.rederive_distribution_parse }}
+          REDERIVE_PARSE: ${{ inputs.rederive_parse }}
+        run: |
+          set -euo pipefail
+          # Validate the label before anything else, including the corpus
+          # guard: a dispatch that cannot legally run should say so in seconds,
+          # not after a full-population read. `Validate dispatch inputs` up
+          # front duplicates this word for word so a bad dispatch dies before
+          # the corpus pull; this copy is the one of record, because the step
+          # has to be safe on whatever reaches it.
+          if [ "${REDERIVE_MODE}" != "none" ] \
+            && ! [[ "${REDERIVE_PARSE}" =~ ^[a-z][a-z0-9-]*$ ]]; then
+            echo "::error::rederive_distribution_parse needs rederive_parse set to a distribution parse label — lowercase, e.g. dist-v2. A re-derivation names its reading rather than inheriting the ingest default, so there is no default to fall back on. Re-dispatch with the label."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to re-derive.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the distribution re-derivation"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # One pass, whichever mode: the command's plan IS its write set, so an
+          # apply prints the same report a dry run would and a separate dry run
+          # ahead of it would only repeat a full-population read over the
+          # content store. Declared outside the guard so the expansion is total
+          # under `set -u`.
+          apply_args=()
+          if [ "${REDERIVE_MODE}" = "apply" ]; then
+            apply_args+=(--apply)
+          fi
+          uv run fedcourts rederive-distribution-counts --parse "${REDERIVE_PARSE}" \
+            "${apply_args[@]}" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REDERIVE_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Distribution counts already re-derived under this parse; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (distribution counts)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "distribution-count pointer"
+
       # The pair below runs in this order for a reason: a label rewrite that
       # lands after a grade was taken leaves the grade stale, so labels move
       # first and the recompute follows in the same dispatch. Neither half
       # fires on the schedule — each acts on a ledger a maintainer has read,
       # and that reading only exists because a `dry-run` dispatch produced it.
       #
-      # Unlike EVERY other writer step in this lane — the scheduled sweeps and
-      # the two dispatch-only backfills alike — neither carries
-      # continue-on-error, and the distinction is not "dispatch-only". It is
+      # Like the re-derivation above, and unlike the converging sweeps and the
+      # two dispatch-only backfills — the overhang clear and the
+      # questions-presented backfill — alike, neither
+      # carries continue-on-error, and the distinction is not "dispatch-only". It is
       # what a failure means here. Those steps fail by not converging, and the
       # next window retries for free. These fail by REFUSING: an apply without
       # its bound, a malformed cell id, a stamp the command declines. A
