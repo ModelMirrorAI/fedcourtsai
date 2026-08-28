@@ -41,6 +41,43 @@ def test_bot_sender_is_authorized_without_a_lookup() -> None:
     assert seen == []
 
 
+def test_pinned_bot_actor_refuses_any_other_bot_without_a_lookup() -> None:
+    """The pin turns "Bot" from "any installed App" into "the pipeline App".
+    A mismatched bot is refused outright — no permission lookup, since an App is
+    never a collaborator and a lookup could only delay the refusal."""
+    seen: list[tuple[str, str]] = []
+
+    def lookup(repo: str, actor: str) -> str:
+        seen.append((repo, actor))
+        return "admin"  # even a would-be-authorizing lookup must not rescue it
+
+    decision = authorize_trigger(
+        "Bot", "third-party-app[bot]", "o/r", lookup=lookup, bot_actor="pipeline[bot]"
+    )
+    assert not decision.authorized
+    assert "not the pinned App handoff" in decision.message
+    assert "pipeline[bot]" in decision.message
+    assert seen == []
+
+
+def test_pinned_bot_actor_authorizes_the_pinned_login() -> None:
+    decision = authorize_trigger(
+        "Bot", "pipeline[bot]", "o/r", lookup=_const("none"), bot_actor="pipeline[bot]"
+    )
+    assert decision.authorized
+    assert "pipeline App handoff" in decision.message
+
+
+def test_the_pin_never_touches_a_user_sender() -> None:
+    """The pin narrows the Bot branch only: a human actor who happens to share
+    the pinned string still goes through the permission lookup."""
+    decision = authorize_trigger(
+        "User", "alice", "o/r", lookup=_const("write"), bot_actor="pipeline[bot]"
+    )
+    assert decision.authorized
+    assert "write access" in decision.message
+
+
 def _const(permission: str) -> Callable[[str, str], str]:
     """A :data:`PermissionLookup` that always returns ``permission``."""
     return lambda repo, actor: permission

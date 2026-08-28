@@ -9440,17 +9440,27 @@ def authorize_trigger_cmd(
     ],
     actor: Annotated[str, typer.Option(help="github.actor that applied the run:* label.")],
     repo: Annotated[str, typer.Option(help="github.repository, owner/name.")],
+    bot_actor: Annotated[
+        str | None,
+        typer.Option(
+            help="Pin the Bot handoff to this login — the pipeline App's own "
+            + "bot account; any other Bot sender is refused outright. Absent, "
+            + "any Bot sender is trusted as the App handoff."
+        ),
+    ] = None,
 ) -> None:
     """Authorize a run:* label trigger, or refuse and exit non-zero (fail closed).
 
-    The pipeline's trust boundary: a Bot sender is the trusted App handoff, any
-    other actor needs write-or-higher collaborator access (looked up via ``gh
-    api``). Every ``run:*`` workflow runs this *before* it mints a token, assumes
-    the S3 role, or runs an agent. Prints the authorization line and exits 0 when
-    allowed; prints the refusal to stderr and exits 1 otherwise. Needs ``GH_TOKEN``
-    in the environment for the permission lookup.
+    The pipeline's trust boundary: a Bot sender is the trusted App handoff
+    (pinnable to one login via ``--bot-actor``), any other actor needs
+    write-or-higher collaborator access (looked up via ``gh api``). Every
+    label-triggered ``run:*`` workflow runs this *before* it mints a token,
+    assumes the S3 role, or runs an agent. Prints the authorization line and
+    exits 0 when allowed;
+    prints the refusal to stderr and exits 1 otherwise. Needs ``GH_TOKEN`` in
+    the environment for the permission lookup.
     """
-    decision = authorize_trigger(sender_type, actor, repo)
+    decision = authorize_trigger(sender_type, actor, repo, bot_actor=bot_actor)
     if not decision.authorized:
         typer.echo(f"::error::{decision.message}", err=True)
         raise typer.Exit(code=1)
