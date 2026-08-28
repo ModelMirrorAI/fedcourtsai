@@ -507,7 +507,7 @@ directory without knowing which part is which invites trusting the wrong half.
   which does not read it (the rollup does read `result_status`).
   Both reach an evaluator's information set unmasked, which is
   recorded as a masking-surface entry in
-  [milestones.md](milestones.md).
+  [freeze-record.md](freeze-record.md).
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
   prediction, written by the `collect` job, which is the only observer of that.
 - **`process_version`** on `prediction.json` — stamped by `fedcourts

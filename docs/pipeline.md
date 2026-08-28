@@ -781,7 +781,7 @@ three namespaces:
   `FROZEN_SINCE` (docs/process-version.md carries the freeze procedure).
   One tag deviates: `prereg/proc-v4` sits on the promotion merge that
   carried its freeze commit rather than on the freeze commit itself — the
-  namespace blocks moving it, and the freeze record in docs/milestones.md
+  namespace blocks moving it, and the freeze record in docs/freeze-record.md
   states the placement and its consequence.
 - **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit; a
   `-2` suffix distinguishes a same-day second batch.

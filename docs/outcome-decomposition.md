@@ -1155,7 +1155,7 @@ elicitation on is the second one's business.** A *set* version names what was
 asked; the *process* version names who asked it and how. Eliciting a declared
 set changes nothing about which claims it carries, so it takes a coordinated
 re-bless of the process label and its reviews (`docs/process-version.md`; the
-freeze record in [milestones.md](milestones.md) names it among the changes
+freeze record in [freeze-record.md](freeze-record.md) names it among the changes
 riding that promotion) and **not** a new set id — which would fragment a census
 across two identical declarations and spend the version vocabulary on a change
 that is not one.

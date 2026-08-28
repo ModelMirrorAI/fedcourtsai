@@ -53,7 +53,7 @@ CURRENT_PROCESS_LABEL = "proc-v4"
 # these (keeping both would bless two grading processes per judge at once).
 # The evaluations graded under the retiring digests stay counted — an
 # evaluation's digest is recorded but only its timing is enforced, via
-# `graded_post_freeze` — and the freeze record in `docs/milestones.md` names
+# `graded_post_freeze` — and the freeze record in `docs/freeze-record.md` names
 # them. Keyed on the digest, never the label, so a process that drifted
 # under an unchanged label is not silently blessed. The predictor digests
 # are the enforced membership filter (`is_frozen`); the evaluator entries
