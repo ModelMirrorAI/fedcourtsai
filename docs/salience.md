@@ -1386,8 +1386,8 @@ strictly-prior substantive slice, while the cells scored against it are the
 reserve's occupants — and the reserve fills its bounded slots in **escalation
 ladder order** (a requested response first, then the amicus count). A predicted
 application therefore sits systematically higher on those rungs than the cohort
-behind the rate: of the accumulated substantive slice only about a fifth (52 of
-249) ever
+behind the rate: of the accumulated substantive slice only about a fifth (53 of
+257, `metrics/statpack.json` as refreshed 2026-08-24) ever
 drew a response request, while a reserve-selected cell is frequently picked
 *because* it did. The baseline is unconditioned on the ladder and the scored set
 is selected on it, which is the outcome-decomposition register's test 3 answered
