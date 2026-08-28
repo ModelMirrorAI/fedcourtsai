@@ -21,9 +21,10 @@ forward frontier prober:
   ``historical-ifp``, so the two walkers can never collide on a (term, stream)
   key. The cursor advances over every *served* serial, so a resumed walk never
   re-reads one; a 404 never advances it, so a resumed run re-confirms the
-  frontier cheaply. :func:`~fedcourtsai.corpus.clear_live_cursor` is the one way
-  back, for a maintainer re-walking a Term the pipeline has since learned to
-  read more from.
+  frontier cheaply. :func:`~fedcourtsai.corpus.clear_live_cursor` is the way back
+  for a whole Term, when the pipeline has since learned to read more from it;
+  :func:`refresh_dockets` is the targeted counterpart, re-serving an enumerated
+  list of docket numbers through the same ingest seam and moving no cursor.
 - **It ingests every decided petition.** Each served record's disposition is
   read from its proceedings text
   (:func:`~fedcourtsai.pipeline.cert_signals.match_disposition_signal`, the same
@@ -78,7 +79,7 @@ from .. import corpus, ids
 from ..config import HistoricalConfig
 from ..matrix import event_has_predictions
 from ..schemas import Disposition
-from ..supremecourt import IFP_SERIAL_BASE, SupremeCourtClient
+from ..supremecourt import IFP_SERIAL_BASE, SupremeCourtClient, parse_scotus_docket_number
 from .cert_signals import match_disposition_signal
 from .ingest import backfill_live_signals
 from .live import _resolve_identity, ingest_live_payload, provision_documents
@@ -155,6 +156,29 @@ class ResetReport(BaseModel):
     """``OT<term>/<stream>`` for each cursor actually removed."""
     absent: list[str] = Field(default_factory=list)
     """Configured pairs that carried no cursor — never walked, nothing to reset."""
+
+
+class DocketRefreshReport(BaseModel):
+    """One targeted re-snapshot pass over an enumerated list of docket numbers."""
+
+    served: list[str] = Field(default_factory=list)
+    """Numbers upstream served a record for, in the order given."""
+    unserved: list[str] = Field(default_factory=list)
+    """Numbers upstream has no record at; nothing was written for them."""
+    undecided: list[str] = Field(default_factory=list)
+    """The members of ``served`` carrying no machine-readable disposition, which
+    the walk's own rule declines to ingest — pending matters are the forward
+    poller's charter, and a named list may not write what a walk would not."""
+    left_to_watchlist: list[str] = Field(default_factory=list)
+    """The members of ``served`` whose case carries an open, predicted event, so
+    the ingest seam left them for the watchlist. Named rather than counted: on a
+    command whose whole premise is *these* dockets, the one a maintainer asked
+    for and did not get is the one that must be nameable."""
+    walk: HistoricalReport = Field(default_factory=HistoricalReport)
+    """The ingest counters and per-number upstream failures, in the walker's own
+    vocabulary: the same seam ran, so the same report describes what it did. Its
+    walk-shaped fields do not apply — no stream was walked, and ``stopped`` reads
+    ``targeted`` so the object cannot be mistaken for a walk's own report."""
 
 
 def reset_walk(
@@ -413,6 +437,113 @@ def load_terms(
     walk.report.complete = all(s.frontier_reached for s in walk.report.streams)
     walk.report.stopped = "complete" if walk.report.complete else "stream-errors"
     return walk.report
+
+
+def refresh_dockets(
+    client: SupremeCourtClient,
+    corpus_db_path: Path,
+    data_root: Path,
+    config: HistoricalConfig,
+    numbers: Sequence[str],
+    *,
+    today: date,
+) -> DocketRefreshReport:
+    """Re-serve an enumerated list of docket numbers through the walk's ingest seam.
+
+    The targeted half of a refresh. :func:`reset_walk` re-opens whole Terms,
+    which is the right instrument when the pipeline learns to read something new
+    across a population; it is the wrong one when a known, enumerated set of
+    dockets needs its stored row rebuilt, because re-covering a Term pays for its
+    entire serial range at ~1 req/s to reach a handful of rows.
+
+    **No cursor is touched.** A targeted re-snapshot is not a rewind: the walk
+    resumes exactly where it left off, and re-reading a serial the cursor has
+    already passed is the point here rather than state to record. That is also
+    what makes this safe beside a walk of the same Term — both write the same
+    rows through the same latches, and neither can move the other's resume point.
+
+    Additive on exactly the terms a re-walk is: each re-served docket upserts
+    onto its existing row through the corpus latches, so no row is deleted and
+    ``case_id`` never moves, while an *unlatched* column takes the fresh parse —
+    which is what lets a tightened pattern retract a stale reading as well as
+    supply a missed one. A number upstream no longer serves, or now serves with
+    no machine-readable disposition, is reported and never ingested: the walk's
+    rule unchanged, because a named list must not be able to write what a walk
+    would not.
+
+    **Corpus-side, on the case this exists for.** The write is the shared ingest
+    seam's, so ``outcome.json`` is recorded only where the event is still open —
+    :func:`~fedcourtsai.pipeline.outcome.record_outcomes` reads open events alone
+    and never overwrites a committed outcome. A docket a walk already landed has
+    its cert event latched resolved, so a re-serve converges the corpus row and
+    leaves the ledger label where it is; moving *that* is
+    ``converge-disposition-labels``' remit, not this path's. A number the corpus
+    has never held is onboarded outright, ledger included, exactly as the walk
+    would have onboarded it.
+
+    ``numbers`` are Term-form docket numbers (``"22-451"``); repeats collapse,
+    order preserved, since probing the same serial twice buys nothing and would
+    double-count the report. The whole list is parsed before the first fetch and
+    a malformed member raises :class:`ValueError`, so a typo costs no upstream
+    traffic and no half-applied list. The count is bounded by
+    ``config.max_probes_per_run`` — the same per-invocation probe bound the walk
+    runs under, and it lives here rather than in the caller so a code caller is
+    bounded on the same terms as the command.
+    """
+    parsed: list[tuple[str, int, int]] = []
+    malformed: list[str] = []
+    for number in dict.fromkeys(numbers):
+        pair = parse_scotus_docket_number(number)
+        if pair is None:
+            malformed.append(number)
+        else:
+            parsed.append((number, pair[0], pair[1]))
+    if malformed:
+        raise ValueError(
+            "not Term-form SCOTUS docket number(s) (want e.g. 22-451): " + ", ".join(malformed)
+        )
+    if len(parsed) > config.max_probes_per_run:
+        raise ValueError(
+            f"{len(parsed)} docket(s) named, past the {config.max_probes_per_run}-probe "
+            "bound one invocation runs under; split the list across dispatches."
+        )
+    walk = _Walk(client, corpus_db_path, data_root, config, today)
+    # `stopped` names the shape of the pass, so the report can never read as a
+    # walk that ended incomplete: no stream was walked, and none was left short.
+    walk.report.stopped = "targeted"
+    report = DocketRefreshReport(walk=walk.report)
+    for number, term, serial in parsed:
+        try:
+            payload = client.get_docket(term, serial)
+        except httpx.HTTPError as exc:
+            # One number's upstream failure costs that number, never the list:
+            # unlike a stream, the members are independent, so there is no
+            # gap-free-resume property to protect by stopping early.
+            walk.report.failed.append(
+                {
+                    "term": term,
+                    "stream": "targeted",
+                    "serial": serial,
+                    "reason": f"{type(exc).__name__}: {exc}",
+                }
+            )
+            continue
+        walk.report.probed += 1
+        if payload is None:
+            report.unserved.append(number)
+            continue
+        walk.report.served += 1
+        report.served.append(number)
+        disposition = _payload_disposition(payload)
+        if disposition is None:
+            walk.report.skipped_undecided += 1
+            report.undecided.append(number)
+            continue
+        deferred = walk.report.left_to_watchlist
+        walk.ingest(payload, term, serial, disposition)
+        if walk.report.left_to_watchlist > deferred:
+            report.left_to_watchlist.append(number)
+    return report
 
 
 def fold_totals(totals: HistoricalReport | None, latest: HistoricalReport) -> HistoricalReport:

@@ -52,6 +52,23 @@ on:
           - historical-paid
           - historical-ifp
           - both
+      refresh_dockets:
+        description: >-
+          Re-snapshot named dockets without re-walking their Terms: Term-form
+          SCOTUS docket numbers, one per line or space-separated (e.g.
+          "22-451 23-1234"). Leave blank —
+          the default, and what every scheduled run uses. For the case where the
+          rows needing a fresh read are known and enumerated; `refresh_terms`
+          above is the instrument when a whole population needs re-reading, and
+          it costs a Term's entire serial range to reach a handful of dockets.
+          Each number is re-served and re-ingested through the walk's own path,
+          adding through the corpus latches exactly as a re-walk does, and no
+          walk cursor moves — a targeted re-read is not a rewind. Grammar-checked
+          all-or-nothing before anything runs; applications ("22A123") and
+          original-docket numbers are separate sequences this path does not serve.
+        required: false
+        default: ""
+        type: string
       unlatch_overselected:
         description: >-
           One-time: clear the pre-resize `salience_selected` overhang. The
@@ -93,11 +110,16 @@ on:
           relabel ledger to the run summary and writes nothing; `apply`
           rewrites within an explicit blast-radius bound. Two dispatches is the
           procedure — `dry-run`, read the count off the ledger, then `apply`
-          with that count in `disposition_max_relabels`. Cells carrying a
-          committed grade are held back: relabelling under a scored evaluation
-          would silently restate what was graded, so those travel the
-          `regrade_stale` route below instead. Only fires on an explicit
-          dispatch naming it; never on the schedule.
+          with that count in `disposition_max_relabels`. Events carrying
+          committed predict/evaluate output are held back: relabelling under a
+          scored evaluation would silently restate what was graded, so the
+          ledger names them and the sweep moves on. Reaching them takes
+          `include_scored` below, and the relabel is only half the repair —
+          `regrade_stale` recomputes graded fields under an outcome rather than
+          moving one, so it is the follow-through, not an alternative route:
+          labels first, then `regrade_stale` naming the affected judge lines,
+          which this workflow runs in that order within one dispatch. Only
+          fires on an explicit dispatch naming it; never on the schedule.
         required: false
         default: none
         type: choice
@@ -112,10 +134,34 @@ on:
           Required on apply, and anything but a positive integer — blank, zero,
           negative, decimal, leading-zero — is refused before the scan runs: an
           unbounded apply would convert a widened predicate into a mass
-          rewrite. Ignored in every other mode.
+          rewrite. Ignored in every other mode — but still *required* in every
+          mode that sets `include_scored`, which states its blast radius before
+          the ledger widens rather than after.
         required: false
         default: ""
         type: string
+      include_scored:
+        description: >-
+          Widen `disposition_convergence` onto candidates carrying committed
+          predict/evaluate output (`--include-scored`). Off by default: an
+          `evaluation.json` is stamped with a `correct` bit computed from the
+          outcome, so relabelling under one moves what a published standing was
+          computed from while the standing sits still. Setting this takes on
+          the re-grade backlog — each relabel reports how many stamped
+          evaluations it owes — so it is refused unless
+          `disposition_convergence` names a mode AND `disposition_max_relabels`
+          carries a positive integer, in `dry-run` as much as in `apply`. What
+          the number states on a dry-run is the decision, not a size: the plain
+          dry-run's held-back lines are candidates the sweep never parsed, so
+          they bound the population rather than count the relabels. The bound an
+          `apply` is actually checked against is the widened dry-run's own
+          relabel count. Half a repair on its own — pair it with `regrade_stale`
+          naming the affected judge lines, three per event rather than one per
+          evaluation, which this workflow runs after the relabel in the same
+          dispatch.
+        required: false
+        default: false
+        type: boolean
       regrade_stale:
         description: >-
           Recompute the graded fields of named evaluator cells under their
@@ -220,18 +266,79 @@ jobs:
         # are handled as data here exactly as they are downstream: expanded from
         # the environment, never interpolated into this script.
         env:
+          REFRESH_DOCKETS: ${{ inputs.refresh_dockets }}
           DISPOSITION_MODE: ${{ inputs.disposition_convergence }}
           DISPOSITION_MAX_RELABELS: ${{ inputs.disposition_max_relabels }}
+          INCLUDE_SCORED: ${{ inputs.include_scored }}
           REGRADE_MODE: ${{ inputs.regrade_stale }}
           REGRADE_CELLS: ${{ inputs.regrade_cells }}
         run: |
           set -euo pipefail
+          # A targeted re-snapshot is maintainer-scale by construction: a list
+          # long enough to want a walk should be a `refresh_terms` dispatch
+          # instead. So the numbers are grammar-checked all-or-nothing — the
+          # input is typed text entering a shell, and a half-served list is
+          # harder to reason about than a refused one — and the count is capped
+          # well under what the step's own bound can serve at the client's
+          # ~1 req/s, so an oversized list is refused loudly rather than
+          # cancelling the run on a timeout.
+          # Declared outside the guard so the consumer below is total: an
+          # unset array under `set -u` would abort with `unbound variable`
+          # instead of the refusal the maintainer needs to read.
+          dockets=()
+          if [ -n "${REFRESH_DOCKETS}" ]; then
+            docket_pattern='^[0-9]{2}-[0-9]+$'
+            docket_malformed=0
+            # `printf '%s\n'`, not '%s', for the regrade list's reason: `read`
+            # returns non-zero on an unterminated final line, which would drop
+            # the last number silently and past the all-or-nothing check.
+            while IFS= read -r number; do
+              [ -n "$number" ] || continue
+              if [[ "$number" =~ $docket_pattern ]]; then
+                dockets+=("$number")
+              else
+                echo "::error::malformed refresh docket (want a Term-form SCOTUS number, e.g. 22-451; applications and original-docket numbers are separate sequences this path does not serve): ${number}"
+                docket_malformed=1
+              fi
+            done < <(printf '%s\n' "${REFRESH_DOCKETS}" | tr -s ' \t\r' '\n')
+            if [ "$docket_malformed" -ne 0 ]; then
+              echo "::error::refusing the whole list — correct the numbers above and re-dispatch."
+              exit 1
+            fi
+            if [ "${#dockets[@]}" -eq 0 ]; then
+              echo "::error::refresh_dockets is set but names no docket — leave it blank to skip the re-serve."
+              exit 1
+            fi
+            if [ "${#dockets[@]}" -gt 50 ]; then
+              echo "::error::refresh_dockets names ${#dockets[@]} docket(s), past the 50 this step is sized to serve — re-open the Term with refresh_terms instead, or split the list across dispatches."
+              exit 1
+            fi
+          fi
           # The bound is required on apply and ignored in every other mode, so
           # a blank one is only an error when the apply would actually run.
           if [ "${DISPOSITION_MODE}" = "apply" ] \
             && ! [[ "${DISPOSITION_MAX_RELABELS}" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::disposition_convergence=apply needs disposition_max_relabels set to a positive integer — the relabel count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
             exit 1
+          fi
+          # `include_scored` widens the sweep onto events already carrying
+          # predict/evaluate output and owes a re-grade for each relabel, so it
+          # is deliberate on both counts: it must name a mode to widen, and it
+          # must carry the bound in EVERY mode — not the apply-only rule above.
+          # A dry run that widens the ledger is where the decision to take on
+          # that backlog is actually made, so the number is stated there too;
+          # what the apply is checked against is the widened dry-run's own
+          # relabel count, not the plain run's held-back lines, which bound the
+          # population rather than count the rewrites.
+          if [ "${INCLUDE_SCORED}" = "true" ]; then
+            if [ "${DISPOSITION_MODE}" = "none" ]; then
+              echo "::error::include_scored needs disposition_convergence set to dry-run or apply — on its own it widens nothing."
+              exit 1
+            fi
+            if ! [[ "${DISPOSITION_MAX_RELABELS}" =~ ^[1-9][0-9]*$ ]]; then
+              echo "::error::include_scored needs disposition_max_relabels set to a positive integer — relabelling a graded cell takes on a re-grade backlog, so its size is stated up front in dry-run as much as in apply. Read the held-back lines off a plain dry-run dispatch's ledger."
+              exit 1
+            fi
           fi
           if [ "${REGRADE_MODE}" != "none" ]; then
             # The grammar excludes `.` deliberately — with no dots no field can
@@ -342,6 +449,118 @@ jobs:
           fi
           uv run fedcourts refresh-historical "${args[@]}" --apply
 
+      - name: Re-serve the named dockets
+        # Dispatch-only and blank by default, so no scheduled window fetches
+        # anything here. It sits beside the Term re-open — after the pull, before
+        # the loop, under the shared corpus-write lock — for the same reason: the
+        # re-serve and the walk that follows are one serialized operation rather
+        # than a local corpus edit racing a cron window.
+        #
+        # Unlike that sibling, it pushes its own blob and commits its own
+        # pointer rather than leaving the mutation for the loop's first
+        # checkpoint. A cursor reset is a local edit the re-walk will redo; this
+        # spends upstream requests, and a walk that fails on its first chunk
+        # would take those rows to the scrapheap with the runner. Every other
+        # writer step in this lane is self-contained for the same reason.
+        #
+        # It moves no cursor, which is what keeps it independent of the sibling
+        # above: `refresh_terms` rewinds resume points and this re-reads named
+        # serials, so the two write the same rows through the same latches and
+        # neither can undo the other. Dispatching both together is coherent.
+        #
+        # No continue-on-error, for the reason the disposition pair below
+        # documents: this step fails by REFUSING a list the maintainer typed, and
+        # absorbing that would report a re-snapshot that never happened.
+        if: inputs.refresh_dockets != ''
+        # Sized to the 50-docket list the validation admits: one docket JSON each
+        # at the client's ~1 req/s, plus the filed documents an ingest from the
+        # document-floor Term provisions.
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REFRESH_DOCKETS: ${{ inputs.refresh_dockets }}
+        run: |
+          set -euo pipefail
+          # A targeted re-snapshot is maintainer-scale by construction: a list
+          # long enough to want a walk should be a `refresh_terms` dispatch
+          # instead. So the numbers are grammar-checked all-or-nothing — the
+          # input is typed text entering a shell, and a half-served list is
+          # harder to reason about than a refused one — and the count is capped
+          # well under what the step's own bound can serve at the client's
+          # ~1 req/s, so an oversized list is refused loudly rather than
+          # cancelling the run on a timeout.
+          # Declared outside the guard so the consumer below is total: an
+          # unset array under `set -u` would abort with `unbound variable`
+          # instead of the refusal the maintainer needs to read.
+          dockets=()
+          if [ -n "${REFRESH_DOCKETS}" ]; then
+            docket_pattern='^[0-9]{2}-[0-9]+$'
+            docket_malformed=0
+            # `printf '%s\n'`, not '%s', for the regrade list's reason: `read`
+            # returns non-zero on an unterminated final line, which would drop
+            # the last number silently and past the all-or-nothing check.
+            while IFS= read -r number; do
+              [ -n "$number" ] || continue
+              if [[ "$number" =~ $docket_pattern ]]; then
+                dockets+=("$number")
+              else
+                echo "::error::malformed refresh docket (want a Term-form SCOTUS number, e.g. 22-451; applications and original-docket numbers are separate sequences this path does not serve): ${number}"
+                docket_malformed=1
+              fi
+            done < <(printf '%s\n' "${REFRESH_DOCKETS}" | tr -s ' \t\r' '\n')
+            if [ "$docket_malformed" -ne 0 ]; then
+              echo "::error::refusing the whole list — correct the numbers above and re-dispatch."
+              exit 1
+            fi
+            if [ "${#dockets[@]}" -eq 0 ]; then
+              echo "::error::refresh_dockets is set but names no docket — leave it blank to skip the re-serve."
+              exit 1
+            fi
+            if [ "${#dockets[@]}" -gt 50 ]; then
+              echo "::error::refresh_dockets names ${#dockets[@]} docket(s), past the 50 this step is sized to serve — re-open the Term with refresh_terms instead, or split the list across dispatches."
+              exit 1
+            fi
+          fi
+          # `Validate dispatch inputs` up front duplicates the block above word
+          # for word so a bad list dies before the corpus pull; this copy is the
+          # one of record, because the step has to be safe on whatever reaches
+          # it. Everything below is this step's alone.
+          #
+          # No committed pointer means no corpus — nothing to re-serve against,
+          # and the walk that follows is what creates one.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the targeted re-serve"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          args=()
+          for number in "${dockets[@]}"; do
+            args+=(--docket "$number")
+          done
+          # Dry-run into the summary first: it fetches nothing and resolves each
+          # number against the stored rows, so the ledger of which numbers the
+          # apply is about to re-serve — and which the corpus does not hold yet —
+          # outlives the step log.
+          uv run fedcourts refresh-dockets "${args[@]}" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          uv run fedcourts refresh-dockets "${args[@]}" --apply 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere. `data/` rides along
+          # because onboarding a number the corpus never held writes that event's
+          # `outcome.json`; a re-serve of an already-resolved one writes none, so
+          # a converging pass commits the pointer alone.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "The named dockets are already current; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: re-serve named dockets"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "targeted re-serve pointer"
+
       - name: Walk the Terms in checkpointed chunks until done or out of time
         # Named for the trailing verdict too: the loop publishes at its
         # checkpoints, so a walk that died between two of them leaves ingested
@@ -362,10 +581,16 @@ jobs:
           # a cap hit is a cancellation — the one outcome continue-on-error
           # cannot absorb — so the budget yields rather than gambling the
           # trailing verdict.
-          # 25m where trailing sweeps need the tail — the daily sweep window,
-          # and any dispatch that arms one of the dispatch-only writer steps,
-          # each of which adds its own step bound to the tail — 40m otherwise.
-          LOOP_BUDGET_SECONDS: ${{ (github.event.schedule == '31 2 * * *' || (github.event_name == 'workflow_dispatch' && (inputs.qp_backfill != 'none' || inputs.disposition_convergence != 'none' || inputs.regrade_stale != 'none'))) && '1500' || '2400' }}
+          # 25m where the rest of the run needs the room — the daily sweep
+          # window, and any dispatch arming a writer step whose own bound is
+          # large enough to matter against the job's hard cap. The targeted
+          # re-serve is on that list even though it runs ahead of the loop
+          # rather than after it: its bound is spent before this deadline is
+          # even computed, so the job's cap is what it eats into. The two
+          # dispatch-only steps absent from the list are absent deliberately —
+          # `unlatch_overselected` and the `refresh_terms` cursor reset are
+          # local, second-scale edits with no upstream traffic to pay for.
+          LOOP_BUDGET_SECONDS: ${{ (github.event.schedule == '31 2 * * *' || (github.event_name == 'workflow_dispatch' && (inputs.refresh_dockets != '' || inputs.qp_backfill != 'none' || inputs.disposition_convergence != 'none' || inputs.regrade_stale != 'none'))) && '1500' || '2400' }}
         run: |
           set -euo pipefail
           gh auth setup-git
@@ -726,7 +951,8 @@ jobs:
         continue-on-error: true
         # Bounded for the same reason, and more tightly needed: the first
         # non-converged pass reads the content store once per merits-bound
-        # grant, an external-service loop with no internal cap.
+        # grant — pooled at PREFETCH_READERS workers, so the bound guards a
+        # stalled store, not throughput.
         timeout-minutes: 10
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -764,8 +990,8 @@ jobs:
         if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
         continue-on-error: true
         # Bounded for the same reason as the judgments pass: the pendency check
-        # reads a stored snapshot per candidate grant, an external-service loop
-        # with no internal cap on a non-converged corpus. On the first
+        # reads a stored snapshot per grant it owes a mint — pooled at
+        # PREFETCH_READERS workers on a non-converged corpus. On the first
         # non-converged 02:31 window the job's 55m cap can still bind (the walk
         # plus the judgments pass plus this step, each at its bound), and a cap
         # hit cancels the run rather than continuing — so that window may raise
@@ -973,6 +1199,7 @@ jobs:
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           DISPOSITION_MODE: ${{ inputs.disposition_convergence }}
           DISPOSITION_MAX_RELABELS: ${{ inputs.disposition_max_relabels }}
+          INCLUDE_SCORED: ${{ inputs.include_scored }}
         run: |
           set -euo pipefail
           # Validate the bound before anything else, including the corpus
@@ -988,6 +1215,25 @@ jobs:
             echo "::error::disposition_convergence=apply needs disposition_max_relabels set to a positive integer — the relabel count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
             exit 1
           fi
+          # `include_scored` widens the sweep onto events already carrying
+          # predict/evaluate output and owes a re-grade for each relabel, so it
+          # is deliberate on both counts: it must name a mode to widen, and it
+          # must carry the bound in EVERY mode — not the apply-only rule above.
+          # A dry run that widens the ledger is where the decision to take on
+          # that backlog is actually made, so the number is stated there too;
+          # what the apply is checked against is the widened dry-run's own
+          # relabel count, not the plain run's held-back lines, which bound the
+          # population rather than count the rewrites.
+          if [ "${INCLUDE_SCORED}" = "true" ]; then
+            if [ "${DISPOSITION_MODE}" = "none" ]; then
+              echo "::error::include_scored needs disposition_convergence set to dry-run or apply — on its own it widens nothing."
+              exit 1
+            fi
+            if ! [[ "${DISPOSITION_MAX_RELABELS}" =~ ^[1-9][0-9]*$ ]]; then
+              echo "::error::include_scored needs disposition_max_relabels set to a positive integer — relabelling a graded cell takes on a re-grade backlog, so its size is stated up front in dry-run as much as in apply. Read the held-back lines off a plain dry-run dispatch's ledger."
+              exit 1
+            fi
+          fi
           # No committed pointer means no corpus — nothing to converge against.
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping disposition convergence"; exit 0
@@ -1002,22 +1248,31 @@ jobs:
           # would publish that split.
           git fetch origin "$GITHUB_REF_NAME"
           git merge --ff-only FETCH_HEAD
+          # `--include-scored` rides both invocations below or neither, so the
+          # ledger the maintainer reads and the rewrite that follows describe
+          # the same population. Without it the sweep converges only events
+          # carrying no committed predict/evaluate output: rewriting a graded
+          # cell's label would move what a published standing was computed from
+          # while the standing itself sat still, so those events are reported
+          # instead. With it they are in, which is a bounded decision the
+          # validation above makes the maintainer state — and one that owes the
+          # re-grade step below the affected judge lines, since this half moves
+          # the label and that half recomputes the grades taken under it.
+          scored_args=()
+          if [ "${INCLUDE_SCORED}" = "true" ]; then
+            scored_args+=(--include-scored)
+          fi
           # Dry-run first, into the summary: the relabel ledger is the reading
           # the apply's bound comes from, and it must outlive the step log.
           # (On an apply this run is a receipt, not a reading — nobody reads it
           # before the rewrite.)
-          uv run fedcourts converge-disposition-labels 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          uv run fedcourts converge-disposition-labels "${scored_args[@]}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "${DISPOSITION_MODE}" != "apply" ]; then
             echo "dry-run only; nothing written."
             exit 0
           fi
-          # No --include-scored: this dispatch converges the unscored
-          # population only. Rewriting a graded cell's label here would move
-          # what a published standing was computed from while the standing
-          # itself sat still, so the scored cells are reported instead — the
-          # dry-run ledger's scored-cell backlog is a maintainer's decision,
-          # not this step's.
-          uv run fedcourts converge-disposition-labels \
+          uv run fedcourts converge-disposition-labels "${scored_args[@]}" \
             --apply --max-relabels "${DISPOSITION_MAX_RELABELS}" 2>&1 \
             | tee -a "$GITHUB_STEP_SUMMARY"
           # Blob before pointer commit, as everywhere.

@@ -753,6 +753,19 @@ or network.
   stale reading as well as adding a missed one (`docs/cli.md`).
   The CLI is dry-run by default; the cost is upstream traffic, not risk to the
   corpus.
+- **Re-snapshotting named dockets:** re-opening a Term to refresh a known,
+  enumerated set of rows pays for the whole serial range to reach a few of them,
+  so run-seed's dispatch also carries `refresh_dockets` (Term-form numbers, one
+  per line or space-separated): `fedcourts refresh-dockets --apply` re-serves exactly
+  those and re-ingests each through the walk's own path, additive through the
+  same latches. It moves **no cursor** — a targeted re-read is not a rewind — so
+  it neither disturbs nor is disturbed by a walk of the same Term, and the
+  walk's own rules still bound it: an undecided record is reported and skipped,
+  and one whose case carries an open predicted event stays with the watchlist.
+  Corpus-side on the repair case: the ingest seam records `outcome.json` only
+  for an event still open, so a re-serve converges the row and leaves a
+  committed ledger label to `converge-disposition-labels`. A number the corpus
+  never held is onboarded outright, ledger included.
 - **Maintenance sweeps:** after the loop, one window a day also runs seven
   converging sweeps in order — `fedcourts dedupe-live-rows --apply` (merging
   live-minted duplicate rows; a minted moment's committed event directory moves

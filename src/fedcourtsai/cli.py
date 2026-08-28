@@ -266,7 +266,7 @@ from .store import (
     stratify,
     unforecastable_listed_events,
 )
-from .supremecourt import SupremeCourtClient, current_docket_term
+from .supremecourt import SupremeCourtClient, current_docket_term, parse_scotus_docket_number
 from .usage import (
     parse_claude_usage,
     parse_codex_usage,
@@ -5105,6 +5105,133 @@ def refresh_historical_cmd(
         f"{len(report.absent)} already absent"
     )
     typer.echo(report.model_dump_json())
+
+
+@app.command("refresh-dockets")
+def refresh_dockets_cmd(
+    docket: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--docket",
+            help="Term-form SCOTUS docket number to re-serve (e.g. `22-451`); repeatable.",
+        ),
+    ] = None,
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Re-serve and re-ingest; omit for a dry-run listing."),
+    ] = False,
+) -> None:
+    """Re-snapshot named SCOTUS dockets without re-walking their Terms.
+
+    The targeted counterpart to `refresh-historical`. That command re-opens whole
+    Terms, which is what a population-wide re-read wants; this one is for the
+    case where the dockets needing a fresh row are *known and enumerated*, where
+    re-covering a Term would pay for its entire serial range at ~1 req/s to reach
+    a handful of them.
+
+    Each named number is re-served from the supremecourt.gov docket JSON and
+    re-ingested through the walk's own path — identity reconciled by docket
+    number, raw JSON stored as the dated snapshot, the resolved row upserted,
+    documents provisioned from the document floor Term.
+    **Additive**, exactly as a re-walk is: the upsert runs through the corpus
+    latches, so no row is deleted and `case_id` never moves, while an unlatched
+    column takes the fresh parse — the way back from a stale reading on a docket
+    no rotation revisits.
+
+    **Corpus-side, on the case this exists for.** The write is the shared ingest
+    seam's, so `outcome.json` is recorded only where the event is still open: a
+    committed outcome is never overwritten. A docket a walk already landed has
+    its cert event latched resolved, so a re-serve converges the corpus row and
+    leaves the ledger label alone — moving that is `converge-disposition-labels`'
+    remit. A number the corpus has never held is onboarded outright, ledger
+    included, exactly as the walk would have onboarded it.
+
+    **No cursor moves.** A targeted re-snapshot is not a rewind: the walk resumes
+    where it was, and re-reading a serial the cursor already passed is the point
+    rather than state to record — so this is safe beside a walk of the same Term,
+    both writing the same rows through the same latches.
+
+    The walk's own rules hold, so a named list can never write what a walk would
+    not: a served record with no machine-readable disposition is reported and
+    skipped (pending matters are the forward poller's charter), and one whose
+    case carries an open, predicted event is left to the watchlist so its
+    resolution reaches the evaluate handoff this path never files.
+
+    Dry-run by default: it resolves each number against the stored rows and
+    fetches nothing, so the reading costs no upstream traffic. `--apply` does the
+    re-serve, and is a corpus write — run it from the writer lane. The whole list
+    is validated before the first fetch, so a typo lands no half of it.
+    """
+    settings = get_settings()
+    numbers = list(docket or [])
+    if not numbers:
+        typer.echo("refresh-dockets: name at least one --docket.", err=True)
+        raise typer.Exit(code=2)
+    malformed = [n for n in numbers if parse_scotus_docket_number(n) is None]
+    if malformed:
+        typer.echo(
+            f"not Term-form SCOTUS docket number(s): {', '.join(malformed)}; want e.g. 22-451. "
+            "Applications (22A123) and original-docket numbers (22O141) are separate "
+            "sequences this path does not serve.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it "
+            "(fedcourts corpus-pull) before re-serving dockets.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cfg = load_historical_config(settings.config_root)
+    if len(numbers) > cfg.max_probes_per_run:
+        typer.echo(
+            f"refresh-dockets: {len(numbers)} docket(s) named, past the "
+            f"{cfg.max_probes_per_run}-probe bound one invocation runs under; "
+            "split the list across dispatches.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if not apply:
+        with corpus.connect(db_path) as conn:
+            for number in numbers:
+                known = corpus.scotus_case_id_by_docket_number(conn, number)
+                typer.echo(f"  {number}: {known or 'no stored row — would onboard'}")
+        typer.echo(
+            f"refresh-dockets (dry-run): would re-serve {len(numbers)} docket(s) "
+            "through the walk's ingest path, leaving every walk cursor where it is; "
+            "re-run with --apply"
+        )
+        return
+    with SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client:
+        rep = historical.refresh_dockets(
+            client, db_path, settings.data_root, cfg, numbers, today=date.today()
+        )
+    _ensure_corpus_layout(db_path)
+    ingested = rep.walk.ingested_granted + rep.walk.ingested_denied + rep.walk.ingested_other
+    typer.echo(
+        f"refresh-dockets (applied): served {len(rep.served)} of {len(numbers)} named; "
+        f"ingested {ingested} (granted={rep.walk.ingested_granted} "
+        f"denied={rep.walk.ingested_denied} other={rep.walk.ingested_other}); "
+        f"documents={rep.walk.documents}"
+    )
+    if rep.unserved:
+        typer.echo(f"  no record upstream: {', '.join(rep.unserved)}")
+    if rep.undecided:
+        typer.echo(f"  served but undecided (not ingested): {', '.join(rep.undecided)}")
+    if rep.left_to_watchlist:
+        typer.echo(
+            f"  left to the watchlist: {', '.join(rep.left_to_watchlist)} "
+            "(an open, predicted event — its re-poll files the evaluate handoff)"
+        )
+    # An upstream error is not a result: the named docket was neither re-served
+    # nor found absent, so the list this dispatch answered for is incomplete.
+    # Annotated rather than fatal, because the numbers that did land are landed
+    # and the caller's next step is a re-dispatch of the remainder, not a
+    # rollback — but it must not read as a clean pass in a run summary.
+    for failure in rep.walk.failed:
+        typer.echo(f"::warning::refresh-dockets could not serve a named docket: {failure}")
 
 
 @app.command("historical-terms")
