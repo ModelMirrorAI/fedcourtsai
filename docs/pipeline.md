@@ -31,7 +31,7 @@ posture, and what a lookup outage means, is the *Label triggers* bullet in
 [SECURITY.md](../SECURITY.md); the lookup's bounded retry is in *Authoring or
 changing a workflow* below.
 
-### `run-ops` — the daily operational roll-up
+## `run-ops` — the daily operational roll-up
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics, consolidated so it reads as a summary — pipeline health
@@ -73,7 +73,7 @@ watchlist view, escalating a failing verdict to one
 long-lived issue — so the dashboard surfaces run-health, data-health, and
 substance while staying a read-only presenter that never touches the corpus.
 
-### `run-analytics` — corpus analysis & derived metrics
+## `run-analytics` — corpus analysis & derived metrics
 
 `run-analytics` is the **corpus analysis & derived metrics** surface, also outside
 the cascade: every task that reads the corpus and answers a question or refreshes a
@@ -179,7 +179,7 @@ each as its own least-privilege job holding only the credentials its mode needs:
   `label_model` dispatch input picks the labeler's model. See
   [qp-topic.md](qp-topic.md).
 
-### `integration-test` — the infrastructure preflight
+## `integration-test` — the infrastructure preflight
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
 a manual-dispatch, strictly side-effect-free scenario runner over the **corpus
@@ -211,7 +211,7 @@ whole-suite evidence only for a pre-flight that skipped them (*The
 engine-smoke skip* under *Promotion: staging → main* below).
 See *Infra-bound integration* in [testing.md](testing.md).
 
-### `staging-corpus-refresh` — the staging corpus
+## `staging-corpus-refresh` — the staging corpus
 
 `staging-corpus-refresh` builds what those staging-bound runs are meant to read:
 the **staging corpus**, a lean slice of real cases in its own bucket/prefix
@@ -239,7 +239,7 @@ production's pair until the staging environment's store variables — the
 URLs and that pointer — are repointed. Provisioning the stores, the environment, and the role — and
 that repointing — is the maintainer runbook in [security.md](security.md).
 
-### `run-seed` and `run-pull` — the corpus writers
+## `run-seed` and `run-pull` — the corpus writers
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
 accumulating resolved outcomes reverse-chronologically by Term for the statpack's

@@ -207,8 +207,8 @@ runbook, [docs/security.md](docs/security.md).
   the gate protects. Two costs ride the shape on `run-pull` specifically, both
   stated at the step there: its later credentialed checkout discards that venv,
   so the label path syncs twice, and the run is already holding the shared
-  corpus-write lock for the minute the refusal takes. Every `run:*` gate — both
-  fan-outs, the back-test, and the deterministic
+  corpus-write lock for the minute the refusal takes. Every `run:*` gate — the
+  three fan-outs and the deterministic
   writer — treats a `Bot` sender as the trusted App handoff without a
   permission lookup. That allowance rests on two platform facts: installing a
   GitHub App requires admin on the repository, and label writes made with the
