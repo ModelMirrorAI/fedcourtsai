@@ -460,11 +460,52 @@ _SAL_V3 = SalienceScorer(
     reachable=_sal_v3_reachable,
 )
 
+# sal-v4: sal-v3 with the distribution parse pinned to `dist-v2`, and nothing
+# else. It reuses sal-v3's score, band, vocabulary, carve-out and reachable
+# ladder as the SAME callables rather than copies, so the two versions cannot
+# drift apart in anything but the parse and every property the registry sweeps
+# pin on sal-v3 holds on sal-v4 by construction. What moves is the *input* the
+# ranking's primary feature is read from: `dist-v1` matches the conference phrase
+# anywhere in an entry, so an ancillary paper's trip to conference — a motion, an
+# application, a suggestion of mootness — lifts the petition's relist trajectory;
+# `dist-v2` anchors the phrase at the entry start and so reads the petition's own
+# distributions only. The candidate's matches are a subset of the baseline's, so
+# a count can only FALL and every band function here is monotone in it: a row's
+# sal-v4 band is its sal-v3 band or weaker, never stronger. That direction is
+# exactly why the parse is a new registered version and not an edit — the sal-v3
+# band labels are frozen on populations counted under `dist-v1`, and re-reading
+# the count under a stable label would re-point every published per-band rate at
+# a population it was never measured on.
+#
+# Registered INACTIVE: `SALIENCE_VERSION` still names sal-v3. The census that
+# licenses the registration is the input-level cut only; activating a parse is
+# three further pieces of work (docs/salience.md), and the first of them —
+# re-deriving the corpus `distribution_count` column under `dist-v2`, on a
+# latch-bypassing writer UPDATE — must land BEFORE the flip. A sal-v4 context
+# frozen against a still-`dist-v1` column would compare a narrower
+# prediction-time count against a wider resolution-time one, which breaks the
+# relist-increment claim's "the count never falls" premise upward.
+_SAL_V4 = SalienceScorer(
+    version="sal-v4",
+    score=_sal_v1_score,  # still sal-v1's ranking; the parse moves its input, not its shape
+    band=_sal_v3_band,  # sal-v3's band rule, unchanged
+    bands=_SAL_V2_BAND_ORDER,  # the same band vocabulary, in the same order
+    carve_out=_sal_v3_carve_out,
+    selects_arrivals=True,
+    reachable=_sal_v3_reachable,
+    distribution_parse="dist-v2",
+)
+
 # Every registered version, keyed by label. A past ranking replays against the
 # function that produced it, so a version is only ever added here — never edited
 # and never removed, whatever the live pass currently scores with.
 SCORERS: Mapping[str, SalienceScorer] = MappingProxyType(
-    {_SAL_V1.version: _SAL_V1, _SAL_V2.version: _SAL_V2, _SAL_V3.version: _SAL_V3}
+    {
+        _SAL_V1.version: _SAL_V1,
+        _SAL_V2.version: _SAL_V2,
+        _SAL_V3.version: _SAL_V3,
+        _SAL_V4.version: _SAL_V4,
+    }
 )
 
 

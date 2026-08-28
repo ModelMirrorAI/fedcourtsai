@@ -959,7 +959,7 @@ the rendered table) and
   relist-0 with no conference cohort, so the rank-and-cap selects nothing and
   escalation precision is undefined (the trajectory features cannot
   distinguish petitions before the docket moves). Under a scorer that selects
-  arrivals (both caption-banded versions declare it), the `arrival` policy's
+  arrivals (every caption-banded version declares it), the `arrival` policy's
   cells report the draw slice and the carve-in picks instead — a separate
   cohort, never pooled into the escalation ones, and still no validation of
   any caption feature (the reconstruction carries the terminal caption; a

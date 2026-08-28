@@ -428,3 +428,160 @@ freeze commit is recorded here.
   movement, and **their increment is not claimable as a forecast hit**. The
   three `scotus/9526000203` events are unaffected — their column already read
   2 under the old counter, so both ends move together.
+
+- **`sal-v4` registered, inactive (the `dist-v2` distribution parse),
+  2026-08-28.** No freeze commit belongs to this entry, on the `sal-v3` pattern:
+  the salience version sits outside the process digest (`pipeline_sha` is not an
+  input), carries its own data-visible boundary
+  (`context.salience_version`), and a registration re-blesses nothing. This
+  commit adds the `sal-v4` scorer with `sal-v3` still active — the scorer reuses
+  `sal-v3`'s score, band, carve-out and reachable **callables** and its band
+  **tuple**, and changes one field, `distribution_parse`, from `dist-v1` to
+  `dist-v2`. Nothing the live pass selects, latches, or stamps moves at this
+  commit; what changes is that `statpack.json` and `salience-replay.json` now
+  carry a fourth version's bands. Carried to `main` by the promotion tagged
+  <FILL: promotion tag> (merge commit <FILL: merge commit>, merged
+  <FILL: merge timestamp>). No freeze procedure fills those three: the freeze
+  step that fills placeholders fires at a `prereg/` tag and this entry has no
+  freeze commit, so they are the carrying promotion's author's to complete, and
+  the promotion PR carries the instruction.
+
+  **The statistical review of record**, quoted verbatim because the census
+  artifact carries a one-day retention and is deliberately uncommitted. Two of
+  its sentences lean on the issue that proposed the parse, glossed here so the
+  record stands alone: that issue's premise was that `dist-v1` inflates the
+  relist trajectory by counting ancillary paper, and it named three example
+  cells whose counts it said sealing-motion lines had lifted. The review
+  confirms those three and qualifies the premise — the inflation sits on decided
+  rather than live pending dockets.
+
+  > The dist-v1 → dist-v2 distribution census produced by run-analytics run
+  > 33196262688 (main @ 737696ff7c, 2026-08-28, corpus_sha256 =
+  > b16b856fcc8a247f0e5df5bc0f22fca207c011c85ea1fa870a6f2be2f9abb9e3) is
+  > accepted as the statistical review of record for registering sal-v4, scoped
+  > to a sal-v4 that is sal-v3 with the pinned distribution parse changed and
+  > nothing else. The artifact was reproduced byte-identically against the named
+  > corpus blob by re-running fedcourts distribution-census, and every field was
+  > re-derived a second time by an independent implementation. Coverage is 13,839
+  > of the 13,840-row frame (99.993%); the single unobservable row is an OT2025
+  > pending case and reconciles frame_pending 499 against pending 498 exactly.
+  > The delta is 181 changed counts (1.308% of the observable frame) and 159
+  > changed bands (1.149%), all downward — count_increased = 0, the full 25-cell
+  > zero-filled transition square has every strengthening cell at zero, and a
+  > line-level check across all 181 changed cases found no entry matched by
+  > dist-v2 that dist-v1 does not also match, so the nesting is observed rather
+  > than assumed. An exhaustive audit of every dropped line shows the delta is
+  > ancillary paper without exception (176 MOTION, 5 APPLICATION, 2 SUGGESTION, 2
+  > MOTIONS, 2 clerk-typo MOTOIN, and one Petition for Rehearing), with no
+  > genuine petition distribution dropped and no kept line naming a motion,
+  > application, or rehearing; the three cells flagged in #1256 are in the changed
+  > set with exactly the sealing-motion lines the issue named. Change rates are
+  > homogeneous across the eight complete Terms (pooled 1.424%, χ² = 10.12 on 7
+  > df, p ≈ 0.18), and moves concentrate in high (41/1,023) and elevated
+  > (118/2,364) as the count-monotone band functions require. One substantive
+  > finding qualifies #1256's premise: the inflation is concentrated on decided
+  > rather than live pending dockets (pending 0.80% vs decided 1.33% of counts),
+  > the maturity confound in its expected direction, so the census figure is an
+  > upper bound on what the gate sees at selection time. No anomaly blocks
+  > registration. This is the input-level cut only: the corpus distribution_count
+  > re-derivation, the statpack rebuild, the relist-tier re-measure, and the
+  > salience-replay rank-and-cap remain the activation's own steps, and this
+  > review does not license activation.
+
+  **Four findings carried onto this record.** Findings (2) and (3) are the
+  quoted review's own numbers; (1) and (4) are not in it — (1) is a further
+  observation from the same census artifact, re-derived at this commit against
+  the blob quoted above, and (4) is a constraint stated here rather than
+  measured. (1) Five cases read never-distributed under `dist-v2` — four falling 1 → 0, and `scotus/68076851`
+  3 → 0 on three motion lines. The four are relist-0 under both readings
+  (`max(0, count − 1)`), so their bands do not move. The fifth's does, and the
+  correction is recorded here rather than carried forward: it crosses both
+  cutpoints and bands `high` → `baseline`, so it belongs among finding (3)'s 41
+  `high`-leavers and not beside the other four. Checked at this commit against
+  the blob quoted above — `scotus/68076851` reads `distribution_count` 3 under
+  `dist-v1` and 0 under `dist-v2`, primary rate 0.4197 → 0.0337, no CVSG, and a
+  caption `caption-v2` does not read `federal`. What is true of all five is the
+  cohort key: `distributed_for_conference` is deliberately unversioned, so they
+  sit in the conference cohort an ancillary paper was distributed for while
+  carrying a zero count. A declared divergence of the unversioned key, recorded
+  here rather than rediscovered later as a defect. (2) `elevated → baseline` is
+  118 rows, 5.0% of
+  `elevated`, so activation step 2's statpack rebuild is **expected to move that
+  band's published rate**, not merely to relabel its members; a rebuild leaving
+  the rate unmoved is evidence the rebuild did not happen. (3) 41 cases leave
+  `high`, the always-include tier, which is a real selection consequence rather
+  than a labelling one — leaving `high` means leaving the carve-out for the rank
+  contest — and is `salience-replay`'s question, not the census's. (4) The
+  sequencing is an **invariant**: `sal-v4` must never be made active before the
+  corpus `distribution_count` column is re-derived under `dist-v2`, or frozen
+  contexts would carry `dist-v2` counts against `dist-v1` column counts and the
+  relist-increment claim's "the count never falls" premise would break upward.
+  Activation step 1 already orders this (*The distribution parse* in
+  [salience.md](salience.md)); it is stated here as a constraint rather than an
+  accident of ordering. What the test suite pins is only the **label** —
+  the active scorer's `distribution_parse` equals the parse registry's
+  default — which a commit moving `SALIENCE_VERSION` and that default together
+  would satisfy while the stored column still held `dist-v1` counts. The check
+  that settles the invariant is therefore a data check, not a test: after the
+  writer re-derivation and before the flip, a census of the column's own
+  reading against `dist-v2` must report `count_changed = 0`.
+
+  **One artifact reads wrong-by-label until activation step 2, harmlessly.**
+  `statpack.json` bands every registered version off the corpus's single
+  `distribution_count` column, which holds `dist-v1` counts, so the
+  `alt_segments` block labelled `sal-v4` in every pack rendered between this
+  commit and the column re-derivation is `sal-v3`'s pool under a `sal-v4` label.
+  No number is corrupted by it and nothing consumes it: a version-pinned pool is
+  read only by a prediction frozen at that version, and no prediction can freeze
+  at an inactive one. It is recorded because the block is committed and dated,
+  and a later reader comparing packs across the activation would otherwise read
+  the correction as a population shift.
+
+  **The rank-and-cap read, and why it settles nothing.** `fedcourts
+  salience-replay --terms 2022,2023,2024` was run at this commit with `sal-v4`
+  registered, against the blob the review names (`corpus_sha256` as quoted above;
+  latest pull `2026-08-28`, latest stored snapshot `2026-07-13`, and the
+  local pointer warning that the blob on disk is not the committed ref's — the
+  same blob as the review's, so the comparison holds). What it observed: over the
+  four cells that select anything — OT2023 and OT2024 at `distribution-1` and at
+  `resolution` — the selected set is identical under `sal-v3` and `sal-v4`. The
+  other five cells of the 3 Terms × 3 policies select nothing under either scorer
+  (all three OT2022 cells, both `arrival` cells) and carry no evidence either
+  way. The parse bites in one cell only, OT2023 at `resolution`, where four
+  projected dockets change count — two falling `high` → `elevated`
+  (`scotus/72479901`, `scotus/72480027`) and two `elevated` → `baseline`
+  (`scotus/72479771`, `scotus/72482969`) — and the selected set is identical at
+  149 petitions with only the provenance of two picks moving, 48 → 46 carve-out
+  picks against 101 → 103 rank fills, the two `high`-leavers losing their
+  guarantee and being re-picked by the fill. Set identity was checked case by
+  case with a scratch script; the committed artifact publishes counts only, so it
+  cannot be re-derived from the cell.
+
+  That zero is **not** a bound on disruption in the reassuring direction. The
+  slice the replay could reconstruct is not a sample of the frame but its granted
+  end: measured on this blob, the reconstructable rows carry grant-family rates
+  of 0.4207 (OT2023, 69/164) and 0.4000 (OT2024, 90/225) against 0.0318
+  (38/1,194) and 0.0009 (1/1,087) on the rows it could not read, over Terms whose
+  own rates are 0.0788 and 0.0694; OT2024's read slice holds 90 of that Term's 91
+  grants, and OT2022 reconstructs nothing at all. Within it the gate selects 149
+  of 164 readable OT2023 rows and 1 of 29 cohorts is capacity-bound, so the rank
+  contest has almost no opportunity to exclude a demoted petition. The run
+  therefore has close to no power to detect selection disruption, and its zero is
+  consistent with any amount of it at full coverage. No rate, band mix, precision
+  or recall from it transfers to the frame.
+
+  The cause is data availability, not the replay's method, and `corpus_sha256`
+  invites the wrong reading of it: the hash names the SQLite **index**, while the
+  snapshot payloads live in the per-case content store this checkout does not
+  have wired. Re-running the census itself here, against that same blob, observes
+  811 of the 13,840-row frame (5.9%) where the `run-analytics` census reached
+  99.993% — so the gap between the two artifacts is the store, not the
+  reconstruction. That re-run also corroborates finding (1) independently:
+  `scotus/68076851` appears in its `band_changed` ids, and its transition square
+  carries the single `high` → `baseline` move.
+
+  **This finding is provisional.** The census's 41 `high`-leavers are not shown
+  to keep their funding, and the instrument that would show it is the same replay
+  run where the store is wired — `run-backtest`'s salience-gate replay, a
+  dispatch rather than a local command. Until that runs, the selection question
+  activation turns on is open.

@@ -1660,13 +1660,14 @@ def test_the_scored_merits_baseline_never_sees_the_gvr_block(tmp_path: Path) -> 
 def test_alt_segments_carry_exactly_the_non_active_versions(
     fixture_corpus: FixtureCorpus,
 ) -> None:
-    """The block exists for every non-active registered version — today, sal-v1
-    and sal-v2 beside the active sal-v3 — and never repeats the active one, so
-    a prediction frozen at any registered version keeps a published base rate."""
+    """The block exists for every non-active registered version — today, sal-v1,
+    sal-v2 and the registered-inactive sal-v4 beside the active sal-v3 — and
+    never repeats the active one, so a prediction frozen at any registered
+    version keeps a published base rate."""
     pack = _pack(fixture_corpus)
     for term in pack.terms:
         versions = {alt.salience_version for alt in term.alt_segments}
-        assert versions == {"sal-v1", "sal-v2"}, versions
+        assert versions == {"sal-v1", "sal-v2", "sal-v4"}, versions
     payload = pack.model_dump(mode="json")
     assert all("alt_segments" in term for term in payload["terms"])
 
@@ -1682,7 +1683,7 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
         assert term.salience_version == SALIENCE_VERSION
         assert [s.band for s in term.segments] == list(_BANDS)
         alts = {alt.salience_version: alt for alt in term.alt_segments}
-        assert set(alts) == {"sal-toy", "sal-v1", "sal-v2"}
+        assert set(alts) == {"sal-toy", "sal-v1", "sal-v2", "sal-v4"}
         # Each version's own vocabulary, not the active scorer's — a band name
         # means something only under the function that assigned it.
         assert [s.band for s in alts["sal-toy"].segments] == ["hot", "cold"]
@@ -1690,9 +1691,11 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
         assert [s.band for s in alts["sal-v2"].segments] == list(
             _BANDS
         )  # one caption-banded vocabulary
+        # sal-v4 shares sal-v3's band vocabulary exactly; only its parse differs.
+        assert [s.band for s in alts["sal-v4"].segments] == list(_BANDS)
     # And it survives serialization rather than being dropped by the wrap serializer.
     payload = pack.model_dump(mode="json")
-    assert all(len(term["alt_segments"]) == 3 for term in payload["terms"])
+    assert all(len(term["alt_segments"]) == 4 for term in payload["terms"])
 
 
 def test_both_versions_count_the_same_rows_into_their_own_bands(
