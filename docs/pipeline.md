@@ -291,7 +291,13 @@ The last two are sequenced after every converging sweep, and in this order —
 landing after a grade was taken leaves that grade stale.
 `converge-disposition-labels` (the `disposition_convergence` input) converges
 stored disposition labels onto the current classifier, writing `outcome.json`
-under `data/` alongside the pointer in the step's one commit. By default it
+under `data/` alongside the pointer in the step's one commit. Its ledger names
+**which of its two arms** each relabel came from, and the reading a maintainer
+owes them differs: `gvr` sharpens a label whose grant binary does not move,
+while `disowned-grant` withdraws a grant the classifier no longer reads at all
+— moving `actual_granted` 1 → 0 and re-dating the resolution — so that count is
+the one that shifts realized grant rates and every figure keyed on a resolution
+date (`docs/cli.md` carries each arm's warrant). By default it
 converges the population carrying **no committed predict or evaluate output**:
 rewriting the label under a cell that has already been graded would move what a
 published standing was computed from while the standing sat still, so any event
@@ -305,14 +311,13 @@ much as in `apply`, unlike the bare bound, because what the number states there
 is a decision to take on a re-grade backlog rather than a write bound. The two
 readings are different: the plain dry-run's held-back lines size the *decision
 to widen* (they are candidates the sweep never parsed, so most will not be
-relabeled — only a parse returning `gvr` writes), while the bound an `apply`
+relabeled — only a candidate one of the two arms claims writes), while the bound an `apply`
 is checked against is the widened dry-run's own relabel count, which spans the
 scored and unscored confirmations together. A scored relabel is half a repair:
 the labels move here, and the grades taken under the old label catch up through
 `regrade_stale` naming the affected judge lines — three per event, one per
 judge, not one per evaluation. That can ride the same dispatch, which runs the
-two steps in this order for exactly this reason, or a following one. An `apply`
-dispatch also requires `disposition_max_relabels` — a positive integer, and the
+two steps in this order for exactly this reason, or a following one. An `apply`dispatch also requires `disposition_max_relabels` — a positive integer, and the
 count the maintainer read off a previous `dry-run` dispatch's ledger. Anything
 else — blank, zero, negative, decimal — is refused with an error annotation
 before the scan runs: unbounded, a widened predicate becomes a mass rewrite

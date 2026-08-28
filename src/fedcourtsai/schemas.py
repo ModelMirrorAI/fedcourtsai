@@ -58,9 +58,13 @@ class Disposition(StrEnum):
     source, and immaterial on the binary axis). That residual covers a label
     normalized from the upstream record's own fields, never a resolution the
     disposition parser itself recorded off order text and got wrong — those
-    disagree with their own order text and are converged against it, behind a
-    date boundary in code so that widening snapshot coverage cannot reach the
-    residual. On mandatory-jurisdiction direct
+    disagree with their own order text and are converged against it. What
+    separates the two is provenance, and the convergence sweep
+    (:mod:`fedcourtsai.disposition_convergence`) establishes it two ways: a date
+    boundary in code, so that widening snapshot coverage alone cannot reach the
+    residual, and — where the docket itself shows that the entry a ``granted``
+    was read off no longer parses as a grant at all — that entry, which dates
+    the parse gap and so needs no calendar. On mandatory-jurisdiction direct
     appeals the resolver latches only the vacatur-remand form (now ``gvr``); the
     other direct-appeal forms (probable jurisdiction noted, summary affirmance,
     dismissal for want of a substantial federal question) are deliberate resolver

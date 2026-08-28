@@ -57,7 +57,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from . import corpus
+from . import corpus, ids
 from .integrity import cell_clock, latest_evaluation_runs
 from .paths import CasePaths
 from .pipeline import moments
@@ -136,6 +136,51 @@ CHECK_STALE_UNPARSED_GRANTS = "no_stale_unparsed_grants"
 # class, and the merits forecastability arm refuses it, so what turns red
 # here can never also be spending forecast cells.
 _STALE_GRANT_DAYS = corpus.STALE_GRANT_DAYS
+
+#: Real grants that the Court never disposed of by **order**, so the
+#: `merits_judgment` half of this check's clear is not recoverable from docket
+#: text by any re-snapshot, re-parse, or vocabulary widening. Naming them here
+#: retires a row whose defect will not change, rather than letting the check
+#: carry it indefinitely.
+#:
+#: The consolidated Title X trio — Nos. 20-429, 20-454 and 20-539, granted
+#: together on 2021-02-22 in one VIDED order and consolidated for a single
+#: hour of argument. The parties filed a joint stipulation to dismiss under
+#: Rule 46.1 on 2021-03-12, and no dismissal order followed on any of the three
+#: dockets — not on the docket a stipulation names, and not on its companions;
+#: each docket's proceedings simply stop. There is nothing for a judgment parse
+#: to read.
+#:
+#: **The exception is the cheaper of two live options, not the only one.** The
+#: stipulation itself is dated docket text, so a curated ``merits_terminated``
+#: would clear these rows permanently and is the more informative record;
+#: :func:`fedcourtsai.pipeline.outcome.termination_signal` does not reach it
+#: only because that reader is scoped to the docket's latest entry, which here
+#: is a later letter brief. Prefer the curated termination whenever a writer-lane
+#: pass is being composed anyway; this list is what keeps the verdict honest in
+#: the meantime, and a member should be *removed* from it the moment its
+#: termination is written.
+#:
+#: A member is **excepted, never dropped**: it stays in `checked`, and the
+#: check's `detail` names every excepted row the run found, so the exemption is
+#: as visible on the durable verdict as a failure would be. Adding one is a
+#: maintainer's judgment recorded in code, and each entry earns a comment naming
+#: why no order ever disposed of it.
+#:
+#: The list is **this check's alone, deliberately**. Its sibling consumer of the
+#: same population and bound, :func:`fedcourtsai.corpus.is_stale_unparsed_grant`,
+#: keeps refusing these rows at the merits queue seam, and should: excepting a
+#: row says only that its record needs no mending, never that the docket is
+#: still pending — it was decided years ago, so a forward cell on it would be a
+#: mislabeled backtest exactly as before. One bound, two consumers, and only the
+#: reporting half has anything to forgive.
+_OFF_DOCKET_TERMINAL_CASES: frozenset[str] = frozenset(
+    {
+        ids.case_id("scotus", 72466202),  # 20-429, American Medical Association
+        ids.case_id("scotus", 72466229),  # 20-454, Becerra
+        ids.case_id("scotus", 72466705),  # 20-539, Oregon
+    }
+)
 
 
 def _check(name: str, problems: list[str], *, checked: int, detail: str = "") -> CorpusCheck:
@@ -290,6 +335,11 @@ def check_snapshot_not_future(conn: sqlite3.Connection, today: date) -> CorpusCh
     return _check(CHECK_SNAPSHOT_NOT_FUTURE, problems, checked=total, detail=f"as of {cutoff}")
 
 
+def _is_excepted(case_id: str) -> bool:
+    """Whether this row's terminal is recorded off its own docket (see the set above)."""
+    return case_id in _OFF_DOCKET_TERMINAL_CASES
+
+
 def check_stale_unparsed_grants(conn: sqlite3.Connection, today: date) -> CorpusCheck:
     """A long-past cert grant must have resolved into a merits outcome by now.
 
@@ -314,6 +364,19 @@ def check_stale_unparsed_grants(conn: sqlite3.Connection, today: date) -> Corpus
     row failed to record. A failing check therefore
     names the cases whose record needs mending, which is the durable fix.
 
+    A row in :data:`_OFF_DOCKET_TERMINAL_CASES` is **excepted**: no order ever
+    disposed of it, so the ``merits_judgment`` half of the clear is unreachable
+    from docket text and this row will not stop failing on its own. Excepting it
+    retires a permanently unmendable row rather than forgiving a mendable one —
+    the curated ``merits_terminated`` remains available and is preferred where a
+    writer-lane pass is being composed (see the constant). Excepted rows stay in
+    ``checked`` and every excepted row this run found is named in ``detail``, so
+    the exemption is auditable on the same durable surface as a failure rather
+    than silently dropped from the population. The exemption is this check's
+    alone: :func:`fedcourtsai.corpus.is_stale_unparsed_grant` keeps refusing the
+    same rows at the merits queue seam, because a record that needs no mending is
+    still not a pending case.
+
     Corpus-side, so it runs on the scheduled verdict rather than the offline
     gate. Dates are stored ISO ``YYYY-MM-DD``, so a lexicographic ``<`` is a
     correct comparison. Unlike the row-shaped checks this one takes no SQL
@@ -332,15 +395,25 @@ def check_stale_unparsed_grants(conn: sqlite3.Connection, today: date) -> Corpus
     # The message opens with the grant date because `_check` re-sorts the
     # sample lexicographically: leading with the date makes the published
     # twenty the *oldest* grants rather than the lowest case ids.
-    problems = [
-        f"granted {record['date_cert_granted']}: {record['case_id']} still carries "
-        "no merits judgment or termination"
+    #
+    # The exception list is applied *here*, over the defect rows, rather than in
+    # the SQL population: an excepted case is one the check looked at and
+    # declines to fail, so it stays inside `checked` and the denominator keeps
+    # meaning the same thing whether or not the list is empty.
+    defects = [
+        (str(record["case_id"]), str(record["date_cert_granted"]))
         for record in conn.execute(
             f"SELECT case_id, date_cert_granted {population} "
             "AND date_cert_granted < ? AND merits_judgment IS NULL "
             "AND merits_terminated IS NULL",
             (*dispositions, cutoff),
         )
+    ]
+    excepted = sorted(case_id for case_id, _granted in defects if _is_excepted(case_id))
+    problems = [
+        f"granted {granted}: {case_id} still carries no merits judgment or termination"
+        for case_id, granted in defects
+        if not _is_excepted(case_id)
     ]
     # Rows this old that a termination *did* resolve are carried in the detail
     # rather than left implicit, because a termination clears this check
@@ -362,13 +435,19 @@ def check_stale_unparsed_grants(conn: sqlite3.Connection, today: date) -> Corpus
     }
     terminated = sum(by_class.values())
     breakdown = ", ".join(f"{value} {name}" for name, value in by_class.items())
+    # Every excepted id is named, not counted: three ids fit on the line, and a
+    # bare count would make the exemption the one part of the verdict a reader
+    # cannot audit against `_OFF_DOCKET_TERMINAL_CASES`.
+    exemption = f"; excepted (terminal off-docket): {', '.join(excepted)}" if excepted else ""
     return _check(
         CHECK_STALE_UNPARSED_GRANTS,
         problems,
         checked=checked,
         detail=(
             f"granted before {cutoff} ({_STALE_GRANT_DAYS} days); "
-            f"{terminated} resolved by termination" + (f" ({breakdown})" if breakdown else "")
+            f"{terminated} resolved by termination"
+            + (f" ({breakdown})" if breakdown else "")
+            + exemption
         ),
     )
 

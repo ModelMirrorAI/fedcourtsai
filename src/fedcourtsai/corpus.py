@@ -1865,9 +1865,14 @@ def is_stale_unparsed_grant(row: CorpusRow, *, today: date) -> bool:
     ``merits_judgment`` nor a recorded ``merits_terminated``
     :data:`STALE_GRANT_DAYS` after its own grant reads as unresolvable, not
     open. The same population and bound as ``validate``'s
-    ``no_stale_unparsed_grants`` check, so what the check reports and what
-    the forecastability arm refuses are one class — a row the check turns
-    red can never also be spending forecast cells. Releases itself: a later
+    ``no_stale_unparsed_grants`` check, so a row that check turns red can never
+    also be spending forecast cells. The implication runs one way only: that
+    check carries a named exception list
+    (:data:`fedcourtsai.validate._OFF_DOCKET_TERMINAL_CASES`) for rows whose
+    terminal is not on their own docket and so can never be mended, and those
+    stay refused here — excepting a row says its *record* needs no mending, never
+    that the case is still pending, and a forward cell on a case decided years
+    ago would be a mislabeled backtest either way. Releases itself: a later
     re-fetch that latches either column takes the row out of the class.
     """
     if not opens_merits_proceeding(row):
