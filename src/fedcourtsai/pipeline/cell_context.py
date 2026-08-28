@@ -103,10 +103,14 @@ def build(
         # the corpus's max-latched `distribution_count`, written under
         # `cert_signals.DEFAULT_DISTRIBUTION_PARSE`, and this projection is
         # deliberately behind that column anyway (it reads one snapshot, as-of).
-        # So the two agree on the reading only while every registered version
-        # pins the default — which the all-versions parse test enforces, and
-        # which a version pinning another parse must revisit together with the
-        # column's own re-derivation.
+        # So the two agree on the reading only while the ACTIVE version pins the
+        # default — which the active-scorer parse test enforces, and which
+        # activating a version pinning another parse revisits together with the
+        # column's own re-derivation: the two constants move in one commit,
+        # after the column has been re-derived under the incoming reading. A
+        # registered-but-inactive version pinning a second parse reaches no cell
+        # through here, which is what makes registration safe ahead of that
+        # re-derivation.
         parse=scorer().distribution_parse,
     )
     observable = projected.observable

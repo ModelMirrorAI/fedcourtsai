@@ -37,9 +37,10 @@ The merits **cell** runs: both prompts carry a merits section, the fan-out
 admits the merits event on a row whose grant opened a merits proceeding
 (`store.forecastable_events`), and the provisioning guard is keyed on the
 event, so the grant order that opened the cell does not refuse it.
-What remains unbuilt: no artifact carries a
+What remains unbuilt: no **outcome** record carries a
 writing role or a real vote record with provenance (the outcome writer
-records no votes, for the reason given below); no schema carries a vote
+records no votes, for the reason given below — the forecast side already
+carries both, on `Prediction.votes`); no schema carries a vote
 *margin*; and no aggregation rule is applied to anything. The scoring design
 was settled before any merits outcome existed to fit it to, which is the only
 order in which the choice is credible. `docs/outcome-decomposition.md` is the
@@ -238,8 +239,8 @@ conditions on the claim, not details of it.
 
 A vote list carries its own censoring rather than leaving it to be inferred:
 the source it came from, the participating count that is the aggregation
-denominator, whether every participating Justice's vote is present, — the votes themselves sit beside it,
-on the outcome.
+denominator, and whether every participating Justice's vote is present — the
+votes themselves sit beside it, on the outcome.
 
 Presence carries meaning, the discipline `ResolutionSignals` already
 established: an absent record means **nobody looked**; a record present but
@@ -423,7 +424,8 @@ an order the Court withdrew, and the row keeps counting as a grant in the
 cert-side rates. The merits half is right — nothing was decided, nothing enters
 the pool — but the cert-label reconciliation is a separate debt no sweep pays,
 and stamping the termination releases the row from `no_stale_unparsed_grants`,
-the only check that named it. The
+the only *ledger* check that names it — `corpus.is_stale_unparsed_grant` reads
+the same class again on the merits-admission path. The
 invariant the pool publishes under is therefore exact: **every judgment in
 the parsed slice provably postdates its grant**, and `brier_skill_score` is
 computed on merits cells against that guarded pool — the prohibition is

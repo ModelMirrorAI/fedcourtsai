@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+from dataclasses import fields
 from datetime import date
 from pathlib import Path
 from types import MappingProxyType
@@ -188,7 +190,14 @@ def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
         "sal-v1": ("high",),
         "sal-v2": ("federal", "high"),
         "sal-v3": ("federal", "high"),
-    }.get(version, banding.bands[: len(fully_carved)] if fully_carved else None)
+        # sal-v4 carves with sal-v3's own predicate, so its prefix must be the
+        # same one: the parse pin moves the count a band is read off, never the
+        # always-include rule.
+        "sal-v4": ("federal", "high"),
+        # Indexed, never `.get` with a self-satisfying fallback: a prefix
+        # compared against a prefix of its own length passes for any version,
+        # so a new registration must state its carve prefix here or KeyError.
+    }[version]
     assert fully_carved == expected, f"{version}: carved bands {fully_carved}, expected {expected}"
     assert fully_carved, f"{version}: no band is carved — the always-include rule reaches nothing"
 
@@ -222,6 +231,66 @@ def test_sal_v3_is_sal_v2_read_through_the_wider_caption_rule() -> None:
     assert v2.carve_out(widened, v2.score(widened), floor) is False
     assert v3.band(widened) == "federal"
     assert v3.carve_out(widened, v3.score(widened), floor) is True
+
+
+def test_sal_v4_is_sal_v3_with_the_parse_pin_moved_and_nothing_else() -> None:
+    """The registration's whole scope, pinned: same callables, one changed field.
+
+    sal-v4 is registered under a statistical review scoped to "sal-v3 with the
+    pinned distribution parse changed and nothing else", so the identity is not a
+    remark about the code but the boundary of what was reviewed. Pinning the
+    scoring callables as *the same objects* is stronger than pinning their
+    outputs on a sample: a copied-and-then-edited band rule would agree on every
+    row a test enumerated and still be a second implementation free to drift.
+
+    The parse itself is not exercised here because it is not a scoring input the
+    scorer reads — it is the label naming which reading of the DISTRIBUTED phrase
+    filled `distribution_count` before the row reached the scorer, so on any one
+    row the two versions score, band and carve identically by construction.
+    """
+    v3, v4 = scorer("sal-v3"), scorer("sal-v4")
+    assert v4.distribution_parse == "dist-v2"
+    assert v3.distribution_parse == "dist-v1"
+    assert v4.score is v3.score
+    assert v4.band is v3.band
+    assert v4.carve_out is v3.carve_out
+    assert v4.reachable is v3.reachable
+    assert v4.bands == v3.bands
+    assert v4.selects_arrivals is v3.selects_arrivals
+    # Every field but the version label and the parse, exhaustively — so a field
+    # added to the record later cannot slip into sal-v4 unreviewed.
+    moved = {"version", "distribution_parse"}
+    assert {f.name for f in fields(SalienceScorer)} - moved == {
+        "score",
+        "band",
+        "bands",
+        "carve_out",
+        "selects_arrivals",
+        "reachable",
+    }
+
+
+def test_sal_v4_is_the_active_version_and_the_default_parse_moved_with_it() -> None:
+    """Activation is one commit moving two constants, and this is the pair.
+
+    A sal-v4 context frozen while the corpus `distribution_count` column still
+    held `dist-v1` counts would compare a narrower prediction-time count against
+    a wider resolution-time one, breaking the relist-increment claim's "the count
+    never falls" premise upward. So the parse registry's default — the reading
+    the column is written at — moves in the same commit as the active version,
+    and the column is re-derived under `dist-v2` before either does.
+    """
+    assert SALIENCE_VERSION == "sal-v4"
+    assert DEFAULT_DISTRIBUTION_PARSE == "dist-v2"
+    # Not `salience_bands()`: sal-v4 shares sal-v3's band tuple object, so a band
+    # comparison passes either way and would guard nothing. The parse is the
+    # field the two versions differ in, so it is the one that distinguishes an
+    # active sal-v3 from an active sal-v4.
+    assert scorer().distribution_parse == "dist-v2"
+    assert scorer().distribution_parse == DEFAULT_DISTRIBUTION_PARSE
+    # sal-v3 stays registered and unmoved: activation re-points the pointer, it
+    # never edits the version it points away from.
+    assert SCORERS["sal-v3"].distribution_parse == "dist-v1"
 
 
 def test_the_active_scorer_is_what_the_bare_helpers_dispatch_to() -> None:
@@ -964,7 +1033,7 @@ def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
     two_versions: SalienceScorer,
 ) -> None:
     # active first, then the rest sorted
-    assert registered_versions() == (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2")
+    assert registered_versions() == (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v3")
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
     assert salience_band(row) == "high"  # the bare helpers still mean the ACTIVE scorer
@@ -1274,12 +1343,18 @@ def test_a_resolved_arrival_event_heals_its_ledger_without_reopening(
 def test_every_registered_scorer_pins_a_registered_distribution_parse(version: str) -> None:
     """A version's parse is part of what its band labels mean, so it must resolve.
 
-    Every scorer registered today pins ``dist-v1`` — the reading the corpus's
-    own ``distribution_count`` column holds — so the band a cell freezes and the
-    band the live gate ranked it by are derived from one count.
+    The pin is per version and stated here rather than derived, so neither a
+    registration nor an activation can quietly move a frozen version's reading:
+    sal-v1 through sal-v3 pin ``dist-v1`` and the active sal-v4 pins ``dist-v2``.
+    Those three keep ``dist-v1`` **after** the flip, which is the whole point of
+    the registry — a prediction frozen at sal-v3 replays against the reading its
+    band was derived from, whatever the corpus column now holds. The separate
+    alignment the *active* version must keep with that column is pinned by
+    `test_the_active_scorers_parse_is_the_one_the_corpus_column_holds`.
     """
+    expected = {"sal-v1": "dist-v1", "sal-v2": "dist-v1", "sal-v3": "dist-v1", "sal-v4": "dist-v2"}
     assert SCORERS[version].distribution_parse in DISTRIBUTION_PARSES
-    assert SCORERS[version].distribution_parse == "dist-v1"
+    assert SCORERS[version].distribution_parse == expected[version]
 
 
 def _census_row(case_id: str, docket: str) -> corpus.CorpusRow:
@@ -1344,7 +1419,7 @@ def test_the_distribution_census_counts_both_parses_over_one_frame(tmp_path: Pat
             date(2026, 8, 1),
             _census_payload("DISTRIBUTED for Conference of 3/24/2023."),
         )
-        census = distribution_census(conn, candidate_parse="dist-v2")
+        census = distribution_census(conn, baseline_parse="dist-v1", candidate_parse="dist-v2")
     assert (census.baseline_parse, census.candidate_parse) == ("dist-v1", "dist-v2")
     assert census.salience_version == SALIENCE_VERSION
     # Two cases carry a readable proceedings list; the third is unobservable
@@ -1410,7 +1485,7 @@ def test_the_distribution_census_is_a_no_op_when_both_parses_agree(tmp_path: Pat
                 "Motion (25M82) DISTRIBUTED for Conference of 5/19/2026.",
             ),
         )
-        census = distribution_census(conn, candidate_parse="dist-v1")
+        census = distribution_census(conn, baseline_parse="dist-v1", candidate_parse="dist-v1")
     assert census.cases == 1
     assert (census.count_changed, census.band_changed) == (0, 0)
     assert census.count_changed_case_ids == []
@@ -1427,11 +1502,30 @@ def test_the_distribution_census_refuses_an_unregistered_parse_or_version(tmp_pa
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
         with pytest.raises(KeyError):
-            distribution_census(conn, candidate_parse="dist-v0")
+            distribution_census(conn, baseline_parse="dist-v1", candidate_parse="dist-v0")
         with pytest.raises(KeyError):
             distribution_census(conn, baseline_parse="dist-v0", candidate_parse="dist-v2")
         with pytest.raises(KeyError):
-            distribution_census(conn, candidate_parse="dist-v2", version="sal-v0")
+            distribution_census(
+                conn, baseline_parse="dist-v1", candidate_parse="dist-v2", version="sal-v0"
+            )
+
+
+def test_the_distribution_census_cli_requires_a_candidate_parse() -> None:
+    """The challenger has no registry default, and defaulting it fails silently.
+
+    The incumbent defaults because the registry names it, but a defaulted
+    challenger becomes a parse-against-itself census on the very commit that
+    activates that label — reporting no movement on every row, which reads as
+    convergence rather than as a misuse. This is the guard against a later
+    convenience edit putting the default back.
+    """
+    result = CliRunner().invoke(app, ["distribution-census"])
+    assert result.exit_code == 2  # a required option is absent — typer's usage error
+    # The refusal must name the flag, however the console renders it: strip the
+    # ANSI styling and the error box's wrapping before looking for the token.
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    assert "candidate-parse" in re.sub(r"[^a-z0-9-]", "", plain.lower())
 
 
 def test_the_distribution_census_counts_the_live_channel_only(tmp_path: Path) -> None:
@@ -1463,7 +1557,7 @@ def test_the_distribution_census_counts_the_live_channel_only(tmp_path: Path) ->
             date(2026, 8, 2),
             _rest_payload("DISTRIBUTED for Conference of 3/24/2023."),
         )
-        census = distribution_census(conn, candidate_parse="dist-v2")
+        census = distribution_census(conn, baseline_parse="dist-v1", candidate_parse="dist-v2")
     assert (census.cases, census.unobservable) == (1, 0)
     assert census.count_changed_case_ids == ["scotus/1"]
 
@@ -1476,7 +1570,7 @@ def test_the_distribution_census_counts_the_live_channel_only(tmp_path: Path) ->
             date(2026, 8, 1),
             _rest_payload("DISTRIBUTED for Conference of 3/24/2023."),
         )
-        rest_only = distribution_census(conn, candidate_parse="dist-v2")
+        rest_only = distribution_census(conn, baseline_parse="dist-v1", candidate_parse="dist-v2")
     assert (rest_only.cases, rest_only.unobservable) == (0, 1)
 
 
@@ -1493,7 +1587,7 @@ def test_the_distribution_census_refuses_a_subsampled_frame(tmp_path: Path) -> N
             _census_payload("DISTRIBUTED for Conference of 3/24/2023."),
         )
         with pytest.raises(ValueError, match="sample_weight"):
-            distribution_census(conn, candidate_parse="dist-v2")
+            distribution_census(conn, baseline_parse="dist-v1", candidate_parse="dist-v2")
 
 
 def test_the_distribution_census_per_band_cut_adds_up_to_the_totals(tmp_path: Path) -> None:
@@ -1536,7 +1630,7 @@ def test_the_distribution_census_per_band_cut_adds_up_to_the_totals(tmp_path: Pa
             date(2026, 8, 1),
             _census_payload("DISTRIBUTED for Conference of 3/24/2023."),
         )
-        census = distribution_census(conn, candidate_parse="dist-v2")
+        census = distribution_census(conn, baseline_parse="dist-v1", candidate_parse="dist-v2")
     assert [b.band for b in census.bands] == list(SCORERS[census.salience_version].bands)
     assert sum(b.cases for b in census.bands) == census.cases == 3
     # The per-band pending is the OBSERVABLE one, so it matches the per-Term
@@ -1576,7 +1670,7 @@ def test_the_distribution_census_square_separates_a_zero_from_an_unreachable_cel
                 "Motion (25M82) DISTRIBUTED for Conference of 5/19/2026.",
             ),
         )
-        census = distribution_census(conn, candidate_parse="dist-v2")
+        census = distribution_census(conn, baseline_parse="dist-v1", candidate_parse="dist-v2")
     vocabulary = SCORERS[census.salience_version].bands
     cells = {(t.from_band, t.to_band): t.n for t in census.transitions}
     assert len(census.transitions) == len(cells) == len(vocabulary) ** 2
@@ -1607,7 +1701,7 @@ def test_the_distribution_census_counts_pending_over_the_whole_frame(tmp_path: P
             date(2026, 8, 1),
             _census_payload("DISTRIBUTED for Conference of 3/24/2023."),
         )  # scotus/2 is pending and stores no snapshot: unobservable, and pending
-        census = distribution_census(conn, candidate_parse="dist-v2")
+        census = distribution_census(conn, baseline_parse="dist-v1", candidate_parse="dist-v2")
     assert (census.cases, census.unobservable) == (1, 1)
     assert census.frame_pending == 1
     assert [(t.cases, t.pending, t.frame_pending, t.unobservable) for t in census.terms] == [
@@ -1642,7 +1736,9 @@ def test_the_distribution_census_banner_states_its_coverage(
             ),
         )  # scotus/2 stores no snapshot, so half the frame is unreadable
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
-    result = CliRunner().invoke(app, ["distribution-census", "--candidate-parse", "dist-v2"])
+    result = CliRunner().invoke(
+        app, ["distribution-census", "--baseline-parse", "dist-v1", "--candidate-parse", "dist-v2"]
+    )
     assert result.exit_code == 0, result.output
     assert "cases=1 (50.0% of the 2-row frame)" in result.stderr
     assert "pending=2 of the frame" in result.stderr
@@ -1787,7 +1883,9 @@ def test_the_census_refuses_a_band_outside_the_versions_declared_vocabulary(
             _census_payload("DISTRIBUTED for Conference of 3/24/2023."),
         )
         with pytest.raises(ValueError, match="outside sal-test's declared bands"):
-            distribution_census(conn, candidate_parse="dist-v2", version="sal-test")
+            distribution_census(
+                conn, baseline_parse="dist-v1", candidate_parse="dist-v2", version="sal-test"
+            )
 
 
 def test_the_active_scorers_parse_is_the_one_the_corpus_column_holds() -> None:
@@ -1804,19 +1902,24 @@ def test_the_active_scorers_parse_is_the_one_the_corpus_column_holds() -> None:
 def test_a_cells_frozen_count_follows_the_active_scorers_parse(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Registering a dist-v2 scorer moves what a provisioned cell freezes.
+    """The active scorer's parse — not the parse registry's default — is the hand-off.
 
-    Without this the parse hand-off in `cell_context` is delete-safe — every
-    registered version pins the default today, so nothing else would notice.
+    Under the live registry the two agree by construction, which is exactly what
+    makes the hand-off in `cell_context` look delete-safe: read the default
+    instead and every committed cell would be unchanged. What distinguishes them
+    is an active scorer pinning the *other* registered reading, which is what the
+    stand-in below supplies. It pins `dist-v1` while the default is `dist-v2`, so
+    the widened count can only have come from the scorer's pin.
     """
-    narrow = SalienceScorer(
+    wide = SalienceScorer(
         version="sal-test",
         score=SCORERS[SALIENCE_VERSION].score,
         band=SCORERS[SALIENCE_VERSION].band,
         bands=SCORERS[SALIENCE_VERSION].bands,
         carve_out=SCORERS[SALIENCE_VERSION].carve_out,
-        distribution_parse="dist-v2",
+        distribution_parse="dist-v1",
     )
+    assert wide.distribution_parse != DEFAULT_DISTRIBUTION_PARSE
     payload = {
         "CaseNumber": "24-100",
         "PetitionerTitle": "John Doe",
@@ -1829,9 +1932,9 @@ def test_a_cells_frozen_count_follows_the_active_scorers_parse(
         ],
     }
     built = cell_context.build("scotus/1", date(2026, 8, 1), payload, "forward")
-    assert built.distribution_count == 2  # dist-v1: the motion's trip counts
+    assert built.distribution_count == 1  # dist-v2: only the petition's own trip counts
 
-    monkeypatch.setattr(salience_module, "SCORERS", {**SCORERS, "sal-test": narrow})
+    monkeypatch.setattr(salience_module, "SCORERS", {**SCORERS, "sal-test": wide})
     monkeypatch.setattr(salience_module, "SALIENCE_VERSION", "sal-test")
-    narrowed = cell_context.build("scotus/1", date(2026, 8, 1), payload, "forward")
-    assert narrowed.distribution_count == 1
+    widened = cell_context.build("scotus/1", date(2026, 8, 1), payload, "forward")
+    assert widened.distribution_count == 2  # dist-v1: the motion's trip counts too

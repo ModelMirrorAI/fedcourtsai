@@ -244,11 +244,32 @@ def _resolve_relist_increment(context: PredictionContext, outcome: Outcome) -> i
     The two ends must be read under one distribution parse for that monotonicity
     to hold across the pair: the context side follows the active scorer's
     declared parse while the outcome side is the corpus column at
-    ``cert_signals.DEFAULT_DISTRIBUTION_PARSE``, so a version pinning a narrower
-    reading could make the frozen count exceed the resolution-time one and turn
-    a real increment into a mask. What keeps them comparable today is that every
-    registered version pins the default, pinned by the all-versions parse test
-    in ``tests/test_salience.py``.
+    ``cert_signals.DEFAULT_DISTRIBUTION_PARSE``. A version pinning a *narrower*
+    reading makes the frozen count smaller than the column's, so the strict
+    comparison reports an increment the docket never made — a spurious hit, not
+    a mask (the only masks here come from ``None`` inputs, never from the
+    comparison). What keeps them comparable is that the
+    **active** version pins the default —
+    ``test_the_active_scorers_parse_is_the_one_the_corpus_column_holds`` in
+    ``tests/test_salience.py`` is the pin. A registered version pinning a
+    narrower reading is safe only while it is inactive, since no cell freezes a
+    count under a version the live pass does not score with; activating one
+    requires the corpus column to be re-derived under that reading first
+    (``docs/salience.md``).
+
+    That pin holds the pair together *going forward* and says nothing about a
+    cell frozen **before** an activation, which is the one seam this resolver
+    does not close. A cell frozen under the outgoing version carries the wider
+    reading's count, while the re-derived column serves the narrower one — so on
+    a docket the two readings disagree about, the resolution-time count starts
+    below the frozen one and a genuine relist can fail the strict comparison.
+    The direction is the safe one: a **suppressed** increment, never a spurious
+    hit, since the comparison can only read low. The bias is bounded by the
+    per-docket parse delta, it reaches only cells frozen across an activation
+    boundary, and the named cells it reaches at the ``dist-v2`` activation are on
+    the record (``docs/freeze-record.md``). Masking those cells outright — the
+    frozen version's parse against the column's — is a scoring change and is not
+    made here.
     """
     if (
         not context.signals_observable

@@ -2,7 +2,11 @@
 
 Work is represented as GitHub issues; applying a `run:*` label triggers the
 matching workflow. A stage hands off by creating/labeling an issue for the next
-stage.
+stage. The label is the pipeline's trust boundary, so every label-triggered
+workflow opens with the fail-closed `fedcourts authorize-trigger` gate†: a
+labeler without write permission is refused before any token is minted, role
+assumed, or agent run. The handoff Bot is the one non-collaborator the gate
+admits, and `run-pull` pins it to a single login.
 
 | Label           | Workflow         | Trigger(s)                          | Engine(s)            |
 |-----------------|------------------|-------------------------------------|----------------------|
@@ -17,6 +21,17 @@ stage.
 | _(none)_        | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | _(none)_        | `promote`        | manual dispatch                     | script (no agent)    |
 | _(none)_        | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
+
+† The four label rows — `run:pull`, `run:predict`, `run:evaluate`,
+`run:backtest` — are the gated ones: each runs `authorize-trigger` as its entry
+job's first non-setup step, and `tests/test_workflow_auth_gate.py` locks that
+shape in so an edit cannot quietly drop a guard. A workflow with no label row is
+dispatch- or schedule-only, which GitHub already write-gates. The refusal
+posture, and what a lookup outage means, is the *Label triggers* bullet in
+[SECURITY.md](../SECURITY.md); the lookup's bounded retry is in *Authoring or
+changing a workflow* below.
+
+## `run-ops` — the daily operational roll-up
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics, consolidated so it reads as a summary — pipeline health
@@ -58,6 +73,8 @@ watchlist view, escalating a failing verdict to one
 long-lived issue — so the dashboard surfaces run-health, data-health, and
 substance while staying a read-only presenter that never touches the corpus.
 
+## `run-analytics` — corpus analysis & derived metrics
+
 `run-analytics` is the **corpus analysis & derived metrics** surface, also outside
 the cascade: every task that reads the corpus and answers a question or refreshes a
 derived artifact is a mode here (dispatch `mode` input, or the weekly schedule),
@@ -74,24 +91,33 @@ each as its own least-privilege job holding only the credentials its mode needs:
   phrase counted over the salience gate's scored segment and banded by one
   scorer, the evidence a version pinning a new parse is argued from
   ([salience.md](salience.md)). `census_baseline_parse` / `census_candidate_parse`
-  name the two readings (`dist-v1` against `dist-v2` by default); the band
+  name the two readings (`dist-v1` against `dist-v2` by default — dispatch
+  defaults left where the activation census set them, so a bare dispatch now
+  re-reads what the flip moved rather than arguing a candidate); the band
   function is deliberately **not** a dispatch input — the census reads against the
   active scorer, and running it under a different salience version means
   registering one, which is a code change. Read-only like `corpus-stats`, with
-  one difference that matters: the machine JSON is uploaded as a 30-day run
-  artifact as well as summarised, because a statistical review is conducted over
-  the file rather than the page. Two things an operator needs before dispatching
+  one difference that matters: the machine JSON is uploaded as a run artifact as
+  well as summarised, because a statistical review is conducted over the file
+  rather than the page. The artifact rides the **one-day** retention every
+  analytics run artifact does — this repository is public, so one is
+  downloadable by any logged-in user for as long as it exists, and the
+  compilation-extent inventory in [security.md](security.md) bounds all three
+  the same way. Re-reading a census after the day is therefore a re-dispatch
+  rather than a longer window: it is deterministic over the blob its
+  `corpus_sha256` names. Two things an operator needs before dispatching
   it. It carries by far the largest budget of the read-only modes — a
   latest-snapshot read per frame case under the corpus-split mode — and what
   bounds it is the read-only role's one-hour OIDC session rather than the wall
   clock: the scan step is capped at 50 minutes and the job at 65, so a scan too
   long for its credentials fails legibly inside them instead of dying on an
   expired token after the whole walk (lifting that ceiling means a
-  `role-duration-seconds` on the `corpus-readonly` composite, as `run-seed` sets
-  for its own long walk). And it shares the `run-analytics-analysis` concurrency
-  group with `corpus-stats` under `cancel-in-progress: true`, so a one-minute
-  stats dispatch cancels an in-flight census — and a cancelled job runs no upload
-  step, losing the artifact. Dispatch a census into a quiet window.
+  `role-duration-seconds` on the `corpus-readonly` composite). And it holds its
+  **own** concurrency group — `run-analytics-census`, `cancel-in-progress:
+  false` — rather than sharing `corpus-stats`'s: a cancelled job runs no upload
+  step, so a sibling stats dispatch would otherwise take the artifact the mode
+  exists to produce with it. Both jobs are read-only, so letting them overlap
+  costs nothing.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
@@ -155,6 +181,8 @@ each as its own least-privilege job holding only the credentials its mode needs:
   `label_model` dispatch input picks the labeler's model. See
   [qp-topic.md](qp-topic.md).
 
+## `integration-test` — the infrastructure preflight
+
 `integration-test` is the infrastructure preflight, also outside the cascade:
 a manual-dispatch, strictly side-effect-free scenario runner over the **corpus
 read backends, the two sidecars, cascade cells, the collect writer, and the
@@ -185,6 +213,8 @@ whole-suite evidence only for a pre-flight that skipped them (*The
 engine-smoke skip* under *Promotion: staging → main* below).
 See *Infra-bound integration* in [testing.md](testing.md).
 
+## `staging-corpus-refresh` — the staging corpus
+
 `staging-corpus-refresh` builds what those staging-bound runs are meant to read:
 the **staging corpus**, a lean slice of real cases in its own bucket/prefix
 pair (`fedcourts corpus-seed-slice`), so orchestration and the read/write seams
@@ -210,6 +240,8 @@ access* in [data-pipeline.md](data-pipeline.md)), and the scenarios read
 production's pair until the staging environment's store variables — the
 URLs and that pointer — are repointed. Provisioning the stores, the environment, and the role — and
 that repointing — is the maintainer runbook in [security.md](security.md).
+
+## `run-seed` and `run-pull` — the corpus writers
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
 accumulating resolved outcomes reverse-chronologically by Term for the statpack's
@@ -264,9 +296,9 @@ own blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
-any other corpus write. Four further writer steps run **after the loop**, are
+any other corpus write. Five further writer steps run **after the loop**, are
 not among the seven, and never run on a schedule, each gated behind its own
-dispatch input; the three
+dispatch input; the four
 that read corpus rows also require the dedupe to have succeeded, since each
 must weigh a merged row rather than a twin. (Two more sit *ahead* of the loop
 on the same dispatch-only footing — the `refresh_terms` cursor reset and the
@@ -285,6 +317,26 @@ re-running the dry-run (under the corpus split the durable write is the
 content store's, so the pointer alone cannot witness it), and pushes. The
 dry-run ledger is a maintainer's reading, so the intended procedure is two
 dispatches: `dry-run`, read, then `apply`.
+`rederive-distribution-counts` (the `rederive_distribution_parse` mode, with
+the parse label in `rederive_parse`) re-derives the corpus
+`distribution_count` column under a registered distribution parse — the first
+of the three pieces of work that activate a new parse (`docs/salience.md`).
+Its write is a direct `UPDATE` that bypasses the column's max latch, because
+the upsert path would reject a narrower reading's every row and report success;
+a row whose latest live-shaped snapshot discloses no proceedings entries is
+counted and left untouched instead, which is as much of the latch's guard as a
+single pass can carry. The rest is procedure: the **first** dispatch names the
+*incumbent* parse and must report `changed = 0`, since anything the incumbent
+reading moves is stored-column drift rather than a parse effect and would
+otherwise be folded into the candidate's count. One pass in
+either mode — the plan the dry run prints is exactly the write set, and a
+separate dry run ahead of an apply would only repeat a full-population read of
+the content store — so the two-dispatch procedure is a maintainer's reading of
+the first run, not a re-scan. It is never scheduled: the parse to run under is
+a decision read off a `distribution-census` artifact, not a state a window can
+converge toward. The label input is refused up front and again in the step
+unless it is a lowercase parse label; whether the label is *registered* is the
+command's own refusal.
 
 The last two are sequenced after every converging sweep, and in this order —
 **labels first, then the grades computed from them** — because a label rewrite
@@ -781,7 +833,7 @@ three namespaces:
   `FROZEN_SINCE` (docs/process-version.md carries the freeze procedure).
   One tag deviates: `prereg/proc-v4` sits on the promotion merge that
   carried its freeze commit rather than on the freeze commit itself — the
-  namespace blocks moving it, and the freeze record in docs/milestones.md
+  namespace blocks moving it, and the freeze record in docs/freeze-record.md
   states the placement and its consequence.
 - **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit; a
   `-2` suffix distinguishes a same-day second batch.
@@ -1155,14 +1207,17 @@ the named registry ids:
     ```
 
 This is the **engine backfill** path: when one engine's cells failed (a quota
-or provider outage) while the others delivered, re-firing the full registry
-would re-run — and duplicate the committed predictions of — the healthy
-engines: only resolved events are excluded (via default open-event
-resolution), so an open event re-mints cells for every enabled predictor
-regardless of which engines already committed a prediction. Naming an id that is
-not an enabled predictor fails the plan job rather than silently skipping the
-engine. `run:evaluate` ignores the field: an evaluator always scores every
-committed prediction for its event.
+or provider outage) while the others delivered, it names the engines a re-fire
+targets. It is not what stops the healthy engines re-running — the plan's
+already-predicted gate is per `(predictor, event)` in its own right
+(`event_has_predictions(predictor_id=...)` in `matrix.py`, the same grain the
+live channel's selection sweep uses), so a re-fire of the full registry drops
+every engine that already committed a prediction for the event and mints only
+the missing ones. `predictors` **narrows** the fan-out; it does not deduplicate
+it — what it buys a backfill is a plan (and a cost) confined to the engines
+asked for. Naming an id that is not an enabled predictor fails the plan job
+rather than silently skipping the engine. `run:evaluate` ignores the field: an
+evaluator always scores every committed prediction for its event.
 
 ## Unrecorded outcomes: what pull's outcome detection leaves behind
 

@@ -627,23 +627,37 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
 ) -> None:
     """The version axis, exercised — a foreign band vocabulary shows it plainly.
 
-    Every registered scorer, one shared reconstruction per (Term, policy). What
-    must be identical across a moment's cells is everything the projection
-    decided: how many rows were eligible, how many had no snapshot, and where
-    each reconstruction came from. What must differ is the banding, because that
-    is the only thing the comparison is entitled to attribute to the scorer."""
+    Every registered scorer, one shared reconstruction per (Term, policy,
+    distribution parse). What must be identical across a moment's cells is
+    everything the projection decided: how many rows were eligible, how many had
+    no snapshot, and where each reconstruction came from. What must differ is the
+    banding, because that is the only thing the comparison is entitled to
+    attribute to the scorer.
+
+    The parse is the one axis that splits the reconstruction rather than riding
+    it: the active sal-v4 pins `dist-v2` and is projected separately from the
+    four `dist-v1` versions. Its projection-derived counts still match theirs — a parse changes
+    the *count* read off a docket, never which dockets the frame holds or which
+    of them disclosed a snapshot — so those figures are pinned across the parse
+    split too, which is what makes a cross-parse band comparison legible.
+    """
     db = _seed_replay_corpus(tmp_path / "corpus")
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
 
-    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2"]
+    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v3"]
     assert report.salience_version == SALIENCE_VERSION  # the report names the ACTIVE one
-    assert report.cells_evaluated == 4  # one (term, policy) cell x 4 registered versions
+    assert report.cells_evaluated == 5  # one (term, policy) cell x 5 registered versions
     by_version = {cell.salience_version: cell for cell in report.cells}
-    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2"}
-    active, toy, v1, v2 = (by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2"))
+    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v3"}
+    active, toy, v1, v2, v3 = (
+        by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v3")
+    )
+    # Each cell records the parse its reconstruction was counted under.
+    assert active.distribution_parse == "dist-v2"
+    assert {c.distribution_parse for c in (toy, v1, v2, v3)} == {"dist-v1"}
 
     # The projection is shared, so every projection-derived figure matches.
-    for other in (toy, v1, v2):
+    for other in (toy, v1, v2, v3):
         assert active.eligible == other.eligible
         assert active.skipped_no_snapshot == other.skipped_no_snapshot
         assert active.provenance == other.provenance
@@ -653,6 +667,7 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     caption_bands = {"federal", "high", "state", "elevated", "baseline", "unobservable"}
     assert set(active.bands) <= caption_bands
     assert set(v2.bands) <= caption_bands  # the caption-banded scorers share one vocabulary
+    assert set(v3.bands) <= caption_bands  # the active sal-v4 shares sal-v3's vocabulary exactly
     assert set(toy.bands) <= {"hot", "cold", "unobservable"}
     assert set(v1.bands) <= {"high", "elevated", "baseline", "unobservable"}
     assert (
@@ -660,4 +675,54 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
         == sum(toy.bands.values())
         == sum(v1.bands.values())
         == sum(v2.bands.values())
+        == sum(v3.bands.values())
     )
+
+
+def test_a_second_parse_gets_its_own_projection_and_bands_differently(tmp_path: Path) -> None:
+    """The parse axis is a real split in the reconstruction, not a recorded label.
+
+    Every other replay test seeds only entry-initial DISTRIBUTED lines, on which
+    ``dist-v1`` and ``dist-v2`` count identically — so they would all pass against
+    an implementation that reused one projection for every version and copied the
+    label onto each cell. This seeds an ancillary paper's distributions, which the
+    two readings disagree about, placed so the disagreement straddles a band
+    cutpoint: ``dist-v1`` reads three conferences (relist-2, ``high``) while
+    ``dist-v2`` reads the petition's own one (relist-0, ``baseline``).
+
+    ``sal-v3`` and ``sal-v4`` differ in nothing but the parse, so a band
+    difference between their cells can only have come from the split
+    reconstruction.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    row, payload = _petition(
+        "scotus/9",
+        "23-900",
+        disposition=Disposition.denied,
+        resolved=date(2024, 3, 4),
+        entries=(
+            ("Jan 5 2024", "Petition for a writ of certiorari filed."),
+            ("Feb 2 2024", "DISTRIBUTED for Conference of February 16, 2024."),
+            ("Feb 20 2024", "Motion (25M82) DISTRIBUTED for Conference of February 23, 2024."),
+            ("Feb 26 2024", "Motion (25M83) DISTRIBUTED for Conference of March 1, 2024."),
+            ("Mar 4 2024", "Petition DENIED."),
+        ),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        corpus.upsert_snapshot(conn, row.case_id, date(2024, 7, 1), payload)
+
+    report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
+    cells = {cell.salience_version: cell for cell in report.cells}
+    v3, v4 = cells["sal-v3"], cells["sal-v4"]
+
+    assert (v3.distribution_parse, v4.distribution_parse) == ("dist-v1", "dist-v2")
+    # The projection is split but reads the same frame: a parse changes the count
+    # read off a docket, never which dockets are eligible or which disclosed a
+    # state to reconstruct from.
+    assert v3.eligible == v4.eligible == 1
+    assert v3.skipped_no_snapshot == v4.skipped_no_snapshot == 0
+    assert v3.provenance == v4.provenance
+    # And the banding differs, which only a second reconstruction can produce.
+    assert v3.bands == {"high": 1}
+    assert v4.bands == {"baseline": 1}

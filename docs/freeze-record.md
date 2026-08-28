@@ -1,0 +1,833 @@
+# Freeze record
+
+The append-only record of process-version freezes and their supersessions, of
+the **masking-surface** changes that move what reaches an evaluator's
+information set under an unchanged digest, of the **scoring-baseline** changes
+that move a measured number the same way, of the **provisioning cutoff** that
+moves what a predictor is conditioned on, and of the boundaries a published
+figure may not be pooled across.
+
+Each entry is dated evidence rather than description, and two sets of timestamps
+carry it. The commit that added an entry is when its assertion was made — that
+is what an external evaluator reads to know the claim preceded the outcome. The
+commits, promotions, and `prereg/` tags an entry *names* are what it can be
+checked against.
+
+This is the one document here that is deliberately **history rather than current
+design**. Everywhere else the repository's convention holds — docs and code
+describe the design as it stands, and `git blame` finds the rest — but a
+pre-registration record whose content is not dated history witnesses nothing, so
+the convention does not apply to this file.
+
+**Append-only.** New entries go at the bottom, in the order the changes were
+taken, and an entry's substance is fixed once it lands: a fact that later proves
+wrong, a boundary that later moves, or a label that is later superseded is
+recorded by a **new** entry saying so, never by revising an old one. A record
+that can be rewritten proves nothing about when it was written.
+
+The single exception is an entry's **completion**, which the freeze procedure
+builds in. An entry authored alongside its freeze commit cannot yet state the
+facts that only the carrying promotion produces — the promotion tag, its merge
+commit and date, and the promotion-time re-run of step 0's stamped-cell grep —
+so it carries them as explicit `<FILL: …>` placeholders, and those placeholders
+are filled once, at that promotion. A placeholder is the only editable content
+an entry ever has.
+
+What a process version is, which states it passes through, and how the freeze is
+performed all belong to
+[process-version.md](process-version.md#freezing-the-cutover-procedure); each
+freeze commit is recorded here.
+
+## Entries
+
+- Freeze commit: `84b421168` (tagged **`prereg/proc-v1`**) — blesses the six
+  proc-v1 digests (three predictors, three evaluators) and sets the freeze
+  instant `2026-08-15T00:00:00Z`. Carried to `main` by the promotion tagged
+  `promotion/2026-08-12-2` (merged `2026-08-12T14:20:51Z`, before the
+  instant — the auditor's check of the cutover procedure above). Zero stamped
+  cells existed when the freeze landed on `main`, so nothing is listed as
+  pre-registration-excluded; everything earlier is the unstamped
+  alpha/shakedown ledger. **Superseded by proc-v2 below with zero cells ever
+  stamped under it** (step 0's grep on both branches: 0), so its headline is
+  legitimately empty forever; the tag stays as the record that the label was
+  registered, then superseded before any cell ran.
+- Freeze commit: `04411f166` — the sal-v2 activation commit as amended before
+  the tag by the merits-baseline accuracy fix (#1157), which is where the
+  blessed set lives, tagged **`prereg/proc-v2`**. Carried to `main` by the
+  promotion tagged **`promotion/2026-08-13`** (merge commit `260e8a64a`, merged
+  `2026-08-13T19:10:14Z`, before the freeze instant — the auditor's check of
+  the cutover procedure). Step 0's stamped-cell grep on both branches at the
+  promotion: 0. It re-blesses the
+  three predictor digests the predict prompt's third cert moment (the arrival
+  cell) moved, and sets the freeze instant `2026-08-16T00:00:00Z`. The
+  activation commit flips
+  the active salience scorer to `sal-v2`; its caption-census freeze record
+  (caption-v1, pooled federal 0.708 vs private 0.054 over OT2017–24, 8/8
+  complete Terms) is quoted in the activation PR with the corpus sha it ran
+  over. The scored window opens at the first post-promotion metrics refresh,
+  not at the flip — a sal-v2 cell minted before the refreshed statpack has no
+  published baseline (`docs/salience.md`). The evaluator digests carried by
+  the freeze are proc-v1's grading process plus one pre-tag accuracy fix in
+  the evaluate prompt's merits note (the harness merits baseline's third pool
+  guard — the null-provenance refusal in `merits_base_rate` — a
+  scoring-baseline change with no boundary of its own; the prompt edit
+  beside it gives it one, the discipline `docs/process-version.md`
+  prescribes); zero cells were ever stamped
+  under any interim digest set.
+
+- **`sal-v3` registered and activated (caption-v2 carve-in), 2026-08-15.** No
+  freeze commit belongs to this entry: the salience version sits outside the
+  process digest (`pipeline_sha` is not an input), carries its own
+  data-visible boundary (`context.salience_version`), and the flip re-blesses
+  nothing. The registration commit (`be774099c`) adds the `caption-v2` rule
+  and the `sal-v3` scorer with `sal-v2` still active; the activation commit
+  flips the one constant. Its caption-census freeze record, quoted here
+  because the census artifact is deliberately uncommitted: `caption-v2` over
+  corpus `e665971350fbc5d2729e424c6fd6d0f2b927b59253922cccb60f6dd1fe276469`,
+  scored segment OT2017–24, pooled federal 133/181 (0.7348) against
+  `caption-v1`'s 114/161 (0.7081), private 0.0524 against 0.0540, per-Term
+  federal `n` 17/23/26/41/11/19/29/15 (OT2017–24; right-censored OT2025 21)
+  against v1's 16/20/22/39/9/17/22/15, per-Term lift 9.1×–17.7×, 20 rows
+  across 16 distinct captions migrating `private`→`federal` in the complete
+  Terms (plus 2 in OT2025), one-directional by construction — and because the
+  recovered captions were surfaced partly by a grant-ranked residual scan
+  (19 of the 20 migrated rows are grants), the pooled-rate rise and the lift
+  rise are **not** evidence for the widening; the evidence of record is the
+  migrated captions' outcome-free precision (no false positive among the 20
+  migrated complete-Term rows) and the pre-registered per-Term replication
+  shape, with the incremental class's forward rate estimable only by an
+  out-of-sample re-census once frozen-window Terms accrue. The scored window
+  opens at the first post-promotion metrics refresh, as it did for `sal-v2`.
+
+- Freeze commit: `8d256a32f`, tagged **`prereg/proc-v3`**. Carried to
+  `main` by the promotion tagged `promotion/2026-08-15` (merge commit
+  `596740de4`, merged `2026-08-15T16:13:46Z`) — the auditor's comparison of the
+  cutover procedure is that date against the freeze instant, and it was a **hard
+  gate before the tag was minted**, not a note: the `prereg/` namespace blocks
+  update and deletion, so a tag over a bad instant burns the label. The merge
+  precedes the instant by under eight hours — inside the gate, with the
+  tight margin the entry below anticipated. It blesses
+  the six proc-v3 digests (three predictors, three evaluators) and keeps the
+  freeze instant at `2026-08-16T00:00:00Z`, deliberately unmoved from proc-v2's.
+  Holding it is safe in the direction that matters — proc-v2 has zero stamped
+  *predictions* and the enforced filter is prediction-side, so re-using the
+  instant blesses nothing retroactively — but it is the **tight** direction
+  rather than the generous one the procedure asks for, which is why the gate
+  above is stated as a gate. If the promotion merges after the instant, bump the
+  constant in a follow-up promotion before tagging, and confirm no stamped cell
+  carries a `stamped_at` in the gap.
+
+  **Step 0's stamped-cell grep against `origin/main`: 27, all
+  pre-registration-excluded.** Every one is an **evaluation** — no prediction
+  carries a stamp at all — over three cert events
+  (`scotus/73129750`, `scotus/73275185`, `scotus/73275187`, each
+  `evt-petition-disposition`), three evaluators (`claude-judge`, `codex-judge`,
+  `gemini-judge`) × three predictors, all labelled `proc-v2` and all stamped
+  between `2026-08-14T03:41:05Z` and `2026-08-14T03:47:47Z`. Every stamp
+  precedes the freeze instant, so `is_frozen`'s time cutoff excludes them
+  mechanically, and **zero cells were ever counted under proc-v2**: its headline
+  is legitimately empty forever, and its tag stays as the record that the label
+  was registered and then superseded. The grep was re-run against `main` at
+  promotion time, as the procedure requires — the count held at 27.
+
+  What moved every digest is the prompt pair: `.github/prompts/predict.md`
+  elicits `cert-v2`'s five claims (the two additions in the conditional forms
+  their resolvers score), `interim-v1`'s four, and `semantic-v1`'s two
+  propositions on a merits cell, and anchors an interim cell on the registered
+  scored base rate; `.github/prompts/evaluate.md` keys the base-rate basis on
+  the frozen `salience_version`, reads the merits and interim rate/skill pair as
+  harness-stamped, scopes `vote_accuracy` to merits cells, and carries the
+  semantic grading protocol.
+
+  Riding the same promotion, and named here because each changes what is
+  measured **without moving a digest** — the discipline
+  [process-version.md](process-version.md) prescribes for exactly this class:
+
+  - the **vote-scoring stage gate** (`pipeline.moments.scores_votes`), which
+    changes what is scored under an unchanged digest by denying vote scoring off
+    the merits stage by default;
+  - the **blinding masking surface**, widened by the new `MODEL_RATES` keys that
+    `blinding.identity_terms` reads — a change to every evaluator's information
+    set with no digest of its own;
+  - the **claim-set declarations** `cert-v2`, `interim-v1` and `semantic-v1`,
+    which are tables rather than prompt bytes or actor config;
+  - the **harness skill stamp**, which moves `brier_score`,
+    `segment_base_rate`, and `brier_skill_score` off the evaluator and onto
+    `stamp-cell` on the merits and interim stages — a change to *who computes a
+    scored number*, which the scoring-baseline rule puts in this list;
+  - the **harness `correct` stamp**, which moves the accuracy column's per-cell
+    bit off the evaluator and onto `stamp-cell` on **every** stage, cert
+    included: the comparison needs no pooled baseline and so no salience band,
+    which is the whole of the skill stamp's cert exemption. No digest moves —
+    no prompt byte changed, and `stamp-cell` calls `pipeline.evaluate.is_correct`,
+    the same function the evaluate prompt already names as the definition — so
+    the quantity is unchanged and only its author moves, which is precisely what
+    puts it in this list. The leaderboard's **first rank key** is the affected
+    figure. Zero frozen-scope cells were ever stamped under the prior
+    ownership: the committed board reads `evaluations_total: 0` at
+    `process_scope: frozen`, so no published standing rests on an
+    evaluator-authored `correct`;
+  - the **retrieval-log capture marker** — `result_capture` on every call and
+    the log-level `result_capture_coverage` — which passes `mask_retrieval_log`
+    unmasked and so reaches the grader on the leakage grading's own required
+    reading path: a change to every evaluator's information set with no digest
+    of its own, the masking-surface case
+    [process-version.md](process-version.md) names. The promotion carrying it
+    lands some hours *before* the freeze instant, so the frozen partition is
+    homogeneous: no cell stamps as frozen before the instant, and the frozen
+    information set carries the marker from its first cell. No label
+    bump;
+  - the **retrieval-log condition marker** — `result_status` on every call and
+    the log-level `throttled_calls` — which is the capture marker's case
+    exactly: it passes `mask_retrieval_log` unmasked and so reaches the grader
+    on the leakage grading's own required reading path, a change to every
+    evaluator's information set with no digest of its own. It is the same
+    class of change and gets the same treatment rather than a quieter one,
+    because what makes it a masking surface is that it survives the mask, not
+    how interesting the field is. Two things bound it: the evaluate prompt's
+    instruction to read both fields rides the proc-v4 evaluator digest (the
+    freeze entry below), so instruction and information-set change are
+    partitioned together from that label forward — the cells graded before it
+    saw the fields unmasked with nothing instructing the read — and a
+    committed call's marker is `null` on every log written before capture
+    minted it — the frozen partition's cells carry the field from their first
+    cell or not at all. No label bump;
+  - the **code-mode calls** a code-mode engine makes from inside a
+    freeform builtin call, lifted out of that call's source into
+    `RetrievalCall` rows of their own — the manifest tools, and the engine's
+    own builtins beside them, which is where such a program does most of its
+    work. It is the largest of these entries and
+    the same class: a candidate whose staged log previously showed builtin rows
+    alone now shows the call classes reached from inside a program and their
+    query slices. So one
+    candidate's information set on the grader's required reading path changes,
+    with no digest of its own, which is what puts it here. Four things bound
+    it. A lifted row carries no result — no digest, no `retrieved_doc_date`,
+    the leakage grading's own timing signal — because a freeform call's one
+    combined output is not attributable to an individual call inside it; what
+    the grader gains is which tools were asked for, not what came back. The
+    rows are *what the engine already did*;
+    only their visibility to capture changes, so no cell retrieves differently.
+    And `call_source`, the marker naming a lifted row, is the one field
+    `mask_retrieval_log` **drops** rather than passing through, because it
+    identifies the engine as directly as the raw tool vocabulary the
+    respelling removes.
+    Unlike the two markers above, this one does **not** leave its partition
+    homogeneous, and the difference is worth stating rather than inheriting
+    their reasoning: the stamped code-mode cells already committed carry no
+    lifted rows and never can — their rollouts are gone — while later
+    cells under the same blessed digest carry them, so that partition holds
+    three capture regimes — no lifted rows, the manifest idiom alone, both
+    idioms — and nothing in a committed artifact names which one a cell was
+    minted under. `call_source` separates a lifted row from an item, which the
+    capture tripwire reads and the mask drops; what separates the two lifted
+    regimes is only whether builtin-named rows are there at all, a presence
+    rather than a marker. It still takes no label
+    bump,
+    because what the split can reach is bounded: a lifted row carries no
+    result, so the leakage assessment it feeds gains which tools a program
+    asked for and nothing about what came back, and that assessment moves no
+    quantitative field. No scored number differs across the regimes. The
+    summary fields that do move — a log's `result_capture_coverage`, and the
+    call total and observability rate built over its rows — are capture
+    statistics the scoring path does not read, and the coverage rate moves
+    toward the truth: a cell stamped under the manifest-only lift carries a
+    rate asserting that capture had seen retrieval it had not. Two standing
+    consequences belong on the record rather than only in the code. The
+    builtin names are enumerated, so a rename on that side mints no rows and
+    shows up as a code-mode cell's capture rate climbing back toward 1.0 —
+    a silent regime change with no tripwire, since the capture tripwire
+    deliberately watches the manifest idiom. And a lifted builtin row stages
+    under the neutral class `other` unless the tool-class map names it, so a
+    staged code-mode log carries rows whose query is plainly a shell command
+    under a class that is not `shell`; mapping those names is a change to what
+    the grader reads and belongs here when it happens. No
+    label bump;
+  - the **`sal-v3` activation**, whose own entry is above; it carries a
+    data-visible boundary of its own (`context.salience_version`), so it is
+    listed here for completeness rather than because it is invisible.
+
+- **The moment cutoff on forward provisioning, 2026-08-17.** No freeze commit
+  belongs to this entry either, on the `sal-v3` pattern: it moves no digest — no
+  prompt byte changes, and the prompts are the digest's input — and it carries
+  its own data-visible boundary, `context.cutoff`, non-null on a forward cell
+  whose event declares a moment **whose opening date is that moment's own
+  trigger**. What it changes is what such a cell is **conditioned on**:
+  `provision-snapshot` cuts the snapshot's proceedings and the documents at the
+  day after the event opened, so a later moment is provisioned at the
+  information set it declares rather than at the corpus's latest snapshot.
+  Without the cut, a grant-moment merits cell reads the merits calendar — briefs
+  filed, amici filed, the case argued — that only the *briefed* moment declares,
+  and nothing but agent discipline keeps the two forecasts apart. The registering
+  commit is the one this entry lands in; the boundary takes effect for cells
+  provisioned after the promotion carrying it.
+
+  The exception is one **moment**, not one stage: only the cert petition
+  baseline declares `opened_at_is_the_moment=False`, because its opening date is
+  docketing while the moment it declares is the distribution, so a cut there
+  would delete the relist history the cell is conditioned on. Every other
+  declared moment is placed, the cert stage's own `cvsg` and `arrival` moments
+  included, as is the interim application baseline — whose declared moment *is*
+  arrival, so its filing date is the trigger.
+
+  What the cut reaches, and what it leaves, are both part of the boundary. It
+  removes the post-cutoff proceedings entries, the post-cutoff documents, and
+  the top-level fields carrying a date of their own (`date_argued` and its
+  siblings, plus the payload's generation stamp). It does **not** reach the
+  undated top-level blocks — counsel and amici, which accrue as a case proceeds
+  — so a `truncated` cell carries them as at the pull it was reconstructed from.
+  That residual rides `truncated` cells only: a `dated` cell is a genuine
+  point-in-time payload and has none of it. So the provenance split is not
+  merely evidential strength, it is a difference in what survived, and a figure
+  over placed cells owes the `dated`/`truncated` counts beside it
+  ([metrics/README.md](../metrics/README.md)).
+
+  The pre-cut cohort of record is the 27 merits predictions of run
+  `20260816T111104Z` — 9 `evt-order-judgment` events × 3 predictors, the other
+  34 of the 43 minted merits event directories carrying no prediction yet —
+  each with `"cutoff": null` and `"snapshot_provenance": "as-stored"`. What
+  separates them from a placed cell is the **merits calendar**, not the band:
+  distributions are a cert-stage signal that stops at the grant, so those cells'
+  frozen counts (1, 2, 3, 5) are already pre-grant and their bands are near
+  enough invariant across the boundary. Two cautions on top of that. Read
+  `context.cutoff` before pooling forward cells of one moment: null and non-null
+  are two information sets. And these cells were placed under a **frozen prompt
+  that still describes the snapshot as the latest** — the prompt text is the
+  digest's input and moves only at a re-bless — so no cross-cohort claim should
+  span that re-bless either.
+
+- Freeze commit: `c2a168eea`, carried to `main` by the promotion tagged
+  `promotion/2026-08-26` (merge commit `6d92ed81b`, merged
+  `2026-08-26T14:46:40Z`). **`prereg/proc-v4` sits on that carrying merge
+  itself, not on the freeze commit** — unlike the three entries above,
+  whose tags mark their freeze commits. The placement is stated here
+  outright because the `prereg/` namespace blocks update and deletion, so
+  it is permanent: the pre-registered baseline tree at this tag is the
+  promoted batch's rather than the freeze commit's, and the two carry
+  byte-identical process inputs (prompts, registry config, the constants) —
+  `c2a168eea` is an ancestor of the tagged merge, so the freeze point
+  remains findable through it. The audit, run against the merge tree
+  before the tag was minted: the predictor digests are **byte-identical**
+  to `prereg/proc-v3`'s (the byte comparison this label substitutes for
+  step 4's date comparison — the held-instant paragraph later in this
+  entry), and the step-0 re-run held exactly at the authoring counts —
+  zero cells under any newly blessed digest, 226 stamped predictions,
+  105 retiring-digest evaluations. proc-v4 revises the
+  **evaluator half only**. What moved the three evaluator digests is
+  `.github/prompts/evaluate.md`: the judge-workspace prune (the committed
+  `predictions/` and `evaluations/` trees are hidden from a judge cell's
+  working tree for the run and restored after, landing with the prompt
+  passages that describe it, per the masking-surface rule) plus the folded
+  amendment batch — the `correct`/`brier_score` stamped-over provenance
+  note, the `result_capture` reading rule, the terminal-basis
+  machine-refusal mirror sentence, the moment-cutoff twin in the forward
+  leakage branch, and `retrieved_outcome_material` stated as a boolean. The
+  three predictor digests are **byte-identical** to the ones
+  `prereg/proc-v3` blessed and carry forward unchanged, so the frozen
+  prediction population is continuous across the labels: 226 stamped
+  predictions at authoring, every one under a carried-forward digest and at
+  or after the instant.
+
+  The freeze instant stays `2026-08-16T00:00:00Z`, deliberately unmoved
+  again — and this time the step-4 comparison reads the other way around:
+  the instant *precedes* the promotion that carries this commit, which for
+  an ordinary freeze would be the botched direction. It is sound here
+  because the instant does no work for anything this commit newly blesses.
+  The digests entering the set are evaluator-side, which the partition
+  records but never gates on (`graded_post_freeze` enforces timing alone),
+  and no cell can carry them before the promotion lands their bytes on
+  `main` — step 0 at authoring found zero stamped cells with any of the
+  three. The enforced half — the predictor digests — is byte-identical to
+  what `prereg/proc-v3` blessed, and its instant-versus-promotion audit is
+  that entry's, already passed. Moving the instant forward instead would
+  drop all 226 stamped predictions from the headline for a change that
+  touched no predictor byte. The auditor's check for this label is
+  therefore not the date comparison but the byte comparison: the predictor
+  digests under `prereg/proc-v4` must equal `prereg/proc-v3`'s. The rule
+  this instantiates — hold the instant where the enforced half is
+  byte-identical to the prior tag's, audit by the byte comparison — is the
+  evaluator-half supersession note in
+  [process-version.md](process-version.md#freezing-the-cutover-procedure).
+
+  **The retiring evaluator digests and what ran under them.** proc-v3's
+  evaluator digests (`sha256:3aeddcede…` claude-judge, `sha256:8771a0c85…`
+  codex-judge, `sha256:b2ed9c208…` gemini-judge) leave the set superseded,
+  and 105 committed evaluations carry them at authoring (36/36/33 by
+  judge), every one stamped at or after the instant. They stay counted: an
+  evaluation's digest is recorded but only its timing is enforced, so the
+  supersession changes no headline — this entry is where the blessed
+  grading process behind those cells stays recorded now that the constant
+  no longer names it. Membership, though, is not the numbers: because the
+  evaluator digest records but never partitions, the leakage and
+  reasoning-quality series pool across the rubric boundary with no artifact
+  marking it. The measured exposure at authoring is degenerate — all 105
+  are forward cells graded `not_applicable` and unsuspected, 96 recording a
+  boolean `retrieved_outcome_material` and 9 a null the boolean amendment
+  closes — so the amendments raise coverage rather than break observed
+  variation, and a cross-boundary coverage comparison is a coverage change,
+  not a behavior change. One authoring-time fact completes the record: the
+  boards' `frozen_process.digests` provenance will name three evaluator
+  digests no counted evaluation carries until the first proc-v4 grading
+  run — for that interval the partition's evaluator half is answered by
+  this entry, not the artifact. The step-0 re-run at the promotion
+  confirmed the counts here unmoved.
+
+- **The band risk set's reachable-ladder construction, 2026-08-28.** No freeze
+  commit belongs to this entry, and no data-visible boundary comes with it
+  either: it is the **scoring baseline**, the member
+  of [process-version.md](process-version.md)'s list with no boundary at all.
+  It re-bases `prediction_base_rate` under unchanged digests, an unchanged
+  `base_rate_basis` (`risk_set`) and an unchanged
+  `base_rate_salience_version` — the scorer version does not move, only the
+  population one of its bands is pooled over. The statpack built each band's
+  risk set as a prefix over the band *order*, which under a caption-banded
+  scorer puts every `federal` petition in the risk set of bands its caption
+  made unreachable; it is now pooled over each petition's own reachable ladder
+  (`SalienceScorer.reachable`, [salience.md](salience.md)). Measured on packs
+  built either way from one corpus blob (latest pull `2026-08-27`, latest
+  snapshot `2026-07-13`), pooled at an OT2026 anchor over the full `sal-v3`
+  lookback: `federal` unmoved at 0.7114 (n=201), `high` 0.4117 → 0.3490
+  (1161 → 960), `state` 0.3642 → 0.2156 (1425 → 371), `elevated`
+  0.1991 → 0.1646 (3737 → 3165), `baseline` 0.0652 → 0.0504
+  (13163 → 12591); every *terminal* rate and every `sal-v1` segment is
+  byte-identical across the pair.
+
+  **No published number is re-based.** At this commit the ledger's 144
+  committed evaluations record 24 `terminal` bases and 120 nulls and **zero**
+  `risk_set` bases, and both `metrics/leaderboard.json` and
+  `metrics/claim-scores.json` are empty boards (`evaluations_total: 0`). So the
+  boundary this entry stands in for separates no two scored cells, which is what
+  makes this the moment to take the change rather than a later one. The
+  corrected rates reach cells at the first metrics refresh after the promotion,
+  as a salience flip's do.
+
+  One inconsistency stays on the record until the next re-bless: three passages
+  of `.github/prompts/predict.md` — the band-null cert fallback, the
+  version-mismatch fallback, and the arrival anchor — name the weakest band's
+  bracketed `reached` rate as the scored segment's unconditional rate. Under the
+  reachable ladder that figure is the *private* class's rate, and no single cell
+  of the rendered table carries the segment-wide one. The correction is a prompt
+  byte, so it moves all three predictor digests and belongs with the next freeze
+  label rather than beside the construction.
+
+- **The interim amicus reading, 2026-08-28.** The counter behind
+  `amicus_briefs` admits the plural (`amic(?:us|i)\s+curiae`) — a change to a
+  number both ends of the `amicus-increment` claim are computed from, under an
+  unmoved digest and with no data-visible boundary: it is a scoring-baseline
+  member of [process-version.md](process-version.md)'s list, like the entry
+  above. The old reading missed roughly half of all amicus-naming docket
+  entries (measured 49.5% → 4.1% on the 2026-08-27 blob), and the corpus
+  column max-latches, so the corrected counts reach open applications on their
+  next poll while every frozen context keeps the count it was provisioned
+  with. **Nine pending cells** — `scotus/73279700`, `scotus/9526000163`, and
+  `scotus/9526000245`, one `evt-motion-disposition` event each across three
+  predictors — are frozen at `amicus_briefs = 0` with the column also 0 at
+  this commit: after the first post-promotion poll their `amicus-increment`
+  compares an old-reading context against a new-reading outcome, so a
+  resolution of 1 on those cells is the measurement widening, not a docket
+  movement, and **their increment is not claimable as a forecast hit**. The
+  three `scotus/9526000203` events are unaffected — their column already read
+  2 under the old counter, so both ends move together.
+
+- **`sal-v4` registered, inactive (the `dist-v2` distribution parse),
+  2026-08-28.** No freeze commit belongs to this entry, on the `sal-v3` pattern:
+  the salience version sits outside the process digest (`pipeline_sha` is not an
+  input), carries its own data-visible boundary
+  (`context.salience_version`), and a registration re-blesses nothing. This
+  commit adds the `sal-v4` scorer with `sal-v3` still active — the scorer reuses
+  `sal-v3`'s score, band, carve-out and reachable **callables** and its band
+  **tuple**, and changes one field, `distribution_parse`, from `dist-v1` to
+  `dist-v2`. Nothing the live pass selects, latches, or stamps moves at this
+  commit; what changes is that `statpack.json` and `salience-replay.json` now
+  carry a fourth version's bands. Carried to `main` by the promotion tagged
+  <FILL: promotion tag> (merge commit <FILL: merge commit>, merged
+  <FILL: merge timestamp>). No freeze procedure fills those three: the freeze
+  step that fills placeholders fires at a `prereg/` tag and this entry has no
+  freeze commit, so they are the carrying promotion's author's to complete, and
+  the promotion PR carries the instruction.
+
+  **The statistical review of record**, quoted verbatim because the census
+  artifact carries a one-day retention and is deliberately uncommitted. Two of
+  its sentences lean on the issue that proposed the parse, glossed here so the
+  record stands alone: that issue's premise was that `dist-v1` inflates the
+  relist trajectory by counting ancillary paper, and it named three example
+  cells whose counts it said sealing-motion lines had lifted. The review
+  confirms those three and qualifies the premise — the inflation sits on decided
+  rather than live pending dockets.
+
+  > The dist-v1 → dist-v2 distribution census produced by run-analytics run
+  > 33196262688 (main @ 737696ff7c, 2026-08-28, corpus_sha256 =
+  > b16b856fcc8a247f0e5df5bc0f22fca207c011c85ea1fa870a6f2be2f9abb9e3) is
+  > accepted as the statistical review of record for registering sal-v4, scoped
+  > to a sal-v4 that is sal-v3 with the pinned distribution parse changed and
+  > nothing else. The artifact was reproduced byte-identically against the named
+  > corpus blob by re-running fedcourts distribution-census, and every field was
+  > re-derived a second time by an independent implementation. Coverage is 13,839
+  > of the 13,840-row frame (99.993%); the single unobservable row is an OT2025
+  > pending case and reconciles frame_pending 499 against pending 498 exactly.
+  > The delta is 181 changed counts (1.308% of the observable frame) and 159
+  > changed bands (1.149%), all downward — count_increased = 0, the full 25-cell
+  > zero-filled transition square has every strengthening cell at zero, and a
+  > line-level check across all 181 changed cases found no entry matched by
+  > dist-v2 that dist-v1 does not also match, so the nesting is observed rather
+  > than assumed. An exhaustive audit of every dropped line shows the delta is
+  > ancillary paper without exception (176 MOTION, 5 APPLICATION, 2 SUGGESTION, 2
+  > MOTIONS, 2 clerk-typo MOTOIN, and one Petition for Rehearing), with no
+  > genuine petition distribution dropped and no kept line naming a motion,
+  > application, or rehearing; the three cells flagged in #1256 are in the changed
+  > set with exactly the sealing-motion lines the issue named. Change rates are
+  > homogeneous across the eight complete Terms (pooled 1.424%, χ² = 10.12 on 7
+  > df, p ≈ 0.18), and moves concentrate in high (41/1,023) and elevated
+  > (118/2,364) as the count-monotone band functions require. One substantive
+  > finding qualifies #1256's premise: the inflation is concentrated on decided
+  > rather than live pending dockets (pending 0.80% vs decided 1.33% of counts),
+  > the maturity confound in its expected direction, so the census figure is an
+  > upper bound on what the gate sees at selection time. No anomaly blocks
+  > registration. This is the input-level cut only: the corpus distribution_count
+  > re-derivation, the statpack rebuild, the relist-tier re-measure, and the
+  > salience-replay rank-and-cap remain the activation's own steps, and this
+  > review does not license activation.
+
+  **Four findings carried onto this record.** Findings (2) and (3) are the
+  quoted review's own numbers; (1) and (4) are not in it — (1) is a further
+  observation from the same census artifact, re-derived at this commit against
+  the blob quoted above, and (4) is a constraint stated here rather than
+  measured. (1) Five cases read never-distributed under `dist-v2` — four falling 1 → 0, and `scotus/68076851`
+  3 → 0 on three motion lines. The four are relist-0 under both readings
+  (`max(0, count − 1)`), so their bands do not move. The fifth's does, and the
+  correction is recorded here rather than carried forward: it crosses both
+  cutpoints and bands `high` → `baseline`, so it belongs among finding (3)'s 41
+  `high`-leavers and not beside the other four. Checked at this commit against
+  the blob quoted above — `scotus/68076851` reads `distribution_count` 3 under
+  `dist-v1` and 0 under `dist-v2`, primary rate 0.4197 → 0.0337, no CVSG, and a
+  caption `caption-v2` does not read `federal`. What is true of all five is the
+  cohort key: `distributed_for_conference` is deliberately unversioned, so they
+  sit in the conference cohort an ancillary paper was distributed for while
+  carrying a zero count. A declared divergence of the unversioned key, recorded
+  here rather than rediscovered later as a defect. (2) `elevated → baseline` is
+  118 rows, 5.0% of
+  `elevated`, so activation step 2's statpack rebuild is **expected to move that
+  band's published rate**, not merely to relabel its members; a rebuild leaving
+  the rate unmoved is evidence the rebuild did not happen. (3) 41 cases leave
+  `high`, the always-include tier, which is a real selection consequence rather
+  than a labelling one — leaving `high` means leaving the carve-out for the rank
+  contest — and is `salience-replay`'s question, not the census's. (4) The
+  sequencing is an **invariant**: `sal-v4` must never be made active before the
+  corpus `distribution_count` column is re-derived under `dist-v2`, or frozen
+  contexts would carry `dist-v2` counts against `dist-v1` column counts and the
+  relist-increment claim's "the count never falls" premise would break upward.
+  Activation step 1 already orders this (*The distribution parse* in
+  [salience.md](salience.md)); it is stated here as a constraint rather than an
+  accident of ordering. What the test suite pins is only the **label** —
+  the active scorer's `distribution_parse` equals the parse registry's
+  default — which a commit moving `SALIENCE_VERSION` and that default together
+  would satisfy while the stored column still held `dist-v1` counts. The check
+  that settles the invariant is therefore a data check, not a test: after the
+  writer re-derivation and before the flip, a census of the column's own
+  reading against `dist-v2` must report `count_changed = 0`.
+
+  **One artifact reads wrong-by-label until activation step 2, harmlessly.**
+  `statpack.json` bands every registered version off the corpus's single
+  `distribution_count` column, which holds `dist-v1` counts, so the
+  `alt_segments` block labelled `sal-v4` in every pack rendered between this
+  commit and the column re-derivation is `sal-v3`'s pool under a `sal-v4` label.
+  No number is corrupted by it and nothing consumes it: a version-pinned pool is
+  read only by a prediction frozen at that version, and no prediction can freeze
+  at an inactive one. It is recorded because the block is committed and dated,
+  and a later reader comparing packs across the activation would otherwise read
+  the correction as a population shift.
+
+  **The rank-and-cap read, and why it settles nothing.** `fedcourts
+  salience-replay --terms 2022,2023,2024` was run at this commit with `sal-v4`
+  registered, against the blob the review names (`corpus_sha256` as quoted above;
+  latest pull `2026-08-28`, latest stored snapshot `2026-07-13`, and the
+  local pointer warning that the blob on disk is not the committed ref's — the
+  same blob as the review's, so the comparison holds). What it observed: over the
+  four cells that select anything — OT2023 and OT2024 at `distribution-1` and at
+  `resolution` — the selected set is identical under `sal-v3` and `sal-v4`. The
+  other five cells of the 3 Terms × 3 policies select nothing under either scorer
+  (all three OT2022 cells, both `arrival` cells) and carry no evidence either
+  way. The parse bites in one cell only, OT2023 at `resolution`, where four
+  projected dockets change count — two falling `high` → `elevated`
+  (`scotus/72479901`, `scotus/72480027`) and two `elevated` → `baseline`
+  (`scotus/72479771`, `scotus/72482969`) — and the selected set is identical at
+  149 petitions with only the provenance of two picks moving, 48 → 46 carve-out
+  picks against 101 → 103 rank fills, the two `high`-leavers losing their
+  guarantee and being re-picked by the fill. Set identity was checked case by
+  case with a scratch script; the committed artifact publishes counts only, so it
+  cannot be re-derived from the cell.
+
+  That zero is **not** a bound on disruption in the reassuring direction. The
+  slice the replay could reconstruct is not a sample of the frame but its granted
+  end: measured on this blob, the reconstructable rows carry grant-family rates
+  of 0.4207 (OT2023, 69/164) and 0.4000 (OT2024, 90/225) against 0.0318
+  (38/1,194) and 0.0009 (1/1,087) on the rows it could not read, over Terms whose
+  own rates are 0.0788 and 0.0694; OT2024's read slice holds 90 of that Term's 91
+  grants, and OT2022 reconstructs nothing at all. Within it the gate selects 149
+  of 164 readable OT2023 rows and 1 of 29 cohorts is capacity-bound, so the rank
+  contest has almost no opportunity to exclude a demoted petition. The run
+  therefore has close to no power to detect selection disruption, and its zero is
+  consistent with any amount of it at full coverage. No rate, band mix, precision
+  or recall from it transfers to the frame.
+
+  The cause is data availability, not the replay's method, and `corpus_sha256`
+  invites the wrong reading of it: the hash names the SQLite **index**, while the
+  snapshot payloads live in the per-case content store this checkout does not
+  have wired. Re-running the census itself here, against that same blob, observes
+  811 of the 13,840-row frame (5.9%) where the `run-analytics` census reached
+  99.993% — so the gap between the two artifacts is the store, not the
+  reconstruction. That re-run also corroborates finding (1) independently:
+  `scotus/68076851` appears in its `band_changed` ids, and its transition square
+  carries the single `high` → `baseline` move.
+
+  **This finding is provisional.** The census's 41 `high`-leavers are not shown
+  to keep their funding, and the instrument that would show it is the same replay
+  run where the store is wired — `run-backtest`'s salience-gate replay, a
+  dispatch rather than a local command. Until that runs, the selection question
+  activation turns on is open.
+
+- **`sal-v4` activated (the `dist-v2` distribution parse), 2026-08-28.** A
+  distinct entry rather than a completion of the registration entry above: that
+  entry is landed, and the only editable content an entry ever has is its
+  `<FILL:>` promotion placeholders, which are the carrying promotion's and not
+  activation's. This follows `sal-v3`'s precedent, where registration and
+  activation are recorded together because they shared one entry's lifetime; here
+  they did not. No freeze commit belongs to this entry either, on the same
+  argument: the salience version sits outside the process digest (`pipeline_sha`
+  is not an input), carries its own data-visible boundary
+  (`context.salience_version`), and a flip re-blesses nothing.
+
+  **The flip is one commit moving two constants**, and the pairing is a
+  requirement rather than tidiness. `SALIENCE_VERSION` goes `sal-v3` → `sal-v4`
+  and `cert_signals.DEFAULT_DISTRIBUTION_PARSE` goes `dist-v1` → `dist-v2`
+  together, for two reasons. The active-scorer-parse-equals-registry-default
+  alignment is test-pinned, so a split commit fails the suite. And the re-latch
+  paths — the live poll, `refresh-dockets`, the Term walker — write the
+  **default** parse's count, so a flip that moved only the version would keep
+  writing `dist-v1` counts into a column re-derived to `dist-v2` and re-corrupt
+  it pull by pull. Neither reason is discretionary.
+
+  **The consumer chase.** Nothing in `src/` branches on either literal — the
+  design is registry dispatch throughout — so the statpack's `alt_segments`
+  split, `salience-replay`'s per-parse projections, `registered_versions()`'s
+  active-first ordering, the cell-context parse hand-off and every
+  `salience_version` stamp follow the constants without edit. Three things did
+  need a decision. `sal-v1` through `sal-v3` keep `distribution_parse =
+  "dist-v1"`, including the `SalienceScorer` field default they take it from,
+  which is now deliberately *not* the registry default: re-pointing it would
+  re-read three frozen versions. The `distribution-census` command's
+  `--candidate-parse` became **required**, because with the incumbent following
+  `DEFAULT_DISTRIBUTION_PARSE` a bare post-flip invocation would have been a
+  parse-against-itself census reporting no movement on every row. And the
+  `run-analytics` census dispatch defaults were left at `dist-v1` → `dist-v2`,
+  which now reads the activation backwards rather than arguing a candidate — a
+  re-derivable check on what the flip moved, not a review of anything.
+
+  **Activation step 2's decision, taken here: the outgoing version's frozen
+  predictions re-baseline, and the block does not record its parse.** The pack
+  bands every registered version off the one `distribution_count` column, so once
+  that column reads `dist-v2` the `sal-v1` / `sal-v2` / `sal-v3` `alt_segments`
+  blocks are measured on populations their declared parse never defined, and a
+  prediction frozen at `sal-v3` reads one. Recording the parse on the block was
+  the alternative; it is a schema change on a committed artifact, with its own
+  drift check and review, and it would label the substitution rather than repair
+  it. Stating it does the same work: a `sal-v3` cell's published baseline after
+  the rebuild is `sal-v3`'s band rule over `dist-v2` counts — `sal-v4`'s pool
+  wearing `sal-v3`'s name — and the substitution is bounded by the census delta,
+  159 changed bands on 13,839 observable rows, 1.149% pooled. The bound that
+  matters is per band, because the movement concentrates: `elevated` 118 of 2,364
+  (5.0%) and `high` 41 of 1,023 (4.0%), four to five times the pooled figure, and
+  `high` is the always-include tier — which is also why the registration entry
+  expects `elevated`'s published rate to move. Those three figures are the
+  registration census's, taken on blob `b16b856f…`, not this entry's
+  `c6b43484…`; the frame sizes coincide and the blobs do not.
+
+  **Activation step 3, the relist-tier re-measure.** Basis: a **snapshot-side
+  recount**, not a column read — the local blob still held `dist-v1` counts when
+  this was taken, so the column-side confirmation lands with the post-apply
+  statpack rebuild. Corpus blob
+  `c6b43484cab17ac7495d23d1c81f01ad686be098914d88cbe6d9b9cb7085e085` (latest pull
+  `2026-08-28`, latest stored snapshot `2026-07-13`), store-served, read over the
+  distribution census's own frame (live-slice, paid, modern-cert, parseable Term)
+  on the resolved rows, both parses counted off each case's latest live-shaped
+  snapshot so the readings are compared on identical rows. Frame 13,840 rows;
+  13,839 observable, 1 unobservable, 13,341 resolved. A **fit diagnostic for a
+  ranking constant, not a scoring baseline**: it pools the whole walked range with
+  no own-Term exclusion and no `base_rate_lookback_terms` cut, so no figure here
+  is the per-Term prior-Terms-only band rate an evaluator scores against.
+
+  Reported in **both** granted-side vocabularies, because the mis-fit below lands
+  in different tiers under each. `GRANTED_DISPOSITIONS` (the binary target) and
+  `GRANT_FAMILY_DISPOSITIONS` (the statpack's published `est_grant_rate`) both
+  include GVR and coincide on this frame, whose only resolved dispositions are
+  granted, GVR, denied and dismissed; a granted-only cut dropping GVR is a third
+  vocabulary the pipeline neither scores nor publishes.
+
+  | relist tier | n (`dist-v1` / `dist-v2`) | granted-only (`dist-v1` / `dist-v2`) | grant family (`dist-v1` / `dist-v2`) | fitted constant |
+  | --- | --: | --: | --: | --: |
+  | 0 | 9,768 / 9,892 | 0.01188 / 0.01284 | 0.01730 / 0.01820 | 0.008 |
+  | 1 | 2,566 / 2,486 | 0.08262 / 0.08407 | 0.13016 / 0.13475 | 0.078 |
+  | 2+ | 1,007 / 963 | 0.24926 / 0.25234 | 0.38431 / 0.38941 | 0.394 |
+
+  Pending rows sit outside those denominators, censored unevenly across the tiers:
+  449, 42 and 7 under `dist-v2`, being 4.3%, 1.7% and 0.7% of each tier's
+  observable rows.
+
+  A corroboration falls out of the same run: over all 13,341 resolved observable
+  rows the **stored column's** tier assignment is identical to the snapshot-side
+  `dist-v1` recount, tier for tier and disposition for disposition. That is the
+  pre-apply state observed rather than assumed — this blob's column holds
+  `dist-v1`, which is the premise the merge hold below rests on. The `dist-v1`
+  reading also reads close to the committed statpack's relist section (0 → 1.2%,
+  1 → 8.0%, 2 → 26.3% and 3+ → 23.3%, pooling to ≈24.8% at 2+). That is a
+  sanity check on the frame, not an identity: the statpack cut is
+  **denial-reweighted** while this one is raw (the census frame raises on
+  `sample_weight != 1` and did not raise, so it carries no weighted rows), and it
+  splits 2 from 3+ where this pools them. That the statpack's own frame is
+  effectively unweighted too is **inferred** from the two agreeing, not checked —
+  its cut carries no parseable-Term filter and a different vintage. The agreement
+  to within a few tenths of a point says the reweighting does not bite hard on
+  this cut; it does not license quoting one number for the other.
+
+  **What the parse moves, and what it does not.** The tiers move by 0.096, 0.145
+  and 0.308 percentage points, all upward — which is a **mixture shift, not a
+  uniform improvement**: the overall grant rate is fixed at 579/13,341 = 4.340%
+  under either reading, so all three conditional rates can rise only because mass
+  moved into the low-rate tier. Two flows are exact rather than inferred, since
+  relist-2+ is the ceiling of a count that can only fall (pure outflow) and
+  relist-0 its floor (pure inflow): 44 resolved rows carrying 8 grants left 2+
+  (0.1818, below 2+'s 0.2493), and 124 resolved rows carrying 11 grants entered 0
+  (0.0887, far above 0's 0.0119). So the petitions `dist-v2` demotes grant at
+  roughly the relist-1 level rather than the relist-0 level, and demoting them
+  costs a little top-to-bottom separation: the 2+-to-0 rate ratio falls from
+  20.99× to 19.65×, and on the grant family from 22.21× to 21.40×, so the
+  direction does not depend on the vocabulary. Whether that ~4–6% loss is real or
+  sampling noise is not settled by 11 grants on 124 rows, and it is not what the parse was argued for —
+  `dist-v2` is a correctness claim about what the DISTRIBUTED phrase means, not a
+  discrimination improvement. Recorded so a `sal-v5` refit starts from it rather
+  than from the assumption that a narrower reading is a cleaner one. Nothing in it
+  moves a cutpoint.
+
+  **The mis-fit finding, recorded and not corrected — and which tier mis-fits
+  depends on the vocabulary.** Against **granted-only** the 2+ constant is the
+  outlier: 0.394 against 0.25234 is 1.56×, +14.2 points, while relist-0 and
+  relist-1 sit *below* their measured rates at 0.62× and 0.93×. Against the
+  **grant family** — the vocabulary the statpack publishes in, and the one
+  `pipeline/salience.py` names as the constants' source — it inverts: 0.394
+  against 0.38941 is **1.01×, +0.46 points**, essentially exact, and the mis-fit
+  moves to relist-0 (0.44×) and relist-1 (0.58×). One constant is nearly right in
+  each reading and never the same one, so the three are not all estimating the
+  same quantity on this frame. Which of them is wrong is not answerable from this
+  measurement, only from the fitting frame they were taken from, which it cannot
+  recover.
+
+  Two things it does establish. The divergence is **invariant to the parse**
+  (granted-only 1.56× at `dist-v2` against 1.58× at `dist-v1`; grant family 1.01×
+  against 1.03×), so the parse does not cause it. And **corpus drift does not
+  cause it either**, at least at 2+: the fresh `dist-v1` reading 0.24926 agrees
+  with the committed statpack's own 2+ pooling (≈0.2489) to within four
+  hundredths of a point, so a corpus that had drifted 14 points away from the
+  constant would have had to drift the published pack with it, and it did not.
+  The cause is recorded as unidentified rather than guessed at.
+
+  Two constraints travel with these numbers to whoever refits. They are a fit
+  diagnostic, **not** a scoring baseline — no own-Term exclusion, no
+  `base_rate_lookback_terms` cut — so none of them is the per-Term
+  prior-Terms-only band rate an evaluator scores Brier skill against. And the tier
+  is read off each case's **latest** live snapshot, its final count, while the
+  score applies these constants to the count **as at prediction**; a refit taking
+  them at face value would fit final-count rates for prospective use on
+  systematically lower as-at-prediction tiers.
+
+  The cutpoints do **not** move, and the reason is more than the registry's rule
+  against editing a frozen constant: the always-include **floor** is entangled
+  with the 2+ constant, and entangled *differently* under each vocabulary.
+  `salience.floor` is 0.28, set to sit at the relist-2 / CVSG grant-rate band.
+  Substituting the **granted-only** 0.25234 for 0.394 leaves the *band* alone
+  (every 2+ petition still clears the `high` cutpoint of 0.20) but drops it out of
+  the always-include carve-out for every originating circuit except `cadc`, the
+  only nudge large enough to reach the floor: 0.29804 against `ca5`'s 0.27804,
+  `ca9`'s 0.26914 and an unlinked petition's 0.25734. Substituting the
+  **grant-family** 0.38941 instead changes nothing, since it already sits above
+  the floor. So one refit silently strips the always-include tier of nearly every
+  2+ petition and the other is a no-op, and which it is turns on a vocabulary
+  choice no one has taken on the record. All arithmetic checked at this commit
+  against the shipped `config/tracking.yaml`. A refit must therefore re-decide the
+  floor **and** the vocabulary in the same version — which is the `sal-v5` agenda
+  this finding feeds, argued from this re-measure as the census argued `sal-v4`.
+  (A 2+ petition carrying a CVSG keeps the carve-out under either substitution:
+  its primary signal takes the CVSG rate 0.283, and CVSG is its own carve-out
+  predicate besides.)
+
+  **One seam this activation opens and does not close.** A cell frozen under
+  `sal-v3` carries the wider reading's count while the re-derived column serves
+  the narrower one, so on a docket the readings disagree about, the
+  relist-increment claim's strict comparison can read a genuine relist as no
+  increment. The direction is the safe one — a **suppressed** increment, never a
+  spurious hit. Measured rather than assumed: of the 106 committed prediction
+  cells carrying the claim, across 36 cases, exactly **9 cells on 3 cases** sit on
+  dockets the parse moves — `scotus/73500263`, `scotus/73500287` and
+  `scotus/9026000013`, three predictors each, all frozen at `sal-v3`. Their frozen
+  `context.distribution_count` reads 2, 2 and 1 (the `dist-v1` reading), and the
+  `dist-v2` recount of the same snapshots reads 1, 1 and 0 — which is why those
+  are also the post-apply column targets the spot check below names, and why the
+  check is re-derivable from the committed artifacts.
+  All three cases are **pending** on this blob, so no such claim has been scored
+  and none can be until they resolve. Masking those cells — the frozen version's
+  parse against the column's — is a scoring change and is deliberately not made
+  in this commit; it is a follow-up with its own review.
+
+  **The pre-flip data check, corrected.** The registration entry above states
+  that the invariant is settled by "a census of the column's own reading against
+  `dist-v2` reporting `count_changed = 0`". That check is weaker than it reads and
+  is recorded here as superseded rather than by revising it: `distribution-census`
+  takes **neither** side off the column (both counts come off the latest
+  live-shaped snapshot, by design — the column holds one parse's answer,
+  max-latched, so it could not supply either side on equal terms), so after the
+  re-derivation the named census is `dist-v2` against `dist-v2` and its zero is a
+  tautology about the label. What actually settles it is the apply dispatch's own
+  reported applied-row count, plus a spot check on the three cases named above:
+  their stored `distribution_count` must read 1, 1 and 0. That check is cheap, it
+  is a `query` away, and it fails loudly if the writer's latch bypass did not
+  bite. It must be taken on the far side of the window named next, not before it.
+
+  **The re-inflation window, and why the hold runs past the merge.** `run-pull`'s
+  `live` mode is scheduled (`47 4,10,16,22`), and a scheduled workflow runs from
+  the **default branch** — where `DEFAULT_DISTRIBUTION_PARSE` is still `dist-v1`
+  until this flip is *promoted*, not merely merged to `staging`. Every live poll
+  between the apply dispatch and the promotion therefore recomputes the wide count
+  for the rows it touches and writes it through `upsert_rows`, whose
+  `distribution_count` latch is `MAX(COALESCE(excluded, cases), COALESCE(cases,
+  excluded))` — so the re-inflation is **permanent**, and no later `dist-v2` write
+  can lower it. Once `sal-v4` is live those rows are the upward break the whole
+  invariant exists to prevent: a narrow frozen count against a stuck-wide column,
+  producing spurious relist-increment hits and a band stronger than `sal-v4`
+  declares. The exposed set is small and quiet, which is what makes it dangerous —
+  the parses disagree on ~0.8% of pending rows, and the three cases named above
+  are pending, so they sit squarely in the poll rotation.
+
+  **This commit is MERGE-HELD** until the maintainer's re-derive apply dispatch
+  has run, and the re-derivation must be **run again after the promotion lands**
+  (or the live writers held across the window above). It is the sequencing
+  invariant, not a preference: the flip must not reach `staging` before the column
+  it depends on is re-derived, because the test suite pins only the label and
+  would pass with the stored column untouched — and it must not sit on `main`
+  over a window in which the outgoing parse is still writing. Carried to `main` by
+  the promotion tagged <FILL: promotion tag> (merge commit <FILL: merge commit>,
+  merged <FILL: merge timestamp>). No freeze procedure fills those three — this
+  entry has no freeze commit — so they are the carrying promotion author's to
+  complete.
+
+  **The scored window opens at the first post-promotion metrics refresh, not at
+  the flip**, as it did for `sal-v2` and `sal-v3`. The committed `statpack.json`
+  carries no `sal-v4` block, so until the rebuild every `sal-v4` cell reads the
+  version-pinned pool's designed `None` — legitimately empty, supporting no
+  claim. The `elevated` band's published rate is **expected to move** at that
+  rebuild (finding (2) of the registration entry: 118 rows, 5.0% of the band); a
+  rebuild leaving it unmoved is evidence the rebuild did not happen.
+
+  **The selection question stays open.** The registration entry's replay run has
+  close to no power and the activation does not add any. The instrument is
+  `run-backtest`'s salience-gate replay with the content store wired — a
+  dispatch, not a local command — and until it runs, whether the 41 `high`-leavers
+  keep their funding is unanswered.

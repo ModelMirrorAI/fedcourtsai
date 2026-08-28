@@ -406,7 +406,7 @@ def test_per_term_segments_carry_the_salience_band_base_rate(
     # Every Term emits all three bands in the fixed strongest-first order, tagged
     # with the frozen scorer version — a stable JSON shape even for empty bands.
     resolved_term = _term(pack, 2022)
-    assert resolved_term.salience_version == "sal-v3"
+    assert resolved_term.salience_version == "sal-v4"
     assert [s.band for s in resolved_term.segments] == list(_BANDS)
     by_band = {s.band: s for s in resolved_term.segments}
     # scotus/304 is one relist -> elevated; its sampled denial weights the rate 5x.
@@ -694,7 +694,7 @@ def test_render_statpack_markdown_renders_the_segment_base_rate(
     md = analytics.render_statpack_markdown(_pack(fixture_corpus))
     # The pack-wide band section (blended) and the leakage-safe per-Term table.
     assert "## Cert petitions by salience band" in md
-    assert "### Segment base rate by salience band (sal-v3)" in md
+    assert "### Segment base rate by salience band (sal-v4)" in md
     assert "| Term | federal | high | state | elevated | baseline |" in md
     # OT22's lone scored petition is a weight-5 elevated denial. A cell leads with
     # the scored (terminal) rate and brackets the risk-set one. `high` is empty —
@@ -1660,13 +1660,14 @@ def test_the_scored_merits_baseline_never_sees_the_gvr_block(tmp_path: Path) -> 
 def test_alt_segments_carry_exactly_the_non_active_versions(
     fixture_corpus: FixtureCorpus,
 ) -> None:
-    """The block exists for every non-active registered version — today, sal-v1
-    and sal-v2 beside the active sal-v3 — and never repeats the active one, so
-    a prediction frozen at any registered version keeps a published base rate."""
+    """The block exists for every non-active registered version — today, sal-v1,
+    sal-v2 and the superseded sal-v3 beside the active sal-v4 — and never repeats
+    the active one, so a prediction frozen at any registered version keeps a
+    published base rate."""
     pack = _pack(fixture_corpus)
     for term in pack.terms:
         versions = {alt.salience_version for alt in term.alt_segments}
-        assert versions == {"sal-v1", "sal-v2"}, versions
+        assert versions == {"sal-v1", "sal-v2", "sal-v3"}, versions
     payload = pack.model_dump(mode="json")
     assert all("alt_segments" in term for term in payload["terms"])
 
@@ -1682,7 +1683,7 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
         assert term.salience_version == SALIENCE_VERSION
         assert [s.band for s in term.segments] == list(_BANDS)
         alts = {alt.salience_version: alt for alt in term.alt_segments}
-        assert set(alts) == {"sal-toy", "sal-v1", "sal-v2"}
+        assert set(alts) == {"sal-toy", "sal-v1", "sal-v2", "sal-v3"}
         # Each version's own vocabulary, not the active scorer's — a band name
         # means something only under the function that assigned it.
         assert [s.band for s in alts["sal-toy"].segments] == ["hot", "cold"]
@@ -1690,9 +1691,12 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
         assert [s.band for s in alts["sal-v2"].segments] == list(
             _BANDS
         )  # one caption-banded vocabulary
+        # sal-v3 shares the active sal-v4's band vocabulary exactly; only its
+        # parse differs, and the pack bands every version off the one column.
+        assert [s.band for s in alts["sal-v3"].segments] == list(_BANDS)
     # And it survives serialization rather than being dropped by the wrap serializer.
     payload = pack.model_dump(mode="json")
-    assert all(len(term["alt_segments"]) == 3 for term in payload["terms"])
+    assert all(len(term["alt_segments"]) == 4 for term in payload["terms"])
 
 
 def test_both_versions_count_the_same_rows_into_their_own_bands(

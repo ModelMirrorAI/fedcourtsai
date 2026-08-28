@@ -9,6 +9,7 @@ from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import cell_context, cert_signals, ingest
+from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.schemas import EventKind, Moment, Stage
 from tests.conftest import FixtureCorpus
 
@@ -452,7 +453,7 @@ def test_the_cell_context_freezes_the_band_the_snapshot_discloses(
     assert context["distribution_count"] == 2
     assert context["cvsg_date"] == "2025-03-03"
     assert context["band"] == "high"
-    assert context["salience_version"] == "sal-v3"
+    assert context["salience_version"] == SALIENCE_VERSION
     assert context["term"] == 2024  # docket 24-12
     # The interim trio is NOT frozen on a cert cell. The block is part of the
     # cell's information set, so widening it for a stage that declares no claim
@@ -482,7 +483,7 @@ def test_the_cell_context_reads_the_caption_band_from_the_payload(
     assert context["signals_observable"] is True
     assert context["distribution_count"] == 0  # arrival posture: nothing distributed
     assert context["band"] == "federal"
-    assert context["salience_version"] == "sal-v3"
+    assert context["salience_version"] == SALIENCE_VERSION
 
 
 def test_a_repeated_conference_does_not_inflate_the_frozen_count(
