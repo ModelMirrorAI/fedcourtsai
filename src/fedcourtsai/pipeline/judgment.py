@@ -38,8 +38,10 @@ statpack's merits stage section.
 Beside the disposition vocabulary sits a second, smaller one: the
 **terminations** (:class:`fedcourtsai.schemas.MeritsTermination`), for entries
 that end a granted case's merits proceeding while saying nothing about the
-judgment below — the post-grant Rule 46 voluntary dismissal, and the bare
-mandate notation on a docket whose disposition entry the corpus never captured.
+judgment below — the post-grant Rule 46 voluntary dismissal, a dismissal as
+moot, an abatement on the petitioner's death, the Court vacating its own grant
+order, and the bare mandate notation on a docket whose disposition entry the
+corpus never captured.
 They are read only as a *fallback*, once no disposition shape matched anywhere
 in the payload, and the batch pass stamps them onto their own column
 (``merits_terminated``) rather than ``merits_judgment``. That split is the
@@ -59,7 +61,7 @@ import sqlite3
 from collections import Counter
 from collections.abc import Mapping
 from datetime import date
-from typing import Any
+from typing import Any, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -128,41 +130,125 @@ _DIG_RE = re.compile(
 )
 
 # The terminations: a granted case whose merits proceeding ended with no
-# disposition of the judgment below. Both anchor on the entry's own subject for
+# disposition of the judgment below. They anchor on the entry's own subject for
 # the reason the disposition shapes do — the *motion* that precedes a Rule 46
 # dismissal ("Motion to dismiss the case pursuant to Rule 46 filed by
 # petitioner.", "Stipulation of dismissal under Rule 46.1 filed.") and a
 # lower-court recital ("Notice of appeal filed from the judgment issued on ...")
 # both name the shape mid-sentence and must stay unmatched.
 #
-# They anchor at the ENTRY start rather than any sentence start, which is
-# stricter than the disposition shapes' `_SENTENCE_START`. That is deliberate
-# and costs nothing the disposition anchor buys: the GVR class the sentence
-# anchor exists for is a disposition riding after a cert recital, and no
-# termination has a counterpart — the Clerk enters a termination as its own
-# one-sentence entry. A second-sentence spelling would read as a false
-# negative, which is the cheap direction here too.
+# Most anchor at the ENTRY start rather than any sentence start, which is
+# stricter than the disposition shapes' `_SENTENCE_START`: the Clerk enters a
+# termination as its own one-sentence entry, so the strictness costs nothing on
+# those shapes and a second-sentence spelling would read as a false negative,
+# the cheap direction here. `_GRANT_VACATED_RE` is the one exception, and it
+# says why in place.
 #
-# The subject noun is what separates the two stages, the same cut `_DIG_RE`
-# makes: the Clerk writes "Case Dismissed - Rule 46." once certiorari has been
-# granted and "Petition Dismissed - Rule 46." while the petition is still
-# pending, so anchoring on "case" admits exactly the post-grant exit and leaves
-# the petition-stage dismissal to the cert seam, where it belongs.
+# The subject noun is what carries the *stage*, the same cut `_DIG_RE` makes.
+# Once certiorari has issued the Clerk writes about the case or the writ
+# ("Case Dismissed - Rule 46.", "Writ of Certiorari Dismissed - Rule 46."), so
+# either subject is a post-grant exit on its own evidence. The **petition** is
+# stage-ambiguous: the same "Petition Dismissed - Rule 46." entry closes a
+# granted docket's merits proceeding and, on a docket still at the petition
+# stage, is a cert event the cert seam owns. So shapes built on the petition
+# subject are admitted only where the caller can say the grant is on record
+# (`cert_granted`) — the conditionality, rather than a wider subject
+# alternation, is what keeps a petition-stage dismissal out of the merits
+# vocabulary.
+_POST_GRANT_SUBJECT = r"(?:the\s+)?(?:cases?|writs?(?:\s+of\s+certiorari)?)\b"
+_PETITION_SUBJECT = r"(?:the\s+)?petitions?\b"
+
+# Rule 46 — the parties' own voluntary dismissal, in the Clerk's terse docket
+# spelling ("- Rule 46.") and the prose one ("dismissed pursuant to Rule 46.1").
+_RULE_46_TAIL = r".{0,40}?\bdismissed\b.{0,40}?\brule\s*46\b"
+
+# "dismissed as moot" — the controversy ended outside the Court (the petitioner
+# was resentenced, the challenged action was withdrawn), so the merits question
+# the grant opened is gone with nothing decided.
+_AS_MOOT_TAIL = r".{0,40}?\bdismissed\b.{0,20}?\bas\s+moot\b"
+
+
+def _entry_shape(subject: str, tail: str) -> re.Pattern[str]:
+    """One termination shape: the subject noun at the entry start, then its tail."""
+    return re.compile("^" + subject + tail, re.IGNORECASE | re.DOTALL)
+
+
+# Abatement: a party died and the Court dismissed on that ground. The order is
+# the one termination that opens on a *recital* rather than on its subject —
+# "It appearing that petitioner died on ..., the petition for a writ of
+# certiorari is DISMISSED." — so the entry anchor lands on the recital, and the
+# subject the other shapes anchor on rides in the middle. The *suggestion* of
+# death and the response to it ("Suggestion of death filed by counsel for
+# petitioner.") open on their own filing nouns and stay unmatched.
 #
-_VOLUNTARY_DISMISSAL_RE = re.compile(
-    r"^(?:the\s+)?cases?\b.{0,40}?\bdismissed\b.{0,40}?\brule\s*46\b",
-    re.IGNORECASE | re.DOTALL,
+# The recital alone is not enough, because a death also opens orders that
+# *raise* dismissal instead of ordering it ("It appearing that respondent died
+# on ..., the parties are directed to file supplemental briefs addressing
+# whether the case should be dismissed.") — a live docket, and the one place in
+# this table a subordinate clause could otherwise close a case forever. So the
+# shape requires the order's own **operative verb on its named subject**:
+# "... the petition ... is DISMISSED", never "should be dismissed". The subject
+# is read through the same two fragments the dismissal shapes use, so an
+# abatement spelled on the case or the writ is admitted on its own evidence
+# while the petition spelling waits for the recorded grant, exactly as Rule 46
+# and mootness do.
+#
+# The decree's subject must open its own clause — the gap ends on the comma
+# that closes the recital — because the fragments would otherwise read the
+# *object* of the petition spelling as a post-grant subject: "the petition for
+# a **writ of certiorari** is DISMISSED" carries both nouns, and matching the
+# inner one would admit the petition-stage order ungated and silently undo the
+# conditionality. Excluding "." from the gaps keeps the recital and its decree
+# in one sentence for the same reason the vacatur shape does.
+def _abatement_shape(subject: str) -> re.Pattern[str]:
+    """The abatement order for one subject noun: recital, death, then the decree."""
+    return re.compile(
+        r"^it\s+appearing\s+that\b[^.]{0,80}?\bdied\b[^.]{0,120}?,\s+"
+        + subject
+        + r"[^.]{0,40}?\b(?:is|are)\s+(?:hereby\s+)?dismissed\b",
+        re.IGNORECASE,
+    )
+
+
+# The Court vacating its own grant order returns the case to the cert stage
+# with the merits proceeding ended and nothing decided ("This case is no longer
+# consolidated with No. 19-508 ...  The July 9, 2020 order granting the
+# petition for a writ of certiorari in this case is vacated."). It is the one
+# shape that rides as a **later sentence** of its entry — the Clerk states the
+# reason first — so it takes the disposition shapes' `_SENTENCE_START` rather
+# than the entry-start anchor. Two things carry the narrowness the entry anchor
+# would otherwise: the sentence must open on the *order granting* (bare, or
+# dated as the Clerk writes it), so a motion asking for the vacatur ("Motion to
+# vacate the order granting certiorari filed.") names it mid-sentence and stays
+# unmatched; and the order must be granting the **petition, writ, or
+# certiorari** itself, so the Court vacating an interlocutory grant on the same
+# docket ("The order granting the motion for divided argument is vacated.")
+# leaves the live merits case alone. The gap excludes "." so the noun and the
+# verb must share one sentence.
+_GRANT_VACATED_RE = re.compile(
+    _SENTENCE_START
+    + r"(?:the\s+)?(?:\w+\s+\d{1,2},\s+\d{4}\s+)?orders?\s+granting\s+(?:the\s+)?"
+    + r"(?:petitions?|writs?|certiorari)\b[^.]{0,80}?\bvacated\b",
+    re.IGNORECASE,
 )
 
-# "as to" is how the Clerk marks a **partial** Rule 46 dismissal ("Case
-# dismissed as to petitioner Smith only under Rule 46.1.", "Case Dismissed -
-# Rule 46 as to respondent Jones."). Such a case continues as to the remaining
-# parties, so its merits question is still live and closing pendency would lose
-# a forecast the docket still owes — the one shape here whose false positive
-# costs something, and the same partial/whole line the disposition parser draws
-# with its own mixed member. A veto over the **whole entry** rather than a
-# tempered gap, because the phrase lands on either side of the Rule 46 citation.
+# "as to" is how the Clerk marks a **partial** exit ("Case dismissed as to
+# petitioner Smith only under Rule 46.1.", "Case Dismissed - Rule 46 as to
+# respondent Jones."). Such a case continues as to the remaining parties, so
+# its merits question is still live and closing pendency would lose a forecast
+# the docket still owes — the false positive that actually costs something, and
+# the same partial/whole line the disposition parser draws with its own mixed
+# member. A veto over the **whole entry** rather than a tempered gap, because
+# the phrase lands on either side of the citation.
 _PARTIAL_SCOPE_RE = re.compile(r"\bas\s+to\b", re.IGNORECASE)
+
+# A *rehearing* petition is a different filing from the one certiorari issued
+# on: it is filed after the case is over, so disposing of it ("Petition for
+# rehearing dismissed as moot.") says nothing about how the merits proceeding
+# ended and must not be read as the exit. Bare "Petition ..." is the spelling
+# the real shapes use, so the qualifier is what separates them, and it is
+# checked as a veto rather than excluded inside each subject fragment.
+_REHEARING_RE = re.compile(r"\bpetitions?\s+for\s+rehearing\b", re.IGNORECASE)
 
 # "Judgment issued." — the mandate analog. On a docket whose disposition entry
 # the corpus captured, this notation follows it and never decides anything (the
@@ -172,14 +258,82 @@ _PARTIAL_SCOPE_RE = re.compile(r"\bas\s+to\b", re.IGNORECASE)
 # judgment below.
 _JUDGMENT_ISSUED_RE = re.compile(r"^judgments?\s+issued\b", re.IGNORECASE)
 
-#: Each shape with the veto that disqualifies it, or ``None`` where the shape
-#: stands alone. A veto is checked over the whole entry, so it can disqualify a
-#: match on text the shape's own bounded gaps never see.
-_TerminationShape = tuple[re.Pattern[str], re.Pattern[str] | None, MeritsTermination]
+
+class _TerminationShape(NamedTuple):
+    """One termination shape, its vetoes, its class, and the stage it needs."""
+
+    #: The shape itself.
+    pattern: re.Pattern[str]
+    #: What disqualifies a match — empty where the shape stands alone. A veto is
+    #: checked over the whole entry, so it can disqualify a match on text the
+    #: shape's own bounded gaps never see.
+    vetoes: tuple[re.Pattern[str], ...]
+    #: The vocabulary member a match records.
+    termination: MeritsTermination
+    #: Whether the shape's subject is the stage-ambiguous *petition*, so the
+    #: match counts as a merits termination only under a recorded cert grant.
+    petition_subject: bool
+
+
+#: The vetoes every dismissal shape carries: a partial exit leaves the case
+#: live, and a rehearing petition is not the petition the grant issued on.
+_DISMISSAL_VETOES: tuple[re.Pattern[str], ...] = (_PARTIAL_SCOPE_RE, _REHEARING_RE)
+
+# Table order decides, because the first match wins. It rarely matters — the
+# shapes want different words — but the tails can co-occur ("Case dismissed as
+# moot pursuant to Rule 46."), and then the earlier row names the class. Rule 46
+# leads deliberately: the citation is the Clerk's own statement of the
+# authority the case exited under, while "as moot" is the reason the parties
+# invoked it, so the rule is the more specific fact. Pendency reads the same
+# either way; what the order settles is which bucket the published
+# `terminations` distribution counts the row in.
 
 _TERMINATION_SHAPES: tuple[_TerminationShape, ...] = (
-    (_VOLUNTARY_DISMISSAL_RE, _PARTIAL_SCOPE_RE, MeritsTermination.voluntary_dismissal),
-    (_JUDGMENT_ISSUED_RE, None, MeritsTermination.judgment_issued),
+    _TerminationShape(
+        _entry_shape(_POST_GRANT_SUBJECT, _RULE_46_TAIL),
+        _DISMISSAL_VETOES,
+        MeritsTermination.voluntary_dismissal,
+        petition_subject=False,
+    ),
+    _TerminationShape(
+        _entry_shape(_PETITION_SUBJECT, _RULE_46_TAIL),
+        _DISMISSAL_VETOES,
+        MeritsTermination.voluntary_dismissal,
+        petition_subject=True,
+    ),
+    _TerminationShape(
+        _entry_shape(_POST_GRANT_SUBJECT, _AS_MOOT_TAIL),
+        _DISMISSAL_VETOES,
+        MeritsTermination.dismissed_moot,
+        petition_subject=False,
+    ),
+    _TerminationShape(
+        _entry_shape(_PETITION_SUBJECT, _AS_MOOT_TAIL),
+        _DISMISSAL_VETOES,
+        MeritsTermination.dismissed_moot,
+        petition_subject=True,
+    ),
+    _TerminationShape(
+        _abatement_shape(_POST_GRANT_SUBJECT),
+        _DISMISSAL_VETOES,
+        MeritsTermination.abated,
+        petition_subject=False,
+    ),
+    _TerminationShape(
+        _abatement_shape(_PETITION_SUBJECT),
+        _DISMISSAL_VETOES,
+        MeritsTermination.abated,
+        petition_subject=True,
+    ),
+    _TerminationShape(
+        _GRANT_VACATED_RE,
+        _DISMISSAL_VETOES,
+        MeritsTermination.grant_vacated,
+        petition_subject=False,
+    ),
+    _TerminationShape(
+        _JUDGMENT_ISSUED_RE, (), MeritsTermination.judgment_issued, petition_subject=False
+    ),
 )
 
 #: The sentinel :func:`opinion_author` returns for a per curiam opinion —
@@ -233,7 +387,7 @@ def match_judgment(text: str) -> Judgment | None:
     return None
 
 
-def match_merits_termination(text: str) -> MeritsTermination | None:
+def match_merits_termination(text: str, *, cert_granted: bool) -> MeritsTermination | None:
     """Parse one docket-entry description onto the merits-*termination* vocabulary.
 
     The complement of :func:`match_judgment`, for the entries that end a merits
@@ -242,11 +396,23 @@ def match_merits_termination(text: str) -> MeritsTermination | None:
     fabricate a disposition (there is none to fabricate) but it does close a
     row's merits state, so the shapes stay start-anchored on the entry's own
     subject and the motion that *asks* for the dismissal never matches.
+
+    ``cert_granted`` says whether the **docket** this entry belongs to is on
+    record as having been granted certiorari, and it gates exactly the shapes
+    whose subject is the stage-ambiguous *petition*: "Petition Dismissed - Rule
+    46." is a merits exit on a granted docket and a cert-stage exit on an
+    ungranted one, and the entry text alone cannot tell them apart. The
+    caller — which holds the row, or knows it holds none — is where that fact
+    lives, so it is threaded rather than assumed either way; the shapes whose
+    subject is the case or the writ carry their own stage and are admitted
+    regardless.
     """
     entry = text.strip()
-    for pattern, veto, termination in _TERMINATION_SHAPES:
-        if pattern.search(entry) and not (veto is not None and veto.search(entry)):
-            return termination
+    for shape in _TERMINATION_SHAPES:
+        if shape.petition_subject and not cert_granted:
+            continue
+        if shape.pattern.search(entry) and not any(veto.search(entry) for veto in shape.vetoes):
+            return shape.termination
     return None
 
 
@@ -337,7 +503,9 @@ def last_judgment_entry(payload: Mapping[str, Any]) -> tuple[Judgment, date | No
     return found
 
 
-def last_merits_termination(payload: Mapping[str, Any]) -> MeritsTermination | None:
+def last_merits_termination(
+    payload: Mapping[str, Any], *, cert_granted: bool
+) -> MeritsTermination | None:
     """The last termination-shaped entry in a stored docket payload, or ``None``.
 
     The :func:`last_judgment_entry` twin, and strictly its **fallback**: callers
@@ -346,11 +514,14 @@ def last_merits_termination(payload: Mapping[str, Any]) -> MeritsTermination | N
     never displace it. The **last** match wins for the same reason it does
     there — the docket's final word is the realized one. No date is read: a
     termination records no outcome, so it has nothing to stamp a ``resolved_at``
-    from.
+    from. ``cert_granted`` is the docket-level fact
+    :func:`match_merits_termination` gates its petition-subject shapes on,
+    passed straight through — it is a property of the docket, so every entry in
+    one payload is read under the same value.
     """
     found: MeritsTermination | None = None
     for text, _ in proceedings_entries(payload):
-        termination = match_merits_termination(text)
+        termination = match_merits_termination(text, cert_granted=cert_granted)
         if termination is not None:
             found = termination
     return found
@@ -409,11 +580,17 @@ class MeritsBackfillResult(BaseModel):
         default_factory=dict,
         description="Termination distribution, MeritsTermination value -> row "
         "count. Published per class rather than only as the `terminated` total "
-        "because the two carry different evidence: a voluntary dismissal is a "
-        "proceeding that demonstrably ended with nothing decided, while the "
-        "mandate notation is all a docket says about a case that *was* decided "
-        "— so a climb in the latter is a disposition-parser gap to triage, not "
-        "a docket trend",
+        "because the classes carry different evidence, and two of them are "
+        "triage signals rather than docket trends: a voluntary dismissal, a "
+        "mootness dismissal, and an abatement are proceedings the docket says "
+        "ended with nothing decided, but the mandate notation is all a docket "
+        "says about a case that *was* decided (a climb there is a "
+        "disposition-parser gap), and a vacated grant leaves the row's cert "
+        "`disposition` describing an order the Court withdrew (a climb there is "
+        "a cert-label gap). Counted per row from its **last** matching entry, "
+        "so a docket carrying two termination shapes is attributed to the later "
+        "one — this is a distribution over dockets' final words, not a "
+        "partition of the shapes the corpus holds",
     )
 
 
@@ -492,7 +669,13 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
                 # Only now — no disposition anywhere in the payload, and none
                 # stored — does the termination fallback run, so a termination
                 # can never displace a judgment or sit beside one.
-                termination = last_merits_termination(found[1])
+                # Every row here passed `opens_merits_proceeding`, so the grant
+                # is on record and the petition-subject shapes are in scope —
+                # read off the row rather than assumed, so a widening of that
+                # population cannot silently promote a petition-stage dismissal.
+                termination = last_merits_termination(
+                    found[1], cert_granted=row.date_cert_granted is not None
+                )
                 if termination is None:
                     no_match += 1
                     continue

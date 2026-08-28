@@ -836,8 +836,10 @@ or network.
      a merits predict cell the way an application docket queues its interim
      one.
      The terminated arm is what separates the two: a case that ended with no
-     disposition (a post-grant Rule 46 dismissal, a docket whose only terminal
-     notation is the mandate) keeps its merits event open, because nothing
+     disposition (a post-grant Rule 46 dismissal, a dismissal as moot, an
+     abatement on the petitioner's death, a grant the Court vacated, a docket
+     whose only terminal notation is the mandate) keeps its merits event open,
+     because nothing
      resolves an event on a row carrying no judgment — but there is no longer a
      judgment to forecast, so the event stops earning cells and simply sits.
 

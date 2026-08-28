@@ -9,7 +9,9 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.events import _SCOTUS_BASELINE_ONLY_KINDS
 from fedcourtsai.pipeline.ingest import CorpusRow, from_api_docket
+from fedcourtsai.pipeline.judgment import match_merits_termination
 from fedcourtsai.pipeline.outcome import (
+    _TERMINAL_ENTRY_RE,
     CASE_BASELINE_ID_PREFIXES,
     MERITS_EVENT_ID,
     OrderMarkers,
@@ -1340,6 +1342,60 @@ def test_snapshot_shows_judgment_reads_a_post_grant_rule_46_dismissal() -> None:
     # The cert-stage scan is deliberately untouched: on a *petition* the shape
     # is a cert exit its own "petition ... dismissed" branch already reads.
     assert snapshot_shows_disposition(docket) is None
+
+
+# Every real termination spelling, with which of the guard's two instruments
+# carries it. The split is exact and not a coincidence: the guard holds a
+# payload and no row, so it reads the parser with `cert_granted=False` — and
+# the shapes that reading declines are precisely the *petition*-subject ones,
+# which are precisely the ones `_TERMINAL_ENTRY_RE` catches through its own
+# "petition ... dismissed" branch. The two shapes the regex misses (the writ
+# spelling of Rule 46, and the Court vacating its own grant order) are the ones
+# the parser admits without any docket-level fact. So the guard needs both and
+# loses nothing, and either instrument losing its half is a leak: a false
+# negative here hands a forward merits cell a decided docket.
+_MERITS_TERMINALS: tuple[tuple[str, bool], ...] = (
+    ("Petition Dismissed - Rule 46.", True),
+    ("Writ of Certiorari Dismissed - Rule 46.", False),
+    (
+        "Petition dismissed as moot.  Justice Gorsuch took no part in the "
+        + "consideration or decision of this petition.",
+        True,
+    ),
+    (
+        "It appearing that petitioner died on January 22, 2020, the petition for "
+        + "a writ of certiorari is DISMISSED.",
+        True,
+    ),
+    (
+        "This case is no longer consolidated with No. 19-508, <i>AMG Capital "
+        + "Management, LLC</i> v. <i>Federal Trade Commission</i>.  The July 9, "
+        + "2020 order granting the petition for a writ of certiorari in this "
+        + "case is vacated.  Justice Barrett took no part in the consideration "
+        + "of this order.",
+        False,
+    ),
+    ("JUDGMENT ISSUED.", True),
+)
+
+
+@pytest.mark.parametrize(("text", "read_by_terminal_re"), _MERITS_TERMINALS)
+def test_snapshot_shows_judgment_keeps_its_recall_on_every_termination_shape(
+    text: str, read_by_terminal_re: bool
+) -> None:
+    docket = {
+        "CaseNumber": "20-1374 ",
+        "ProceedingsandOrder": [
+            {"Date": "Jul 02 2021", "Text": "Petition GRANTED."},
+            {"Date": "Nov 12 2021", "Text": text},
+        ],
+    }
+    assert snapshot_shows_judgment(docket) is not None, text
+    # Which instrument carries it, pinned: dropping either half would leave a
+    # shape legible to no branch of the guard at all.
+    assert bool(_TERMINAL_ENTRY_RE.search(text)) is read_by_terminal_re, text
+    if not read_by_terminal_re:
+        assert match_merits_termination(text, cert_granted=False) is not None, text
 
 
 def test_snapshot_shows_judgment_none_for_a_pending_merits_docket() -> None:

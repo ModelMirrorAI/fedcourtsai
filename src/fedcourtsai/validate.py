@@ -343,24 +343,32 @@ def check_stale_unparsed_grants(conn: sqlite3.Connection, today: date) -> Corpus
         )
     ]
     # Rows this old that a termination *did* resolve are carried in the detail
-    # rather than left implicit. A `judgment-issued` stamp closes pendency
-    # without recovering a disposition, so it clears this check permanently;
-    # publishing the count keeps that trade visible on the durable surface
-    # instead of only in the sweep's stdout.
-    terminated = int(
-        conn.execute(
-            f"SELECT count(*) {population} AND date_cert_granted < ? "
-            "AND merits_judgment IS NULL AND merits_terminated IS NOT NULL",
+    # rather than left implicit, because a termination clears this check
+    # permanently and the classes do not all make that an equal trade: most
+    # record a proceeding that demonstrably ended with nothing to recover,
+    # while a `judgment-issued` stamp closes pendency over a case that *was*
+    # decided on a docket whose disposition entry was never captured. Pooling
+    # them into one number would average away the one sub-count that means
+    # something bad, so the class breakdown rides beside the total.
+    by_class = {
+        str(record["merits_terminated"]): int(record["n"])
+        for record in conn.execute(
+            f"SELECT merits_terminated, count(*) AS n {population} "
+            "AND date_cert_granted < ? AND merits_judgment IS NULL "
+            "AND merits_terminated IS NOT NULL GROUP BY merits_terminated "
+            "ORDER BY merits_terminated",
             (*dispositions, cutoff),
-        ).fetchone()[0]
-    )
+        )
+    }
+    terminated = sum(by_class.values())
+    breakdown = ", ".join(f"{value} {name}" for name, value in by_class.items())
     return _check(
         CHECK_STALE_UNPARSED_GRANTS,
         problems,
         checked=checked,
         detail=(
             f"granted before {cutoff} ({_STALE_GRANT_DAYS} days); "
-            f"{terminated} resolved by termination"
+            f"{terminated} resolved by termination" + (f" ({breakdown})" if breakdown else "")
         ),
     )
 

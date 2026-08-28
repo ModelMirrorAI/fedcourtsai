@@ -106,7 +106,7 @@ source.
 | `amicus_briefs`       | integer         | amicus briefs on an interim application's docket, counted per entry; null = never application-parsed |
 | `merits_judgment`     | text            | what the Court did to the judgment below on a granted case (the `Judgment` vocabulary), parsed from the docket's terminal entry by the shared parser — the live poll latches it at ingest, the backfill reconciles offline; null = no parsed judgment |
 | `merits_decided`      | date            | docket date of the disposition entry `merits_judgment` was parsed from; null when that entry is undated |
-| `merits_terminated`   | text            | why a granted case's merits proceeding ended **without** a disposition (the `MeritsTermination` vocabulary — a post-grant Rule 46 dismissal, a bare mandate notation), written by the backfill sweep alone; null = not known to have terminated |
+| `merits_terminated`   | text            | why a granted case's merits proceeding ended **without** a disposition (the `MeritsTermination` vocabulary — a post-grant Rule 46 dismissal, a dismissal as moot, an abatement on the petitioner's death, a grant the Court vacated, a bare mandate notation), written by the backfill sweep alone; null = not known to have terminated |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on, while `panel` carries the structured detail.
@@ -183,7 +183,9 @@ parse would fabricate a mismatched pair. Merits outcome detection reads these
 columns, so the pair is a scoring input, not only a statistic.
 `merits_terminated` sits beside the pair and deliberately outside it: a granted
 case can end with no disposition at all — voluntarily dismissed under Rule 46
-after the grant, or carrying a bare mandate notation and nothing else — and
+after the grant, dismissed as moot, abated on the petitioner's death, left with
+its grant order vacated, or carrying a bare mandate notation and nothing
+else — and
 recording that as a seventh `Judgment` would put a non-disposition into the
 parsed slice the merits base rate is pooled from, scored as though the judgment
 below had survived. So the sweep stamps its own column instead, only where no

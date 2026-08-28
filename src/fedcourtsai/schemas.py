@@ -220,13 +220,23 @@ class MeritsTermination(StrEnum):
     Deliberately not members of :class:`Judgment`, and the distinction is the
     whole point of the vocabulary: these entries say **that** the case is over,
     never **how** the judgment below fared. A voluntary Rule 46 dismissal after
-    the grant leaves nothing decided, and the mandate-analog "Judgment issued."
-    is a clerk's notation on a docket whose disposition entry the corpus never
-    captured. Folding either into ``Judgment`` would fabricate merits ground
+    the grant leaves nothing decided; a case dismissed as moot or abated by the
+    petitioner's death ends the same way, for a reason outside the Court; a
+    grant the Court itself vacates returns the case to the cert stage; and the
+    mandate-analog "Judgment issued." is a clerk's notation on a docket whose
+    disposition entry the corpus never captured. Folding any of them into
+    ``Judgment`` would fabricate merits ground
     truth twice over: ``judgment_disturbed`` would read it as *undisturbed*
     (a substantive claim about the lower court's judgment that nobody made),
     and the value would enter the predictor-emittable outcome vocabulary as
     something a cell could forecast.
+
+    The members stay separate rather than collapsing into one "terminated"
+    marker because they carry different evidence about the *record*: a
+    voluntary dismissal, a mootness dismissal, an abatement, and a vacated
+    grant are all things the docket says happened, while a rise in
+    ``judgment_issued`` means the disposition parser missed an entry that
+    exists — a gap to triage, not a docket trend.
 
     So a termination resolves the corpus row's merits *state* — the case is not
     pending, and the forward-forecast gates must refuse it — while leaving
@@ -237,6 +247,9 @@ class MeritsTermination(StrEnum):
     """
 
     voluntary_dismissal = "voluntary-dismissal"
+    dismissed_moot = "dismissed-moot"
+    abated = "abated"
+    grant_vacated = "grant-vacated"
     judgment_issued = "judgment-issued"
 
 
@@ -5129,9 +5142,11 @@ class _StatPackMeritsCounts(_Strict):
         "cert_order_excluded). A parsed judgment with no date stays here as "
         "a visible coverage gap, outside the parsed slice, since the gap "
         "test cannot run on it, and so does a row carrying `merits_terminated` "
-        "— either a post-grant Rule 46 dismissal, where nobody reached the "
-        "merits, or a bare mandate notation, where the disposition entry was "
-        "never captured. Parsed or not",
+        "— either a proceeding that ended before anyone reached the merits (a "
+        "post-grant Rule 46 dismissal, a dismissal as moot, an abatement on the "
+        "petitioner's death, a grant the Court vacated), where there is no "
+        "disposition to record, or a bare mandate notation, where the case was "
+        "decided and the disposition entry was never captured. Parsed or not",
     )
     cert_order_excluded: int | None = Field(
         default=None,
