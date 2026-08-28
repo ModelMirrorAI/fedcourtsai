@@ -535,7 +535,7 @@ DISTRIBUTION_PARSES: Mapping[str, re.Pattern[str]] = MappingProxyType(
 
 #: The parse every counter reads unless its caller names another — the reading
 #: the corpus's stored ``distribution_count`` column holds.
-DEFAULT_DISTRIBUTION_PARSE = "dist-v1"
+DEFAULT_DISTRIBUTION_PARSE = "dist-v2"
 
 
 def distribution_pattern(parse: str) -> re.Pattern[str]:

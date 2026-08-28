@@ -896,10 +896,21 @@ def distribution_census_cmd(
         "--baseline-parse",
         help="The registered distribution parse counted as the incumbent.",
     ),
+    # `--candidate-parse` is required, as it is on `distribution_census` itself.
+    # The incumbent has a default because the registry names it
+    # (`DEFAULT_DISTRIBUTION_PARSE`, the reading the corpus column holds); the
+    # challenger is whatever a caller is arguing for, which the registry cannot
+    # know. Defaulting it to a label would also, on the commit that activates
+    # that label, quietly turn a bare invocation into a parse-against-itself
+    # census reporting no movement on every row.
     candidate_parse: str = typer.Option(
-        "dist-v2",
+        ...,
         "--candidate-parse",
-        help="The registered distribution parse counted against the incumbent.",
+        help=(
+            "Required — the registered distribution parse counted against the "
+            "incumbent. No default: the challenger is the caller's argument, not "
+            "the registry's."
+        ),
     ),
     version: str = typer.Option(
         SALIENCE_VERSION,

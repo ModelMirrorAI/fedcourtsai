@@ -585,3 +585,249 @@ freeze commit is recorded here.
   run where the store is wired — `run-backtest`'s salience-gate replay, a
   dispatch rather than a local command. Until that runs, the selection question
   activation turns on is open.
+
+- **`sal-v4` activated (the `dist-v2` distribution parse), 2026-08-28.** A
+  distinct entry rather than a completion of the registration entry above: that
+  entry is landed, and the only editable content an entry ever has is its
+  `<FILL:>` promotion placeholders, which are the carrying promotion's and not
+  activation's. This follows `sal-v3`'s precedent, where registration and
+  activation are recorded together because they shared one entry's lifetime; here
+  they did not. No freeze commit belongs to this entry either, on the same
+  argument: the salience version sits outside the process digest (`pipeline_sha`
+  is not an input), carries its own data-visible boundary
+  (`context.salience_version`), and a flip re-blesses nothing.
+
+  **The flip is one commit moving two constants**, and the pairing is a
+  requirement rather than tidiness. `SALIENCE_VERSION` goes `sal-v3` → `sal-v4`
+  and `cert_signals.DEFAULT_DISTRIBUTION_PARSE` goes `dist-v1` → `dist-v2`
+  together, for two reasons. The active-scorer-parse-equals-registry-default
+  alignment is test-pinned, so a split commit fails the suite. And the re-latch
+  paths — the live poll, `refresh-dockets`, the Term walker — write the
+  **default** parse's count, so a flip that moved only the version would keep
+  writing `dist-v1` counts into a column re-derived to `dist-v2` and re-corrupt
+  it pull by pull. Neither reason is discretionary.
+
+  **The consumer chase.** Nothing in `src/` branches on either literal — the
+  design is registry dispatch throughout — so the statpack's `alt_segments`
+  split, `salience-replay`'s per-parse projections, `registered_versions()`'s
+  active-first ordering, the cell-context parse hand-off and every
+  `salience_version` stamp follow the constants without edit. Three things did
+  need a decision. `sal-v1` through `sal-v3` keep `distribution_parse =
+  "dist-v1"`, including the `SalienceScorer` field default they take it from,
+  which is now deliberately *not* the registry default: re-pointing it would
+  re-read three frozen versions. The `distribution-census` command's
+  `--candidate-parse` became **required**, because with the incumbent following
+  `DEFAULT_DISTRIBUTION_PARSE` a bare post-flip invocation would have been a
+  parse-against-itself census reporting no movement on every row. And the
+  `run-analytics` census dispatch defaults were left at `dist-v1` → `dist-v2`,
+  which now reads the activation backwards rather than arguing a candidate — a
+  re-derivable check on what the flip moved, not a review of anything.
+
+  **Activation step 2's decision, taken here: the outgoing version's frozen
+  predictions re-baseline, and the block does not record its parse.** The pack
+  bands every registered version off the one `distribution_count` column, so once
+  that column reads `dist-v2` the `sal-v1` / `sal-v2` / `sal-v3` `alt_segments`
+  blocks are measured on populations their declared parse never defined, and a
+  prediction frozen at `sal-v3` reads one. Recording the parse on the block was
+  the alternative; it is a schema change on a committed artifact, with its own
+  drift check and review, and it would label the substitution rather than repair
+  it. Stating it does the same work: a `sal-v3` cell's published baseline after
+  the rebuild is `sal-v3`'s band rule over `dist-v2` counts — `sal-v4`'s pool
+  wearing `sal-v3`'s name — and the substitution is bounded by the census delta,
+  159 changed bands on 13,839 observable rows, 1.149% pooled. The bound that
+  matters is per band, because the movement concentrates: `elevated` 118 of 2,364
+  (5.0%) and `high` 41 of 1,023 (4.0%), four to five times the pooled figure, and
+  `high` is the always-include tier — which is also why the registration entry
+  expects `elevated`'s published rate to move. Those three figures are the
+  registration census's, taken on blob `b16b856f…`, not this entry's
+  `c6b43484…`; the frame sizes coincide and the blobs do not.
+
+  **Activation step 3, the relist-tier re-measure.** Basis: a **snapshot-side
+  recount**, not a column read — the local blob still held `dist-v1` counts when
+  this was taken, so the column-side confirmation lands with the post-apply
+  statpack rebuild. Corpus blob
+  `c6b43484cab17ac7495d23d1c81f01ad686be098914d88cbe6d9b9cb7085e085` (latest pull
+  `2026-08-28`, latest stored snapshot `2026-07-13`), store-served, read over the
+  distribution census's own frame (live-slice, paid, modern-cert, parseable Term)
+  on the resolved rows, both parses counted off each case's latest live-shaped
+  snapshot so the readings are compared on identical rows. Frame 13,840 rows;
+  13,839 observable, 1 unobservable, 13,341 resolved. A **fit diagnostic for a
+  ranking constant, not a scoring baseline**: it pools the whole walked range with
+  no own-Term exclusion and no `base_rate_lookback_terms` cut, so no figure here
+  is the per-Term prior-Terms-only band rate an evaluator scores against.
+
+  Reported in **both** granted-side vocabularies, because the mis-fit below lands
+  in different tiers under each. `GRANTED_DISPOSITIONS` (the binary target) and
+  `GRANT_FAMILY_DISPOSITIONS` (the statpack's published `est_grant_rate`) both
+  include GVR and coincide on this frame, whose only resolved dispositions are
+  granted, GVR, denied and dismissed; a granted-only cut dropping GVR is a third
+  vocabulary the pipeline neither scores nor publishes.
+
+  | relist tier | n (`dist-v1` / `dist-v2`) | granted-only (`dist-v1` / `dist-v2`) | grant family (`dist-v1` / `dist-v2`) | fitted constant |
+  | --- | --: | --: | --: | --: |
+  | 0 | 9,768 / 9,892 | 0.01188 / 0.01284 | 0.01730 / 0.01820 | 0.008 |
+  | 1 | 2,566 / 2,486 | 0.08262 / 0.08407 | 0.13016 / 0.13475 | 0.078 |
+  | 2+ | 1,007 / 963 | 0.24926 / 0.25234 | 0.38431 / 0.38941 | 0.394 |
+
+  Pending rows sit outside those denominators, censored unevenly across the tiers:
+  449, 42 and 7 under `dist-v2`, being 4.3%, 1.7% and 0.7% of each tier's
+  observable rows.
+
+  A corroboration falls out of the same run: over all 13,341 resolved observable
+  rows the **stored column's** tier assignment is identical to the snapshot-side
+  `dist-v1` recount, tier for tier and disposition for disposition. That is the
+  pre-apply state observed rather than assumed — this blob's column holds
+  `dist-v1`, which is the premise the merge hold below rests on. The `dist-v1`
+  reading also reads close to the committed statpack's relist section (0 → 1.2%,
+  1 → 8.0%, 2 → 26.3% and 3+ → 23.3%, pooling to ≈24.8% at 2+). That is a
+  sanity check on the frame, not an identity: the statpack cut is
+  **denial-reweighted** while this one is raw (the census frame raises on
+  `sample_weight != 1` and did not raise, so it carries no weighted rows), and it
+  splits 2 from 3+ where this pools them. That the statpack's own frame is
+  effectively unweighted too is **inferred** from the two agreeing, not checked —
+  its cut carries no parseable-Term filter and a different vintage. The agreement
+  to within a few tenths of a point says the reweighting does not bite hard on
+  this cut; it does not license quoting one number for the other.
+
+  **What the parse moves, and what it does not.** The tiers move by 0.096, 0.145
+  and 0.308 percentage points, all upward — which is a **mixture shift, not a
+  uniform improvement**: the overall grant rate is fixed at 579/13,341 = 4.340%
+  under either reading, so all three conditional rates can rise only because mass
+  moved into the low-rate tier. Two flows are exact rather than inferred, since
+  relist-2+ is the ceiling of a count that can only fall (pure outflow) and
+  relist-0 its floor (pure inflow): 44 resolved rows carrying 8 grants left 2+
+  (0.1818, below 2+'s 0.2493), and 124 resolved rows carrying 11 grants entered 0
+  (0.0887, far above 0's 0.0119). So the petitions `dist-v2` demotes grant at
+  roughly the relist-1 level rather than the relist-0 level, and demoting them
+  costs a little top-to-bottom separation: the 2+-to-0 rate ratio falls from
+  20.99× to 19.65×, and on the grant family from 22.21× to 21.40×, so the
+  direction does not depend on the vocabulary. Whether that ~4–6% loss is real or
+  sampling noise is not settled by 11 grants on 124 rows, and it is not what the parse was argued for —
+  `dist-v2` is a correctness claim about what the DISTRIBUTED phrase means, not a
+  discrimination improvement. Recorded so a `sal-v5` refit starts from it rather
+  than from the assumption that a narrower reading is a cleaner one. Nothing in it
+  moves a cutpoint.
+
+  **The mis-fit finding, recorded and not corrected — and which tier mis-fits
+  depends on the vocabulary.** Against **granted-only** the 2+ constant is the
+  outlier: 0.394 against 0.25234 is 1.56×, +14.2 points, while relist-0 and
+  relist-1 sit *below* their measured rates at 0.62× and 0.93×. Against the
+  **grant family** — the vocabulary the statpack publishes in, and the one
+  `pipeline/salience.py` names as the constants' source — it inverts: 0.394
+  against 0.38941 is **1.01×, +0.46 points**, essentially exact, and the mis-fit
+  moves to relist-0 (0.44×) and relist-1 (0.58×). One constant is nearly right in
+  each reading and never the same one, so the three are not all estimating the
+  same quantity on this frame. Which of them is wrong is not answerable from this
+  measurement, only from the fitting frame they were taken from, which it cannot
+  recover.
+
+  Two things it does establish. The divergence is **invariant to the parse**
+  (granted-only 1.56× at `dist-v2` against 1.58× at `dist-v1`; grant family 1.01×
+  against 1.03×), so the parse does not cause it. And **corpus drift does not
+  cause it either**, at least at 2+: the fresh `dist-v1` reading 0.24926 agrees
+  with the committed statpack's own 2+ pooling (≈0.2489) to within four
+  hundredths of a point, so a corpus that had drifted 14 points away from the
+  constant would have had to drift the published pack with it, and it did not.
+  The cause is recorded as unidentified rather than guessed at.
+
+  Two constraints travel with these numbers to whoever refits. They are a fit
+  diagnostic, **not** a scoring baseline — no own-Term exclusion, no
+  `base_rate_lookback_terms` cut — so none of them is the per-Term
+  prior-Terms-only band rate an evaluator scores Brier skill against. And the tier
+  is read off each case's **latest** live snapshot, its final count, while the
+  score applies these constants to the count **as at prediction**; a refit taking
+  them at face value would fit final-count rates for prospective use on
+  systematically lower as-at-prediction tiers.
+
+  The cutpoints do **not** move, and the reason is more than the registry's rule
+  against editing a frozen constant: the always-include **floor** is entangled
+  with the 2+ constant, and entangled *differently* under each vocabulary.
+  `salience.floor` is 0.28, set to sit at the relist-2 / CVSG grant-rate band.
+  Substituting the **granted-only** 0.25234 for 0.394 leaves the *band* alone
+  (every 2+ petition still clears the `high` cutpoint of 0.20) but drops it out of
+  the always-include carve-out for every originating circuit except `cadc`, the
+  only nudge large enough to reach the floor: 0.29804 against `ca5`'s 0.27804,
+  `ca9`'s 0.26914 and an unlinked petition's 0.25734. Substituting the
+  **grant-family** 0.38941 instead changes nothing, since it already sits above
+  the floor. So one refit silently strips the always-include tier of nearly every
+  2+ petition and the other is a no-op, and which it is turns on a vocabulary
+  choice no one has taken on the record. All arithmetic checked at this commit
+  against the shipped `config/tracking.yaml`. A refit must therefore re-decide the
+  floor **and** the vocabulary in the same version — which is the `sal-v5` agenda
+  this finding feeds, argued from this re-measure as the census argued `sal-v4`.
+  (A 2+ petition carrying a CVSG keeps the carve-out under either substitution:
+  its primary signal takes the CVSG rate 0.283, and CVSG is its own carve-out
+  predicate besides.)
+
+  **One seam this activation opens and does not close.** A cell frozen under
+  `sal-v3` carries the wider reading's count while the re-derived column serves
+  the narrower one, so on a docket the readings disagree about, the
+  relist-increment claim's strict comparison can read a genuine relist as no
+  increment. The direction is the safe one — a **suppressed** increment, never a
+  spurious hit. Measured rather than assumed: of the 106 committed prediction
+  cells carrying the claim, across 36 cases, exactly **9 cells on 3 cases** sit on
+  dockets the parse moves — `scotus/73500263`, `scotus/73500287` and
+  `scotus/9026000013`, three predictors each, all frozen at `sal-v3`. Their frozen
+  `context.distribution_count` reads 2, 2 and 1 (the `dist-v1` reading), and the
+  `dist-v2` recount of the same snapshots reads 1, 1 and 0 — which is why those
+  are also the post-apply column targets the spot check below names, and why the
+  check is re-derivable from the committed artifacts.
+  All three cases are **pending** on this blob, so no such claim has been scored
+  and none can be until they resolve. Masking those cells — the frozen version's
+  parse against the column's — is a scoring change and is deliberately not made
+  in this commit; it is a follow-up with its own review.
+
+  **The pre-flip data check, corrected.** The registration entry above states
+  that the invariant is settled by "a census of the column's own reading against
+  `dist-v2` reporting `count_changed = 0`". That check is weaker than it reads and
+  is recorded here as superseded rather than by revising it: `distribution-census`
+  takes **neither** side off the column (both counts come off the latest
+  live-shaped snapshot, by design — the column holds one parse's answer,
+  max-latched, so it could not supply either side on equal terms), so after the
+  re-derivation the named census is `dist-v2` against `dist-v2` and its zero is a
+  tautology about the label. What actually settles it is the apply dispatch's own
+  reported applied-row count, plus a spot check on the three cases named above:
+  their stored `distribution_count` must read 1, 1 and 0. That check is cheap, it
+  is a `query` away, and it fails loudly if the writer's latch bypass did not
+  bite. It must be taken on the far side of the window named next, not before it.
+
+  **The re-inflation window, and why the hold runs past the merge.** `run-pull`'s
+  `live` mode is scheduled (`47 4,10,16,22`), and a scheduled workflow runs from
+  the **default branch** — where `DEFAULT_DISTRIBUTION_PARSE` is still `dist-v1`
+  until this flip is *promoted*, not merely merged to `staging`. Every live poll
+  between the apply dispatch and the promotion therefore recomputes the wide count
+  for the rows it touches and writes it through `upsert_rows`, whose
+  `distribution_count` latch is `MAX(COALESCE(excluded, cases), COALESCE(cases,
+  excluded))` — so the re-inflation is **permanent**, and no later `dist-v2` write
+  can lower it. Once `sal-v4` is live those rows are the upward break the whole
+  invariant exists to prevent: a narrow frozen count against a stuck-wide column,
+  producing spurious relist-increment hits and a band stronger than `sal-v4`
+  declares. The exposed set is small and quiet, which is what makes it dangerous —
+  the parses disagree on ~0.8% of pending rows, and the three cases named above
+  are pending, so they sit squarely in the poll rotation.
+
+  **This commit is MERGE-HELD** until the maintainer's re-derive apply dispatch
+  has run, and the re-derivation must be **run again after the promotion lands**
+  (or the live writers held across the window above). It is the sequencing
+  invariant, not a preference: the flip must not reach `staging` before the column
+  it depends on is re-derived, because the test suite pins only the label and
+  would pass with the stored column untouched — and it must not sit on `main`
+  over a window in which the outgoing parse is still writing. Carried to `main` by
+  the promotion tagged <FILL: promotion tag> (merge commit <FILL: merge commit>,
+  merged <FILL: merge timestamp>). No freeze procedure fills those three — this
+  entry has no freeze commit — so they are the carrying promotion author's to
+  complete.
+
+  **The scored window opens at the first post-promotion metrics refresh, not at
+  the flip**, as it did for `sal-v2` and `sal-v3`. The committed `statpack.json`
+  carries no `sal-v4` block, so until the rebuild every `sal-v4` cell reads the
+  version-pinned pool's designed `None` — legitimately empty, supporting no
+  claim. The `elevated` band's published rate is **expected to move** at that
+  rebuild (finding (2) of the registration entry: 118 rows, 5.0% of the band); a
+  rebuild leaving it unmoved is evidence the rebuild did not happen.
+
+  **The selection question stays open.** The registration entry's replay run has
+  close to no power and the activation does not add any. The instrument is
+  `run-backtest`'s salience-gate replay with the content store wired — a
+  dispatch, not a local command — and until it runs, whether the 41 `high`-leavers
+  keep their funding is unanswered.

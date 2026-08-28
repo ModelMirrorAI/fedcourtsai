@@ -107,7 +107,13 @@ quantity itself is unchanged in every such move — the harness computes what th
 prompt defined — which is exactly why no digest moves and why the freeze record
 is the only place the change is visible. (The salience *version* does have a boundary:
 `context.salience_version` and the pack's `base_rate_salience_version` make a
-per-version cut visible in the data.) The pre-registered baseline is therefore
+per-version cut visible in the data, and the **distribution parse** rides that
+boundary rather than needing its own, because a version pins exactly one parse —
+`sal-v3` and `sal-v4` differ in nothing else, so the version field *is* the parse
+field. What has no boundary is the corpus `distribution_count` column the parse
+re-derives: an outcome's signals block records a count and not the reading that
+produced it, so a claim resolved across a re-derivation is comparing two readings
+with nothing in the artifact to say so. That belongs in the freeze record too.) The pre-registered baseline is therefore
 the whole tree at the `prereg/<label>` tag — lookback window included — and a
 later window change belongs in the freeze record
 ([freeze-record.md](freeze-record.md)) beside the masking changes, never in a

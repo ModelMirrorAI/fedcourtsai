@@ -256,6 +256,20 @@ def _resolve_relist_increment(context: PredictionContext, outcome: Outcome) -> i
     count under a version the live pass does not score with; activating one
     requires the corpus column to be re-derived under that reading first
     (``docs/salience.md``).
+
+    That pin holds the pair together *going forward* and says nothing about a
+    cell frozen **before** an activation, which is the one seam this resolver
+    does not close. A cell frozen under the outgoing version carries the wider
+    reading's count, while the re-derived column serves the narrower one — so on
+    a docket the two readings disagree about, the resolution-time count starts
+    below the frozen one and a genuine relist can fail the strict comparison.
+    The direction is the safe one: a **suppressed** increment, never a spurious
+    hit, since the comparison can only read low. The bias is bounded by the
+    per-docket parse delta, it reaches only cells frozen across an activation
+    boundary, and the named cells it reaches at the ``dist-v2`` activation are on
+    the record (``docs/freeze-record.md``). Masking those cells outright — the
+    frozen version's parse against the column's — is a scoring change and is not
+    made here.
     """
     if (
         not context.signals_observable

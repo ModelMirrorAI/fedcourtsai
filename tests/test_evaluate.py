@@ -37,7 +37,7 @@ from fedcourtsai.pipeline.evaluate import (
     vote_accuracy,
 )
 from fedcourtsai.pipeline.moments import moments_for, scores_votes
-from fedcourtsai.pipeline.salience import salience_band
+from fedcourtsai.pipeline.salience import SALIENCE_VERSION, salience_band
 from fedcourtsai.schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     GRANTED_DISPOSITIONS,
@@ -80,7 +80,7 @@ def _term(
     year: int,
     band_rates: dict[str, tuple[float, int]],
     *,
-    version: str = "sal-v3",
+    version: str = SALIENCE_VERSION,
     alt: dict[str, dict[str, tuple[float, int]]] | None = None,
 ) -> StatPackTerm:
     """A Term whose bands carry ``(rate, weighted_resolved)``.
@@ -288,7 +288,7 @@ def test_the_baseline_matches_the_band_it_is_grouped_by() -> None:
     term = StatPackTerm(
         term=2024,
         base_rates=BaseRateBucket(),
-        salience_version="sal-v3",
+        salience_version=SALIENCE_VERSION,
         segments=[
             StatPackTermSegment(
                 band="baseline",
@@ -312,7 +312,7 @@ def test_pooling_weights_by_the_denominator_of_the_rate_it_pools() -> None:
         StatPackTerm(
             term=year,
             base_rates=BaseRateBucket(),
-            salience_version="sal-v3",
+            salience_version=SALIENCE_VERSION,
             segments=[
                 StatPackTermSegment(
                     band="baseline",
@@ -343,7 +343,7 @@ def _context(
     # The harness stamps `salience_version` whenever it derives a band
     # (cell_context.build), so the fixture mirrors that pairing by default.
     if salience_version is _DERIVE_FROM_BAND:
-        salience_version = "sal-v3" if band else None
+        salience_version = SALIENCE_VERSION if band else None
     assert salience_version is None or isinstance(salience_version, str)
     return PredictionContext(
         mode="forward",
@@ -360,7 +360,7 @@ def _split_term(year: int, *, terminal: float, risk_set: float) -> StatPackTerm:
     return StatPackTerm(
         term=year,
         base_rates=BaseRateBucket(),
-        salience_version="sal-v3",
+        salience_version=SALIENCE_VERSION,
         segments=[
             StatPackTermSegment(
                 band="baseline",
@@ -414,14 +414,14 @@ def test_the_frozen_path_keeps_the_prior_term_guard() -> None:
 
 
 def test_pooling_is_version_pinned_to_the_bands_scorer() -> None:
-    """A sal-v1 `high` and a sal-v3 `high` are different populations sharing a
-    label. A sal-v3 band must pool only the sal-v3 Terms — never a blend no
-    version ever defined."""
+    """A sal-v1 `high` and the active scorer's `high` are different populations
+    sharing a label. A band must pool only the Terms banded by its own version —
+    never a blend no version ever defined."""
     pack = _statpack(
         _term(2023, {"high": (0.30, 100)}),
         _term(2022, {"high": (0.60, 100)}, version="sal-v1"),
     )
-    # Row-derived band: the live scorer is sal-v3, so only the sal-v3 Term pools.
+    # Row-derived band: only the Term stamped with the live scorer pools.
     assert segment_base_rate(_row("24-100"), pack) == pytest.approx(0.30)
     # Frozen band: pinned to the version the cell actually froze.
     assert prediction_base_rate(_context("high", term=2024), pack) == pytest.approx(0.30)

@@ -253,7 +253,10 @@ salience:
   # nothing.
   long_conference_capacity: 24
   # Always-include threshold: a petition at/above this score is selected
-  # regardless of rank (the relist-2 / CVSG grant-rate band).
+  # regardless of rank (the relist-2 / CVSG grant-rate band). What that band
+  # measures today, and why a refit of the relist constants cannot move without
+  # re-deciding this number, is in docs/salience.md, *The relist tiers,
+  # re-measured*.
   floor: 0.28
   # The caption-banded arrival cohort's random-slice rate: the fraction of eligible
   # arrivals the deterministic draw selects at docketing (pure hash of the
@@ -293,7 +296,8 @@ salience:
   # every published skill number is unchanged — it only pins where the edge
   # will sit. The bias/variance tension is real and deliberate
   # (docs/salience.md, *Base rates & baselines for the predicted segment*):
-  # per-Term sal-v3 high-band grant rates run 24.2%-42.4% across OT2017-OT2025,
+  # per-Term high-band grant rates measured on sal-v3 segments run 24.2%-42.4%
+  # across OT2017-OT2025 (re-based onto sal-v4 at the next statpack rebuild),
   # so a long window is stable but assumes the Court's grant behaviour is
   # stationary, while a short one tracks recent Terms on only 66-137
   # weighted-resolved petitions each — too thin to tell drift from sampling
