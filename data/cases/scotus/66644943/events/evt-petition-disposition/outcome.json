@@ -1,11 +1,17 @@
 {
-  "actual_disposition": "granted",
-  "actual_granted": 1,
+  "actual_disposition": "dismissed",
+  "actual_granted": 0,
   "case_id": "scotus/66644943",
   "disposition_basis": "standard",
+  "disposition_route": null,
   "event_id": "evt-petition-disposition",
-  "resolved_at": "2017-10-30",
+  "interim_signals": null,
+  "judgment": null,
+  "noted_dissent_from_denial": null,
+  "resolved_at": "2018-06-13",
   "schema_version": "1.0",
+  "signals": null,
   "source": null,
+  "vote_provenance": null,
   "votes": []
 }
