@@ -91,7 +91,9 @@ each as its own least-privilege job holding only the credentials its mode needs:
   phrase counted over the salience gate's scored segment and banded by one
   scorer, the evidence a version pinning a new parse is argued from
   ([salience.md](salience.md)). `census_baseline_parse` / `census_candidate_parse`
-  name the two readings (`dist-v1` against `dist-v2` by default); the band
+  name the two readings (`dist-v1` against `dist-v2` by default — dispatch
+  defaults left where the activation census set them, so a bare dispatch now
+  re-reads what the flip moved rather than arguing a candidate); the band
   function is deliberately **not** a dispatch input — the census reads against the
   active scorer, and running it under a different salience version means
   registering one, which is a code change. Read-only like `corpus-stats`, with

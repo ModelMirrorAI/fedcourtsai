@@ -105,10 +105,12 @@ def build(
         # deliberately behind that column anyway (it reads one snapshot, as-of).
         # So the two agree on the reading only while the ACTIVE version pins the
         # default — which the active-scorer parse test enforces, and which
-        # activating a version pinning another parse must revisit together with
-        # the column's own re-derivation. A registered-but-inactive version
-        # pinning a second parse reaches no cell through here, which is what
-        # makes registration safe ahead of that re-derivation.
+        # activating a version pinning another parse revisits together with the
+        # column's own re-derivation: the two constants move in one commit,
+        # after the column has been re-derived under the incoming reading. A
+        # registered-but-inactive version pinning a second parse reaches no cell
+        # through here, which is what makes registration safe ahead of that
+        # re-derivation.
         parse=scorer().distribution_parse,
     )
     observable = projected.observable

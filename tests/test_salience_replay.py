@@ -635,8 +635,8 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     attribute to the scorer.
 
     The parse is the one axis that splits the reconstruction rather than riding
-    it: sal-v4 pins `dist-v2` and is projected separately from the four `dist-v1`
-    versions. Its projection-derived counts still match theirs — a parse changes
+    it: the active sal-v4 pins `dist-v2` and is projected separately from the
+    four `dist-v1` versions. Its projection-derived counts still match theirs — a parse changes
     the *count* read off a docket, never which dockets the frame holds or which
     of them disclosed a snapshot — so those figures are pinned across the parse
     split too, which is what makes a cross-parse band comparison legible.
@@ -644,20 +644,20 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     db = _seed_replay_corpus(tmp_path / "corpus")
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
 
-    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v4"]
+    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v3"]
     assert report.salience_version == SALIENCE_VERSION  # the report names the ACTIVE one
     assert report.cells_evaluated == 5  # one (term, policy) cell x 5 registered versions
     by_version = {cell.salience_version: cell for cell in report.cells}
-    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v4"}
-    active, toy, v1, v2, v4 = (
-        by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v4")
+    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v3"}
+    active, toy, v1, v2, v3 = (
+        by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v3")
     )
     # Each cell records the parse its reconstruction was counted under.
-    assert {active.distribution_parse, toy.distribution_parse} == {"dist-v1"}
-    assert v4.distribution_parse == "dist-v2"
+    assert active.distribution_parse == "dist-v2"
+    assert {c.distribution_parse for c in (toy, v1, v2, v3)} == {"dist-v1"}
 
     # The projection is shared, so every projection-derived figure matches.
-    for other in (toy, v1, v2, v4):
+    for other in (toy, v1, v2, v3):
         assert active.eligible == other.eligible
         assert active.skipped_no_snapshot == other.skipped_no_snapshot
         assert active.provenance == other.provenance
@@ -667,7 +667,7 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     caption_bands = {"federal", "high", "state", "elevated", "baseline", "unobservable"}
     assert set(active.bands) <= caption_bands
     assert set(v2.bands) <= caption_bands  # the caption-banded scorers share one vocabulary
-    assert set(v4.bands) <= caption_bands  # sal-v4 shares sal-v3's vocabulary exactly
+    assert set(v3.bands) <= caption_bands  # the active sal-v4 shares sal-v3's vocabulary exactly
     assert set(toy.bands) <= {"hot", "cold", "unobservable"}
     assert set(v1.bands) <= {"high", "elevated", "baseline", "unobservable"}
     assert (
@@ -675,7 +675,7 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
         == sum(toy.bands.values())
         == sum(v1.bands.values())
         == sum(v2.bands.values())
-        == sum(v4.bands.values())
+        == sum(v3.bands.values())
     )
 
 

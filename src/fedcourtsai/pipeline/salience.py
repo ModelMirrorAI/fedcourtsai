@@ -88,7 +88,7 @@ from . import caption, cert_signals, moments
 # and stamps with. A refit is a NEW version registered alongside, never an
 # in-place edit, so any past ranking replays against the function that produced
 # it — see :data:`SCORERS`.
-SALIENCE_VERSION = "sal-v3"
+SALIENCE_VERSION = "sal-v4"
 
 # sal-v1 builds a ranking score from empirical grant rates. Every constant below
 # is a real SCOTUS cert grant rate from ``metrics/statpack.md`` (denial-reweighted),
@@ -408,7 +408,16 @@ class SalienceScorer:
     # label means, exactly as the cutpoints and the carve-out rule are. Pinned
     # by a literal, never by the parse registry's default, for the reason
     # `_ARRIVAL_DRAW_KEY` is a literal: registration fixes the assignment, so a
-    # later default cannot re-read a frozen version's ranking.
+    # later default cannot re-read a frozen version's ranking. This field default
+    # is the FIRST reading rather than the current one, and it stays there
+    # exactly because the registry's default has since moved past it: sal-v1
+    # through sal-v3 take their pin from here, so re-pointing it would re-read
+    # three frozen versions. A version registered from here on states its parse
+    # explicitly, as sal-v4 does — and forgetting to is a loud failure rather
+    # than a silent inherited default, because
+    # `test_every_registered_scorer_pins_a_registered_distribution_parse` walks
+    # the registry against an indexed expectation map and KeyErrors on a version
+    # that did not declare one.
     distribution_parse: str = "dist-v1"
     # Which of this version's bands a given row could ever occupy, strongest-first
     # — the ladder its `band` walks over the petition's life. `None` means every
@@ -477,14 +486,16 @@ _SAL_V3 = SalienceScorer(
 # the count under a stable label would re-point every published per-band rate at
 # a population it was never measured on.
 #
-# Registered INACTIVE: `SALIENCE_VERSION` still names sal-v3. The census that
-# licenses the registration is the input-level cut only; activating a parse is
-# three further pieces of work (docs/salience.md), and the first of them —
-# re-deriving the corpus `distribution_count` column under `dist-v2`, on a
-# latch-bypassing writer UPDATE — must land BEFORE the flip. A sal-v4 context
-# frozen against a still-`dist-v1` column would compare a narrower
-# prediction-time count against a wider resolution-time one, which breaks the
-# relist-increment claim's "the count never falls" premise upward.
+# The ACTIVE version: `SALIENCE_VERSION` names sal-v4, and
+# `cert_signals.DEFAULT_DISTRIBUTION_PARSE` names `dist-v2` with it. The two move
+# together by necessity, not by tidiness — the relist-increment claim reads its
+# prediction-time count from the frozen context (the active scorer's parse) and
+# its resolution-time count from the corpus column (the default parse), so a
+# split between them would break that claim's "the count never falls" premise
+# upward, a narrower prediction-time count against a wider resolution-time one.
+# The stored column is re-derived under `dist-v2` ahead of the flip, on a
+# latch-bypassing writer UPDATE, which is what makes the pair honest rather than
+# merely consistent in label (docs/salience.md).
 _SAL_V4 = SalienceScorer(
     version="sal-v4",
     score=_sal_v1_score,  # still sal-v1's ranking; the parse moves its input, not its shape

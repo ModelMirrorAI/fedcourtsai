@@ -494,7 +494,12 @@ selected rows carry a prediction at all. And it was read off each row's **final*
 count rather than its count as at prediction. Since the count never falls below
 its earlier value, 37% *bounds that share above* rather than estimating it — a
 tight bound, because for most petitions the count has not moved since prediction,
-but a bound. The honest quantity needs the provisioned snapshot re-parsed. The
+but a bound. The monotonicity that bound rests on holds **within one
+distribution parse**: the column's max latch never lowers a count, but the
+`dist-v2` re-derivation was a deliberate latch-bypassing write to a strictly
+narrower reading, so the figure is read under `dist-v1` and does not chain across
+that boundary ([salience.md](salience.md)). The honest quantity needs the
+provisioned snapshot re-parsed under the reading being quoted. The
 underlying point survives either way: for a petition already relisted, "will be
 relisted at least once" is trivially true.
 

@@ -1169,7 +1169,8 @@ the rendered table) and
   rule (anchor strictly before your clock).
 
   **The arrival cohort's claim rule** (the caption-banded scorers'
-  `cert@arrival` cells — the active `sal-v3`, and `sal-v2` cells beside it). The
+  `cert@arrival` cells — the active `sal-v4`, and earlier versions' cells beside
+  it). The
   cohort is two selection rules with grant rates an order of magnitude apart —
   the unbiased random slice and the federal-petitioner carve-in — and the
   leaderboard's per-moment block pools them mechanically, so that block's
