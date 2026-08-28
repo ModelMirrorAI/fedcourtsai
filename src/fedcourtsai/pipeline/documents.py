@@ -35,7 +35,6 @@ import re
 import sqlite3
 from collections import Counter
 from collections.abc import Mapping
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -47,6 +46,7 @@ from pypdf.errors import PyPdfError
 
 from .. import corpus
 from ..supremecourt import SupremeCourtClient
+from .prefetch import prefetch_by_case
 
 # Document kinds, in provisioning order. `questions_presented` is derived from
 # the petition text rather than fetched (see the module docstring).
@@ -149,15 +149,6 @@ _QP_MAX_CHARS = 4_000
 # extraction, which the manifest labels as such and the labeling extract skips,
 # while a fragment stored as text reads to every consumer as the question.
 _QP_MIN_CHARS = 40
-# Concurrent content-store readers for the backfill's document fetch. The pass
-# is one GET per live-slice case — ~1,500 today — and serial GET latency is
-# what cancelled the first dispatched pass against the seed job's cap; sixteen
-# bounded workers hold the scan to minutes without meaningfully loading the
-# store. Read only where payload reads are offloaded — the registered source's
-# Protocol requires concurrent-read safety, and one warm-up read constructs
-# its lazy client before the pool exists — while the SQLite path stays serial
-# on its single-thread connection.
-_QP_BACKFILL_READERS = 16
 # A captured section that is really a table-of-contents entry, in the two forms
 # a TOC aligns its page numbers. A petition's own TOC lists "QUESTIONS
 # PRESENTED" with a page reference, so matching that entry instead of the real
@@ -679,15 +670,13 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
     the bulk import ever wrote. Where payload reads are offloaded to the
     content store their latency is the pass's whole cost — a serial walk of
     the ~1,500-case population is what turned the first dispatched pass into a
-    job-cap cancellation — so the document fetch runs on a bounded reader pool
-    there (:data:`_QP_BACKFILL_READERS`), consumed lazily in input order and
-    warmed by one serial read so the source's lazily built client is
-    constructed on this thread, never raced. The SQLite fallback keeps the
-    serial loop: its local reads never needed the help, and the connection
-    must stay on one thread. Everything after a fetch — extraction,
-    comparison, classification, the writes — is the same serial, ordered code
-    either way, so pooled and serial fetching produce identical results. A
-    fetch that raises aborts the whole pass, deliberately against the
+    job-cap cancellation — so the document fetch goes through
+    :func:`~fedcourtsai.pipeline.prefetch.prefetch_by_case`, which pools the
+    reads there and keeps the SQLite fallback serial on its single-thread
+    connection. Everything after a fetch — extraction, comparison,
+    classification, the writes — is the same serial, ordered code either way,
+    so pooled and serial fetching produce identical results. A fetch that
+    raises aborts the whole pass, deliberately against the
     degrade-don't-crash default: this is a dispatch-gated convergence sweep
     whose apply verifies itself by re-running, and a silently partial ledger
     would read as a converged one.
@@ -749,33 +738,18 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
         reasons[reason] += 1
         changes[case_id] = reason
 
-    if corpus.payload_reads_offloaded() and case_ids:
-        # The offloaded branch never touches `conn` inside
-        # `documents_for_case` (the registered source serves it, and the
-        # Protocol requires it to tolerate concurrent reads), which is what
-        # makes handing the call to worker threads sound; the mode cannot
-        # flip mid-pass because nothing here re-registers the source. The
-        # first case is read serially on purpose: the source builds its
-        # client lazily on first use behind a broad catch that caches the
-        # outcome, so a pool-first call would race sixteen constructions and
-        # a losing thread's cached failure would silently empty the pass.
-        # Client *calls* tolerate threads; construction does not.
-        first = corpus.documents_for_case(conn, case_ids[0])
-        with ThreadPoolExecutor(
-            max_workers=_QP_BACKFILL_READERS, thread_name_prefix="qp-backfill"
-        ) as pool:
-            consider(case_ids[0], first)
-            fetched = pool.map(
-                lambda case_id: corpus.documents_for_case(conn, case_id), case_ids[1:]
-            )
-            # Consumed lazily, in input order: results free as they are
-            # processed, so peak memory is the in-flight window, not the
-            # population's whole document text.
-            for case_id, documents in zip(case_ids[1:], fetched, strict=True):
-                consider(case_id, documents)
-    else:
-        for case_id in case_ids:
-            consider(case_id, corpus.documents_for_case(conn, case_id))
+    # `documents_for_case` never touches `conn` where payload reads are
+    # offloaded (the registered source serves it, and its Protocol requires
+    # tolerance of concurrent reads), which is what makes handing the call to
+    # the prefetch pool's worker threads sound; the mode cannot flip mid-pass
+    # because nothing here re-registers the source.
+    with prefetch_by_case(
+        case_ids,
+        lambda case_id: corpus.documents_for_case(conn, case_id),
+        thread_name_prefix="qp-backfill",
+    ) as fetched:
+        for case_id, documents in fetched:
+            consider(case_id, documents)
     if apply and updates:
         corpus.upsert_documents(conn, updates)
     return QPBackfillResult(
