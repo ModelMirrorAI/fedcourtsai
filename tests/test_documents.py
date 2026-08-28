@@ -27,6 +27,7 @@ from fedcourtsai.pipeline.documents import (
     extract_pdf_text,
     extract_questions_presented,
     fetch_case_documents,
+    questions_presented_extract,
     select_documents,
 )
 from fedcourtsai.supremecourt import SupremeCourtClient
@@ -926,6 +927,43 @@ def test_backfill_reads_the_content_store_concurrently_and_identically(
         idents[0] for case_id, idents in source.read_threads.items() if case_id != first_case
     }
     assert threading.get_ident() not in tail_idents
+
+
+def test_labeling_extract_reads_the_content_store_under_the_split(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The split writer leaves the blob's `documents` table empty and the store
+    # is the system of record for it, so the labeling extract has to serve its
+    # texts through the registered read source. A pass that ran SQL of its own
+    # over `documents` would report an empty extract against a split blob —
+    # which is the failure this shape exists to prevent, so the test empties the
+    # table rather than trusting the source to shadow it.
+    db = _seed_qp_backfill_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        stored = {
+            f"scotus/{n}": corpus.documents_for_case(conn, f"scotus/{n}") for n in (1, 2, 3, 4)
+        }
+        with conn:
+            conn.execute("DELETE FROM documents")
+        assert questions_presented_extract(conn).rows == []
+
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    source = _DictReadSource(stored)
+    previous = corpus._READ_SOURCE.get("source")
+    corpus.set_payload_read_source(source)
+    try:
+        with corpus.connect(db) as conn:
+            extract = questions_presented_extract(conn)
+    finally:
+        corpus.set_payload_read_source(previous)
+
+    # scotus/4 has a petition but no stored questions-presented row, so it is
+    # outside the QP-bearing population rather than a skip.
+    assert [row.case_id for row in extract.rows] == ["scotus/1", "scotus/2", "scotus/3"]
+    assert extract.skipped == 0
+    assert extract.rows[1].text == _HONEST_QP
+    # One read per scoped case, the store's own — never the emptied blob.
+    assert sorted(source.read_threads) == sorted(stored)
 
 
 def test_backfill_questions_presented_floors_a_stored_fragment(tmp_path: Path) -> None:

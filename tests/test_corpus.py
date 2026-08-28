@@ -153,6 +153,24 @@ def test_iter_rows_filters_by_court_and_disposition(tmp_path: Path) -> None:
     assert both == ["ca9/1"]
 
 
+def test_iter_rows_pushes_the_live_slice_filter_into_sql(tmp_path: Path) -> None:
+    # The SQL form has to agree with `is_live_slice` in both directions: a pass
+    # that only wants the slice must not hydrate the bulk-import rows to discard
+    # them, and the complement must be the exact remainder.
+    db = tmp_path / "corpus.db"
+    rows = [
+        _row(case_id="scotus/1", court="scotus", last_live_polled=date(2026, 8, 27)),
+        _row(case_id="scotus/2", court="scotus", last_live_polled=None),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        live = list(corpus.iter_rows(conn, live_slice=True))
+        frozen = [r.case_id for r in corpus.iter_rows(conn, live_slice=False)]
+    assert [r.case_id for r in live] == ["scotus/1"]
+    assert all(corpus.is_live_slice(row) for row in live)
+    assert frozen == ["scotus/2"]
+
+
 def test_get_row_missing_returns_none(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:

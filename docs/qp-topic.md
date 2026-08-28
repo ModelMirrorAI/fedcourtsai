@@ -310,10 +310,12 @@ Three consequences bind every use of the set:
   presence is already a weak grant signal. The sharper effect is **joint**, and
   it is the reason to say so here rather than to argue each file alone. Because
   this set contains *every* QP-bearing grant as of its frame date and the labels
-  file enumerates the whole QP-bearing population, the difference between the
-  two committed files is, by construction, the QP-bearing **non-grants** — the
-  labels file supplies the frame this set's "absence predicts non-grant"
-  inference previously had to range over. That is accepted on the same ground as
+  file enumerates the QP-bearing rows of the labeling frame, the difference
+  between the two committed files is, by construction, that frame's QP-bearing
+  **non-grants** — the labels file supplies the frame this set's "absence
+  predicts non-grant" inference previously had to range over. The extract's
+  frame and row ceiling bound what the pair reconstructs; they do not change
+  the character of the inference. That is accepted on the same ground as
   the first: cert outcomes are published on the Court's own order lists, so what
   the pair reconstructs is a public fact in a more convenient shape, and no QP
   text is republished by either. What it is *not* is a licence to relax the cell
@@ -324,7 +326,9 @@ Three consequences bind every use of the set:
   **One non-committed channel — carrying two artifacts — is in scope too,
   because the boundary is about disclosure and not about git.** The labeling run's extract (`fedcourts
   qp-corpus`) is both things no committed surface carries — the stored petition
-  text and the full enumeration of the QP-bearing ingested population — and the
+  text and an enumeration of the QP-bearing ingested population, bounded by the
+  labeling scope and by the extract ceiling rather than running to the whole of
+  it — and the
   run mode passes it between its two jobs as a GitHub Actions artifact. This
   repository is public, so that artifact is downloadable by any logged-in user
   for its retention window, which the workflow sets to the shortest GitHub
@@ -491,6 +495,15 @@ the corpus is a **document-fetch artifact, not a sample**:
   is far higher on paid dockets than IFP. Denial-reweighting therefore shifts
   the observed mix toward the in-forma-pauperis stream and concentrates
   `criminal-law`, `firearms`, `constitutional-rights`, and `unclassifiable`.
+- **The labeled rows are the QP-bearing part of one frame, and it is the
+  published cut's own frame.** `qp-corpus` selects the live/historical slice's
+  modern discretionary-cert petitions — the same frame the docket pack's topic
+  section is computed over — so `kept` and `<N>` in the scope string are counts
+  over one population rather than two, and no row inside the section's frame is
+  unlabelable. The extract does **not** narrow to the predict-scope segment,
+  which is the tempting narrowing and the wrong one; the reason is in *What one
+  labeling run can hold* below, and it is a measurement-integrity reason rather
+  than a statistical one.
 - **No reweighting recovers the docket.** Topics exist only for QP-bearing
   rows, and QP presence is itself outcome- and stream-correlated, so a
   denial-reweighted topic share is still a share of *QP-bearing rows only* —
@@ -524,3 +537,52 @@ counts, because a pooled percentage against a census that spans Terms of 0% and
 *walked*, because the denial sampling puts the walked serial count several-fold
 above the rows on hand. A pooled cut must also say that coverage is uneven
 across Terms, since its own ratio cannot show it.
+
+## What one labeling run can hold
+
+The extract is **bounded by what a dispatch can finish, not by how many texts
+exist**. A labeling run is a single headless turn inside one job, and
+`qp-topics` writes nothing until the labels file holds exactly one line per
+extract row — so a run that outlasts its cap leaves durable slices, full spend,
+and no artifact. Partial progress is not partial coverage here; it is nothing.
+The cap that bites is the **labeling step's**, set below the surrounding job's
+so a runaway trips the step and still leaves a run to read; the ceiling is
+derived from that one, since a bound sized against the outer cap would admit
+exactly the extracts the inner one kills.
+
+`qp-corpus` therefore enforces a ceiling (`LABEL_ROW_CEILING` in
+`fedcourtsai.pipeline.qp_topics`) and refuses to write a larger extract,
+printing the count and the scope it would have had to label. That refusal is
+the useful outcome, not a failure to route around: it costs the extract job
+rather than the labeling one, and its count is what decides between a narrower
+scope and a different design. The labeling prompt states its budget as
+"whatever the extract holds" for the same reason — one number, in one place,
+and no second copy to drift.
+
+**Why the scope stops where it does, and not one clause further.** The obvious
+next narrowing is the predict-scope segment — the population the salience gate
+actually spends on — and it is barred, on measurement grounds. On a QP-bearing
+population the only predict-scope rule that bites is the in-forma-pauperis
+exclusion, while the reference set spans both fee streams — its split is in
+*The reference set* above, and roughly three in ten of its entries are IFP.
+A paid-only extract therefore caps reference coverage near seven tenths, under
+the publication gate's floor, so no labeling run could ever publish. Carrying
+the reference set back in to restore the floor is worse, not better: an IFP row
+*inside* such an extract would be a certain reference-set member, fee class
+rides in the `docket_number` every row carries, and reference membership
+predicts a cert grant — which hands the labeler a membership probe for the very
+set it is measured against, on the one vocabulary whose whole justification is
+that it is text-only. The extract frame is wide because a narrower one leaks
+the measurement. If a future scope genuinely needs the paid segment, the
+reference set has to move into that frame first.
+
+Two consequences worth stating plainly. The ceiling is not a lever: raising it
+without raising the labeling step's cap buys a cancelled run rather than a
+bigger artifact, and raising that cap means raising the job's too — the step
+sits inside it deliberately — for a single agent turn measured in hours, which
+is not a shape this repository runs. And if the scoped population outgrows the
+ceiling, the
+answer is a **deliberately partial cut** — a documented, reproducible subset
+with its own selection rule and its own line in the scope string — never a
+truncated one, because a prefix of `case_id` order is a selection on docket
+number and would make the published mix a function of it.

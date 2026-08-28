@@ -103,9 +103,10 @@ each as its own least-privilege job holding only the credentials its mode needs:
   `data/` only — no corpus, no network — so it binds no
   environment and assumes no role, and the same `fedcourts tool-usage` runs
   locally and in the gate. Results go to the step summary; it commits nothing.
-- **`qp-topic-label`** (dispatch) runs the `qp-topic-v0` topic labeler over every
-  questions-presented text the pulled corpus carries and lands the measured
-  per-case labels file
+- **`qp-topic-label`** (dispatch) runs the `qp-topic-v0` topic labeler over the
+  scoped extract of questions-presented texts (`fedcourts qp-corpus`, whose
+  population and row ceiling are in [qp-topic.md](qp-topic.md)) and lands the
+  measured per-case labels file
   (`data/qp-topics/qp-topics.json`) as a **reviewed** PR to `main` — fixed
   branch `qp-topics/refresh`, force-pushed, never auto-merged. It is the only
   mode that runs an agent, and therefore the only one **split across two jobs**,

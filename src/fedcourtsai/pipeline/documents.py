@@ -693,9 +693,7 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
     changes: dict[str, str] = {}
     refused: list[str] = []
     updates: list[corpus.CaseDocument] = []
-    case_ids = [
-        row.case_id for row in corpus.iter_rows(conn, court="scotus") if corpus.is_live_slice(row)
-    ]
+    case_ids = [row.case_id for row in corpus.iter_rows(conn, court="scotus", live_slice=True)]
 
     def consider(case_id: str, documents: list[corpus.CaseDocument]) -> None:
         nonlocal petitions, unchanged, no_petition_text
@@ -1021,3 +1019,130 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
         # deterministic on either schedule, without a re-sort.
         empty_documents=empty_documents,
     )
+
+
+@dataclass(frozen=True)
+class QpExtractRow:
+    """One extract row: the whole input a ``qp-topic-v0`` labeler is entitled to.
+
+    Text-only by design (``docs/qp-topic.md``) — no docket context, no case
+    name, no outcome — so a label can never encode a decision the text
+    predates. ``case_id`` and ``docket_number`` are the key *pair* the reference
+    join is checked on, not context: a half-matching pair is a mis-join.
+    """
+
+    case_id: str
+    docket_number: str
+    text: str
+
+
+@dataclass(frozen=True)
+class QpExtract:
+    """The rows one labeling run reads, plus what the pass declined to hand it."""
+
+    rows: list[QpExtractRow]
+    skipped: int
+
+
+def _in_label_scope(row: corpus.CorpusRow) -> bool:
+    """Whether a row belongs to the labeling extract's population.
+
+    Exactly the frame the docket pack's question-presented topic section is
+    computed over — SCOTUS, :func:`corpus.is_live_slice`,
+    :func:`corpus.is_modern_cert` — so every labeled row has a published home
+    and nothing in the section's frame is unlabelable. The live-slice clause is
+    also what keeps the walk off hundreds of thousands of bulk-import rows, and
+    it costs no coverage: documents reach the corpus only on that channel.
+
+    Narrowing further is not free, and the predict-scope rules
+    (:data:`corpus.OUT_OF_SCOPE_RULES`) are the tempting narrowing to reject.
+    On a QP-bearing population the only one that bites is the in-forma-pauperis
+    exclusion, while the hand reference set spans both fee streams — so an
+    extract that dropped IFP rows would have to carry the reference set's own
+    back in to keep the publication gate's coverage floor reachable, and an IFP
+    row inside such an extract would then be a certain reference-set member.
+    Fee class rides in the docket number every row carries, so that is a
+    membership probe handed to the labeler, on a set whose membership predicts
+    cert grants. The frame stays wide because the alternative leaks the
+    measurement.
+    """
+    return corpus.is_live_slice(row) and corpus.is_modern_cert(row)
+
+
+def questions_presented_extract(conn: corpus.ReadConnection, *, scoped: bool = True) -> QpExtract:
+    """The stored ``questions-presented`` texts a labeling run reads.
+
+    Two selections, and they read the corpus differently on purpose.
+
+    ``scoped`` (the default, and the only form a dispatch uses) walks the
+    labeling population — :func:`_in_label_scope` — and reads each case's
+    documents through :func:`corpus.documents_for_case`, so the pass serves from
+    the per-case content store wherever payload reads are offloaded and from the
+    blob otherwise. That is the only shape that works under the corpus split at
+    all: the split writer leaves the blob's ``documents`` table empty and the
+    store is the system of record for it, so a bulk read of that table sees a
+    payload-free index and reports nothing. Population-scale per-case reads go
+    through :func:`~fedcourtsai.pipeline.prefetch.prefetch_by_case`, which pools
+    them against the store and stays serial on the single-thread connection.
+
+    ``scoped=False`` is the unscoped measurement form: one bulk join over the
+    blob's own ``documents`` table, every stored questions-presented row
+    whatever its case. It answers "what is in this blob" — a question about a
+    file, not about a population — so against a split blob it returns nothing,
+    correctly: the texts are not in the file. (Its CLI caller treats an empty
+    result as a mis-wired run and exits non-zero, since an empty extract is
+    never a labeling task.)
+
+    A row whose case carries no docket number, or whose stored text is empty, is
+    skipped and counted rather than guessed at: the docket number is half the
+    key the reference join is checked on, and an empty extraction (what the
+    extractor stores for a capture it cannot vouch for) is nothing to label.
+    Rows come back in ``case_id`` order under either selection.
+    """
+    rows: list[QpExtractRow] = []
+    skipped = 0
+
+    def consider(case_id: str, docket_number: object, text: object) -> None:
+        nonlocal skipped
+        number = str(docket_number or "").strip()
+        body = str(text or "")
+        if not number or not body.strip():
+            skipped += 1
+            return
+        rows.append(QpExtractRow(case_id, number, body))
+
+    if scoped:
+        scope = {
+            row.case_id: row.docket_number
+            for row in corpus.iter_rows(conn, court="scotus", live_slice=True)
+            if _in_label_scope(row)
+        }
+        # `documents_for_case` never touches `conn` where payload reads are
+        # offloaded (the registered source serves it, and its Protocol requires
+        # tolerance of concurrent reads), which is what makes handing the call
+        # to the prefetch pool's worker threads sound.
+        with prefetch_by_case(
+            sorted(scope),
+            lambda case_id: corpus.documents_for_case(conn, case_id),
+            thread_name_prefix="qp-extract",
+        ) as fetched:
+            for case_id, documents in fetched:
+                stored = next(
+                    (doc for doc in documents if doc.kind == KIND_QUESTIONS_PRESENTED), None
+                )
+                if stored is None:
+                    # Not a skip: a case with no stored questions is outside the
+                    # QP-bearing population, not a row the pass declined.
+                    continue
+                consider(case_id, scope[case_id], stored.text)
+        return QpExtract(rows, skipped)
+
+    cursor = conn.execute(
+        "SELECT d.case_id, c.docket_number, d.text FROM documents AS d "
+        "LEFT JOIN cases AS c ON c.case_id = d.case_id "
+        "WHERE d.kind = ? ORDER BY d.case_id",
+        (KIND_QUESTIONS_PRESENTED,),
+    )
+    for record in cursor:
+        consider(str(record[0]), record[1], record[2])
+    return QpExtract(rows, skipped)

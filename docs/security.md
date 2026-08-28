@@ -671,12 +671,19 @@ boundary `data/scope/scope.json` withholds from the committed public surface
 bounded exception to that boundary covers exactly two committed artifacts, both
 argued and accepted in `docs/qp-topic.md` and nowhere else: the
 hand-labeled qp-topic reference set, and a labeling run's per-case qp-topic
-labels file over the roughly 1,200 QP-bearing rows. Each names
+labels file over the QP-bearing rows *in the labeling scope* — the live-slice
+modern discretionary-cert frame, bounded above by the extract ceiling
+`qp-corpus` enforces (`docs/qp-topic.md`), so **one** labels file's disclosure
+extent is capped rather than tracking corpus growth. Capped per artifact, not
+across history: successive cuts committed over time union in git to a wider
+enumeration, the same history-differencing residual the reference set already
+carries. Each names
 ingested-but-unpublished dockets by public docket number; the reference set's
 membership is outcome-conditioned (presence predicts a cert grant), the labels
-file's is fetch-conditioned (a questions-presented document is stored for that
-case), and because the two are committed together the pair reconstructs the
-QP-bearing non-grants by difference. That composition is the thing argued in
+file's is fetch- **and scope-**conditioned (a questions-presented document is
+stored for that case, and the case sits in that frame — a more grant-correlated
+population than fetch alone), and because the two are committed together the
+pair reconstructs that frame's QP-bearing non-grants by difference. That composition is the thing argued in
 `docs/qp-topic.md`, alongside the non-git channel the labeling run adds — two
 artifacts under the same one-day window, publicly downloadable on this
 repository: its extract of stored petition text, riding between the mode's two

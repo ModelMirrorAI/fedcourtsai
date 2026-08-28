@@ -177,6 +177,7 @@ from .pipeline.documents import (
     TextCoverage,
     backfill_questions_presented,
     document_text_coverage,
+    questions_presented_extract,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
@@ -1783,6 +1784,13 @@ def qp_corpus(
         Path | None,
         typer.Option("--corpus", help="Corpus database (default: <corpus_root>/corpus.db)."),
     ] = None,
+    all_texts: Annotated[
+        bool,
+        typer.Option(
+            "--all",
+            help="Measurement form: every stored questions-presented row in the blob, unscoped.",
+        ),
+    ] = False,
 ) -> None:
     """Extract the stored ``questions-presented`` texts a topic labeler reads.
 
@@ -1790,16 +1798,45 @@ def qp_corpus(
     order — the whole input a ``qp-topic-v0`` labeler is entitled to, since the
     vocabulary is text-only (``docs/qp-topic.md``): no docket context, no case
     name, no outcome, so a label can never encode a decision the text predates.
-    Opens the corpus strictly read-only and never migrates it, so it is safe to
-    run against a pulled blob. A row whose case carries no docket number, or
-    whose stored text is empty, is skipped and counted rather than guessed at —
-    the docket number is half the key the reference join is checked on, and an
-    empty extraction is nothing to label. The extract is a working file for one
-    labeler run, **never a committed artifact**: it enumerates the ingested
-    corpus and republishes stored petition text, neither of which any committed
-    surface does, so writing it anywhere inside the work tree is refused
-    outright rather than left to reviewer attention — an untracked file in the
-    checkout is one ``git add -A`` from being committed.
+
+    **Scoped to the labeling population** by default: the live/historical
+    slice's modern discretionary-cert petitions — exactly the frame the docket
+    pack's topic section is computed over, so every labeled row has a published
+    home and nothing in that frame is unlabelable. Narrowing further to the
+    predict-scope segment is deliberately *not* done: it would drop the
+    in-forma-pauperis stream while the hand reference set spans both, which
+    would either put the publication gate's coverage floor out of reach or,
+    with the reference set carried back in, make an IFP docket number a certain
+    reference-membership tell (``docs/qp-topic.md``). ``--all`` is the unscoped
+    **measurement** form — every stored questions-presented row in the blob,
+    whatever its case — for answering what a given file holds. It is not a
+    labeling selection.
+
+    Reads each scoped case's documents through the registered payload path, so
+    the extract serves from the per-case content store under the corpus split
+    and from the blob otherwise; ``--all`` reads the blob's ``documents`` table
+    directly, which a split blob leaves empty by construction. Opens the corpus
+    strictly read-only and never migrates it, so either form is safe against a
+    pulled blob. A row whose case carries no docket number, or whose stored text
+    is empty, is skipped and counted rather than guessed at — the docket number
+    is half the key the reference join is checked on, and an empty extraction is
+    nothing to label.
+
+    **Refuses an extract larger than the labeling ceiling**
+    (:data:`~fedcourtsai.pipeline.qp_topics.LABEL_ROW_CEILING`), printing the
+    count and the scope it would have had to label. A labeling dispatch is one
+    headless turn under a hard step cap, and only a *complete* label file yields
+    an artifact, so an over-budget extract does not buy partial coverage — it
+    buys a killed step, full spend, and no artifact. The refusal is the count:
+    it is what a maintainer needs to decide what to do next, and it costs the
+    extract job rather than the labeling one.
+
+    The extract is a working file for one labeler run, **never a committed
+    artifact**: it enumerates the ingested corpus and republishes stored
+    petition text, neither of which any committed surface does, so writing it
+    anywhere inside the work tree is refused outright rather than left to
+    reviewer attention — an untracked file in the checkout is one ``git add -A``
+    from being committed.
     """
     settings = get_settings()
     destination = out.resolve()
@@ -1815,43 +1852,66 @@ def qp_corpus(
     if not db_path.is_file():
         typer.echo(f"qp-corpus: no corpus at {db_path} (run `fedcourts corpus-pull`)", err=True)
         raise typer.Exit(code=1)
-    rows: list[dict[str, str]] = []
-    skipped = 0
+    scope = (
+        "every stored questions-presented row in the blob"
+        if all_texts
+        else "live-slice modern discretionary-cert petitions"
+    )
     conn = sqlite3.connect(f"file:{quote(str(db_path.resolve()))}?mode=ro&immutable=1", uri=True)
+    conn.row_factory = sqlite3.Row
     try:
-        cursor = conn.execute(
-            "SELECT d.case_id, c.docket_number, d.text FROM documents AS d "
-            "LEFT JOIN cases AS c ON c.case_id = d.case_id "
-            "WHERE d.kind = 'questions-presented'"
-        )
-        for case_id, docket_number, text in cursor:
-            if not (docket_number or "").strip() or not (text or "").strip():
-                skipped += 1
-                continue
-            rows.append({"case_id": case_id, "docket_number": docket_number, "text": text})
-    except sqlite3.OperationalError as exc:
-        typer.echo(f"qp-corpus: cannot read stored documents from {db_path}: {exc}", err=True)
+        extract = questions_presented_extract(conn, scoped=not all_texts)
+    except Exception as exc:
+        # Deliberately broad, and deliberately a named refusal. Under the split
+        # the scoped pass's reads are content-store GETs, which surface
+        # transport failures (denied credentials, throttling, an expired
+        # session) as whatever the client raises, and `prefetch_by_case`
+        # propagates by contract. A traceback in the extract job says nothing
+        # useful in a run summary; this says which blob and which store failed,
+        # and no partial extract is written either way.
+        typer.echo(f"qp-corpus: cannot read stored documents for {db_path}: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     finally:
         conn.close()
-    if not rows:
+    if not extract.rows:
         # An empty extract is a mis-wired run, never a labeling task: the blob
-        # carries no document text (a payload-free index, or a split-mode blob
-        # whose texts live in the content store), so exiting 0 here would hand a
-        # labeler an empty file and call it done.
+        # carries no document text for this scope (a payload-free index whose
+        # content store is not wired, or `--all` against a split blob, whose
+        # texts live in the store), so exiting 0 here would hand a labeler an
+        # empty file and call it done.
         typer.echo(
-            f"qp-corpus: no question-presented text in {db_path} "
-            f"({skipped} row(s) skipped) — wrong blob for this command?",
+            f"qp-corpus: no question-presented text in {db_path} for {scope} "
+            f"({extract.skipped} row(s) skipped) — wrong blob for this command?",
             err=True,
         )
         raise typer.Exit(code=1)
-    rows.sort(key=lambda row: row["case_id"])
-    write_raw_json(out, rows)
-    if skipped:
+    if len(extract.rows) > qp_topics.LABEL_ROW_CEILING:
         typer.echo(
-            f"qp-corpus: skipped {skipped} row(s) with no docket number or no text", err=True
+            f"qp-corpus: refusing to write {len(extract.rows)} row(s) — over the "
+            f"{qp_topics.LABEL_ROW_CEILING}-row labeling ceiling. Scope: {scope}. "
+            "The labeler runs as one headless turn under a hard step cap and only a "
+            "complete label file yields an artifact, so this extract would spend the "
+            "run and produce nothing. Nothing was written, and there is no flag that "
+            "makes this proceed: labeling this population needs a deliberately "
+            "partial cut, which is a design decision and is not built (see "
+            "docs/qp-topic.md). Do not truncate the extract by hand — case_id order "
+            "is docket-number order, so a prefix selects on docket number.",
+            err=True,
         )
-    typer.echo(f"qp-corpus: {len(rows)} question(s) presented -> {out}")
+        raise typer.Exit(code=1)
+    write_raw_json(
+        out,
+        [
+            {"case_id": row.case_id, "docket_number": row.docket_number, "text": row.text}
+            for row in extract.rows
+        ],
+    )
+    if extract.skipped:
+        typer.echo(
+            f"qp-corpus: skipped {extract.skipped} row(s) with no docket number or no text",
+            err=True,
+        )
+    typer.echo(f"qp-corpus: {len(extract.rows)} question(s) presented ({scope}) -> {out}")
 
 
 @app.command("qp-topics")
