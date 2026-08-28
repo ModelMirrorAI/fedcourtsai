@@ -110,8 +110,10 @@ from the committed reference set: a labeler that wrote nothing and one that
 drifted below the agreement gate must both fail without publishing, and a
 faithful one must publish an artifact covering the whole reference set.
 Token-free and credential-free; the extract and the model call stay uncovered
-here by design (the extract needs QP document rows no fixture corpus writes,
-and the model call is exactly what `run-analytics` pays for).
+*by this scenario* by design — the extract is a corpus read, so it is pinned in
+the unit suite instead (scope, the `--all` measurement form, the row ceiling,
+and the content-store path under the split, all over corpora built in
+`tmp_path`), and the model call is exactly what `run-analytics` pays for.
 `engine-smoke` is the one token-spending scenario: a single real-engine
 predictor cell (the `engine` input picks which — an `all` dispatch ignores it
 and runs one smoke per engine; one predict cell's spend

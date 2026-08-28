@@ -398,15 +398,62 @@ the per-cell *range*, which no cell budget could be.
 
 **One agentic surface sits outside the registry**, and outside the per-cell
 accounting above: `run-analytics`'s `qp-topic-label` mode, which runs a single
-Claude Code session over the whole extract of stored questions-presented texts
-(roughly 1,200 at current coverage) rather than one cell per case. It is a
-manual dispatch, not a scheduled or cascade-triggered job, so it spends only
-when a maintainer asks for a labeling run; its model is the dispatch's
-`label_model` input, defaulting to the cheapest Claude tier because the task is
-classification against a fixed sixteen-label vocabulary rather than forecasting.
-It writes no `usage.json` — the ledger is keyed by cell, and a labeling run is
-not one — so its spend does not appear in the totals above and has to be read
-off the run's own engine log until a labeler-shaped accounting exists.
+Claude Code session over one extract of stored questions-presented texts rather
+than one cell per case. It is a manual dispatch, not a scheduled or
+cascade-triggered job, so it spends only when a maintainer asks for a labeling
+run; its model is the dispatch's `label_model` input, defaulting to the cheapest
+Claude tier because the task is classification against a fixed sixteen-label
+vocabulary rather than forecasting. It writes no `usage.json` — the ledger is
+keyed by cell, and a labeling run is not one — so its spend does not appear in
+the totals above and has to be read off the run's own engine log until a
+labeler-shaped accounting exists.
+
+Its three model choices price like the engines above:
+
+| Labeler model | Role | Rate (per 1M tokens) |
+|---------------|------|----------------------|
+| Haiku 4.5 | the `label_model` default | $1 in / $5 out |
+| `claude-sonnet-4-6` | the step-up for a labeling pass the default reads poorly | $3 in / $15 out |
+| `claude-fable-5` | the predict/evaluate engine, available here for a like-for-like read | $10 in / $50 out |
+
+Same source as the engine table
+([Claude API pricing](https://platform.claude.com/docs/en/pricing)), carried in
+the repository as `fedcourtsai.pricing.MODEL_RATES` — the table `usage-summary`
+prices every cell from, so a labeling run and a predict cell are quoted off one
+set of rates. The Haiku row is the one that does not key straight into it: the
+dispatch offers a **dated** Haiku 4.5 id, while the rate table holds the
+undated `claude-haiku-4-5`. The rate is the same and nothing prices a labeling
+run automatically today (it writes no `usage.json`), but the two spellings have
+to be reconciled before one ever does.
+
+**What one labeling run costs.** Bounded rather than measured: the extract is
+capped at the labeling ceiling `fedcourts qp-corpus` enforces (1,200 rows —
+`fedcourtsai.pipeline.qp_topics.LABEL_ROW_CEILING`, derived from the labeler
+*step's* 40-minute cap, not from the population), so the ceiling is what a run
+can cost at most. Profile of the scoped extract, measured against the dev blob
+pulled 2026-08-27 whose newest stored snapshot is 2026-07-13: 1,187 rows, mean
+1,088 characters, median 942, p90 ≈1,920, capped at 4,000. That snapshot stamp
+is the one that bounds the figure — QP presence is a document-fetch artifact —
+and the blob's stored documents predate the corpus split, so it undercounts
+what the writer lane holds. Note the headroom: 1,187 against a 1,200 ceiling is
+thirteen rows, so on this blob the guard is close to firing and on the writer
+lane it is expected to fire.
+
+A ceiling-sized run is therefore ≈1.3 MB of question text ≈ **0.33M input
+tokens read once** (at ~4 characters a token). What it bills is a multiple of
+that, and the multiple is the soft part of the estimate: the session re-sends
+context across the prompt's ~120 turns, so a labeler that streams slices and
+does not retain them runs a few times the once-read figure, while one that
+accumulates the whole transcript runs an order of magnitude above it. Output is
+roughly 0.1–0.2M — one JSONL line per row plus the turn's own prose. Across
+that whole span, and with cache reads billing at a tenth of the input rate
+(cache *writes* at 1.25×), the default model lands in **single-digit dollars**;
+`claude-sonnet-4-6` is 3× the rate and `claude-fable-5` 10×, which puts the top
+of the range in tens of dollars. Quote the tier, not a point figure. For this
+mode the artifact, not the money, is what a mis-sized dispatch loses. All of it
+is **unmeasured** — no `qp-topic-label` dispatch has produced an artifact yet,
+so these come from the extract profile and the prompt's own turn budget rather
+than from an engine log, and the first completed run replaces them.
 
 **Scope: the SCOTUS-docket gate.** The pilot predicts and evaluates only SCOTUS
 dockets. Ingestion is unchanged — the channels still assemble all fourteen courts

@@ -1,8 +1,9 @@
 """The qp-topic labeler machinery: shadow rules, agreement, and the gated builder.
 
 Offline throughout — the shadow rules read text, the agreement reads two label
-sets, and the CLI round-trip runs against a tmp reference set. Nothing here
-touches the corpus, so a rule change surfaces in seconds.
+sets, and the CLI round-trip runs against a tmp reference set. The extract
+tests build a five-row corpus in ``tmp_path``, so a rule change still surfaces
+in seconds and nothing here reads a pulled blob.
 
 The shadow fixtures are **in-sample**: the positives are shortened reference
 texts the rules were tuned to fire on and the negatives are the boundary texts
@@ -14,12 +15,16 @@ about an unseen text (see :mod:`fedcourtsai.pipeline.qp_topics`).
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
+from fedcourtsai import corpus
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline import qp_topics as qp_topics_module
+from fedcourtsai.pipeline.documents import KIND_QUESTIONS_PRESENTED, questions_presented_extract
 from fedcourtsai.pipeline.qp_topics import (
     AGREEMENT_GATE,
     COVERAGE_FLOOR,
@@ -355,6 +360,206 @@ def test_qp_corpus_refuses_to_write_anywhere_in_the_work_tree(
     assert result.exit_code == 2
     assert "refusing to write the extract inside the checkout" in result.output
     assert not in_tree.exists()
+
+
+# --- the labeling extract: scope, the measurement escape, and the budget guard ---
+
+
+def _scoped_case(case_id: str, docket_number: str, **kw: object) -> corpus.CorpusRow:
+    """A row inside the labeling scope: live slice, modern cert, nothing excluded."""
+    base: dict[str, object] = {
+        "case_id": case_id,
+        "court": "scotus",
+        "docket_number": docket_number,
+        "date_filed": date(2025, 10, 1),
+        "last_live_polled": date(2026, 8, 27),
+    }
+    return corpus.CorpusRow(**(base | kw))
+
+
+def _qp_document(case_id: str, text: str) -> corpus.CaseDocument:
+    return corpus.CaseDocument(
+        case_id=case_id,
+        kind=KIND_QUESTIONS_PRESENTED,
+        url=f"https://example/{case_id}.pdf",
+        fetched_at=date(2026, 8, 27),
+        text=text,
+    )
+
+
+def _seed_extract_corpus(db: Path) -> None:
+    """Five QP-bearing cases: one in scope, four out of it for a different reason."""
+    rows = [
+        _scoped_case("scotus/1", "25-101"),
+        # IFP: the serial is at/above IFP_SERIAL_BASE, the one predict-scope rule
+        # that bites on a QP-bearing population.
+        _scoped_case("scotus/2", "25-5101"),
+        # Bulk-import row: no live-channel poll, so outside the live slice.
+        _scoped_case("scotus/3", "25-103", last_live_polled=None),
+        # An application docket: live, but not the discretionary-cert form.
+        _scoped_case("scotus/4", "25A103"),
+        # In scope, but the extractor could not vouch for the capture.
+        _scoped_case("scotus/5", "25-105"),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        corpus.upsert_documents(
+            conn,
+            [
+                _qp_document("scotus/1", "Whether the paid petition presents a question."),
+                _qp_document("scotus/2", "Whether the IFP petition presents a question."),
+                _qp_document("scotus/3", "Whether the bulk-import row presents a question."),
+                _qp_document("scotus/4", "Whether the application presents a question."),
+                _qp_document("scotus/5", "   \n "),
+            ],
+        )
+
+
+def test_extract_scopes_to_the_labeling_population(tmp_path: Path) -> None:
+    # The scoped selection is the docket pack's own topic-section frame:
+    # live-slice modern cert. Each excluded row here fails exactly one clause,
+    # so a dropped clause would show up as a specific extra case rather than a
+    # count.
+    db = tmp_path / "corpus.db"
+    _seed_extract_corpus(db)
+
+    with corpus.connect(db) as conn:
+        extract = questions_presented_extract(conn)
+
+    assert [row.case_id for row in extract.rows] == ["scotus/1", "scotus/2"]
+    # The empty capture is a skip (a row the pass declined); the two
+    # out-of-frame cases are not — they were never in the population.
+    assert extract.skipped == 1
+
+
+def test_extract_keeps_the_ifp_stream_the_reference_set_spans(tmp_path: Path) -> None:
+    # The frame deliberately stops short of the predict-scope segment. Dropping
+    # IFP rows would put the publication gate's coverage floor out of reach (the
+    # reference set spans both fee streams), and carrying the reference set back
+    # in to restore it would make an IFP docket number a certain
+    # reference-membership tell for the labeler.
+    db = tmp_path / "corpus.db"
+    _seed_extract_corpus(db)
+    ifp = corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="25-5101")
+    assert corpus.is_ifp_petition(ifp)
+    assert corpus.out_of_scope_reason(ifp) is not None
+
+    with corpus.connect(db) as conn:
+        extract = questions_presented_extract(conn)
+
+    assert "scotus/2" in [row.case_id for row in extract.rows]
+
+
+def test_extract_all_flag_takes_every_stored_row(tmp_path: Path) -> None:
+    # The measurement form answers "what is in this blob", so scope does not
+    # apply — but the skip rule still does.
+    db = tmp_path / "corpus.db"
+    _seed_extract_corpus(db)
+
+    with corpus.connect(db) as conn:
+        extract = questions_presented_extract(conn, scoped=False)
+
+    assert [row.case_id for row in extract.rows] == [
+        "scotus/1",
+        "scotus/2",
+        "scotus/3",
+        "scotus/4",
+    ]
+    assert extract.skipped == 1
+
+
+def _extract_corpus_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rows: int) -> Path:
+    """A corpus root whose scoped extract holds exactly ``rows`` labelable cases."""
+    corpus_root = tmp_path / "corpus"
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    db = corpus.corpus_db_path(corpus_root)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn, [_scoped_case(f"scotus/{n}", f"25-{n}") for n in range(1, rows + 1)]
+        )
+        corpus.upsert_documents(
+            conn,
+            [
+                _qp_document(f"scotus/{n}", f"Whether question {n} is presented.")
+                for n in range(1, rows + 1)
+            ],
+        )
+    return corpus_root
+
+
+def test_qp_corpus_all_flag_reaches_the_unscoped_selection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The flag is the seam between the CLI and the two selections, and it is the
+    # one a maintainer reaches for by hand: pin that `--all` really changes the
+    # population read and says which one it used, not just that it parses.
+    corpus_root = tmp_path / "corpus"
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    _seed_extract_corpus(corpus.corpus_db_path(corpus_root))
+    scoped_out = tmp_path / "scoped.json"
+    all_out = tmp_path / "all.json"
+
+    scoped = CliRunner().invoke(app, ["qp-corpus", "--out", str(scoped_out)])
+    unscoped = CliRunner().invoke(app, ["qp-corpus", "--all", "--out", str(all_out)])
+
+    assert (scoped.exit_code, unscoped.exit_code) == (0, 0), scoped.output + unscoped.output
+    assert [row["case_id"] for row in json.loads(scoped_out.read_text())] == [
+        "scotus/1",
+        "scotus/2",
+    ]
+    assert [row["case_id"] for row in json.loads(all_out.read_text())] == [
+        "scotus/1",
+        "scotus/2",
+        "scotus/3",
+        "scotus/4",
+    ]
+    assert "live-slice modern discretionary-cert petitions" in scoped.output
+    assert "every stored questions-presented row in the blob" in unscoped.output
+
+
+def test_qp_corpus_refuses_an_extract_over_the_labeling_ceiling(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Only a complete label file yields an artifact, so an over-budget extract
+    # buys a cancelled job and no artifact rather than partial coverage. The
+    # refusal has to name the count and the scope: that is what decides between
+    # a narrower scope and a different design.
+    monkeypatch.setattr(qp_topics_module, "LABEL_ROW_CEILING", 2)
+    _extract_corpus_root(tmp_path, monkeypatch, rows=3)
+    out = tmp_path / "extract.json"
+
+    result = CliRunner().invoke(app, ["qp-corpus", "--out", str(out)])
+
+    assert result.exit_code == 1
+    assert "refusing to write 3 row(s)" in result.output
+    assert "2-row labeling ceiling" in result.output
+    assert "live-slice modern discretionary-cert petitions" in result.output
+    assert not out.exists()
+
+
+def test_qp_corpus_writes_an_extract_at_the_ceiling(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # At the ceiling the guard does not fire — it is a bound on what a run can
+    # be handed, not a margin below one.
+    monkeypatch.setattr(qp_topics_module, "LABEL_ROW_CEILING", 3)
+    _extract_corpus_root(tmp_path, monkeypatch, rows=3)
+    out = tmp_path / "extract.json"
+
+    result = CliRunner().invoke(app, ["qp-corpus", "--out", str(out)])
+
+    assert result.exit_code == 0, result.output
+    assert [row["case_id"] for row in json.loads(out.read_text())] == [
+        "scotus/1",
+        "scotus/2",
+        "scotus/3",
+    ]
 
 
 def test_builder_requires_the_labels_and_the_extract_to_be_the_same_cases() -> None:

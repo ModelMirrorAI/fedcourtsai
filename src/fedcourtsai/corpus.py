@@ -2381,8 +2381,10 @@ def iter_rows(
     court: str | None = None,
     disposition: Disposition | None = None,
     resolved: bool | None = None,
+    live_slice: bool | None = None,
 ) -> Iterator[CorpusRow]:
-    """Yield rows in ``case_id`` order, optionally filtered by court / disposition.
+    """Yield rows in ``case_id`` order, optionally filtered by court, disposition,
+    resolution, or live-slice membership.
 
     The filters cover the common retrieval and back-test selections; richer
     querying (by judge, topic, citation, or semantic similarity) is layered on
@@ -2391,13 +2393,19 @@ def iter_rows(
     than ``retrieve_priors``' resolved reading (which also counts a decision
     date), because this seam's consumers (the prior-vote index, disposition
     aggregation) need the label itself — pushed into SQL so a consumer of the
-    small resolved slice never pays a full-corpus scan.
+    small resolved slice never pays a full-corpus scan. ``live_slice`` is the
+    same trade for :func:`is_live_slice` (via :data:`LIVE_SLICE_SQL`): the slice
+    is a low-percent sliver of a corpus whose SCOTUS half runs to hundreds of
+    thousands of bulk-import rows, so a pass that only wants it must not
+    hydrate every one of them to discard it in Python.
     """
     clauses: list[str] = []
     params: list[object] = []
     if court is not None:
         clauses.append("court = ?")
         params.append(court)
+    if live_slice is not None:
+        clauses.append(LIVE_SLICE_SQL if live_slice else f"NOT ({LIVE_SLICE_SQL})")
     if disposition is not None:
         clauses.append("disposition = ?")
         params.append(Disposition(disposition).value)
