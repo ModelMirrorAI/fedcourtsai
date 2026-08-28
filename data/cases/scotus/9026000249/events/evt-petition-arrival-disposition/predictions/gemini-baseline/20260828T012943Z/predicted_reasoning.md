@@ -1,0 +1,5 @@
+Distributed 0 times so far; expect 0 further relists before a decision on the petition, as the Court typically denies this kind of pro se, state-law-focused petition outright at the first conference.
+
+No CVSG is expected, as the case involves the application of a state privilege law to state privacy claims between mostly private parties and local officials, implicating no unique federal interest.
+
+If granted, the Court would likely focus on whether federal courts can categorically bar amendment under Rule 15 based on state litigation privilege. A summary disposition (like a GVR) is unlikely because there is no obvious intervening state supreme court decision to remand in light of. Should the Court deny the petition, expect no separate writing or dissent from denial, as the issue is highly fact-bound and primarily concerns state law.
