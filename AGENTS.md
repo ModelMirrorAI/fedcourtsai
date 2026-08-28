@@ -230,9 +230,11 @@ docs-only change needs none of the Python checks).
 
 ```bash
 uv sync                    # once, to sync the env the stages assume
-scripts/gate.sh            # every stage, in CI order — what CI enforces
+scripts/gate.sh            # every stage, in CI order — CI runs all but lock
 # or run just the stages that fit your change:
-scripts/gate.sh lock       # uv lock --check (the lock matches pyproject)
+scripts/gate.sh lock       # uv lock --check (the lock matches pyproject); CI
+                           # enforces it instead in setup-python-env, which
+                           # installs with `uv sync --locked`
 scripts/gate.sh lint       # ruff format --check + ruff check
 scripts/gate.sh types      # mypy
 scripts/gate.sh test       # pytest  (GATE_COV=1 adds coverage, as CI does)
@@ -368,10 +370,11 @@ task-specific instructions: the prompt file named in your run
 
 | Question | Doc |
 | --- | --- |
-| What may I claim from a number? What do the strata mean? | `metrics/README.md` |
+| What may I claim from a number? What do the strata mean? (strata, floors, and reading rules all registered; the committed leaderboard and claim-score boards still render their empty state) | `metrics/README.md` |
 | What does a label trigger, and how do I operate/recover a run? | `docs/pipeline.md` |
 | How does the corpus get filled, stored, and versioned? | `docs/data-pipeline.md`, `corpus/README.md` |
-| Where does upstream data come from, and on what terms? | `docs/data-sources.md`, `docs/live-sources.md` |
+| On what terms may we use and republish upstream data? | `docs/data-sources.md` |
+| How does the SCOTUS live channel work? | `docs/live-sources.md` |
 | Which command does X, and with which flags? | `docs/cli.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
 | What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; no labels artifact yet produced) | `docs/qp-topic.md` |
