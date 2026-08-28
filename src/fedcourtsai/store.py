@@ -315,10 +315,11 @@ def _merits_forecastable(
     predictor, per day, that provisioning then refuses.
 
     The terminated check is the same guard for the case that ends with no
-    disposition at all — a post-grant Rule 46 dismissal, a docket whose only
-    terminal notation is the mandate. Nothing will ever latch a judgment there,
-    so an unlatched column alone would keep the event forecastable for the
-    stale-grant bound's two Terms, and
+    disposition at all — a post-grant Rule 46 dismissal, a dismissal as moot,
+    an abatement on the petitioner's death, a grant the Court vacated, a docket
+    whose only terminal notation is the mandate. Nothing will ever latch a
+    judgment there, so an unlatched column alone would keep the event
+    forecastable for the stale-grant bound's two Terms, and
     on a long-decided docket that is a forward cell on a case whose answer is
     already public. The column
     (``merits_terminated``, :mod:`fedcourtsai.pipeline.judgment`) is what makes

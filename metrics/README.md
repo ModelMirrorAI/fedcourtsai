@@ -844,16 +844,26 @@ cert-order vacatur stays in `granted`, so the `parsed`/`granted` coverage
 figure can still carry it even though the rate cannot; a parsed judgment
 with no date stays in `granted` the same way, since the gap test cannot run
 on it; and a granted case recorded as `merits_terminated` stays in `granted`
-too. That last residue covers two unlike shapes, and the distinction matters
-for what may be said about it: a post-grant Rule 46 dismissal has **no
-disposition to record** — nobody reached the merits — while a bare mandate
+too. That last residue covers two unlike kinds, and the distinction matters
+for what may be said about it: a proceeding that ended before the merits were
+reached — a post-grant Rule 46 dismissal, a dismissal as moot, an abatement on
+the petitioner's death, a grant the Court vacated — has **no
+disposition to record**, while a bare mandate
 notation marks a case that *was* decided on a docket whose disposition entry
 the corpus never captured, which is a coverage failure of the same family as
 the two residues above. Neither is folded into the judgment vocabulary,
 because a seventh value would be scored as an undisturbed judgment, asserting
 in the first case that the decision below survived a merits ruling nobody
 made, and in the second that it survived a ruling whose direction is simply
-unread. And the window is the same ten-Term
+unread. One of the four pre-merits shapes carries a further debt, and it is
+not the merits column's to pay: a **vacated grant** returns the case to the
+cert stage, so the row's cert `disposition` goes on describing an order the
+Court withdrew — 19-825 is stamped `granted` and was ultimately denied. The
+termination resolves the row's merits pendency correctly and keeps it out of
+every merits figure, but it also releases the row from
+`no_stale_unparsed_grants`, which was the only check naming it. Such a row
+remains owed a cert-label reconciliation that no sweep performs, and it counts
+as a grant in the cert-side rates until one does. And the window is the same ten-Term
 band the cert baseline uses (`salience.base_rate_lookback_terms`), so state it
 with the figure. `correct` — and so the stage block's accuracy — is the **judgment**
 exact-match on a merits cell, not the disposition match, since a merits

@@ -980,9 +980,10 @@ def backfill_merits_judgments_cmd(
     stage section, the merits base rate pooled from it, and merits outcome
     detection. Where no judgment shape matches anywhere, a second, smaller
     vocabulary runs as fallback — the terminations, for a proceeding that ended
-    without a disposition (a post-grant Rule 46 dismissal, a bare mandate
-    notation) — and stamps `merits_terminated` instead, which closes the row's
-    pendency without entering the parsed slice. Idempotent; a row
+    without a disposition (a post-grant Rule 46 dismissal, a dismissal as moot,
+    an abatement on the petitioner's death, a grant the Court vacated, a bare
+    mandate notation) — and stamps `merits_terminated` instead, which closes
+    the row's pendency without entering the parsed slice. Idempotent; a row
     whose snapshot is unreachable is counted `no_snapshot` and left as it is.
     Dry-run by default; `--apply` writes (run where the corpus is pulled,
     `corpus-push` after). Prints a `MeritsBackfillResult`. Fails loud if the

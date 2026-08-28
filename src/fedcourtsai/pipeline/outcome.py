@@ -384,15 +384,31 @@ def snapshot_shows_judgment(docket: Mapping[str, Any]) -> str | None:
     (:func:`fedcourtsai.pipeline.judgment.match_merits_termination`), which end
     a granted case with no disposition and so are invisible to a regex written
     around dispositions. The post-grant Rule 46 dismissal is the shape that
-    matters — the cert-stage scan has no branch for it, because on a *petition*
-    it is a cert-stage exit its own "petition ... dismissed" branch already
-    reads — and a merits cell whose snapshot carries it can see the case ended.
+    matters — the cert-stage scan has no branch for it — and a merits cell
+    whose snapshot carries it can see the case ended.
     Sourced from the parser so the two seams cannot drift.
+
+    The parser is read with ``cert_granted=False``, which is not a claim about
+    the docket (this function sees a payload and no row) but a refusal to make
+    one: the shapes it thereby declines are the *petition*-subject ones, and
+    those are the ones :data:`_TERMINAL_ENTRY_RE` reads for itself through its
+    "petition ... dismissed" branch — "Petition Dismissed - Rule 46.",
+    "Petition dismissed as moot.", the abatement spelled on the petition. The
+    split is exact, and it is what makes the refusal free: the shapes the regex
+    misses are precisely the ones whose subject is the case or the writ ("Writ
+    of Certiorari Dismissed - Rule 46.", the Court vacating its own grant
+    order, an abatement spelled on the writ — the branch keys on "petition",
+    which does not match inside "petitioner"), and those are precisely the
+    shapes the parser admits with no docket-level fact at all. So the two
+    instruments are complementary rather than redundant, the guard needs both,
+    and neither the assumption nor the recall is lost.
     """
     for description in entry_descriptions(docket):
         if _CBJ_GRANT_RE.search(description):
             continue
-        if _TERMINAL_ENTRY_RE.search(description) or match_merits_termination(description):
+        if _TERMINAL_ENTRY_RE.search(description) or match_merits_termination(
+            description, cert_granted=False
+        ):
             return f"snapshot entry reads as terminal: {description!r}"
     return None
 

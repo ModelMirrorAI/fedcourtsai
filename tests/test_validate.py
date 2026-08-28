@@ -485,6 +485,34 @@ def test_a_resolved_old_grant_passes_either_way(tmp_path: Path) -> None:
     assert _verdict_by_check(verdict)[CHECK_STALE_UNPARSED_GRANTS] is True
 
 
+def test_the_termination_detail_names_each_class(tmp_path: Path) -> None:
+    """The cleared rows are published per class, not as one pooled count.
+
+    A termination clears this check permanently, and the classes do not make
+    that an equal trade: most record a proceeding that demonstrably ended with
+    nothing to recover, while `judgment-issued` closes pendency over a case that
+    *was* decided on a docket whose disposition entry was never captured. One
+    number would average the second away behind the first, so the breakdown is
+    the part of the detail that carries the information.
+    """
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    _grant(db, "scotus/9020", date(2019, 2, 4))
+    _grant(db, "scotus/9021", date(2019, 2, 4))
+    _grant(db, "scotus/9022", date(2019, 2, 4))
+    with corpus.connect(db) as conn:
+        corpus.set_merits_termination(conn, "scotus/9020", MeritsTermination.judgment_issued)
+        corpus.set_merits_termination(conn, "scotus/9021", MeritsTermination.judgment_issued)
+        corpus.set_merits_termination(conn, "scotus/9022", MeritsTermination.abated)
+    check = next(
+        c for c in _run(db, tmp_path / "data").checks if c.name == CHECK_STALE_UNPARSED_GRANTS
+    )
+    assert check.passed
+    assert "3 resolved by termination" in check.detail
+    assert "1 abated" in check.detail
+    assert "2 judgment-issued" in check.detail
+
+
 def test_a_gvr_is_outside_the_stale_grant_population(tmp_path: Path) -> None:
     # The population is the grants that open a merits proceeding: a GVR decides
     # in the cert order, so it never owes a merits outcome.
