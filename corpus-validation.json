@@ -33,33 +33,12 @@
       "problems": []
     },
     {
-      "checked": 668,
-      "detail": "granted before 2024-08-28 (730 days); 12 resolved by termination",
-      "failures": 23,
+      "checked": 655,
+      "detail": "granted before 2024-08-28 (730 days); 18 resolved by termination (1 abated, 1 dismissed-moot, 1 grant-vacated, 10 judgment-issued, 5 voluntary-dismissal); excepted (terminal off-docket): scotus/72466202, scotus/72466229, scotus/72466705",
+      "failures": 0,
       "name": "no_stale_unparsed_grants",
-      "passed": false,
-      "problems": [
-        "granted 2017-12-01: scotus/66645745 still carries no merits judgment or termination",
-        "granted 2019-02-04: scotus/66721476 still carries no merits judgment or termination",
-        "granted 2019-03-18: scotus/16351623 still carries no merits judgment or termination",
-        "granted 2019-03-21: scotus/66722520 still carries no merits judgment or termination",
-        "granted 2019-09-20: scotus/66726256 still carries no merits judgment or termination",
-        "granted 2019-11-15: scotus/66725205 still carries no merits judgment or termination",
-        "granted 2020-03-12: scotus/72464801 still carries no merits judgment or termination",
-        "granted 2020-04-10: scotus/66728618 still carries no merits judgment or termination",
-        "granted 2020-05-05: scotus/72464303 still carries no merits judgment or termination",
-        "granted 2020-05-21: scotus/72463740 still carries no merits judgment or termination",
-        "granted 2020-07-09: scotus/72464349 still carries no merits judgment or termination",
-        "granted 2020-11-20: scotus/72468114 still carries no merits judgment or termination",
-        "granted 2020-12-08: scotus/72463956 still carries no merits judgment or termination",
-        "granted 2020-12-16: scotus/72466423 still carries no merits judgment or termination",
-        "granted 2020-12-30: scotus/72467123 still carries no merits judgment or termination",
-        "granted 2021-02-22: scotus/72466202 still carries no merits judgment or termination",
-        "granted 2021-02-22: scotus/72466229 still carries no merits judgment or termination",
-        "granted 2021-02-22: scotus/72466705 still carries no merits judgment or termination",
-        "granted 2021-05-05: scotus/72465236 still carries no merits judgment or termination",
-        "granted 2021-07-02: scotus/72465410 still carries no merits judgment or termination"
-      ]
+      "passed": true,
+      "problems": []
     },
     {
       "checked": 2152635,
@@ -205,7 +184,7 @@
   ],
   "corpus_events": 2152756,
   "corpus_rows": 2152635,
-  "ok": false,
+  "ok": true,
   "schema_version": "1.0",
   "skipped": false
 }
