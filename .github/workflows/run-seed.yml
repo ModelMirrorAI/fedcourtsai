@@ -951,7 +951,8 @@ jobs:
         continue-on-error: true
         # Bounded for the same reason, and more tightly needed: the first
         # non-converged pass reads the content store once per merits-bound
-        # grant, an external-service loop with no internal cap.
+        # grant — pooled at PREFETCH_READERS workers, so the bound guards a
+        # stalled store, not throughput.
         timeout-minutes: 10
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -989,8 +990,8 @@ jobs:
         if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
         continue-on-error: true
         # Bounded for the same reason as the judgments pass: the pendency check
-        # reads a stored snapshot per candidate grant, an external-service loop
-        # with no internal cap on a non-converged corpus. On the first
+        # reads a stored snapshot per grant it owes a mint — pooled at
+        # PREFETCH_READERS workers on a non-converged corpus. On the first
         # non-converged 02:31 window the job's 55m cap can still bind (the walk
         # plus the judgments pass plus this step, each at its bound), and a cap
         # hit cancels the run rather than continuing — so that window may raise
