@@ -359,9 +359,10 @@ class CorpusRow(BaseModel):
     amicus_briefs: int | None = Field(
         default=None,
         description="How many amicus briefs an interim application's docket "
-        "records (counted per entry naming amicus curiae — a stakes proxy, and "
-        "an approximation: a multi-filer entry counts once, a motion reciting "
-        "the phrase counts alongside the brief, and the max-latch makes any "
+        "records (counted per entry naming amicus or amici curiae — a stakes "
+        "proxy, and an approximation: a multi-filer entry counts once, a motion "
+        "reciting the phrase counts alongside the brief, a brief still awaiting "
+        "the Clerk counts only once accepted, and the max-latch makes any "
         "overcount permanent; see `interim_signals.amicus_briefs`). None = "
         "never application-parsed; the upsert max-latches it (filings are "
         "append-only, so the count only ever grows and a degraded parse's "

@@ -157,6 +157,88 @@ def test_amicus_interest_is_counted_not_flagged() -> None:
     )
 
 
+def test_a_brief_filed_by_several_amici_counts_like_one_filed_by_one() -> None:
+    """The plural is half the record, not a stylistic variant: a brief filed by
+    several amici is docketed with the noun declined, and a singular-only pattern
+    therefore reads about half the amicus record — least of it where interest is
+    highest, which is exactly where the stakes proxy is supposed to speak."""
+    assert amicus_briefs(["Brief amici curiae of AARP, et al. filed."]) == 1
+    assert (
+        amicus_briefs(
+            [
+                "Brief amici curiae of AARP, et al. filed.",
+                "Brief amicus curiae of American Association for Justice filed.",
+            ]
+        )
+        == 2
+    )
+
+
+def test_an_attempt_at_a_brief_is_not_a_brief() -> None:
+    """The pre-acceptance shapes, verbatim — a motion for leave and its denial, a
+    submission awaiting the Clerk, a rejection — and none of them is a brief the
+    Court has. Each is also a state a real brief passes *through*, and the docket
+    appends the acceptance as its own later entry rather than rewriting the
+    earlier one — so counting one of these counts a single brief twice, and the
+    corpus column max-latches, which would make that overcount permanent."""
+    assert (
+        amicus_briefs(
+            [
+                "Motion for leave to file amicus brief filed by Cato Institute.",
+                "Motion for leave to file amicus brief filed by Cato Institute DENIED.",
+                "Amicus brief of Lepanto Institute submitted.",
+                "Amicus brief of American Atheist, Inc., et al. not accepted for filing. "
+                + "(To be corrected and resubmitted - April 9, 2025)",
+            ]
+        )
+        == 0
+    )
+
+
+def test_the_rejected_brief_and_its_corrected_refiling_count_once() -> None:
+    """24-394's rejection and its corrected refiling, in docket order: the same
+    amicus, rejected and accepted on the same day. Both entries stand on the
+    record forever, so the count has to read the pair as the one brief it is."""
+    assert (
+        amicus_briefs(
+            [
+                "Amicus brief of American Atheist, Inc., et al. not accepted for filing. "
+                + "(To be corrected and resubmitted - April 9, 2025)",
+                "Brief amici curiae of American Atheist, Inc., et al. filed. VIDED. (Distributed)",
+            ]
+        )
+        == 1
+    )
+
+
+# 25-498 — the two filing shapes on one docket: five briefs on the record (four
+# of them plural), then six submissions awaiting the Clerk. Verbatim.
+_MIXED_AMICUS = [
+    "Brief amici curiae of AARP, et al. filed.",
+    "Brief amicus curiae of American Association for Justice filed.",
+    "Brief amici curiae of Americans for Financial Reform, et al. filed.",
+    "Brief amici curiae of Investment Law Scholars filed.",
+    "Brief amici curiae of Phyllis C. Borzi, et al. filed.",
+    "Amicus brief of The American Investment Council & The Managed Funds Association submitted.",
+    "Amicus brief of American Benefits Council submitted.",
+    "Amicus brief of The National Association of Manufacturers submitted.",
+    "Amicus brief of Chamber of Commerce of the United States of America, American "
+    + "Retirement Association, Business Roundtable, Committee on Investment of Employee "
+    + "Benefit Assets, The ERISA Industry Committee, Securities Industry and Financial "
+    + "Markets Association, and Stable Value Investment Association submitted.",
+    "Amicus brief of Investment Company Institute submitted.",
+    "Amicus brief of United States of America submitted.",
+]
+
+
+def test_a_mixed_docket_counts_the_briefs_on_the_record() -> None:
+    """Eleven entries naming an amicus, five briefs the Court has. The submissions
+    are three days old at this snapshot and not yet accepted; when the Clerk takes
+    them the docket says so in its own entries and the count rises then, which is
+    the direction a max-latched column can follow."""
+    assert amicus_briefs(_MIXED_AMICUS) == 5
+
+
 def test_the_escalation_ladder_separates_the_sampled_outcomes() -> None:
     """The three real applications, in the order the ladder puts them: a summary
     denial with no engagement, a referred denial, and a granted application that
@@ -220,6 +302,23 @@ def test_an_application_carries_no_cert_stage_columns() -> None:
     assert record["distributed_for_conference"] is None
     assert record["cvsg_date"] is None
     assert record["distribution_count"] is None  # unobservable, not zero
+
+
+def test_the_amicus_column_takes_the_plural_off_the_docket_text() -> None:
+    """The column the escalation ladder and the increment claim both read is
+    written here, from the proceedings text, so the counter's reading has to
+    survive the trip: an application whose briefs were all filed by several amici
+    must not land as a zero. On the cert path the trio is never parsed at all,
+    which is what `None` means in that column."""
+    entries = (
+        ("May 14 2025", "Application (24A1099) for a stay, submitted to The Chief Justice."),
+        ("Jun 02 2025", "Brief amici curiae of AARP, et al. filed."),
+        ("Jun 03 2025", "Brief amici curiae of Investment Law Scholars filed."),
+        ("Jun 04 2025", "Amicus brief of American Benefits Council submitted."),
+    )
+    record = map_live_docket(_payload(*entries), 9_500_024_001, form="application")
+    assert record["amicus_briefs"] == 2
+    assert map_live_docket(_payload(*entries), 9_500_024_001)["amicus_briefs"] is None
 
 
 def test_the_last_disposing_entry_wins_on_the_interim_docket() -> None:

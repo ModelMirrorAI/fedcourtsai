@@ -988,8 +988,8 @@ class InterimResolutionSignals(_Strict):
     amicus_briefs: int = Field(
         ge=0,
         description="How many amicus briefs the application's docket recorded as "
-        "at resolution — a stakes proxy, counted per entry naming amicus curiae "
-        "(a multi-filer entry counts once)",
+        "at resolution — a stakes proxy, counted per entry naming amicus or amici "
+        "curiae (a multi-filer entry counts once)",
     )
 
 

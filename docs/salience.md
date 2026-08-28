@@ -1115,7 +1115,11 @@ an observation but not in the pick order: a referral usually arrives *as* the
 disposition entry itself, so it carries no forecast horizon — a slot it
 earned would fund a prediction of an already written order. The pick order is
 a deterministic *pick sequence*, not a scored rate: choosing by the ladder
-asserts no grant probability. A selected application occupies its slot until
+asserts no grant probability. Its rungs are the max-latched columns, so they are
+as fresh as each row's last poll: two applications alike on the docket can order
+by which the rotation reached more recently, and any change in how the
+proceedings text is read reaches the pending cohort one poll at a time rather
+than all at once. A selected application occupies its slot until
 it resolves (the sticky latch never de-selects), so the reserve bounds
 *concurrent* live interim predictions and a slot frees only on resolution —
 where "resolves"
