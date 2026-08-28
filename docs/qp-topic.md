@@ -286,10 +286,15 @@ Three consequences bind every use of the set:
   leaking: it moves the directory out for the duration of its agent step and
   restores it from the commit before measuring, because agreement with a file
   the labeler copied from is agreement with nothing.
-- **The set enumerates ingested-but-unpublished dockets, deliberately.** 352
-  of the 353 case ids have no directory under `data/cases`, so this artifact
+- **The set enumerates ingested-but-unpublished dockets, deliberately.** The
+  great majority of the 353 case ids have no directory under `data/cases` — a
+  small published minority does, and that share moves with every predict round
+  — so this artifact
   is a stated exception to the boundary that committed surfaces do not
-  enumerate the ingested corpus (`docs/security.md`). What it discloses is
+  enumerate the ingested corpus (`docs/security.md`). A growing published share
+  does not weaken the exception or widen it: a published case already discloses
+  its own identity, so what this set adds is the unpublished remainder, and it
+  adds the same thing at any share. What it discloses is
   identity-level: every QP-bearing grant is a member (a complete enumeration
   of that subpopulation, recoverable from history even though the supplement
   mixes the working-tree file). That is accepted because the dockets named
@@ -361,10 +366,11 @@ Three consequences bind every use of the set:
   secret scan over the
   transcript passes (a hit withholds the artifact and says so — the collect
   job's withhold-and-continue posture, minus its trigger-issue report, since a
-  dispatch mode has none; the transcript surface runs literal containment of
-  the one reachable credential plus the structured credential shapes, not the
-  generic entropy rule, whose conviction of the transcript's own tool ids
-  would otherwise withhold every real file), and under the same one-day
+  dispatch mode has none; the transcript surface suppresses exactly one rule,
+  the generic entropy one, whose conviction of the transcript's own tool ids
+  would otherwise withhold every real file — literal containment of the one
+  reachable credential, the structured credential shapes, and the
+  keyword-assignment rule all stay on), and under the same one-day
   retention as the
   extract, for the
   reasons argued above rather than a second, looser rule for the same
@@ -552,7 +558,10 @@ exactly the extracts the inner one kills.
 
 `qp-corpus` therefore enforces a ceiling (`LABEL_ROW_CEILING` in
 `fedcourtsai.pipeline.qp_topics`) and refuses to write a larger extract,
-printing the count and the scope it would have had to label. That refusal is
+printing the count and the scope it would have had to label. Its value is a
+**declared budget, not an observed rate**: no labeling dispatch has completed,
+so the pace behind it is unmeasured, and the first finished run is what should
+re-derive it. That refusal is
 the useful outcome, not a failure to route around: it costs the extract job
 rather than the labeling one, and its count is what decides between a narrower
 scope and a different design. The labeling prompt states its budget as

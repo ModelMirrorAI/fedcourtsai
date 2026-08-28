@@ -109,10 +109,14 @@ Deferred, each with a stated reason:
   strong salience signal but is **not recoverable** from the corpus today — no
   column, and not cheaply derivable from stored text. A later-version feature
   once the below-court signal is extracted.
-- **Amicus-brief count** is arguably the strongest pre-decision salience proxy, but
-  its presence in the supremecourt.gov docket JSON is **unverified** and no
-  extractor counts it. A later-version enrichment if a data-availability check
-  confirms it; neither shipped scorer depends on it.
+- **Amicus-brief count** is arguably the strongest pre-decision salience proxy,
+  and it is **readable**: `pipeline.interim_signals.amicus_briefs` counts the
+  docket entries naming amicus or amici curiae, and the as-of projection counts
+  them on a cert docket too (`pipeline.asof`). What is deferred is the rest of
+  the feature — the persisted `amicus_briefs` column is the live application
+  branch's alone, so no cert-branch count is stored, and no weight for one has
+  been fitted. A later-version enrichment; neither shipped scorer depends on
+  it.
 - **Cheap-model QP enrichment** — an optional model pass over the questions
   presented to sharpen the deterministic score — is **default off** for the first
   release, so `sal-v1` is fully deterministic and free.
@@ -445,8 +449,9 @@ review is conducted over a file with a `corpus_sha256` in it, so it says which
 corpus state it is re-derivable against and outlives the run page. `dist-v1`
 against `dist-v2` are the dispatch defaults; both parse labels are inputs, so
 once a further reading is registered it is argued from the same surface with no
-workflow change. The band function is not an input — the census reads against
-the active scorer.
+workflow change. The band function is not a *dispatch* input — the workflow
+reads against the active scorer, though the command itself takes `--version`
+and defaults to it.
 
 **Activating a parse is three pieces of work, not one.** The census is the
 *input-level* cut and its matrix is conditional on the first of them:
@@ -874,7 +879,10 @@ give a materially different band, so read the version before the number. Nothing
 reachable sits above `high`, so that is its **risk-set** range as well as its
 terminal one; elevated runs 13.1%–18.3% on the risk-set rate a
 forecast is scored against (6.5%–12.2% on the terminal rate the same table shows
-in the lead column — see below). Anchored at an OT2026
+in the lead column — see below). Those risk-set figures are what the
+reachable-ladder pooling produces; the committed pack was rendered before that
+re-base and still carries the pre-re-base bracketed values, so both re-render
+at the next `metrics-refresh` — read either against the pack's own vintage. Anchored at an OT2026
 petition, the high band reads roughly **35% (n≈960)** pooling every prior Term,
 **36% (n≈524)** over the last five, and **42% (n≈66)** over the last one — recompute
 from the statpack's per-Term band table rather than quoting these. That is a
@@ -1103,9 +1111,11 @@ rather than folding it into an undifferentiated "granted."
   shapes do that. The **prose GVR** names the lower court between the grant and
   the vacatur, and fell to the cert-before-judgment grant row until
   `cert_signals._gvr_tail_sentence` closed the gap. The **ancillary-order grant**
-  is read off an order *about* the petition rather than one on it — an extension
-  of time to respond, a delayed distribution, an unsealing — which
-  `cert_signals._is_non_order_sentence` refuses. Both disagree with their own
+  is read off text that decides nothing about the petition, in either of the two
+  shapes `cert_signals._is_non_order_sentence` refuses: an order *about* the
+  petition rather than one on it — an extension of time to respond, a delayed
+  distribution, an unsealing — or a docketing recital, whose disposition word is
+  quoted or conditional inside a sentence ending "filed". Both disagree with their own
   order text rather than with a superseded convention, and one order can sit
   behind both labels, so leaving them makes the ledger contradict itself about a
   single day's work. `converge-disposition-labels` converges them, re-resolving
@@ -1117,18 +1127,25 @@ rather than folding it into an undifferentiated "granted."
   `disposition_convergence.PARSED_ORDER_TEXT_SINCE` are reported and never
   rewritten, so widening snapshot coverage cannot reach the protected residual.
   The ancillary-order grant carries its own proof of provenance instead — an
-  entry exists on the recorded resolution date, and nothing anywhere on the
-  docket parses as a grant any more, so an order sat there and today's parser
-  reads no grant out of it — which is a parse gap with a date on it rather than
-  a vocabulary flip, and is correctable however old it is. Where the recorded
-  date carries no entry, or the docket still carries a grant order, that warrant
-  fails and the row is reported with which half of it failed; the warrant is the
+  entry *dated the recorded resolution* carries a grant-shaped sentence today's
+  parser refuses (`cert_signals.refused_grant_sentence`), and nothing anywhere
+  on the docket parses as a grant any more, so an order sat there and the label
+  was read out of a sentence the parser will not stand behind — which is a
+  parse gap with a date on it rather than a vocabulary flip, and is correctable
+  however old it is. Requiring that refused sentence, rather than merely an
+  entry on the day, is what keeps the warrant honest: a real grant whose order
+  text the payload does not carry would otherwise be withdrawn on any unrelated
+  entry sharing its date. The warrant fails two ways, each reported as the one
+  it was: the docket still parses a grant somewhere, or the label's provenance
+  cannot be established at all — no entry on the recorded date, or entries with
+  nothing a grant could have been read from. The warrant is the
   arm's whole licence, so a fuller snapshot store buys text to judge and never a
   way past it. The penalization worry does not reach either
   class — their labels were the parser's reading of an order, not the best word
-  an earlier vocabulary offered — and a cell that already carries a committed
-  evaluation is held back regardless, since its `correct` bit was stamped from
-  the label being corrected.
+  an earlier vocabulary offered — and any candidate already carrying committed
+  predict *or* evaluate output is held back by default, since an evaluation's
+  `correct` bit was stamped from the label being corrected; `--include-scored`
+  opts in and reports the re-grade the relabel creates.
 - **Routing.** "Is this a likely GVR / mootness-prone case" is a genuine routing
   signal, but deterministic **pre-decision** detection does not exist today (a
   strategically-mooted case reveals itself only through docket text that no
@@ -1169,7 +1186,7 @@ from the proceedings before an application resolves:
 | --- | --- |
 | the Court **requests** a response | an affirmative act of attention — the interim analogue of a CVSG, and *not* the same event as a response arriving uninvited |
 | the application is **referred to the Court** | the full bench takes it, rather than a Circuit Justice acting alone — which is also what selects the aggregation rule |
-| **amicus briefs** filed | a proxy for stakes, counted rather than flagged |
+| **amicus briefs** filed | a proxy for stakes, counted rather than flagged — per docket *entry*, so it is an approximation: an entry naming several filers counts once, and a few matched entries recite the phrase without being briefs |
 
 The three sampled substantive applications separate on exactly that ladder — a
 two-entry summary denial with no signals, a referred denial with a response
@@ -1259,7 +1276,9 @@ machine-matchable resolution text (an unmatched resolution stays in the
 rotation as a visibly long-unresolved residue rather than silently counting).
 The cohort is published — the statpack's interim section carries the counts by
 ask, the substantive slice's resolved/granted counts and raw grant rate, and
-the escalation-signal counts, pack-level and per application-Term — and its
+the escalation-signal counts, pack-level and per application-Term (the amicus
+column there counts applications carrying **at least one** brief, not briefs —
+the count itself stays on the corpus row) — and its
 **per-Term entries are what the scored baseline pools**:
 `segment_base_rate` takes an application arm keyed on the `YYAnnn` Term
 (`base_rates.interim_base_rate`), which is the estimator registered below. The

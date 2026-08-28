@@ -337,13 +337,17 @@ stays outside the gate:
   over the cells that column scores. The distinction is load-bearing under
   cert's class imbalance, because the per-cell skill ratio caps at +1 but is
   unbounded below, so a mean of ratios is dominated by the many low-baseline
-  denial cells and pays a predictor to under-forecast the rare event. On the
-  current pack's OT2025 segments an always-deny forecaster means to **+0.94**
+  denial cells and pays a predictor to under-forecast the rare event.
+  Illustratively — the figures that follow were rendered against a pack
+  predating the reachable-ladder re-base, so re-derive them from the current
+  pack rather than quoting them — on OT2025's risk-set segments an always-deny
+  forecaster means to **+0.94**
   in the `baseline` band, **+0.75** in `elevated` and −0.40 in `high`, against
-  about +0.002 to +0.03 for the honest level-only forecaster — the ordering is
+  about +0.002 to +0.03 for the honest level-only forecaster: the ordering is
   inverted, and the result swings on band mix. The ratio of sums prices the
   same always-deny forecaster at **−0.05 / −0.20 / −0.75**, correctly negative
-  and stable. The `population_` prefix on both field names records exactly
+  and stable. What no refresh moves is the sign pattern, which is the
+  estimator's property rather than the pack's. The `population_` prefix on both field names records exactly
   this, against the plain `mean_*` fields beside them (`mean_brier_score` and
   the rest *are* per-cell means), so the estimator travels with the number
   rather than only with its description. One consequence to know when reading
@@ -379,8 +383,8 @@ stays outside the gate:
   `pipeline.base_rates.REALIZED_BAND_RATE_MIN_RESOLVED`, 30 measured *after* the
   leave-one-out and binding on the weighted denominator **and** the observed
   row count behind it, since a reweighted Term can otherwise clear a weighted
-  31 on as few as five real petitions (the `baseline` band's risk set reaches
-  6.1x on OT2019) — below which the cell is omitted rather
+  31 on as few as five real petitions wherever a Term's walk was sampled —
+  below which the cell is omitted rather
   than scored on a handful of cases. It bites hardest on a **caption class
   floor**, whose risk set is that class alone rather than every band above it —
   the caption classes are the docket's smallest populations, so `federal` and
@@ -450,8 +454,11 @@ stays outside the gate:
   surface), rolled up
   per predictor **per stratum** and published beside the leaderboard.
   `fedcourts claim-scores` produces it, deterministic and offline, defaulting
-  to the same frozen process scope as the board; while no committed evaluation
-  carries a block it renders its honest suppressed state — zero counts, every
+  to the same frozen process scope as the board. While no committed
+  `claim_scores` block reaches that scope *and* this surface's population —
+  every block committed today is `interim-v1`, and the population is the cert
+  stage's first moment only (below) — it renders its honest suppressed state:
+  zero counts, every
   coefficient null, and a stratum with no cells at all carrying a null
   agreement record rather than a zero-filled one. The scoring rule, the claim
   declarations, and every
