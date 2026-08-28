@@ -1018,6 +1018,7 @@ def test_run_seeds_early_validator_duplicates_every_late_refusal_verbatim() -> N
     # — but the text a maintainer reads may not.
     for owner in (
         "Re-serve the named dockets",
+        "Re-derive the distribution counts (dispatch-only)",
         "Converge disposition labels (dispatch-only)",
         "Re-grade named cells (dispatch-only)",
     ):

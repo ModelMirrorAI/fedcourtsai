@@ -457,11 +457,49 @@ and defaults to it.
 *input-level* cut and its matrix is conditional on the first of them:
 
 1. **Re-derive the corpus `distribution_count` column** under the new parse, on
-   a writer job — and the write must bypass the max latch (a direct `UPDATE`,
-   the shape the bulk scrubs use), because the latch lives in the upsert path
+   a writer job — `fedcourts rederive-distribution-counts --parse <label>`
+   ([cli.md](cli.md)), dispatched as run-seed's `rederive_distribution_parse`
+   step (`dry-run`, read, then `apply`; [pipeline.md](pipeline.md)). Its write
+   bypasses the max latch (a direct `UPDATE`, the shape the bulk scrubs use),
+   because the latch lives in the upsert path
    itself: a narrower reading routed through `upsert_rows` is a silent no-op
    that reads as convergence. Until the column is genuinely re-derived, every
-   downstream consumer is still reading `dist-v1` counts.
+   downstream consumer is still reading `dist-v1` counts. Three properties of
+   that command decide what the step can honestly claim.
+
+   Its frame is the **live slice**, wider than this census's scored segment,
+   because the column is the corpus's and one left mixed-parse outside the
+   gate's segment would mean different things on different rows — so its
+   changed count can exceed the census's, and only its census-frame sub-count
+   is the figure this artifact measured.
+
+   What it compares is **the stored column against the candidate reading**, not
+   two readings of one snapshot as the census does. Those coincide only where
+   the stored column is a faithful incumbent reading, which is why the command
+   is run **twice**: once under the incumbent parse, which must report `changed
+   = 0`, and then under the candidate. A non-zero control run is stored-column
+   drift — a degraded payload, a dedupe merge-max, a backfill gap — and until
+   it is triaged the candidate's count is a sum of the parse and that drift,
+   with no way to tell which is which.
+
+   And a row whose latest live-shaped snapshot discloses no proceedings
+   **entries** is reported `unobservable` and left as it is, never written to
+   0. That is narrower than the max latch it replaces, which rejected any
+   regression whatever its cause: an empty or absent entry list is caught, a
+   merely truncated one is not. The control run above is what stands in for the
+   rest.
+
+   The re-derivation is durable only as far as the ingest default is. The live
+   channel re-polls pending petitions and open merits proceedings and upserts a
+   count read under `cert_signals.DEFAULT_DISTRIBUTION_PARSE`, which the latch
+   takes wherever it is higher — so a re-polled row reverts to the incumbent
+   reading unless that default moves to the same parse, and on exactly the rows
+   the parse moved. The standing poll is not the only channel: `refresh-dockets`
+   and the Term walker's re-serve run **resolved** rows through the same upsert,
+   so the revert set is "whatever is re-served", not "whatever is pending"
+   (`backfill-live-signals` is the exception — it fills nulls and touches
+   nothing else). The sweep converges the column; moving the default is what
+   keeps it converged, and the two belong in one batch rather than two.
 2. **Rebuild the statpack**, so each band's published base rate is measured over
    a population banded under the same parse. A band whose membership moved but
    whose quoted rate did not is a mislabeled baseline.

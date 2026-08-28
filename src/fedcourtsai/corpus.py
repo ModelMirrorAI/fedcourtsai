@@ -2525,6 +2525,42 @@ def set_merits_termination(
         )
 
 
+def set_distribution_count(conn: sqlite3.Connection, counts: Iterable[tuple[str, int]]) -> int:
+    """Write re-derived conference-distribution counts, **bypassing the max latch**.
+
+    The one writer of ``distribution_count`` that is not an upsert, and the
+    bypass is its whole purpose. :func:`_update_clause` max-latches this column
+    so a degraded live payload's confident ``0`` cannot wipe a stored count; a
+    re-derivation under a *narrower* registered parse
+    (:mod:`fedcourtsai.pipeline.distribution_rederive`) moves every changed row
+    **down**, which is exactly the write that latch rejects — routed through
+    :func:`upsert_rows` it would write nothing while reporting success. So the
+    re-derivation writes here instead, where a lower count lands.
+
+    That makes this function the sharp edge the latch exists to blunt, and the
+    caller owns what the latch was doing: the sweep never calls it for a case
+    whose snapshot discloses no proceedings (the degradation the latch guards),
+    and bounds its own write set. Do not reach for it to record a *channel's*
+    count — a channel's reading belongs in the upsert path, under the latch.
+
+    One transaction over the whole batch, so a re-derivation lands or does not;
+    returns the rows the statements actually touched, which a caller can compare
+    against what it planned to write. Like its ``set_merits_*`` siblings it
+    writes the index only, never the casestore mirror — a store-side rebuild
+    from ``case.json`` would resurrect the pre-sweep counts, which is why a
+    re-derivation belongs in the same batch as the ingest default it converges
+    the column toward.
+    """
+    written = 0
+    with conn:
+        for case_id, count in counts:
+            cursor = conn.execute(
+                "UPDATE cases SET distribution_count = ? WHERE case_id = ?", (count, case_id)
+            )
+            written += cursor.rowcount
+    return written
+
+
 def stamp_evaluate_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
     """Record that the backlog deriver routed each case at the evaluate seam on ``day``.
 
