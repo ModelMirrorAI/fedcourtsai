@@ -167,14 +167,16 @@ def _env_mappings(name: str) -> list[tuple[str, dict[str, Any]]]:
 
 
 # Every workflow whose reads the corpus-split mode forks: the cell workflows,
-# the writer lanes, and the integration scenarios. A workflow leaving this set
-# — or a new corpus-reading workflow not joining it — is a deliberate act.
+# the writer lanes, the integration scenarios, and the analysis surface. A
+# workflow leaving this set — or a new corpus-reading workflow not joining it —
+# is a deliberate act.
 # staging-corpus-refresh.yml is deliberately absent: its source is pinned on
 # the command line from dedicated production-source variables, so it reads NO
 # ambient corpus variable at all — neither half of the pair — and the pinning
 # test below holds it to that.
 SPLIT_PAIR_WORKFLOWS = {
     "integration-test.yml",
+    "run-analytics.yml",
     "run-backtest.yml",
     "run-evaluate.yml",
     "run-predict.yml",
