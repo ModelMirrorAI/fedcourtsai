@@ -1,6 +1,6 @@
 {
   "base_rate_basis": "terminal",
-  "base_rate_salience_version": "sal-v2",
+  "base_rate_salience_version": "sal-v3",
   "big_case": {
     "evaluator_score": 0.65,
     "notes": "Cert granted 2026-07-20: the Court's first plenary vehicle on the Bajakajian excessiveness standard since 1998, IJ-litigated with Cato/Colgan/Timbs amici, setting the gravity-of-the-offense methodology for fines and forfeitures nationwide. Significant constitutional-criminal/property question, though the QP is methodological and the stakes modest in dollar terms."

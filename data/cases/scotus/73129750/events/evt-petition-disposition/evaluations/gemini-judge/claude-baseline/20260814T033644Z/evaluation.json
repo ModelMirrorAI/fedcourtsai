@@ -1,6 +1,6 @@
 {
   "base_rate_basis": "terminal",
-  "base_rate_salience_version": "sal-v2",
+  "base_rate_salience_version": "sal-v3",
   "big_case": {
     "evaluator_score": 1.0,
     "notes": "Major constitutional challenge to a presidential executive order regarding birthright citizenship, involving a nationwide classwide injunction."

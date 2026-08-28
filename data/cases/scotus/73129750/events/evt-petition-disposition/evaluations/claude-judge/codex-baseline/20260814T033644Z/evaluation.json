@@ -1,6 +1,6 @@
 {
   "base_rate_basis": "terminal",
-  "base_rate_salience_version": "sal-v2",
+  "base_rate_salience_version": "sal-v3",
   "big_case": {
     "evaluator_score": 0.97,
     "notes": "Constitutional challenge to EO 14160's denial of birthright citizenship: the President as petitioner, certiorari before judgment, a nationwide class injunction, a century-old landmark (Wong Kim Ark) squarely in question, and enormous amicus and public attention. Close to the ceiling of case significance; formed before reading any predictor's big_case_score (none carried one)."
