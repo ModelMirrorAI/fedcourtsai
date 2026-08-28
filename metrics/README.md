@@ -381,7 +381,10 @@ stays outside the gate:
   row count behind it, since a reweighted Term can otherwise clear a weighted
   31 on as few as five real petitions (the `baseline` band's risk set reaches
   6.1x on OT2019) — below which the cell is omitted rather
-  than scored on a handful of cases. Unlike the prior-Term pool this one is a
+  than scored on a handful of cases. It bites hardest on a **caption class
+  floor**, whose risk set is that class alone rather than every band above it —
+  the caption classes are the docket's smallest populations, so `federal` and
+  `state` are the columns a Term most often omits. Unlike the prior-Term pool this one is a
   single Term and cannot be widened by reaching further back, so the floor is a
   wait-for-the-Term rule: a band that never clears it is omitted for that Term
   entirely, and early in a live Term the forward cells' own Term is exactly the
@@ -1089,11 +1092,22 @@ the rendered table) and
   version mismatch: a frozen band whose salience version does not resolve against
   the pack yields no baseline at all, since relabelling it terminal would pair a
   risk-set population with a terminal rate. Under a scorer whose order interleaves a fixed-at-filing class
-  among the trajectory tiers (the caption-banded versions' `federal`/`state`), a weaker band's risk
-  set also contains the stronger classes' petitions — populations a private
-  petitioner was never in — so the "population it was in" reading is
-  approximate there (measured at roughly +1 point on `elevated`), a property of
-  the vocabulary to hold in view rather than a defect in the pairing. Pooled strictly-prior-Term, as the recorded skill score is, both
+  among the trajectory tiers (the caption-banded versions' `federal`/`state`),
+  "ever reached it" is read along each petition's own **reachable ladder**
+  rather than along the band order: a federal petition was `federal` the day it
+  was docketed and enters no weaker band's risk set, a state one climbs
+  `state` → `high` and enters none of `federal`'s, `elevated`'s or
+  `baseline`'s, and a private one enters neither caption band. So the class
+  floors (`federal`, `state`, `baseline`) **partition** the scored segment
+  instead of nesting into one another, and each band's risk-set rate is the rate
+  its own reachable population faced — the weakest band's bracketed figure is
+  the private class's own grant rate, not the whole segment's. A class floor's
+  denominator is that class alone, so it is far smaller than the order prefix
+  it replaces, and the caption floors are thin enough that the realized-Term
+  floor above bites on them. The bracketed
+  figures a committed pack carries are only ever as current as the
+  `metrics-refresh` that rendered them, so read them against the pack's own
+  vintage. Pooled strictly-prior-Term, as the recorded skill score is, both
   are leakage-safe; the board's realized-Term column reads the risk-set one off
   the case's **own** Term instead, which is deliberately not leakage-safe and is
   fenced accordingly where it is described (see the leaderboard bullet above). A skill score is

@@ -39,6 +39,29 @@ runner = CliRunner()
 
 _BANDS = ("federal", "high", "state", "elevated", "baseline")
 
+# One case name per petitioner class the caption-banded scorers separate —
+# private, state, federal — read off the caption by `pipeline.caption`.
+_CAPTION_COHORT_NAMES = ("John Doe v. Roe", "California v. Roe", "United States v. Roe")
+
+
+def _reachable_ceilings() -> set[str]:
+    """The active scorer's ceiling bands: the top of some class's reachable ladder.
+
+    A ceiling has nothing reachable above it, so its risk set is exactly its
+    terminal set. Derived from the scorer rather than named, so a vocabulary that
+    changed which bands those are moves the invariant instead of leaving it
+    asserted over bands no petition can end at.
+    """
+    banding = SCORERS[SALIENCE_VERSION]
+    return {
+        banding.reachable_bands(
+            corpus.CorpusRow(
+                case_id="scotus/1", court="scotus", docket_number="22-100", case_name=name
+            )
+        )[0]
+        for name in _CAPTION_COHORT_NAMES
+    }
+
 
 def _pack(fc: FixtureCorpus) -> StatPack:
     return analytics.build_statpack(corpus_db_path=fc.db_path)
@@ -776,26 +799,37 @@ def test_build_statpack_era_section(fixture_corpus: FixtureCorpus) -> None:
     assert [(b.key, b.cases) for b in era.buckets] == [("2020s", 3)]
 
 
-def test_the_risk_set_rate_nests_the_terminal_one(fixture_corpus: FixtureCorpus) -> None:
+def test_the_risk_set_rate_contains_the_terminal_one(fixture_corpus: FixtureCorpus) -> None:
     """The structural invariant behind the forecast baseline.
 
     A band is monotone non-decreasing over a petition's life, so "has reached band
-    b" is the same event as "ended at b or stronger". Two consequences that must
-    hold on every Term, and would catch a mis-ordered or mis-indexed risk set:
+    b" is the same event as "ended at b or stronger **on this petition's own
+    reachable ladder**". Two consequences that must hold on every Term, and would
+    catch a mis-ordered or mis-indexed risk set:
 
-    * the strongest band has nothing above it, so its risk set IS its terminal
-      set — the two rates and denominators coincide exactly;
-    * a weaker band's risk set is a superset of its terminal set, so its
+    * a band with nothing reachable above it has a risk set that IS its terminal
+      set — the two rates and denominators coincide exactly. Under the
+      caption-banded vocabulary that is two bands, not one: `federal`, which no
+      other class reaches, and `high`, the ceiling of both the state and the
+      private ladder. They are read off the scorer's own ladders rather than
+      named here, so a new vocabulary moves this test instead of passing stale;
+    * every band's risk set is a superset of its terminal set, so its
       denominator can only grow.
+
+    The fixture's two scored rows are both private, so the identities hold here
+    over empty bands. The populated proof is
+    `test_the_risk_set_pools_only_the_bands_a_caption_class_can_reach`.
     """
     pack = _pack(fixture_corpus)
-    strongest = _BANDS[0]
+    ceilings = _reachable_ceilings()
+    assert ceilings == {"federal", "high"}
     for term in pack.terms:
         by_band = {s.band: s for s in term.segments}
-        top = by_band[strongest]
-        assert top.prefix_weighted_resolved == top.weighted_resolved, term.term
-        assert top.prefix_est_grant_rate == top.est_grant_rate, term.term
-        for band in _BANDS[1:]:
+        for band in ceilings:
+            top = by_band[band]
+            assert top.prefix_weighted_resolved == top.weighted_resolved, (term.term, band)
+            assert top.prefix_est_grant_rate == top.est_grant_rate, (term.term, band)
+        for band in _BANDS:
             seg = by_band[band]
             assert seg.prefix_weighted_resolved >= seg.weighted_resolved, (term.term, band)
 
@@ -818,13 +852,19 @@ def test_the_risk_set_rate_lifts_a_weak_band_that_a_stronger_grant_passed_throug
 
 
 def test_the_committed_pack_holds_the_risk_set_invariants() -> None:
-    """The structural claims, against real bands rather than the 6-row fixture.
+    """The structural claims, against real bands rather than the 7-row fixture.
 
-    The fixture corpus has no resolved `high` row, so the strongest-band identity
-    is vacuous there (0 == 0, None == None). It is the claim the rendered caption
-    and both prompts rest on, so it is checked here on the committed artifact,
-    which carries every band across nine Terms. These are invariants of the
-    construction, not of the current data, so a refresh cannot falsify them.
+    The fixture corpus has no resolved row above `elevated`, so the top-band
+    identity is vacuous there (0 == 0, None == None). It is the claim the rendered caption
+    rests on, and the one a cell reads that caption for, so it is checked here on
+    the committed artifact, which carries every band across nine Terms.
+
+    The artifact is a **vintage** — it is rebuilt by the metrics refresh, not by
+    this suite — so the claims asserted here are the ones that hold whatever
+    build produced the file: the strongest band's identity, and each band's risk
+    set sitting between its own terminal set and the whole order-prefix above it.
+    The band-exact reachable-ladder pins ride on packs this code builds
+    (`test_the_risk_set_pools_only_the_bands_a_caption_class_can_reach`).
     """
     pack = StatPack.model_validate_json(Path("metrics/statpack.json").read_text())
     # The committed pack's own vocabulary, not `_BANDS`: the artifact is
@@ -848,13 +888,132 @@ def test_the_committed_pack_holds_the_risk_set_invariants() -> None:
         assert top.prefix_est_grant_rate == top.est_grant_rate, term.term
         if top.weighted_resolved:
             saw_populated_top = True
-        # Risk sets nest downward, so each denominator contains every stronger one.
+        # A band's risk set holds everything that ended there and everything that
+        # ended stronger on the same ladder — so it contains the band's own
+        # terminal set and is contained in the whole order-prefix above it, which
+        # is the ladder a vocabulary with no unreachable band would give.
         running = 0
         for band in bands:
             seg = by_band[band]
             running += seg.weighted_resolved
-            assert seg.prefix_weighted_resolved == running, (term.term, band)
+            assert seg.weighted_resolved <= seg.prefix_weighted_resolved <= running, (
+                term.term,
+                band,
+            )
+            assert seg.resolved <= seg.prefix_resolved, (term.term, band)
     assert saw_populated_top, "the identity would be vacuous without a resolved top band"
+
+
+def _seed_caption_cohort(db_path: Path) -> None:
+    """One OT2022 cohort holding every caption class at every trajectory tier.
+
+    Nine paid live-slice petitions: the three petitioner classes the
+    caption-banded scorers read (private / state / federal, off the case name)
+    crossed with the three relist trajectories the tiers cut on (one
+    distribution, two, three — that is zero relists, one, and two). Every
+    row resolves and the grant sits on the strongest trajectory of each class, so
+    every band carries a rate rather than a bare denominator, and the class a row
+    belongs to is recoverable from any denominator it lands in.
+    """
+    rows = [
+        corpus.CorpusRow(
+            case_id=f"scotus/22{cls_index}{tier_index}",
+            court="scotus",
+            docket_number=f"22-1{cls_index}{tier_index}",
+            case_name=name,
+            distribution_count=count,
+            disposition=(Disposition.granted if count == 3 else Disposition.denied),
+            date_filed=date(2022, 11, 1),
+            last_live_polled=date(2023, 6, 1),
+        )
+        for cls_index, name in enumerate(_CAPTION_COHORT_NAMES)
+        for tier_index, count in enumerate((1, 2, 3))
+    ]
+    with corpus.connect(db_path) as conn:
+        corpus.upsert_rows(conn, rows)
+
+
+def test_the_risk_set_pools_only_the_bands_a_caption_class_can_reach(tmp_path: Path) -> None:
+    """The risk set walks each petition's own ladder, not the vocabulary's order.
+
+    `federal` and `state` are read off the caption, which is fixed at filing,
+    while the relist/CVSG tier only rises — so the class partitions the band
+    vocabulary rather than sitting inside it. A federal petition was `federal`
+    the day it was docketed and could never have sat at `baseline`; a state one
+    can climb to `high` but never to `federal`; a private one never enters either
+    caption band. Pooling the order's prefix instead would price a private
+    petitioner's forecast against a population containing every federal
+    petition — the class whose grant rate is the highest on the docket.
+
+    The seeded cohort makes each class three rows (see `_seed_caption_cohort`),
+    so the corrected denominators are exactly the class sizes at each ladder
+    step, and the order-prefix construction is a different set of numbers
+    (5 / 7 / 8 / 9 down the row) rather than a rounding away.
+    """
+    db = tmp_path / "corpus.db"
+    _seed_caption_cohort(db)
+    term = _term(analytics.build_statpack(corpus_db_path=db), 2022)
+    by_band = {s.band: s for s in term.segments}
+    # Terminal: the band each row ENDED in. `high` holds the strongest
+    # trajectory of both the state and the private ladder; `state` holds the
+    # state rows below it; the federal rows never leave `federal`.
+    assert {band: seg.weighted_resolved for band, seg in by_band.items()} == {
+        "federal": 3,
+        "high": 2,
+        "state": 2,
+        "elevated": 1,
+        "baseline": 1,
+    }
+    # Risk set: each class's own ladder. `federal` is one class entire; `state`
+    # is the state class entire (both its tiers); `baseline` and `elevated` hold
+    # private rows only, and `high` holds exactly what ended there, because
+    # nothing above it is reachable from either ladder that reaches it.
+    assert {band: seg.prefix_weighted_resolved for band, seg in by_band.items()} == {
+        "federal": 3,
+        "high": 2,
+        "state": 3,
+        "elevated": 2,
+        "baseline": 3,
+    }
+    # The rates follow the denominators: `baseline` prices a private arrival at
+    # its own class's grant rate, not at one lifted by the federal petitions.
+    assert by_band["baseline"].prefix_est_grant_rate == pytest.approx(1 / 3)
+    assert by_band["elevated"].prefix_est_grant_rate == pytest.approx(0.5)
+    assert by_band["state"].prefix_est_grant_rate == pytest.approx(1 / 3)
+    assert by_band["high"].prefix_est_grant_rate == by_band["high"].est_grant_rate == 1.0
+    # Each class's weakest reachable band carries that whole class, so the three
+    # class floors partition the scored segment rather than nesting into it.
+    floors = ("federal", "state", "baseline")
+    assert sum(by_band[band].prefix_weighted_resolved for band in floors) == 9
+    assert sum(by_band[band].prefix_resolved for band in floors) == 9
+
+
+def test_a_scorer_with_no_unreachable_band_keeps_the_whole_order_as_its_risk_set(
+    tmp_path: Path,
+) -> None:
+    """`sal-v1` reads no caption, so every band is reachable and its segments are
+    the plain cumulative prefix — the ladder and the vocabulary coincide. Pinned
+    on the same cohort the caption pins use, so a change to the reachable ladder
+    that leaked into the caption-free version would show up as a moved
+    denominator here."""
+    db = tmp_path / "corpus.db"
+    _seed_caption_cohort(db)
+    term = _term(analytics.build_statpack(corpus_db_path=db), 2022)
+    alt = next(block for block in term.alt_segments if block.salience_version == "sal-v1")
+    by_band = {s.band: s for s in alt.segments}
+    assert [s.band for s in alt.segments] == list(SCORERS["sal-v1"].bands)
+    # Three rows per trajectory tier, one per class — the caption never enters.
+    assert {band: seg.weighted_resolved for band, seg in by_band.items()} == {
+        "high": 3,
+        "elevated": 3,
+        "baseline": 3,
+    }
+    assert {band: seg.prefix_weighted_resolved for band, seg in by_band.items()} == {
+        "high": 3,
+        "elevated": 6,
+        "baseline": 9,
+    }
+    assert by_band["baseline"].prefix_est_grant_rate == pytest.approx(1 / 3)
 
 
 def test_the_predictor_facing_cuts_are_paid_only(fixture_corpus: FixtureCorpus) -> None:

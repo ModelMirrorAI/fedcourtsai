@@ -825,12 +825,24 @@ class _TermAcc:
                 # A band is monotone non-decreasing over a petition's life: the
                 # distribution count is max-latched and a CVSG date, once set,
                 # stays set. So "this petition has reached band b" is the same
-                # event as "its final band is b or stronger", and the risk set
-                # for b is every row at b or above it. A scorer's `bands` are
-                # ordered strongest-first, so a row joins its own band's prefix
-                # slice and every weaker one.
-                order = banding.bands
-                for weaker in order[order.index(band) :]:
+                # event as "its final band is b or stronger" — but only along
+                # the ladder its own row can climb, which is what the scorer's
+                # `reachable_bands` returns (the whole vocabulary wherever every
+                # band is reachable). A caption-banded version's `federal` and
+                # `state` are fixed at filing, so a private petition never passes
+                # through them and a state one can never reach `federal`; taking
+                # the order's prefix instead would pool a class into risk sets
+                # its caption made unreachable. The ladder is ordered
+                # strongest-first like `bands`, so a row joins its own band's
+                # prefix slice and every weaker band it could have sat in.
+                ladder = banding.reachable_bands(row)
+                try:
+                    start = ladder.index(band)
+                except ValueError:  # a registration whose ladder and band rule disagree
+                    raise ValueError(
+                        f"{version} banded {row.case_id} `{band}`, off its ladder {ladder}"
+                    ) from None
+                for weaker in ladder[start:]:
                     self.prefixes[version][weaker].add(row)
         if row.disposition in _GRANT_LABELS:
             self.grants += 1
@@ -1765,12 +1777,18 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
                 "on how the band was obtained**: a cell carrying a band frozen at prediction "
                 "is scored against the bracketed one, because that is the population it was "
                 "in; a cell without one falls back to its terminal band and the leading "
-                "figure, which at least agrees with it. The risk sets are **nested**, so the "
-                "bracketed denominators are "
-                "cumulative across a row rather than a partition of it; the strongest "
-                "band's two figures coincide because nothing sits above it, and the weakest "
-                "band's risk set is the whole scored segment, so its bracketed figure is the "
-                "paid segment's own grant rate rather than a band effect. "
+                "figure, which at least agrees with it. A risk set follows each petition's "
+                "own **reachable** ladder, not this row's left-to-right order: where the "
+                "vocabulary interleaves a fixed-at-filing caption class among the trajectory "
+                "tiers (`federal`, `state`), a private petitioner is in no caption band's "
+                "risk set and a state one is in none of `federal`'s, `elevated`'s or "
+                "`baseline`'s. So the "
+                "bracketed denominators are cumulative **down one class's own bands** and a "
+                "**partition across** classes: each class's weakest reachable band carries "
+                "that whole class, and those class floors together carry the scored segment. "
+                "So the weakest band's bracketed figure is that class's own grant rate, not "
+                "the whole segment's, and a band with nothing reachable above it shows its "
+                "two figures coinciding. "
                 f"Most recent {len(shown)} of {len(pack.terms)} Term(s) — "
                 "pooling a band over the rows below is bounded by what this table renders._"
             ),
@@ -1979,8 +1997,9 @@ def _term_segment_row(entry: StatPackTerm, bands: tuple[str, ...]) -> str:
         """The terminal rate first, with the risk-set rate bracketed beside it so
         the gap is legible without a second table. Which one is scored depends on
         how the reader's band was obtained — see the caption. A band's risk set contains its
-        terminal set, so a bracketed figure can exist where the leading one does
-        not — a band no petition *ended* in, but some passed through."""
+        terminal set plus every row that ended stronger **on the same ladder**, so a
+        bracketed figure can exist where the leading one does not — a band no
+        petition *ended* in, but some passed through."""
         seg = by_band.get(band)
         if seg is None:
             return "—"

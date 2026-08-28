@@ -127,6 +127,12 @@ def prediction_base_rate(
     right rate precisely because ``context.band`` is the band as at prediction: a
     band only ever strengthens, so a cell sitting at ``baseline`` may still relist,
     and the population it belongs to is everyone who has reached ``baseline``.
+    "Everyone" is the scorer's own reachable ladder, not the band order's prefix
+    (:meth:`fedcourtsai.pipeline.salience.SalienceScorer.reachable_bands`): under a
+    caption-banded version a federal petition is never in ``baseline``'s risk set,
+    because its caption put it in ``federal`` at filing and no trajectory could
+    have taken it there. The statpack builds the segments that way, so this pooler
+    reads them as they come.
 
     The pairing is the whole point. Reading the risk-set rate against a *terminal*
     band would overstate the baseline for exactly the petitions whose band moved,
@@ -181,9 +187,13 @@ def prediction_base_rate(
 #: binds harder here than on the pooled prior-Term baseline is that this pool is
 #: **one Term**: it cannot be widened by reaching further back, so a thin band
 #: is not a sampling choice but a fact about how far the Term has got. The floor
-#: is therefore a wait-for-the-Term rule — the `high` band clears it partway
-#: through an October Term and the weaker bands almost at once, while a band
-#: that never clears is omitted for that Term entirely. A stated
+#: is therefore a wait-for-the-Term rule — the trajectory bands clear it in
+#: order, `high` partway through an October Term and the weaker ones almost at
+#: once, while a band that never clears is omitted for that Term entirely. A
+#: **caption class floor** is the case to watch: its risk set is that class
+#: alone rather than every band above it, and the caption classes are the
+#: docket's smallest populations, so `federal` and `state` are the bands a Term
+#: most often omits — for a whole Term, not merely early in it. A stated
 #: pre-registration choice, not a knob: only tests pass ``min_resolved``
 #: anything else.
 REALIZED_BAND_RATE_MIN_RESOLVED = 30
@@ -259,7 +269,9 @@ def realized_band_rate(
     correction falls short of a sampled denial's full weight. The case is
     assumed to be a row of the segment's population (the Term's live-slice paid
     modern-cert petitions), which the salience gate makes true of every cell it
-    provisions but which an IFP or off-slice row would break. And the pack is a
+    provisions but which an IFP or off-slice row would break — as would a caption
+    re-parse that moved the row between petition classes after its band was
+    frozen, since a risk set is the class's own ladder. And the pack is a
     **vintage**: a case resolved after it was built is not yet in its own Term's
     counts, so the subtraction over-corrects by one unit until the next refresh
     — bounded by ``1 / min_resolved`` and self-correcting as the Term closes.

@@ -1694,6 +1694,69 @@ def test_every_registered_band_function_is_monotone_in_the_distribution_count() 
                     assert ranks == sorted(ranks, reverse=True), (version, name, banded)
 
 
+def test_every_registered_reachable_ladder_is_exactly_what_its_band_function_attains() -> None:
+    """The risk set is pooled over the ladder, so the ladder must be the truth.
+
+    Two claims, over the whole registry. The ladder is a **subsequence of the
+    vocabulary**, so the statpack can walk it strongest-first exactly as it walks
+    `bands`. And it is exactly the set of bands the version's own band function
+    attains as the row's trajectory features sweep — no band the row could never
+    sit in (which would pool one class into another's risk set) and none missing
+    (which would drop a row out of a denominator it belongs in).
+
+    The sweep also pins the fixed-at-filing half: the ladder is read off the same
+    row the band is, so a ladder that moved with the distribution count would be
+    a class that was not fixed at filing, and the monotone-band premise the risk
+    set rests on would not hold.
+    """
+    trajectories = [
+        {"distribution_count": count, "cvsg_date": cvsg}
+        for count in (None, 0, 1, 2, 3, 4, 5)
+        for cvsg in (None, date(2026, 3, 1))
+    ]
+    captions = ("John Doe v. Roe", "United States v. Roe", "California v. Roe")
+    # A caption `caption-v1` reads `private` and `caption-v2` reads `federal` —
+    # the widened officer tail. It is not one of the three above because it is
+    # not testing the partition: it is what separates the two caption versions,
+    # so a ladder bound to the wrong one is caught rather than passing on three
+    # captions the two rules happen to agree about.
+    split = corpus.CorpusRow(
+        case_id="scotus/1",
+        court="scotus",
+        docket_number="24-100",
+        case_name="Kendall, Secretary of the Air Force v. Doe",
+    )
+    assert SCORERS["sal-v2"].reachable_bands(split) == ("high", "elevated", "baseline")
+    assert SCORERS["sal-v3"].reachable_bands(split) == ("federal",)
+    for version in registered_versions():
+        entry = SCORERS[version]
+        by_caption = {}
+        for name in captions:
+            base = corpus.CorpusRow(
+                case_id="scotus/1", court="scotus", docket_number="24-100", case_name=name
+            )
+            rows = [base.model_copy(update=update) for update in trajectories]
+            ladders = {entry.reachable_bands(row) for row in rows}
+            assert len(ladders) == 1, (version, name, ladders)
+            ladder = ladders.pop()
+            declared = [band for band in entry.bands if band in ladder]
+            assert list(ladder) == declared, (version, name, ladder)
+            assert set(ladder) == {entry.band(row) for row in rows}, (version, name, ladder)
+            by_caption[name] = ladder
+        # A version that registers a ladder is banding on a class the caption
+        # fixes, so the three captions must exercise three DIFFERENT ladders
+        # whose union is the whole vocabulary — the ladders overlap (state and
+        # private both end at `high`); it is the rows they partition. Without
+        # this the sweep above would pass on one ladder read
+        # three times — a caption rule that stopped separating the classes would
+        # move band and ladder together and leave every assertion true.
+        if entry.reachable is None:
+            assert set(by_caption.values()) == {entry.bands}, version
+        else:
+            assert len(set(by_caption.values())) == len(captions), (version, by_caption)
+            assert set().union(*by_caption.values()) == set(entry.bands), (version, by_caption)
+
+
 def test_the_census_refuses_a_band_outside_the_versions_declared_vocabulary(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
