@@ -2,7 +2,11 @@
 
 Work is represented as GitHub issues; applying a `run:*` label triggers the
 matching workflow. A stage hands off by creating/labeling an issue for the next
-stage.
+stage. The label is the pipeline's trust boundary, so every label-triggered
+workflow opens with the fail-closed `fedcourts authorize-trigger` gate†: a
+labeler without write permission is refused before any token is minted, role
+assumed, or agent run. The handoff Bot is the one non-collaborator the gate
+admits, and `run-pull` pins it to a single login.
 
 | Label           | Workflow         | Trigger(s)                          | Engine(s)            |
 |-----------------|------------------|-------------------------------------|----------------------|
@@ -17,6 +21,17 @@ stage.
 | _(none)_        | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | _(none)_        | `promote`        | manual dispatch                     | script (no agent)    |
 | _(none)_        | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
+
+† The four label rows — `run:pull`, `run:predict`, `run:evaluate`,
+`run:backtest` — are the gated ones: each runs `authorize-trigger` as its entry
+job's first non-setup step, and `tests/test_workflow_auth_gate.py` locks that
+shape in so an edit cannot quietly drop a guard. A workflow with no label row is
+dispatch- or schedule-only, which GitHub already write-gates. The refusal
+posture, and what a lookup outage means, is the *Label triggers* bullet in
+[SECURITY.md](../SECURITY.md); the lookup's bounded retry is in *Authoring or
+changing a workflow* below.
+
+### `run-ops` — the daily operational roll-up
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics, consolidated so it reads as a summary — pipeline health
@@ -58,6 +73,8 @@ watchlist view, escalating a failing verdict to one
 long-lived issue — so the dashboard surfaces run-health, data-health, and
 substance while staying a read-only presenter that never touches the corpus.
 
+### `run-analytics` — corpus analysis & derived metrics
+
 `run-analytics` is the **corpus analysis & derived metrics** surface, also outside
 the cascade: every task that reads the corpus and answers a question or refreshes a
 derived artifact is a mode here (dispatch `mode` input, or the weekly schedule),
@@ -78,20 +95,27 @@ each as its own least-privilege job holding only the credentials its mode needs:
   function is deliberately **not** a dispatch input — the census reads against the
   active scorer, and running it under a different salience version means
   registering one, which is a code change. Read-only like `corpus-stats`, with
-  one difference that matters: the machine JSON is uploaded as a 30-day run
-  artifact as well as summarised, because a statistical review is conducted over
-  the file rather than the page. Two things an operator needs before dispatching
+  one difference that matters: the machine JSON is uploaded as a run artifact as
+  well as summarised, because a statistical review is conducted over the file
+  rather than the page. The artifact rides the **one-day** retention every
+  analytics run artifact does — this repository is public, so one is
+  downloadable by any logged-in user for as long as it exists, and the
+  compilation-extent inventory in [security.md](security.md) bounds all three
+  the same way. Re-reading a census after the day is therefore a re-dispatch
+  rather than a longer window: it is deterministic over the blob its
+  `corpus_sha256` names. Two things an operator needs before dispatching
   it. It carries by far the largest budget of the read-only modes — a
   latest-snapshot read per frame case under the corpus-split mode — and what
   bounds it is the read-only role's one-hour OIDC session rather than the wall
   clock: the scan step is capped at 50 minutes and the job at 65, so a scan too
   long for its credentials fails legibly inside them instead of dying on an
   expired token after the whole walk (lifting that ceiling means a
-  `role-duration-seconds` on the `corpus-readonly` composite, as `run-seed` sets
-  for its own long walk). And it shares the `run-analytics-analysis` concurrency
-  group with `corpus-stats` under `cancel-in-progress: true`, so a one-minute
-  stats dispatch cancels an in-flight census — and a cancelled job runs no upload
-  step, losing the artifact. Dispatch a census into a quiet window.
+  `role-duration-seconds` on the `corpus-readonly` composite). And it holds its
+  **own** concurrency group — `run-analytics-census`, `cancel-in-progress:
+  false` — rather than sharing `corpus-stats`'s: a cancelled job runs no upload
+  step, so a sibling stats dispatch would otherwise take the artifact the mode
+  exists to produce with it. Both jobs are read-only, so letting them overlap
+  costs nothing.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
@@ -155,6 +179,8 @@ each as its own least-privilege job holding only the credentials its mode needs:
   `label_model` dispatch input picks the labeler's model. See
   [qp-topic.md](qp-topic.md).
 
+### `integration-test` — the infrastructure preflight
+
 `integration-test` is the infrastructure preflight, also outside the cascade:
 a manual-dispatch, strictly side-effect-free scenario runner over the **corpus
 read backends, the two sidecars, cascade cells, the collect writer, and the
@@ -185,6 +211,8 @@ whole-suite evidence only for a pre-flight that skipped them (*The
 engine-smoke skip* under *Promotion: staging → main* below).
 See *Infra-bound integration* in [testing.md](testing.md).
 
+### `staging-corpus-refresh` — the staging corpus
+
 `staging-corpus-refresh` builds what those staging-bound runs are meant to read:
 the **staging corpus**, a lean slice of real cases in its own bucket/prefix
 pair (`fedcourts corpus-seed-slice`), so orchestration and the read/write seams
@@ -210,6 +238,8 @@ access* in [data-pipeline.md](data-pipeline.md)), and the scenarios read
 production's pair until the staging environment's store variables — the
 URLs and that pointer — are repointed. Provisioning the stores, the environment, and the role — and
 that repointing — is the maintainer runbook in [security.md](security.md).
+
+### `run-seed` and `run-pull` — the corpus writers
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
 accumulating resolved outcomes reverse-chronologically by Term for the statpack's
@@ -1155,14 +1185,17 @@ the named registry ids:
     ```
 
 This is the **engine backfill** path: when one engine's cells failed (a quota
-or provider outage) while the others delivered, re-firing the full registry
-would re-run — and duplicate the committed predictions of — the healthy
-engines: only resolved events are excluded (via default open-event
-resolution), so an open event re-mints cells for every enabled predictor
-regardless of which engines already committed a prediction. Naming an id that is
-not an enabled predictor fails the plan job rather than silently skipping the
-engine. `run:evaluate` ignores the field: an evaluator always scores every
-committed prediction for its event.
+or provider outage) while the others delivered, it names the engines a re-fire
+targets. It is not what stops the healthy engines re-running — the plan's
+already-predicted gate is per `(predictor, event)` in its own right
+(`event_has_predictions(predictor_id=...)` in `matrix.py`, the same grain the
+live channel's selection sweep uses), so a re-fire of the full registry drops
+every engine that already committed a prediction for the event and mints only
+the missing ones. `predictors` **narrows** the fan-out; it does not deduplicate
+it — what it buys a backfill is a plan (and a cost) confined to the engines
+asked for. Naming an id that is not an enabled predictor fails the plan job
+rather than silently skipping the engine. `run:evaluate` ignores the field: an
+evaluator always scores every committed prediction for its event.
 
 ## Unrecorded outcomes: what pull's outcome detection leaves behind
 
