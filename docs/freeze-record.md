@@ -440,8 +440,8 @@ freeze commit is recorded here.
   `dist-v2`. Nothing the live pass selects, latches, or stamps moves at this
   commit; what changes is that `statpack.json` and `salience-replay.json` now
   carry a fourth version's bands. Carried to `main` by the promotion tagged
-  <FILL: promotion tag> (merge commit <FILL: merge commit>, merged
-  <FILL: merge timestamp>). No freeze procedure fills those three: the freeze
+  `promotion/2026-08-28-2` (merge commit `01c85e2c8`, merged
+  `2026-08-28T22:50:08Z`). No freeze procedure fills those three: the freeze
   step that fills placeholders fires at a `prereg/` tag and this entry has no
   freeze commit, so they are the carrying promotion's author's to complete, and
   the promotion PR carries the instruction.
@@ -813,8 +813,8 @@ freeze commit is recorded here.
   it depends on is re-derived, because the test suite pins only the label and
   would pass with the stored column untouched — and it must not sit on `main`
   over a window in which the outgoing parse is still writing. Carried to `main` by
-  the promotion tagged <FILL: promotion tag> (merge commit <FILL: merge commit>,
-  merged <FILL: merge timestamp>). No freeze procedure fills those three — this
+  the promotion tagged `promotion/2026-08-28-2` (merge commit `01c85e2c8`,
+  merged `2026-08-28T22:50:08Z`). No freeze procedure fills those three — this
   entry has no freeze commit — so they are the carrying promotion author's to
   complete.
 
