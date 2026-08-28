@@ -175,8 +175,8 @@ e-filing mandate; a scanned paper filing degrades to empty text), capped at
 into the cell's gitignored `record/documents/` with a `documents.json`
 manifest, and the predict prompt points agents at it. A cell can route around
 an empty extraction — the prompt has it read the document as
-content-unavailable rather than absent — but nothing downstream repairs one,
-so its size is a measured number rather than an impression: `fedcourts
+content-unavailable rather than absent — but nothing in the fetch path repairs
+one, so its size is a measured number rather than an impression: `fedcourts
 corpus-info --text-coverage` counts the stored documents whose text is empty
 or whitespace-only under the same predicate provisioning stamps as
 `empty_text`, split on the salience gate's paid modern-cert segment, and names
@@ -193,6 +193,116 @@ are derived from the petition PDF, never from `QPLink`:** the `/qp/` page is
 generated when certiorari is *granted* and opens with the grant order, so the
 key is an outcome artifact — it is also stripped by replay redaction for the
 same reason (verified live at implementation).
+
+### How large the degradation is, and what is done about it
+
+Measured on the blob the corpus pointer named on 2026-08-28 (`b16b856f…` — the
+pointer is a content digest, which `corpus-info` does not print; its freshness
+pair is a 2026-08-28 pull stamp and a 2026-07-13 newest stored snapshot, and
+the documents were served by the per-case content store). Of the 9,231 stored
+petitions, 271 carry no text: **2.94%** over both segments pooled, and **2.90%**
+(192 of 6,613) over the cut the salience gate scores replay candidates on.
+Those are stored documents, not cells. On the 242 cases queued for prediction —
+where a missing petition costs a forward cell — **6** hold a petition that read
+back empty, which the report does not print but its case-id ledger gives when
+intersected with the rows carrying a `predict_queued_at`. Of the 271, 270 have
+a page count and no text layer, the class optical character recognition can
+repair, and one is a PDF the extractor could not open at all, which it cannot.
+The 270 is an upper bound: a document whose text leaf never mirrored to the
+content store reads back empty here too and is indistinguishable from a scan.
+Briefs in opposition read empty on 34 rows (0.74% of the scored cut against
+6.15% of the rest, on 244 rows), and the derived questions-presented rows on
+37 — that column being structurally unable to carry a scan, since such a row is
+written only where the petition has text.
+
+The larger gap on the queued population is a different one: 29 of those 242
+cases hold no stored petition at all — itself the recoverable-now cut of a much
+wider stock of distributed rows nothing was ever fetched for. No extraction fix
+reaches any of them; that is a fetch question, repaired in the fetch path or
+not at all.
+
+So the scanned-petition class is small on every population, and on this blob it
+is a bounded 270 documents, each named in the report's case-id ledger alongside
+the other kinds' empties. Six of the 271 empty petitions sit on cases queued
+for prediction today; the rest pay off wherever the gate later mints a cell
+over them. And the
+degradation persists where it lands: a petition that reached the corpus as a
+scan is unreadable for every cell minted over that case until the filing is
+re-fetched at a new URL, and no other path repairs it. The decision is
+therefore a **bounded local-OCR recovery pass** over exactly that class,
+contracted below. Local tesseract only — at this share a metered OCR service
+cannot be justified, and the pass's own cost is held down by the per-dispatch
+bound in the contract rather than by a service bill.
+
+Three residuals stay open by design. The unopenable PDF is not OCR's to repair
+and stays counted as empty. The empty briefs in opposition stay out for a
+structural reason rather than their share: a multi-respondent opposition is
+stored as one combined row keyed on the whole set of fetched URLs, so text
+recovered there is discarded the next time any co-respondent's brief is added
+to that set — the recovery would not survive, which is not true of the petition
+row. And recurrence: a scanned filing that arrives after a pass enters the
+class and stays there until the next one. Nothing watches for that on its own —
+the same `corpus-info --text-coverage` read is what sizes it, and the pass is
+re-runnable over whatever it finds — so cadence is a dispatch decision taken
+against a measured share, not a schedule.
+
+### Contract for the recovery pass
+
+Decided and specified here; not yet built. What a pass must hold to:
+
+- **Where it runs.** As a dispatch-gated mode on `run-pull` beside the
+  dispatch-only opinion enrichment — a mode, not a workflow of its own. The
+  writer jobs are the only place a production corpus write can happen, and a
+  maintenance pass whose dry run is a triage list a maintainer reads before an
+  apply is dispatch-gated by the same rule (*Four writer jobs, one shared core*
+  in [data-pipeline.md](data-pipeline.md)). Tesseract is installed by that step
+  alone, so no scheduled lane grows the dependency. Dry run by default and
+  bounded per dispatch like the enrichment beside it, so a backlog clears in
+  slices rather than in one long job; runner minutes are the whole cost.
+- **What it reads.** Stored **petitions** whose text is empty or
+  whitespace-only and whose page count is above zero. A zero-page row is either
+  a PDF the extractor could not open or a derived section — `pages` carries
+  both — and neither is OCR's to repair; a case holding no petition row is a
+  fetch gap. Both stay out of the population. The coverage report's case-id
+  ledger names the kinds that read back empty but not their page counts, so the
+  pass re-derives that filter itself. The PDF is re-fetched by the row's stored
+  URL, which for a petition is the single link that was fetched:
+  supremecourt.gov, free and politeness-capped, so the pass spends none of the
+  CourtListener budget.
+- **What it does.** Walks the PDF's pages as the extractor does and OCRs a page
+  **only** where that page's own text extraction yields nothing — a guard rather
+  than a filter, since the population is documents that yielded nothing at all,
+  but it keeps a mostly-digital filing with a few scanned exhibit pages honest.
+  The same per-document text cap the fetching lane applies and the same
+  truncation flag bound the result, so a recovered petition is bounded exactly
+  like a fetched one. Additive by construction: text is written only
+  where extraction stored none, so the pass cannot overwrite an extraction. Nor
+  is a recovery overwritten later — the row keeps its URL, and both the poller
+  and the Term walker re-fetch a kind only when its link changes; a genuinely
+  superseding petition at a new URL is re-fetched and, if it too is a scan,
+  re-enters the class.
+- **What it records.** OCR output is *derived* text, lossy in a way pypdf output
+  is not, so it must never read as a clean extraction — and the stored document
+  carries no derivation marker today. Adding one is three surfaces, not one:
+  the document model, an additive `documents` column with a constant default
+  and the migrator to back-fill it (the `cases` and `events` tables carry that
+  pattern; `documents` does not yet), and the content-store manifest writer and
+  reader, which serialize a document field by field — a field added to the model
+  alone reads back at its default on the offloaded path, which is the path
+  production reads. It regenerates `schemas/` like any model change.
+  Provisioning then carries the marker onto the cell manifest beside
+  `empty_text`, and the predict prompt gains the reading rule that pairs with
+  it, since a bare manifest key teaches an agent nothing; the coverage read can
+  then count what was repaired.
+- **What follows a recovery.** A recovered petition re-derives its
+  questions-presented row through the existing deriver, since such a row is
+  written only where the petition has text. On OCR text that derivation keeps
+  the two outcomes it has now: no recognizable heading stores no row at all,
+  and a heading whose capture the deriver will not vouch for stores the empty
+  row.
+- **Terms.** Unchanged. These are the Court's own public records, and OCR text
+  lands in the access-gated corpus under the same no-republication posture as
+  every other extraction ([data-sources.md](data-sources.md)).
 
 ## The historical Term set: per-Term history through the same channel
 
