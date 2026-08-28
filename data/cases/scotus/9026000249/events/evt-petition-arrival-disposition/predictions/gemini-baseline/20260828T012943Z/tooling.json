@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000249",
+  "run_id": "20260828T012943Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["read_file"],
+  "helpful": ["statpack"],
+  "gaps": [],
+  "notes": ""
+}
