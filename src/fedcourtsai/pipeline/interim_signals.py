@@ -199,7 +199,19 @@ def is_predictable_application(kind: ApplicationKind) -> bool:
 # it the analogue of a CVSG rather than of a relist — an affirmative act of
 # attention rather than a rescheduling.
 _RESPONSE_REQUESTED_RE = re.compile(r"response\s+to\s+application[^.]{0,80}?requested", re.I)
-_AMICUS_RE = re.compile(r"amicus\s+curiae", re.I)
+
+# Both numbers of the Latin, because the plural is not a stylistic variant: a
+# brief filed by several amici is docketed "Brief amici curiae of X, et al.
+# filed." and one filed by a single amicus "Brief amicus curiae of X filed."
+# Across the 2,459 SCOTUS dockets whose proceedings the corpus stores (newest
+# stored snapshot 2026-07-13), 1,432 of the 3,028 entries this counts carry the
+# plural — a singular-only reading takes about half the amicus record, and takes
+# least of it on the dockets that draw the most interest. Every stored
+# payload is a cert docket, so those figures measure the reading rather than
+# this column's own population: an application's proceedings are not snapshotted,
+# and the size of the correction there is unmeasured. The vocabulary is one
+# Clerk's across both forms, which is what carries the reading over.
+_AMICUS_RE = re.compile(r"amic(?:us|i)\s+curiae", re.I)
 
 
 def response_requested(entry_texts: list[str]) -> bool:
@@ -264,6 +276,40 @@ def amicus_briefs(entry_texts: list[str]) -> int:
     proxy for stakes, and one brief is a different signal from a dozen. Counted
     over entries, so a single entry naming several filers counts once — an
     undercount, and the direction that cannot manufacture salience.
+
+    The Latin is what separates a brief on the record from an attempt at one,
+    and the docket draws that line itself: an accepted filing is "Brief
+    amic(us|i) curiae of X filed.", while the pre-acceptance shapes name their
+    filer in English — "Motion for leave to file amicus brief …", "Amicus brief
+    of X submitted.", "Amicus brief of X not accepted for filing." None of the
+    three is a brief the Court has, and each is also a state a real brief passes
+    *through*: the docket appends the acceptance as its own later entry rather
+    than rewriting the earlier one, so counting the earlier entry counts one
+    brief twice. Across the stored payloads (cert dockets, newest stored snapshot
+    2026-07-13), 74 of the 86 `Amic(us|i) brief of X not accepted` entries are
+    followed by a later `filed` entry naming the same lead amicus; none of the 7
+    `submitted` entries has such a twin yet, six of them being three days old at
+    their snapshot's date and the seventh sitting on a docket that reached
+    argument and judgment without the brief ever being filed. So a pre-acceptance
+    entry is either a brief the docket will count again in its own words, or one
+    that never arrives — the two arms of one exclusion, and either alone would
+    carry it. The corpus column max-latches, so an overcount is permanent while
+    an undercount corrects itself on the next poll.
+
+    That correction runs only while the application is open, because the
+    rotation re-polls no resolved row and the outcome freezes the column as it
+    stands — so a brief still awaiting the Clerk when the application resolves is
+    missed for good. It is the deliberate side of the trade: a few days of lag on
+    a handful of dockets, and a rare miss at the boundary, taken over an
+    overcount that no later poll can undo.
+
+    An *entry* that recites the phrase without being a brief still counts, and is
+    left counting: 153 of the 3,028 counted entries are not `Brief amic(us|i)
+    curiae …` — motions for leave to participate in oral argument as amicus
+    curiae, the argument transcript's own line naming counsel for an amicus, an
+    invitation to a court-appointed amicus. Narrowing there would move the count
+    down, which a max-latched column cannot represent, so the column and a fresh
+    reading of the same docket would stop agreeing.
     """
     return sum(1 for text in entry_texts if _AMICUS_RE.search(text))
 
