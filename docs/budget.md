@@ -1,8 +1,12 @@
 # Budget
 
 A cost forecast, not a spending cap: it sizes each driver so scope and cadence
-can be chosen with the bill in view. Prices are USD, a mid-2026 snapshot
-(re-check the linked sources before committing spend); the repo is **public**, so
+can be chosen with the bill in view. Published list prices are USD, the rates
+`fedcourtsai.pricing` carries, last changed **2026-08-15** — re-check the
+linked sources before committing spend, and note the module flags the
+promotional rates that expire on their own date. Measured figures are separate and carry
+their own as-of date where they appear, since the usage ledger and the metrics
+pack refresh on different cadences. The repo is **public**, so
 figures assume the free public-repo Actions tier, and all inference is priced on
 the **on-demand API**. For how the phases work, see
 [data-pipeline.md](data-pipeline.md) and [pipeline.md](pipeline.md).
@@ -10,7 +14,7 @@ the **on-demand API**. For how the phases work, see
 ## The shape: a fixed floor plus one dominant scaling line
 
 Every non-inference line — runners, storage, memberships, subscriptions — sums to
-a **≈$5.6K/yr floor**, near-constant but for one slow ratchet: retained corpus
+a **≈$5.5K/yr floor**, near-constant but for one slow ratchet: retained corpus
 history adds ≈$0.25K to each further year the writers run (*4. S3 corpus
 storage* below). Agentic model usage for prediction and
 evaluation is one to two orders of magnitude larger and scales linearly with how
@@ -103,9 +107,10 @@ The interim rows carry two selection biases, in opposite directions. The
 reserve's ladder orders on response-requested first, so the selected 67 are
 enriched in exactly the property the 15.1% rates — read the 10 as biased low
 for the selected slice, bounded above by the 67. Two populations answer that
-rate and they differ: 15.1% is OT2025's, while the whole accumulated
-substantive slice the interim estimator pools over runs about a fifth (52 of
-249), which is the figure [salience.md](salience.md) quotes. And the 67 itself
+rate and they differ: 15.1% is OT2025's (27 of its 179), while the whole
+accumulated substantive slice the interim estimator pools over runs about a
+fifth (53 of 257 — `metrics/statpack.json` as refreshed 2026-08-24, the vintage
+every accumulated interim count here carries). And the 67 itself
 divides slot turnover by the stream's 27.1-day mean occupancy, while the ladder
 plausibly favors longer-lived applications (p95 110 days), which would cut
 arrivals below 67.
@@ -194,7 +199,7 @@ entry to its disposing entry rather than from the `date_filed` /
 and null disproportionately on the long-lived ones. An entry-based lifespan
 exists only for a *resolved* application, so the measure covered 218 of the
 219 rows it was taken over, the exception being the one then still pending.
-The same rule against today's pack would reach 243 of the accumulated 249 (178
+The same rule against today's pack would reach 250 of the accumulated 257 (178
 of OT2025-to-date's own 179) — a property of the population, not a denominator
 the figures above were recomputed on. And OT2025 is open, so the arrival count is a partial year
 divided into a full-year denominator — saturation is understated, not
@@ -225,8 +230,8 @@ artifacts over several tool-use turns — so effective token usage (≈280–400
 input, the large majority cache-served, plus ≈6K output) far exceeds the visible
 artifacts. Every run records its tokens and estimated cost (rates kept in
 `fedcourtsai.pricing`) to a `usage.json`, rolled up by `fedcourts usage-summary` —
-**≈$1,395 total inference spend on the ledger to date**, across the 684 cells the
-per-cell figures below draw on (636 predict, 48 evaluate).
+**≈$1,401 total inference spend on the ledger** as of 2026-08-28, across the 687
+cells the per-cell figures below draw on (639 predict, 48 evaluate).
 That estimate is token-derived, so hosted web search — billed per call rather
 than per token on all three APIs — sits outside it and makes a searching cell's
 recorded cost a mild undercount. The ledger also counts **collected cells only**:
@@ -235,7 +240,7 @@ run — one whose cells burned tokens but whose output never landed — spends
 against the provider bill and never appears here. Every measured figure below is
 therefore a floor on provider-side spend, not a reconciliation of it.
 Measured per-cell cost spans **≈$0.25–8.30 by model mix** (blended mean
-**≈$2.04** over the 684 cells on the ledger).
+**≈$2.04** over the 687 cells on the ledger).
 
 **Per-cell cost is keyed on the stage.** The first predict fan-out to land after
 the pre-registration freeze instant ([process-version.md](process-version.md)) —
@@ -383,7 +388,7 @@ signal to check, not a correction to apply. That is why the figures below carry 
 **measured-basis** reading beside the planning-rate one rather than replacing it.
 
 **The ledger's $2.04 is its mix, not the design's**:
-636 of the 684 cells are predict, and evaluate cells cost more, so the mean the
+639 of the 687 cells are predict, and evaluate cells cost more, so the mean the
 funding knob has to cover is the one at the design mix of three predict and
 three evaluate cells per case — **$2.44–2.49** ($14.6–15.0 ÷ 6, the derivation
 under *Capacity `N`* below). Read $2.04 as what has been spent per cell so far
@@ -420,11 +425,13 @@ Same source as the engine table
 ([Claude API pricing](https://platform.claude.com/docs/en/pricing)), carried in
 the repository as `fedcourtsai.pricing.MODEL_RATES` — the table `usage-summary`
 prices every cell from, so a labeling run and a predict cell are quoted off one
-set of rates. The Haiku row is the one that does not key straight into it: the
-dispatch offers a **dated** Haiku 4.5 id, while the rate table holds the
-undated `claude-haiku-4-5`. The rate is the same and nothing prices a labeling
-run automatically today (it writes no `usage.json`), but the two spellings have
-to be reconciled before one ever does.
+set of rates. The Haiku row is a **known defect**, not a rounding note:
+`run-analytics` offers the dated id `claude-haiku-4-5-20251001` (and defaults to
+it), while `MODEL_RATES` holds only the undated `claude-haiku-4-5`. The rate is
+the same, but `record-usage` **refuses an unpriced model** — it exits rather
+than recording a zero — so the mismatch is latent only because a labeling run
+writes no `usage.json` today. Wiring one up without first reconciling the two
+spellings makes the run fail at the recording step.
 
 **What one labeling run costs.** Bounded rather than measured: the extract is
 capped at the labeling ceiling `fedcourts qp-corpus` enforces (1,200 rows —
@@ -623,7 +630,7 @@ other            98 interim + 127 merits                     =   225 events
 cert-stage  1,616 × $15          ≈ $24.2K / yr  (N's own slice within it ≈ $22K)
 whole Term  1,841 × $14.6-15.0   ≈ $27-28K / yr   planning basis
             1,841 × $13.20-13.45   ≈ $24-25K / yr   measured (interim, n=6)
-plus the ≈$5.6K floor            ≈ $33K / yr all-in  ( ≈$30K measured, interim )
+plus the ≈$5.5K floor            ≈ $33K / yr all-in  ( ≈$30K measured, interim )
 ```
 
 **Every figure in that block is an upper bound.** 1,498 is itself an upper bound
@@ -1142,8 +1149,12 @@ replica. All three become live questions at the scope decision, not before.
 
 The non-inference lines — misc floor ($350/mo), CourtListener ($1,000/yr), S3
 (≈$28/mo today — egress growing with the corpus blob, storage with retained
-history, and the one floor line with no asymptote), Codespaces ($0–50/mo),
-Actions ($0) — sum to a **≈$5.6K/yr floor**. Everything above it
+history, and the one floor line with no asymptote), Codespaces ($0–50/mo on a
+free allowance), Actions ($0) — sum to a **≈$5.5K/yr floor**
+(`$28 × 12 + $4,200 + $1,000 = $5,536`, Codespaces at $0). "Floor" means it
+moves with neither `N` nor `P`, not that it is constant: the S3 term is today's
+egress-plus-storage, and retained history ratchets it ≈$0.25K a year (*4. S3
+corpus storage*). Everything above it
 is inference `= events(N) × per-case(P)`. `N` moves the cert rank fill — much the
 largest single channel — while **343 events ride beside it**, unbought by `N`:
 20 CVSG re-forecasts and the ~98-case arrival cohort, which are
@@ -1162,13 +1173,13 @@ two application dockets, graded twice, under `proc-v3` evaluator digests that
 the way down", which it is not. Fund on the first column; read the second as the
 open question.
 
-| Scenario | ≈ Annual (planning · measured†) | Inference (= total − ≈$5.6K floor) | Dials, and what they reach |
+| Scenario | ≈ Annual (planning · measured†) | Inference (= total − ≈$5.5K floor) | Dials, and what they reach |
 |----------|----------|----------------------------------|-------|
 | Bootstrapping | ≈$18.5K · ≈$17K | ≈$13K · ≈$11–12K | `N` = `per_conference_capacity: 12` (long conference 24), `P` = 3. ≈838–865 forecast events across all three stages, sal-v3 arrival cohort included — a **whole OT2026 Term**, not a slice of one: 613–640 cert (the OT2022–24 gate replay measures 495–522 selected a Term — rank fill plus uncapped carve-outs — plus 20 CVSG re-forecasts and the ~98-case arrival cohort), ~98 interim, ~127 merits. Keeps 0.76–0.81 of the Term's replay-reconstructable grant-family outcomes (0.80–0.84 of selectable ones), mostly via the carve-out band; a cap of 150 keeps 0.944–0.967 (measured, same pool) and would cost ≈$24K |
 | Full paid-gate coverage — **the dial switch** | ≈$33K · ≈$30K | ≈$28K · ≈$24–25K | `N` at its ceiling, `P` = 3. All 1,498 paid petitions rank-filled (`1,498 × $15 ≈ $22K` — `N`'s own slice) plus the 343 beside-`N` events: `1,841 × $15 ≈ $28K`, or `× $13.20–13.45 ≈ $24–25K` measured. Both are **upper bounds** — 1,498 is itself one. `N` can buy nothing further, so salience survives here as the public ranking and the replay story rather than as a spend control ([salience.md](salience.md)), and incremental dollars move to `P` — or, cheaper, to `interim_reserve_slots` first: ≈$2.4K buys ~157 more interim events, an **alternative to the first `P` increment** rather than something taken alongside it (the `P` arithmetic in the next row prices engines over 1,841 events, which is the count *before* any reserve step) |
-| Initial funding | ≈$100K | ≈$95K | Full paid-gate coverage at `P` = 3 (≈$28K planning · ≈$24K measured), with the remaining **≈$67K · ≈$71K on `P`**. Each added predictor costs `1,841 × (p + m)` a year — at the top of the `m` band, `≈$12.9K` planning / `≈$12.0K` measured for a frontier-class engine, `≈$6.2K` / `≈$5.3K` for an ablation- or open-weight-class one. That funds a registry of roughly **8 to 13 engines** on the planning basis, **8 to 16** on the measured one (whole engines only; the next one up is part-funded in each case). Read it as "many more than four", not as a target — it extrapolates the fully-linear `m` bound far past any run yet produced |
-| Well funded | ≈$1M | ≈$995K | Either dial taken far. At the SCOTUS gate this funds a registry of dozens of engines; it is also the band in which the deferred scope decision first becomes affordable (the 14-court reference ceiling is ≈$675K at `P` = `E` = 3). Which it buys is the ~1-year scope call, not a budget one |
-| **Floor (all scenarios)** | **≈$5.6K** | **—** | **misc + CourtListener + S3 + Actions; scales with neither `N` nor `P`** |
+| Initial funding | ≈$100K | ≈$94.5K | Full paid-gate coverage at `P` = 3 (≈$28K planning · ≈$24K measured), with the remaining **≈$66.5K · ≈$70.5K on `P`**. Each added predictor costs `1,841 × (p + m)` a year — at the top of the `m` band, `≈$12.9K` planning / `≈$12.0K` measured for a frontier-class engine, `≈$6.2K` / `≈$5.3K` for an ablation- or open-weight-class one. That funds a registry of roughly **8 to 13 engines** on the planning basis, **8 to 16** on the measured one (whole engines only; the next one up is part-funded in each case). Read it as "many more than four", not as a target — it extrapolates the fully-linear `m` bound far past any run yet produced |
+| Well funded | ≈$1M | ≈$994K | Either dial taken far. At the SCOTUS gate this funds a registry of dozens of engines; it is also the band in which the deferred scope decision first becomes affordable (the 14-court reference ceiling is ≈$675K at `P` = `E` = 3). Which it buys is the ~1-year scope call, not a budget one |
+| **Floor (all scenarios)** | **≈$5.5K** | **—** | **misc + CourtListener + S3 + Actions; scales with neither `N` nor `P` — the S3 term still ratchets ≈$0.25K a year with retained history** |
 
 † The Initial-funding and Well-funded rows carry one figure because they are
 *funding levels* rather than derived costs; the basis split appears inside them,

@@ -142,8 +142,14 @@ runbook, [docs/security.md](docs/security.md).
   least-privilege IAM role via GitHub OIDC. **Three roles, split by access:**
   corpus writers get a **read-write, append-only** role (get/put/list, **no
   delete**) and every corpus consumer a **read-only** role, so a compromised
-  consumer runner cannot tamper with the data; the buckets keep **versioning**
-  on, so no run can wipe corpus objects. The third is the **staging read-write**
+  consumer runner cannot tamper with the data. Three controls together mean no
+  run can wipe corpus objects: the buckets keep **versioning** on, the
+  write-role policy carries an explicit **`Deny` on every delete**, and a
+  second `Deny` covers the two delete-equivalent **bucket-configuration**
+  changes (versioning and lifecycle configuration) — a lifecycle expiration
+  runs under S3's own principal, so a role able to install a rule could expire
+  a whole prefix while its own `DeleteObject` calls were still refused. The
+  third role is the **staging read-write**
   role — read-only on the production stores, read-write on the staging corpus
   pair alone — so the production stores keep exactly one writer whatever
   happens to it. Every role's OIDC trust is scoped to named environments of
@@ -163,6 +169,20 @@ runbook, [docs/security.md](docs/security.md).
   environment variable, and boto3 reads its credentials from the environment.
   Per-workflow role assignments and policies:
   [docs/security.md](docs/security.md).
+- **No agent process holds a cloud credential.** An agent runs over
+  third-party docket text, so no corpus credential reaches the process that
+  reads it — but the enforcement differs by job, and the guarantee is about the
+  process, not the step. In a predict/evaluate cell the read-only role's
+  credentials never enter the agent *step* at all: they ride the provisioning
+  and sidecar-launch steps as masked step outputs, and the agent reaches corpus
+  data only through the sidecar's `localhost` query surface. `run-backtest`
+  assumes the role job-wide, so its agent step does carry the variables; there
+  the shared runner seam spawns each engine CLI from a **scrubbed base
+  environment**, dropping every `AWS_*` name but the region and every
+  credential-shaped name that is not the engine's own auth. The qp-topic
+  labeling job needs neither, and assumes no role. Which mechanism covers which
+  job, and the residual the back-test's shape leaves: *Agent shells hold no
+  cloud credential* in [docs/security.md](docs/security.md).
 - **One scoped exception: developer corpus access from Codespaces.** Two
   developer flows, both read-only, both fed by **user-scoped** Codespaces
   secrets (never repo-level, never committed): the maintainer via IAM Identity
@@ -178,8 +198,17 @@ runbook, [docs/security.md](docs/security.md).
   label — a maintainer applies it after triage. (2) Each issue-triggered
   privileged job re-checks, before any privileged work, that the triggering
   actor has **write access** (failing closed), so a label applied by anyone
-  else is inert — nothing privileged runs ahead of that check in any `run:*`
-  workflow. Every `run:*` gate — the fan-outs and the deterministic
+  else is inert — nothing that mints a token, assumes a role, or reads the
+  corpus runs ahead of that check in any `run:*` workflow. What does run ahead
+  of it is accepted and named in place: the gate is a tested command, so it
+  needs a working tree and a synced env, and on every label path a
+  credential-free checkout and an environment setup precede it — as, on the two
+  fan-outs, does binding the `prod` environment. None of those carries anything
+  the gate protects. Two costs ride the shape on `run-pull` specifically, both
+  stated at the step there: its later credentialed checkout discards that venv,
+  so the label path syncs twice, and the run is already holding the shared
+  corpus-write lock for the minute the refusal takes. Every `run:*` gate — both
+  fan-outs, the back-test, and the deterministic
   writer — treats a `Bot` sender as the trusted App handoff without a
   permission lookup. That allowance rests on two platform facts: installing a
   GitHub App requires admin on the repository, and label writes made with the
@@ -190,8 +219,9 @@ runbook, [docs/security.md](docs/security.md).
   today, closes that residue by pinning the handoff to the data App's own
   login (`--bot-actor`); the fan-out gates are unpinned — `run-predict` /
   `run-evaluate` narrow their claude/codex agent steps to the data App's login
-  (`allowed_bots`), while their gemini steps and `run-backtest` rely on the
-  gate alone.
+  (the claude action's `allowed_bots`, the codex action's `allow-bot-users` —
+  the same pin under two spellings), while their gemini steps and
+  `run-backtest` rely on the gate alone.
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
   is the sole bypass actor, so the deterministic writer jobs (`run-pull`,

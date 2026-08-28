@@ -15,7 +15,13 @@ ingestion channels (**pull**, **live**, **historical** —
 - **[CourtListener](https://www.courtlistener.com/)**, a project of the
   [Free Law Project](https://free.law/): the **REST API** (targeted enrichment —
   the `pull` channel, and the opinion-cluster enrichment that shares its
-  budget).
+  budget). Part of the stored court-of-appeals slice comes from a second
+  CourtListener channel, the one the credit in [`NOTICE`](../NOTICE) names
+  beside the API: the **quarterly bulk-data exports**, normalized through the
+  same shared normalizer as the API rows and still carrying a bulk provenance
+  the storage projection keys on
+  ([data-pipeline.md](data-pipeline.md)). The CourtListener terms below cover
+  both channels.
 - **supremecourt.gov's per-docket JSON and filed-document PDFs**, served by the
   Court itself — the live SCOTUS channel that owns SCOTUS freshness and loads
   the historical Term set. These are public records with no third-party license
@@ -39,7 +45,9 @@ decision since the 1946 Term, and the only realistic route to per-Justice
 merits votes at scale. It is the channel [decision-model.md](decision-model.md)
 names as one that could populate `Outcome.votes` with the provenance block no
 docket text supports today. Its terms are why it is not adopted, and they are
-split across two hosts that do not agree:
+split across two hosts that do not agree. Everything in this section is **as
+read on 2026-08-15**, from the hosts named in it; it is a record of a reading,
+not a live check, so an adoption decision re-reads both hosts first:
 
 - **The current home states no license at all.**
   [`scdb.la.psu.edu`](https://scdb.la.psu.edu/) is where the data is now
@@ -149,15 +157,17 @@ model-generated predictions, outcomes, and evaluations, keyed by case id, plus t
 reasoning text that explains them — and the two qp-topic artifacts
 (`docs/qp-topic.md`), the hand-labeled reference set and a labeling run's
 per-case labels: subject-matter judgments keyed by case id and public-record
-docket number, republishing no source text. One **non-git** public channel is
-argued in the same place and nowhere else, carrying two one-day GitHub Actions
-artifacts: the extract of stored questions-presented text the labeling run
-passes between its two jobs, and the labeler's scanned transcript, which
-embeds the same text; on a public repository any logged-in user can download
-either for its retention window.
+docket number, republishing no source text. There is also a **non-git** public
+channel that carries corpus-derived text: `run-analytics`' three one-day
+GitHub Actions artifacts, which on a public repository any logged-in user can
+download for their retention window. What each one
+discloses is inventoried once, in *S3 / the private stores* in
+[security.md](security.md), and not re-enumerated here; two of the three
+carry stored questions-presented text and are argued in `docs/qp-topic.md`.
 That text is derived from petition PDFs fetched from supremecourt.gov — public
-records, outside the CC BY-ND term above — and the channel is accepted for that
-run alone, not as a route for corpus content generally. That reasoning may quote or summarize
+records, outside the CC BY-ND term above — and that channel is accepted for the
+labeling run alone, not as a route for corpus content generally. The third
+republishes no document text. Prediction reasoning may quote or summarize
 public-record docket facts in the course of explaining a prediction; it is original
 analysis attributing CourtListener as the source, not a republication of their
 dataset. The public surface is therefore our derived judgments over public-domain
@@ -183,22 +193,13 @@ The automated consumer stays within CourtListener's published API limits by desi
   per-run caps in [`config/tracking.yaml`](../config/tracking.yaml) well under
   them.
 - **Opinion enrichment shares that budget**, through the same client and the
-  same configured ceilings: up to three requests a case (the docket, its
-  opinion cluster, then the cluster's first opinion), dropping to two where a
-  stored REST-shaped snapshot already links the cluster and to one where the
-  docket links no cluster to follow. It is deliberately scoped to
-  the **cert-granted SCOTUS slice** — ≈1,250 dockets all-time, ≈120–130 a Term
-  ongoing — which bounds a sweep of the standing backlog at ≈3,750 requests and
-  a Term's new grants at ≈400, inside the allowance the four pull windows
-  leave (they commit ≈360 of the 1,400/day); its own `--max-cases` bounds any
-  single run. The
-  governor is per-process rather than shared, so the pass is run outside a pull
-  window: two processes throttling independently would each stay under the
-  ceiling while the account did not. Opinion coverage
-  at bulk scale is not a REST problem: the **database replication** channel
-  named above remains the intended route to opinion bodies across the whole
-  corpus, and nothing here is a step toward reading them out of the API
-  instead.
+  same configured ceilings; the `enrich-opinions` scope, its per-case request
+  count, and the headroom arithmetic are owned by
+  [data-pipeline.md](data-pipeline.md) and stated only there. What belongs to
+  the terms question is the boundary: opinion coverage at bulk scale is not a
+  REST problem, the **database replication** channel named above remains the
+  intended route to opinion bodies across the whole corpus, and nothing here is
+  a step toward reading them out of the API instead.
 
 The pilot holds a paid Free Law Project **membership tier** — the top
 published tier, so more throughput now means the replication agreement (or
