@@ -777,3 +777,253 @@ def test_refresh_historical_rejects_an_unknown_stream(tmp_path: Path) -> None:
     assert result.exit_code == 2
     with corpus.connect(db) as conn:
         assert corpus.get_live_cursor(conn, 22, "historical-paid") == 400
+
+
+# --- targeted refresh: re-serving named dockets ------------------------------------
+
+
+def test_refresh_dockets_re_serves_a_named_docket_without_moving_the_cursor(
+    tmp_path: Path,
+) -> None:
+    """The property that makes this a different instrument from `reset_walk`: a
+    targeted re-read is not a rewind. Were the cursor to move, re-reading one docket
+    would cost a re-walk of every serial after it — which is the expense the command
+    exists to avoid."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    served = {"22-1": _decided("22-1", _DENIED_ENTRY), "22-2": _decided("22-2", _DENIED_ENTRY)}
+    with _serving_client(served) as client:
+        load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 10))
+    with corpus.connect(db) as conn:
+        cursor = corpus.get_live_cursor(conn, 22, "historical-paid")
+    assert cursor is not None
+
+    # The record the pipeline has since learned to read differently.
+    served["22-1"] = _decided("22-1", _GRANTED_ENTRY)
+    calls: list[str] = []
+    with _serving_client(served, calls) as client:
+        report = historical_module.refresh_dockets(
+            client, db, tmp_path / "data", _config(), ["22-1"], today=date(2026, 7, 12)
+        )
+    assert calls == ["22-1"]  # the named docket alone, not the range around it
+    assert report.served == ["22-1"]
+    assert report.walk.ingested_granted == 1
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == cursor
+        row = corpus.get_row(conn, "scotus/9022000001")
+    assert row is not None
+    # The unlatched disposition took the fresh parse; identity did not move.
+    assert row.disposition == "granted"
+
+
+def test_refresh_dockets_reports_a_number_upstream_has_no_record_for(tmp_path: Path) -> None:
+    """A typo that parses is still a typo, and it must come back as an empty result
+    rather than as silence — a named list reporting success while writing nothing is
+    how a maintainer concludes the re-serve happened."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db):
+        pass
+    with _serving_client({}) as client:
+        report = historical_module.refresh_dockets(
+            client, db, tmp_path / "data", _config(), ["22-9999"], today=date(2026, 7, 12)
+        )
+    assert report.unserved == ["22-9999"]
+    assert report.served == []
+    assert report.walk.served == 0
+
+
+def test_refresh_dockets_will_not_write_what_a_walk_would_not(tmp_path: Path) -> None:
+    """A served record with no machine-readable disposition is the forward poller's
+    charter. Naming it explicitly must not buy a route around that rule, or the
+    walker's guarantee — every row it lands is already resolved — holds only for
+    rows nobody asked for by name."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db):
+        pass
+    with _serving_client({"22-7": _payload("22-7")}) as client:
+        report = historical_module.refresh_dockets(
+            client, db, tmp_path / "data", _config(), ["22-7"], today=date(2026, 7, 12)
+        )
+    assert report.served == ["22-7"]
+    assert report.undecided == ["22-7"]
+    assert report.walk.skipped_undecided == 1
+    with corpus.connect(db) as conn:
+        assert corpus.get_row(conn, "scotus/9022000007") is None
+
+
+def test_refresh_dockets_refuses_a_malformed_list_before_it_fetches(tmp_path: Path) -> None:
+    """All-or-nothing, and before the first request: a half-served list is harder to
+    reason about than a refused one, and refusing after the traffic would spend the
+    upstream budget the refusal was meant to protect."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db):
+        pass
+    calls: list[str] = []
+    with (
+        _serving_client({"22-1": _decided("22-1", _DENIED_ENTRY)}, calls) as client,
+        pytest.raises(ValueError, match="22A123"),
+    ):
+        historical_module.refresh_dockets(
+            client,
+            db,
+            tmp_path / "data",
+            _config(),
+            ["22-1", "22A123"],
+            today=date(2026, 7, 12),
+        )
+    assert calls == []
+
+
+def test_refresh_dockets_is_bounded_by_the_walks_own_probe_cap(tmp_path: Path) -> None:
+    """The bound lives in the writer function, not the command, so a code caller is
+    bounded on the same terms: this fetches one docket JSON per member at the
+    client's throttle, exactly as the walk does."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db):
+        pass
+    calls: list[str] = []
+    with (
+        _serving_client({}, calls) as client,
+        pytest.raises(ValueError, match="past the 2-probe bound"),
+    ):
+        historical_module.refresh_dockets(
+            client,
+            db,
+            tmp_path / "data",
+            _config(max_probes_per_run=2),
+            ["22-1", "22-2", "22-3"],
+            today=date(2026, 7, 12),
+        )
+    assert calls == []
+
+
+def test_refresh_dockets_is_dry_run_until_applied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The dry run resolves the named numbers against the stored rows and fetches
+    nothing, so the reading a maintainer takes before a corpus write costs no
+    upstream traffic."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    served = {"22-1": _decided("22-1", _DENIED_ENTRY)}
+    with _serving_client(served) as client:
+        load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 10))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    dry = CliRunner().invoke(cli.app, ["refresh-dockets", "--docket", "22-1"])
+    assert dry.exit_code == 0, dry.output
+    assert "dry-run" in dry.output
+    assert "scotus/9022000001" in dry.output
+
+
+def test_refresh_dockets_names_the_docket_it_left_to_the_watchlist(tmp_path: Path) -> None:
+    """The one outcome a maintainer must be able to name. Asking for a docket by
+    number and getting a bare count back leaves them unable to tell which of the
+    list the seam declined — and this is the decline that matters, because the
+    resolution it defers is what files the evaluate handoff."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/74112233", court="scotus", docket_number="22-2")],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/74112233",
+                    court="scotus",
+                    kind=EventKind.petition,
+                )
+            ],
+        )
+    seed_prediction(data_root, "scotus", 74112233, "evt-petition-disposition")
+
+    with _serving_client({"22-2": _decided("22-2", _GRANTED_ENTRY)}) as client:
+        report = historical_module.refresh_dockets(
+            client, db, data_root, _config(), ["22-2"], today=date(2026, 7, 12)
+        )
+    assert report.served == ["22-2"]
+    assert report.left_to_watchlist == ["22-2"]
+    assert report.walk.ingested_granted == 0
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/74112233")
+    assert row is not None and row.disposition is None  # the watchlist's to resolve
+
+
+def test_refresh_dockets_lets_one_numbers_failure_cost_only_that_number(tmp_path: Path) -> None:
+    """Where this deliberately diverges from `walk_stream`, which breaks the whole
+    stream on an upstream error to keep its cursor gap-free. A named list has no
+    resume point to protect and its members are independent, so stopping at the
+    first failure would silently drop dockets the maintainer asked for."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db):
+        pass
+    served = {"22-2": _decided("22-2", _DENIED_ENTRY)}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        name = request.url.path.rsplit("/", 1)[-1].removesuffix(".json")
+        if name == "22-1":
+            raise httpx.ConnectError("upstream refused the connection")
+        return httpx.Response(200, json=served[name]) if name in served else httpx.Response(404)
+
+    with _client(handler) as client:
+        report = historical_module.refresh_dockets(
+            client, db, tmp_path / "data", _config(), ["22-1", "22-2"], today=date(2026, 7, 12)
+        )
+    assert report.served == ["22-2"]  # the list carried on past the failure
+    assert report.walk.ingested_denied == 1
+    assert [f["stream"] for f in report.walk.failed] == ["targeted"]
+    assert report.walk.failed[0]["serial"] == 1
+
+
+def test_refresh_dockets_applies_through_the_cli(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The branch the run-seed step actually invokes. The dry run proves nothing
+    about it — it fetches nothing and never builds a client — so an apply-path
+    break would reach the writer lane with a green suite behind it."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db):
+        pass
+    served = {"22-1": _decided("22-1", _GRANTED_ENTRY), "22-9": _payload("22-9")}
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    with _serving_client(served) as client:
+        monkeypatch.setattr(cli, "SupremeCourtClient", lambda **_kwargs: client)
+        result = CliRunner().invoke(
+            cli.app,
+            [
+                "refresh-dockets",
+                "--docket",
+                "22-1",
+                "--docket",
+                "22-9",
+                "--docket",
+                "22-8",
+                "--apply",
+            ],
+        )
+    assert result.exit_code == 0, result.output
+    assert "served 2 of 3 named" in result.output
+    assert "granted=1" in result.output
+    assert "no record upstream: 22-8" in result.output
+    assert "served but undecided (not ingested): 22-9" in result.output
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9022000001")
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") is None  # no cursor written
+    assert row is not None and row.disposition == "granted"
+
+
+def test_refresh_dockets_rejects_a_number_from_another_sequence(tmp_path: Path) -> None:
+    """Applications and original-docket numbers are separate numbering sequences this
+    path does not serve, so accepting the spelling would probe a paid serial that
+    happens to collide with it."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db):
+        pass
+    result = CliRunner().invoke(
+        cli.app,
+        ["refresh-dockets", "--docket", "24A1099", "--apply"],
+        env={"FEDCOURTS_CORPUS_ROOT": str(tmp_path / "corpus")},
+    )
+    assert result.exit_code == 2

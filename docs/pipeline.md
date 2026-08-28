@@ -240,10 +240,13 @@ own blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
-any other corpus write. Four further writer steps are **not** among the seven and
-never run on a schedule, each gated behind its own dispatch input; the three
+any other corpus write. Four further writer steps run **after the loop**, are
+not among the seven, and never run on a schedule, each gated behind its own
+dispatch input; the three
 that read corpus rows also require the dedupe to have succeeded, since each
-must weigh a merged row rather than a twin.
+must weigh a merged row rather than a twin. (Two more sit *ahead* of the loop
+on the same dispatch-only footing — the `refresh_terms` cursor reset and the
+`refresh_dockets` targeted re-serve — where they precede the walk they change.)
 `unlatch-overselected` (the `unlatch_overselected` input)
 clears the pre-resize `salience_selected`
 overhang a capacity change leaves behind (`docs/salience.md`) — the latch's one
@@ -264,12 +267,27 @@ The last two are sequenced after every converging sweep, and in this order —
 landing after a grade was taken leaves that grade stale.
 `converge-disposition-labels` (the `disposition_convergence` input) converges
 stored disposition labels onto the current classifier, writing `outcome.json`
-under `data/` alongside the pointer in the step's one commit. It converges the
-**unscored** population only: rewriting the label under a cell that has already
-been graded would move what a published standing was computed from while the
-standing sat still, so those cells are reported in the dry-run ledger rather
-than rewritten, and closing that backlog is a maintainer's decision — moving
-those labels is deliberately not offered as a dispatch here. An `apply`
+under `data/` alongside the pointer in the step's one commit. By default it
+converges the population carrying **no committed predict or evaluate output**:
+rewriting the label under a cell that has already been graded would move what a
+published standing was computed from while the standing sat still, so any event
+whose directory holds agent output is reported in the dry-run ledger rather
+than rewritten. Closing that backlog is a maintainer's decision, and
+`include_scored` is where it is taken: it passes `--include-scored` to both the
+dry-run and the apply, so the ledger read and the rewrite cover the same
+population, and it is refused unless `disposition_convergence` names a mode
+*and* `disposition_max_relabels` carries a positive integer — in `dry-run` as
+much as in `apply`, unlike the bare bound, because what the number states there
+is a decision to take on a re-grade backlog rather than a write bound. The two
+readings are different: the plain dry-run's held-back lines size the *decision
+to widen* (they are candidates the sweep never parsed, so most will not be
+relabeled — only a parse returning `gvr` writes), while the bound an `apply`
+is checked against is the widened dry-run's own relabel count, which spans the
+scored and unscored confirmations together. A scored relabel is half a repair:
+the labels move here, and the grades taken under the old label catch up through
+`regrade_stale` naming the affected judge lines — three per event, one per
+judge, not one per evaluation. That can ride the same dispatch, which runs the
+two steps in this order for exactly this reason, or a following one. An `apply`
 dispatch also requires `disposition_max_relabels` — a positive integer, and the
 count the maintainer read off a previous `dry-run` dispatch's ledger. Anything
 else — blank, zero, negative, decimal — is refused with an error annotation
@@ -317,6 +335,26 @@ the loop's checkpoint push, so a failure before the first checkpoint leaves the
 upstream cursors untouched. `refresh_streams` picks the numbering sequence: IFP
 is ~70% of the probe cost and feeds no scored segment, so the paid stream is the
 default.
+
+`refresh_dockets` is the targeted instrument beside it, for when the rows
+needing a fresh read are known and enumerated: Term-form docket numbers, one
+per line or space-separated (`22-451 23-1234`), re-served and re-ingested
+through the walk's own path by `fedcourts refresh-dockets --apply`. Re-opening
+a Term to reach a handful of dockets pays for its entire serial range at
+~1 req/s; this pays for what was named. It runs in the same slot as the Term
+re-open, after the pull and before the loop under the `corpus-write` lock.
+**No cursor moves** — a targeted
+re-read is not a rewind — so the two inputs are independent and dispatching both
+together is coherent: they write the same rows through the same latches, and
+neither can undo the other. The numbers are grammar-checked all-or-nothing
+before anything runs and the list is capped at 50 — the workflow's own cap,
+tighter than the command's `historical.max_probes_per_run`, and sized well
+inside what the step's 15-minute bound can serve at that rate, so an oversized
+list is refused loudly rather than cancelling the run on a timeout; a list that
+large wants `refresh_terms` instead. Like every other writer step here it
+pushes its own blob and commits its own pointer, rather than leaving rows it
+paid upstream requests for to a walk chunk that may fail before its first
+checkpoint.
 
 ## Cascade
 

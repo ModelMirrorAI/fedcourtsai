@@ -994,6 +994,49 @@ def test_every_inline_gh_retry_copy_matches_the_shared_script() -> None:
         assert "Inline copy of scripts/gh_retry.sh" in run
 
 
+def test_run_seeds_early_validator_duplicates_every_late_refusal_verbatim() -> None:
+    """`Validate dispatch inputs` is a fail-fast copy, not a second opinion.
+
+    run-seed refuses a malformed dispatch twice: once up front, ahead of the
+    corpus pull, so a typo costs seconds rather than a walk window on the shared
+    corpus-write lock, and again inside the step that acts on the input, which is
+    the check of record because a step has to be safe on whatever reaches it.
+    The pair only earns that arrangement while it is one refusal in two places —
+    the same grammar, the same splitting, the same `::error::` text. Let one copy
+    drift and the same mistake reports differently depending on where it was
+    caught, which is worse than having caught it once.
+    """
+    steps = _load("run-seed.yml")["jobs"]["seed"]["steps"]
+    (early,) = [s for s in steps if s.get("name") == "Validate dispatch inputs"]
+    early_errors = _error_lines(str(early["run"]))
+    assert early_errors, "the up-front validator refuses nothing"
+    # Every refusal a dispatch-only step can print must be printable up front in
+    # exactly the same words. The step's own guards differ — its `if:` already
+    # narrows the mode, so a late copy needs no mode conjunct the early one does
+    # — but the text a maintainer reads may not.
+    for owner in (
+        "Re-serve the named dockets",
+        "Converge disposition labels (dispatch-only)",
+        "Re-grade named cells (dispatch-only)",
+    ):
+        late_errors = _error_lines(str(_named_step("run-seed.yml", "seed", owner)["run"]))
+        assert late_errors, f"{owner}: refuses nothing, so the pairing is vacuous"
+        drifted = late_errors - early_errors
+        assert not drifted, (
+            f"{owner}: refusal text absent from `Validate dispatch inputs` — "
+            f"the two copies must stay word-for-word identical: {sorted(drifted)}"
+        )
+
+
+def _error_lines(run: str) -> set[str]:
+    """Every ``::error::`` annotation a block can emit, indentation stripped.
+
+    Compared as a set rather than in order, because the up-front copy carries
+    every step's refusals in one script while each step carries only its own.
+    """
+    return {line.strip() for line in run.splitlines() if "::error::" in line}
+
+
 def test_the_python_seams_bounds_match_the_shared_script() -> None:
     """The Python-side `gh` seams hold the same three numbers as the script.
 
