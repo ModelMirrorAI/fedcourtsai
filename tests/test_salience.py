@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import fields
 from datetime import date
 from pathlib import Path
 from types import MappingProxyType
@@ -188,7 +189,14 @@ def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
         "sal-v1": ("high",),
         "sal-v2": ("federal", "high"),
         "sal-v3": ("federal", "high"),
-    }.get(version, banding.bands[: len(fully_carved)] if fully_carved else None)
+        # sal-v4 carves with sal-v3's own predicate, so its prefix must be the
+        # same one: the parse pin moves the count a band is read off, never the
+        # always-include rule.
+        "sal-v4": ("federal", "high"),
+        # Indexed, never `.get` with a self-satisfying fallback: a prefix
+        # compared against a prefix of its own length passes for any version,
+        # so a new registration must state its carve prefix here or KeyError.
+    }[version]
     assert fully_carved == expected, f"{version}: carved bands {fully_carved}, expected {expected}"
     assert fully_carved, f"{version}: no band is carved — the always-include rule reaches nothing"
 
@@ -222,6 +230,61 @@ def test_sal_v3_is_sal_v2_read_through_the_wider_caption_rule() -> None:
     assert v2.carve_out(widened, v2.score(widened), floor) is False
     assert v3.band(widened) == "federal"
     assert v3.carve_out(widened, v3.score(widened), floor) is True
+
+
+def test_sal_v4_is_sal_v3_with_the_parse_pin_moved_and_nothing_else() -> None:
+    """The registration's whole scope, pinned: same callables, one changed field.
+
+    sal-v4 is registered under a statistical review scoped to "sal-v3 with the
+    pinned distribution parse changed and nothing else", so the identity is not a
+    remark about the code but the boundary of what was reviewed. Pinning the
+    scoring callables as *the same objects* is stronger than pinning their
+    outputs on a sample: a copied-and-then-edited band rule would agree on every
+    row a test enumerated and still be a second implementation free to drift.
+
+    The parse itself is not exercised here because it is not a scoring input the
+    scorer reads — it is the label naming which reading of the DISTRIBUTED phrase
+    filled `distribution_count` before the row reached the scorer, so on any one
+    row the two versions score, band and carve identically by construction.
+    """
+    v3, v4 = scorer("sal-v3"), scorer("sal-v4")
+    assert v4.distribution_parse == "dist-v2"
+    assert v3.distribution_parse == "dist-v1"
+    assert v4.score is v3.score
+    assert v4.band is v3.band
+    assert v4.carve_out is v3.carve_out
+    assert v4.reachable is v3.reachable
+    assert v4.bands == v3.bands
+    assert v4.selects_arrivals is v3.selects_arrivals
+    # Every field but the version label and the parse, exhaustively — so a field
+    # added to the record later cannot slip into sal-v4 unreviewed.
+    moved = {"version", "distribution_parse"}
+    assert {f.name for f in fields(SalienceScorer)} - moved == {
+        "score",
+        "band",
+        "bands",
+        "carve_out",
+        "selects_arrivals",
+        "reachable",
+    }
+
+
+def test_sal_v4_is_registered_but_not_active() -> None:
+    """Registration and activation are separate commits, and this is the gap.
+
+    A sal-v4 context frozen while the corpus `distribution_count` column still
+    holds `dist-v1` counts would compare a narrower prediction-time count against
+    a wider resolution-time one, breaking the relist-increment claim's "the count
+    never falls" premise upward. The column re-derivation orders before the flip;
+    until it lands, the active scorer must not be sal-v4.
+    """
+    assert "sal-v4" in SCORERS
+    assert SALIENCE_VERSION != "sal-v4"
+    # Not `salience_bands()`: sal-v4 shares sal-v3's band tuple object, so a band
+    # comparison passes either way and would guard nothing. The parse is the
+    # field the two versions differ in, so it is the one that distinguishes an
+    # active sal-v3 from an active sal-v4.
+    assert scorer().distribution_parse == DEFAULT_DISTRIBUTION_PARSE
 
 
 def test_the_active_scorer_is_what_the_bare_helpers_dispatch_to() -> None:
@@ -964,7 +1027,7 @@ def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
     two_versions: SalienceScorer,
 ) -> None:
     # active first, then the rest sorted
-    assert registered_versions() == (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2")
+    assert registered_versions() == (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v4")
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
     assert salience_band(row) == "high"  # the bare helpers still mean the ACTIVE scorer
@@ -1274,12 +1337,18 @@ def test_a_resolved_arrival_event_heals_its_ledger_without_reopening(
 def test_every_registered_scorer_pins_a_registered_distribution_parse(version: str) -> None:
     """A version's parse is part of what its band labels mean, so it must resolve.
 
-    Every scorer registered today pins ``dist-v1`` — the reading the corpus's
-    own ``distribution_count`` column holds — so the band a cell freezes and the
-    band the live gate ranked it by are derived from one count.
+    The pin is per version and stated here rather than derived, so a registration
+    cannot quietly move a frozen version's reading: sal-v1 through sal-v3 pin
+    ``dist-v1`` — the reading the corpus's own ``distribution_count`` column
+    holds, which is what keeps the band a cell freezes and the band the live gate
+    ranked it by derived from one count — while the registered-inactive sal-v4
+    pins ``dist-v2``. That divergence is safe only while sal-v4 stays inactive;
+    the alignment the active scorer must keep is pinned separately by
+    `test_the_active_scorers_parse_is_the_one_the_corpus_column_holds`.
     """
+    expected = {"sal-v1": "dist-v1", "sal-v2": "dist-v1", "sal-v3": "dist-v1", "sal-v4": "dist-v2"}
     assert SCORERS[version].distribution_parse in DISTRIBUTION_PARSES
-    assert SCORERS[version].distribution_parse == "dist-v1"
+    assert SCORERS[version].distribution_parse == expected[version]
 
 
 def _census_row(case_id: str, docket: str) -> corpus.CorpusRow:
@@ -1806,8 +1875,11 @@ def test_a_cells_frozen_count_follows_the_active_scorers_parse(
 ) -> None:
     """Registering a dist-v2 scorer moves what a provisioned cell freezes.
 
-    Without this the parse hand-off in `cell_context` is delete-safe — every
-    registered version pins the default today, so nothing else would notice.
+    Without this the parse hand-off in `cell_context` is delete-safe — no
+    registered version is ACTIVE under a second parse, and the hand-off reads the
+    active scorer only, so deleting it would change no committed cell. Only an
+    active dist-v2 scorer exercises it, which is what the stand-in below supplies
+    and what registration alone does not.
     """
     narrow = SalienceScorer(
         version="sal-test",

@@ -244,11 +244,18 @@ def _resolve_relist_increment(context: PredictionContext, outcome: Outcome) -> i
     The two ends must be read under one distribution parse for that monotonicity
     to hold across the pair: the context side follows the active scorer's
     declared parse while the outcome side is the corpus column at
-    ``cert_signals.DEFAULT_DISTRIBUTION_PARSE``, so a version pinning a narrower
-    reading could make the frozen count exceed the resolution-time one and turn
-    a real increment into a mask. What keeps them comparable today is that every
-    registered version pins the default, pinned by the all-versions parse test
-    in ``tests/test_salience.py``.
+    ``cert_signals.DEFAULT_DISTRIBUTION_PARSE``. A version pinning a *narrower*
+    reading makes the frozen count smaller than the column's, so the strict
+    comparison reports an increment the docket never made — a spurious hit, not
+    a mask (the only masks here come from ``None`` inputs, never from the
+    comparison). What keeps them comparable is that the
+    **active** version pins the default —
+    ``test_the_active_scorers_parse_is_the_one_the_corpus_column_holds`` in
+    ``tests/test_salience.py`` is the pin. A registered version pinning a
+    narrower reading is safe only while it is inactive, since no cell freezes a
+    count under a version the live pass does not score with; activating one
+    requires the corpus column to be re-derived under that reading first
+    (``docs/salience.md``).
     """
     if (
         not context.signals_observable

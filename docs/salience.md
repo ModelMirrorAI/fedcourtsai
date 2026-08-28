@@ -177,7 +177,7 @@ into `sal-v2` on a verified census replicating in all eight complete Terms
 right-censored and counted as supportive, never held-out). The **state**
 class never enters selection — per-Term unstable, its below-cap
 slice underperforming the arrival population — though it is a *band* under
-both caption-banded versions (placed above `elevated` from the class
+the caption-banded versions (placed above `elevated` from the class
 marginal, and the band's own realized rate, net of its strongest members
 leaving for `high`, does not settle that placement). Four Terms clear the
 30-row realized floor — OT2017 n=33, OT2019 n=37, OT2020 n=33, OT2021 n=46 —
@@ -215,7 +215,7 @@ first and keeps any non-`private` answer: no caption can lose a `federal` or
 only, which is what makes the two censuses comparable cell by cell. A caption
 rule reaches **selection** only through a salience version that names it,
 because a frozen constant names the predicate it was frozen from: `caption-v1`
-through `sal-v2`, `caption-v2` through `sal-v3`.
+through `sal-v2`, `caption-v2` through `sal-v3` and `sal-v4`.
 
 A caption-banded version's activation sequences deliberately: the promotion
 carrying the flip, then a metrics refresh, then prediction. A cell minted
@@ -237,7 +237,7 @@ not quoted from the census. And the
 carve-out/band alignment is pinned by test: the always-include floor and the
 carved bands' cutpoints are separate constants in separate files, and the
 identity between "carved in" and "the expected strongest-band prefix" —
-`(high,)` for `sal-v1`, `(federal, high)` for both caption-banded versions — is
+`(high,)` for `sal-v1`, `(federal, high)` for every caption-banded version — is
 checked exhaustively over the achievable score lattice (relist count x CVSG x
 originating circuit x petitioner class, the class axis carrying a caption each
 registered rule reads differently), so a refit cannot open a silent gap
@@ -348,7 +348,13 @@ could otherwise leak:
   carries the active version's `segments` plus an `alt_segments` block per other
   registered version, so every registered scorer's bands are published whether
   or not it is the live one. The **Markdown** pack renders the active version
-  only, so a reader of `statpack.md` is reading one version of several.
+  only, so a reader of `statpack.md` is reading one version of several. One
+  qualification the parse adds, and it is a live one: the pack bands every
+  version off the corpus's single `distribution_count` column, so a version
+  whose declared parse is not the column's is published under the pool the
+  *column's* reading built rather than its own, and the block carries no parse
+  field to say so. Which version that is today, and why nothing consumes the
+  mislabeled block, is in the parse section below.
 - **The gate replay is a three-axis report.** Cells span Term x policy x
   version, and each (Term, policy, distribution parse) is projected once and
   scored by every registered version pinning that parse, so two versions cannot
@@ -387,13 +393,17 @@ trajectory **count** only: `distributed_for_conference`, the cohort key, stays
 unversioned, because an ancillary paper is distributed for the conference the
 petition is on and a case must sit in one cohort rather than one per parse.
 
-Every registered version pins `dist-v1`, which is also the reading the corpus's
-`distribution_count` column holds, so the parse is a declared dimension and not
-yet a live difference. That alignment is load-bearing beyond banding: the
-relist-increment claim reads its prediction-time count from the frozen context
-(which follows the active scorer's parse) and its resolution-time count from the
-corpus column (which is at the default), and the claim's "the count never falls"
-premise holds across that pair only while the two readings agree.
+`sal-v1` through `sal-v3` pin `dist-v1`, which is also the reading the corpus's
+`distribution_count` column holds; the registered-inactive `sal-v4` pins
+`dist-v2` (below). The **active** scorer's parse and the column's therefore
+agree, which is the alignment that is load-bearing beyond banding: the relist-increment
+claim reads its prediction-time count from the frozen context (which follows the
+active scorer's parse) and its resolution-time count from the corpus column
+(which is at the default), and the claim's "the count never falls" premise holds
+across that pair only while the two readings agree. A `dist-v2` version made
+active before the column is re-derived would break that premise **upward** — a
+narrower prediction-time count against a wider resolution-time one — which is why
+the column re-derivation orders first in the activation steps below.
 
 The evidence a new parse would be argued from is the **`distribution-census`**
 artifact ([cli.md](cli.md)): two parses counted over one frame — the gate's scored
@@ -464,23 +474,146 @@ and defaults to it.
    downstream consumer is still reading `dist-v1` counts.
 2. **Rebuild the statpack**, so each band's published base rate is measured over
    a population banded under the same parse. A band whose membership moved but
-   whose quoted rate did not is a mislabeled baseline.
+   whose quoted rate did not is a mislabeled baseline. Expect the rebuild to
+   move a *rate*, not merely to relabel members: on the `dist-v1` → `dist-v2`
+   census of record ([freeze-record.md](freeze-record.md)) `elevated` sheds 118
+   of its 2,364 rows, 5.0% of the band, so a rebuild that left `elevated`'s
+   published rate where it was would be evidence the rebuild did not happen.
+   The rebuild also **re-bases every other registered version's
+   `alt_segments`**, and that half is consumed: the pack bands all versions off
+   the one column, so once the column reads the new parse the `sal-v1` /
+   `sal-v2` / `sal-v3` blocks are measured on populations *their* declared parse
+   never defined, and a prediction frozen at the outgoing active version silently
+   re-baselines against one. The block carries no parse field to make that
+   visible, unlike a replay cell. So the rebuild is not a mechanical step: it
+   needs a decision, taken at activation, either to record the parse on the block
+   or to state that the outgoing version's frozen predictions re-baseline.
 3. **Re-measure the relist-tier grant rates** the cutpoints sit between. The
    tiers are empirical rates for "0 relists", "1 relist", "2+"; re-reading which
    entries count as a relist re-populates those buckets, so the cutpoints are
    fitted to the old populations until they are re-measured.
 
+Step 1's position is an **invariant, not an ordering preference**: a `dist-v2`
+version must never be made active before the column is re-derived. Frozen
+contexts would then carry `dist-v2` counts while the corpus column still held
+`dist-v1` ones, and the relist-increment claim's "the count never falls" premise
+would break upward — a resolution-time count exceeding a prediction-time count
+by the ancillary lines the narrower reading dropped, which would read as docket
+movement that never happened. The test suite pins only the **label** here (the
+active scorer's parse equals the registry's default), which a commit moving both
+together would satisfy with the stored column untouched. So the invariant is
+settled by a data check rather than a test: after the writer re-derivation and
+before the flip, a census of the column's own reading against `dist-v2` must
+report `count_changed = 0`.
+
 And the census answers the *input* question only. Who the gate would actually
 fund is a rank-and-cap question — a band move also moves a petition's cohort
-rank — so that is read from `salience-replay` with the candidate version
-registered, never from the transition matrix. Each replay cell records its own
-`distribution_parse`, so a cross-version comparison can say whether two cells
-saw one reading.
+rank, and a band move out of the strongest band moves it out of the
+always-include carve-out into the rank contest — so that is read from
+`salience-replay` with the candidate version registered, never from the
+transition matrix. The replay does that for a version that is registered but
+**not active**: it scores every registered scorer, and builds one reconstruction
+per (Term, policy, distribution parse), so a candidate pinning a second parse is
+projected under its own reading and each cell records its own
+`distribution_parse` — which is what lets a cross-version comparison say whether
+two cells saw one reading.
+
+### `sal-v4`: the same scorer, reading `dist-v2`
+
+`sal-v4` is `sal-v3` with the pinned distribution parse changed to `dist-v2` and
+nothing else — the same `sal-v1` ranking score, the same `caption-v2` band rule,
+the same five bands in the same order, the same carve-in shape, the same
+reachable ladders, the same arrival selection. In the registry it reuses
+`sal-v3`'s callables rather than copies of them, so the two versions cannot drift
+apart in anything but the parse. What moves is not how a docket is scored but
+what the score's primary feature is read off: `dist-v1` counts an ancillary
+paper's trip to conference toward the petition's relist trajectory, `dist-v2`
+counts only the petition's own distributions. Because `dist-v2`'s matches are a
+subset of `dist-v1`'s and every registered band function is monotone in the
+count, a row's `sal-v4` band is its `sal-v3` band **or weaker, never stronger**.
+
+That direction is what makes this a new registered version and not an edit, on
+the same argument `sal-v3` rests on: `sal-v3`'s per-band rates are frozen on
+populations counted under `dist-v1`, and re-reading the count under a stable
+label would re-point a published constant at a population it was never measured
+on.
+
+`sal-v4` is **registered and inactive** — `SALIENCE_VERSION` still names
+`sal-v3`. The statistical review of record for the registration is the
+`dist-v1` → `dist-v2` distribution census recorded in
+[freeze-record.md](freeze-record.md), and it licenses exactly this scope:
+a `sal-v4` that is `sal-v3` with the pinned parse changed and nothing else. It
+does **not** license activation. Activation is the three steps listed above in
+this section, in that order, and the sequencing invariant beside them.
+
+One consequence of registering ahead of that re-derivation is visible in a
+committed artifact and so is named here rather than left to be discovered.
+`statpack.json` bands **every** registered version off the corpus's single
+`distribution_count` column, which holds `dist-v1` counts, so the `alt_segments`
+block labelled `sal-v4` in any pack rendered before activation step 1 is
+`sal-v3`'s pool under a `sal-v4` label — the same rows, banded from the other
+parse's counts. Nothing reads it: no prediction can be frozen at an inactive
+version, and a cell's frozen count follows the *active* scorer's parse. It
+becomes a genuine `sal-v4` pool at the first statpack rebuild after the column is
+re-derived, which is activation step 2 — one more reason step 1 orders first.
+
+Three consequences of the registration, each measured on the census of record
+rather than assumed. The figures are dated evidence and live in
+[freeze-record.md](freeze-record.md); what they are quoted for here is what they
+mean for the activation still to come.
+
+- **Five cases read never-distributed under `dist-v2`** — four falling 1 → 0 and
+  one, `scotus/68076851`, 3 → 0 on three motion lines. The four are relist-0
+  under both readings (relists are `max(0, count − 1)`), so their bands do not
+  move; the fifth crosses two cutpoints and bands `high` → `baseline`, which puts
+  it among the 41 `high`-leavers rather than beside the other four. All five are
+  a declared divergence from the cohort key either way:
+  `distributed_for_conference` is deliberately unversioned, so they stay in the
+  conference cohort their ancillary paper was distributed for while carrying a
+  zero count. That is the designed behaviour of an unversioned cohort key, not a
+  defect, and it is on the record so a later reader does not rediscover it as
+  one.
+- **41 cases leave `high`**, the always-include tier — a real selection
+  consequence, since leaving `high` means leaving the carve-out and entering the
+  rank contest. Whether such a case is still funded is a rank-and-cap question,
+  which is `salience-replay`'s to answer and not the census's.
+- **118 cases leave `elevated` for `baseline`**, 5.0% of that band, which is why
+  the statpack rebuild should be expected to move `elevated`'s published rate.
+
+The **selection** question those consequences raise is answered by
+`salience-replay` with `sal-v4` registered — the replay scores every registered
+scorer, so registration alone is enough to ask it. The run taken at this commit,
+with its numbers and its vintage, is in [freeze-record.md](freeze-record.md), and
+its standing is the part that belongs here: it is **provisional and carries
+almost no power**, so it settles nothing about activation.
+
+Two facts about that run, either of which would be enough on its own. Only four
+of its nine (Term, policy) cells select anything at all — the three OT2022 cells
+and both `arrival` cells select nothing under either scorer — so "the two
+scorers agree" rests on four comparisons, not nine. And the rows it could
+reconstruct are not a sample of the frame but the *granted* end of it: on this
+blob the reconstructable rows carry grant-family rates of 42.1% (OT2023) and
+40.0% (OT2024) against 3.2% and 0.09% on the rows it could not read, and hold 90
+of OT2024's 91 grants. No rate, band mix, precision or recall from such a run
+transfers to the frame.
+
+The cause is data availability rather than the replay's method, and it is worth
+naming precisely because `corpus_sha256` invites the opposite reading: that hash
+identifies the SQLite **index**, while the snapshot payloads the replay
+reconstructs from live in the per-case content store. A checkout without the
+store wired reads only the snapshots the blob itself carries — the same census
+re-run in that state observes a few percent of the frame where the `run-analytics`
+census reached 99.993%. On so small a read almost no conference cohort is
+capacity-bound, so the rank contest has hardly any opportunity to drop a demoted
+petition and an observed zero disruption is consistent with any amount of it at
+full coverage. The instrument that would settle the question is the same replay
+run where the store is wired, which is `run-backtest`'s salience-gate replay
+([metrics/README.md](../metrics/README.md)) — a dispatch, not a local command.
 
 ## Selection — deterministic rank-and-cap, sticky per conference
 
 Selection ranks the scored set and caps it to `N` — and, where the active
-scorer selects arrivals (`selects_arrivals` — true of both caption-banded versions), the same write pass runs
+scorer selects arrivals (`selects_arrivals` — true of every caption-banded version), the same write pass runs
 a second, cohort-less arm: every undistributed pending petition the keyed draw
 or the carve-in predicate picks is latched with no rank and no capacity, and
 its owed `evt-petition-arrival-disposition` event is minted in the same pass —

@@ -332,9 +332,9 @@ def replay_gate(
                 # version that pins it: the parse decides what `distribution_count`
                 # a projected docket carries, so a version scored on another
                 # version's parse would be measured on a feature it was never
-                # fitted on. Versions sharing a parse — all of them, while one is
-                # registered — still share the single reconstruction, so the
-                # comparison isolates the scoring function.
+                # fitted on. Versions sharing a parse still share the single
+                # reconstruction, so a comparison within one parse isolates the
+                # scoring function; across parses it spans both.
                 projections: dict[str, _Projection] = {}
                 for version in versions:
                     active = scorer(version)
