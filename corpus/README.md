@@ -110,6 +110,9 @@ source.
 | `amicus_briefs`       | integer         | amicus briefs on an interim application's docket, counted per entry; null = never application-parsed |
 | `merits_judgment`     | text            | what the Court did to the judgment below on a granted case (the `Judgment` vocabulary), parsed from the docket's terminal entry by the shared parser — the live poll latches it at ingest, the backfill reconciles offline; null = no parsed judgment |
 | `merits_decided`      | date            | docket date of the disposition entry `merits_judgment` was parsed from; null when that entry is undated |
+| `merits_brief_filed`  | date            | when the respondent filed its brief on the merits (`pipeline.merits_signals.respondent_brief_date`) — opens the merits stage's second forecast moment; null = not yet filed, or a briefing shape the pattern misses (a coverage gap, never an observed absence) |
+| `response_requested_at` | date          | when the Court or a Circuit Justice asked for a response to an interim application — the interim stage's second forecast moment, and the dated sibling of `response_requested`; the two disagree only on an undated request |
+| `response_filed_at`   | date            | when a response to the application was filed — the interim stage's third forecast moment; a different event from the Court asking, since a respondent may answer uninvited and a requested response may never arrive |
 | `merits_terminated`   | text            | why a granted case's merits proceeding ended **without** a disposition (the `MeritsTermination` vocabulary — a post-grant Rule 46 dismissal, a dismissal as moot, an abatement on the petitioner's death, a grant the Court vacated, a bare mandate notation), written by the backfill sweep alone; null = not known to have terminated |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
@@ -260,8 +263,13 @@ Each ingestion channel stores the full point-in-time docket payload it fetched
 (the REST docket + entries, or the supremecourt.gov docket JSON) — the raw fact
 a normalized `cases` row cannot fully capture. `pull` diffs the latest stored
 snapshot against the fresh fetch to decide whether a case *changed* (the
-`run:predict` trigger), and provisioning materializes a case's latest snapshot
-for the agent to predict from (`fedcourts provision-snapshot`). In production
+`run:predict` trigger), and provisioning materializes a snapshot for the agent
+to predict from (`fedcourts provision-snapshot`) — **which** snapshot being the
+moment's question, not the table's: a forward cell is placed at the information
+set the event it forecasts declares, so it reads the payload the docket served
+then (or the latest one truncated to that cutoff), and only a cell with no
+declared moment reads the latest snapshot as stored (the `provision-snapshot`
+row in [docs/cli.md](../docs/cli.md) carries the placement rules). In production
 the payloads live as the content store's `snapshots/<date>.json` objects and
 this table stays empty; with the split mode off they live inline:
 
@@ -277,7 +285,13 @@ this table stays empty; with the split mode off they live inline:
 export CORPUS_REMOTE_URL="<your bucket url>"   # out of band, see SECURITY.md
 fedcourts corpus-pull    # fetch corpus.db from the remote (checksum-verified)
 fedcourts corpus-info    # show the location, row count, and how fresh the blob is
+fedcourts corpus-info --text-coverage   # also: which stored documents carry no text, per kind
 ```
+
+`--text-coverage` is opt-in because it reads every live-slice case's documents
+(a content-store round trip each under the split), and it answers the other
+question worth asking of a blob before quoting it: not how old the documents
+are but whether they carry text at all.
 
 Without remote access, build a tiny **synthetic** corpus instead — a handful of
 cases across several courts, a mix of resolved and open, with their events and
