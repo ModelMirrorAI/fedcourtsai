@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ from fedcourtsai.pipeline.judgment import (
     opinion_author,
 )
 from fedcourtsai.schemas import Disposition, Judgment, MeritsTermination
+from tests.conftest import DictSnapshotSource
 
 runner = CliRunner()
 
@@ -95,43 +97,214 @@ def test_match_judgment_truth_table(text: str, expected: Judgment | None) -> Non
 
 # The termination vocabulary: entries that end a granted case's merits
 # proceeding while saying nothing about the judgment below, plus the near
-# misses — the motion that asks for the dismissal, the petition-stage twin, and
-# a recital that names the shape mid-sentence.
-_TERMINATION_TABLE: tuple[tuple[str, MeritsTermination | None], ...] = (
-    ("Case Dismissed - Rule 46.", MeritsTermination.voluntary_dismissal),
-    ("Case dismissed pursuant to Rule 46.1.", MeritsTermination.voluntary_dismissal),
-    ("The case is dismissed under Rule 46.", MeritsTermination.voluntary_dismissal),
+# misses — the motion that asks for the dismissal, the partial exit, and a
+# recital that names the shape mid-sentence. Each row states the docket-level
+# `cert_granted` the entry is read under, because the petition-subject shapes
+# mean different things at the two stages.
+#
+# The Clerk's real spellings, quoted from the dockets they were taken from, are
+# marked with their docket number: a shape admitted here is one the Court
+# actually writes, not one this parser imagines.
+_TERMINATION_TABLE: tuple[tuple[str, bool, MeritsTermination | None], ...] = (
+    # -- Rule 46, on a subject that carries its own stage --------------------
+    ("Case Dismissed - Rule 46.", True, MeritsTermination.voluntary_dismissal),
+    ("Case dismissed pursuant to Rule 46.1.", True, MeritsTermination.voluntary_dismissal),
+    ("The case is dismissed under Rule 46.", True, MeritsTermination.voluntary_dismissal),
+    # The case and the writ are post-grant subjects, so neither needs the
+    # docket-level fact: 20-1374 is the writ spelling, verbatim.
+    ("Case Dismissed - Rule 46.", False, MeritsTermination.voluntary_dismissal),
+    ("Writ of Certiorari Dismissed - Rule 46.", True, MeritsTermination.voluntary_dismissal),
+    ("Writ of Certiorari Dismissed - Rule 46.", False, MeritsTermination.voluntary_dismissal),
     # A PARTIAL Rule 46 dismissal leaves the case live as to the remaining
     # parties, so its merits question is still owed a forecast: closing
     # pendency here would lose one.
-    ("Case dismissed as to petitioner Smith only under Rule 46.1.", None),
-    ("Case Dismissed - Rule 46 as to respondent Jones.", None),
-    ("JUDGMENT ISSUED.", MeritsTermination.judgment_issued),
-    ("Judgment issued.", MeritsTermination.judgment_issued),
-    # A petition-stage Rule 46 dismissal is a CERT event; the merits parser
-    # must leave it to the cert seam, which is what anchoring on "case" buys.
-    ("Petition Dismissed - Rule 46.", None),
+    ("Case dismissed as to petitioner Smith only under Rule 46.1.", True, None),
+    ("Case Dismissed - Rule 46 as to respondent Jones.", True, None),
+    ("Writ of Certiorari Dismissed - Rule 46 as to petitioner Smith.", True, None),
+    # -- Rule 46 on the stage-ambiguous PETITION subject ---------------------
+    # 17-368 / 18-217: the Clerk's spelling of the post-grant Rule 46 exit is
+    # the same string he writes while the petition is still pending, so the
+    # docket-level grant is the only thing that separates the two.
+    ("Petition Dismissed - Rule 46.", True, MeritsTermination.voluntary_dismissal),
+    ("Petition Dismissed - Rule 46.", False, None),
+    (
+        "The petition for a writ of certiorari is dismissed pursuant to Rule 46.1.",
+        True,
+        MeritsTermination.voluntary_dismissal,
+    ),
+    ("The petition for a writ of certiorari is dismissed pursuant to Rule 46.1.", False, None),
+    # -- Dismissal as moot ---------------------------------------------------
+    # 22-6500, verbatim: the controversy ended outside the Court, so the merits
+    # question the grant opened is gone with nothing decided.
+    (
+        "Petition dismissed as moot.  Justice Gorsuch took no part in the "
+        + "consideration or decision of this petition.",
+        True,
+        MeritsTermination.dismissed_moot,
+    ),
+    (
+        "Petition dismissed as moot.  Justice Gorsuch took no part in the "
+        + "consideration or decision of this petition.",
+        False,
+        None,
+    ),
+    (
+        "The petition for a writ of certiorari is dismissed as moot.",
+        True,
+        MeritsTermination.dismissed_moot,
+    ),
+    ("Case dismissed as moot.", False, MeritsTermination.dismissed_moot),
+    # Partial mootness leaves the rest of the case live, exactly as Rule 46 does.
+    ("Petition dismissed as moot as to petitioner Smith.", True, None),
+    # -- Abatement on the petitioner's death ---------------------------------
+    # 19-373, verbatim. The order is the one termination whose sentence does
+    # not open on its subject, so it anchors on the recital opening instead.
+    (
+        "It appearing that petitioner died on January 22, 2020, the petition for "
+        + "a writ of certiorari is DISMISSED.",
+        True,
+        MeritsTermination.abated,
+    ),
+    (
+        "It appearing that petitioner died on January 22, 2020, the petition for "
+        + "a writ of certiorari is DISMISSED.",
+        False,
+        None,
+    ),
+    # Spelled on the case or the writ the order carries its own stage, so it
+    # needs no grant — and the petition spelling must NOT reach that reading
+    # through its own object ("the petition for a **writ of certiorari**"),
+    # which is why the decree's subject has to open its own clause.
+    (
+        "It appearing that petitioner died on January 22, 2020, the writ of "
+        + "certiorari is DISMISSED.",
+        False,
+        MeritsTermination.abated,
+    ),
+    (
+        "It appearing that petitioner died on January 22, 2020, the case is DISMISSED.",
+        False,
+        MeritsTermination.abated,
+    ),
+    # A death also opens orders that RAISE dismissal instead of ordering it, on
+    # a docket still very much alive. Requiring the decree's operative verb on
+    # its named subject is what keeps a subordinate clause from closing a case
+    # forever — the costliest error this vocabulary can make.
+    (
+        "It appearing that respondent died on May 1, 2021, the parties are directed "
+        + "to file supplemental briefs addressing whether the case should be dismissed.",
+        True,
+        None,
+    ),
+    (
+        "It appearing that petitioner died, the parties shall show cause why the "
+        + "case is to be dismissed.",
+        True,
+        None,
+    ),
+    # The suggestion of death and the response to it are filings, not the order.
+    ("Suggestion of death filed by counsel for petitioner.  (Distributed)", True, None),
+    ("Response to suggestion of death filed by the Solicitor General.  (Distributed)", True, None),
+    # -- The Court vacating its own grant order ------------------------------
+    # 19-825, verbatim: the vacatur rides as the entry's SECOND sentence, which
+    # is why this shape alone takes the sentence-start anchor.
+    (
+        "This case is no longer consolidated with No. 19-508, <i>AMG Capital "
+        + "Management, LLC</i> v. <i>Federal Trade Commission</i>.  The July 9, "
+        + "2020 order granting the petition for a writ of certiorari in this "
+        + "case is vacated.  Justice Barrett took no part in the consideration "
+        + "of this order.",
+        True,
+        MeritsTermination.grant_vacated,
+    ),
+    (
+        "The order granting the petition for a writ of certiorari is vacated.",
+        False,
+        MeritsTermination.grant_vacated,
+    ),
+    ("The order granting certiorari is vacated.", True, MeritsTermination.grant_vacated),
+    # The motion that asks for the vacatur names the order mid-sentence.
+    ("Motion to vacate the order granting certiorari filed by respondent.", True, None),
+    # An INTERLOCUTORY grant the Court vacates on a live merits docket is the
+    # false positive this shape has to avoid: the case is still owed its
+    # forecast, so the order must be granting the petition/writ, not a motion.
+    ("The order granting the motion for divided argument is vacated.", True, None),
+    (
+        "The order granting the motion for leave to file a bill of complaint is vacated.",
+        True,
+        None,
+    ),
+    # -- The rehearing petition is not the petition the grant issued on ------
+    # It is filed after the case is over, so disposing of it says nothing about
+    # how the merits proceeding ended.
+    ("Petition for rehearing dismissed as moot.", True, None),
+    ("Petition for rehearing dismissed - Rule 46.", True, None),
+    # -- Two tails in one entry: the table order names the class -------------
+    # Rule 46 leads, because the citation states the authority the case exited
+    # under while "as moot" states the reason the parties invoked it.
+    (
+        "Case dismissed as moot pursuant to Rule 46.",
+        True,
+        MeritsTermination.voluntary_dismissal,
+    ),
+    # -- The mandate analog --------------------------------------------------
+    ("JUDGMENT ISSUED.", True, MeritsTermination.judgment_issued),
+    ("Judgment issued.", True, MeritsTermination.judgment_issued),
+    # -- Near misses ---------------------------------------------------------
     # The motion and the stipulation ask for the dismissal; neither is it.
-    ("Motion to dismiss the case pursuant to Rule 46 filed by petitioner.", None),
-    ("Stipulation of dismissal under Rule 46.1 filed.", None),
-    ("Notice of appeal filed from the judgment issued on March 3, 2023.", None),
+    ("Motion to dismiss the case pursuant to Rule 46 filed by petitioner.", True, None),
+    ("Stipulation of dismissal under Rule 46.1 filed.", True, None),
+    (
+        "Motion to dismiss the petition for a writ of certiorari under Rule 46 filed by "
+        + "petitioners.",
+        True,
+        None,
+    ),
+    (
+        "Joint motion to dismiss the petition for a writ of certiorari under Rule 46.1 filed.",
+        True,
+        None,
+    ),
+    (
+        "Consent to the motion to dismiss the petition for a writ of certiorari "
+        + "pursuant to Rule 46 filed by respondent.",
+        True,
+        None,
+    ),
+    (
+        "Stipulation to dismiss the petition for a writ of certiorari pursuant to Rule 46 "
+        + "received.",
+        True,
+        None,
+    ),
+    ("Stipulation of Dismissal Under Rule 46.1 filed.", True, None),
+    (
+        "Joint stipulation to dismiss the writ of certiorari pursuant to Rule 46.1 filed.",
+        True,
+        None,
+    ),
+    ("Notice of appeal filed from the judgment issued on March 3, 2023.", True, None),
     # A real disposition is not a termination — the two vocabularies are disjoint.
-    ("Judgment REVERSED and case REMANDED.", None),
-    ("Writ of certiorari DISMISSED as improvidently granted.", None),
-    ("DISTRIBUTED for Conference of 1/10/2025.", None),
-    ("", None),
+    ("Judgment REVERSED and case REMANDED.", True, None),
+    ("Writ of certiorari DISMISSED as improvidently granted.", True, None),
+    ("DISTRIBUTED for Conference of 1/10/2025.", True, None),
+    ("Petition GRANTED.", True, None),
+    ("Petition DENIED.", True, None),
+    ("", True, None),
 )
 
 
-@pytest.mark.parametrize(("text", "expected"), _TERMINATION_TABLE)
+@pytest.mark.parametrize(("text", "cert_granted", "expected"), _TERMINATION_TABLE)
 def test_match_merits_termination_truth_table(
-    text: str, expected: MeritsTermination | None
+    text: str, cert_granted: bool, expected: MeritsTermination | None
 ) -> None:
-    assert match_merits_termination(text) == expected
+    assert match_merits_termination(text, cert_granted=cert_granted) == expected
 
 
-@pytest.mark.parametrize(("text", "_expected"), _TERMINATION_TABLE)
-def test_a_termination_is_never_a_disposition(text: str, _expected: object) -> None:
+@pytest.mark.parametrize(("text", "cert_granted", "_expected"), _TERMINATION_TABLE)
+def test_a_termination_is_never_a_disposition(
+    text: str, cert_granted: bool, _expected: object
+) -> None:
     """The two vocabularies never overlap on a termination shape.
 
     A termination states that the case ended, never how the judgment below
@@ -139,8 +312,27 @@ def test_a_termination_is_never_a_disposition(text: str, _expected: object) -> N
     the truth table above pins "Judgment issued." to `None` for exactly that
     reason, and this holds the line for every shape the new vocabulary adds.
     """
-    if match_merits_termination(text) is not None:
+    if match_merits_termination(text, cert_granted=cert_granted) is not None:
         assert match_judgment(text) is None
+
+
+@pytest.mark.parametrize(("text", "cert_granted", "expected"), _TERMINATION_TABLE)
+def test_the_grant_only_ever_admits_never_withdraws(
+    text: str, cert_granted: bool, expected: MeritsTermination | None
+) -> None:
+    """`cert_granted` is monotone: it can only widen what matches, never change it.
+
+    The docket-level fact gates the petition-subject shapes and nothing else, so
+    an entry read under a recorded grant either matches what it matched without
+    one or matches where it previously did not. A reading that *changed class*
+    under the grant would mean two shapes disagree about one entry, which is the
+    ambiguity the subject anchoring exists to prevent.
+    """
+    ungranted = match_merits_termination(text, cert_granted=False)
+    granted = match_merits_termination(text, cert_granted=True)
+    assert ungranted is None or ungranted == granted
+    if cert_granted:
+        assert granted == expected
 
 
 def test_judgment_disturbed_projection() -> None:
@@ -217,9 +409,76 @@ def test_last_merits_termination_takes_the_last_match() -> None:
         ("Aug 08 2025", "Stipulation of dismissal under Rule 46.1 filed."),
         ("Aug 11 2025", "Case Dismissed - Rule 46."),
     )
-    assert last_merits_termination(payload) == MeritsTermination.voluntary_dismissal
-    assert last_merits_termination(_live_payload(("Jan 12 2024", "Petition GRANTED."))) is None
-    assert last_merits_termination({}) is None
+    assert (
+        last_merits_termination(payload, cert_granted=True) is MeritsTermination.voluntary_dismissal
+    )
+    empty = _live_payload(("Jan 12 2024", "Petition GRANTED."))
+    assert last_merits_termination(empty, cert_granted=True) is None
+    assert last_merits_termination({}, cert_granted=True) is None
+
+
+# The nine dockets' own terminal entries, verbatim from supremecourt.gov, each
+# paired with whether that docket's corpus row carries a cert grant. Together
+# they are the shapes this vocabulary exists for — the real Rule 46 exits the
+# petition and writ spellings hid, and the three unvocabularied terminals.
+_REAL_TERMINALS: tuple[tuple[str, str, bool, MeritsTermination | None], ...] = (
+    ("17-368", "Petition Dismissed - Rule 46.", True, MeritsTermination.voluntary_dismissal),
+    ("18-217", "Petition Dismissed - Rule 46.", True, MeritsTermination.voluntary_dismissal),
+    (
+        "20-1374",
+        "Writ of Certiorari Dismissed - Rule 46.",
+        True,
+        MeritsTermination.voluntary_dismissal,
+    ),
+    (
+        "19-373",
+        "It appearing that petitioner died on January 22, 2020, the petition for a "
+        + "writ of certiorari is DISMISSED.",
+        True,
+        MeritsTermination.abated,
+    ),
+    (
+        "22-6500",
+        "Petition dismissed as moot.  Justice Gorsuch took no part in the "
+        + "consideration or decision of this petition.",
+        True,
+        MeritsTermination.dismissed_moot,
+    ),
+    (
+        "19-825",
+        "This case is no longer consolidated with No. 19-508, <i>AMG Capital "
+        + "Management, LLC</i> v. <i>Federal Trade Commission</i>.  The July 9, 2020 "
+        + "order granting the petition for a writ of certiorari in this case is "
+        + "vacated.  Justice Barrett took no part in the consideration of this order.",
+        True,
+        MeritsTermination.grant_vacated,
+    ),
+    # The same Rule 46 spelling on dockets the corpus carries WITHOUT a cert
+    # grant: a petition-stage exit the cert seam owns, which must stay out of
+    # the merits vocabulary however the merits sweep reaches the row.
+    ("17-57", "Petition Dismissed - Rule 46.", False, None),
+    ("17-664", "Petition Dismissed - Rule 46.", False, None),
+    ("18-1401", "Petition Dismissed - Rule 46.", False, None),
+)
+
+
+@pytest.mark.parametrize(("docket", "text", "cert_granted", "expected"), _REAL_TERMINALS)
+def test_real_terminal_entries_read_as_they_should(
+    docket: str, text: str, cert_granted: bool, expected: MeritsTermination | None
+) -> None:
+    """Each shape, on the docket it was taken from, through the payload reader.
+
+    The payload's own "Petition GRANTED." entry is deliberately the same on all
+    nine, including the three labelled ungranted: the stage is a **row** fact,
+    threaded from `date_cert_granted`, and the parser never infers it from the
+    entries. A fixture that also varied the payload would let a reading pass
+    for the wrong reason.
+    """
+    payload = _live_payload(("Jan 12 2020", "Petition GRANTED."), ("Mar 22 2020", text))
+    assert last_merits_termination(payload, cert_granted=cert_granted) == expected, docket
+    # None of them is a disposition: a termination never says how the judgment
+    # below fared, so the disposition parser must stay silent on all nine.
+    assert last_judgment_entry(payload) is None
 
 
 # --- the backfill pass ------------------------------------------------------------
@@ -338,6 +597,46 @@ def test_backfill_counts_stored_judgments_it_cannot_rederive_as_stale(tmp_path: 
     assert four is not None and four.merits_judgment == Judgment.reversed.value
 
 
+def test_backfill_reads_the_content_store_concurrently_and_identically(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The offloaded branch serves the snapshot reads from the registered
+    source — one read per eligible row, none repeated — and its result is
+    identical to the serial SQLite pass: same counts, same distributions, same
+    stale/termination classification. The eligibility walk stays in SQLite
+    either way (it is metadata); only the snapshot reads move."""
+    db = _seed_backfill_corpus(tmp_path / "corpus")
+    eligible = [f"scotus/{n}" for n in (1, 2, 3, 4)]
+    with corpus.connect(db) as conn:
+        serial = backfill_merits_judgments(conn, apply=False)
+        stored = {case_id: corpus.latest_snapshot(conn, case_id) for case_id in eligible}
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    source = DictSnapshotSource(stored)
+    # Save/restore the registered source around the swap; the read of the
+    # private registry is the only way to put back the casestore singleton it
+    # registers at import (there is no public getter).
+    previous = corpus._READ_SOURCE.get("source")
+    corpus.set_payload_read_source(source)
+    try:
+        assert corpus.payload_reads_offloaded()
+        with corpus.connect(db) as conn:
+            offloaded = backfill_merits_judgments(conn, apply=False)
+    finally:
+        corpus.set_payload_read_source(previous)
+    assert offloaded == serial
+    assert offloaded.eligible == 4 and offloaded.parsed == 2 and offloaded.no_snapshot == 1
+    # One read per eligible row — the denied row is never read, and the pool
+    # never duplicates a fetch.
+    assert sorted(source.read_threads) == eligible
+    assert all(len(idents) == 1 for idents in source.read_threads.values())
+    # The warm-up read runs on the calling thread; the tail runs off it.
+    assert source.read_threads[eligible[0]] == [threading.get_ident()]
+    tail_idents = {
+        idents[0] for case_id, idents in source.read_threads.items() if case_id != eligible[0]
+    }
+    assert threading.get_ident() not in tail_idents
+
+
 def _seed_termination_corpus(corpus_root: Path) -> Path:
     """Two granted rows the disposition parser cannot read, one terminated.
 
@@ -407,6 +706,53 @@ def test_backfill_records_terminations_without_a_judgment(tmp_path: Path) -> Non
     # A terminated row is never also a `no_match`: the residue is the genuine
     # remainder, so the two counts partition the unparsed rows.
     assert applied.no_match == 1 and applied.eligible == 3
+
+
+def test_backfill_terminates_the_real_unvocabularied_grants(tmp_path: Path) -> None:
+    """The sweep closes each real terminal shape, off the row's own grant.
+
+    One row per docket whose terminal entry the vocabulary previously missed,
+    seeded with that docket's entry verbatim. All six carry a grant, so the
+    petition-subject shapes are in scope; the sweep reads that from
+    `date_cert_granted` rather than assuming it, and none of the six enters the
+    parsed slice — a termination resolves pendency and asserts no disposition.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    granted = [
+        (docket, text, expected)
+        for docket, text, cert_granted, expected in _REAL_TERMINALS
+        if cert_granted
+    ]
+    with corpus.connect(db) as conn:
+        for index, (docket, text, _expected) in enumerate(granted):
+            case_id = f"scotus/{30 + index}"
+            corpus.upsert_rows(conn, [_granted_row(case_id, docket, date(2020, 1, 10))])
+            corpus.upsert_snapshot(
+                conn,
+                case_id,
+                date(2026, 7, 1),
+                _live_payload(("Jan 10 2020", "Petition GRANTED."), ("Mar 22 2020", text)),
+            )
+        result = backfill_merits_judgments(conn, apply=True)
+        stamped = {
+            docket: corpus.get_row(conn, f"scotus/{30 + index}")
+            for index, (docket, _text, _expected) in enumerate(granted)
+        }
+    assert result.eligible == len(granted)
+    assert result.terminated == len(granted) and result.terminations_written == len(granted)
+    assert result.parsed == 0 and result.no_match == 0 and result.no_snapshot == 0
+    for docket, _text, expected in granted:
+        row = stamped[docket]
+        assert expected is not None
+        assert row is not None, docket
+        assert row.merits_terminated == expected.value, docket
+        assert row.merits_judgment is None and row.merits_decided is None, docket
+    assert result.terminations == {
+        MeritsTermination.abated.value: 1,
+        MeritsTermination.dismissed_moot.value: 1,
+        MeritsTermination.grant_vacated.value: 1,
+        MeritsTermination.voluntary_dismissal.value: 3,
+    }
 
 
 def test_a_termination_never_displaces_a_parsed_disposition(tmp_path: Path) -> None:

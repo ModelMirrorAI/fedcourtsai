@@ -88,6 +88,36 @@ SUPPORT_FLOOR: Final = 10
 # nothing else, and 100% of n=5 licenses a thousand unmeasured labels.
 COVERAGE_FLOOR: Final = 0.90
 
+# The most extract rows one labeling dispatch may be handed. The single place
+# the labeling budget is stated: `qp-corpus` refuses to write a larger extract,
+# and the labeling prompt states its budget as "whatever the extract holds"
+# rather than restating a number that could drift from this one.
+#
+# Derived from what a dispatch can *finish*, and from the cap that actually
+# stops it. That is the **labeler step's** 40 minutes, not the surrounding job's
+# 75: the step is bounded below the job deliberately, so a runaway trips the
+# step and leaves something to report. A ceiling sized against the job cap would
+# therefore admit an extract the step kills, which is the exact failure the
+# ceiling exists to prevent.
+#
+# 40 minutes buys about 1,200 texts at the only pace this repository has a
+# figure for — the labeling prompt's own declared budget, which paired that step
+# with roughly this many rows. Be honest about what that makes this number: the
+# pace is **unmeasured** (no labeling dispatch has completed), and the budget it
+# comes from was written when the extract happened to be about this size, so the
+# ceiling is not independent of the population it bounds. It is a declared
+# budget, not an observed rate. The first finished run is what should re-derive
+# it, and until then the guard's value is that it refuses *loudly* rather than
+# that it sits in exactly the right place.
+#
+# Raising the caps is not the lever either. The step cap sits inside a 75-minute
+# job cap on purpose — a runaway that trips the step still leaves a run to
+# report, where a job-level cancellation leaves nothing — so lifting the step
+# means lifting both, and a single agent turn measured in hours is not a shape
+# this repository runs. A population above the ceiling needs a different design
+# — a deliberately partial cut (`docs/qp-topic.md`) — not a bigger number here.
+LABEL_ROW_CEILING: Final = 1200
+
 # The confusion-matrix labels, in row and column order. These three carry the
 # boundaries where the labeling actually goes wrong, so they get a matrix rather
 # than a rate.

@@ -198,8 +198,12 @@ live in different stores, split by **kind**:
    read/write paths: set on the `prod` environment, default
    **off** so a dev environment without the store (the fixture loop, offline
    tests) reads and writes a single self-contained blob. The store's location
-   comes from `FEDCOURTS_CASESTORE_URL` (wired at job level in the writer
-   jobs — `run-pull` and `run-seed`);
+   comes from `FEDCOURTS_CASESTORE_URL`, wired beside the flag as one pair at
+   job or step level: the writer lanes (`run-pull`, `run-seed`), the cell
+   workflows, the back-test, the integration scenarios, and the analysis
+   surface. `tests/test_workflow_cell_invariants.py` pins both the spelling and
+   which workflows carry it, per workflow rather than as a count, so a
+   corpus-reading workflow that declares neither half is a deliberate act;
    mirroring is best-effort — a store failure logs, never breaking the SQLite
    write.
 2. **Derived judgments → the git ledger** under `data/`, where the
@@ -209,6 +213,124 @@ The rule is **pack, don't proliferate**: millions of per-case files would choke
 `git` even under LFS, so raw facts go to the packed index and the access-gated
 store — while the reasoning stays readable text in git, because that diff is
 the explainability trail a reviewer actually reads.
+
+### Index retention: keep every version
+
+`corpus-push` never overwrites and never deletes. Each push writes a **new
+immutable object** at `index/sha256/<digest>` under the remote's prefix, and
+nothing in the system removes one. The control is the explicit `Deny` on every
+delete in the read-write role ([security.md](security.md)); the shape of
+`fedcourtsai.corpus_remote`'s transport mirrors it, offering upload, download,
+and existence checks and no list or delete primitive to call. So the prefix
+only grows. The scale: the blob is ~1.1 GB and the writers hold twelve
+scheduled windows a day (`run-pull`'s two cron entries, four pull windows and
+four live, plus `run-seed`'s four historical ones), with dispatches and label
+runs on top and several pushes possible inside one window — in practice the
+committed pointer moves a median of **13 times a day**, on the order of 14 GB a
+day of new objects. That is a floor on the accretion, not a count of it: a push
+whose pointer commit never lands still leaves its object behind.
+
+The accumulation is deliberate. `corpus/corpus.db.ref` is a git file, so **every
+pointer any commit ever carried stays resolvable**: check out a historical
+commit, `corpus-pull`, and you get byte-for-byte the index that commit's runs
+read, checksum-verified against the `sha256` the pointer itself records. That is
+the index half of the reproducibility contract underneath the pre-registration
+record — the scannable state any commit's runs read is recoverable whole, while
+the bulk payloads a cell was provisioned rest on the content store's own
+write-once discipline — and it holds only for as long as no object is ever
+collected. Reclaiming the tail would buy storage by making old commits
+unresolvable, which is the one thing the corpus is committed against.
+
+Cost is therefore managed by **storage class, not deletion**. A bucket lifecycle
+rule transitions objects under the index prefix to **S3 Glacier Instant
+Retrieval** 30 days after creation:
+
+```json
+{
+  "Rules": [
+    {
+      "ID": "corpus-index-glacier-ir",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "<prefix>/index/sha256/" },
+      "Transitions": [
+        { "Days": 30, "StorageClass": "GLACIER_IR" }
+      ]
+    },
+    {
+      "ID": "corpus-index-abort-stale-multipart",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "<prefix>/index/sha256/" },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
+    }
+  ]
+}
+```
+
+`<prefix>` is the remote URL's own key prefix, ahead of the `index/sha256/` the
+pointer records — substituted from `CORPUS_REMOTE_URL`, which each operator
+holds out of band. The rule is the **account owner's** to apply — this
+repository holds no infrastructure-as-code for the bucket, the workflow roles
+grant enumerated object actions rather than `s3:*`, and the read-write role
+denies lifecycle configuration outright, because a rule installed there would
+expire objects under S3's own principal and so route around its delete `Deny`
+([security.md](security.md)). Apply it by
+*adding* the rule to whatever the bucket already carries:
+`put-bucket-lifecycle-configuration` replaces the entire configuration, so read
+the current one, merge, and put back the union.
+
+**A transition, never an expiration.** A lifecycle rule is age-based, and age
+cannot tell it which object the committed pointer currently names — a writer
+pause long enough would eventually catch the live blob. That is survivable only
+because Glacier Instant Retrieval is instant: first-byte latency in
+milliseconds, the same as Standard, with no restore step — nothing in the read
+path needs `s3:RestoreObject`, so the read-only role's grant is untouched by
+the rule. The difference is price: a per-GB retrieval charge, and dearer GETs
+for the ranged readers that issue hundreds of them. So the worst case for a
+rule that does catch the current object is a costlier week, not a broken
+`corpus-pull`. An expiration, or a class that *does* require a restore (Glacier
+Flexible Retrieval, Deep Archive), turns that same scenario into an outage —
+and would need a permission no role holds to get out of.
+Glacier IR's two billing floors are both free here: the 90-day minimum billable
+duration costs nothing where nothing is ever deleted, and the 128 KB minimum
+billable object size is irrelevant to a ~1.1 GB blob. The read side of the
+contract is the same either way — historical pulls are rare and deliberate, so
+paying retrieval for one is the right trade against holding the whole tail hot.
+
+**Why 30 days.** Across the pointer's history the median gap between revisions
+is under two hours and the longest is 47, so an object is superseded within
+hours and anything past a fortnight is noncurrent with near-certainty; a
+tighter threshold would already be safe. Thirty is chosen because the
+difference is a *constant, not a growth term*: the threshold fixes how much of
+the prefix stays in Standard — thirty days of accretion, ~430 GB — while
+everything older transitions under either choice. A fixed extra fortnight of
+Standard storage is
+what buys a month of headroom for an unusual writer pause (an expired
+credential, an upstream outage, a deliberate freeze) to be noticed and resolved
+before ordinary reads start paying retrieval.
+
+**The index prefix only.** The rule names `index/sha256/` and nothing else; the
+per-case content store is deliberately outside it. Its write-once leaves have no
+age past which they stop being read on a hot path — a `replay` cell provisions
+the dated snapshot of an event that may be a Term old, and `cert-backtest`
+replays historical snapshots wholesale — so a retrieval charge there would land
+on exactly the scan-heavy consumers. The store also scales with case churn
+rather than run count (only *changed* cases upload), so it is not the
+accumulation this rule addresses.
+
+**The second rule is hygiene, not tiering.** A ~1.1 GB push goes up as a
+managed multipart upload, and the writer role that cannot delete also cannot
+abort its own parts, so a push interrupted mid-upload strands them. Orphaned
+parts bill as storage and show up in no prefix-filtered view of the bucket, so
+only the bucket can clean them: seven days is far past any push that will ever
+complete.
+
+**Versioning does not overlap it.** The bucket keeps versioning on and a
+lifecycle rule expiring *noncurrent* versions after a recovery window. Neither
+touches the other: content-addressed keys mean supersession writes a **new
+key**, never a new version of an existing one, so an index object essentially
+never becomes noncurrent — the noncurrent rule is there to reclaim an
+accidental overwrite. That is precisely why the transition has to be age-based
+on current versions.
 
 ### The ledger (case-centric)
 
@@ -587,7 +709,11 @@ Interactive data discovery belongs in a codespace, not a workflow. The remote
 serves it in two modes, both strictly **read-only** (see
 [security.md](security.md)): **ranged queries** for quick lookups
 (`--corpus-backend ranged` on `query` / `open-events` / `corpus-info` —
-per-query egress in KBs) and **a deliberate full pull** for scan-heavy
+per-query egress in KBs, with `corpus-info --text-coverage` the one exception —
+that flag walks the documents of every live-slice case, tens of thousands of
+rows, so under the split it is a content-store manifest round trip each plus a
+full text body per stored document, and belongs with the scan-heavy work
+rather than with the lookups) and **a deliberate full pull** for scan-heavy
 exploration (`uv run fedcourts corpus-pull`). Default to ranged:
 Codespaces runs on Azure, so every full pull is cross-cloud S3 egress.
 
@@ -649,8 +775,12 @@ That same silence is a standing trap on the **production** side too: a dev
 shell without the split flag and casestore URL set is **casestore-blind** — a
 payload living only in the content store (petition text, documents, the
 snapshots the blob does not carry) reads as *absent* rather than
-erroring, so a figure computed locally over payloads silently undercounts,
-with no warning either way. Any figure derived from
+erroring, so a figure computed locally over payloads silently undercounts.
+One surface says so on its own: `corpus-info --text-coverage` leads with a
+`text source:` line naming the blob or the content store, ahead of every count
+below it, and its `text frame:` line reports zero cases served where nothing
+was readable. Everywhere
+else there is no warning either way. Any figure derived from
 petition text, documents, or content-store payloads must therefore come from
 a writer-lane run or a shell `corpus-env` has pointed at a pair with the
 split on — and must say which. Ledger-derived figures (`data/cases`) and
@@ -741,6 +871,19 @@ or network.
   stale reading as well as adding a missed one (`docs/cli.md`).
   The CLI is dry-run by default; the cost is upstream traffic, not risk to the
   corpus.
+- **Re-snapshotting named dockets:** re-opening a Term to refresh a known,
+  enumerated set of rows pays for the whole serial range to reach a few of them,
+  so run-seed's dispatch also carries `refresh_dockets` (Term-form numbers, one
+  per line or space-separated): `fedcourts refresh-dockets --apply` re-serves exactly
+  those and re-ingests each through the walk's own path, additive through the
+  same latches. It moves **no cursor** — a targeted re-read is not a rewind — so
+  it neither disturbs nor is disturbed by a walk of the same Term, and the
+  walk's own rules still bound it: an undecided record is reported and skipped,
+  and one whose case carries an open predicted event stays with the watchlist.
+  Corpus-side on the repair case: the ingest seam records `outcome.json` only
+  for an event still open, so a re-serve converges the row and leaves a
+  committed ledger label to `converge-disposition-labels`. A number the corpus
+  never held is onboarded outright, ledger included.
 - **Maintenance sweeps:** after the loop, one window a day also runs seven
   converging sweeps in order — `fedcourts dedupe-live-rows --apply` (merging
   live-minted duplicate rows; a minted moment's committed event directory moves
@@ -828,8 +971,10 @@ or network.
      a merits predict cell the way an application docket queues its interim
      one.
      The terminated arm is what separates the two: a case that ended with no
-     disposition (a post-grant Rule 46 dismissal, a docket whose only terminal
-     notation is the mandate) keeps its merits event open, because nothing
+     disposition (a post-grant Rule 46 dismissal, a dismissal as moot, an
+     abatement on the petitioner's death, a grant the Court vacated, a docket
+     whose only terminal notation is the mandate) keeps its merits event open,
+     because nothing
      resolves an event on a row carrying no judgment — but there is no longer a
      judgment to forecast, so the event stops earning cells and simply sits.
 

@@ -69,6 +69,29 @@ each as its own least-privilege job holding only the credentials its mode needs:
   judge / SCOTUS Term / disposition / originating circuit / decade era, with a
   cert-stage cut restricted to modern discretionary-cert dockets). Read-only: results go
   to the Actions step summary and run log, nothing else.
+- **`census`** (dispatch) assumes the same read-only role and pull, then runs
+  `fedcourts distribution-census` — two registered readings of the DISTRIBUTED
+  phrase counted over the salience gate's scored segment and banded by one
+  scorer, the evidence a version pinning a new parse is argued from
+  ([salience.md](salience.md)). `census_baseline_parse` / `census_candidate_parse`
+  name the two readings (`dist-v1` against `dist-v2` by default); the band
+  function is deliberately **not** a dispatch input — the census reads against the
+  active scorer, and running it under a different salience version means
+  registering one, which is a code change. Read-only like `corpus-stats`, with
+  one difference that matters: the machine JSON is uploaded as a 30-day run
+  artifact as well as summarised, because a statistical review is conducted over
+  the file rather than the page. Two things an operator needs before dispatching
+  it. It carries by far the largest budget of the read-only modes — a
+  latest-snapshot read per frame case under the corpus-split mode — and what
+  bounds it is the read-only role's one-hour OIDC session rather than the wall
+  clock: the scan step is capped at 50 minutes and the job at 65, so a scan too
+  long for its credentials fails legibly inside them instead of dying on an
+  expired token after the whole walk (lifting that ceiling means a
+  `role-duration-seconds` on the `corpus-readonly` composite, as `run-seed` sets
+  for its own long walk). And it shares the `run-analytics-analysis` concurrency
+  group with `corpus-stats` under `cancel-in-progress: true`, so a one-minute
+  stats dispatch cancels an in-flight census — and a cancelled job runs no upload
+  step, losing the artifact. Dispatch a census into a quiet window.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
@@ -103,9 +126,10 @@ each as its own least-privilege job holding only the credentials its mode needs:
   `data/` only — no corpus, no network — so it binds no
   environment and assumes no role, and the same `fedcourts tool-usage` runs
   locally and in the gate. Results go to the step summary; it commits nothing.
-- **`qp-topic-label`** (dispatch) runs the `qp-topic-v0` topic labeler over every
-  questions-presented text the pulled corpus carries and lands the measured
-  per-case labels file
+- **`qp-topic-label`** (dispatch) runs the `qp-topic-v0` topic labeler over the
+  scoped extract of questions-presented texts (`fedcourts qp-corpus`, whose
+  population and row ceiling are in [qp-topic.md](qp-topic.md)) and lands the
+  measured per-case labels file
   (`data/qp-topics/qp-topics.json`) as a **reviewed** PR to `main` — fixed
   branch `qp-topics/refresh`, force-pushed, never auto-merged. It is the only
   mode that runs an agent, and therefore the only one **split across two jobs**,
@@ -240,10 +264,13 @@ own blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
-any other corpus write. Four further writer steps are **not** among the seven and
-never run on a schedule, each gated behind its own dispatch input; the three
+any other corpus write. Four further writer steps run **after the loop**, are
+not among the seven, and never run on a schedule, each gated behind its own
+dispatch input; the three
 that read corpus rows also require the dedupe to have succeeded, since each
-must weigh a merged row rather than a twin.
+must weigh a merged row rather than a twin. (Two more sit *ahead* of the loop
+on the same dispatch-only footing — the `refresh_terms` cursor reset and the
+`refresh_dockets` targeted re-serve — where they precede the walk they change.)
 `unlatch-overselected` (the `unlatch_overselected` input)
 clears the pre-resize `salience_selected`
 overhang a capacity change leaves behind (`docs/salience.md`) — the latch's one
@@ -264,13 +291,33 @@ The last two are sequenced after every converging sweep, and in this order —
 landing after a grade was taken leaves that grade stale.
 `converge-disposition-labels` (the `disposition_convergence` input) converges
 stored disposition labels onto the current classifier, writing `outcome.json`
-under `data/` alongside the pointer in the step's one commit. It converges the
-**unscored** population only: rewriting the label under a cell that has already
-been graded would move what a published standing was computed from while the
-standing sat still, so those cells are reported in the dry-run ledger rather
-than rewritten, and closing that backlog is a maintainer's decision — moving
-those labels is deliberately not offered as a dispatch here. An `apply`
-dispatch also requires `disposition_max_relabels` — a positive integer, and the
+under `data/` alongside the pointer in the step's one commit. Its ledger names
+**which of its two arms** each relabel came from, and the reading a maintainer
+owes them differs: `gvr` sharpens a label whose grant binary does not move,
+while `disowned-grant` withdraws a grant the classifier no longer reads at all
+— moving `actual_granted` 1 → 0 and re-dating the resolution — so that count is
+the one that shifts realized grant rates and every figure keyed on a resolution
+date (`docs/cli.md` carries each arm's warrant). By default it
+converges the population carrying **no committed predict or evaluate output**:
+rewriting the label under a cell that has already been graded would move what a
+published standing was computed from while the standing sat still, so any event
+whose directory holds agent output is reported in the dry-run ledger rather
+than rewritten. Closing that backlog is a maintainer's decision, and
+`include_scored` is where it is taken: it passes `--include-scored` to both the
+dry-run and the apply, so the ledger read and the rewrite cover the same
+population, and it is refused unless `disposition_convergence` names a mode
+*and* `disposition_max_relabels` carries a positive integer — in `dry-run` as
+much as in `apply`, unlike the bare bound, because what the number states there
+is a decision to take on a re-grade backlog rather than a write bound. The two
+readings are different: the plain dry-run's held-back lines size the *decision
+to widen* (they are candidates the sweep never parsed, so most will not be
+relabeled — only a candidate one of the two arms claims writes), while the bound an `apply`
+is checked against is the widened dry-run's own relabel count, which spans the
+scored and unscored confirmations together. A scored relabel is half a repair:
+the labels move here, and the grades taken under the old label catch up through
+`regrade_stale` naming the affected judge lines — three per event, one per
+judge, not one per evaluation. That can ride the same dispatch, which runs the
+two steps in this order for exactly this reason, or a following one. An `apply`dispatch also requires `disposition_max_relabels` — a positive integer, and the
 count the maintainer read off a previous `dry-run` dispatch's ledger. Anything
 else — blank, zero, negative, decimal — is refused with an error annotation
 before the scan runs: unbounded, a widened predicate becomes a mass rewrite
@@ -317,6 +364,26 @@ the loop's checkpoint push, so a failure before the first checkpoint leaves the
 upstream cursors untouched. `refresh_streams` picks the numbering sequence: IFP
 is ~70% of the probe cost and feeds no scored segment, so the paid stream is the
 default.
+
+`refresh_dockets` is the targeted instrument beside it, for when the rows
+needing a fresh read are known and enumerated: Term-form docket numbers, one
+per line or space-separated (`22-451 23-1234`), re-served and re-ingested
+through the walk's own path by `fedcourts refresh-dockets --apply`. Re-opening
+a Term to reach a handful of dockets pays for its entire serial range at
+~1 req/s; this pays for what was named. It runs in the same slot as the Term
+re-open, after the pull and before the loop under the `corpus-write` lock.
+**No cursor moves** — a targeted
+re-read is not a rewind — so the two inputs are independent and dispatching both
+together is coherent: they write the same rows through the same latches, and
+neither can undo the other. The numbers are grammar-checked all-or-nothing
+before anything runs and the list is capped at 50 — the workflow's own cap,
+tighter than the command's `historical.max_probes_per_run`, and sized well
+inside what the step's 15-minute bound can serve at that rate, so an oversized
+list is refused loudly rather than cancelling the run on a timeout; a list that
+large wants `refresh_terms` instead. Like every other writer step here it
+pushes its own blob and commits its own pointer, rather than leaving rows it
+paid upstream requests for to a walk chunk that may fail before its first
+checkpoint.
 
 ## Cascade
 
@@ -519,13 +586,21 @@ pattern rather than rediscovering it:
   predict/evaluate round posts before the review hold, the collect job's stall
   and secret-scan reports, and the flag roll-up latch itself — are covered at
   the seam, and a new caller of it inherits the bound rather than adding a copy.
-  That is the seam's coverage, not Python's: a `gh` call made anywhere else in
-  the package is as bare as an unwrapped shell one. Budget for it the same way —
+  `authz.py`'s collaborator-permission lookup — behind the `authorize-trigger`
+  gate every label-triggered `run:*` workflow (the fan-outs and run-pull) runs
+  before privileged work — carries the same bound in its own default lookup,
+  because its fail-closed posture makes an unretried call worse than a lost
+  record: a blip at check time reads as `"none"` and refuses a legitimate
+  actor's round, and an unbounded stall hangs the gate itself. That is
+  the seams' coverage, not Python's: a `gh` call made anywhere else in the
+  package is as bare as an unwrapped shell one. Budget for it the same way —
   105s per call, against whatever cap the calling step or job carries.
   Retrying never changes what a failure *means*: exhaustion returns non-zero
-  (raises, on the Python side), so a handoff write that never lands still fails
-  its run loudly, exactly as an unretried call would. What the retry buys is
-  that a blip does not decide it.
+  (raises, on the Python side; at the authorization lookup, the fail-closed
+  `"none"` any error yields, on which the command still exits non-zero — a
+  sustained outage still refuses), so a handoff write that never lands still
+  fails its run loudly, exactly as an unretried call would. What the retry
+  buys is that a blip does not decide it.
 - **Shape a retried lookup so its failure cannot read as an empty result.**
   Most of these lookups feed a find-or-create, so an empty `num` reads as "no
   issue yet" and opens a duplicate or restarts a dashboard's rolling state.

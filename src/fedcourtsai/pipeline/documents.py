@@ -35,7 +35,6 @@ import re
 import sqlite3
 from collections import Counter
 from collections.abc import Mapping
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -47,6 +46,14 @@ from pypdf.errors import PyPdfError
 
 from .. import corpus
 from ..supremecourt import SupremeCourtClient
+
+# `_scored_segment` is the salience gate's paid modern-cert predicate, imported
+# rather than restated: the censuses cut their frames with it, and `caption` is
+# where the non-`analytics` definition lives (a test pins the two equal). The
+# import direction is safe — `caption` reaches only `corpus`, `schemas`, and
+# `supremecourt`, so nothing here closes a cycle.
+from .caption import _scored_segment
+from .prefetch import prefetch_by_case
 
 # Document kinds, in provisioning order. `questions_presented` is derived from
 # the petition text rather than fetched (see the module docstring).
@@ -93,12 +100,40 @@ def _is_bio_entry(text: str) -> bool:
 # front-matter heading. Petitions front the QP page, so the section runs from
 # the QUESTION(S) PRESENTED heading to the first of these that is *set as a
 # heading* (:func:`_is_heading_match`), not merely spelled like one.
+#
+# The words of a phrase are joined by `\s+`, never a literal space, because a
+# printed heading's words are separated by whatever the layout left between
+# them and the extraction preserves that: one space, the extra blanks a
+# justified caps line extracts with ("PARTIES  TO  THE  PROCEEDING"), a run of
+# TABS where the filing sets its front matter in a table — some petitions
+# extract with tabs as their only separator, no line break after the heading
+# and the question running on the heading's own line — or a line break the
+# printed heading wrapped at ("RELATED\nCASES"). A literal space reads every
+# one of those as no terminator at all, and the cost is not a long section: the
+# capture runs past the front matter into the table of contents, where the
+# leader-dot rule discards it, so the heading is found and nothing is derived.
+# Widening the separator shortens sections in practice (every corpus change it
+# produced was a strict prefix of the old value); it is NOT shorten-only by
+# construction — a new match rejected as a heading can consume span that hides
+# a later old-accepted one — but that path degrades to an over-capture, never a
+# fragment, which the section-end docstring already declares tolerated.
+# Authoring constraint for the phrase tuple: word sequences whose only regex
+# constructs are (?:...) groups and escaped literals — the blanket
+# space-to-\s+ rewrite below would corrupt a space inside a character class.
 _QP_START_RE = re.compile(r"QUESTIONS?\s+PRESENTED", re.IGNORECASE)
+_QP_END_PHRASES = (
+    "PARTIES TO THE PROCEEDING",
+    "CORPORATE DISCLOSURE",
+    r"RULE 29\.6",
+    "RELATED (?:CASES|PROCEEDINGS)",
+    "TABLE OF CONTENTS",
+    "TABLE OF AUTHORITIES",
+    "LIST OF (?:ALL )?(?:PARTIES|PROCEEDINGS)",
+    "OPINIONS? BELOW",
+    "IN THE SUPREME COURT",
+)
 _QP_END_RE = re.compile(
-    r"PARTIES TO THE PROCEEDING|CORPORATE DISCLOSURE|RULE 29\.6|RELATED (?:CASES|PROCEEDINGS)"
-    r"|TABLE OF CONTENTS|TABLE OF AUTHORITIES|LIST OF (?:ALL )?(?:PARTIES|PROCEEDINGS)"
-    r"|OPINIONS? BELOW|IN THE\s+SUPREME COURT",
-    re.IGNORECASE,
+    "|".join(phrase.replace(" ", r"\s+") for phrase in _QP_END_PHRASES), re.IGNORECASE
 )
 # Title case as a petition sets a heading: a capitalized first word, then
 # capitalized words and the lower-case function words that stay small in a title
@@ -121,15 +156,6 @@ _QP_MAX_CHARS = 4_000
 # extraction, which the manifest labels as such and the labeling extract skips,
 # while a fragment stored as text reads to every consumer as the question.
 _QP_MIN_CHARS = 40
-# Concurrent content-store readers for the backfill's document fetch. The pass
-# is one GET per live-slice case — ~1,500 today — and serial GET latency is
-# what cancelled the first dispatched pass against the seed job's cap; sixteen
-# bounded workers hold the scan to minutes without meaningfully loading the
-# store. Read only where payload reads are offloaded — the registered source's
-# Protocol requires concurrent-read safety, and one warm-up read constructs
-# its lazy client before the pool exists — while the SQLite path stays serial
-# on its single-thread connection.
-_QP_BACKFILL_READERS = 16
 # A captured section that is really a table-of-contents entry, in the two forms
 # a TOC aligns its page numbers. A petition's own TOC lists "QUESTIONS
 # PRESENTED" with a page reference, so matching that entry instead of the real
@@ -651,15 +677,13 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
     the bulk import ever wrote. Where payload reads are offloaded to the
     content store their latency is the pass's whole cost — a serial walk of
     the ~1,500-case population is what turned the first dispatched pass into a
-    job-cap cancellation — so the document fetch runs on a bounded reader pool
-    there (:data:`_QP_BACKFILL_READERS`), consumed lazily in input order and
-    warmed by one serial read so the source's lazily built client is
-    constructed on this thread, never raced. The SQLite fallback keeps the
-    serial loop: its local reads never needed the help, and the connection
-    must stay on one thread. Everything after a fetch — extraction,
-    comparison, classification, the writes — is the same serial, ordered code
-    either way, so pooled and serial fetching produce identical results. A
-    fetch that raises aborts the whole pass, deliberately against the
+    job-cap cancellation — so the document fetch goes through
+    :func:`~fedcourtsai.pipeline.prefetch.prefetch_by_case`, which pools the
+    reads there and keeps the SQLite fallback serial on its single-thread
+    connection. Everything after a fetch — extraction, comparison,
+    classification, the writes — is the same serial, ordered code either way,
+    so pooled and serial fetching produce identical results. A fetch that
+    raises aborts the whole pass, deliberately against the
     degrade-don't-crash default: this is a dispatch-gated convergence sweep
     whose apply verifies itself by re-running, and a silently partial ledger
     would read as a converged one.
@@ -669,9 +693,7 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
     changes: dict[str, str] = {}
     refused: list[str] = []
     updates: list[corpus.CaseDocument] = []
-    case_ids = [
-        row.case_id for row in corpus.iter_rows(conn, court="scotus") if corpus.is_live_slice(row)
-    ]
+    case_ids = [row.case_id for row in corpus.iter_rows(conn, court="scotus", live_slice=True)]
 
     def consider(case_id: str, documents: list[corpus.CaseDocument]) -> None:
         nonlocal petitions, unchanged, no_petition_text
@@ -721,33 +743,18 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
         reasons[reason] += 1
         changes[case_id] = reason
 
-    if corpus.payload_reads_offloaded() and case_ids:
-        # The offloaded branch never touches `conn` inside
-        # `documents_for_case` (the registered source serves it, and the
-        # Protocol requires it to tolerate concurrent reads), which is what
-        # makes handing the call to worker threads sound; the mode cannot
-        # flip mid-pass because nothing here re-registers the source. The
-        # first case is read serially on purpose: the source builds its
-        # client lazily on first use behind a broad catch that caches the
-        # outcome, so a pool-first call would race sixteen constructions and
-        # a losing thread's cached failure would silently empty the pass.
-        # Client *calls* tolerate threads; construction does not.
-        first = corpus.documents_for_case(conn, case_ids[0])
-        with ThreadPoolExecutor(
-            max_workers=_QP_BACKFILL_READERS, thread_name_prefix="qp-backfill"
-        ) as pool:
-            consider(case_ids[0], first)
-            fetched = pool.map(
-                lambda case_id: corpus.documents_for_case(conn, case_id), case_ids[1:]
-            )
-            # Consumed lazily, in input order: results free as they are
-            # processed, so peak memory is the in-flight window, not the
-            # population's whole document text.
-            for case_id, documents in zip(case_ids[1:], fetched, strict=True):
-                consider(case_id, documents)
-    else:
-        for case_id in case_ids:
-            consider(case_id, corpus.documents_for_case(conn, case_id))
+    # `documents_for_case` never touches `conn` where payload reads are
+    # offloaded (the registered source serves it, and its Protocol requires
+    # tolerance of concurrent reads), which is what makes handing the call to
+    # the prefetch pool's worker threads sound; the mode cannot flip mid-pass
+    # because nothing here re-registers the source.
+    with prefetch_by_case(
+        case_ids,
+        lambda case_id: corpus.documents_for_case(conn, case_id),
+        thread_name_prefix="qp-backfill",
+    ) as fetched:
+        for case_id, documents in fetched:
+            consider(case_id, documents)
     if apply and updates:
         corpus.upsert_documents(conn, updates)
     return QPBackfillResult(
@@ -760,3 +767,382 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
         changes=dict(sorted(changes.items())),
         refused=sorted(refused),
     )
+
+
+# The kinds a text-coverage measurement counts, fetched before derived — every
+# text a cell reads directly. The order matters to how the report reads, because
+# an empty row does not mean the same thing across it. The two fetched PDFs are
+# the scanned-filing reading: nothing extracted means no text layer. The derived
+# questions-presented row has a second cause — :func:`extract_questions_presented`
+# returns the empty string where the heading is present but no capture under it
+# is vouchable — so its column mixes scans with extraction refusals over
+# petitions that do carry text, and an OCR decision reads the fetched rows.
+TEXT_COVERAGE_KINDS: tuple[str, ...] = (
+    KIND_PETITION,
+    KIND_BRIEF_IN_OPPOSITION,
+    KIND_QUESTIONS_PRESENTED,
+)
+
+# The two halves the coverage counts are cut into, in report order.
+SCORED_SEGMENT = "scored"
+REST_SEGMENT = "rest"
+
+
+class TextCoverageCut(BaseModel):
+    """One document kind's stored/empty counts within one segment."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str = Field(description="The document kind counted, e.g. petition")
+    segment: str = Field(
+        description="`scored` (the salience gate's paid modern-cert segment) or "
+        "`rest` (the remainder of the live slice)"
+    )
+    documents: int = Field(ge=0, description="Stored documents of this kind in this segment")
+    empty: int = Field(
+        ge=0,
+        description="Of those, the ones whose stored text is empty or whitespace-only "
+        "— the condition provisioning stamps on the cell manifest as `empty_text`",
+    )
+
+    @property
+    def share(self) -> float | None:
+        """``empty`` as a share of ``documents``, or ``None`` over an empty cut.
+
+        ``None`` rather than zero, so a segment nothing was read for never
+        reports as a segment measured at 0%.
+        """
+        return self.empty / self.documents if self.documents else None
+
+
+class TextCoverage(BaseModel):
+    """What one text-coverage pass read, and how much of it carried no text."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cases: int = Field(ge=0, description="Live-slice SCOTUS rows the pass walked")
+    cases_read: int = Field(
+        ge=0,
+        description="Of those, the ones that served at least one counted document "
+        "— the pass's own reach, so a run that could read almost nothing says so "
+        "rather than reporting a share over the few cases it got",
+    )
+    distributed: int = Field(
+        ge=0,
+        description="Live-slice rows that reached a distribution transition — the "
+        "moment `provision_documents` fetches. A stock, not a fetch population: a "
+        "row distributed before the document channel existed, or written by the "
+        "historical Term walker, was never fetched for at all",
+    )
+    distributed_without_petition: int = Field(
+        ge=0,
+        description="Of those, the ones holding no petition row at all. The other "
+        "failure mode, and the one an extraction fix does not reach: there is "
+        "nothing stored to re-extract",
+    )
+    queued: int = Field(
+        ge=0,
+        description="Live-slice rows the pipeline queued for prediction — the "
+        "decision-relevant denominator, since a missing petition costs a cell "
+        "only where a cell is minted",
+    )
+    queued_without_petition: int = Field(
+        ge=0,
+        description="Of the queued rows, the ones holding no petition row: what a "
+        "text-extraction fix cannot recover on the population that is predicted",
+    )
+    unopened_petitions: int = Field(
+        ge=0,
+        description="Of the empty petitions, the ones stored with zero pages — "
+        "`extract_pdf_text`'s could-not-open branch rather than a page count with "
+        "no text layer, so OCR is not the repair for them",
+    )
+    offloaded: bool = Field(
+        description="Whether the payload reads were served by the per-case content "
+        "store (the corpus-split shape) rather than by the blob's own tables"
+    )
+    cuts: list[TextCoverageCut] = Field(
+        default_factory=list,
+        description="Every kind x segment cell, zero-filled and in report order, "
+        "so an unlisted cell is never an omitted one",
+    )
+    empty_documents: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="case_id -> the kinds that read back empty, in case_id order: "
+        "the triage list an extraction fix would work from",
+    )
+
+    def kind_totals(self, kind: str) -> tuple[int, int]:
+        """``(documents, empty)`` for one kind, pooled over both segments.
+
+        Pooled across segments but never across kinds: the counted kinds do not
+        share a cause of emptiness (:data:`TEXT_COVERAGE_KINDS`), so a total
+        over all of them would be a number of nothing in particular.
+        """
+        cells = [cut for cut in self.cuts if cut.kind == kind]
+        return sum(c.documents for c in cells), sum(c.empty for c in cells)
+
+
+def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
+    """Count the stored documents whose text is empty, by kind and segment.
+
+    The measurement behind an extraction decision: a filing that reaches the
+    corpus as a scan with no text layer stores an empty string
+    (:func:`extract_pdf_text` returns ``""``), and provisioning derives the
+    cell manifest's ``empty_text`` from exactly that — ``not text.strip()`` —
+    then writes it into the cell's manifest and never into a corpus column. So
+    the share is not a column to query; it has to be counted off the stored
+    text, which is what this does, under the same predicate the manifest
+    stamps. Read per kind, not pooled: the counted kinds do not share one
+    cause of emptiness (:data:`TEXT_COVERAGE_KINDS`).
+
+    The population is the live/historical slice
+    (:func:`corpus.is_live_slice`), for the reason
+    :func:`backfill_questions_presented` walks it: documents reach the corpus
+    on that channel only, so a bulk-import row has none by construction and
+    walking it would buy a per-case content-store read for nothing. That frame
+    is a walk, not a denominator anything is a rate over: most of it was never
+    fetched for at all (a historical-Term row, or a petition outside the
+    upstream link window), so ``cases_read`` is a reach count.
+
+    Within the slice the counts split on the salience gate's scored segment
+    (:func:`~fedcourtsai.pipeline.caption._scored_segment` — paid modern-cert).
+    That is the segment the gate *scores*, not the set it selects, and in
+    practice the split is paid against in forma pauperis: the cut is here
+    because a paper filing is what arrives as a scan, and the fee class is the
+    corpus's closest arrival-time reading of that.
+
+    Two failure modes, reported apart because only one is an extraction
+    problem. A stored document whose text is empty can be re-extracted; the
+    cases with **no petition row at all** cannot, and they are counted over two
+    denominators. ``distributed`` is the stock of rows that reached a
+    distribution transition — the moment
+    :func:`~fedcourtsai.pipeline.live.provision_documents` fetches — but it
+    includes rows written before the document channel existed, which were never
+    fetched for, so it is a stock rather than a failure rate. ``queued`` is the
+    rows the pipeline queued for prediction, which is the population a missing
+    petition actually costs a cell on. Reading the empty share without these
+    beside it is how a decision gets made about the smaller of the two modes.
+
+    Split-aware by construction: every read goes through
+    :func:`corpus.documents_for_case`, which the registered payload source
+    serves from the per-case content store under the corpus-split mode and the
+    blob's own tables otherwise. ``offloaded`` records which served this pass,
+    since a blob-only read of a split corpus finds no documents at all and must
+    not read as a corpus with none. One degradation the counts cannot
+    self-limit on: served from the store, a document whose text leaf is missing
+    reads back as ``text=""`` (:func:`~fedcourtsai.casestore.read_documents`),
+    which is indistinguishable here from a scanned filing — the manifest
+    served, so the case counts as reached. A partially mirrored store therefore
+    inflates the very number this produces, and only the store's own
+    completeness rules that out.
+
+    The document fetch rides :func:`~fedcourtsai.pipeline.prefetch.prefetch_by_case`
+    for the reason the questions-presented backfill does: offloaded, the read
+    is a network GET per case and a serial walk of the population is the whole
+    cost of the pass. Everything after the fetch is serial and in population
+    order either way, so the two schedules count identically.
+    """
+    tallies = {
+        (kind, segment): [0, 0]
+        for segment in (SCORED_SEGMENT, REST_SEGMENT)
+        for kind in TEXT_COVERAGE_KINDS
+    }
+    empty_documents: dict[str, list[str]] = {}
+    cases_read = unopened_petitions = 0
+    distributed_without_petition = queued_without_petition = 0
+    # Materialized before the fetch: `iter_rows` rides `conn`, which under the
+    # offloaded schedule must not be walked while readers are in flight.
+    rows = [row for row in corpus.iter_rows(conn, court="scotus") if corpus.is_live_slice(row)]
+    segments = {
+        row.case_id: SCORED_SEGMENT if _scored_segment(row) else REST_SEGMENT for row in rows
+    }
+    # `distribution_count` is None on a row whose proceedings were never parsed,
+    # so a parsed non-zero count is the widest reading of "this case reached the
+    # moment a document would be fetched". Wider than the set actually fetched
+    # for: the whole pre-channel back catalogue distributed too, and nothing was
+    # ever attempted for it. A stock, which is why `queued` is printed beside it.
+    distributed = {row.case_id for row in rows if (row.distribution_count or 0) > 0}
+    # The narrow denominator beside it: a missing petition costs a prediction
+    # only where one was minted.
+    queued = {row.case_id for row in rows if row.predict_queued_at is not None}
+    case_ids = list(segments)
+    with prefetch_by_case(
+        case_ids,
+        lambda case_id: corpus.documents_for_case(conn, case_id),
+        thread_name_prefix="text-coverage",
+    ) as fetched:
+        for case_id, documents in fetched:
+            segment = segments[case_id]
+            counted = 0
+            has_petition = False
+            for document in documents:
+                tally = tallies.get((document.kind, segment))
+                if tally is None:  # a kind this measurement does not count
+                    continue
+                counted += 1
+                has_petition = has_petition or document.kind == KIND_PETITION
+                tally[0] += 1
+                if not document.text.strip():
+                    tally[1] += 1
+                    empty_documents.setdefault(case_id, []).append(document.kind)
+                    # Zero pages is `extract_pdf_text`'s could-not-open branch,
+                    # not a page count with no text layer: a different repair.
+                    if document.kind == KIND_PETITION and not document.pages:
+                        unopened_petitions += 1
+            # Counted kinds, not any document: the reach number must stay the
+            # population the cuts are computed over as new kinds are stored.
+            if counted:
+                cases_read += 1
+            if not has_petition:
+                if case_id in distributed:
+                    distributed_without_petition += 1
+                if case_id in queued:
+                    queued_without_petition += 1
+    return TextCoverage(
+        cases=len(case_ids),
+        cases_read=cases_read,
+        distributed=len(distributed),
+        distributed_without_petition=distributed_without_petition,
+        queued=len(queued),
+        queued_without_petition=queued_without_petition,
+        unopened_petitions=unopened_petitions,
+        offloaded=corpus.payload_reads_offloaded(),
+        # Zero-filled and ordered by construction (kind within segment), so the
+        # report is the same shape whatever the corpus held.
+        cuts=[
+            TextCoverageCut(kind=kind, segment=segment, documents=stored, empty=blank)
+            for (kind, segment), (stored, blank) in tallies.items()
+        ],
+        # `iter_rows` yields in case_id order, the prefetch preserves input
+        # order, and `documents_for_case` orders by kind — so the ledger is
+        # deterministic on either schedule, without a re-sort.
+        empty_documents=empty_documents,
+    )
+
+
+@dataclass(frozen=True)
+class QpExtractRow:
+    """One extract row: the whole input a ``qp-topic-v0`` labeler is entitled to.
+
+    Text-only by design (``docs/qp-topic.md``) — no docket context, no case
+    name, no outcome — so a label can never encode a decision the text
+    predates. ``case_id`` and ``docket_number`` are the key *pair* the reference
+    join is checked on, not context: a half-matching pair is a mis-join.
+    """
+
+    case_id: str
+    docket_number: str
+    text: str
+
+
+@dataclass(frozen=True)
+class QpExtract:
+    """The rows one labeling run reads, plus what the pass declined to hand it."""
+
+    rows: list[QpExtractRow]
+    skipped: int
+
+
+def _in_label_scope(row: corpus.CorpusRow) -> bool:
+    """Whether a row belongs to the labeling extract's population.
+
+    Exactly the frame the docket pack's question-presented topic section is
+    computed over — SCOTUS, :func:`corpus.is_live_slice`,
+    :func:`corpus.is_modern_cert` — so every labeled row has a published home
+    and nothing in the section's frame is unlabelable. The live-slice clause is
+    also what keeps the walk off hundreds of thousands of bulk-import rows, and
+    it costs no coverage: documents reach the corpus only on that channel.
+
+    Narrowing further is not free, and the predict-scope rules
+    (:data:`corpus.OUT_OF_SCOPE_RULES`) are the tempting narrowing to reject.
+    On a QP-bearing population the only one that bites is the in-forma-pauperis
+    exclusion, while the hand reference set spans both fee streams — so an
+    extract that dropped IFP rows would have to carry the reference set's own
+    back in to keep the publication gate's coverage floor reachable, and an IFP
+    row inside such an extract would then be a certain reference-set member.
+    Fee class rides in the docket number every row carries, so that is a
+    membership probe handed to the labeler, on a set whose membership predicts
+    cert grants. The frame stays wide because the alternative leaks the
+    measurement.
+    """
+    return corpus.is_live_slice(row) and corpus.is_modern_cert(row)
+
+
+def questions_presented_extract(conn: corpus.ReadConnection, *, scoped: bool = True) -> QpExtract:
+    """The stored ``questions-presented`` texts a labeling run reads.
+
+    Two selections, and they read the corpus differently on purpose.
+
+    ``scoped`` (the default, and the only form a dispatch uses) walks the
+    labeling population — :func:`_in_label_scope` — and reads each case's
+    documents through :func:`corpus.documents_for_case`, so the pass serves from
+    the per-case content store wherever payload reads are offloaded and from the
+    blob otherwise. That is the only shape that works under the corpus split at
+    all: the split writer leaves the blob's ``documents`` table empty and the
+    store is the system of record for it, so a bulk read of that table sees a
+    payload-free index and reports nothing. Population-scale per-case reads go
+    through :func:`~fedcourtsai.pipeline.prefetch.prefetch_by_case`, which pools
+    them against the store and stays serial on the single-thread connection.
+
+    ``scoped=False`` is the unscoped measurement form: one bulk join over the
+    blob's own ``documents`` table, every stored questions-presented row
+    whatever its case. It answers "what is in this blob" — a question about a
+    file, not about a population — so against a split blob it returns nothing,
+    correctly: the texts are not in the file. (Its CLI caller treats an empty
+    result as a mis-wired run and exits non-zero, since an empty extract is
+    never a labeling task.)
+
+    A row whose case carries no docket number, or whose stored text is empty, is
+    skipped and counted rather than guessed at: the docket number is half the
+    key the reference join is checked on, and an empty extraction (what the
+    extractor stores for a capture it cannot vouch for) is nothing to label.
+    Rows come back in ``case_id`` order under either selection.
+    """
+    rows: list[QpExtractRow] = []
+    skipped = 0
+
+    def consider(case_id: str, docket_number: object, text: object) -> None:
+        nonlocal skipped
+        number = str(docket_number or "").strip()
+        body = str(text or "")
+        if not number or not body.strip():
+            skipped += 1
+            return
+        rows.append(QpExtractRow(case_id, number, body))
+
+    if scoped:
+        scope = {
+            row.case_id: row.docket_number
+            for row in corpus.iter_rows(conn, court="scotus", live_slice=True)
+            if _in_label_scope(row)
+        }
+        # `documents_for_case` never touches `conn` where payload reads are
+        # offloaded (the registered source serves it, and its Protocol requires
+        # tolerance of concurrent reads), which is what makes handing the call
+        # to the prefetch pool's worker threads sound.
+        with prefetch_by_case(
+            sorted(scope),
+            lambda case_id: corpus.documents_for_case(conn, case_id),
+            thread_name_prefix="qp-extract",
+        ) as fetched:
+            for case_id, documents in fetched:
+                stored = next(
+                    (doc for doc in documents if doc.kind == KIND_QUESTIONS_PRESENTED), None
+                )
+                if stored is None:
+                    # Not a skip: a case with no stored questions is outside the
+                    # QP-bearing population, not a row the pass declined.
+                    continue
+                consider(case_id, scope[case_id], stored.text)
+        return QpExtract(rows, skipped)
+
+    cursor = conn.execute(
+        "SELECT d.case_id, c.docket_number, d.text FROM documents AS d "
+        "LEFT JOIN cases AS c ON c.case_id = d.case_id "
+        "WHERE d.kind = ? ORDER BY d.case_id",
+        (KIND_QUESTIONS_PRESENTED,),
+    )
+    for record in cursor:
+        consider(str(record[0]), record[1], record[2])
+    return QpExtract(rows, skipped)

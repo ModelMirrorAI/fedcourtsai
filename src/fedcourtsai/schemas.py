@@ -58,9 +58,13 @@ class Disposition(StrEnum):
     source, and immaterial on the binary axis). That residual covers a label
     normalized from the upstream record's own fields, never a resolution the
     disposition parser itself recorded off order text and got wrong — those
-    disagree with their own order text and are converged against it, behind a
-    date boundary in code so that widening snapshot coverage cannot reach the
-    residual. On mandatory-jurisdiction direct
+    disagree with their own order text and are converged against it. What
+    separates the two is provenance, and the convergence sweep
+    (:mod:`fedcourtsai.disposition_convergence`) establishes it two ways: a date
+    boundary in code, so that widening snapshot coverage alone cannot reach the
+    residual, and — where the docket itself shows that the entry a ``granted``
+    was read off no longer parses as a grant at all — that entry, which dates
+    the parse gap and so needs no calendar. On mandatory-jurisdiction direct
     appeals the resolver latches only the vacatur-remand form (now ``gvr``); the
     other direct-appeal forms (probable jurisdiction noted, summary affirmance,
     dismissal for want of a substantial federal question) are deliberate resolver
@@ -220,13 +224,23 @@ class MeritsTermination(StrEnum):
     Deliberately not members of :class:`Judgment`, and the distinction is the
     whole point of the vocabulary: these entries say **that** the case is over,
     never **how** the judgment below fared. A voluntary Rule 46 dismissal after
-    the grant leaves nothing decided, and the mandate-analog "Judgment issued."
-    is a clerk's notation on a docket whose disposition entry the corpus never
-    captured. Folding either into ``Judgment`` would fabricate merits ground
+    the grant leaves nothing decided; a case dismissed as moot or abated by the
+    petitioner's death ends the same way, for a reason outside the Court; a
+    grant the Court itself vacates returns the case to the cert stage; and the
+    mandate-analog "Judgment issued." is a clerk's notation on a docket whose
+    disposition entry the corpus never captured. Folding any of them into
+    ``Judgment`` would fabricate merits ground
     truth twice over: ``judgment_disturbed`` would read it as *undisturbed*
     (a substantive claim about the lower court's judgment that nobody made),
     and the value would enter the predictor-emittable outcome vocabulary as
     something a cell could forecast.
+
+    The members stay separate rather than collapsing into one "terminated"
+    marker because they carry different evidence about the *record*: a
+    voluntary dismissal, a mootness dismissal, an abatement, and a vacated
+    grant are all things the docket says happened, while a rise in
+    ``judgment_issued`` means the disposition parser missed an entry that
+    exists — a gap to triage, not a docket trend.
 
     So a termination resolves the corpus row's merits *state* — the case is not
     pending, and the forward-forecast gates must refuse it — while leaving
@@ -237,6 +251,9 @@ class MeritsTermination(StrEnum):
     """
 
     voluntary_dismissal = "voluntary-dismissal"
+    dismissed_moot = "dismissed-moot"
+    abated = "abated"
+    grant_vacated = "grant-vacated"
     judgment_issued = "judgment-issued"
 
 
@@ -988,8 +1005,8 @@ class InterimResolutionSignals(_Strict):
     amicus_briefs: int = Field(
         ge=0,
         description="How many amicus briefs the application's docket recorded as "
-        "at resolution — a stakes proxy, counted per entry naming amicus curiae "
-        "(a multi-filer entry counts once)",
+        "at resolution — a stakes proxy, counted per entry naming amicus or amici "
+        "curiae (a multi-filer entry counts once)",
     )
 
 
@@ -4756,19 +4773,25 @@ class StatPackTermSegment(_Strict):
     **Two rates, answering two different questions.** A band is monotone
     non-decreasing over a petition's life — the distribution count is max-latched
     and a CVSG date, once set, stays set — so a petition passes *through* the
-    weaker bands on its way to the one it ends in.
+    weaker bands **it can reach** on its way to the one it ends in. Which those
+    are is the scorer's own
+    (:meth:`fedcourtsai.pipeline.salience.SalienceScorer.reachable_bands`): under a
+    vocabulary that interleaves a fixed-at-filing caption class among the
+    trajectory tiers, a petition walks its class's ladder and never enters
+    another class's bands.
 
     ``est_grant_rate`` conditions on the band a petition **ended** in. It is the
     descriptive cut: of the petitions that finished at one distribution, how many
     were granted.
 
     ``prefix_est_grant_rate`` conditions on having **reached** the band, which is
-    the same event as "ended here or stronger". That is the forecast baseline,
-    because a cell is scored at the band it sat in when it ran, and from there the
-    petition may still relist. Conditioning a live forecast on the terminal rate
-    would ask it to beat a number computed with knowledge of its own future, and
-    understates the honest baseline several-fold in the weaker bands (the
-    strongest band has nothing above it, so the two coincide there exactly).
+    the same event as "ended here or stronger *on this petition's own ladder*".
+    That is the forecast baseline, because a cell is scored at the band it sat in
+    when it ran, and from there the petition may still relist. Conditioning a live
+    forecast on the terminal rate would ask it to beat a number computed with
+    knowledge of its own future, and understates the honest baseline several-fold
+    in the weaker bands (a band with nothing reachable above it has the two
+    coinciding exactly).
     """
 
     band: str = Field(
@@ -4803,7 +4826,8 @@ class StatPackTermSegment(_Strict):
         ge=0,
         description="Sample-weighted resolved estimate over the band's risk set — "
         "every row that ever reached this band, not only those that ended in it. "
-        "Risk sets are nested, so this contains every stronger band's",
+        "Risk sets nest down one petition class's reachable ladder and partition "
+        "across classes, so this contains every stronger band the same class can reach",
     )
     prefix_est_grant_rate: float | None = Field(
         default=None,
@@ -4814,7 +4838,7 @@ class StatPackTermSegment(_Strict):
         "P(grant | the petition has REACHED this band). The forecast baseline — "
         "this is what a predictor is asked to beat, because a cell is scored at "
         "the band it sat in when it ran, not the one it ended in. Identical to "
-        "est_grant_rate for the strongest band, which has nothing above it; "
+        "est_grant_rate for a band with nothing reachable above it; "
         "None when the risk set is empty",
     )
 
@@ -5122,9 +5146,11 @@ class _StatPackMeritsCounts(_Strict):
         "cert_order_excluded). A parsed judgment with no date stays here as "
         "a visible coverage gap, outside the parsed slice, since the gap "
         "test cannot run on it, and so does a row carrying `merits_terminated` "
-        "— either a post-grant Rule 46 dismissal, where nobody reached the "
-        "merits, or a bare mandate notation, where the disposition entry was "
-        "never captured. Parsed or not",
+        "— either a proceeding that ended before anyone reached the merits (a "
+        "post-grant Rule 46 dismissal, a dismissal as moot, an abatement on the "
+        "petitioner's death, a grant the Court vacated), where there is no "
+        "disposition to record, or a bare mandate notation, where the case was "
+        "decided and the disposition entry was never captured. Parsed or not",
     )
     cert_order_excluded: int | None = Field(
         default=None,
@@ -5665,6 +5691,44 @@ class DistributionBandTransition(_Strict):
     n: int = Field(ge=0, description="Cases making this transition (diagonal cells are unmoved)")
 
 
+class DistributionCensusBand(_Strict):
+    """One baseline band's distribution-parse deltas — the honest per-band cut.
+
+    Keyed on the band the **baseline** parse's count implies, because that is
+    the incumbent reading: the question a reader has is "what share of what this
+    parse bands here would move", and the candidate band is the answer, not the
+    key. It is the incumbent *reading* of the snapshot, not necessarily the
+    label the case carries in the corpus — that comes off the max-latched
+    ``distribution_count`` column, which neither side of the census reads. Every
+    band of the census's salience version is reported, zero-filled, so an empty
+    band reads as measured-empty rather than as a row someone forgot to emit.
+
+    The cut covers the observable frame only: an ``unobservable`` case has no
+    count and so no baseline band, and these ``cases`` therefore sum to the
+    census's ``cases``, never to its frame. That missing mass is not
+    band-random — an unobservable row is one whose proceedings were never
+    live-read, the same population the corpus's never-parsed sentinel stands
+    for, which bands weak — so the weak bands' denominators are the depleted
+    ones and a per-band share is conditional on observability, not a population
+    rate. Maturity rides here as it does per Term: a pending docket has had
+    fewer conferences to accumulate the ancillary traffic the readings differ
+    on, and the bands are built from the conference count, so band and maturity
+    are correlated by construction.
+    """
+
+    band: str = Field(description="The band the baseline parse's count implies")
+    cases: int = Field(
+        default=0, ge=0, description="Observable frame cases the baseline parse bands here"
+    )
+    pending: int = Field(default=0, ge=0, description="Of those, cases carrying no disposition yet")
+    count_changed: int = Field(
+        default=0, ge=0, description="Of those, cases whose distribution count differs"
+    )
+    band_changed: int = Field(
+        default=0, ge=0, description="Of those, cases whose implied salience band differs"
+    )
+
+
 class DistributionCensusTerm(_Strict):
     """One October Term's distribution-parse deltas, split by docket maturity.
 
@@ -5677,6 +5741,14 @@ class DistributionCensusTerm(_Strict):
     term: int = Field(description="The October Term year")
     cases: int = Field(ge=0, description="Frame cases with an observable distribution count")
     pending: int = Field(default=0, ge=0, description="Of those, cases carrying no disposition yet")
+    frame_pending: int = Field(
+        default=0,
+        ge=0,
+        description="Pending cases across the Term's whole frame (`cases + unobservable`) — "
+        "the denominator `pending` is not: maturity is a property of the docket and "
+        "readability a property of the pull, so neither count may stand in for the other "
+        "and which way they diverge is itself a finding",
+    )
     unobservable: int = Field(
         default=0,
         ge=0,
@@ -5736,11 +5808,57 @@ class DistributionCensus(_Strict):
         description="Frame cases with no live-shaped snapshot or no disclosed proceedings — "
         "the parses are unreadable there, which is not evidence that they agree",
     )
-    count_changed: int = Field(ge=0, default=0, description="Cases whose counts differ")
-    band_changed: int = Field(ge=0, default=0, description="Cases whose implied bands differ")
+    frame_pending: int = Field(
+        default=0,
+        ge=0,
+        description="Pending cases across the whole frame (`cases + unobservable`), counted "
+        "before observability is decided — the per-Term `pending` counts only the observable "
+        "rows, so the two denominators are published side by side rather than one being read "
+        "as the other",
+    )
+    pending: int = Field(
+        description="Pending dockets among the observable rows — the numerator the "
+        "banner prints beside frame_pending, published so a JSON consumer reads "
+        "it directly instead of summing terms[].pending"
+    )
+    count_changed: int = Field(
+        ge=0,
+        default=0,
+        description="Of the `cases` rows and never of the frame: those whose counts differ",
+    )
+    band_changed: int = Field(
+        ge=0, default=0, description="Of the `cases` rows: those whose implied bands differ"
+    )
+    count_increased: int = Field(
+        ge=0,
+        default=0,
+        description="Of the count-changed cases, those the candidate parse counts HIGHER — "
+        "with `count_decreased` it splits `count_changed` by direction. Zero here is the "
+        "observation that the candidate's readings nested inside the baseline's ON THIS "
+        "FRAME; that no case could move to a stronger band needs the band function's "
+        "monotonicity in the count too, which is a property of the registered version",
+    )
+    count_decreased: int = Field(
+        ge=0, default=0, description="Of the count-changed cases, those the candidate counts lower"
+    )
     transitions: list[DistributionBandTransition] = Field(
         default_factory=list,
-        description="The band-transition matrix, occupied cells only, in band order",
+        description="The band-transition matrix as the FULL band-by-band square, zero-filled, "
+        "in band order on both axes — so a zero is a measured zero and never an omitted row. "
+        "Which cells a given parse pair can occupy at all is a property of that pair, not of "
+        "this artifact: where the candidate's matches are a subset of the baseline's (the "
+        "entry-anchored reading against the entry-anywhere one) the count can only fall, and "
+        "every registered band function is monotone in the count, so every band-strengthening "
+        "cell is zero by construction. `count_increased` observes the nesting on the frame "
+        "read; the monotonicity is a property of the registered version. Emitting the square "
+        "whole rather than as one triangle is what keeps that orientation-independent — it "
+        "flips with the parse arguments",
+    )
+    bands: list[DistributionCensusBand] = Field(
+        default_factory=list,
+        description="The per-baseline-band cut, every band of `salience_version` zero-filled, "
+        "in band order — the share of each band that moves, in the artifact rather than "
+        "recoverable only by joining the changed case ids back against the corpus",
     )
     terms: list[DistributionCensusTerm] = Field(default_factory=list)
     count_changed_case_ids: list[str] = Field(

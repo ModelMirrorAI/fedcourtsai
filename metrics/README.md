@@ -381,7 +381,10 @@ stays outside the gate:
   row count behind it, since a reweighted Term can otherwise clear a weighted
   31 on as few as five real petitions (the `baseline` band's risk set reaches
   6.1x on OT2019) — below which the cell is omitted rather
-  than scored on a handful of cases. Unlike the prior-Term pool this one is a
+  than scored on a handful of cases. It bites hardest on a **caption class
+  floor**, whose risk set is that class alone rather than every band above it —
+  the caption classes are the docket's smallest populations, so `federal` and
+  `state` are the columns a Term most often omits. Unlike the prior-Term pool this one is a
   single Term and cannot be widened by reaching further back, so the floor is a
   wait-for-the-Term rule: a band that never clears it is omitted for that Term
   entirely, and early in a live Term the forward cells' own Term is exactly the
@@ -841,16 +844,26 @@ cert-order vacatur stays in `granted`, so the `parsed`/`granted` coverage
 figure can still carry it even though the rate cannot; a parsed judgment
 with no date stays in `granted` the same way, since the gap test cannot run
 on it; and a granted case recorded as `merits_terminated` stays in `granted`
-too. That last residue covers two unlike shapes, and the distinction matters
-for what may be said about it: a post-grant Rule 46 dismissal has **no
-disposition to record** — nobody reached the merits — while a bare mandate
+too. That last residue covers two unlike kinds, and the distinction matters
+for what may be said about it: a proceeding that ended before the merits were
+reached — a post-grant Rule 46 dismissal, a dismissal as moot, an abatement on
+the petitioner's death, a grant the Court vacated — has **no
+disposition to record**, while a bare mandate
 notation marks a case that *was* decided on a docket whose disposition entry
 the corpus never captured, which is a coverage failure of the same family as
 the two residues above. Neither is folded into the judgment vocabulary,
 because a seventh value would be scored as an undisturbed judgment, asserting
 in the first case that the decision below survived a merits ruling nobody
 made, and in the second that it survived a ruling whose direction is simply
-unread. And the window is the same ten-Term
+unread. One of the four pre-merits shapes carries a further debt, and it is
+not the merits column's to pay: a **vacated grant** returns the case to the
+cert stage, so the row's cert `disposition` goes on describing an order the
+Court withdrew — 19-825 is stamped `granted` and was ultimately denied. The
+termination resolves the row's merits pendency correctly and keeps it out of
+every merits figure, but it also releases the row from
+`no_stale_unparsed_grants`, which was the only check naming it. Such a row
+remains owed a cert-label reconciliation that no sweep performs, and it counts
+as a grant in the cert-side rates until one does. And the window is the same ten-Term
 band the cert baseline uses (`salience.base_rate_lookback_terms`), so state it
 with the figure. `correct` — and so the stage block's accuracy — is the **judgment**
 exact-match on a merits cell, not the disposition match, since a merits
@@ -1089,11 +1102,22 @@ the rendered table) and
   version mismatch: a frozen band whose salience version does not resolve against
   the pack yields no baseline at all, since relabelling it terminal would pair a
   risk-set population with a terminal rate. Under a scorer whose order interleaves a fixed-at-filing class
-  among the trajectory tiers (the caption-banded versions' `federal`/`state`), a weaker band's risk
-  set also contains the stronger classes' petitions — populations a private
-  petitioner was never in — so the "population it was in" reading is
-  approximate there (measured at roughly +1 point on `elevated`), a property of
-  the vocabulary to hold in view rather than a defect in the pairing. Pooled strictly-prior-Term, as the recorded skill score is, both
+  among the trajectory tiers (the caption-banded versions' `federal`/`state`),
+  "ever reached it" is read along each petition's own **reachable ladder**
+  rather than along the band order: a federal petition was `federal` the day it
+  was docketed and enters no weaker band's risk set, a state one climbs
+  `state` → `high` and enters none of `federal`'s, `elevated`'s or
+  `baseline`'s, and a private one enters neither caption band. So the class
+  floors (`federal`, `state`, `baseline`) **partition** the scored segment
+  instead of nesting into one another, and each band's risk-set rate is the rate
+  its own reachable population faced — the weakest band's bracketed figure is
+  the private class's own grant rate, not the whole segment's. A class floor's
+  denominator is that class alone, so it is far smaller than the order prefix
+  it replaces, and the caption floors are thin enough that the realized-Term
+  floor above bites on them. The bracketed
+  figures a committed pack carries are only ever as current as the
+  `metrics-refresh` that rendered them, so read them against the pack's own
+  vintage. Pooled strictly-prior-Term, as the recorded skill score is, both
   are leakage-safe; the board's realized-Term column reads the risk-set one off
   the case's **own** Term instead, which is deliberately not leakage-safe and is
   fenced accordingly where it is described (see the leaderboard bullet above). A skill score is

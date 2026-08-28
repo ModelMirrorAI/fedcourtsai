@@ -167,14 +167,16 @@ def _env_mappings(name: str) -> list[tuple[str, dict[str, Any]]]:
 
 
 # Every workflow whose reads the corpus-split mode forks: the cell workflows,
-# the writer lanes, and the integration scenarios. A workflow leaving this set
-# — or a new corpus-reading workflow not joining it — is a deliberate act.
+# the writer lanes, the integration scenarios, and the analysis surface. A
+# workflow leaving this set — or a new corpus-reading workflow not joining it —
+# is a deliberate act.
 # staging-corpus-refresh.yml is deliberately absent: its source is pinned on
 # the command line from dedicated production-source variables, so it reads NO
 # ambient corpus variable at all — neither half of the pair — and the pinning
 # test below holds it to that.
 SPLIT_PAIR_WORKFLOWS = {
     "integration-test.yml",
+    "run-analytics.yml",
     "run-backtest.yml",
     "run-evaluate.yml",
     "run-predict.yml",
@@ -994,16 +996,63 @@ def test_every_inline_gh_retry_copy_matches_the_shared_script() -> None:
         assert "Inline copy of scripts/gh_retry.sh" in run
 
 
-def test_the_python_seams_bounds_match_the_shared_script() -> None:
-    """The Python-side `gh` seam is a fourth site holding the same three numbers.
+def test_run_seeds_early_validator_duplicates_every_late_refusal_verbatim() -> None:
+    """`Validate dispatch inputs` is a fail-fast copy, not a second opinion.
 
-    `agent_feedback.py`'s default runner bounds its calls itself, because the
-    commands it backs are invoked from Python rather than wrapped in shell. Its
-    constants say they are kept identical to the script's, which is only true
-    while something compares them — the same reason the inline copies above are
-    pinned. A longer timeout or a fourth attempt applied on one side alone would
-    otherwise leave the two surfaces silently disagreeing about how long a
-    degraded API is tolerated.
+    run-seed refuses a malformed dispatch twice: once up front, ahead of the
+    corpus pull, so a typo costs seconds rather than a walk window on the shared
+    corpus-write lock, and again inside the step that acts on the input, which is
+    the check of record because a step has to be safe on whatever reaches it.
+    The pair only earns that arrangement while it is one refusal in two places —
+    the same grammar, the same splitting, the same `::error::` text. Let one copy
+    drift and the same mistake reports differently depending on where it was
+    caught, which is worse than having caught it once.
+    """
+    steps = _load("run-seed.yml")["jobs"]["seed"]["steps"]
+    (early,) = [s for s in steps if s.get("name") == "Validate dispatch inputs"]
+    early_errors = _error_lines(str(early["run"]))
+    assert early_errors, "the up-front validator refuses nothing"
+    # Every refusal a dispatch-only step can print must be printable up front in
+    # exactly the same words. The step's own guards differ — its `if:` already
+    # narrows the mode, so a late copy needs no mode conjunct the early one does
+    # — but the text a maintainer reads may not.
+    for owner in (
+        "Re-serve the named dockets",
+        "Converge disposition labels (dispatch-only)",
+        "Re-grade named cells (dispatch-only)",
+    ):
+        late_errors = _error_lines(str(_named_step("run-seed.yml", "seed", owner)["run"]))
+        assert late_errors, f"{owner}: refuses nothing, so the pairing is vacuous"
+        drifted = late_errors - early_errors
+        assert not drifted, (
+            f"{owner}: refusal text absent from `Validate dispatch inputs` — "
+            f"the two copies must stay word-for-word identical: {sorted(drifted)}"
+        )
+
+
+def _error_lines(run: str) -> set[str]:
+    """Every ``::error::`` annotation a block can emit, indentation stripped.
+
+    Compared as a set rather than in order, because the up-front copy carries
+    every step's refusals in one script while each step carries only its own.
+    """
+    return {line.strip() for line in run.splitlines() if "::error::" in line}
+
+
+def test_the_python_seams_bounds_match_the_shared_script() -> None:
+    """The Python-side `gh` seams hold the same three numbers as the script.
+
+    Two Python seams bound their calls themselves, because the commands they
+    back are invoked from Python rather than wrapped in shell:
+    `agent_feedback.py`'s default runner, whose constants this test compares to
+    the script directly, and `authz.py`'s default permission lookup, whose
+    constants `test_authz.py` pins equal to `agent_feedback.py`'s — so the pin
+    to the script is transitive, and deleting either link breaks the chain.
+    The constants say they are kept identical to the script's, which is only
+    true while something compares them — the same reason the inline copies
+    above are pinned. A longer timeout or a fourth attempt applied on one side
+    alone would otherwise leave the surfaces silently disagreeing about how
+    long a degraded API is tolerated.
     """
     canonical = _gh_retry_body(GH_RETRY_SCRIPT.read_text())
     assert f"timeout {_GH_TIMEOUT_SECONDS}" in canonical

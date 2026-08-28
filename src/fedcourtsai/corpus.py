@@ -359,9 +359,10 @@ class CorpusRow(BaseModel):
     amicus_briefs: int | None = Field(
         default=None,
         description="How many amicus briefs an interim application's docket "
-        "records (counted per entry naming amicus curiae — a stakes proxy, and "
-        "an approximation: a multi-filer entry counts once, a motion reciting "
-        "the phrase counts alongside the brief, and the max-latch makes any "
+        "records (counted per entry naming amicus or amici curiae — a stakes "
+        "proxy, and an approximation: a multi-filer entry counts once, a motion "
+        "reciting the phrase counts alongside the brief, a brief still awaiting "
+        "the Clerk counts only once accepted, and the max-latch makes any "
         "overcount permanent; see `interim_signals.amicus_briefs`). None = "
         "never application-parsed; the upsert max-latches it (filings are "
         "append-only, so the count only ever grows and a degraded parse's "
@@ -1864,9 +1865,14 @@ def is_stale_unparsed_grant(row: CorpusRow, *, today: date) -> bool:
     ``merits_judgment`` nor a recorded ``merits_terminated``
     :data:`STALE_GRANT_DAYS` after its own grant reads as unresolvable, not
     open. The same population and bound as ``validate``'s
-    ``no_stale_unparsed_grants`` check, so what the check reports and what
-    the forecastability arm refuses are one class — a row the check turns
-    red can never also be spending forecast cells. Releases itself: a later
+    ``no_stale_unparsed_grants`` check, so a row that check turns red can never
+    also be spending forecast cells. The implication runs one way only: that
+    check carries a named exception list
+    (:data:`fedcourtsai.validate._OFF_DOCKET_TERMINAL_CASES`) for rows whose
+    terminal is not on their own docket and so can never be mended, and those
+    stay refused here — excepting a row says its *record* needs no mending, never
+    that the case is still pending, and a forward cell on a case decided years
+    ago would be a mislabeled backtest either way. Releases itself: a later
     re-fetch that latches either column takes the row out of the class.
     """
     if not opens_merits_proceeding(row):
@@ -2380,8 +2386,10 @@ def iter_rows(
     court: str | None = None,
     disposition: Disposition | None = None,
     resolved: bool | None = None,
+    live_slice: bool | None = None,
 ) -> Iterator[CorpusRow]:
-    """Yield rows in ``case_id`` order, optionally filtered by court / disposition.
+    """Yield rows in ``case_id`` order, optionally filtered by court, disposition,
+    resolution, or live-slice membership.
 
     The filters cover the common retrieval and back-test selections; richer
     querying (by judge, topic, citation, or semantic similarity) is layered on
@@ -2390,13 +2398,19 @@ def iter_rows(
     than ``retrieve_priors``' resolved reading (which also counts a decision
     date), because this seam's consumers (the prior-vote index, disposition
     aggregation) need the label itself — pushed into SQL so a consumer of the
-    small resolved slice never pays a full-corpus scan.
+    small resolved slice never pays a full-corpus scan. ``live_slice`` is the
+    same trade for :func:`is_live_slice` (via :data:`LIVE_SLICE_SQL`): the slice
+    is a low-percent sliver of a corpus whose SCOTUS half runs to hundreds of
+    thousands of bulk-import rows, so a pass that only wants it must not
+    hydrate every one of them to discard it in Python.
     """
     clauses: list[str] = []
     params: list[object] = []
     if court is not None:
         clauses.append("court = ?")
         params.append(court)
+    if live_slice is not None:
+        clauses.append(LIVE_SLICE_SQL if live_slice else f"NOT ({LIVE_SLICE_SQL})")
     if disposition is not None:
         clauses.append("disposition = ?")
         params.append(Disposition(disposition).value)

@@ -8,11 +8,13 @@ token, no network — exactly as the offline local loop does.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+import threading
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from types import MappingProxyType
+from typing import Any
 
 import pytest
 
@@ -48,6 +50,38 @@ def _reset_casestore_transport() -> Iterator[None]:
     casestore.reset_active_transport()
     yield
     casestore.reset_active_transport()
+
+
+class DictSnapshotSource:
+    """A payload read source over a dict of stored snapshots.
+
+    Just enough of :class:`fedcourtsai.corpus.PayloadReadSource` to serve
+    ``latest_snapshot``, the one method the snapshot-reading sweeps exercise.
+    Records the thread each read ran on, so a test can pin a pass's fetch
+    schedule — which cases are read at all, and that none is read twice.
+    """
+
+    def __init__(self, snapshots: Mapping[str, tuple[date, dict[str, Any]] | None]) -> None:
+        self._snapshots = snapshots
+        self.read_threads: dict[str, list[int]] = {}
+        self._lock = threading.Lock()
+
+    def latest_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None:
+        with self._lock:
+            self.read_threads.setdefault(case_id, []).append(threading.get_ident())
+        return self._snapshots.get(case_id)
+
+    def snapshot_at(self, case_id: str, *, before: date) -> tuple[date, dict[str, Any]] | None:
+        return None
+
+    def latest_live_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None:
+        return None
+
+    def documents_for_case(self, case_id: str) -> list[corpus.CaseDocument]:
+        return []
+
+    def opinion_text(self, case_id: str) -> str | None:
+        return None
 
 
 @dataclass(frozen=True)

@@ -19,7 +19,11 @@ The corpus has two halves:
   sha256 + schema version; see
   [`fedcourtsai.corpus_remote`](../src/fedcourtsai/corpus_remote.py))
   is committed to git (the blob and its
-  sidecars are gitignored). In production (the corpus-split mode,
+  sidecars are gitignored). Every push adds a version and none is ever removed,
+  so any commit's pointer stays pullable — the retention contract and the
+  storage-class rule that pays for it are *Index retention: keep every version*
+  in [docs/data-pipeline.md](../docs/data-pipeline.md). In production (the
+  corpus-split mode,
   `FEDCOURTS_CORPUS_SPLIT=1` on the prod environment) the writers keep it
   **payload-free**: the `snapshots`/`documents` tables stay empty and
   `cases.opinion_text` stays NULL (a `has_opinion` presence bit is retained),
@@ -106,7 +110,7 @@ source.
 | `amicus_briefs`       | integer         | amicus briefs on an interim application's docket, counted per entry; null = never application-parsed |
 | `merits_judgment`     | text            | what the Court did to the judgment below on a granted case (the `Judgment` vocabulary), parsed from the docket's terminal entry by the shared parser — the live poll latches it at ingest, the backfill reconciles offline; null = no parsed judgment |
 | `merits_decided`      | date            | docket date of the disposition entry `merits_judgment` was parsed from; null when that entry is undated |
-| `merits_terminated`   | text            | why a granted case's merits proceeding ended **without** a disposition (the `MeritsTermination` vocabulary — a post-grant Rule 46 dismissal, a bare mandate notation), written by the backfill sweep alone; null = not known to have terminated |
+| `merits_terminated`   | text            | why a granted case's merits proceeding ended **without** a disposition (the `MeritsTermination` vocabulary — a post-grant Rule 46 dismissal, a dismissal as moot, an abatement on the petitioner's death, a grant the Court vacated, a bare mandate notation), written by the backfill sweep alone; null = not known to have terminated |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on, while `panel` carries the structured detail.
@@ -183,7 +187,9 @@ parse would fabricate a mismatched pair. Merits outcome detection reads these
 columns, so the pair is a scoring input, not only a statistic.
 `merits_terminated` sits beside the pair and deliberately outside it: a granted
 case can end with no disposition at all — voluntarily dismissed under Rule 46
-after the grant, or carrying a bare mandate notation and nothing else — and
+after the grant, dismissed as moot, abated on the petitioner's death, left with
+its grant order vacated, or carrying a bare mandate notation and nothing
+else — and
 recording that as a seventh `Judgment` would put a non-disposition into the
 parsed slice the merits base rate is pooled from, scored as though the judgment
 below had survived. So the sweep stamps its own column instead, only where no

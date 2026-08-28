@@ -172,7 +172,13 @@ from .pipeline.cert_signals import (
 )
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
-from .pipeline.documents import backfill_questions_presented
+from .pipeline.documents import (
+    KIND_PETITION,
+    TextCoverage,
+    backfill_questions_presented,
+    document_text_coverage,
+    questions_presented_extract,
+)
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
@@ -261,7 +267,7 @@ from .store import (
     stratify,
     unforecastable_listed_events,
 )
-from .supremecourt import SupremeCourtClient, current_docket_term
+from .supremecourt import SupremeCourtClient, current_docket_term, parse_scotus_docket_number
 from .usage import (
     parse_claude_usage,
     parse_codex_usage,
@@ -705,9 +711,19 @@ def distribution_census_cmd(
     snapshot — the entry-initial rule is a claim about the live channel's entry
     conventions, so counting a REST payload under it would report a channel
     artifact as a parse delta — and are banded by one salience version's band
-    function, so the reported delta (changed counts, the band-transition matrix,
-    a per-Term rollup split by docket maturity, and every changed case id) is
+    function, so the reported delta (changed counts split by direction, the
+    band-transition matrix, a per-Term rollup split by docket maturity, a
+    per-band rollup keyed on the incumbent label, and every changed case id) is
     attributable to the phrase-reading alone.
+
+    Every cut carries its denominator. The banner prints `cases` as a fraction
+    of the `cases + unobservable` frame; pending rides both denominators
+    (`frame_pending` over the whole frame, the per-Term `pending` over the
+    observable rows); and the matrix is the full band-by-band square,
+    zero-filled, so an observed zero is never an omitted cell — which half of it
+    a parse pair can occupy is a property of the pair (a subset candidate can
+    only lower the count and every band function is monotone in it, so no case
+    moves to a stronger band), with `count_increased` as the observed check.
 
     The **input-level** cut only, and conditional: the corpus column, the
     statpack's band base rates, and the relist-tier cutpoints were all fitted
@@ -774,21 +790,43 @@ def distribution_census_cmd(
             candidate_parse=candidate_parse,
             version=version,
         )
+    # `cases` is the observable rows, not the frame, so it is printed against
+    # its own denominator: a census that could read a tenth of its frame and one
+    # that read all of it otherwise announce themselves identically.
+    frame = census.cases + census.unobservable
+    coverage = f"{100 * census.cases / frame:.1f}% of the {frame}-row frame" if frame else "no rows"
     typer.echo(
         f"distribution census {census.baseline_parse} -> {census.candidate_parse} "
-        f"({census.salience_version}): cases={census.cases} "
+        f"({census.salience_version}): cases={census.cases} ({coverage}) "
         f"unobservable={census.unobservable} count-changed={census.count_changed} "
         f"band-changed={census.band_changed}",
         err=True,
     )
+    # Both pending denominators, in the line that names the frame: the divergence
+    # between them is the reason the census carries two.
     typer.echo(
         "frame: live-slice paid modern-cert SCOTUS, pending included, "
-        f"latest live snapshot; corpus sha256={census.corpus_sha256 or '(unknown)'}",
+        f"latest live snapshot; pending={census.frame_pending} of the frame "
+        f"and {census.pending} of the {census.cases} observable; "
+        f"corpus sha256={census.corpus_sha256 or '(unknown)'}",
         err=True,
     )
-    for cell in census.transitions:
-        if cell.from_band != cell.to_band:
-            typer.echo(f"{cell.from_band} -> {cell.to_band}: {cell.n}", err=True)
+    # The occupied off-diagonal cells, as a count and never as a share of the
+    # square: how many cells a parse pair can reach at all is a property of the
+    # pair (a subset candidate only lowers counts, so it only moves a case down
+    # the band order), so a density over every off-diagonal cell would read as
+    # sparsity where the unreached cells are an identity. The artifact carries
+    # every cell zero-filled, so an unprinted cell is an observed zero.
+    moves = [cell for cell in census.transitions if cell.from_band != cell.to_band and cell.n]
+    for cell in moves:
+        typer.echo(f"{cell.from_band} -> {cell.to_band}: {cell.n}", err=True)
+    typer.echo(
+        f"occupied off-diagonal transition cells: {len(moves)} (the square carries all "
+        f"{len(census.transitions)} zero-filled; which are reachable depends on the parse "
+        f"pair); count moved up in {census.count_increased} case(s), "
+        f"down in {census.count_decreased}",
+        err=True,
+    )
     typer.echo(census.model_dump_json())
 
 
@@ -943,9 +981,10 @@ def backfill_merits_judgments_cmd(
     stage section, the merits base rate pooled from it, and merits outcome
     detection. Where no judgment shape matches anywhere, a second, smaller
     vocabulary runs as fallback — the terminations, for a proceeding that ended
-    without a disposition (a post-grant Rule 46 dismissal, a bare mandate
-    notation) — and stamps `merits_terminated` instead, which closes the row's
-    pendency without entering the parsed slice. Idempotent; a row
+    without a disposition (a post-grant Rule 46 dismissal, a dismissal as moot,
+    an abatement on the petitioner's death, a grant the Court vacated, a bare
+    mandate notation) — and stamps `merits_terminated` instead, which closes
+    the row's pendency without entering the parsed slice. Idempotent; a row
     whose snapshot is unreachable is counted `no_snapshot` and left as it is.
     Dry-run by default; `--apply` writes (run where the corpus is pulled,
     `corpus-push` after). Prints a `MeritsBackfillResult`. Fails loud if the
@@ -1523,36 +1562,70 @@ def converge_disposition_labels_cmd(
 
     A deterministic **ledger** convergence sweep for the labels no re-resolution
     reaches: `record_outcomes` is idempotent-by-filter, so a resolved event is
-    never revisited, and a prose GVR — an order granting, vacating and remanding
-    in one breath, which `match_disposition_signal` now reads through its
-    vacatur-sentence upgrade — stays recorded as a plain `granted`. Over each
-    committed cert-stage outcome labeled `granted` **resolved on or after the era
-    boundary** (`disposition_convergence.PARSED_ORDER_TEXT_SINCE`), the sweep
-    reads the case's latest stored snapshot, parses the earliest disposing entry
-    at or after the recorded resolution date, and relabels **only** where that
-    parse returns `gvr`.
+    never revisited. Over each committed cert-stage outcome labeled `granted`,
+    the sweep reads the case's latest stored snapshot, parses the earliest
+    disposing entry at or after the recorded resolution date, and relabels only
+    where that parse confirms one of **two arms**.
 
-    The era boundary is the separation the forward-convention rule needs, and it
-    is enforced here rather than left to snapshot coverage: before it, a cert
-    label was normalized from upstream record fields and never passed through
-    the disposition parser, so its `granted` is the older vocabulary's faithful
-    record — the protected residual — not a parse gap. Those are reported, never
-    rewritten.
+    `gvr` — the same order read more finely: an order granting, vacating and
+    remanding in one breath, which `match_disposition_signal` reads through its
+    vacatur-sentence upgrade, sits recorded as a plain `granted`. The petition
+    was granted either way, so only the label sharpens.
+
+    `disowned-grant` — no order on the petition at all: the recorded grant was
+    read off an ancillary order *about* the petition (an extension of time to
+    respond, a delayed distribution, an unsealing) whose wording put the cert
+    noun beside a granting verb, while the case's real terminal — a denial or a
+    petition-stage Rule 46 dismissal — was recorded nowhere. This arm moves the
+    grant binary 1 → 0 and re-dates the resolution to the confirming entry.
+
+    The era boundary is the separation the forward-convention rule needs: before
+    it, a cert label was normalized from upstream record fields and never passed
+    through the disposition parser, so its `granted` is the older vocabulary's
+    faithful record — the protected residual — not a parse gap. It governs the
+    `gvr` arm outright. The `disowned-grant` arm reaches back through it on
+    positive evidence instead of on the calendar: it fires only where an entry
+    **dated the recorded resolution** exists and **nothing anywhere on the
+    docket** still parses as a grant — an order sat there, a grant was read out
+    of it once, and today's parser reads no grant at all, which is a parse gap
+    with a date on it. A resolution date the snapshot carries no entry for, or a
+    docket that still carries a grant order somewhere (the real grant whose Rule
+    46 exit or mootness dismissal comes later), is reported and never rewritten.
 
     Candidates carrying committed predict/evaluate output are **held back by
     default**, because an `evaluation.json` is stamped with a `correct` bit
     computed from the outcome; `--include-scored` opts in and reports, per
     relabel, how many stamped evaluations it puts in the re-grade backlog that
-    `stamp-cell --regrade` is the follow-through for.
+    `stamp-cell --regrade` is the follow-through for. On a `disowned-grant` that
+    backlog is not the whole debt. `resolved_at` only ever moves **later** (the
+    confirming entry is at or after the recorded resolution), so a withdrawal
+    can only push an already-scored cell from the retrospective stratum toward
+    `forward` — the leaderboard's rank key — and can only clear a recorded
+    forward-claim breach, never the reverse. Both are correct where the
+    withdrawal is, but the direction is one-sided and flattering, so read the
+    dry run for it; neither lands through `--regrade` — they arrive on the next
+    board build.
 
-    Self-confirming, so the report is the point: every population member not
-    relabeled is printed with its reason, and the header carries the honest
-    denominators — how many candidates were actually checkable, how many had no
-    readable text, and how many the sweep declines to judge. Ledger-side only:
-    the corpus's own disposition column converges through the pull path, and
-    corpus writes belong to the writer jobs' upsert path.
+    Self-confirming, so the report is the point: every relabel is printed with
+    the arm that authorized it, every population member not relabeled with its
+    reason, and the header carries the honest denominators — how many
+    candidates were actually checkable, how many
+    had no readable text, how many the sweep declines to judge, and how the
+    relabels split between the two arms, since the `disowned-grant` count is the
+    one that moves grant rates — in the ledger. **The corpus is a separate
+    store and does not follow**: base rates and every published disposition
+    figure are built from it, so until it is corrected too a withdrawn row reads
+    0 here while still counting as a grant in the denominators those cells are
+    scored against. The live channel closes part of the gap
+    (`ingest._live_resolution` re-reads the proceedings through the same guard,
+    and the columns take the incoming value on upsert rather than latching; the
+    CourtListener pull reads the upstream record's own fields and never consults
+    the guard) — but only for rows `corpus.live_rotation` still polls, which a
+    fabricated grant that opened no merits event is not. Those owe a curated
+    corpus write, and corpus writes belong to the writer jobs' upsert path.
 
-    Idempotent (a `gvr` outcome no longer reads `granted`). Dry-run by default.
+    Idempotent (neither a `gvr` nor a `denied`/`dismissed` outcome reads
+    `granted`). Dry-run by default.
     `--apply` writes and **requires** `--max-relabels`, so the number applied is
     one the maintainer read in the dry run rather than a default nobody chose;
     it refuses above that bound, since the population this sweep converges is
@@ -1596,9 +1669,14 @@ def converge_disposition_labels_cmd(
         )
         raise typer.Exit(code=1)
     verb = "relabeled" if apply else "would relabel"
+    # Split by arm in the header: the two carry different risk — `gvr` sharpens a
+    # label the binary keeps, `disowned-grant` withdraws the grant outright — so
+    # the count a maintainer approves with `--max-relabels` has to say which.
+    withdrawals = sum(1 for entry in result.relabeled if entry.arm == "disowned-grant")
     typer.echo(
         f"converge-disposition-labels ({'applied' if apply else 'dry-run'}): "
-        f"{verb} {len(result.relabeled)} of {result.checkable} checkable candidate(s); "
+        f"{verb} {len(result.relabeled)} of {result.checkable} checkable candidate(s) "
+        f"({len(result.relabeled) - withdrawals} gvr, {withdrawals} disowned-grant); "
         f"{result.uncheckable} uncheckable (no readable docket text); "
         f"{result.out_of_scope} out of scope"
     )
@@ -1608,11 +1686,26 @@ def converge_disposition_labels_cmd(
             if entry.stamped_evaluations
             else ""
         )
+        # The `disowned-grant` arm moves the grant binary and re-dates the
+        # resolution, so its line says both out loud rather than leaving a
+        # reviewer to infer them from the label: those are the two fields a
+        # relabel here can put out of step with anything already scored or
+        # plotted against the old date.
+        withdrawal = (
+            f"; grant bit 1 -> 0, resolution re-dated to {entry.entry_filed.isoformat()}"
+            if entry.arm == "disowned-grant"
+            else ""
+        )
+        # A withdrawal rests on two pieces of text, not one, and the *refused*
+        # sentence is the half a reviewer cannot reconstruct: it is why the
+        # stored grant is a parse gap rather than a record to leave alone.
+        # Printed first, since the arm is only warranted if it convinces.
+        recital = f" — read from {entry.recital!r}" if entry.recital else ""
         typer.echo(
-            f"  {verb} {entry.ref}: {entry.was.value} -> {entry.now.value} ({entry.basis}) "
-            f"[entry {entry.entry_filed.isoformat()}, resolved "
+            f"  {verb} {entry.ref} [{entry.arm}]: {entry.was.value} -> {entry.now.value} "
+            f"({entry.basis}) [entry {entry.entry_filed.isoformat()}, resolved "
             f"{entry.resolved_at.isoformat()}, snapshot {entry.snapshot_date.isoformat()}]"
-            f"{backlog} — {entry.evidence!r}"
+            f"{withdrawal}{backlog}{recital} — {entry.evidence!r}"
         )
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")
@@ -1745,6 +1838,13 @@ def qp_corpus(
         Path | None,
         typer.Option("--corpus", help="Corpus database (default: <corpus_root>/corpus.db)."),
     ] = None,
+    all_texts: Annotated[
+        bool,
+        typer.Option(
+            "--all",
+            help="Measurement form: every stored questions-presented row in the blob, unscoped.",
+        ),
+    ] = False,
 ) -> None:
     """Extract the stored ``questions-presented`` texts a topic labeler reads.
 
@@ -1752,16 +1852,45 @@ def qp_corpus(
     order — the whole input a ``qp-topic-v0`` labeler is entitled to, since the
     vocabulary is text-only (``docs/qp-topic.md``): no docket context, no case
     name, no outcome, so a label can never encode a decision the text predates.
-    Opens the corpus strictly read-only and never migrates it, so it is safe to
-    run against a pulled blob. A row whose case carries no docket number, or
-    whose stored text is empty, is skipped and counted rather than guessed at —
-    the docket number is half the key the reference join is checked on, and an
-    empty extraction is nothing to label. The extract is a working file for one
-    labeler run, **never a committed artifact**: it enumerates the ingested
-    corpus and republishes stored petition text, neither of which any committed
-    surface does, so writing it anywhere inside the work tree is refused
-    outright rather than left to reviewer attention — an untracked file in the
-    checkout is one ``git add -A`` from being committed.
+
+    **Scoped to the labeling population** by default: the live/historical
+    slice's modern discretionary-cert petitions — exactly the frame the docket
+    pack's topic section is computed over, so every labeled row has a published
+    home and nothing in that frame is unlabelable. Narrowing further to the
+    predict-scope segment is deliberately *not* done: it would drop the
+    in-forma-pauperis stream while the hand reference set spans both, which
+    would either put the publication gate's coverage floor out of reach or,
+    with the reference set carried back in, make an IFP docket number a certain
+    reference-membership tell (``docs/qp-topic.md``). ``--all`` is the unscoped
+    **measurement** form — every stored questions-presented row in the blob,
+    whatever its case — for answering what a given file holds. It is not a
+    labeling selection.
+
+    Reads each scoped case's documents through the registered payload path, so
+    the extract serves from the per-case content store under the corpus split
+    and from the blob otherwise; ``--all`` reads the blob's ``documents`` table
+    directly, which a split blob leaves empty by construction. Opens the corpus
+    strictly read-only and never migrates it, so either form is safe against a
+    pulled blob. A row whose case carries no docket number, or whose stored text
+    is empty, is skipped and counted rather than guessed at — the docket number
+    is half the key the reference join is checked on, and an empty extraction is
+    nothing to label.
+
+    **Refuses an extract larger than the labeling ceiling**
+    (:data:`~fedcourtsai.pipeline.qp_topics.LABEL_ROW_CEILING`), printing the
+    count and the scope it would have had to label. A labeling dispatch is one
+    headless turn under a hard step cap, and only a *complete* label file yields
+    an artifact, so an over-budget extract does not buy partial coverage — it
+    buys a killed step, full spend, and no artifact. The refusal is the count:
+    it is what a maintainer needs to decide what to do next, and it costs the
+    extract job rather than the labeling one.
+
+    The extract is a working file for one labeler run, **never a committed
+    artifact**: it enumerates the ingested corpus and republishes stored
+    petition text, neither of which any committed surface does, so writing it
+    anywhere inside the work tree is refused outright rather than left to
+    reviewer attention — an untracked file in the checkout is one ``git add -A``
+    from being committed.
     """
     settings = get_settings()
     destination = out.resolve()
@@ -1777,43 +1906,66 @@ def qp_corpus(
     if not db_path.is_file():
         typer.echo(f"qp-corpus: no corpus at {db_path} (run `fedcourts corpus-pull`)", err=True)
         raise typer.Exit(code=1)
-    rows: list[dict[str, str]] = []
-    skipped = 0
+    scope = (
+        "every stored questions-presented row in the blob"
+        if all_texts
+        else "live-slice modern discretionary-cert petitions"
+    )
     conn = sqlite3.connect(f"file:{quote(str(db_path.resolve()))}?mode=ro&immutable=1", uri=True)
+    conn.row_factory = sqlite3.Row
     try:
-        cursor = conn.execute(
-            "SELECT d.case_id, c.docket_number, d.text FROM documents AS d "
-            "LEFT JOIN cases AS c ON c.case_id = d.case_id "
-            "WHERE d.kind = 'questions-presented'"
-        )
-        for case_id, docket_number, text in cursor:
-            if not (docket_number or "").strip() or not (text or "").strip():
-                skipped += 1
-                continue
-            rows.append({"case_id": case_id, "docket_number": docket_number, "text": text})
-    except sqlite3.OperationalError as exc:
-        typer.echo(f"qp-corpus: cannot read stored documents from {db_path}: {exc}", err=True)
+        extract = questions_presented_extract(conn, scoped=not all_texts)
+    except Exception as exc:
+        # Deliberately broad, and deliberately a named refusal. Under the split
+        # the scoped pass's reads are content-store GETs, which surface
+        # transport failures (denied credentials, throttling, an expired
+        # session) as whatever the client raises, and `prefetch_by_case`
+        # propagates by contract. A traceback in the extract job says nothing
+        # useful in a run summary; this says which blob and which store failed,
+        # and no partial extract is written either way.
+        typer.echo(f"qp-corpus: cannot read stored documents for {db_path}: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     finally:
         conn.close()
-    if not rows:
+    if not extract.rows:
         # An empty extract is a mis-wired run, never a labeling task: the blob
-        # carries no document text (a payload-free index, or a split-mode blob
-        # whose texts live in the content store), so exiting 0 here would hand a
-        # labeler an empty file and call it done.
+        # carries no document text for this scope (a payload-free index whose
+        # content store is not wired, or `--all` against a split blob, whose
+        # texts live in the store), so exiting 0 here would hand a labeler an
+        # empty file and call it done.
         typer.echo(
-            f"qp-corpus: no question-presented text in {db_path} "
-            f"({skipped} row(s) skipped) — wrong blob for this command?",
+            f"qp-corpus: no question-presented text in {db_path} for {scope} "
+            f"({extract.skipped} row(s) skipped) — wrong blob for this command?",
             err=True,
         )
         raise typer.Exit(code=1)
-    rows.sort(key=lambda row: row["case_id"])
-    write_raw_json(out, rows)
-    if skipped:
+    if len(extract.rows) > qp_topics.LABEL_ROW_CEILING:
         typer.echo(
-            f"qp-corpus: skipped {skipped} row(s) with no docket number or no text", err=True
+            f"qp-corpus: refusing to write {len(extract.rows)} row(s) — over the "
+            f"{qp_topics.LABEL_ROW_CEILING}-row labeling ceiling. Scope: {scope}. "
+            "The labeler runs as one headless turn under a hard step cap and only a "
+            "complete label file yields an artifact, so this extract would spend the "
+            "run and produce nothing. Nothing was written, and there is no flag that "
+            "makes this proceed: labeling this population needs a deliberately "
+            "partial cut, which is a design decision and is not built (see "
+            "docs/qp-topic.md). Do not truncate the extract by hand — case_id order "
+            "is docket-number order, so a prefix selects on docket number.",
+            err=True,
         )
-    typer.echo(f"qp-corpus: {len(rows)} question(s) presented -> {out}")
+        raise typer.Exit(code=1)
+    write_raw_json(
+        out,
+        [
+            {"case_id": row.case_id, "docket_number": row.docket_number, "text": row.text}
+            for row in extract.rows
+        ],
+    )
+    if extract.skipped:
+        typer.echo(
+            f"qp-corpus: skipped {extract.skipped} row(s) with no docket number or no text",
+            err=True,
+        )
+    typer.echo(f"qp-corpus: {len(extract.rows)} question(s) presented ({scope}) -> {out}")
 
 
 @app.command("qp-topics")
@@ -4783,6 +4935,90 @@ def _echo_read_stats(conn: corpus.ReadConnection) -> None:
         )
 
 
+def _echo_text_coverage(coverage: TextCoverage) -> None:
+    """Print one text-coverage measurement, self-limiting on what it could read.
+
+    Every line carries its own denominator, for the reason the censuses print
+    theirs: a pass that reached one case in a hundred and one that reached all
+    of them otherwise announce themselves identically. The source line leads,
+    ahead of any count, because the lines below it assert *absence* — how many
+    documents carry no text, how many cases hold no petition — and under the
+    corpus split a store-blind run finds nothing at all. An assertion of
+    absence must not be read before the thing that says whether the reader
+    could have seen presence.
+
+    Note what the empty share is *not*: a case whose petition row is absent
+    entirely never enters it, which is why the missing-document population gets
+    its own line rather than being left to a reader to notice.
+    """
+    if coverage.offloaded:
+        typer.echo("text source: the per-case content store")
+    else:
+        typer.echo(
+            "text source: this blob's own tables — under the corpus split the "
+            "document text lives in the per-case content store, which this run is "
+            "not configured to read, so every count below is the blob's own and "
+            "undercounts the system"
+        )
+    # The petition alone leads the counts, never a total over the kinds: they do
+    # not share a cause of emptiness, so a pooled headline would be the number
+    # quoted and the one that means least. The other kinds are the table below.
+    petitions, empty = coverage.kind_totals(KIND_PETITION)
+    share = f"{100 * empty / petitions:.2f}%" if petitions else "-"
+    scanned = empty - coverage.unopened_petitions
+    typer.echo(
+        f"text coverage: {empty} of {petitions} stored petition(s) carry no text "
+        f"({share}) — {scanned} with pages but no text layer, "
+        f"{coverage.unopened_petitions} a PDF the extractor could not open at all"
+    )
+    # The other failure mode, printed beside the first because it is the larger
+    # one and nothing re-extracts what was never stored. Two denominators: the
+    # stock of distributed rows (many predating the document channel, so never
+    # fetched for), and the rows actually queued for prediction, which is the
+    # population a missing petition costs a cell on.
+    typer.echo(
+        f"missing documents: {coverage.distributed_without_petition} of "
+        f"{coverage.distributed} distributed case(s) hold no petition row at all, "
+        f"and {coverage.queued_without_petition} of {coverage.queued} queued for "
+        "prediction; an extraction fix reaches none of them. The wide count is a "
+        "stock — a row distributed before the document channel existed was never "
+        "fetched for — so read the queued one for what is recoverable now."
+    )
+    typer.echo(
+        f"text frame: the pass read documents for {coverage.cases_read} of the "
+        f"{coverage.cases} live-slice case(s) it walked — a reach count, not a "
+        "failure rate: most of the rest were never fetched for (a historical-Term "
+        "row, or a petition outside the upstream link window). A run that reaches "
+        "nothing reports 0 here."
+    )
+    # Both columns sized from the data: a renamed or added segment must not
+    # silently misalign the table against a hardcoded width.
+    kind_width = max((len(cut.kind) for cut in coverage.cuts), default=0)
+    segment_width = max((len(cut.segment) for cut in coverage.cuts), default=0)
+    for cut in coverage.cuts:
+        cut_share = f"{100 * cut.share:.2f}%" if cut.share is not None else "-"
+        typer.echo(
+            f"  {cut.segment:<{segment_width}} {cut.kind:<{kind_width}} "
+            f"n={cut.documents} empty={cut.empty} ({cut_share})"
+        )
+    # Said in the report, not only in the source: a questions-presented row is
+    # written only where the petition carries text, so its empty count is
+    # conditioned on the very failure this measures and can never carry a scan.
+    # Printed as 0.00% beside a real `n`, it would read as a measured zero.
+    typer.echo(
+        "  (a questions-presented row exists only where the petition has text, so "
+        "its empty count is structurally unable to carry a scan; the segments are "
+        "the salience gate's scored cut, in practice paid against IFP)"
+    )
+    # The triage list an extraction fix works from, untruncated for the reason
+    # the questions-presented backfill prints its whole ledger: the count says
+    # whether to act, the ids are what acting operates on.
+    if coverage.empty_documents:
+        typer.echo(f"empty text ({len(coverage.empty_documents)} case(s)):")
+        for case_id, kinds in coverage.empty_documents.items():
+            typer.echo(f"  {case_id}: {', '.join(kinds)}")
+
+
 def _ensure_corpus_layout(db_path: Path) -> None:
     """Rebuild the corpus file to the ranged-read layout if it has drifted.
 
@@ -4985,6 +5221,133 @@ def refresh_historical_cmd(
     typer.echo(report.model_dump_json())
 
 
+@app.command("refresh-dockets")
+def refresh_dockets_cmd(
+    docket: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--docket",
+            help="Term-form SCOTUS docket number to re-serve (e.g. `22-451`); repeatable.",
+        ),
+    ] = None,
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Re-serve and re-ingest; omit for a dry-run listing."),
+    ] = False,
+) -> None:
+    """Re-snapshot named SCOTUS dockets without re-walking their Terms.
+
+    The targeted counterpart to `refresh-historical`. That command re-opens whole
+    Terms, which is what a population-wide re-read wants; this one is for the
+    case where the dockets needing a fresh row are *known and enumerated*, where
+    re-covering a Term would pay for its entire serial range at ~1 req/s to reach
+    a handful of them.
+
+    Each named number is re-served from the supremecourt.gov docket JSON and
+    re-ingested through the walk's own path — identity reconciled by docket
+    number, raw JSON stored as the dated snapshot, the resolved row upserted,
+    documents provisioned from the document floor Term.
+    **Additive**, exactly as a re-walk is: the upsert runs through the corpus
+    latches, so no row is deleted and `case_id` never moves, while an unlatched
+    column takes the fresh parse — the way back from a stale reading on a docket
+    no rotation revisits.
+
+    **Corpus-side, on the case this exists for.** The write is the shared ingest
+    seam's, so `outcome.json` is recorded only where the event is still open: a
+    committed outcome is never overwritten. A docket a walk already landed has
+    its cert event latched resolved, so a re-serve converges the corpus row and
+    leaves the ledger label alone — moving that is `converge-disposition-labels`'
+    remit. A number the corpus has never held is onboarded outright, ledger
+    included, exactly as the walk would have onboarded it.
+
+    **No cursor moves.** A targeted re-snapshot is not a rewind: the walk resumes
+    where it was, and re-reading a serial the cursor already passed is the point
+    rather than state to record — so this is safe beside a walk of the same Term,
+    both writing the same rows through the same latches.
+
+    The walk's own rules hold, so a named list can never write what a walk would
+    not: a served record with no machine-readable disposition is reported and
+    skipped (pending matters are the forward poller's charter), and one whose
+    case carries an open, predicted event is left to the watchlist so its
+    resolution reaches the evaluate handoff this path never files.
+
+    Dry-run by default: it resolves each number against the stored rows and
+    fetches nothing, so the reading costs no upstream traffic. `--apply` does the
+    re-serve, and is a corpus write — run it from the writer lane. The whole list
+    is validated before the first fetch, so a typo lands no half of it.
+    """
+    settings = get_settings()
+    numbers = list(docket or [])
+    if not numbers:
+        typer.echo("refresh-dockets: name at least one --docket.", err=True)
+        raise typer.Exit(code=2)
+    malformed = [n for n in numbers if parse_scotus_docket_number(n) is None]
+    if malformed:
+        typer.echo(
+            f"not Term-form SCOTUS docket number(s): {', '.join(malformed)}; want e.g. 22-451. "
+            "Applications (22A123) and original-docket numbers (22O141) are separate "
+            "sequences this path does not serve.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it "
+            "(fedcourts corpus-pull) before re-serving dockets.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cfg = load_historical_config(settings.config_root)
+    if len(numbers) > cfg.max_probes_per_run:
+        typer.echo(
+            f"refresh-dockets: {len(numbers)} docket(s) named, past the "
+            f"{cfg.max_probes_per_run}-probe bound one invocation runs under; "
+            "split the list across dispatches.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if not apply:
+        with corpus.connect(db_path) as conn:
+            for number in numbers:
+                known = corpus.scotus_case_id_by_docket_number(conn, number)
+                typer.echo(f"  {number}: {known or 'no stored row — would onboard'}")
+        typer.echo(
+            f"refresh-dockets (dry-run): would re-serve {len(numbers)} docket(s) "
+            "through the walk's ingest path, leaving every walk cursor where it is; "
+            "re-run with --apply"
+        )
+        return
+    with SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client:
+        rep = historical.refresh_dockets(
+            client, db_path, settings.data_root, cfg, numbers, today=date.today()
+        )
+    _ensure_corpus_layout(db_path)
+    ingested = rep.walk.ingested_granted + rep.walk.ingested_denied + rep.walk.ingested_other
+    typer.echo(
+        f"refresh-dockets (applied): served {len(rep.served)} of {len(numbers)} named; "
+        f"ingested {ingested} (granted={rep.walk.ingested_granted} "
+        f"denied={rep.walk.ingested_denied} other={rep.walk.ingested_other}); "
+        f"documents={rep.walk.documents}"
+    )
+    if rep.unserved:
+        typer.echo(f"  no record upstream: {', '.join(rep.unserved)}")
+    if rep.undecided:
+        typer.echo(f"  served but undecided (not ingested): {', '.join(rep.undecided)}")
+    if rep.left_to_watchlist:
+        typer.echo(
+            f"  left to the watchlist: {', '.join(rep.left_to_watchlist)} "
+            "(an open, predicted event — its re-poll files the evaluate handoff)"
+        )
+    # An upstream error is not a result: the named docket was neither re-served
+    # nor found absent, so the list this dispatch answered for is incomplete.
+    # Annotated rather than fatal, because the numbers that did land are landed
+    # and the caller's next step is a re-dispatch of the remainder, not a
+    # rollback — but it must not read as a clean pass in a run summary.
+    for failure in rep.walk.failed:
+        typer.echo(f"::warning::refresh-dockets could not serve a named docket: {failure}")
+
+
 @app.command("historical-terms")
 def historical_terms(
     report: Annotated[
@@ -5110,7 +5473,22 @@ def make_fixture_corpus(
 
 
 @app.command("corpus-info")
-def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
+def corpus_info(
+    corpus_backend: CorpusBackendOption = "",
+    text_coverage: Annotated[
+        bool,
+        typer.Option(
+            "--text-coverage",
+            help="Also count the stored documents whose text is empty, per kind "
+            "(petition / brief-in-opposition / questions-presented) and split on "
+            "the salience gate's paid modern-cert segment. Opt-in and not cheap: "
+            "it reads the documents of every live-slice case, tens of thousands of "
+            "rows, which under the corpus split is a content-store manifest round "
+            "trip each plus a full text body for every document stored — so the "
+            "default vintage report stays a few KB.",
+        ),
+    ] = False,
+) -> None:
     """Show the corpus location, row count, and freshness (after `corpus-pull`, or ranged).
 
     The freshness line is the reason to run this before making any claim that
@@ -5123,14 +5501,30 @@ def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
     `last_pulled` over the cases (kept in a payload-free index, so it reports
     on the production shape too) and `latest snapshot` the newest dated docket
     state the blob itself stores. A payload-free index stores none: the
-    snapshots live in the per-case content store, which this command does not
-    read. Hence `in this blob` on both snapshot readings — under the corpus
+    snapshots live in the per-case content store, which the snapshot count does
+    not read (`--text-coverage` below is the one read that does reach the
+    store). Hence `in this blob` on both snapshot readings — under the corpus
     split, `no snapshots` would otherwise read as a claim about the system.
 
     Both are maxima over the whole blob: its vintage, not any one case's. The
     pull governor rotates stalest-first, so a maximum says when *anything* was
     last refreshed — a claim about a specific case reads that case's own
     `last_pulled` instead.
+
+    `--text-coverage` adds the other thing worth knowing about a blob before
+    quoting it: not how old the documents are but whether they carry text at
+    all. A filing that arrives as a scan with no text layer stores an empty
+    string, which provisioning stamps on the cell manifest as `empty_text` —
+    written into the cell's manifest, never into a corpus column — so the share
+    is counted off the stored text rather than queried. The counts stay per
+    kind because emptiness does not mean one thing across them: on the two
+    fetched PDFs it reads as a scan, while an empty derived
+    questions-presented row is as likely to be an extraction the deriver would
+    not vouch for, over a petition that does carry text. It is opt-in because
+    it reads every live-slice case's documents (a per-case content-store round
+    trip each, under the corpus split), and it names the source that served
+    those reads: a blob-only run against a split corpus finds no documents at
+    all, and must not be read as a corpus with none.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -5191,6 +5585,8 @@ def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
                         f"pointer: the blob on disk is not the committed ref's (pulled "
                         f"sha256 {pulled_sha}) — re-pull before quoting this vintage"
                     )
+        if text_coverage:
+            _echo_text_coverage(document_text_coverage(conn))
         _echo_read_stats(conn)
 
 
@@ -9285,17 +9681,27 @@ def authorize_trigger_cmd(
     ],
     actor: Annotated[str, typer.Option(help="github.actor that applied the run:* label.")],
     repo: Annotated[str, typer.Option(help="github.repository, owner/name.")],
+    bot_actor: Annotated[
+        str | None,
+        typer.Option(
+            help="Pin the Bot handoff to this login — the pipeline App's own "
+            + "bot account; any other Bot sender is refused outright. Absent, "
+            + "any Bot sender is trusted as the App handoff."
+        ),
+    ] = None,
 ) -> None:
     """Authorize a run:* label trigger, or refuse and exit non-zero (fail closed).
 
-    The pipeline's trust boundary: a Bot sender is the trusted App handoff, any
-    other actor needs write-or-higher collaborator access (looked up via ``gh
-    api``). Every ``run:*`` workflow runs this *before* it mints a token, assumes
-    the S3 role, or runs an agent. Prints the authorization line and exits 0 when
-    allowed; prints the refusal to stderr and exits 1 otherwise. Needs ``GH_TOKEN``
-    in the environment for the permission lookup.
+    The pipeline's trust boundary: a Bot sender is the trusted App handoff
+    (pinnable to one login via ``--bot-actor``), any other actor needs
+    write-or-higher collaborator access (looked up via ``gh api``). Every
+    label-triggered ``run:*`` workflow runs this *before* it mints a token,
+    assumes the S3 role, or runs an agent. Prints the authorization line and
+    exits 0 when allowed;
+    prints the refusal to stderr and exits 1 otherwise. Needs ``GH_TOKEN`` in
+    the environment for the permission lookup.
     """
-    decision = authorize_trigger(sender_type, actor, repo)
+    decision = authorize_trigger(sender_type, actor, repo, bot_actor=bot_actor)
     if not decision.authorized:
         typer.echo(f"::error::{decision.message}", err=True)
         raise typer.Exit(code=1)

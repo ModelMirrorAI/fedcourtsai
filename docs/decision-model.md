@@ -409,12 +409,21 @@ same artifact. A pack parsed from a build the guard never ran on publishes
 its membership is unknown, so it stays in `granted` as a visible coverage
 gap while its judgment stays out of the parsed slice and the rate. A granted
 case recorded as `merits_terminated` sits in `granted` on the same footing,
-whichever of the two shapes it carries: a post-grant Rule 46 dismissal has no
-judgment to place, because nobody reached the merits; a bare mandate notation
-has one the corpus never captured. Folding either into the vocabulary as a
+whichever shape it carries, and they divide in two: a proceeding that ended
+before anyone reached the merits — a post-grant Rule 46 dismissal, a dismissal
+as moot, an abatement on the petitioner's death, a grant the Court vacated —
+has no judgment to place; a bare mandate notation
+has one the corpus never captured. Folding either kind into the vocabulary as a
 seventh value would score it as undisturbed — asserting for the first that the
 decision below survived a merits ruling no one made, and for the second that it
-survived a ruling whose direction the record does not state. The
+survived a ruling whose direction the record does not state. A **vacated
+grant** is the one shape whose termination settles less than it looks: it
+returns the case to the cert stage, so the row's cert `disposition` still names
+an order the Court withdrew, and the row keeps counting as a grant in the
+cert-side rates. The merits half is right — nothing was decided, nothing enters
+the pool — but the cert-label reconciliation is a separate debt no sweep pays,
+and stamping the termination releases the row from `no_stale_unparsed_grants`,
+the only check that named it. The
 invariant the pool publishes under is therefore exact: **every judgment in
 the parsed slice provably postdates its grant**, and `brier_skill_score` is
 computed on merits cells against that guarded pool — the prohibition is

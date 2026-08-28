@@ -35,8 +35,11 @@ everything outside `.github/workflows`.)
   inventory.
 - **Authorization stays fail-closed.** Anything an outside actor can cause
   (issue forms apply labels regardless of permissions!) must be authorized
-  before privileged steps (`authorize-trigger` or a permission check), and the
-  denial path must be the default. New trigger surfaces (labels, dispatch
+  before privileged steps (the tested `authorize-trigger` command — an inline
+  permission check is not an accepted form; the auth-gate test rejects it for
+  every workflow it enumerates, so a NEW label-triggered workflow must be added
+  to its RUN_LABELS to inherit that protection), and
+  the denial path must be the default. New trigger surfaces (labels, dispatch
   inputs, schedules) get the same scrutiny.
 - **Token blast radius.** Which credential can each piece of untrusted input
   (docket text, PDFs, retrieved web content, agent output) reach? Agents get

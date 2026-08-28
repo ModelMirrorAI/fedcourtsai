@@ -401,6 +401,44 @@ each freeze commit is recorded here.
   this entry, not the artifact. The step-0 re-run at the promotion
   confirmed the counts here unmoved.
 
+- **The band risk set's reachable-ladder construction, 2026-08-28.** No freeze
+  commit belongs to this entry, and no data-visible boundary comes with it
+  either: it is the **scoring baseline**, the member
+  of [process-version.md](process-version.md)'s list with no boundary at all.
+  It re-bases `prediction_base_rate` under unchanged digests, an unchanged
+  `base_rate_basis` (`risk_set`) and an unchanged
+  `base_rate_salience_version` — the scorer version does not move, only the
+  population one of its bands is pooled over. The statpack built each band's
+  risk set as a prefix over the band *order*, which under a caption-banded
+  scorer puts every `federal` petition in the risk set of bands its caption
+  made unreachable; it is now pooled over each petition's own reachable ladder
+  (`SalienceScorer.reachable`, [salience.md](salience.md)). Measured on packs
+  built either way from one corpus blob (latest pull `2026-08-27`, latest
+  snapshot `2026-07-13`), pooled at an OT2026 anchor over the full `sal-v3`
+  lookback: `federal` unmoved at 0.7114 (n=201), `high` 0.4117 → 0.3490
+  (1161 → 960), `state` 0.3642 → 0.2156 (1425 → 371), `elevated`
+  0.1991 → 0.1646 (3737 → 3165), `baseline` 0.0652 → 0.0504
+  (13163 → 12591); every *terminal* rate and every `sal-v1` segment is
+  byte-identical across the pair.
+
+  **No published number is re-based.** At this commit the ledger's 144
+  committed evaluations record 24 `terminal` bases and 120 nulls and **zero**
+  `risk_set` bases, and both `metrics/leaderboard.json` and
+  `metrics/claim-scores.json` are empty boards (`evaluations_total: 0`). So the
+  boundary this entry stands in for separates no two scored cells, which is what
+  makes this the moment to take the change rather than a later one. The
+  corrected rates reach cells at the first metrics refresh after the promotion,
+  as a salience flip's do.
+
+  One inconsistency stays on the record until the next re-bless: three passages
+  of `.github/prompts/predict.md` — the band-null cert fallback, the
+  version-mismatch fallback, and the arrival anchor — name the weakest band's
+  bracketed `reached` rate as the scored segment's unconditional rate. Under the
+  reachable ladder that figure is the *private* class's rate, and no single cell
+  of the rendered table carries the segment-wide one. The correction is a prompt
+  byte, so it moves all three predictor digests and belongs with the next freeze
+  label rather than beside the construction.
+
 ## The near-term target: the OT2026 long-conference cert release
 
 The first public release aims at the **September 2026 long conference**. Before
