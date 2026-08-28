@@ -490,9 +490,10 @@ _SAL_V3 = SalienceScorer(
 # `cert_signals.DEFAULT_DISTRIBUTION_PARSE` names `dist-v2` with it. The two move
 # together by necessity, not by tidiness — the relist-increment claim reads its
 # prediction-time count from the frozen context (the active scorer's parse) and
-# its resolution-time count from the corpus column (the default parse), so a
-# split between them would break that claim's "the count never falls" premise
-# upward, a narrower prediction-time count against a wider resolution-time one.
+# its resolution-time count from the outcome's signals block (stamped with the
+# default parse at resolution), so a split between them would resolve every
+# cell frozen during it unavailable: the claim's resolver masks a pair whose
+# two recorded parses differ rather than compare across the boundary.
 # The stored column is re-derived under `dist-v2` ahead of the flip, on a
 # latch-bypassing writer UPDATE, which is what makes the pair honest rather than
 # merely consistent in label (docs/salience.md).

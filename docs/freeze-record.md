@@ -831,3 +831,65 @@ freeze commit is recorded here.
   `run-backtest`'s salience-gate replay with the content store wired — a
   dispatch, not a local command — and until it runs, whether the 41 `high`-leavers
   keep their funding is unanswered.
+
+- **The relist-increment parse mask, 2026-08-28.** A masking-surface change to
+  the mechanical claim family, closing the seam the `sal-v4` activation entry
+  above records as "one seam this activation opens and does not close". Each
+  end of the claim's pair now records the distribution parse it froze under —
+  the prediction side already did, via the parse its stamped `salience_version`
+  pins, and `ResolutionSignals` gains a `distribution_parse` stamp the outcome
+  writer fills with the column's declared parse at resolution.
+  `relist-increment` resolves **unavailable** (`ClaimScore.outcome` null)
+  wherever the two labels differ, wherever the outcome's block carries **no
+  parse stamp**, and wherever the frozen count carries no `salience_version`
+  stamp — in every case the record does not disclose a comparable pair, the
+  same doctrine as the existing `None`-input masks. The mask reads only the
+  committed pair, never the parse live at scoring time, so re-scoring any cell
+  reproduces its resolution.
+
+  **An unstamped block is never assigned a parse from its vintage.** The
+  tempting fallback — read unstamped as `dist-v1`, the column's original
+  reading — fails on ordering twice over. The `dist-v2` activation promoted
+  **before** this stamp shipped, so `main`'s scheduled writers spend the
+  window between the two promotions writing `dist-v2` counts into unstamped
+  blocks; and the only date an outcome carries is the docket's **decision**
+  date, while a block is written when a poll or backfill reaches the docket —
+  days later on live rows, years later on backfills — so not even a date gate
+  can separate the eras. A date-blind or date-gated `dist-v1` fallback would
+  read an in-window block as the wide parse, agree with every `sal-v3`
+  freeze, and resolve exactly the suppressed mis-grade this change refuses —
+  silently and permanently. Masking every unstamped block costs nothing the
+  record could have paid: a sweep at this commit found 12,666 outcomes, 9,686
+  carrying a signals block, **zero stamped, newest resolved 2026-06-30**, and
+  none of them beside a claim-carrying prediction — the fallback had no
+  legitimate consumer to lose.
+
+  What it reaches: a cell whose freeze and resolution **straddle** the
+  `dist-v2` activation, in either direction — a `sal-v3` freeze against a
+  `dist-v2`-stamped block reads low and could suppress a genuine increment; an
+  active-version freeze against a wider-parse block reads high and could mint
+  a spurious one. At this activation that is the **whole committed claim
+  cohort: 106 cells across 36 cases, every one frozen at `sal-v3` and every
+  one on a still-pending event**, so each will resolve against a stamped
+  `dist-v2` block and its relist-increment claim resolves unavailable — the
+  claim's first scorable cohort is the post-flip `sal-v4` cells. The mask is
+  declared **before any such claim can resolve**, which is the timestamp this
+  entry witnesses. The nine cells on three cases the entry above names
+  (`scotus/73500263`, `scotus/73500287`, `scotus/9026000013`, three predictors
+  each) are the subset whose stored *counts* the two parses actually move; the
+  other 97 mask equally, because agreement at freeze time cannot promise
+  agreement over the docket's remaining life and the committed pair discloses
+  only the labels. The treatment that would have recovered them — stamping the
+  count under **both** registered parses on `ResolutionSignals` — is
+  deliberately not taken: the outcome writer reads `row.distribution_count`, a
+  single max-latched column, so a second reading would need a resolution-time
+  payload recount, and the latch means the stored value is not a clean
+  single-parse read for polled rows in any case. No committed grade moves
+  under any arm of the mask: the same sweep found every one of the 106
+  claim-carrying cells on a still-unresolved event — no committed outcome, no
+  stamped claim block anywhere in the cert family. No published number moves at
+  this commit — the claim's baseline
+  is the registered `None` (no strictly-prior relist cut exists), so this is a
+  masking-surface declaration, not a scoring-baseline move — and no digest
+  moves: claim resolution is harness-side arithmetic outside the process
+  digest.

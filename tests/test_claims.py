@@ -19,6 +19,7 @@ from typing import Literal
 
 import pytest
 
+from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.claims import (
     CLAIM_AMICUS_INCREMENT,
     CLAIM_CVSG_INCREMENT,
@@ -41,6 +42,7 @@ from fedcourtsai.pipeline.claims import (
     score_claims,
 )
 from fedcourtsai.pipeline.judgment import judgment_disturbed
+from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.schemas import (
     GRANTED_DISPOSITIONS,
     BaseRateBucket,
@@ -73,6 +75,9 @@ from fedcourtsai.serialize import read_model, write_json
 _EVENT_ID = "evt-petition-writ-of-certiorari"
 
 
+_DERIVE_FROM_BAND = object()  # sentinel: stamp the active version, as the harness does
+
+
 def _context(
     *,
     band: str | None = "baseline",
@@ -80,7 +85,11 @@ def _context(
     distribution_count: int | None = 1,
     cvsg_date: date | None = None,
     signals_observable: bool = True,
+    salience_version: str | object | None = _DERIVE_FROM_BAND,
 ) -> PredictionContext:
+    if salience_version is _DERIVE_FROM_BAND:
+        salience_version = SALIENCE_VERSION if band else None
+    assert salience_version is None or isinstance(salience_version, str)
     return PredictionContext(
         mode="forward",
         snapshot_date=date(2025, 3, 1),
@@ -88,7 +97,7 @@ def _context(
         distribution_count=distribution_count,
         cvsg_date=cvsg_date,
         band=band,
-        salience_version="sal-v1" if band else None,
+        salience_version=salience_version,
         term=term,
     )
 
@@ -116,17 +125,33 @@ def _prediction(
     )
 
 
+def _signals(distribution_count: int, *, cvsg_date: date | None = None) -> ResolutionSignals:
+    # A block as the outcome writer emits it: the column's declared parse
+    # stamped beside the count. A bare ResolutionSignals(...) in a test is the
+    # legacy unstamped block, deliberately.
+    return ResolutionSignals(
+        distribution_count=distribution_count,
+        distribution_parse=DEFAULT_DISTRIBUTION_PARSE,
+        cvsg_date=cvsg_date,
+    )
+
+
 _UNMOVED = object()  # sentinel: the default signals block, distinct from an explicit None
 
 
-def _outcome(*, granted: int = 0, signals: ResolutionSignals | object | None = _UNMOVED) -> Outcome:
+def _outcome(
+    *,
+    granted: int = 0,
+    signals: ResolutionSignals | object | None = _UNMOVED,
+    resolved_at: date = date(2025, 6, 1),
+) -> Outcome:
     if signals is _UNMOVED:
-        signals = ResolutionSignals(distribution_count=1)
+        signals = _signals(distribution_count=1)
     assert signals is None or isinstance(signals, ResolutionSignals)
     return Outcome(
         case_id="scotus/1",
         event_id=_EVENT_ID,
-        resolved_at=date(2025, 6, 1),
+        resolved_at=resolved_at,
         actual_disposition=Disposition.granted if granted else Disposition.denied,
         actual_granted=granted,
         signals=signals,
@@ -137,7 +162,7 @@ def _term(year: int, *, rate: float, n: int = 100) -> StatPackTerm:
     return StatPackTerm(
         term=year,
         base_rates=BaseRateBucket(),
-        salience_version="sal-v1",
+        salience_version=SALIENCE_VERSION,
         segments=[
             StatPackTermSegment(
                 band="baseline",
@@ -204,8 +229,8 @@ def test_disposition_resolves_the_grant_flag() -> None:
 
 def test_relist_increment_is_about_the_rise_not_the_level() -> None:
     ctx = _context(distribution_count=1)
-    unmoved = _outcome(signals=ResolutionSignals(distribution_count=1))
-    rose = _outcome(signals=ResolutionSignals(distribution_count=3))
+    unmoved = _outcome(signals=_signals(distribution_count=1))
+    rose = _outcome(signals=_signals(distribution_count=3))
     assert resolve_claim(CLAIM_RELIST_INCREMENT, ctx, unmoved) == 0
     assert resolve_claim(CLAIM_RELIST_INCREMENT, ctx, rose) == 1
 
@@ -216,6 +241,46 @@ def test_relist_increment_is_masked_where_either_end_is_undisclosed() -> None:
     blind = _context(distribution_count=None, signals_observable=False, band=None)
     assert resolve_claim(CLAIM_RELIST_INCREMENT, blind, _outcome()) is None
     assert resolve_claim(CLAIM_RELIST_INCREMENT, _context(), _outcome(signals=None)) is None
+
+
+def test_relist_increment_is_masked_where_the_pair_straddles_a_parse_activation() -> None:
+    # The two ends record their own parses; the pair resolves only where the
+    # labels agree. A cell frozen under sal-v3 (dist-v1) against a block the
+    # re-derived column stamped dist-v2 compares across the boundary — masked,
+    # even where the count visibly rose (the suppression direction).
+    rose_stamped = _outcome(signals=_signals(distribution_count=3))
+    frozen_before = _context(distribution_count=2, salience_version="sal-v3")
+    assert resolve_claim(CLAIM_RELIST_INCREMENT, frozen_before, rose_stamped) is None
+
+
+def test_an_unstamped_signals_block_discloses_no_parse_and_masks() -> None:
+    # An outcome's only date is the docket's decision date, which says nothing
+    # about when the block was written or under which reading — so an
+    # unstamped block is never assigned a parse from its vintage. It masks
+    # against every frozen version, including the dist-v1-pinned one a
+    # date-based fallback would have agreed with.
+    unstamped_rose = _outcome(signals=ResolutionSignals(distribution_count=3))
+    for version in ("sal-v3", SALIENCE_VERSION):
+        frozen = _context(distribution_count=2, salience_version=version)
+        assert resolve_claim(CLAIM_RELIST_INCREMENT, frozen, unstamped_rose) is None
+
+
+def test_relist_increment_resolves_where_both_ends_share_a_parse() -> None:
+    # The modern pair: frozen under the active version, resolved against a
+    # block stamping the same parse — the arm every post-flip cell exercises.
+    modern = _context(distribution_count=2)
+    assert resolve_claim(CLAIM_RELIST_INCREMENT, modern, _outcome(signals=_signals(3))) == 1
+
+
+def test_relist_increment_is_masked_where_the_frozen_parse_is_unrecorded() -> None:
+    # A count with no salience_version stamp discloses no parse to compare
+    # under; an unregistered stamp is an invariant break, not a mask.
+    unstamped = _context(distribution_count=1, salience_version=None)
+    rose = _outcome(signals=_signals(distribution_count=3))
+    assert resolve_claim(CLAIM_RELIST_INCREMENT, unstamped, rose) is None
+    unregistered = _context(distribution_count=1, salience_version="sal-v99")
+    with pytest.raises(KeyError):
+        resolve_claim(CLAIM_RELIST_INCREMENT, unregistered, rose)
 
 
 def test_cvsg_increment_truth_table() -> None:
@@ -276,7 +341,7 @@ def test_score_claims_end_to_end_matches_the_hand_computed_rule() -> None:
     prediction = _prediction(
         claims=_claims(disposition=0.2, relist=0.7, cvsg=0.05), context=_context()
     )
-    outcome = _outcome(granted=0, signals=ResolutionSignals(distribution_count=3))
+    outcome = _outcome(granted=0, signals=_signals(distribution_count=3))
     block = score_claims(prediction, outcome, pack, lookback_terms=0)
     assert block is not None
     assert block.declared_set_version == CLAIM_SET_CERT_V1
@@ -618,7 +683,7 @@ def _cert_outcome(
         resolved_at=date(2025, 6, 1),
         actual_disposition=disposition,
         actual_granted=int(disposition in GRANTED_DISPOSITIONS),
-        signals=ResolutionSignals(distribution_count=1),
+        signals=_signals(distribution_count=1),
         disposition_route=route,
         noted_dissent_from_denial=dissent,
     )

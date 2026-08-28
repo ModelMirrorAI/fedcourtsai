@@ -17,6 +17,7 @@ from typer.testing import CliRunner, Result
 
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths, EventPaths
+from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.process_version import CURRENT_PROCESS_LABEL
@@ -237,7 +238,7 @@ def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
                 signals_observable=True,
                 distribution_count=1,
                 band="baseline",
-                salience_version="sal-v1",
+                salience_version=SALIENCE_VERSION,
                 term=2025,
             ),
             claims=[
@@ -255,7 +256,9 @@ def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
             resolved_at=date(2026, 5, 1),
             actual_disposition=Disposition.denied,
             actual_granted=0,
-            signals=ResolutionSignals(distribution_count=3),
+            signals=ResolutionSignals(
+                distribution_count=3, distribution_parse=DEFAULT_DISTRIBUTION_PARSE
+            ),
         ),
     )
     write_json(
@@ -266,7 +269,7 @@ def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
                 StatPackTerm(
                     term=2024,
                     base_rates=BaseRateBucket(),
-                    salience_version="sal-v1",
+                    salience_version=SALIENCE_VERSION,
                     segments=[
                         StatPackTermSegment(
                             band="baseline",
