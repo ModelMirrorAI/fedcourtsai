@@ -18,6 +18,7 @@ from fedcourtsai.pipeline.cert_signals import (
     dissent_from_denial,
     match_disposition_signal,
     mootness_disposition,
+    refused_grant_sentence,
     snapshot_distribution_count,
 )
 from fedcourtsai.pipeline.ingest import _live_distribution_count, _live_resolution
@@ -137,11 +138,11 @@ def test_qualified_motion_orders_about_the_petition_are_not_the_cert_disposition
 
 
 def test_qualified_motion_compounds_that_do_grant_the_petition_still_read() -> None:
-    # The widening's own risk direction: shapes the subject anchor newly
-    # reaches, which must still resolve because they say nothing about
-    # "consideration of" — the petition is a conjunctive subject, not an
-    # object. Without these the precision fixtures above could be satisfied by
-    # a guard that ate every qualified-motion order outright.
+    # The widening's own risk direction: shapes the subject anchor reaches,
+    # which must still resolve because the petition is a *conjunctive subject*
+    # rather than the motion's object — the clerk's "and" is what marks it.
+    # Without these the precision fixtures above could be satisfied by a guard
+    # that ate every qualified-motion order outright.
     for text in (
         "Motions to proceed in forma pauperis and petitions for writs of certiorari GRANTED.",
         "Petitioner's motion for leave to proceed in forma pauperis and the "
@@ -211,6 +212,143 @@ def test_rule_398_compound_dismissal_still_reads() -> None:
         "petition for a writ of certiorari is dismissed.  See Rule 39.8."
     )
     assert matched is not None and matched[0] == Disposition.dismissed
+
+
+def test_ancillary_motion_orders_about_the_petition_are_not_the_cert_disposition() -> None:
+    # Verbatim proceedings text from the SCOTUS dockets whose stored
+    # `date_cert_granted` these sentences fabricated — an extension of time to
+    # respond, a delayed distribution, an unsealing. In each the petition is the
+    # motion's *object*, never the subject of the granting verb, and each order
+    # predates the petition's own denial or Rule 46 dismissal, so a match here
+    # records a grant on a case that was never granted and dates it to a
+    # housekeeping order. The clerk's typos ("peition", "writ certiorari") are
+    # kept as filed: the guard has to hold on the text as it is stored, not on a
+    # tidied version of it.
+    for text in (
+        "The motions to extend the time to file responses to the petition for a "
+        + "writ of certiorari are granted and the time is extended to and "
+        + "including March 18, 2019, for all respondents.",
+        "The motions to extend the time to file responses to the petition are "
+        + "granted and the time is extended to and including April 29, 2020, "
+        + "for all respondents.",
+        "The motions to extend the time to file responses to the peition for a "
+        + "writ of certiorari are granted and the time is extended to and "
+        + "including January 13, 2021, for all respondents.",
+        "The motions to extend the time to file responses to the petition for a "
+        + "writ of certiorari are granted in part and the time is extended to "
+        + "and including June 1, 2021, for all respondents.",
+        "Motion to delay distribution of the petition for a writ certiorari "
+        + "granted. The petition will be distributed on the next distribution "
+        + "date after April 30, 2020, which is May 5, 2020.",
+        "Motion to delay distribution of the petition for a writ certiorari "
+        + "granted; the petition will be distributed on June 17, 2020.",
+        "Motion to delay distribution of the petition for a writ certiorari "
+        + "granted in part; the petition will be distributed on Wednesday, "
+        + "June 10, 2020.",
+        "Motion to delay distribution of the petition granted. The petition "
+        + "will be distributed December 23, 2020.",
+        # Not "motion" at all — the clerk files the same paper as a request, so
+        # the subject anchor has to reach it or this one shape survives the fix.
+        "Petitioner's request to delay distribution of the petition granted. "
+        + "The petition will be distributed on January 21, 2021.",
+        "Motion to unseal the petition for a writ of certiorari GRANTED.",
+        "Motion (21M21) for leave to file a petition for a writ of certiorari "
+        + "under seal with redacted copies for the public record Granted.",
+    ):
+        assert match_disposition_signal(text) is None, text
+
+
+def test_the_real_terminals_of_those_dockets_still_read() -> None:
+    # The other half of the same fix: with the ancillary orders suppressed, the
+    # entry the parser reaches is the docket's actual terminal. Both forms the
+    # class carries must read, or the cases would go from mislabeled to
+    # unresolved.
+    for text, expected in (
+        ("Petition DENIED.", Disposition.denied),
+        ("Petition Dismissed - Rule 46.", Disposition.dismissed),
+    ):
+        matched = match_disposition_signal(text)
+        assert matched is not None and matched[0] == expected, text
+
+
+def test_conjoined_petition_orders_that_open_with_a_motion_still_read() -> None:
+    # The escape the guard turns on, in the clerk's own words: every compound
+    # order that really does decide the petition conjoins it into the subject
+    # with "and". These are verbatim corpus entries — without them the
+    # precision fixtures above would be satisfied by a guard that swallowed
+    # every motion-opening order outright.
+    for text, expected in (
+        (
+            "The motion for leave to proceed in forma pauperis is denied, and "
+            + "the petition for a writ of certiorari is dismissed.",
+            Disposition.dismissed,
+        ),
+        (
+            "Motion to proceed in forma pauperis and petition for a writ of certiorari GRANTED.",
+            Disposition.granted,
+        ),
+        (
+            "The motion to expedite and the petition for a writ of certiorari are GRANTED.",
+            Disposition.granted,
+        ),
+        # A "request" subject with the conjunction — and the typographic
+        # apostrophe the clerk types, so the qualifier stays one word: the
+        # widened anchor reaches this sentence, and only the escape keeps it a
+        # grant.
+        (
+            "The Special Counsel\u2019s request to treat the stay application "
+            + "as a petition for a writ of certiorari s granted (23-939), and "
+            + "that petition is granted limited to the following question: "
+            + "Whether a former President enjoys presidential immunity.",
+            Disposition.granted,
+        ),
+    ):
+        matched = match_disposition_signal(text)
+        assert matched is not None and matched[0] == expected, text
+
+
+def test_a_motions_own_coordination_is_not_the_petition_conjunction() -> None:
+    # The escape is anchored on "and" running straight into the cert noun, so a
+    # motion that coordinates its own purposes — or an extension order whose
+    # tail reads "and the time is extended" — never buys its way out of the
+    # guard.
+    for text in (
+        "Motion to extend the time to file a response and to delay "
+        + "distribution of the petition for a writ of certiorari granted.",
+        "Motion to delay distribution of the petition for a writ of certiorari "
+        + "granted, and the time is extended to and including June 1, 2021.",
+        # A conjoined petition that is not the cert petition. Without the
+        # lookahead the escape would fire on "and the petition for", and the
+        # ancillary order would read as a cert disposition again.
+        "Motion to delay distribution of the petition for a writ of certiorari "
+        + "granted, and the petition for rehearing is denied.",
+        "Motion to unseal the petition for a writ of certiorari GRANTED, and "
+        + "the petition for leave to proceed in forma pauperis is granted.",
+    ):
+        assert match_disposition_signal(text) is None, text
+
+
+def test_the_refused_grant_sentence_is_the_text_a_grant_was_read_out_of() -> None:
+    # The audit handle the convergence sweep's withdrawal arm rests on: it
+    # names the ancillary sentence a stored `granted` came from, and stays
+    # silent both where a grant genuinely reads and where nothing grant-shaped
+    # appears at all.
+    refused = refused_grant_sentence(
+        "The motions to extend the time to file responses to the petition for a "
+        "writ of certiorari are granted and the time is extended to and "
+        "including March 18, 2019, for all respondents."
+    )
+    assert refused is not None and refused.startswith("The motions to extend the time")
+    assert refused_grant_sentence("Petition GRANTED.") is None
+    assert refused_grant_sentence("Petition DENIED.") is None
+    assert refused_grant_sentence("Distributed for Conference of March 5, 2021.") is None
+    # A real compound grant reads, so it is not a refusal to report either.
+    assert (
+        refused_grant_sentence(
+            "The motion to expedite and the petition for a writ of certiorari are GRANTED."
+        )
+        is None
+    )
 
 
 def test_ifp_grant_plus_cert_grant_compound_still_reads() -> None:

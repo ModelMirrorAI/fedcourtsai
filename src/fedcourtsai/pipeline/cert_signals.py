@@ -41,7 +41,7 @@ from typing import Any
 
 from dateutil import parser as date_parser
 
-from ..schemas import Disposition
+from ..schemas import GRANTED_DISPOSITIONS, Disposition
 
 # Docket-entry text patterns that signal a concrete cert disposition. Each maps the
 # matched phrase to a :class:`Disposition` and a short human label; the first match
@@ -163,28 +163,78 @@ _SNIPPET_PAD = 40
 #     petition is granted filed."); this shape fabricated a real corpus row's
 #     grant, with the motion's filing date as the "decision" date;
 #   - the order *on a motion about the petition* — the sentence's subject is a
-#     motion and it recites the petition as the object of "consideration of", so
-#     the trailing verb grants/denies the motion, not the petition ("Joint motion
-#     to defer consideration of the petition for a writ of certiorari GRANTED.",
-#     "Motion ... to expedite consideration of the petition ... granted"). The
-#     guard needs both conditions: a legitimate compound order also opens with a
-#     motion word ("The motion to expedite and the petition ... are GRANTED." —
-#     a real grant, conjunctive subject), the Rule 39.8 compound opens with "The
-#     motion for leave ...", and the stay-treated-as-cert grant opens with "The
-#     application ..." — none of the three contains "consideration of".
-# The motion word carries an optional short qualifier ("Joint motion", "Consent
-# motion", "Petitioner's motion") — up to two qualifier words after an optional
-# leading article, so "The unopposed joint motion ..." still anchors. The bound
-# is what keeps the anchor meaning *the sentence's subject is a motion* rather
-# than "a motion is mentioned somewhere ahead of the disposition word". The
-# qualifier class admits both apostrophes the clerk types — ASCII and the
-# typographic U+2019 — so a possessive qualifier counts as one word rather than
-# splitting the bound.
+#     motion (or an application, or a party's request) and the petition reaches
+#     it only as that motion's **object**, so the trailing verb grants or denies
+#     the motion and says nothing about the petition. The clerk writes this
+#     shape a dozen ways, and each one fabricates a cert grant dated to an
+#     ancillary order: "The motions to extend the time to file responses to the
+#     petition for a writ of certiorari are granted ...", "Motion to delay
+#     distribution of the petition for a writ certiorari granted.",
+#     "Petitioner's request to delay distribution of the petition granted.",
+#     "Motion to unseal the petition for a writ of certiorari GRANTED.",
+#     "Joint motion to defer consideration of the petition ... GRANTED."
+# What separates that class from the compound orders that *do* decide the
+# petition is not the motion's purpose — enumerating those is a losing race
+# against the clerk's vocabulary — but the petition's **grammatical role**. In
+# every real compound the petition is a *conjunct of the ordering subject*, and
+# the clerk marks the conjunction with "and": "The motion to expedite and the
+# petition for a writ of certiorari are GRANTED.", the Rule 39.8 pair "The
+# motion for leave to proceed in forma pauperis is denied, and the petition ...
+# is dismissed.", the IFP grant "Motion to proceed in forma pauperis and
+# petition for a writ of certiorari GRANTED.", and the stay-treated-as-cert
+# grant "The application is also treated as a petition ..., and the petition is
+# granted." So the guard fires on a motion-opening sentence *unless* it carries
+# that conjunction — a rule about grammar, which the clerk's wording obeys even
+# where a rule about motion purposes would need extending.
+# One accepted residual, on the cheap side: a motion- or
+# application-opening sentence that granted the petition without conjoining it
+# would be suppressed and left to the routing backstop. Price that side at all
+# three of its costs before widening this guard again, because two of them are
+# not the obvious one: the missed grant wastes a forward-predict cell each
+# cycle, ``provision-snapshot --refuse-terminal`` stops refusing a docket that
+# is in fact decided, and — since
+# :func:`fedcourtsai.disposition_convergence._recording_entry` reads a
+# suppressed grant sentence as proof that a stored ``granted`` was a parse
+# gap — a newly suppressed *real* grant order would read as one to withdraw.
+# The bound still sits on that side: a fabricated grant records ground truth
+# that never happened, on every one of those surfaces at once.
+# The subject word carries an optional short qualifier ("Joint motion", "Consent
+# motion", "Petitioner's motion", "The Special Counsel's request") — up to two
+# qualifier words after an optional leading article, so "The unopposed joint
+# motion ..." still anchors. The bound is what keeps the anchor meaning *the
+# sentence's subject is a motion* rather than "a motion is mentioned somewhere
+# ahead of the disposition word". The qualifier class admits both apostrophes
+# the clerk types — ASCII and the typographic U+2019 — so a possessive qualifier
+# counts as one word rather than splitting the bound. "Request" sits beside
+# "motion" and "application" because the clerk uses it for the same papers
+# ("Petitioner's request to delay distribution of the petition granted."); the
+# conjunction escape is what keeps the one real grant written that way ("The
+# Special Counsel's request to treat the stay application as a petition ..., and
+# that petition is granted ...") readable.
 _FILED_RECITAL_RE = re.compile(r"\bfiled\s*\.?\s*$", re.IGNORECASE)
 _MOTION_OPEN_RE = re.compile(
-    r"^\s*(?:the\s+)?(?:[\w'\u2019-]+\s+){0,2}?(?:motions?|applications?)\b", re.IGNORECASE
+    r"^\s*(?:the\s+)?(?:[\w'\u2019-]+\s+){0,2}?(?:motions?|applications?|requests?)\b",
+    re.IGNORECASE,
 )
-_CONSIDERATION_RE = re.compile(r"\bconsideration of\b", re.IGNORECASE)
+# The petition conjoined into the ordering subject. Anchored on "and" running
+# straight into the cert noun through at most one determiner, so the *motion's*
+# own coordination ("... and to delay distribution of the petition ...") is
+# never mistaken for it: there "and" is followed by the second infinitive, not
+# by the noun. "and the time is extended" — the tail of every extension order —
+# fails on the same anchor.
+# The bare "petition" alternative is what admits the stay-treated-as-cert grant,
+# whose conjunct names no writ ("..., and the petition is granted (case No.
+# 25-332)"), so it cannot require the cert noun phrase. It excludes the *other*
+# petitions the clerk conjoins instead — rehearing, leave, mandamus — with a
+# lookahead that rejects a following "for" unless what it introduces is a writ
+# of certiorari. Left loose, "and the petition for rehearing is denied" would
+# read as the cert petition's own conjunct.
+_CONJOINED_PETITION_RE = re.compile(
+    r"\band\s+(?:the\s+|a\s+|that\s+|its\s+)?"
+    r"(?:petitions?(?!\s+for\s+(?!(?:a\s+)?writs?\s+of\s+certiorari))"
+    r"|writs?\s+of\s+certiorari|certiorari)\b",
+    re.IGNORECASE,
+)
 # Candidate sentence boundaries; a semicolon counts so a trailing "...filed"
 # clause never swallows the genuine order before it ("Petition GRANTED;
 # statement of Justice Alito filed.").
@@ -219,7 +269,40 @@ def _is_non_order_sentence(sentence: str) -> bool:
     """Whether disposition words in this sentence decide nothing (see above)."""
     if _FILED_RECITAL_RE.search(sentence):
         return True
-    return bool(_MOTION_OPEN_RE.match(sentence)) and bool(_CONSIDERATION_RE.search(sentence))
+    return bool(_MOTION_OPEN_RE.match(sentence)) and not _CONJOINED_PETITION_RE.search(sentence)
+
+
+def refused_grant_sentence(text: str) -> str | None:
+    """The sentence in ``text`` a cert grant would be read out of but for the guard.
+
+    The inverse of :func:`match_disposition_signal` over the grant family: it
+    returns the sentence that carries a grant-shaped match and is refused by
+    :func:`_is_non_order_sentence` — the ancillary motion order, or the docketing
+    recital — whitespace-collapsed for quoting. ``None`` when no grant-shaped
+    match is refused here, which includes every entry whose grant *does* read
+    (that one is :func:`match_disposition_signal`'s answer, not this one).
+
+    It exists because a committed ``granted`` label is a claim about text, and
+    the only way to tell a **parse gap** from a faithful record of an older
+    vocabulary is to find the text the claim was read out of and see whether
+    today's parser still stands behind it. The convergence sweep
+    (:func:`fedcourtsai.disposition_convergence._recording_entry`) asks exactly
+    that, and a sentence returned here is its evidence: this is what a grant was
+    read from, and it is not an order on the petition. Nothing else may treat
+    the return as a disposition — it is a *refused* read, surfaced for audit,
+    which is why it comes back as prose rather than as a
+    :class:`~fedcourtsai.schemas.Disposition`.
+    """
+    for pattern, disposition, _label in _ENTRY_SIGNALS:
+        if disposition not in GRANTED_DISPOSITIONS:
+            continue
+        position = 0
+        while (match := pattern.search(text, position)) is not None:
+            sentence = _containing_sentence(text, match.start())
+            if _is_non_order_sentence(sentence):
+                return " ".join(sentence.split())
+            position = match.end()
+    return None
 
 
 _MOOTNESS_RE = re.compile(r"\bmoot\w*\b", re.IGNORECASE)

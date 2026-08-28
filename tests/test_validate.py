@@ -43,6 +43,7 @@ from fedcourtsai.schemas import (
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.validate import (
+    _OFF_DOCKET_TERMINAL_CASES,
     _STALE_GRANT_DAYS,
     CHECK_BASE_RATE_VERSION,
     CHECK_CASE_DATES,
@@ -521,6 +522,43 @@ def test_a_gvr_is_outside_the_stale_grant_population(tmp_path: Path) -> None:
     _grant(db, "scotus/9005", date(2019, 2, 4), disposition=Disposition.gvr)
     verdict = _run(db, tmp_path / "data")
     assert _verdict_by_check(verdict)[CHECK_STALE_UNPARSED_GRANTS] is True
+
+
+def test_an_off_docket_terminal_is_excepted_and_named(tmp_path: Path) -> None:
+    """The exception is a decision recorded in code, so the verdict has to show it.
+
+    These rows' defect is real and permanent — the disposition sits on a
+    companion docket — so no mending exists to demand. Excepting them is only
+    legitimate while the exemption is as readable as a failure would be, which
+    is what `detail` carries.
+    """
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    excepted = sorted(_OFF_DOCKET_TERMINAL_CASES)
+    for case_id in excepted:
+        _grant(db, case_id, date(2021, 2, 22))
+    verdict = _run(db, tmp_path / "data")
+    check = next(c for c in verdict.checks if c.name == CHECK_STALE_UNPARSED_GRANTS)
+    assert check.passed and check.problems == []
+    # Excepted, never dropped: still counted, and every id named on the verdict.
+    assert check.checked == len(excepted)
+    assert "excepted (terminal off-docket)" in check.detail
+    for case_id in excepted:
+        assert case_id in check.detail
+
+
+def test_a_non_excepted_row_still_fails_beside_an_excepted_one(tmp_path: Path) -> None:
+    """The exemption is per id, not a hole in the predicate."""
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    _grant(db, next(iter(sorted(_OFF_DOCKET_TERMINAL_CASES))), date(2021, 2, 22))
+    _grant(db, "scotus/9006", date(2021, 2, 22))
+    check = next(
+        c for c in _run(db, tmp_path / "data").checks if c.name == CHECK_STALE_UNPARSED_GRANTS
+    )
+    assert not check.passed
+    assert [p for p in check.problems if "scotus/9006" in p]
+    assert not any(case_id in p for case_id in _OFF_DOCKET_TERMINAL_CASES for p in check.problems)
 
 
 # --- B: required columns ------------------------------------------------------

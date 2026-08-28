@@ -1092,25 +1092,41 @@ rather than folding it into an undifferentiated "granted."
   accepted residual — indistinguishable post-hoc without re-resolving the source
   docket text (the `outcome.json` does not carry it), and immaterial on the binary
   axis.
-- **A mislabel is not a vocabulary artifact, and the boundary between them is
-  a date in code.** The residual above is what the convention protects: a cert
+- **A mislabel is not a vocabulary artifact, and the separation between them is
+  drawn in code — by a date where nothing better exists, and by the docket's own
+  order text where it does.** The residual above is what the convention
+  protects: a cert
   label normalized from the upstream record's own fields, which never passed
   through the disposition parser at all, so `granted` there is a faithful record
   of what the older vocabulary could say. It does not cover a resolution the
-  parser itself recorded by reading the docket's order text and got wrong — the
-  prose GVR naming the lower court between the grant and the vacatur, which fell
-  to the cert-before-judgment grant row until `cert_signals._gvr_tail_sentence`
-  closed the gap. Those disagree with their own order text rather than with a
-  superseded convention, and one order can sit behind both labels, so leaving
-  them makes the ledger contradict itself about a single day's work.
-  `converge-disposition-labels` converges them, re-resolving the stored docket
-  text and rewriting only what the parser confirms. The separation is enforced
-  in its predicate, not left to which snapshots happen to be stored: outcomes
-  resolved before `disposition_convergence.PARSED_ORDER_TEXT_SINCE` are reported
-  and never rewritten, so widening snapshot coverage cannot reach the protected
-  residual. The penalization worry does not reach the in-era rows either —
-  their labels were the parser's reading of an order, not the best word an
-  earlier vocabulary offered — and a cell that already carries a committed
+  parser itself recorded by reading the docket's order text and got wrong. Two
+  shapes do that. The **prose GVR** names the lower court between the grant and
+  the vacatur, and fell to the cert-before-judgment grant row until
+  `cert_signals._gvr_tail_sentence` closed the gap. The **ancillary-order grant**
+  is read off an order *about* the petition rather than one on it — an extension
+  of time to respond, a delayed distribution, an unsealing — which
+  `cert_signals._is_non_order_sentence` refuses. Both disagree with their own
+  order text rather than with a superseded convention, and one order can sit
+  behind both labels, so leaving them makes the ledger contradict itself about a
+  single day's work. `converge-disposition-labels` converges them, re-resolving
+  the stored docket text and rewriting only what the parser confirms.
+
+  The separation is enforced in its predicate, not left to which snapshots
+  happen to be stored, and each shape meets it on its own terms. For the prose
+  GVR the boundary is the date: outcomes resolved before
+  `disposition_convergence.PARSED_ORDER_TEXT_SINCE` are reported and never
+  rewritten, so widening snapshot coverage cannot reach the protected residual.
+  The ancillary-order grant carries its own proof of provenance instead — an
+  entry exists on the recorded resolution date, and nothing anywhere on the
+  docket parses as a grant any more, so an order sat there and today's parser
+  reads no grant out of it — which is a parse gap with a date on it rather than
+  a vocabulary flip, and is correctable however old it is. Where the recorded
+  date carries no entry, or the docket still carries a grant order, that warrant
+  fails and the row is reported with which half of it failed; the warrant is the
+  arm's whole licence, so a fuller snapshot store buys text to judge and never a
+  way past it. The penalization worry does not reach either
+  class — their labels were the parser's reading of an order, not the best word
+  an earlier vocabulary offered — and a cell that already carries a committed
   evaluation is held back regardless, since its `correct` bit was stamped from
   the label being corrected.
 - **Routing.** "Is this a likely GVR / mootness-prone case" is a genuine routing
