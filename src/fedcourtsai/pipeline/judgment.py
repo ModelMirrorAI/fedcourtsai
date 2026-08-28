@@ -66,6 +66,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .. import corpus
 from ..schemas import Judgment, MeritsTermination
 from .cert_signals import entry_date, proceedings_entries
+from .prefetch import prefetch_by_case
 
 # A judgment shape may open the entry or any later sentence of it: the
 # canonical GVR order leads with the cert recital ("Petition GRANTED.  Judgment
@@ -424,8 +425,11 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
     judgment, so a GVR's own vacatur never enters the merits record. For each
     such row, read the case's latest stored
     snapshot (:func:`fedcourtsai.corpus.latest_snapshot` — SQLite, or the
-    per-case content store under the corpus-split mode), parse the **last**
-    judgment-shaped entry, and stamp ``merits_judgment`` / ``merits_decided``
+    per-case content store under the corpus-split mode, where the reads go
+    through :func:`~fedcourtsai.pipeline.prefetch.prefetch_by_case` so the
+    pass costs a bounded fan-out rather than a serial walk of GET latency),
+    parse the **last** judgment-shaped entry, and stamp ``merits_judgment`` /
+    ``merits_decided``
     through :func:`fedcourtsai.corpus.set_merits_judgment`. Idempotent — a
     re-run over an unchanged corpus reports everything ``unchanged`` and writes
     nothing new — and degradation is counted, never fatal: a row whose snapshot
@@ -440,54 +444,70 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
     (``stale``), so a parser tightening that retracts a reading stays visible
     instead of silently persisting in the statpack. Dry-run unless ``apply``.
     """
-    eligible = no_snapshot = no_match = parsed = unchanged = stale = terminated = 0
+    no_snapshot = no_match = parsed = unchanged = stale = terminated = 0
     judgments: Counter[str] = Counter()
     terminations_found: Counter[str] = Counter()
     updates: list[tuple[str, Judgment, date | None]] = []
     terminations: list[tuple[str, MeritsTermination]] = []
-    for row in corpus.iter_rows(conn, court="scotus"):
-        if not corpus.opens_merits_proceeding(row):
-            continue
-        eligible += 1
-        found = corpus.latest_snapshot(conn, row.case_id)
-        if found is None:
-            no_snapshot += 1
-            if row.merits_judgment is not None:
-                stale += 1
-            continue
-        entry = last_judgment_entry(found[1])
-        if entry is None:
-            if row.merits_judgment is not None:
-                # A row that already carries a judgment this pass can no longer
-                # re-derive is a **retracted parse**, not a terminated
-                # proceeding, so the fallback does not run here. The mandate
-                # notation trails an ordinary decided docket, so absorbing
-                # these into `terminated` would silence the very retraction
-                # `stale` exists to surface — and would pair a stored
-                # disposition with a termination on one row, the one state the
-                # two columns are defined never to share.
-                no_match += 1
-                stale += 1
+    # Materialized before the prefetch, not walked beside it: `iter_rows` is a
+    # lazily consumed cursor on `conn`, and stepping it while the prefetch's
+    # workers read would put two readers on one connection. The rows are
+    # metadata — the payloads stay in the prefetch's streamed window.
+    rows = [
+        row for row in corpus.iter_rows(conn, court="scotus") if corpus.opens_merits_proceeding(row)
+    ]
+    eligible = len(rows)
+    # `latest_snapshot` never touches `conn` where payload reads are offloaded
+    # (the registered source serves it, and its Protocol requires tolerance of
+    # concurrent reads), which is what makes handing the call to the prefetch
+    # pool's worker threads sound; the mode cannot flip mid-pass because
+    # nothing here re-registers the source. The loop body below runs on the
+    # calling thread either way, so pooled and serial passes classify, count,
+    # and order identically.
+    with prefetch_by_case(
+        [row.case_id for row in rows],
+        lambda case_id: corpus.latest_snapshot(conn, case_id),
+        thread_name_prefix="merits-backfill",
+    ) as fetched:
+        for row, (_, found) in zip(rows, fetched, strict=True):
+            if found is None:
+                no_snapshot += 1
+                if row.merits_judgment is not None:
+                    stale += 1
                 continue
-            # Only now — no disposition anywhere in the payload, and none
-            # stored — does the termination fallback run, so a termination can
-            # never displace a judgment or sit beside one.
-            termination = last_merits_termination(found[1])
-            if termination is None:
-                no_match += 1
+            entry = last_judgment_entry(found[1])
+            if entry is None:
+                if row.merits_judgment is not None:
+                    # A row that already carries a judgment this pass can no
+                    # longer re-derive is a **retracted parse**, not a
+                    # terminated proceeding, so the fallback does not run here.
+                    # The mandate notation trails an ordinary decided docket,
+                    # so absorbing these into `terminated` would silence the
+                    # very retraction `stale` exists to surface — and would
+                    # pair a stored disposition with a termination on one row,
+                    # the one state the two columns are defined never to share.
+                    no_match += 1
+                    stale += 1
+                    continue
+                # Only now — no disposition anywhere in the payload, and none
+                # stored — does the termination fallback run, so a termination
+                # can never displace a judgment or sit beside one.
+                termination = last_merits_termination(found[1])
+                if termination is None:
+                    no_match += 1
+                    continue
+                terminated += 1
+                terminations_found[termination.value] += 1
+                if row.merits_terminated != termination.value:
+                    terminations.append((row.case_id, termination))
                 continue
-            terminated += 1
-            terminations_found[termination.value] += 1
-            if row.merits_terminated != termination.value:
-                terminations.append((row.case_id, termination))
-            continue
-        judgment, decided = entry
-        parsed += 1
-        judgments[judgment.value] += 1
-        if row.merits_judgment == judgment.value and row.merits_decided == decided:
-            unchanged += 1
-            continue
-        updates.append((row.case_id, judgment, decided))
+            judgment, decided = entry
+            parsed += 1
+            judgments[judgment.value] += 1
+            if row.merits_judgment == judgment.value and row.merits_decided == decided:
+                unchanged += 1
+                continue
+            updates.append((row.case_id, judgment, decided))
     if apply:
         for case_id, judgment, decided in updates:
             corpus.set_merits_judgment(conn, case_id, judgment, decided)

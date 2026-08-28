@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ from fedcourtsai.pipeline.judgment import (
     opinion_author,
 )
 from fedcourtsai.schemas import Disposition, Judgment, MeritsTermination
+from tests.conftest import DictSnapshotSource
 
 runner = CliRunner()
 
@@ -336,6 +338,46 @@ def test_backfill_counts_stored_judgments_it_cannot_rederive_as_stale(tmp_path: 
     assert result.no_match == 1 and result.no_snapshot == 1
     assert three is not None and three.merits_judgment == Judgment.affirmed.value
     assert four is not None and four.merits_judgment == Judgment.reversed.value
+
+
+def test_backfill_reads_the_content_store_concurrently_and_identically(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The offloaded branch serves the snapshot reads from the registered
+    source — one read per eligible row, none repeated — and its result is
+    identical to the serial SQLite pass: same counts, same distributions, same
+    stale/termination classification. The eligibility walk stays in SQLite
+    either way (it is metadata); only the snapshot reads move."""
+    db = _seed_backfill_corpus(tmp_path / "corpus")
+    eligible = [f"scotus/{n}" for n in (1, 2, 3, 4)]
+    with corpus.connect(db) as conn:
+        serial = backfill_merits_judgments(conn, apply=False)
+        stored = {case_id: corpus.latest_snapshot(conn, case_id) for case_id in eligible}
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    source = DictSnapshotSource(stored)
+    # Save/restore the registered source around the swap; the read of the
+    # private registry is the only way to put back the casestore singleton it
+    # registers at import (there is no public getter).
+    previous = corpus._READ_SOURCE.get("source")
+    corpus.set_payload_read_source(source)
+    try:
+        assert corpus.payload_reads_offloaded()
+        with corpus.connect(db) as conn:
+            offloaded = backfill_merits_judgments(conn, apply=False)
+    finally:
+        corpus.set_payload_read_source(previous)
+    assert offloaded == serial
+    assert offloaded.eligible == 4 and offloaded.parsed == 2 and offloaded.no_snapshot == 1
+    # One read per eligible row — the denied row is never read, and the pool
+    # never duplicates a fetch.
+    assert sorted(source.read_threads) == eligible
+    assert all(len(idents) == 1 for idents in source.read_threads.values())
+    # The warm-up read runs on the calling thread; the tail runs off it.
+    assert source.read_threads[eligible[0]] == [threading.get_ident()]
+    tail_idents = {
+        idents[0] for case_id, idents in source.read_threads.items() if case_id != eligible[0]
+    }
+    assert threading.get_ident() not in tail_idents
 
 
 def _seed_termination_corpus(corpus_root: Path) -> Path:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import date
@@ -23,6 +24,7 @@ from fedcourtsai.merits_event_migration import (
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.schemas import EventKind, MeritsTermination
+from tests.conftest import DictSnapshotSource
 
 runner = CliRunner()
 
@@ -417,6 +419,94 @@ def test_a_recorded_termination_leaves_the_row_alone(tmp_path: Path) -> None:
     assert events == []
     assert result.minted == [] and result.skipped == []
     assert result.decided == 1
+
+
+# The mixed population the two-pass shape has to keep straight, in `case_id`
+# order: a pendency skip (decided by the *second* pass) sorts ahead of a
+# planning skip (decided by the first), so a report that appended each pass's
+# skips in turn would order these two the other way round.
+_PENDENCY_SKIP = "scotus/910101"  # granted, pending, no stored snapshot
+_PLAN_SKIP = "scotus/910102"  # granted, pending, entry-pinned grant row
+_MINTS = "scotus/910103"  # granted, clean pending snapshot
+_LATCHED = "scotus/910104"  # granted, judgment latched — never planned
+
+
+def _seed_mixed_population(tmp_path: Path) -> Path:
+    """One case of every outcome the sweep reports, so ordering is pinned."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _granted(_PENDENCY_SKIP, "25-201"),
+                _granted(_PLAN_SKIP, "25-202"),
+                _granted(_MINTS, "25-203"),
+                _granted(
+                    _LATCHED,
+                    "25-204",
+                    merits_judgment="affirmed",
+                    merits_decided=date(2026, 6, 20),
+                ),
+            ],
+        )
+        for case_id in (_PLAN_SKIP, _MINTS):
+            corpus.upsert_snapshot(conn, case_id, date(2026, 4, 22), _pending_payload())
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=MERITS_EVENT_ID,
+                    case_id=_PLAN_SKIP,
+                    court="scotus",
+                    kind=EventKind.order,
+                    title="entry-pinned order",
+                    docket_entry_id=7,
+                )
+            ],
+        )
+    return db
+
+
+def test_sweep_reads_the_content_store_concurrently_and_identically(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The offloaded branch serves the pendency snapshots from the registered
+    source — and reads **only** the cases the planning pass left owing a mint,
+    never the decided or already-skipped ones — while producing a result
+    identical to the serial SQLite pass: same mints, same skips, in the same
+    `case_id` order however the two passes are scheduled."""
+    db = _seed_mixed_population(tmp_path)
+    with corpus.connect(db) as conn:
+        serial = backfill_merits_events(conn, _data_root(tmp_path), apply=False)
+        stored = {
+            case_id: corpus.latest_snapshot(conn, case_id)
+            for case_id in (_PENDENCY_SKIP, _PLAN_SKIP, _MINTS, _LATCHED)
+        }
+    assert serial.minted == [(_MINTS, MERITS_EVENT_ID)]
+    assert [case_id for case_id, _ in serial.skipped] == [_PENDENCY_SKIP, _PLAN_SKIP]
+    assert serial.decided == 1 and serial.already_present == 0
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    source = DictSnapshotSource(stored)
+    # Save/restore the registered source around the swap; the read of the
+    # private registry is the only way to put back the casestore singleton it
+    # registers at import (there is no public getter).
+    previous = corpus._READ_SOURCE.get("source")
+    corpus.set_payload_read_source(source)
+    try:
+        assert corpus.payload_reads_offloaded()
+        with corpus.connect(db) as conn:
+            offloaded = backfill_merits_events(conn, _data_root(tmp_path), apply=False)
+    finally:
+        corpus.set_payload_read_source(previous)
+    assert offloaded == serial
+    # The reduced population: the entry-pinned case never reaches the pendency
+    # check and the latched one never enters it, so neither costs a read — and
+    # the pool never duplicates a fetch.
+    assert sorted(source.read_threads) == [_PENDENCY_SKIP, _MINTS]
+    assert all(len(idents) == 1 for idents in source.read_threads.values())
+    # The warm-up read runs on the calling thread; the tail runs off it.
+    assert source.read_threads[_PENDENCY_SKIP] == [threading.get_ident()]
+    assert source.read_threads[_MINTS] != [threading.get_ident()]
 
 
 def test_backfill_event_moments_stamps_and_converges(tmp_path: Path) -> None:

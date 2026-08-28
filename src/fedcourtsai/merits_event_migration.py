@@ -71,7 +71,9 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
+from typing import Any
 
 from . import corpus
 from .paths import CasePaths
@@ -83,6 +85,7 @@ from .pipeline.outcome import (
     persist_moment_events,
     snapshot_shows_judgment,
 )
+from .pipeline.prefetch import prefetch_by_case
 from .schemas import Moment, Stage
 
 #: The merits stage's briefed-moment event id, selected off the declared table
@@ -101,6 +104,21 @@ class MeritsEventBackfillResult:
     already_present: int = 0  # in-population cases already converged (nothing owed)
     decided: int = 0  # grants with a latched judgment or a recorded termination
     skipped: list[tuple[str, str]] = field(default_factory=list)  # (case_id, reason) for triage
+
+
+@dataclass(frozen=True)
+class _Owed:
+    """The mint one in-population case is owed, pending its snapshot check.
+
+    What the planning pass carries forward for a case it has not skipped: the
+    pendency check is the only step needing the case's snapshot, so planning
+    stops here and the snapshots for exactly these cases are prefetched
+    together.
+    """
+
+    court_id: str
+    docket_id: int
+    to_mint: list[corpus.CorpusEvent]
 
 
 def _ledger_orphan(data_root: Path, court_id: str, docket_id: int, event_id: str) -> bool:
@@ -125,11 +143,31 @@ def backfill_merits_events(
     interruption leaves the corpus authoritative and the next run converges
     the ledger. ``data_root`` is the git ledger root, consulted read-only for
     the orphaned-artifact skip (see the module docstring for both skip shapes).
+
+    Runs in two passes because the pendency check's snapshot read is the pass's
+    only expensive one and only a minority of the population reaches it: the
+    planning pass walks every candidate serially over SQLite and the ledger,
+    and only the cases it leaves owing a mint have their snapshots read —
+    through :func:`~fedcourtsai.pipeline.prefetch.prefetch_by_case`, so where
+    payload reads are offloaded that read is a bounded fan-out rather than a
+    serial walk of GET latency. Fetching per candidate inside the planning walk
+    would instead read the store for every SCOTUS grant, most of which are
+    already decided or converged. Planning is complete before the first write,
+    which is invisible to a pass that finishes — the plans are per-case and no
+    case's plan reads another's events or ledger path — and decides what a pass
+    that does not finish leaves behind: a snapshot read that raises (the content
+    store refusing, rather than a case simply having none) aborts the sweep with
+    no mint written at all, never a partial one. The sweep converges, so the
+    next run re-derives the whole plan.
     """
     result = MeritsEventBackfillResult(applied=apply)
     records = conn.execute(
         "SELECT case_id FROM cases WHERE court = 'scotus' ORDER BY case_id"
     ).fetchall()
+    # Every case that produces ordered output, in `case_id` order, as
+    # `(case_id, reason-to-skip | mint-owed)`. The decided and already-
+    # converged cases are counters, not output, so they end here.
+    planned: list[tuple[str, str | _Owed]] = []
     for record in records:
         row = corpus.get_row(conn, str(record["case_id"]))
         if row is None or not corpus.opens_merits_proceeding(row):
@@ -140,21 +178,46 @@ def backfill_merits_events(
         case_id = row.case_id
         court_id, _, docket = case_id.partition("/")
         if not docket.isdigit():
-            result.skipped.append(
+            planned.append(
                 (case_id, "case id carries no numeric docket id, so it has no ledger path")
             )
             continue
         docket_id = int(docket)
         to_mint, skip_reason = _plan_case(conn, data_root, row, court_id, docket_id)
         if skip_reason is not None:
-            result.skipped.append((case_id, skip_reason))
+            planned.append((case_id, skip_reason))
             continue
         if not to_mint:
             result.already_present += 1
             continue
-        result.minted.extend((case_id, event.event_id) for event in to_mint)
+        planned.append((case_id, _Owed(court_id, docket_id, to_mint)))
+    owed = [(case_id, plan) for case_id, plan in planned if isinstance(plan, _Owed)]
+    # `latest_snapshot` never touches `conn` where payload reads are offloaded
+    # (the registered source serves it, and its Protocol requires tolerance of
+    # concurrent reads), which is what makes handing the call to the prefetch
+    # pool's worker threads sound; the mode cannot flip mid-pass because
+    # nothing here re-registers the source. Consumed inside the block and
+    # reduced to each case's verdict rather than kept as payloads, so peak
+    # retention stays the prefetch's own in-flight window; keyed by the
+    # case id the prefetch yields with each payload, so the verdict cannot
+    # drift onto another case — which would be a mint on a docket the pendency
+    # check had refused.
+    with prefetch_by_case(
+        [case_id for case_id, _ in owed],
+        lambda case_id: corpus.latest_snapshot(conn, case_id),
+        thread_name_prefix="merits-events",
+    ) as fetched:
+        pendency = {case_id: _pendency_conflict(found) for case_id, found in fetched}
+    for case_id, plan in planned:
+        if isinstance(plan, str):
+            result.skipped.append((case_id, plan))
+            continue
+        if (conflict := pendency[case_id]) is not None:
+            result.skipped.append((case_id, conflict))
+            continue
+        result.minted.extend((case_id, event.event_id) for event in plan.to_mint)
         if apply:
-            persist_moment_events(conn, data_root, court_id, docket_id, to_mint)
+            persist_moment_events(conn, data_root, plan.court_id, plan.docket_id, plan.to_mint)
     return result
 
 
@@ -172,6 +235,11 @@ def _plan_case(
     reason covers the whole case even where only the briefed target conflicts:
     minting the grant event beside a conflicting briefed row would hand triage
     a half-minted stage.
+
+    Reads only SQLite and the ledger, never the case's snapshot: a non-empty
+    mint is still conditional on :func:`_pendency_conflict`, which the caller
+    applies once it has prefetched the snapshots of exactly the cases that got
+    this far.
     """
     opened_at = row.date_cert_granted
     if opened_at is None:
@@ -202,12 +270,10 @@ def _plan_case(
             return [], conflict
         if BRIEFED_MERITS_EVENT_ID not in events:
             to_mint.append(briefed)
-    if to_mint and (pendency := _pendency_conflict(conn, row.case_id)) is not None:
-        return [], pendency
     return to_mint, None
 
 
-def _pendency_conflict(conn: sqlite3.Connection, case_id: str) -> str | None:
+def _pendency_conflict(found: tuple[date, dict[str, Any]] | None) -> str | None:
     """The reason the docket cannot be shown still pending, or ``None``.
 
     The forward-only population keys on unlatched merits columns, which mean
@@ -219,13 +285,15 @@ def _pendency_conflict(conn: sqlite3.Connection, case_id: str) -> str | None:
     terminal, the ``no_snapshot`` shape because there is nothing to provision —
     with ``forecastable_event_ids`` re-admitting it every fan-out inside the
     stale-grant bound's two Terms, burning the cell's attempt cap each time. So a mint
-    requires a stored snapshot
-    (:func:`fedcourtsai.corpus.latest_snapshot`, the judgment sweep's own
-    read) whose high-recall judgment scan
+    requires a stored snapshot whose high-recall judgment scan
     (:func:`~fedcourtsai.pipeline.outcome.snapshot_shows_judgment`, the same
     guard provisioning applies) is clean.
+
+    ``found`` is that snapshot as :func:`fedcourtsai.corpus.latest_snapshot`
+    (the judgment sweep's own read) returns it — supplied by the caller, which
+    prefetches the population's snapshots together, so ``None`` here means the
+    case has none stored.
     """
-    found = corpus.latest_snapshot(conn, case_id)
     if found is None:
         return (
             "no stored snapshot to verify pendency — run a pull and "
