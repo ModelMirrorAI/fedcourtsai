@@ -587,7 +587,11 @@ Interactive data discovery belongs in a codespace, not a workflow. The remote
 serves it in two modes, both strictly **read-only** (see
 [security.md](security.md)): **ranged queries** for quick lookups
 (`--corpus-backend ranged` on `query` / `open-events` / `corpus-info` —
-per-query egress in KBs) and **a deliberate full pull** for scan-heavy
+per-query egress in KBs, with `corpus-info --text-coverage` the one exception —
+that flag walks the documents of every live-slice case, tens of thousands of
+rows, so under the split it is a content-store manifest round trip each plus a
+full text body per stored document, and belongs with the scan-heavy work
+rather than with the lookups) and **a deliberate full pull** for scan-heavy
 exploration (`uv run fedcourts corpus-pull`). Default to ranged:
 Codespaces runs on Azure, so every full pull is cross-cloud S3 egress.
 
@@ -649,8 +653,12 @@ That same silence is a standing trap on the **production** side too: a dev
 shell without the split flag and casestore URL set is **casestore-blind** — a
 payload living only in the content store (petition text, documents, the
 snapshots the blob does not carry) reads as *absent* rather than
-erroring, so a figure computed locally over payloads silently undercounts,
-with no warning either way. Any figure derived from
+erroring, so a figure computed locally over payloads silently undercounts.
+One surface says so on its own: `corpus-info --text-coverage` leads with a
+`text source:` line naming the blob or the content store, ahead of every count
+below it, and its `text frame:` line reports zero cases served where nothing
+was readable. Everywhere
+else there is no warning either way. Any figure derived from
 petition text, documents, or content-store payloads must therefore come from
 a writer-lane run or a shell `corpus-env` has pointed at a pair with the
 split on — and must say which. Ledger-derived figures (`data/cases`) and

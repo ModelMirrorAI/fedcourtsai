@@ -23,6 +23,7 @@ from fedcourtsai.pipeline.documents import (
     KIND_QUESTIONS_PRESENTED,
     _qp_stored_is_fragment,
     backfill_questions_presented,
+    document_text_coverage,
     extract_pdf_text,
     extract_questions_presented,
     fetch_case_documents,
@@ -746,14 +747,26 @@ _HONEST_PETITION = (
 )
 
 
-def _petition_document(case_id: str, text: str) -> corpus.CaseDocument:
+def _petition_document(case_id: str, text: str, *, pages: int = 40) -> corpus.CaseDocument:
     return corpus.CaseDocument(
         case_id=case_id,
         kind=KIND_PETITION,
         url=f"https://example/{case_id.rsplit('/', 1)[-1]}.pdf",
         entry_date="Jun 01 2026",
         fetched_at=date(2026, 6, 2),
-        pages=40,
+        pages=pages,
+        text=text,
+    )
+
+
+def _bio_document(case_id: str, text: str) -> corpus.CaseDocument:
+    return corpus.CaseDocument(
+        case_id=case_id,
+        kind=KIND_BRIEF_IN_OPPOSITION,
+        url=f"https://example/{case_id.rsplit('/', 1)[-1]}-bio.pdf",
+        entry_date="Jul 01 2026",
+        fetched_at=date(2026, 7, 2),
+        pages=20,
         text=text,
     )
 
@@ -1143,3 +1156,227 @@ def test_backfill_questions_presented_cli_fails_loud(tmp_path: Path) -> None:
     )
     assert empty.exit_code == 1
     assert "wrong blob" in empty.output
+
+
+def _seed_text_coverage_corpus(corpus_root: Path) -> Path:
+    """Six SCOTUS rows spanning every cut and every caveat the measure reports.
+
+    - scotus/10: paid modern-cert, a scanned filing — the petition and the
+      questions-presented row derived from it both read back empty.
+    - scotus/11: paid modern-cert, every document carrying text.
+    - scotus/12: an IFP serial, so outside the scored segment, with an empty
+      brief in opposition — the second fetched kind, counted apart.
+    - scotus/13: documents but no `last_live_polled`, so outside the live slice
+      the walk frames on — present precisely to prove it is not counted.
+    - scotus/14: distributed but holding no documents at all — the other
+      failure mode, which no extraction fix reaches.
+    - scotus/15: an empty petition stored with zero pages, which is the
+      could-not-open branch rather than a scan.
+    """
+    db = corpus.corpus_db_path(corpus_root)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=f"scotus/{n}",
+                    court="scotus",
+                    docket_number=docket,
+                    last_live_polled=polled,
+                    # The two denominators the missing-document count reports
+                    # over: distribution is the wide stock (a case can have been
+                    # distributed long before anything fetched for it), the
+                    # queue stamp the narrow, decision-relevant one.
+                    distribution_count=distributions,
+                    predict_queued_at=queued,
+                )
+                for n, docket, polled, distributions, queued in (
+                    (10, "25-10", date(2026, 6, 2), 1, date(2026, 6, 3)),
+                    (11, "25-11", date(2026, 6, 2), 1, None),
+                    # At/above IFP_SERIAL_BASE: modern-cert in form, in forma pauperis.
+                    (12, "25-9001", date(2026, 6, 2), 2, None),
+                    (13, "25-13", None, 1, None),
+                    # Distributed and queued, but holding nothing to read.
+                    (14, "25-14", date(2026, 6, 2), 1, date(2026, 6, 3)),
+                    (15, "25-15", date(2026, 6, 2), 1, None),
+                )
+            ],
+        )
+        corpus.upsert_documents(
+            conn,
+            [
+                # Whitespace-only, not absent: a legible scan with no text layer
+                # extracts to exactly this, which is what the measurement counts.
+                _petition_document("scotus/10", "   \n\n"),
+                _stored_qp("scotus/10", ""),
+                _petition_document("scotus/11", _HONEST_PETITION),
+                _stored_qp("scotus/11", _HONEST_QP),
+                _bio_document("scotus/11", "The petition should be denied."),
+                _petition_document("scotus/12", _HONEST_PETITION),
+                _bio_document("scotus/12", ""),
+                _petition_document("scotus/13", ""),
+                _petition_document("scotus/15", "", pages=0),
+            ],
+        )
+    return db
+
+
+def test_document_text_coverage_counts_empty_text_by_kind_and_segment(tmp_path: Path) -> None:
+    db = _seed_text_coverage_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        coverage = document_text_coverage(conn)
+
+    # scotus/13 carries an empty petition but no live-slice stamp: documents
+    # reach the corpus on that channel only, so counting it would import a row
+    # the pipeline can never provision a cell from.
+    assert coverage.cases == 5
+    assert coverage.cases_read == 4  # scotus/14 served nothing
+    assert coverage.offloaded is False
+    # The petition cut, which is the one a scanning decision reads.
+    assert coverage.kind_totals(KIND_PETITION) == (4, 2)
+    assert coverage.kind_totals(KIND_BRIEF_IN_OPPOSITION) == (2, 1)
+    assert coverage.kind_totals(KIND_QUESTIONS_PRESENTED) == (2, 1)
+
+    cuts = {(cut.segment, cut.kind): (cut.documents, cut.empty) for cut in coverage.cuts}
+    assert cuts[("scored", KIND_PETITION)] == (3, 2)
+    assert cuts[("scored", KIND_QUESTIONS_PRESENTED)] == (2, 1)
+    assert cuts[("rest", KIND_PETITION)] == (1, 0)
+    # Zero-filled: a cut nothing was read for is reported, never omitted.
+    assert cuts[("rest", KIND_QUESTIONS_PRESENTED)] == (0, 0)
+    assert cuts[("scored", KIND_BRIEF_IN_OPPOSITION)] == (1, 0)
+    assert cuts[("rest", KIND_BRIEF_IN_OPPOSITION)] == (1, 1)
+
+    # The two counts that keep the empty share from being read as the whole
+    # problem: a distributed case with nothing stored, and an empty petition
+    # that is a failed open rather than a scan.
+    assert coverage.distributed == 5
+    assert coverage.distributed_without_petition == 1
+    # The narrow denominator: scotus/10 and scotus/14 are queued, and only
+    # scotus/14 holds no petition.
+    assert coverage.queued == 2
+    assert coverage.queued_without_petition == 1
+    assert coverage.unopened_petitions == 1
+
+    # The triage list an extraction fix would work from: case_ids in walk order,
+    # kinds in read order.
+    assert coverage.empty_documents == {
+        "scotus/10": [KIND_PETITION, KIND_QUESTIONS_PRESENTED],
+        "scotus/12": [KIND_BRIEF_IN_OPPOSITION],
+        "scotus/15": [KIND_PETITION],
+    }
+
+
+def test_document_text_coverage_reach_counts_only_the_counted_kinds(tmp_path: Path) -> None:
+    # `cases_read` is the population the cuts are computed over, so a case
+    # serving only an uncounted kind must not inflate it — otherwise the reach
+    # line silently stops describing the table the moment a new kind is stored.
+    db = _seed_text_coverage_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/14",
+                    kind="reply",
+                    url="https://example/14-reply.pdf",
+                    entry_date="Jul 01 2026",
+                    fetched_at=date(2026, 7, 2),
+                    pages=8,
+                    text="Reply text.",
+                )
+            ],
+        )
+        coverage = document_text_coverage(conn)
+    assert coverage.cases_read == 4
+    # And it is still counted as a distributed case holding no petition.
+    assert coverage.distributed_without_petition == 1
+
+
+def test_document_text_coverage_share_is_none_over_an_unread_cut(tmp_path: Path) -> None:
+    db = _seed_text_coverage_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        coverage = document_text_coverage(conn)
+    by_cut = {(cut.segment, cut.kind): cut for cut in coverage.cuts}
+    # None, not 0.0: a cut nothing was read for must never report as one
+    # measured at zero — the same reason every printed line carries its own
+    # denominator.
+    assert by_cut[("rest", KIND_QUESTIONS_PRESENTED)].share is None
+    assert by_cut[("scored", KIND_QUESTIONS_PRESENTED)].share == 0.5
+
+
+def test_corpus_info_text_coverage_is_opt_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed_text_coverage_corpus(tmp_path / "corpus")
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+
+    plain = runner.invoke(app, ["corpus-info"])
+    assert plain.exit_code == 0, plain.output
+    # The default stays the cheap vintage report: no per-case document read.
+    assert "text coverage" not in plain.stdout
+
+    measured = runner.invoke(app, ["corpus-info", "--text-coverage"])
+    assert measured.exit_code == 0, measured.output
+    # The petition leads, never a pooled total over kinds that fail differently.
+    assert "text coverage: 2 of 4 stored petition(s) carry no text (50.00%)" in measured.stdout
+    assert "1 with pages but no text layer, 1 a PDF the extractor could not open" in measured.stdout
+    # The other failure mode, printed beside the first rather than left to a
+    # reader to notice it is missing.
+    assert "missing documents: 1 of 5 distributed case(s) hold no petition row" in measured.stdout
+    assert "and 1 of 2 queued for prediction" in measured.stdout
+    # A reach count, said to be one.
+    assert (
+        "text frame: the pass read documents for 4 of the 5 live-slice case(s)" in measured.stdout
+    )
+    assert "a reach count, not a failure rate" in measured.stdout
+    assert "scored petition            n=3 empty=2 (66.67%)" in measured.stdout
+    assert "rest   brief-in-opposition n=1 empty=1 (100.00%)" in measured.stdout
+    assert "rest   questions-presented n=0 empty=0 (-)" in measured.stdout
+    # The questions-presented zero is structural, and the report says so.
+    assert "structurally unable to carry a scan" in measured.stdout
+    assert "empty text (3 case(s)):" in measured.stdout
+    assert "scotus/10: petition, questions-presented" in measured.stdout
+    assert "scotus/12: brief-in-opposition" in measured.stdout
+    assert "scotus/15: petition" in measured.stdout
+
+
+def test_corpus_info_text_coverage_caveats_a_blob_only_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The dev-checkout shape: no content store configured, so the payload reads
+    # come off the blob. Under the corpus split that is an undercount, and the
+    # report has to say so rather than let the number read as the system's.
+    _seed_text_coverage_corpus(tmp_path / "corpus")
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = runner.invoke(app, ["corpus-info", "--text-coverage"])
+    assert result.exit_code == 0, result.output
+    assert "text source: this blob's own tables" in result.stdout
+    assert "every count below is the blob's own and undercounts the system" in result.stdout
+    # And the caveat comes first: the lines under it assert absence, which must
+    # not be read before the line saying whether presence was visible at all.
+    lines = [line for line in result.stdout.splitlines() if line.startswith(("text ", "missing "))]
+    assert lines[0].startswith("text source:")
+
+
+def test_corpus_info_text_coverage_self_limits_when_the_store_serves_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Corpus-split on with no store transport built: every payload read comes
+    # back empty. The counts are then honest zeros over a population the pass
+    # never saw, which only the served fraction distinguishes from a corpus
+    # whose petitions all carry text.
+    _seed_text_coverage_corpus(tmp_path / "corpus")
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    monkeypatch.delenv("FEDCOURTS_CASESTORE_URL", raising=False)
+    monkeypatch.delenv("CASESTORE_URL", raising=False)
+    result = runner.invoke(app, ["corpus-info", "--text-coverage"])
+    assert result.exit_code == 0, result.output
+    assert "text coverage: 0 of 0 stored petition(s) carry no text (-)" in result.stdout
+    assert "text frame: the pass read documents for 0 of the 5 live-slice case(s)" in result.stdout
+    # Every distributed case reads as holding no petition, which is the loudest
+    # form the self-limit takes: nothing was readable, and the report says it in
+    # the count a reader is most likely to act on.
+    assert "missing documents: 5 of 5 distributed case(s)" in result.stdout
+    assert "and 2 of 2 queued for prediction" in result.stdout
+    assert "text source: the per-case content store" in result.stdout

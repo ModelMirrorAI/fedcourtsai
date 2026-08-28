@@ -173,7 +173,22 @@ e-filing mandate; a scanned paper filing degrades to empty text), capped at
 `live.document_text_cap` per document, and stored in the access-gated corpus's
 `documents` table — never the git ledger. `provision-snapshot` materializes it
 into the cell's gitignored `record/documents/` with a `documents.json`
-manifest, and the predict prompt points agents at it. **The questions presented
+manifest, and the predict prompt points agents at it. A cell can route around
+an empty extraction — the prompt has it read the document as
+content-unavailable rather than absent — but nothing downstream repairs one,
+so its size is a measured number rather than an impression: `fedcourts
+corpus-info --text-coverage` counts the stored documents whose text is empty
+or whitespace-only under the same predicate provisioning stamps as
+`empty_text`, split on the salience gate's paid modern-cert segment, and names
+whether the blob or the per-case content store served the reads, since a
+blob-only read of a split corpus undercounts. The counts stay per kind because
+the causes differ: an empty petition or brief in opposition is the scan, while
+an empty derived questions-presented row is as likely to be a capture the
+deriver would not vouch for. And the command reports the **absent** petition
+beside the empty one, because that is the larger failure and a different
+repair: a document never fetched has nothing to re-extract, so an empty-text
+share read on its own would size the smaller of the two problems.
+**The questions presented
 are derived from the petition PDF, never from `QPLink`:** the `/qp/` page is
 generated when certiorari is *granted* and opens with the grant order, so the
 key is an outcome artifact — it is also stripped by replay redaction for the

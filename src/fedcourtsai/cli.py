@@ -172,7 +172,12 @@ from .pipeline.cert_signals import (
 )
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
-from .pipeline.documents import backfill_questions_presented
+from .pipeline.documents import (
+    KIND_PETITION,
+    TextCoverage,
+    backfill_questions_presented,
+    document_text_coverage,
+)
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
@@ -4815,6 +4820,90 @@ def _echo_read_stats(conn: corpus.ReadConnection) -> None:
         )
 
 
+def _echo_text_coverage(coverage: TextCoverage) -> None:
+    """Print one text-coverage measurement, self-limiting on what it could read.
+
+    Every line carries its own denominator, for the reason the censuses print
+    theirs: a pass that reached one case in a hundred and one that reached all
+    of them otherwise announce themselves identically. The source line leads,
+    ahead of any count, because the lines below it assert *absence* — how many
+    documents carry no text, how many cases hold no petition — and under the
+    corpus split a store-blind run finds nothing at all. An assertion of
+    absence must not be read before the thing that says whether the reader
+    could have seen presence.
+
+    Note what the empty share is *not*: a case whose petition row is absent
+    entirely never enters it, which is why the missing-document population gets
+    its own line rather than being left to a reader to notice.
+    """
+    if coverage.offloaded:
+        typer.echo("text source: the per-case content store")
+    else:
+        typer.echo(
+            "text source: this blob's own tables — under the corpus split the "
+            "document text lives in the per-case content store, which this run is "
+            "not configured to read, so every count below is the blob's own and "
+            "undercounts the system"
+        )
+    # The petition alone leads the counts, never a total over the kinds: they do
+    # not share a cause of emptiness, so a pooled headline would be the number
+    # quoted and the one that means least. The other kinds are the table below.
+    petitions, empty = coverage.kind_totals(KIND_PETITION)
+    share = f"{100 * empty / petitions:.2f}%" if petitions else "-"
+    scanned = empty - coverage.unopened_petitions
+    typer.echo(
+        f"text coverage: {empty} of {petitions} stored petition(s) carry no text "
+        f"({share}) — {scanned} with pages but no text layer, "
+        f"{coverage.unopened_petitions} a PDF the extractor could not open at all"
+    )
+    # The other failure mode, printed beside the first because it is the larger
+    # one and nothing re-extracts what was never stored. Two denominators: the
+    # stock of distributed rows (many predating the document channel, so never
+    # fetched for), and the rows actually queued for prediction, which is the
+    # population a missing petition costs a cell on.
+    typer.echo(
+        f"missing documents: {coverage.distributed_without_petition} of "
+        f"{coverage.distributed} distributed case(s) hold no petition row at all, "
+        f"and {coverage.queued_without_petition} of {coverage.queued} queued for "
+        "prediction; an extraction fix reaches none of them. The wide count is a "
+        "stock — a row distributed before the document channel existed was never "
+        "fetched for — so read the queued one for what is recoverable now."
+    )
+    typer.echo(
+        f"text frame: the pass read documents for {coverage.cases_read} of the "
+        f"{coverage.cases} live-slice case(s) it walked — a reach count, not a "
+        "failure rate: most of the rest were never fetched for (a historical-Term "
+        "row, or a petition outside the upstream link window). A run that reaches "
+        "nothing reports 0 here."
+    )
+    # Both columns sized from the data: a renamed or added segment must not
+    # silently misalign the table against a hardcoded width.
+    kind_width = max((len(cut.kind) for cut in coverage.cuts), default=0)
+    segment_width = max((len(cut.segment) for cut in coverage.cuts), default=0)
+    for cut in coverage.cuts:
+        cut_share = f"{100 * cut.share:.2f}%" if cut.share is not None else "-"
+        typer.echo(
+            f"  {cut.segment:<{segment_width}} {cut.kind:<{kind_width}} "
+            f"n={cut.documents} empty={cut.empty} ({cut_share})"
+        )
+    # Said in the report, not only in the source: a questions-presented row is
+    # written only where the petition carries text, so its empty count is
+    # conditioned on the very failure this measures and can never carry a scan.
+    # Printed as 0.00% beside a real `n`, it would read as a measured zero.
+    typer.echo(
+        "  (a questions-presented row exists only where the petition has text, so "
+        "its empty count is structurally unable to carry a scan; the segments are "
+        "the salience gate's scored cut, in practice paid against IFP)"
+    )
+    # The triage list an extraction fix works from, untruncated for the reason
+    # the questions-presented backfill prints its whole ledger: the count says
+    # whether to act, the ids are what acting operates on.
+    if coverage.empty_documents:
+        typer.echo(f"empty text ({len(coverage.empty_documents)} case(s)):")
+        for case_id, kinds in coverage.empty_documents.items():
+            typer.echo(f"  {case_id}: {', '.join(kinds)}")
+
+
 def _ensure_corpus_layout(db_path: Path) -> None:
     """Rebuild the corpus file to the ranged-read layout if it has drifted.
 
@@ -5142,7 +5231,22 @@ def make_fixture_corpus(
 
 
 @app.command("corpus-info")
-def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
+def corpus_info(
+    corpus_backend: CorpusBackendOption = "",
+    text_coverage: Annotated[
+        bool,
+        typer.Option(
+            "--text-coverage",
+            help="Also count the stored documents whose text is empty, per kind "
+            "(petition / brief-in-opposition / questions-presented) and split on "
+            "the salience gate's paid modern-cert segment. Opt-in and not cheap: "
+            "it reads the documents of every live-slice case, tens of thousands of "
+            "rows, which under the corpus split is a content-store manifest round "
+            "trip each plus a full text body for every document stored — so the "
+            "default vintage report stays a few KB.",
+        ),
+    ] = False,
+) -> None:
     """Show the corpus location, row count, and freshness (after `corpus-pull`, or ranged).
 
     The freshness line is the reason to run this before making any claim that
@@ -5155,14 +5259,30 @@ def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
     `last_pulled` over the cases (kept in a payload-free index, so it reports
     on the production shape too) and `latest snapshot` the newest dated docket
     state the blob itself stores. A payload-free index stores none: the
-    snapshots live in the per-case content store, which this command does not
-    read. Hence `in this blob` on both snapshot readings — under the corpus
+    snapshots live in the per-case content store, which the snapshot count does
+    not read (`--text-coverage` below is the one read that does reach the
+    store). Hence `in this blob` on both snapshot readings — under the corpus
     split, `no snapshots` would otherwise read as a claim about the system.
 
     Both are maxima over the whole blob: its vintage, not any one case's. The
     pull governor rotates stalest-first, so a maximum says when *anything* was
     last refreshed — a claim about a specific case reads that case's own
     `last_pulled` instead.
+
+    `--text-coverage` adds the other thing worth knowing about a blob before
+    quoting it: not how old the documents are but whether they carry text at
+    all. A filing that arrives as a scan with no text layer stores an empty
+    string, which provisioning stamps on the cell manifest as `empty_text` —
+    written into the cell's manifest, never into a corpus column — so the share
+    is counted off the stored text rather than queried. The counts stay per
+    kind because emptiness does not mean one thing across them: on the two
+    fetched PDFs it reads as a scan, while an empty derived
+    questions-presented row is as likely to be an extraction the deriver would
+    not vouch for, over a petition that does carry text. It is opt-in because
+    it reads every live-slice case's documents (a per-case content-store round
+    trip each, under the corpus split), and it names the source that served
+    those reads: a blob-only run against a split corpus finds no documents at
+    all, and must not be read as a corpus with none.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -5223,6 +5343,8 @@ def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
                         f"pointer: the blob on disk is not the committed ref's (pulled "
                         f"sha256 {pulled_sha}) — re-pull before quoting this vintage"
                     )
+        if text_coverage:
+            _echo_text_coverage(document_text_coverage(conn))
         _echo_read_stats(conn)
 
 
