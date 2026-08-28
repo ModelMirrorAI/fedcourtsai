@@ -1,6 +1,6 @@
 {
   "base_rate_basis": "terminal",
-  "base_rate_salience_version": "sal-v2",
+  "base_rate_salience_version": "sal-v3",
   "big_case": {
     "evaluator_score": 0.55,
     "notes": "A plenary cert grant indicates meaningful legal importance, but the event and outcome alone do not establish exceptional system-wide stakes."

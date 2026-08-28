@@ -1,34 +1,34 @@
 {
-  "corpus_rows": 2152535,
+  "corpus_rows": 2152636,
   "coverage": {
-    "census_filings": 45340,
-    "live_slice_resolved": 21401,
-    "live_slice_rows": 22598
+    "census_filings": 45419,
+    "live_slice_resolved": 21433,
+    "live_slice_rows": 22714
   },
-  "dated_resolved": 21424,
+  "dated_resolved": 21456,
   "interim": {
-    "applications": 27416,
-    "extension": 1525,
-    "referred_to_court": 92,
-    "response_requested": 53,
-    "substantive": 257,
-    "substantive_grant_rate": 0.12,
-    "substantive_granted": 30,
-    "substantive_resolved": 250,
+    "applications": 27442,
+    "extension": 1556,
+    "referred_to_court": 95,
+    "response_requested": 54,
+    "substantive": 263,
+    "substantive_grant_rate": 0.12156862745098039,
+    "substantive_granted": 31,
+    "substantive_resolved": 255,
     "terms": [
       {
-        "applications": 224,
-        "extension": 186,
-        "referred_to_court": 0,
+        "applications": 252,
+        "extension": 205,
+        "referred_to_court": 2,
         "response_requested": 3,
-        "substantive": 30,
-        "substantive_grant_rate": 0.0,
-        "substantive_granted": 0,
-        "substantive_resolved": 24,
+        "substantive": 35,
+        "substantive_grant_rate": 0.03571428571428571,
+        "substantive_granted": 1,
+        "substantive_resolved": 28,
         "term": 2026,
-        "unknown": 8,
+        "unknown": 12,
         "unparsed": 0,
-        "with_amicus": 2
+        "with_amicus": 3
       },
       {
         "applications": 1365,
@@ -45,18 +45,18 @@
         "with_amicus": 24
       },
       {
-        "applications": 1263,
-        "extension": 211,
-        "referred_to_court": 32,
-        "response_requested": 23,
-        "substantive": 48,
-        "substantive_grant_rate": 0.2916666666666667,
+        "applications": 1261,
+        "extension": 223,
+        "referred_to_court": 33,
+        "response_requested": 24,
+        "substantive": 49,
+        "substantive_grant_rate": 0.2857142857142857,
         "substantive_granted": 14,
-        "substantive_resolved": 48,
+        "substantive_resolved": 49,
         "term": 2024,
         "unknown": 12,
-        "unparsed": 992,
-        "with_amicus": 23
+        "unparsed": 977,
+        "with_amicus": 24
       },
       {
         "applications": 1177,
@@ -381,22 +381,22 @@
         "with_amicus": 0
       }
     ],
-    "unknown": 78,
-    "unparsed": 25556,
-    "with_amicus": 49
+    "unknown": 82,
+    "unparsed": 25541,
+    "with_amicus": 51
   },
-  "machine_readable_resolved": 28363,
+  "machine_readable_resolved": 28395,
   "merits": {
     "affirmed": 147,
     "affirmed_in_part": 10,
     "cert_order_excluded": 66,
     "dig": 12,
-    "disturbed": 376,
-    "disturbed_rate": 0.6975881261595547,
+    "disturbed": 377,
+    "disturbed_rate": 0.6981481481481482,
     "equally_divided": 4,
-    "granted": 602,
-    "parsed": 539,
-    "reversed": 245,
+    "granted": 589,
+    "parsed": 540,
+    "reversed": 246,
     "terms": [
       {
         "affirmed": 7,
@@ -445,12 +445,12 @@
         "affirmed_in_part": 0,
         "cert_order_excluded": 1,
         "dig": 1,
-        "disturbed": 49,
-        "disturbed_rate": 0.6805555555555556,
+        "disturbed": 50,
+        "disturbed_rate": 0.684931506849315,
         "equally_divided": 0,
         "granted": 74,
-        "parsed": 72,
-        "reversed": 22,
+        "parsed": 73,
+        "reversed": 23,
         "term": 2022,
         "vacated": 27
       },
@@ -462,7 +462,7 @@
         "disturbed": 46,
         "disturbed_rate": 0.7076923076923077,
         "equally_divided": 1,
-        "granted": 68,
+        "granted": 67,
         "parsed": 65,
         "reversed": 32,
         "term": 2021,
@@ -476,7 +476,7 @@
         "disturbed": 57,
         "disturbed_rate": 0.8260869565217391,
         "equally_divided": 0,
-        "granted": 84,
+        "granted": 79,
         "parsed": 69,
         "reversed": 42,
         "term": 2020,
@@ -490,7 +490,7 @@
         "disturbed": 42,
         "disturbed_rate": 0.7777777777777778,
         "equally_divided": 0,
-        "granted": 60,
+        "granted": 56,
         "parsed": 54,
         "reversed": 31,
         "term": 2019,
@@ -504,7 +504,7 @@
         "disturbed": 50,
         "disturbed_rate": 0.6666666666666666,
         "equally_divided": 0,
-        "granted": 80,
+        "granted": 77,
         "parsed": 75,
         "reversed": 29,
         "term": 2018,
@@ -527,92 +527,92 @@
     ],
     "vacated": 121
   },
-  "open": 2100167,
+  "open": 2100236,
   "overall": {
-    "cases": 2152535,
+    "cases": 2152636,
     "dispositions": [
       {
         "count": 24005,
         "disposition": "other",
-        "share": 0.4583906202260923
+        "share": 0.45811068702290075
       },
       {
-        "count": 18080,
+        "count": 18099,
         "disposition": "denied",
-        "share": 0.3452490070271922
+        "share": 0.3454007633587786
       },
       {
-        "count": 7160,
+        "count": 7162,
         "disposition": "dismissed",
-        "share": 0.13672471738466238
+        "share": 0.1366793893129771
       },
       {
-        "count": 2535,
+        "count": 2546,
         "disposition": "granted",
-        "share": 0.04840742438130156
+        "share": 0.048587786259541986
       },
       {
         "count": 577,
         "disposition": "gvr",
-        "share": 0.011018179040635503
+        "share": 0.011011450381679388
       },
       {
         "count": 8,
         "disposition": "withdrawn",
-        "share": 0.00015276504735716468
+        "share": 0.00015267175572519084
       },
       {
         "count": 3,
         "disposition": "granted-in-part",
-        "share": 5.728689275893676e-05
+        "share": 5.725190839694656e-05
       }
     ],
     "key": "",
-    "open": 2100167,
-    "resolved": 52368
+    "open": 2100236,
+    "resolved": 52400
   },
-  "resolved": 52368,
+  "resolved": 52400,
   "schema_version": "1.0",
   "sections": [
     {
       "buckets": [
         {
-          "cases": 590456,
+          "cases": 590557,
           "dispositions": [
             {
-              "count": 17653,
+              "count": 17672,
               "disposition": "denied",
-              "share": 0.8136147854542103
+              "share": 0.813290993603019
             },
             {
-              "count": 2291,
+              "count": 2302,
               "disposition": "granted",
-              "share": 0.10559063464995161
+              "share": 0.10594136867780386
             },
             {
-              "count": 939,
+              "count": 941,
               "disposition": "dismissed",
-              "share": 0.04327787251693783
+              "share": 0.043306180680196975
             },
             {
               "count": 577,
               "disposition": "gvr",
-              "share": 0.026593538277181177
+              "share": 0.026554374338441714
             },
             {
               "count": 232,
               "disposition": "other",
-              "share": 0.010692722496197632
+              "share": 0.010676975470569285
             },
             {
               "count": 5,
               "disposition": "withdrawn",
-              "share": 0.00023044660552150068
+              "share": 0.00023010722996916563
             }
           ],
           "key": "scotus",
-          "open": 568759,
-          "resolved": 21697
+          "open": 568828,
+          "resolved": 21729
         },
         {
           "cases": 247637,
@@ -985,7 +985,7 @@
     {
       "buckets": [
         {
-          "cases": 126777,
+          "cases": 126778,
           "dispositions": [
             {
               "count": 204,
@@ -1009,7 +1009,7 @@
             }
           ],
           "key": "(none)",
-          "open": 126510,
+          "open": 126511,
           "resolved": 267
         },
         {
@@ -1047,14 +1047,14 @@
           "cases": 97059,
           "dispositions": [
             {
-              "count": 5702,
+              "count": 5709,
               "disposition": "denied",
-              "share": 0.8752110514198005
+              "share": 0.8762854950115119
             },
             {
-              "count": 341,
+              "count": 342,
               "disposition": "dismissed",
-              "share": 0.0523407521105142
+              "share": 0.05249424405218726
             },
             {
               "count": 251,
@@ -1062,9 +1062,9 @@
               "share": 0.0385264773599386
             },
             {
-              "count": 221,
+              "count": 213,
               "disposition": "granted",
-              "share": 0.033921719109746735
+              "share": 0.03269378357636224
             }
           ],
           "key": "2010s",
@@ -1098,37 +1098,37 @@
           "resolved": 3
         },
         {
-          "cases": 33780,
+          "cases": 33880,
           "dispositions": [
             {
-              "count": 11938,
+              "count": 11950,
               "disposition": "denied",
-              "share": 0.8019615746338842
+              "share": 0.8010457165839925
             },
             {
-              "count": 2066,
+              "count": 2085,
               "disposition": "granted",
-              "share": 0.13878812306865512
+              "share": 0.1397640434374581
             },
             {
-              "count": 551,
+              "count": 552,
               "disposition": "dismissed",
-              "share": 0.037014644632540644
+              "share": 0.03700227912588819
             },
             {
               "count": 326,
               "disposition": "gvr",
-              "share": 0.021899771597474138
+              "share": 0.02185279528086875
             },
             {
               "count": 5,
               "disposition": "withdrawn",
-              "share": 0.00033588606744592236
+              "share": 0.0003351655717924655
             }
           ],
           "key": "2020s",
-          "open": 18894,
-          "resolved": 14886
+          "open": 18962,
+          "resolved": 14918
         },
         {
           "cases": 107,
@@ -1205,50 +1205,50 @@
     {
       "buckets": [
         {
-          "cases": 40509,
+          "cases": 40520,
           "dispositions": [
             {
-              "count": 40509,
+              "count": 40520,
               "disposition": "denied",
               "share": 1.0
             }
           ],
           "key": "denied",
           "open": 0,
-          "resolved": 40509
+          "resolved": 40520
         },
         {
-          "cases": 1188,
+          "cases": 1259,
           "dispositions": [],
           "key": "(open)",
-          "open": 1188,
+          "open": 1259,
           "resolved": 0
         },
         {
-          "cases": 892,
+          "cases": 894,
           "dispositions": [
             {
-              "count": 892,
+              "count": 894,
               "disposition": "dismissed",
               "share": 1.0
             }
           ],
           "key": "dismissed",
           "open": 0,
-          "resolved": 892
+          "resolved": 894
         },
         {
-          "cases": 668,
+          "cases": 655,
           "dispositions": [
             {
-              "count": 668,
+              "count": 655,
               "disposition": "granted",
               "share": 1.0
             }
           ],
           "key": "granted",
           "open": 0,
-          "resolved": 668
+          "resolved": 655
         },
         {
           "cases": 577,
@@ -1275,50 +1275,50 @@
     {
       "buckets": [
         {
-          "cases": 11422,
+          "cases": 11445,
           "dispositions": [
             {
-              "count": 10687,
+              "count": 10691,
               "disposition": "denied",
-              "share": 0.9649661399548533
+              "share": 0.9650658963711861
             },
             {
               "count": 239,
               "disposition": "dismissed",
-              "share": 0.021580135440180587
+              "share": 0.021574291388337247
             },
             {
               "count": 87,
               "disposition": "gvr",
-              "share": 0.007855530474040633
+              "share": 0.007853403141361256
             },
             {
-              "count": 62,
+              "count": 61,
               "disposition": "granted",
-              "share": 0.005598194130925508
+              "share": 0.005506409099115364
             }
           ],
           "key": "(none)",
-          "open": 347,
-          "resolved": 11075
+          "open": 367,
+          "resolved": 11078
         },
         {
-          "cases": 5572,
+          "cases": 5580,
           "dispositions": [
             {
-              "count": 5146,
+              "count": 5148,
               "disposition": "denied",
-              "share": 0.9478725363787069
+              "share": 0.948240928347762
             },
             {
-              "count": 120,
+              "count": 117,
               "disposition": "granted",
-              "share": 0.022103518143304475
+              "share": 0.021550930189721863
             },
             {
-              "count": 103,
+              "count": 104,
               "disposition": "dismissed",
-              "share": 0.01897218640633634
+              "share": 0.01915638239086388
             },
             {
               "count": 60,
@@ -1327,16 +1327,16 @@
             }
           ],
           "key": "ca9",
-          "open": 143,
+          "open": 151,
           "resolved": 5429
         },
         {
-          "cases": 5276,
+          "cases": 5283,
           "dispositions": [
             {
-              "count": 4855,
+              "count": 4856,
               "disposition": "denied",
-              "share": 0.9451041463889429
+              "share": 0.9452988125364999
             },
             {
               "count": 110,
@@ -1344,9 +1344,9 @@
               "share": 0.021413276231263382
             },
             {
-              "count": 88,
+              "count": 87,
               "disposition": "granted",
-              "share": 0.017130620985010708
+              "share": 0.016935954837453766
             },
             {
               "count": 84,
@@ -1355,11 +1355,11 @@
             }
           ],
           "key": "ca5",
-          "open": 139,
+          "open": 146,
           "resolved": 5137
         },
         {
-          "cases": 3623,
+          "cases": 3628,
           "dispositions": [
             {
               "count": 3342,
@@ -1383,11 +1383,11 @@
             }
           ],
           "key": "ca11",
-          "open": 83,
+          "open": 88,
           "resolved": 3540
         },
         {
-          "cases": 3426,
+          "cases": 3430,
           "dispositions": [
             {
               "count": 3174,
@@ -1411,11 +1411,11 @@
             }
           ],
           "key": "ca4",
-          "open": 92,
+          "open": 96,
           "resolved": 3334
         },
         {
-          "cases": 2935,
+          "cases": 2942,
           "dispositions": [
             {
               "count": 2723,
@@ -1439,11 +1439,11 @@
             }
           ],
           "key": "ca6",
-          "open": 83,
+          "open": 90,
           "resolved": 2852
         },
         {
-          "cases": 2071,
+          "cases": 2073,
           "dispositions": [
             {
               "count": 1928,
@@ -1467,16 +1467,16 @@
             }
           ],
           "key": "ca8",
-          "open": 46,
+          "open": 48,
           "resolved": 2025
         },
         {
-          "cases": 2040,
+          "cases": 2044,
           "dispositions": [
             {
-              "count": 1822,
+              "count": 1823,
               "disposition": "denied",
-              "share": 0.9234668018246326
+              "share": 0.9239736441966548
             },
             {
               "count": 53,
@@ -1484,9 +1484,9 @@
               "share": 0.026862645717181957
             },
             {
-              "count": 52,
+              "count": 51,
               "disposition": "granted",
-              "share": 0.026355803345159655
+              "share": 0.025848960973137353
             },
             {
               "count": 46,
@@ -1495,16 +1495,16 @@
             }
           ],
           "key": "ca2",
-          "open": 67,
+          "open": 71,
           "resolved": 1973
         },
         {
-          "cases": 1936,
+          "cases": 1940,
           "dispositions": [
             {
-              "count": 1797,
+              "count": 1798,
               "disposition": "denied",
-              "share": 0.9477848101265823
+              "share": 0.9483122362869199
             },
             {
               "count": 51,
@@ -1512,9 +1512,9 @@
               "share": 0.02689873417721519
             },
             {
-              "count": 30,
+              "count": 29,
               "disposition": "granted",
-              "share": 0.015822784810126583
+              "share": 0.01529535864978903
             },
             {
               "count": 18,
@@ -1523,16 +1523,16 @@
             }
           ],
           "key": "ca3",
-          "open": 40,
+          "open": 44,
           "resolved": 1896
         },
         {
-          "cases": 1605,
+          "cases": 1607,
           "dispositions": [
             {
-              "count": 1495,
+              "count": 1496,
               "disposition": "denied",
-              "share": 0.9504132231404959
+              "share": 0.951048951048951
             },
             {
               "count": 38,
@@ -1545,17 +1545,17 @@
               "share": 0.013986013986013986
             },
             {
-              "count": 18,
+              "count": 17,
               "disposition": "granted",
-              "share": 0.01144310235219326
+              "share": 0.01080737444373808
             }
           ],
           "key": "ca7",
-          "open": 32,
+          "open": 34,
           "resolved": 1573
         },
         {
-          "cases": 1422,
+          "cases": 1423,
           "dispositions": [
             {
               "count": 1290,
@@ -1563,14 +1563,14 @@
               "share": 0.9381818181818182
             },
             {
-              "count": 36,
+              "count": 35,
               "disposition": "granted",
-              "share": 0.02618181818181818
+              "share": 0.025454545454545455
             },
             {
-              "count": 30,
+              "count": 31,
               "disposition": "dismissed",
-              "share": 0.02181818181818182
+              "share": 0.022545454545454546
             },
             {
               "count": 19,
@@ -1579,16 +1579,16 @@
             }
           ],
           "key": "ca10",
-          "open": 47,
+          "open": 48,
           "resolved": 1375
         },
         {
-          "cases": 906,
+          "cases": 909,
           "dispositions": [
             {
-              "count": 809,
+              "count": 810,
               "disposition": "denied",
-              "share": 0.9214123006833713
+              "share": 0.9225512528473804
             },
             {
               "count": 28,
@@ -1596,9 +1596,9 @@
               "share": 0.03189066059225513
             },
             {
-              "count": 28,
+              "count": 27,
               "disposition": "granted",
-              "share": 0.03189066059225513
+              "share": 0.030751708428246014
             },
             {
               "count": 13,
@@ -1607,11 +1607,11 @@
             }
           ],
           "key": "cafc",
-          "open": 28,
+          "open": 31,
           "resolved": 878
         },
         {
-          "cases": 901,
+          "cases": 903,
           "dispositions": [
             {
               "count": 844,
@@ -1635,11 +1635,11 @@
             }
           ],
           "key": "ca1",
-          "open": 16,
+          "open": 18,
           "resolved": 885
         },
         {
-          "cases": 638,
+          "cases": 640,
           "dispositions": [
             {
               "count": 545,
@@ -1663,7 +1663,7 @@
             }
           ],
           "key": "cadc",
-          "open": 25,
+          "open": 27,
           "resolved": 613
         },
         {
@@ -1734,29 +1734,6 @@
           "resolved": 5
         },
         {
-          "cases": 4,
-          "dispositions": [
-            {
-              "count": 2,
-              "disposition": "granted",
-              "share": 0.5
-            },
-            {
-              "count": 1,
-              "disposition": "denied",
-              "share": 0.25
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.25
-            }
-          ],
-          "key": "oklacrimapp",
-          "open": 0,
-          "resolved": 4
-        },
-        {
           "cases": 3,
           "dispositions": [
             {
@@ -1770,22 +1747,17 @@
           "resolved": 3
         },
         {
-          "cases": 3,
+          "cases": 2,
           "dispositions": [
             {
               "count": 2,
               "disposition": "denied",
-              "share": 0.6666666666666666
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.3333333333333333
+              "share": 1.0
             }
           ],
           "key": "nev",
           "open": 0,
-          "resolved": 3
+          "resolved": 2
         },
         {
           "cases": 2,
@@ -1797,6 +1769,24 @@
             }
           ],
           "key": "ohio",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 0.5
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.5
+            }
+          ],
+          "key": "oklacrimapp",
           "open": 0,
           "resolved": 2
         },
@@ -1903,22 +1893,22 @@
     {
       "buckets": [
         {
-          "cases": 10078,
+          "cases": 10101,
           "dispositions": [
             {
-              "count": 9373,
+              "count": 9375,
               "disposition": "denied",
-              "share": 0.9703903095558546
+              "share": 0.9705973703281914
             },
             {
-              "count": 120,
+              "count": 121,
               "disposition": "dismissed",
-              "share": 0.012423646340200848
+              "share": 0.01252717672636919
             },
             {
-              "count": 114,
+              "count": 111,
               "disposition": "granted",
-              "share": 0.011802464023190807
+              "share": 0.011491872864685785
             },
             {
               "count": 52,
@@ -1927,21 +1917,21 @@
             }
           ],
           "key": "0",
-          "open": 419,
+          "open": 442,
           "resolved": 9659
         },
         {
-          "cases": 2585,
+          "cases": 2589,
           "dispositions": [
             {
-              "count": 2196,
+              "count": 2201,
               "disposition": "denied",
-              "share": 0.8632075471698113
+              "share": 0.8651729559748428
             },
             {
-              "count": 204,
+              "count": 199,
               "disposition": "granted",
-              "share": 0.08018867924528301
+              "share": 0.07822327044025157
             },
             {
               "count": 120,
@@ -1955,7 +1945,7 @@
             }
           ],
           "key": "1",
-          "open": 41,
+          "open": 45,
           "resolved": 2544
         },
         {
@@ -1967,9 +1957,9 @@
               "share": 0.5992141453831041
             },
             {
-              "count": 134,
+              "count": 133,
               "disposition": "granted",
-              "share": 0.2632612966601179
+              "share": 0.26129666011787817
             },
             {
               "count": 65,
@@ -1977,9 +1967,9 @@
               "share": 0.12770137524557956
             },
             {
-              "count": 5,
+              "count": 6,
               "disposition": "dismissed",
-              "share": 0.009823182711198428
+              "share": 0.011787819253438114
             }
           ],
           "key": "2",
@@ -2026,17 +2016,17 @@
     {
       "buckets": [
         {
-          "cases": 13457,
+          "cases": 13484,
           "dispositions": [
             {
-              "count": 12048,
+              "count": 12055,
               "disposition": "denied",
-              "share": 0.9267692307692308
+              "share": 0.9273076923076923
             },
             {
-              "count": 509,
+              "count": 500,
               "disposition": "granted",
-              "share": 0.03915384615384616
+              "share": 0.038461538461538464
             },
             {
               "count": 292,
@@ -2044,13 +2034,13 @@
               "share": 0.02246153846153846
             },
             {
-              "count": 151,
+              "count": 153,
               "disposition": "dismissed",
-              "share": 0.011615384615384616
+              "share": 0.01176923076923077
             }
           ],
           "key": "none",
-          "open": 457,
+          "open": 484,
           "resolved": 13000
         },
         {
@@ -2093,22 +2083,22 @@
     {
       "buckets": [
         {
-          "cases": 9812,
+          "cases": 9834,
           "dispositions": [
             {
-              "count": 9200,
+              "count": 9202,
               "disposition": "denied",
-              "share": 0.976023764056864
+              "share": 0.9762359431360068
             },
             {
-              "count": 112,
+              "count": 113,
               "disposition": "dismissed",
-              "share": 0.011882028431996604
+              "share": 0.011988117971568003
             },
             {
-              "count": 74,
+              "count": 71,
               "disposition": "granted",
-              "share": 0.007850625928283471
+              "share": 0.007532357309569276
             },
             {
               "count": 40,
@@ -2117,21 +2107,21 @@
             }
           ],
           "key": "baseline",
-          "open": 386,
+          "open": 408,
           "resolved": 9426
         },
         {
-          "cases": 2346,
+          "cases": 2350,
           "dispositions": [
             {
-              "count": 2068,
+              "count": 2073,
               "disposition": "denied",
-              "share": 0.8944636678200693
+              "share": 0.8966262975778547
             },
             {
-              "count": 148,
+              "count": 143,
               "disposition": "granted",
-              "share": 0.06401384083044982
+              "share": 0.06185121107266436
             },
             {
               "count": 77,
@@ -2145,7 +2135,7 @@
             }
           ],
           "key": "elevated",
-          "open": 34,
+          "open": 38,
           "resolved": 2312
         },
         {
@@ -2205,12 +2195,12 @@
           "resolved": 264
         },
         {
-          "cases": 211,
+          "cases": 212,
           "dispositions": [
             {
-              "count": 98,
+              "count": 97,
               "disposition": "granted",
-              "share": 0.48756218905472637
+              "share": 0.48258706467661694
             },
             {
               "count": 52,
@@ -2223,13 +2213,13 @@
               "share": 0.22388059701492538
             },
             {
-              "count": 6,
+              "count": 7,
               "disposition": "dismissed",
-              "share": 0.029850746268656716
+              "share": 0.03482587064676617
             }
           ],
           "key": "federal",
-          "open": 10,
+          "open": 11,
           "resolved": 201
         }
       ],
@@ -2244,22 +2234,22 @@
     {
       "buckets": [
         {
-          "cases": 2692,
+          "cases": 2700,
           "dispositions": [
             {
-              "count": 2266,
+              "count": 2268,
               "disposition": "denied",
-              "share": 0.888976069046685
+              "share": 0.8897606904668497
             },
             {
-              "count": 120,
+              "count": 117,
               "disposition": "granted",
-              "share": 0.04707728520988623
+              "share": 0.04590035307963907
             },
             {
-              "count": 103,
+              "count": 104,
               "disposition": "dismissed",
-              "share": 0.04040800313848568
+              "share": 0.04080031384856807
             },
             {
               "count": 60,
@@ -2268,16 +2258,16 @@
             }
           ],
           "key": "ca9",
-          "open": 143,
+          "open": 151,
           "resolved": 2549
         },
         {
-          "cases": 2117,
+          "cases": 2124,
           "dispositions": [
             {
-              "count": 1696,
+              "count": 1697,
               "disposition": "denied",
-              "share": 0.8574317492416582
+              "share": 0.8579373104145601
             },
             {
               "count": 110,
@@ -2285,9 +2275,9 @@
               "share": 0.055611729019211326
             },
             {
-              "count": 88,
+              "count": 87,
               "disposition": "granted",
-              "share": 0.044489383215369056
+              "share": 0.04398382204246714
             },
             {
               "count": 84,
@@ -2296,11 +2286,11 @@
             }
           ],
           "key": "ca5",
-          "open": 139,
+          "open": 146,
           "resolved": 1978
         },
         {
-          "cases": 1508,
+          "cases": 1513,
           "dispositions": [
             {
               "count": 1227,
@@ -2324,11 +2314,11 @@
             }
           ],
           "key": "ca11",
-          "open": 83,
+          "open": 88,
           "resolved": 1425
         },
         {
-          "cases": 1356,
+          "cases": 1360,
           "dispositions": [
             {
               "count": 1104,
@@ -2352,11 +2342,11 @@
             }
           ],
           "key": "ca4",
-          "open": 92,
+          "open": 96,
           "resolved": 1264
         },
         {
-          "cases": 1297,
+          "cases": 1304,
           "dispositions": [
             {
               "count": 1085,
@@ -2380,16 +2370,16 @@
             }
           ],
           "key": "ca6",
-          "open": 83,
+          "open": 90,
           "resolved": 1214
         },
         {
-          "cases": 1230,
+          "cases": 1234,
           "dispositions": [
             {
-              "count": 1012,
+              "count": 1013,
               "disposition": "denied",
-              "share": 0.8701633705932932
+              "share": 0.8710232158211522
             },
             {
               "count": 53,
@@ -2397,9 +2387,9 @@
               "share": 0.04557179707652623
             },
             {
-              "count": 52,
+              "count": 51,
               "disposition": "granted",
-              "share": 0.04471195184866724
+              "share": 0.043852106620808254
             },
             {
               "count": 46,
@@ -2408,16 +2398,16 @@
             }
           ],
           "key": "ca2",
-          "open": 67,
+          "open": 71,
           "resolved": 1163
         },
         {
-          "cases": 865,
+          "cases": 869,
           "dispositions": [
             {
-              "count": 726,
+              "count": 727,
               "disposition": "denied",
-              "share": 0.88
+              "share": 0.8812121212121212
             },
             {
               "count": 51,
@@ -2425,9 +2415,9 @@
               "share": 0.06181818181818182
             },
             {
-              "count": 30,
+              "count": 29,
               "disposition": "granted",
-              "share": 0.03636363636363636
+              "share": 0.03515151515151515
             },
             {
               "count": 18,
@@ -2436,11 +2426,11 @@
             }
           ],
           "key": "ca3",
-          "open": 40,
+          "open": 44,
           "resolved": 825
         },
         {
-          "cases": 856,
+          "cases": 858,
           "dispositions": [
             {
               "count": 713,
@@ -2464,16 +2454,16 @@
             }
           ],
           "key": "ca8",
-          "open": 46,
+          "open": 48,
           "resolved": 810
         },
         {
-          "cases": 813,
+          "cases": 815,
           "dispositions": [
             {
-              "count": 703,
+              "count": 704,
               "disposition": "denied",
-              "share": 0.9001280409731114
+              "share": 0.9014084507042254
             },
             {
               "count": 38,
@@ -2486,22 +2476,22 @@
               "share": 0.028169014084507043
             },
             {
-              "count": 18,
+              "count": 17,
               "disposition": "granted",
-              "share": 0.023047375160051217
+              "share": 0.02176696542893726
             }
           ],
           "key": "ca7",
-          "open": 32,
+          "open": 34,
           "resolved": 781
         },
         {
-          "cases": 789,
+          "cases": 792,
           "dispositions": [
             {
-              "count": 692,
+              "count": 693,
               "disposition": "denied",
-              "share": 0.9093298291721419
+              "share": 0.9106438896189225
             },
             {
               "count": 28,
@@ -2509,9 +2499,9 @@
               "share": 0.03679369250985545
             },
             {
-              "count": 28,
+              "count": 27,
               "disposition": "granted",
-              "share": 0.03679369250985545
+              "share": 0.035479632063074903
             },
             {
               "count": 13,
@@ -2520,11 +2510,11 @@
             }
           ],
           "key": "cafc",
-          "open": 28,
+          "open": 31,
           "resolved": 761
         },
         {
-          "cases": 693,
+          "cases": 694,
           "dispositions": [
             {
               "count": 561,
@@ -2532,14 +2522,14 @@
               "share": 0.868421052631579
             },
             {
-              "count": 36,
+              "count": 35,
               "disposition": "granted",
-              "share": 0.05572755417956656
+              "share": 0.05417956656346749
             },
             {
-              "count": 30,
+              "count": 31,
               "disposition": "dismissed",
-              "share": 0.04643962848297214
+              "share": 0.047987616099071206
             },
             {
               "count": 19,
@@ -2548,11 +2538,11 @@
             }
           ],
           "key": "ca10",
-          "open": 47,
+          "open": 48,
           "resolved": 646
         },
         {
-          "cases": 512,
+          "cases": 517,
           "dispositions": [
             {
               "count": 446,
@@ -2566,11 +2556,11 @@
             }
           ],
           "key": "(none)",
-          "open": 56,
+          "open": 61,
           "resolved": 456
         },
         {
-          "cases": 503,
+          "cases": 505,
           "dispositions": [
             {
               "count": 410,
@@ -2594,11 +2584,11 @@
             }
           ],
           "key": "cadc",
-          "open": 25,
+          "open": 27,
           "resolved": 478
         },
         {
-          "cases": 415,
+          "cases": 417,
           "dispositions": [
             {
               "count": 358,
@@ -2622,11 +2612,11 @@
             }
           ],
           "key": "ca1",
-          "open": 16,
+          "open": 18,
           "resolved": 399
         },
         {
-          "cases": 167,
+          "cases": 168,
           "dispositions": [
             {
               "count": 134,
@@ -2650,34 +2640,29 @@
             }
           ],
           "key": "Court of Appeal of California, Second Appellate District",
-          "open": 14,
+          "open": 15,
           "resolved": 153
         },
         {
-          "cases": 165,
+          "cases": 166,
           "dispositions": [
             {
-              "count": 142,
+              "count": 143,
               "disposition": "denied",
-              "share": 0.9044585987261147
+              "share": 0.910828025477707
             },
             {
               "count": 14,
               "disposition": "dismissed",
               "share": 0.08917197452229299
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.006369426751592357
             }
           ],
           "key": "Supreme Court of Florida",
-          "open": 8,
+          "open": 9,
           "resolved": 157
         },
         {
-          "cases": 131,
+          "cases": 132,
           "dispositions": [
             {
               "count": 116,
@@ -2696,7 +2681,7 @@
             }
           ],
           "key": "Supreme Court of Virginia",
-          "open": 10,
+          "open": 11,
           "resolved": 121
         },
         {
@@ -2728,55 +2713,50 @@
           "resolved": 117
         },
         {
-          "cases": 107,
+          "cases": 108,
           "dispositions": [
             {
-              "count": 89,
+              "count": 90,
               "disposition": "denied",
-              "share": 0.89
+              "share": 0.9
             },
             {
               "count": 10,
               "disposition": "dismissed",
               "share": 0.1
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.01
             }
           ],
           "key": "Supreme Court of California",
-          "open": 7,
+          "open": 8,
           "resolved": 100
         },
         {
-          "cases": 101,
+          "cases": 103,
           "dispositions": [
             {
               "count": 78,
               "disposition": "denied",
-              "share": 0.7722772277227723
+              "share": 0.7572815533980582
             },
             {
               "count": 18,
               "disposition": "gvr",
-              "share": 0.1782178217821782
+              "share": 0.17475728155339806
+            },
+            {
+              "count": 4,
+              "disposition": "granted",
+              "share": 0.038834951456310676
             },
             {
               "count": 3,
               "disposition": "dismissed",
-              "share": 0.0297029702970297
-            },
-            {
-              "count": 2,
-              "disposition": "granted",
-              "share": 0.019801980198019802
+              "share": 0.02912621359223301
             }
           ],
           "key": "Court of Criminal Appeals of Oklahoma",
           "open": 0,
-          "resolved": 101
+          "resolved": 103
         },
         {
           "cases": 90,
@@ -2815,7 +2795,7 @@
           "resolved": 76
         },
         {
-          "cases": 82,
+          "cases": 83,
           "dispositions": [
             {
               "count": 60,
@@ -2834,11 +2814,11 @@
             }
           ],
           "key": "District Court of Appeal of Florida, Fourth District",
-          "open": 14,
+          "open": 15,
           "resolved": 68
         },
         {
-          "cases": 80,
+          "cases": 81,
           "dispositions": [
             {
               "count": 72,
@@ -2852,7 +2832,7 @@
             }
           ],
           "key": "Superior Court of New Jersey, Appellate Division",
-          "open": 6,
+          "open": 7,
           "resolved": 74
         },
         {
@@ -2879,7 +2859,7 @@
           "resolved": 77
         },
         {
-          "cases": 74,
+          "cases": 75,
           "dispositions": [
             {
               "count": 66,
@@ -2903,7 +2883,7 @@
             }
           ],
           "key": "District of Columbia Court of Appeals",
-          "open": 2,
+          "open": 3,
           "resolved": 72
         },
         {
@@ -3063,7 +3043,7 @@
           "resolved": 50
         },
         {
-          "cases": 57,
+          "cases": 58,
           "dispositions": [
             {
               "count": 53,
@@ -3077,7 +3057,7 @@
             }
           ],
           "key": "Court of Appeals of Washington, Division 1",
-          "open": 3,
+          "open": 4,
           "resolved": 54
         },
         {
@@ -3109,6 +3089,29 @@
           "resolved": 52
         },
         {
+          "cases": 51,
+          "dispositions": [
+            {
+              "count": 42,
+              "disposition": "denied",
+              "share": 0.9333333333333333
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.044444444444444446
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.022222222222222223
+            }
+          ],
+          "key": "Supreme Court of Nevada",
+          "open": 6,
+          "resolved": 45
+        },
+        {
           "cases": 50,
           "dispositions": [
             {
@@ -3132,45 +3135,17 @@
           "resolved": 46
         },
         {
-          "cases": 50,
-          "dispositions": [
-            {
-              "count": 41,
-              "disposition": "denied",
-              "share": 0.9318181818181818
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.045454545454545456
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.022727272727272728
-            }
-          ],
-          "key": "Supreme Court of Nevada",
-          "open": 6,
-          "resolved": 44
-        },
-        {
           "cases": 48,
           "dispositions": [
             {
-              "count": 42,
+              "count": 43,
               "disposition": "denied",
-              "share": 0.875
+              "share": 0.8958333333333334
             },
             {
               "count": 5,
               "disposition": "dismissed",
               "share": 0.10416666666666667
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.020833333333333332
             }
           ],
           "key": "District Court of Appeal of Florida, First District",
@@ -3686,6 +3661,24 @@
           "resolved": 30
         },
         {
+          "cases": 32,
+          "dispositions": [
+            {
+              "count": 27,
+              "disposition": "denied",
+              "share": 0.9
+            },
+            {
+              "count": 3,
+              "disposition": "dismissed",
+              "share": 0.1
+            }
+          ],
+          "key": "Supreme Judicial Court of Massachusetts",
+          "open": 2,
+          "resolved": 30
+        },
+        {
           "cases": 31,
           "dispositions": [
             {
@@ -3751,24 +3744,6 @@
           "key": "Supreme Court of Alabama",
           "open": 2,
           "resolved": 29
-        },
-        {
-          "cases": 31,
-          "dispositions": [
-            {
-              "count": 27,
-              "disposition": "denied",
-              "share": 0.9
-            },
-            {
-              "count": 3,
-              "disposition": "dismissed",
-              "share": 0.1
-            }
-          ],
-          "key": "Supreme Judicial Court of Massachusetts",
-          "open": 1,
-          "resolved": 30
         },
         {
           "cases": 30,
@@ -3993,6 +3968,24 @@
           "cases": 25,
           "dispositions": [
             {
+              "count": 22,
+              "disposition": "denied",
+              "share": 0.9565217391304348
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.043478260869565216
+            }
+          ],
+          "key": "Supreme Judicial Court of Maine",
+          "open": 2,
+          "resolved": 23
+        },
+        {
+          "cases": 25,
+          "dispositions": [
+            {
               "count": 24,
               "disposition": "denied",
               "share": 0.96
@@ -4037,24 +4030,6 @@
           "key": "Superior Court of Pennsylvania, Pittsburgh Office",
           "open": 0,
           "resolved": 24
-        },
-        {
-          "cases": 24,
-          "dispositions": [
-            {
-              "count": 22,
-              "disposition": "denied",
-              "share": 0.9565217391304348
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.043478260869565216
-            }
-          ],
-          "key": "Supreme Judicial Court of Maine",
-          "open": 1,
-          "resolved": 23
         },
         {
           "cases": 23,
@@ -4426,6 +4401,24 @@
           "cases": 18,
           "dispositions": [
             {
+              "count": 15,
+              "disposition": "denied",
+              "share": 0.8823529411764706
+            },
+            {
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.11764705882352941
+            }
+          ],
+          "key": "Supreme Court of Oklahoma",
+          "open": 1,
+          "resolved": 17
+        },
+        {
+          "cases": 18,
+          "dispositions": [
+            {
               "count": 17,
               "disposition": "denied",
               "share": 0.9444444444444444
@@ -4501,24 +4494,6 @@
           "cases": 17,
           "dispositions": [
             {
-              "count": 15,
-              "disposition": "denied",
-              "share": 0.8823529411764706
-            },
-            {
-              "count": 2,
-              "disposition": "granted",
-              "share": 0.11764705882352941
-            }
-          ],
-          "key": "Supreme Court of Oklahoma",
-          "open": 0,
-          "resolved": 17
-        },
-        {
-          "cases": 17,
-          "dispositions": [
-            {
               "count": 14,
               "disposition": "denied",
               "share": 0.9333333333333333
@@ -4557,6 +4532,24 @@
           "resolved": 15
         },
         {
+          "cases": 16,
+          "dispositions": [
+            {
+              "count": 13,
+              "disposition": "denied",
+              "share": 0.8666666666666667
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.13333333333333333
+            }
+          ],
+          "key": "Court of Appeals of Nebraska",
+          "open": 1,
+          "resolved": 15
+        },
+        {
           "cases": 15,
           "dispositions": [
             {
@@ -4571,24 +4564,6 @@
             }
           ],
           "key": "Appellate Division, Supreme Court of New York, Third Judicial Department",
-          "open": 0,
-          "resolved": 15
-        },
-        {
-          "cases": 15,
-          "dispositions": [
-            {
-              "count": 13,
-              "disposition": "denied",
-              "share": 0.8666666666666667
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.13333333333333333
-            }
-          ],
-          "key": "Court of Appeals of Nebraska",
           "open": 0,
           "resolved": 15
         },
@@ -4856,6 +4831,19 @@
           "cases": 13,
           "dispositions": [
             {
+              "count": 10,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "District Court of Appeals of Florida, Sixth District",
+          "open": 3,
+          "resolved": 10
+        },
+        {
+          "cases": 13,
+          "dispositions": [
+            {
               "count": 11,
               "disposition": "denied",
               "share": 0.8461538461538461
@@ -4887,6 +4875,19 @@
           "cases": 12,
           "dispositions": [
             {
+              "count": 11,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Utah",
+          "open": 1,
+          "resolved": 11
+        },
+        {
+          "cases": 12,
+          "dispositions": [
+            {
               "count": 9,
               "disposition": "denied",
               "share": 0.8181818181818182
@@ -4900,19 +4901,6 @@
           "key": "Court of Appeals of Wisconsin, District I",
           "open": 1,
           "resolved": 11
-        },
-        {
-          "cases": 12,
-          "dispositions": [
-            {
-              "count": 10,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "District Court of Appeals of Florida, Sixth District",
-          "open": 2,
-          "resolved": 10
         },
         {
           "cases": 12,
@@ -4978,19 +4966,6 @@
             }
           ],
           "key": "Court of Appeals of Tennessee, Middle Division",
-          "open": 0,
-          "resolved": 11
-        },
-        {
-          "cases": 11,
-          "dispositions": [
-            {
-              "count": 11,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Utah",
           "open": 0,
           "resolved": 11
         },
@@ -5529,29 +5504,6 @@
           "resolved": 2
         },
         {
-          "cases": 4,
-          "dispositions": [
-            {
-              "count": 2,
-              "disposition": "granted",
-              "share": 0.5
-            },
-            {
-              "count": 1,
-              "disposition": "denied",
-              "share": 0.25
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.25
-            }
-          ],
-          "key": "oklacrimapp",
-          "open": 0,
-          "resolved": 4
-        },
-        {
           "cases": 3,
           "dispositions": [
             {
@@ -5587,24 +5539,6 @@
             }
           ],
           "key": "ariz",
-          "open": 0,
-          "resolved": 3
-        },
-        {
-          "cases": 3,
-          "dispositions": [
-            {
-              "count": 2,
-              "disposition": "denied",
-              "share": 0.6666666666666666
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.3333333333333333
-            }
-          ],
-          "key": "nev",
           "open": 0,
           "resolved": 3
         },
@@ -5892,7 +5826,38 @@
               "share": 1.0
             }
           ],
+          "key": "nev",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
           "key": "ohio",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 0.5
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.5
+            }
+          ],
+          "key": "oklacrimapp",
           "open": 0,
           "resolved": 2
         },
@@ -5947,6 +5912,13 @@
           "key": "Arizona Court of Appeals",
           "open": 0,
           "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
+          "key": "Circuit Court of Florida, Dade County",
+          "open": 1,
+          "resolved": 0
         },
         {
           "cases": 1,
@@ -7037,7 +7009,7 @@
             {
               "band": "elevated",
               "est_grant_rate": null,
-              "ingested": 0,
+              "ingested": 1,
               "prefix_est_grant_rate": null,
               "prefix_resolved": 0,
               "prefix_weighted_resolved": 0,
@@ -7047,7 +7019,7 @@
             {
               "band": "baseline",
               "est_grant_rate": null,
-              "ingested": 226,
+              "ingested": 252,
               "prefix_est_grant_rate": null,
               "prefix_resolved": 0,
               "prefix_weighted_resolved": 0,
@@ -7062,7 +7034,7 @@
             {
               "band": "federal",
               "est_grant_rate": null,
-              "ingested": 5,
+              "ingested": 6,
               "prefix_est_grant_rate": null,
               "prefix_resolved": 0,
               "prefix_weighted_resolved": 0,
@@ -7092,7 +7064,7 @@
             {
               "band": "elevated",
               "est_grant_rate": null,
-              "ingested": 0,
+              "ingested": 1,
               "prefix_est_grant_rate": null,
               "prefix_resolved": 0,
               "prefix_weighted_resolved": 0,
@@ -7102,7 +7074,7 @@
             {
               "band": "baseline",
               "est_grant_rate": null,
-              "ingested": 208,
+              "ingested": 233,
               "prefix_est_grant_rate": null,
               "prefix_resolved": 0,
               "prefix_weighted_resolved": 0,
@@ -7113,7 +7085,7 @@
         }
       ],
       "base_rates": {
-        "cases": 598,
+        "cases": 669,
         "dispositions": [
           {
             "count": 5,
@@ -7122,7 +7094,7 @@
           }
         ],
         "key": "2026",
-        "open": 593,
+        "open": 664,
         "resolved": 5
       },
       "classes": [
@@ -7131,8 +7103,8 @@
           "dispositions": [],
           "est_grant_rate": null,
           "fee_class": "paid",
-          "filings": 229,
-          "ingested": 226,
+          "filings": 259,
+          "ingested": 253,
           "resolved": 0,
           "timing": {
             "cases": 0,
@@ -7147,8 +7119,8 @@
           "dispositions": [],
           "est_grant_rate": null,
           "fee_class": "ifp",
-          "filings": 371,
-          "ingested": 358,
+          "filings": 420,
+          "ingested": 401,
           "resolved": 0,
           "timing": {
             "cases": 0,
@@ -7161,14 +7133,14 @@
       ],
       "est_grant_family_rate": 0.0,
       "grants": 0,
-      "ingested": 598,
+      "ingested": 669,
       "median_days_to_grant": null,
       "salience_version": "sal-v3",
       "segments": [
         {
           "band": "federal",
           "est_grant_rate": null,
-          "ingested": 6,
+          "ingested": 7,
           "prefix_est_grant_rate": null,
           "prefix_resolved": 0,
           "prefix_weighted_resolved": 0,
@@ -7198,7 +7170,7 @@
         {
           "band": "elevated",
           "est_grant_rate": null,
-          "ingested": 0,
+          "ingested": 1,
           "prefix_est_grant_rate": null,
           "prefix_resolved": 0,
           "prefix_weighted_resolved": 0,
@@ -7208,7 +7180,7 @@
         {
           "band": "baseline",
           "est_grant_rate": null,
-          "ingested": 207,
+          "ingested": 232,
           "prefix_est_grant_rate": null,
           "prefix_resolved": 0,
           "prefix_weighted_resolved": 0,
@@ -7242,7 +7214,7 @@
             {
               "band": "elevated",
               "est_grant_rate": 0.08733624454148471,
-              "ingested": 264,
+              "ingested": 267,
               "prefix_est_grant_rate": 0.1727574750830565,
               "prefix_resolved": 301,
               "prefix_weighted_resolved": 301,
@@ -7252,7 +7224,7 @@
             {
               "band": "baseline",
               "est_grant_rate": 0.013714285714285715,
-              "ingested": 1065,
+              "ingested": 1062,
               "prefix_est_grant_rate": 0.05442176870748299,
               "prefix_resolved": 1176,
               "prefix_weighted_resolved": 1176,
@@ -7278,9 +7250,9 @@
               "band": "high",
               "est_grant_rate": 0.4411764705882353,
               "ingested": 84,
-              "prefix_est_grant_rate": 0.4482758620689655,
-              "prefix_resolved": 87,
-              "prefix_weighted_resolved": 87,
+              "prefix_est_grant_rate": 0.4411764705882353,
+              "prefix_resolved": 68,
+              "prefix_weighted_resolved": 68,
               "resolved": 68,
               "weighted_resolved": 68
             },
@@ -7288,29 +7260,29 @@
               "band": "state",
               "est_grant_rate": 0.2,
               "ingested": 23,
-              "prefix_est_grant_rate": 0.4117647058823529,
-              "prefix_resolved": 102,
-              "prefix_weighted_resolved": 102,
+              "prefix_est_grant_rate": 0.3913043478260869,
+              "prefix_resolved": 23,
+              "prefix_weighted_resolved": 23,
               "resolved": 15,
               "weighted_resolved": 15
             },
             {
               "band": "elevated",
               "est_grant_rate": 0.06481481481481481,
-              "ingested": 250,
-              "prefix_est_grant_rate": 0.17610062893081763,
-              "prefix_resolved": 318,
-              "prefix_weighted_resolved": 318,
+              "ingested": 253,
+              "prefix_est_grant_rate": 0.13768115942028986,
+              "prefix_resolved": 276,
+              "prefix_weighted_resolved": 276,
               "resolved": 216,
               "weighted_resolved": 216
             },
             {
               "band": "baseline",
               "est_grant_rate": 0.009324009324009324,
-              "ingested": 1038,
-              "prefix_est_grant_rate": 0.05442176870748299,
-              "prefix_resolved": 1176,
-              "prefix_weighted_resolved": 1176,
+              "ingested": 1035,
+              "prefix_est_grant_rate": 0.04056437389770723,
+              "prefix_resolved": 1134,
+              "prefix_weighted_resolved": 1134,
               "resolved": 858,
               "weighted_resolved": 858
             }
@@ -7441,9 +7413,9 @@
           "band": "high",
           "est_grant_rate": 0.42424242424242425,
           "ingested": 82,
-          "prefix_est_grant_rate": 0.4482758620689655,
-          "prefix_resolved": 87,
-          "prefix_weighted_resolved": 87,
+          "prefix_est_grant_rate": 0.42424242424242425,
+          "prefix_resolved": 66,
+          "prefix_weighted_resolved": 66,
           "resolved": 66,
           "weighted_resolved": 66
         },
@@ -7451,29 +7423,29 @@
           "band": "state",
           "est_grant_rate": 0.2,
           "ingested": 23,
-          "prefix_est_grant_rate": 0.4117647058823529,
-          "prefix_resolved": 102,
-          "prefix_weighted_resolved": 102,
+          "prefix_est_grant_rate": 0.3913043478260869,
+          "prefix_resolved": 23,
+          "prefix_weighted_resolved": 23,
           "resolved": 15,
           "weighted_resolved": 15
         },
         {
           "band": "elevated",
           "est_grant_rate": 0.06481481481481481,
-          "ingested": 250,
-          "prefix_est_grant_rate": 0.17610062893081763,
-          "prefix_resolved": 318,
-          "prefix_weighted_resolved": 318,
+          "ingested": 253,
+          "prefix_est_grant_rate": 0.13138686131386862,
+          "prefix_resolved": 274,
+          "prefix_weighted_resolved": 274,
           "resolved": 216,
           "weighted_resolved": 216
         },
         {
           "band": "baseline",
           "est_grant_rate": 0.009324009324009324,
-          "ingested": 1037,
-          "prefix_est_grant_rate": 0.05442176870748299,
-          "prefix_resolved": 1176,
-          "prefix_weighted_resolved": 1176,
+          "ingested": 1034,
+          "prefix_est_grant_rate": 0.038869257950530034,
+          "prefix_resolved": 1132,
+          "prefix_weighted_resolved": 1132,
           "resolved": 858,
           "weighted_resolved": 858
         }
@@ -7540,9 +7512,9 @@
               "band": "high",
               "est_grant_rate": 0.40350877192982454,
               "ingested": 114,
-              "prefix_est_grant_rate": 0.4263565891472868,
-              "prefix_resolved": 129,
-              "prefix_weighted_resolved": 129,
+              "prefix_est_grant_rate": 0.40350877192982454,
+              "prefix_resolved": 114,
+              "prefix_weighted_resolved": 114,
               "resolved": 114,
               "weighted_resolved": 114
             },
@@ -7550,9 +7522,9 @@
               "band": "state",
               "est_grant_rate": 0.25,
               "ingested": 24,
-              "prefix_est_grant_rate": 0.3986928104575163,
-              "prefix_resolved": 153,
-              "prefix_weighted_resolved": 153,
+              "prefix_est_grant_rate": 0.29411764705882354,
+              "prefix_resolved": 34,
+              "prefix_weighted_resolved": 34,
               "resolved": 24,
               "weighted_resolved": 24
             },
@@ -7560,9 +7532,9 @@
               "band": "elevated",
               "est_grant_rate": 0.0794979079497908,
               "ingested": 239,
-              "prefix_est_grant_rate": 0.20408163265306123,
-              "prefix_resolved": 392,
-              "prefix_weighted_resolved": 392,
+              "prefix_est_grant_rate": 0.17784256559766765,
+              "prefix_resolved": 343,
+              "prefix_weighted_resolved": 343,
               "resolved": 239,
               "weighted_resolved": 239
             },
@@ -7570,9 +7542,9 @@
               "band": "baseline",
               "est_grant_rate": 0.011956521739130435,
               "ingested": 920,
-              "prefix_est_grant_rate": 0.06935975609756098,
-              "prefix_resolved": 1312,
-              "prefix_weighted_resolved": 1312,
+              "prefix_est_grant_rate": 0.057007125890736345,
+              "prefix_resolved": 1263,
+              "prefix_weighted_resolved": 1263,
               "resolved": 920,
               "weighted_resolved": 920
             }
@@ -7698,9 +7670,9 @@
           "band": "high",
           "est_grant_rate": 0.40350877192982454,
           "ingested": 114,
-          "prefix_est_grant_rate": 0.4263565891472868,
-          "prefix_resolved": 129,
-          "prefix_weighted_resolved": 129,
+          "prefix_est_grant_rate": 0.40350877192982454,
+          "prefix_resolved": 114,
+          "prefix_weighted_resolved": 114,
           "resolved": 114,
           "weighted_resolved": 114
         },
@@ -7708,9 +7680,9 @@
           "band": "state",
           "est_grant_rate": 0.25,
           "ingested": 24,
-          "prefix_est_grant_rate": 0.3986928104575163,
-          "prefix_resolved": 153,
-          "prefix_weighted_resolved": 153,
+          "prefix_est_grant_rate": 0.29411764705882354,
+          "prefix_resolved": 34,
+          "prefix_weighted_resolved": 34,
           "resolved": 24,
           "weighted_resolved": 24
         },
@@ -7718,9 +7690,9 @@
           "band": "elevated",
           "est_grant_rate": 0.0794979079497908,
           "ingested": 239,
-          "prefix_est_grant_rate": 0.20408163265306123,
-          "prefix_resolved": 392,
-          "prefix_weighted_resolved": 392,
+          "prefix_est_grant_rate": 0.17784256559766765,
+          "prefix_resolved": 343,
+          "prefix_weighted_resolved": 343,
           "resolved": 239,
           "weighted_resolved": 239
         },
@@ -7728,9 +7700,9 @@
           "band": "baseline",
           "est_grant_rate": 0.011956521739130435,
           "ingested": 920,
-          "prefix_est_grant_rate": 0.06935975609756098,
-          "prefix_resolved": 1312,
-          "prefix_weighted_resolved": 1312,
+          "prefix_est_grant_rate": 0.057007125890736345,
+          "prefix_resolved": 1263,
+          "prefix_weighted_resolved": 1263,
           "resolved": 920,
           "weighted_resolved": 920
         }
@@ -7797,9 +7769,9 @@
               "band": "high",
               "est_grant_rate": 0.3523809523809524,
               "ingested": 105,
-              "prefix_est_grant_rate": 0.4330708661417323,
-              "prefix_resolved": 127,
-              "prefix_weighted_resolved": 127,
+              "prefix_est_grant_rate": 0.3523809523809524,
+              "prefix_resolved": 105,
+              "prefix_weighted_resolved": 105,
               "resolved": 105,
               "weighted_resolved": 105
             },
@@ -7807,9 +7779,9 @@
               "band": "state",
               "est_grant_rate": 0.043478260869565216,
               "ingested": 23,
-              "prefix_est_grant_rate": 0.37333333333333335,
-              "prefix_resolved": 150,
-              "prefix_weighted_resolved": 150,
+              "prefix_est_grant_rate": 0.13333333333333333,
+              "prefix_resolved": 30,
+              "prefix_weighted_resolved": 30,
               "resolved": 23,
               "weighted_resolved": 23
             },
@@ -7817,9 +7789,9 @@
               "band": "elevated",
               "est_grant_rate": 0.12820512820512822,
               "ingested": 273,
-              "prefix_est_grant_rate": 0.21513002364066192,
-              "prefix_resolved": 423,
-              "prefix_weighted_resolved": 423,
+              "prefix_est_grant_rate": 0.18598382749326145,
+              "prefix_resolved": 371,
+              "prefix_weighted_resolved": 371,
               "resolved": 273,
               "weighted_resolved": 273
             },
@@ -7827,9 +7799,9 @@
               "band": "baseline",
               "est_grant_rate": 0.017112299465240642,
               "ingested": 935,
-              "prefix_est_grant_rate": 0.07879234167893961,
-              "prefix_resolved": 1358,
-              "prefix_weighted_resolved": 1358,
+              "prefix_est_grant_rate": 0.06508422664624809,
+              "prefix_resolved": 1306,
+              "prefix_weighted_resolved": 1306,
               "resolved": 935,
               "weighted_resolved": 935
             }
@@ -7955,9 +7927,9 @@
           "band": "high",
           "est_grant_rate": 0.3333333333333333,
           "ingested": 102,
-          "prefix_est_grant_rate": 0.45038167938931295,
-          "prefix_resolved": 131,
-          "prefix_weighted_resolved": 131,
+          "prefix_est_grant_rate": 0.3333333333333333,
+          "prefix_resolved": 102,
+          "prefix_weighted_resolved": 102,
           "resolved": 102,
           "weighted_resolved": 102
         },
@@ -7965,9 +7937,9 @@
           "band": "state",
           "est_grant_rate": 0.043478260869565216,
           "ingested": 23,
-          "prefix_est_grant_rate": 0.38961038961038963,
-          "prefix_resolved": 154,
-          "prefix_weighted_resolved": 154,
+          "prefix_est_grant_rate": 0.13333333333333333,
+          "prefix_resolved": 30,
+          "prefix_weighted_resolved": 30,
           "resolved": 23,
           "weighted_resolved": 23
         },
@@ -7975,9 +7947,9 @@
           "band": "elevated",
           "est_grant_rate": 0.12177121771217712,
           "ingested": 271,
-          "prefix_est_grant_rate": 0.2188235294117647,
-          "prefix_resolved": 425,
-          "prefix_weighted_resolved": 425,
+          "prefix_est_grant_rate": 0.17486338797814208,
+          "prefix_resolved": 366,
+          "prefix_weighted_resolved": 366,
           "resolved": 271,
           "weighted_resolved": 271
         },
@@ -7985,9 +7957,9 @@
           "band": "baseline",
           "est_grant_rate": 0.015005359056806002,
           "ingested": 933,
-          "prefix_est_grant_rate": 0.07879234167893961,
-          "prefix_resolved": 1358,
-          "prefix_weighted_resolved": 1358,
+          "prefix_est_grant_rate": 0.06004618937644342,
+          "prefix_resolved": 1299,
+          "prefix_weighted_resolved": 1299,
           "resolved": 933,
           "weighted_resolved": 933
         }
@@ -8054,9 +8026,9 @@
               "band": "high",
               "est_grant_rate": 0.37735849056603776,
               "ingested": 106,
-              "prefix_est_grant_rate": 0.44715447154471544,
-              "prefix_resolved": 123,
-              "prefix_weighted_resolved": 123,
+              "prefix_est_grant_rate": 0.37735849056603776,
+              "prefix_resolved": 106,
+              "prefix_weighted_resolved": 106,
               "resolved": 106,
               "weighted_resolved": 106
             },
@@ -8064,9 +8036,9 @@
               "band": "state",
               "est_grant_rate": 0.07692307692307693,
               "ingested": 26,
-              "prefix_est_grant_rate": 0.3825503355704698,
-              "prefix_resolved": 149,
-              "prefix_weighted_resolved": 149,
+              "prefix_est_grant_rate": 0.12121212121212122,
+              "prefix_resolved": 33,
+              "prefix_weighted_resolved": 33,
               "resolved": 26,
               "weighted_resolved": 26
             },
@@ -8074,9 +8046,9 @@
               "band": "elevated",
               "est_grant_rate": 0.09389671361502347,
               "ingested": 213,
-              "prefix_est_grant_rate": 0.212707182320442,
-              "prefix_resolved": 362,
-              "prefix_weighted_resolved": 362,
+              "prefix_est_grant_rate": 0.1858974358974359,
+              "prefix_resolved": 312,
+              "prefix_weighted_resolved": 312,
               "resolved": 213,
               "weighted_resolved": 213
             },
@@ -8084,9 +8056,9 @@
               "band": "baseline",
               "est_grant_rate": 0.014823261117445839,
               "ingested": 877,
-              "prefix_est_grant_rate": 0.07263922518159807,
-              "prefix_resolved": 1239,
-              "prefix_weighted_resolved": 1239,
+              "prefix_est_grant_rate": 0.059714045416316225,
+              "prefix_resolved": 1189,
+              "prefix_weighted_resolved": 1189,
               "resolved": 877,
               "weighted_resolved": 877
             }
@@ -8165,36 +8137,36 @@
             {
               "count": 2645,
               "disposition": "denied",
-              "share": 0.9604212055192447
+              "share": 0.9611191860465116
             },
             {
               "count": 91,
               "disposition": "dismissed",
-              "share": 0.033042846768336964
+              "share": 0.03306686046511628
             },
             {
               "count": 13,
               "disposition": "gvr",
-              "share": 0.004720406681190995
+              "share": 0.004723837209302325
             },
             {
-              "count": 5,
+              "count": 3,
               "disposition": "granted",
-              "share": 0.0018155410312273058
+              "share": 0.0010901162790697674
             }
           ],
-          "est_grant_rate": 0.006535947712418301,
+          "est_grant_rate": 0.005813953488372093,
           "fee_class": "ifp",
           "filings": 2907,
-          "ingested": 378,
-          "resolved": 378,
+          "ingested": 376,
+          "resolved": 376,
           "timing": {
-            "cases": 2754,
+            "cases": 2752,
             "mean_days": 69.4,
             "median_days": 61.0,
             "p90_days": 129.0
           },
-          "weighted_resolved": 2754
+          "weighted_resolved": 2752
         }
       ],
       "est_grant_family_rate": 0.027243189202699324,
@@ -8217,9 +8189,9 @@
           "band": "high",
           "est_grant_rate": 0.37142857142857144,
           "ingested": 105,
-          "prefix_est_grant_rate": 0.45161290322580644,
-          "prefix_resolved": 124,
-          "prefix_weighted_resolved": 124,
+          "prefix_est_grant_rate": 0.37142857142857144,
+          "prefix_resolved": 105,
+          "prefix_weighted_resolved": 105,
           "resolved": 105,
           "weighted_resolved": 105
         },
@@ -8227,9 +8199,9 @@
           "band": "state",
           "est_grant_rate": 0.07692307692307693,
           "ingested": 26,
-          "prefix_est_grant_rate": 0.3866666666666667,
-          "prefix_resolved": 150,
-          "prefix_weighted_resolved": 150,
+          "prefix_est_grant_rate": 0.12121212121212122,
+          "prefix_resolved": 33,
+          "prefix_weighted_resolved": 33,
           "resolved": 26,
           "weighted_resolved": 26
         },
@@ -8237,9 +8209,9 @@
           "band": "elevated",
           "est_grant_rate": 0.09389671361502347,
           "ingested": 213,
-          "prefix_est_grant_rate": 0.21487603305785125,
-          "prefix_resolved": 363,
-          "prefix_weighted_resolved": 363,
+          "prefix_est_grant_rate": 0.1832797427652733,
+          "prefix_resolved": 311,
+          "prefix_weighted_resolved": 311,
           "resolved": 213,
           "weighted_resolved": 213
         },
@@ -8247,9 +8219,9 @@
           "band": "baseline",
           "est_grant_rate": 0.0136986301369863,
           "ingested": 876,
-          "prefix_est_grant_rate": 0.07263922518159807,
-          "prefix_resolved": 1239,
-          "prefix_weighted_resolved": 1239,
+          "prefix_est_grant_rate": 0.05812973883740522,
+          "prefix_resolved": 1187,
+          "prefix_weighted_resolved": 1187,
           "resolved": 876,
           "weighted_resolved": 876
         }
@@ -8279,9 +8251,9 @@
             },
             {
               "band": "elevated",
-              "est_grant_rate": 0.15053763440860216,
+              "est_grant_rate": 0.14695340501792115,
               "ingested": 279,
-              "prefix_est_grant_rate": 0.20623501199040767,
+              "prefix_est_grant_rate": 0.2038369304556355,
               "prefix_resolved": 417,
               "prefix_weighted_resolved": 417,
               "resolved": 279,
@@ -8291,7 +8263,7 @@
               "band": "baseline",
               "est_grant_rate": 0.016351118760757316,
               "ingested": 1162,
-              "prefix_est_grant_rate": 0.06649778340721976,
+              "prefix_est_grant_rate": 0.06586447118429387,
               "prefix_resolved": 1579,
               "prefix_weighted_resolved": 1579,
               "resolved": 1162,
@@ -8316,9 +8288,9 @@
               "band": "high",
               "est_grant_rate": 0.31386861313868614,
               "ingested": 137,
-              "prefix_est_grant_rate": 0.3356164383561644,
-              "prefix_resolved": 146,
-              "prefix_weighted_resolved": 146,
+              "prefix_est_grant_rate": 0.31386861313868614,
+              "prefix_resolved": 137,
+              "prefix_weighted_resolved": 137,
               "resolved": 137,
               "weighted_resolved": 137
             },
@@ -8326,19 +8298,19 @@
               "band": "state",
               "est_grant_rate": 0.2391304347826087,
               "ingested": 46,
-              "prefix_est_grant_rate": 0.3125,
-              "prefix_resolved": 192,
-              "prefix_weighted_resolved": 192,
+              "prefix_est_grant_rate": 0.2159090909090909,
+              "prefix_resolved": 88,
+              "prefix_weighted_resolved": 88,
               "resolved": 46,
               "weighted_resolved": 46
             },
             {
               "band": "elevated",
-              "est_grant_rate": 0.12121212121212122,
+              "est_grant_rate": 0.11742424242424242,
               "ingested": 264,
-              "prefix_est_grant_rate": 0.2017543859649123,
-              "prefix_resolved": 456,
-              "prefix_weighted_resolved": 456,
+              "prefix_est_grant_rate": 0.18384401114206128,
+              "prefix_resolved": 359,
+              "prefix_weighted_resolved": 359,
               "resolved": 264,
               "weighted_resolved": 264
             },
@@ -8346,9 +8318,9 @@
               "band": "baseline",
               "est_grant_rate": 0.011576135351736419,
               "ingested": 1123,
-              "prefix_est_grant_rate": 0.06649778340721976,
-              "prefix_resolved": 1579,
-              "prefix_weighted_resolved": 1579,
+              "prefix_est_grant_rate": 0.053306342780026994,
+              "prefix_resolved": 1482,
+              "prefix_weighted_resolved": 1482,
               "resolved": 1123,
               "weighted_resolved": 1123
             }
@@ -8359,9 +8331,9 @@
         "cases": 4744,
         "dispositions": [
           {
-            "count": 4500,
+            "count": 4501,
             "disposition": "denied",
-            "share": 0.948566610455312
+            "share": 0.9487774030354131
           },
           {
             "count": 91,
@@ -8374,9 +8346,9 @@
             "share": 0.01812816188870152
           },
           {
-            "count": 67,
+            "count": 66,
             "disposition": "granted",
-            "share": 0.01412310286677909
+            "share": 0.01391231028667791
           }
         ],
         "key": "2021",
@@ -8388,14 +8360,14 @@
           "complete": true,
           "dispositions": [
             {
-              "count": 1456,
+              "count": 1457,
               "disposition": "denied",
-              "share": 0.922102596580114
+              "share": 0.9227359088030399
             },
             {
-              "count": 57,
+              "count": 56,
               "disposition": "granted",
-              "share": 0.03609879670677644
+              "share": 0.03546548448385054
             },
             {
               "count": 48,
@@ -8408,7 +8380,7 @@
               "share": 0.011399620012666244
             }
           ],
-          "est_grant_rate": 0.06649778340721976,
+          "est_grant_rate": 0.06586447118429387,
           "fee_class": "paid",
           "filings": 1611,
           "ingested": 1579,
@@ -8459,8 +8431,8 @@
           "weighted_resolved": 3135
         }
       ],
-      "est_grant_family_rate": 0.03225126475548061,
-      "grants": 153,
+      "est_grant_family_rate": 0.03204047217537943,
+      "grants": 152,
       "ingested": 2035,
       "median_days_to_grant": 159.0,
       "salience_version": "sal-v3",
@@ -8479,9 +8451,9 @@
           "band": "high",
           "est_grant_rate": 0.31386861313868614,
           "ingested": 137,
-          "prefix_est_grant_rate": 0.3445945945945946,
-          "prefix_resolved": 148,
-          "prefix_weighted_resolved": 148,
+          "prefix_est_grant_rate": 0.31386861313868614,
+          "prefix_resolved": 137,
+          "prefix_weighted_resolved": 137,
           "resolved": 137,
           "weighted_resolved": 137
         },
@@ -8489,19 +8461,19 @@
           "band": "state",
           "est_grant_rate": 0.2391304347826087,
           "ingested": 46,
-          "prefix_est_grant_rate": 0.31958762886597936,
-          "prefix_resolved": 194,
-          "prefix_weighted_resolved": 194,
+          "prefix_est_grant_rate": 0.2159090909090909,
+          "prefix_resolved": 88,
+          "prefix_weighted_resolved": 88,
           "resolved": 46,
           "weighted_resolved": 46
         },
         {
           "band": "elevated",
-          "est_grant_rate": 0.11450381679389313,
+          "est_grant_rate": 0.11068702290076336,
           "ingested": 262,
-          "prefix_est_grant_rate": 0.2017543859649123,
-          "prefix_resolved": 456,
-          "prefix_weighted_resolved": 456,
+          "prefix_est_grant_rate": 0.1792717086834734,
+          "prefix_resolved": 357,
+          "prefix_weighted_resolved": 357,
           "resolved": 262,
           "weighted_resolved": 262
         },
@@ -8509,9 +8481,9 @@
           "band": "baseline",
           "est_grant_rate": 0.011576135351736419,
           "ingested": 1123,
-          "prefix_est_grant_rate": 0.06649778340721976,
-          "prefix_resolved": 1579,
-          "prefix_weighted_resolved": 1579,
+          "prefix_est_grant_rate": 0.05202702702702703,
+          "prefix_resolved": 1480,
+          "prefix_weighted_resolved": 1480,
           "resolved": 1123,
           "weighted_resolved": 1123
         }
@@ -8531,9 +8503,9 @@
           "segments": [
             {
               "band": "high",
-              "est_grant_rate": 0.3559322033898305,
+              "est_grant_rate": 0.3474576271186441,
               "ingested": 118,
-              "prefix_est_grant_rate": 0.3559322033898305,
+              "prefix_est_grant_rate": 0.3474576271186441,
               "prefix_resolved": 118,
               "prefix_weighted_resolved": 118,
               "resolved": 118,
@@ -8541,9 +8513,9 @@
             },
             {
               "band": "elevated",
-              "est_grant_rate": 0.1632047477744807,
+              "est_grant_rate": 0.1602373887240356,
               "ingested": 337,
-              "prefix_est_grant_rate": 0.2131868131868132,
+              "prefix_est_grant_rate": 0.20879120879120877,
               "prefix_resolved": 455,
               "prefix_weighted_resolved": 455,
               "resolved": 337,
@@ -8553,7 +8525,7 @@
               "band": "baseline",
               "est_grant_rate": 0.01720269259536275,
               "ingested": 1337,
-              "prefix_est_grant_rate": 0.06696428571428571,
+              "prefix_est_grant_rate": 0.06584821428571429,
               "prefix_resolved": 1792,
               "prefix_weighted_resolved": 1792,
               "resolved": 1337,
@@ -8566,9 +8538,9 @@
           "segments": [
             {
               "band": "federal",
-              "est_grant_rate": 0.6666666666666667,
+              "est_grant_rate": 0.641025641025641,
               "ingested": 39,
-              "prefix_est_grant_rate": 0.6666666666666667,
+              "prefix_est_grant_rate": 0.641025641025641,
               "prefix_resolved": 39,
               "prefix_weighted_resolved": 39,
               "resolved": 39,
@@ -8578,9 +8550,9 @@
               "band": "high",
               "est_grant_rate": 0.33018867924528306,
               "ingested": 106,
-              "prefix_est_grant_rate": 0.42068965517241375,
-              "prefix_resolved": 145,
-              "prefix_weighted_resolved": 145,
+              "prefix_est_grant_rate": 0.33018867924528306,
+              "prefix_resolved": 106,
+              "prefix_weighted_resolved": 106,
               "resolved": 106,
               "weighted_resolved": 106
             },
@@ -8588,19 +8560,19 @@
               "band": "state",
               "est_grant_rate": 0.30303030303030304,
               "ingested": 33,
-              "prefix_est_grant_rate": 0.398876404494382,
-              "prefix_resolved": 178,
-              "prefix_weighted_resolved": 178,
+              "prefix_est_grant_rate": 0.358974358974359,
+              "prefix_resolved": 39,
+              "prefix_weighted_resolved": 39,
               "resolved": 33,
               "weighted_resolved": 33
             },
             {
               "band": "elevated",
-              "est_grant_rate": 0.11363636363636363,
+              "est_grant_rate": 0.11038961038961038,
               "ingested": 308,
-              "prefix_est_grant_rate": 0.21810699588477367,
-              "prefix_resolved": 486,
-              "prefix_weighted_resolved": 486,
+              "prefix_est_grant_rate": 0.15931372549019607,
+              "prefix_resolved": 408,
+              "prefix_weighted_resolved": 408,
               "resolved": 308,
               "weighted_resolved": 308
             },
@@ -8608,9 +8580,9 @@
               "band": "baseline",
               "est_grant_rate": 0.010719754977029096,
               "ingested": 1306,
-              "prefix_est_grant_rate": 0.06696428571428571,
-              "prefix_resolved": 1792,
-              "prefix_weighted_resolved": 1792,
+              "prefix_est_grant_rate": 0.046091015169194866,
+              "prefix_resolved": 1714,
+              "prefix_weighted_resolved": 1714,
               "resolved": 1306,
               "weighted_resolved": 1306
             }
@@ -8621,14 +8593,14 @@
         "cases": 5147,
         "dispositions": [
           {
-            "count": 4856,
+            "count": 4859,
             "disposition": "denied",
-            "share": 0.9434622109966971
+            "share": 0.9440450748008549
           },
           {
-            "count": 126,
+            "count": 127,
             "disposition": "dismissed",
-            "share": 0.024480279774625996
+            "share": 0.02467456770934525
           },
           {
             "count": 84,
@@ -8636,9 +8608,9 @@
             "share": 0.01632018651641733
           },
           {
-            "count": 81,
+            "count": 77,
             "disposition": "granted",
-            "share": 0.01573732271225957
+            "share": 0.014960170973382553
           }
         ],
         "key": "2020",
@@ -8650,14 +8622,14 @@
           "complete": true,
           "dispositions": [
             {
-              "count": 1645,
+              "count": 1646,
               "disposition": "denied",
-              "share": 0.91796875
+              "share": 0.9185267857142857
             },
             {
-              "count": 70,
+              "count": 68,
               "disposition": "granted",
-              "share": 0.0390625
+              "share": 0.03794642857142857
             },
             {
               "count": 50,
@@ -8665,19 +8637,19 @@
               "share": 0.027901785714285716
             },
             {
-              "count": 27,
+              "count": 28,
               "disposition": "dismissed",
-              "share": 0.015066964285714286
+              "share": 0.015625
             }
           ],
-          "est_grant_rate": 0.06696428571428571,
+          "est_grant_rate": 0.06584821428571429,
           "fee_class": "paid",
           "filings": 1829,
           "ingested": 1792,
           "resolved": 1792,
           "timing": {
             "cases": 1792,
-            "mean_days": 93.0,
+            "mean_days": 93.1,
             "median_days": 70.0,
             "p90_days": 159.0
           },
@@ -8687,51 +8659,51 @@
           "complete": true,
           "dispositions": [
             {
-              "count": 3183,
+              "count": 3184,
               "disposition": "denied",
-              "share": 0.9584462511291779
+              "share": 0.9590361445783132
             },
             {
               "count": 99,
               "disposition": "dismissed",
-              "share": 0.02981029810298103
+              "share": 0.029819277108433736
             },
             {
               "count": 34,
               "disposition": "gvr",
-              "share": 0.010237880156579343
+              "share": 0.010240963855421687
             },
             {
-              "count": 5,
+              "count": 3,
               "disposition": "granted",
-              "share": 0.0015055706112616681
+              "share": 0.0009036144578313253
             }
           ],
-          "est_grant_rate": 0.01174345076784101,
+          "est_grant_rate": 0.011144578313253013,
           "fee_class": "ifp",
           "filings": 3477,
-          "ingested": 468,
-          "resolved": 468,
+          "ingested": 467,
+          "resolved": 467,
           "timing": {
-            "cases": 3321,
+            "cases": 3320,
             "mean_days": 72.4,
             "median_days": 59.0,
             "p90_days": 131.0
           },
-          "weighted_resolved": 3321
+          "weighted_resolved": 3320
         }
       ],
-      "est_grant_family_rate": 0.032057509228676895,
-      "grants": 165,
+      "est_grant_family_rate": 0.03128035748979988,
+      "grants": 161,
       "ingested": 2294,
       "median_days_to_grant": 143.0,
       "salience_version": "sal-v3",
       "segments": [
         {
           "band": "federal",
-          "est_grant_rate": 0.675,
+          "est_grant_rate": 0.65,
           "ingested": 40,
-          "prefix_est_grant_rate": 0.675,
+          "prefix_est_grant_rate": 0.65,
           "prefix_resolved": 40,
           "prefix_weighted_resolved": 40,
           "resolved": 40,
@@ -8741,9 +8713,9 @@
           "band": "high",
           "est_grant_rate": 0.33018867924528306,
           "ingested": 106,
-          "prefix_est_grant_rate": 0.4246575342465754,
-          "prefix_resolved": 146,
-          "prefix_weighted_resolved": 146,
+          "prefix_est_grant_rate": 0.33018867924528306,
+          "prefix_resolved": 106,
+          "prefix_weighted_resolved": 106,
           "resolved": 106,
           "weighted_resolved": 106
         },
@@ -8751,19 +8723,19 @@
           "band": "state",
           "est_grant_rate": 0.30303030303030304,
           "ingested": 33,
-          "prefix_est_grant_rate": 0.4022346368715084,
-          "prefix_resolved": 179,
-          "prefix_weighted_resolved": 179,
+          "prefix_est_grant_rate": 0.358974358974359,
+          "prefix_resolved": 39,
+          "prefix_weighted_resolved": 39,
           "resolved": 33,
           "weighted_resolved": 33
         },
         {
           "band": "elevated",
-          "est_grant_rate": 0.11363636363636363,
+          "est_grant_rate": 0.11038961038961038,
           "ingested": 308,
-          "prefix_est_grant_rate": 0.2197125256673511,
-          "prefix_resolved": 487,
-          "prefix_weighted_resolved": 487,
+          "prefix_est_grant_rate": 0.15931372549019607,
+          "prefix_resolved": 408,
+          "prefix_weighted_resolved": 408,
           "resolved": 308,
           "weighted_resolved": 308
         },
@@ -8771,9 +8743,9 @@
           "band": "baseline",
           "est_grant_rate": 0.00996168582375479,
           "ingested": 1305,
-          "prefix_est_grant_rate": 0.06696428571428571,
-          "prefix_resolved": 1792,
-          "prefix_weighted_resolved": 1792,
+          "prefix_est_grant_rate": 0.04553415061295972,
+          "prefix_resolved": 1713,
+          "prefix_weighted_resolved": 1713,
           "resolved": 1305,
           "weighted_resolved": 1305
         }
@@ -8781,7 +8753,7 @@
       "term": 2020,
       "timing": {
         "cases": 5147,
-        "mean_days": 79.8,
+        "mean_days": 79.9,
         "median_days": 63.0,
         "p90_days": 143.0
       }
@@ -8803,9 +8775,9 @@
             },
             {
               "band": "elevated",
-              "est_grant_rate": 0.14184397163120566,
+              "est_grant_rate": 0.1347517730496454,
               "ingested": 282,
-              "prefix_est_grant_rate": 0.17783505154639173,
+              "prefix_est_grant_rate": 0.17268041237113402,
               "prefix_resolved": 388,
               "prefix_weighted_resolved": 388,
               "resolved": 282,
@@ -8813,9 +8785,9 @@
             },
             {
               "band": "baseline",
-              "est_grant_rate": 0.027153558052434457,
+              "est_grant_rate": 0.025280898876404494,
               "ingested": 1068,
-              "prefix_est_grant_rate": 0.06730769230769232,
+              "prefix_est_grant_rate": 0.06456043956043955,
               "prefix_resolved": 1456,
               "prefix_weighted_resolved": 1456,
               "resolved": 1068,
@@ -8840,9 +8812,9 @@
               "band": "high",
               "est_grant_rate": 0.25,
               "ingested": 100,
-              "prefix_est_grant_rate": 0.36065573770491804,
-              "prefix_resolved": 122,
-              "prefix_weighted_resolved": 122,
+              "prefix_est_grant_rate": 0.25,
+              "prefix_resolved": 100,
+              "prefix_weighted_resolved": 100,
               "resolved": 100,
               "weighted_resolved": 100
             },
@@ -8850,29 +8822,29 @@
               "band": "state",
               "est_grant_rate": 0.08108108108108109,
               "ingested": 37,
-              "prefix_est_grant_rate": 0.29559748427672955,
-              "prefix_resolved": 159,
-              "prefix_weighted_resolved": 159,
+              "prefix_est_grant_rate": 0.13043478260869565,
+              "prefix_resolved": 46,
+              "prefix_weighted_resolved": 46,
               "resolved": 37,
               "weighted_resolved": 37
             },
             {
               "band": "elevated",
-              "est_grant_rate": 0.11284046692607004,
+              "est_grant_rate": 0.10505836575875487,
               "ingested": 257,
-              "prefix_est_grant_rate": 0.18269230769230768,
-              "prefix_resolved": 416,
-              "prefix_weighted_resolved": 416,
+              "prefix_est_grant_rate": 0.14080459770114942,
+              "prefix_resolved": 348,
+              "prefix_weighted_resolved": 348,
               "resolved": 257,
               "weighted_resolved": 257
             },
             {
               "band": "baseline",
-              "est_grant_rate": 0.021153846153846155,
+              "est_grant_rate": 0.019230769230769232,
               "ingested": 1040,
-              "prefix_est_grant_rate": 0.06730769230769232,
-              "prefix_resolved": 1456,
-              "prefix_weighted_resolved": 1456,
+              "prefix_est_grant_rate": 0.04971181556195965,
+              "prefix_resolved": 1388,
+              "prefix_weighted_resolved": 1388,
               "resolved": 1040,
               "weighted_resolved": 1040
             }
@@ -8883,9 +8855,9 @@
         "cases": 5213,
         "dispositions": [
           {
-            "count": 4947,
+            "count": 4953,
             "disposition": "denied",
-            "share": 0.9489737195472856
+            "share": 0.9501246882793017
           },
           {
             "count": 105,
@@ -8898,9 +8870,9 @@
             "share": 0.017072702858239017
           },
           {
-            "count": 72,
+            "count": 66,
             "disposition": "granted",
-            "share": 0.013811624784193363
+            "share": 0.01266065605217725
           }
         ],
         "key": "2019",
@@ -8912,14 +8884,14 @@
           "complete": true,
           "dispositions": [
             {
-              "count": 1352,
+              "count": 1356,
               "disposition": "denied",
-              "share": 0.9285714285714286
+              "share": 0.9313186813186813
             },
             {
-              "count": 67,
+              "count": 63,
               "disposition": "granted",
-              "share": 0.04601648351648352
+              "share": 0.04326923076923077
             },
             {
               "count": 31,
@@ -8932,14 +8904,14 @@
               "share": 0.004120879120879121
             }
           ],
-          "est_grant_rate": 0.06730769230769232,
+          "est_grant_rate": 0.06456043956043955,
           "fee_class": "paid",
           "filings": 1478,
           "ingested": 1456,
           "resolved": 1456,
           "timing": {
             "cases": 1453,
-            "mean_days": 100.5,
+            "mean_days": 100.7,
             "median_days": 82.0,
             "p90_days": 169.0
           },
@@ -8951,42 +8923,42 @@
             {
               "count": 3576,
               "disposition": "denied",
-              "share": 0.957429718875502
+              "share": 0.9576861274772362
             },
             {
               "count": 99,
               "disposition": "dismissed",
-              "share": 0.02650602409638554
+              "share": 0.026513122656668452
             },
             {
               "count": 56,
               "disposition": "gvr",
-              "share": 0.01499330655957162
+              "share": 0.014997321906802356
             },
             {
-              "count": 4,
+              "count": 3,
               "disposition": "granted",
-              "share": 0.00107095046854083
+              "share": 0.0008034279592929834
             }
           ],
-          "est_grant_rate": 0.01606425702811245,
+          "est_grant_rate": 0.01580074986609534,
           "fee_class": "ifp",
           "filings": 3930,
-          "ingested": 531,
-          "resolved": 531,
+          "ingested": 530,
+          "resolved": 530,
           "timing": {
-            "cases": 3735,
+            "cases": 3734,
             "mean_days": 71.8,
             "median_days": 61.0,
             "p90_days": 119.0
           },
-          "weighted_resolved": 3735
+          "weighted_resolved": 3734
         }
       ],
-      "est_grant_family_rate": 0.03088432764243238,
-      "grants": 161,
+      "est_grant_family_rate": 0.029733358910416265,
+      "grants": 155,
       "ingested": 2009,
-      "median_days_to_grant": 141.0,
+      "median_days_to_grant": 146.0,
       "salience_version": "sal-v3",
       "segments": [
         {
@@ -9003,9 +8975,9 @@
           "band": "high",
           "est_grant_rate": 0.24242424242424243,
           "ingested": 99,
-          "prefix_est_grant_rate": 0.376,
-          "prefix_resolved": 125,
-          "prefix_weighted_resolved": 125,
+          "prefix_est_grant_rate": 0.24242424242424243,
+          "prefix_resolved": 99,
+          "prefix_weighted_resolved": 99,
           "resolved": 99,
           "weighted_resolved": 99
         },
@@ -9013,29 +8985,29 @@
           "band": "state",
           "est_grant_rate": 0.08108108108108109,
           "ingested": 37,
-          "prefix_est_grant_rate": 0.30864197530864196,
-          "prefix_resolved": 162,
-          "prefix_weighted_resolved": 162,
+          "prefix_est_grant_rate": 0.13043478260869565,
+          "prefix_resolved": 46,
+          "prefix_weighted_resolved": 46,
           "resolved": 37,
           "weighted_resolved": 37
         },
         {
           "band": "elevated",
-          "est_grant_rate": 0.10588235294117647,
+          "est_grant_rate": 0.09803921568627451,
           "ingested": 255,
-          "prefix_est_grant_rate": 0.18465227817745802,
-          "prefix_resolved": 417,
-          "prefix_weighted_resolved": 417,
+          "prefix_est_grant_rate": 0.13333333333333333,
+          "prefix_resolved": 345,
+          "prefix_weighted_resolved": 345,
           "resolved": 255,
           "weighted_resolved": 255
         },
         {
           "band": "baseline",
-          "est_grant_rate": 0.02021174205967276,
+          "est_grant_rate": 0.01828681424446583,
           "ingested": 1039,
-          "prefix_est_grant_rate": 0.06730769230769232,
-          "prefix_resolved": 1456,
-          "prefix_weighted_resolved": 1456,
+          "prefix_est_grant_rate": 0.04696531791907514,
+          "prefix_resolved": 1384,
+          "prefix_weighted_resolved": 1384,
           "resolved": 1039,
           "weighted_resolved": 1039
         }
@@ -9043,7 +9015,7 @@
       "term": 2019,
       "timing": {
         "cases": 5210,
-        "mean_days": 79.9,
+        "mean_days": 80.0,
         "median_days": 63.0,
         "p90_days": 132.0
       }
@@ -9065,9 +9037,9 @@
             },
             {
               "band": "elevated",
-              "est_grant_rate": 0.10380622837370242,
+              "est_grant_rate": 0.10034602076124567,
               "ingested": 289,
-              "prefix_est_grant_rate": 0.1691919191919192,
+              "prefix_est_grant_rate": 0.16666666666666666,
               "prefix_resolved": 396,
               "prefix_weighted_resolved": 396,
               "resolved": 289,
@@ -9075,9 +9047,9 @@
             },
             {
               "band": "baseline",
-              "est_grant_rate": 0.01718213058419244,
+              "est_grant_rate": 0.01632302405498282,
               "ingested": 1164,
-              "prefix_est_grant_rate": 0.055769230769230765,
+              "prefix_est_grant_rate": 0.05448717948717949,
               "prefix_resolved": 1560,
               "prefix_weighted_resolved": 1560,
               "resolved": 1164,
@@ -9102,9 +9074,9 @@
               "band": "high",
               "est_grant_rate": 0.3366336633663366,
               "ingested": 101,
-              "prefix_est_grant_rate": 0.34710743801652894,
-              "prefix_resolved": 121,
-              "prefix_weighted_resolved": 121,
+              "prefix_est_grant_rate": 0.3366336633663366,
+              "prefix_resolved": 101,
+              "prefix_weighted_resolved": 101,
               "resolved": 101,
               "weighted_resolved": 101
             },
@@ -9112,29 +9084,29 @@
               "band": "state",
               "est_grant_rate": 0.1111111111111111,
               "ingested": 27,
-              "prefix_est_grant_rate": 0.30405405405405406,
-              "prefix_resolved": 148,
-              "prefix_weighted_resolved": 148,
+              "prefix_est_grant_rate": 0.2222222222222222,
+              "prefix_resolved": 36,
+              "prefix_weighted_resolved": 36,
               "resolved": 27,
               "weighted_resolved": 27
             },
             {
               "band": "elevated",
-              "est_grant_rate": 0.09737827715355805,
+              "est_grant_rate": 0.09363295880149812,
               "ingested": 267,
-              "prefix_est_grant_rate": 0.1710843373493976,
-              "prefix_resolved": 415,
-              "prefix_weighted_resolved": 415,
+              "prefix_est_grant_rate": 0.15041782729805014,
+              "prefix_resolved": 359,
+              "prefix_weighted_resolved": 359,
               "resolved": 267,
               "weighted_resolved": 267
             },
             {
               "band": "baseline",
-              "est_grant_rate": 0.013973799126637555,
+              "est_grant_rate": 0.013100436681222707,
               "ingested": 1145,
-              "prefix_est_grant_rate": 0.055769230769230765,
-              "prefix_resolved": 1560,
-              "prefix_weighted_resolved": 1560,
+              "prefix_est_grant_rate": 0.045877659574468085,
+              "prefix_resolved": 1504,
+              "prefix_weighted_resolved": 1504,
               "resolved": 1145,
               "weighted_resolved": 1145
             }
@@ -9145,14 +9117,14 @@
         "cases": 6154,
         "dispositions": [
           {
-            "count": 5888,
+            "count": 5889,
             "disposition": "denied",
-            "share": 0.956776080597985
+            "share": 0.9569385765355866
           },
           {
-            "count": 118,
+            "count": 119,
             "disposition": "dismissed",
-            "share": 0.019174520636984077
+            "share": 0.019337016574585635
           },
           {
             "count": 76,
@@ -9160,9 +9132,9 @@
             "share": 0.012349691257718558
           },
           {
-            "count": 72,
+            "count": 70,
             "disposition": "granted",
-            "share": 0.011699707507312317
+            "share": 0.011374715632109197
           }
         ],
         "key": "2018",
@@ -9174,19 +9146,19 @@
           "complete": true,
           "dispositions": [
             {
-              "count": 1447,
+              "count": 1448,
               "disposition": "denied",
-              "share": 0.9275641025641026
+              "share": 0.9282051282051282
             },
             {
-              "count": 62,
+              "count": 60,
               "disposition": "granted",
-              "share": 0.03974358974358974
+              "share": 0.038461538461538464
             },
             {
-              "count": 26,
+              "count": 27,
               "disposition": "dismissed",
-              "share": 0.016666666666666666
+              "share": 0.01730769230769231
             },
             {
               "count": 25,
@@ -9194,14 +9166,14 @@
               "share": 0.016025641025641024
             }
           ],
-          "est_grant_rate": 0.055769230769230765,
+          "est_grant_rate": 0.05448717948717949,
           "fee_class": "paid",
           "filings": 1593,
           "ingested": 1560,
           "resolved": 1560,
           "timing": {
             "cases": 1556,
-            "mean_days": 97.9,
+            "mean_days": 98.0,
             "median_days": 73.0,
             "p90_days": 161.0
           },
@@ -9245,10 +9217,10 @@
           "weighted_resolved": 4564
         }
       ],
-      "est_grant_family_rate": 0.024049398765030875,
-      "grants": 148,
+      "est_grant_family_rate": 0.023724406889827757,
+      "grants": 146,
       "ingested": 2203,
-      "median_days_to_grant": 152.0,
+      "median_days_to_grant": 154.0,
       "salience_version": "sal-v3",
       "segments": [
         {
@@ -9265,9 +9237,9 @@
           "band": "high",
           "est_grant_rate": 0.3366336633663366,
           "ingested": 101,
-          "prefix_est_grant_rate": 0.3548387096774194,
-          "prefix_resolved": 124,
-          "prefix_weighted_resolved": 124,
+          "prefix_est_grant_rate": 0.3366336633663366,
+          "prefix_resolved": 101,
+          "prefix_weighted_resolved": 101,
           "resolved": 101,
           "weighted_resolved": 101
         },
@@ -9275,29 +9247,29 @@
           "band": "state",
           "est_grant_rate": 0.1111111111111111,
           "ingested": 27,
-          "prefix_est_grant_rate": 0.3112582781456954,
-          "prefix_resolved": 151,
-          "prefix_weighted_resolved": 151,
+          "prefix_est_grant_rate": 0.2222222222222222,
+          "prefix_resolved": 36,
+          "prefix_weighted_resolved": 36,
           "resolved": 27,
           "weighted_resolved": 27
         },
         {
           "band": "elevated",
-          "est_grant_rate": 0.09398496240601503,
+          "est_grant_rate": 0.09022556390977443,
           "ingested": 266,
-          "prefix_est_grant_rate": 0.17266187050359713,
-          "prefix_resolved": 417,
-          "prefix_weighted_resolved": 417,
+          "prefix_est_grant_rate": 0.14804469273743015,
+          "prefix_resolved": 358,
+          "prefix_weighted_resolved": 358,
           "resolved": 266,
           "weighted_resolved": 266
         },
         {
           "band": "baseline",
-          "est_grant_rate": 0.013123359580052493,
+          "est_grant_rate": 0.012248468941382328,
           "ingested": 1143,
-          "prefix_est_grant_rate": 0.055769230769230765,
-          "prefix_resolved": 1560,
-          "prefix_weighted_resolved": 1560,
+          "prefix_est_grant_rate": 0.04463690872751499,
+          "prefix_resolved": 1501,
+          "prefix_weighted_resolved": 1501,
           "resolved": 1143,
           "weighted_resolved": 1143
         }
@@ -9364,9 +9336,9 @@
               "band": "high",
               "est_grant_rate": 0.4,
               "ingested": 130,
-              "prefix_est_grant_rate": 0.4383561643835616,
-              "prefix_resolved": 146,
-              "prefix_weighted_resolved": 146,
+              "prefix_est_grant_rate": 0.4,
+              "prefix_resolved": 130,
+              "prefix_weighted_resolved": 130,
               "resolved": 130,
               "weighted_resolved": 130
             },
@@ -9374,9 +9346,9 @@
               "band": "state",
               "est_grant_rate": 0.06060606060606061,
               "ingested": 33,
-              "prefix_est_grant_rate": 0.3687150837988827,
-              "prefix_resolved": 179,
-              "prefix_weighted_resolved": 179,
+              "prefix_est_grant_rate": 0.14285714285714285,
+              "prefix_resolved": 42,
+              "prefix_weighted_resolved": 42,
               "resolved": 33,
               "weighted_resolved": 33
             },
@@ -9384,9 +9356,9 @@
               "band": "elevated",
               "est_grant_rate": 0.07801418439716312,
               "ingested": 282,
-              "prefix_est_grant_rate": 0.19088937093275488,
-              "prefix_resolved": 461,
-              "prefix_weighted_resolved": 461,
+              "prefix_est_grant_rate": 0.17369727047146402,
+              "prefix_resolved": 403,
+              "prefix_weighted_resolved": 403,
               "resolved": 282,
               "weighted_resolved": 282
             },
@@ -9394,9 +9366,9 @@
               "band": "baseline",
               "est_grant_rate": 0.0065040650406504065,
               "ingested": 1230,
-              "prefix_est_grant_rate": 0.05677114133648728,
-              "prefix_resolved": 1691,
-              "prefix_weighted_resolved": 1691,
+              "prefix_est_grant_rate": 0.04776484996938151,
+              "prefix_resolved": 1633,
+              "prefix_weighted_resolved": 1633,
               "resolved": 1230,
               "weighted_resolved": 1230
             }
@@ -9527,9 +9499,9 @@
           "band": "high",
           "est_grant_rate": 0.4,
           "ingested": 130,
-          "prefix_est_grant_rate": 0.44217687074829937,
-          "prefix_resolved": 147,
-          "prefix_weighted_resolved": 147,
+          "prefix_est_grant_rate": 0.4,
+          "prefix_resolved": 130,
+          "prefix_weighted_resolved": 130,
           "resolved": 130,
           "weighted_resolved": 130
         },
@@ -9537,9 +9509,9 @@
           "band": "state",
           "est_grant_rate": 0.06060606060606061,
           "ingested": 33,
-          "prefix_est_grant_rate": 0.37222222222222223,
-          "prefix_resolved": 180,
-          "prefix_weighted_resolved": 180,
+          "prefix_est_grant_rate": 0.14285714285714285,
+          "prefix_resolved": 42,
+          "prefix_weighted_resolved": 42,
           "resolved": 33,
           "weighted_resolved": 33
         },
@@ -9547,9 +9519,9 @@
           "band": "elevated",
           "est_grant_rate": 0.07801418439716312,
           "ingested": 282,
-          "prefix_est_grant_rate": 0.19264069264069264,
-          "prefix_resolved": 462,
-          "prefix_weighted_resolved": 462,
+          "prefix_est_grant_rate": 0.17369727047146402,
+          "prefix_resolved": 403,
+          "prefix_weighted_resolved": 403,
           "resolved": 282,
           "weighted_resolved": 282
         },
@@ -9557,9 +9529,9 @@
           "band": "baseline",
           "est_grant_rate": 0.005695687550854353,
           "ingested": 1229,
-          "prefix_est_grant_rate": 0.05677114133648728,
-          "prefix_resolved": 1691,
-          "prefix_weighted_resolved": 1691,
+          "prefix_est_grant_rate": 0.04718137254901961,
+          "prefix_resolved": 1632,
+          "prefix_weighted_resolved": 1632,
           "resolved": 1229,
           "weighted_resolved": 1229
         }
@@ -9574,9 +9546,9 @@
     }
   ],
   "timing": {
-    "cases": 2954,
-    "mean_days": 50.1,
+    "cases": 2986,
+    "mean_days": 49.7,
     "median_days": 4.0,
-    "p90_days": 116.0
+    "p90_days": 113.0
   }
 }

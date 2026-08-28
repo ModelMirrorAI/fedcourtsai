@@ -1,6 +1,6 @@
 {
   "base_rate_basis": "terminal",
-  "base_rate_salience_version": "sal-v2",
+  "base_rate_salience_version": "sal-v3",
   "big_case": {
     "evaluator_score": 0.65,
     "notes": "Notable Excessive Fines civil forfeiture case attracting high-profile amici, challenging the level of abstraction for evaluating offense gravity. High stakes for forfeiture doctrine, though facts are somewhat idiosyncratic."
