@@ -558,7 +558,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-predict`, `run-evaluate` — plan jobs | read-only | scope gating over the named cases — ranged point lookups, no pull |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull) |
-| `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`) |
+| `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store |
 | `run-analytics` — qp-topic-extract        | read-only     | the labeler's extract (full `corpus-pull`), handed to the labeling job as an artifact |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
@@ -655,8 +655,12 @@ casestore path (it overrides the env-configured `ranged` backend; an explicit
 per-command `--corpus-backend` is the only thing that still wins), and the
 casestore read path *does* list (`s3:ListBucket`) — a latest-snapshot-style
 read lists a case's `snapshots/` to find the newest (`provision-snapshot`, the
-writer's own change detection, the signal backfill), while pure `GetObject`
-reads (`materialize-event`'s event/document reads, document leaves) do not.
+writer's own change detection, the signal backfill, and the distribution census
+`run-analytics` dispatches, which takes one such read per frame case — one
+listing each, and a get per snapshot it walks past to reach the newest
+live-shaped one), while
+pure `GetObject` reads (`materialize-event`'s event/document reads, document
+leaves) do not.
 The read-only role therefore keeps `s3:ListBucket`, and by decision it stays.
 A `GetObject`-only narrowing was considered and not pursued: the casestore path
 genuinely needs the list while the split is on, so dropping it is not an IAM
@@ -681,7 +685,12 @@ QP-bearing non-grants by difference. That composition is the thing argued in
 artifacts under the same one-day window, publicly downloadable on this
 repository: its extract of stored petition text, riding between the mode's two
 jobs, and the labeler's scanned turn-by-turn transcript, which embeds the same
-text plus the agent's own turns. But it
+text plus the agent's own turns. A third run artifact rides the same one-day
+window: the `distribution-census` JSON, which republishes no document text —
+counts, band labels, and changed-case ids only — but whose id lists name
+ingested dockets by public docket number, membership conditioned on a parse
+delta (the case's DISTRIBUTED count reads differently under the candidate
+parse), re-derivable on a re-dispatch against the corpus sha it records. But it
 widens
 discovery, not reach: the role can already `GetObject` that content by key, and
 the no-republication posture is license/content-based (see

@@ -438,6 +438,16 @@ Three things about the artifact's shape decide what may be read off it:
   from the conference count and a pending docket has had fewer conferences —
   band and maturity are correlated by construction.
 
+It is produced by `run-analytics`'s **`census`** mode ([pipeline.md](pipeline.md)),
+which pulls the corpus under the read-only role, runs the command over that
+frame, and uploads the JSON as a run artifact beside the step summary — the
+review is conducted over a file with a `corpus_sha256` in it, so it says which
+corpus state it is re-derivable against and outlives the run page. `dist-v1`
+against `dist-v2` are the dispatch defaults; both parse labels are inputs, so
+once a further reading is registered it is argued from the same surface with no
+workflow change. The band function is not an input — the census reads against
+the active scorer.
+
 **Activating a parse is three pieces of work, not one.** The census is the
 *input-level* cut and its matrix is conditional on the first of them:
 

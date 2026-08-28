@@ -198,8 +198,12 @@ live in different stores, split by **kind**:
    read/write paths: set on the `prod` environment, default
    **off** so a dev environment without the store (the fixture loop, offline
    tests) reads and writes a single self-contained blob. The store's location
-   comes from `FEDCOURTS_CASESTORE_URL` (wired at job level in the writer
-   jobs — `run-pull` and `run-seed`);
+   comes from `FEDCOURTS_CASESTORE_URL`, wired beside the flag as one pair at
+   job or step level: the writer lanes (`run-pull`, `run-seed`), the cell
+   workflows, the back-test, the integration scenarios, and the analysis
+   surface. `tests/test_workflow_cell_invariants.py` pins both the spelling and
+   which workflows carry it, per workflow rather than as a count, so a
+   corpus-reading workflow that declares neither half is a deliberate act;
    mirroring is best-effort — a store failure logs, never breaking the SQLite
    write.
 2. **Derived judgments → the git ledger** under `data/`, where the

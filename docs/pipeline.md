@@ -69,6 +69,29 @@ each as its own least-privilege job holding only the credentials its mode needs:
   judge / SCOTUS Term / disposition / originating circuit / decade era, with a
   cert-stage cut restricted to modern discretionary-cert dockets). Read-only: results go
   to the Actions step summary and run log, nothing else.
+- **`census`** (dispatch) assumes the same read-only role and pull, then runs
+  `fedcourts distribution-census` — two registered readings of the DISTRIBUTED
+  phrase counted over the salience gate's scored segment and banded by one
+  scorer, the evidence a version pinning a new parse is argued from
+  ([salience.md](salience.md)). `census_baseline_parse` / `census_candidate_parse`
+  name the two readings (`dist-v1` against `dist-v2` by default); the band
+  function is deliberately **not** a dispatch input — the census reads against the
+  active scorer, and running it under a different salience version means
+  registering one, which is a code change. Read-only like `corpus-stats`, with
+  one difference that matters: the machine JSON is uploaded as a 30-day run
+  artifact as well as summarised, because a statistical review is conducted over
+  the file rather than the page. Two things an operator needs before dispatching
+  it. It carries by far the largest budget of the read-only modes — a
+  latest-snapshot read per frame case under the corpus-split mode — and what
+  bounds it is the read-only role's one-hour OIDC session rather than the wall
+  clock: the scan step is capped at 50 minutes and the job at 65, so a scan too
+  long for its credentials fails legibly inside them instead of dying on an
+  expired token after the whole walk (lifting that ceiling means a
+  `role-duration-seconds` on the `corpus-readonly` composite, as `run-seed` sets
+  for its own long walk). And it shares the `run-analytics-analysis` concurrency
+  group with `corpus-stats` under `cancel-in-progress: true`, so a one-minute
+  stats dispatch cancels an in-flight census — and a cancelled job runs no upload
+  step, losing the artifact. Dispatch a census into a quiet window.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the

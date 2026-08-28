@@ -7,6 +7,15 @@ name: run-analytics
 #   - corpus-stats:    aggregate disposition base-rates over the packed corpus
 #                      (`fedcourts stats`) — the "what's the grant rate for X"
 #                      question. Reads the corpus read-only via a full pull.
+#   - census:          the distribution-parse census (`fedcourts
+#                      distribution-census`) — what re-reading the DISTRIBUTED
+#                      phrase would move, case by case and band by band
+#                      (`docs/salience.md`). Read-only like corpus-stats, but
+#                      its JSON is the review of record a version pinning a new
+#                      parse is read from, so it is uploaded as a run artifact
+#                      as well as summarised, and it walks the whole live slice
+#                      one snapshot at a time — much the longest of the
+#                      read-only modes.
 #   - metrics-refresh: regenerate the committed deterministic artifacts
 #                      (leaderboard / claim scores / backtest / statpack, plus
 #                      the scope manifest) and land any change as a **reviewed**
@@ -25,19 +34,20 @@ name: run-analytics
 #                      and produces the extract, `qp-topic-label` runs the agent
 #                      with no cloud credential in the job env at all.
 #
-# The read-only analysis modes (corpus-stats, tool-usage) write neither the corpus,
-# `data/`, the corpus remote, nor git, open no PR, and file no issue — every result
-# goes to the Actions step summary and the run log. The two artifact modes write
-# only under their own paths — metrics-refresh under `metrics/` + `data/scope/`,
-# qp-topic-label under `data/qp-topics/` — and land the change as a reviewed PR to
-# `main`.
+# The read-only analysis modes (corpus-stats, census, tool-usage) write neither the
+# corpus, `data/`, the corpus remote, nor git, open no PR, and file no issue — every
+# result goes to the Actions step summary and the run log, and the census's machine
+# JSON additionally to a run artifact, because a review of record has to outlive the
+# summary page it is read beside. The two artifact modes write only under their own
+# paths — metrics-refresh under `metrics/` + `data/scope/`, qp-topic-label under
+# `data/qp-topics/` — and land the change as a reviewed PR to `main`.
 # GitHub scopes permissions and tokens per **job**, so each mode runs as its own
 # least-privilege job gated on `mode` and none is ever granted another's credential:
-# corpus-stats and qp-topic-extract hold only the read-only S3 role; metrics-refresh
-# holds that role *and* mints the dev App token (contents + PR write) for its review
-# PR; qp-topic-label mints the same token but assumes no role at all, because it is
-# the one job here that runs an agent; and tool-usage binds no environment and
-# assumes no role — there is nothing for it to reach.
+# corpus-stats, distribution-census and qp-topic-extract hold only the read-only S3
+# role; metrics-refresh holds that role *and* mints the dev App token (contents + PR
+# write) for its review PR; qp-topic-label mints the same token but assumes no role
+# at all, because it is the one job here that runs an agent; and tool-usage binds no
+# environment and assumes no role — there is nothing for it to reach.
 on:
   schedule:
     # Weekly metrics refresh (Mon 05:41 UTC) — a quiet slot after run-pull's
@@ -52,6 +62,7 @@ on:
         type: choice
         options:
           - corpus-stats
+          - census
           - metrics-refresh
           - tool-usage
           - qp-topic-label
@@ -91,13 +102,32 @@ on:
         description: "corpus-stats: restrict to one SCOTUS October-Term year, e.g. 2024. Empty = all Terms."
         type: string
         default: ""
+      # census inputs (ignored by every other mode). Both name a distribution
+      # parse registered in `pipeline.cert_signals.DISTRIBUTION_PARSES`; an
+      # unregistered label fails the command with the registered set printed,
+      # so a typo costs a run rather than producing a mislabelled census. The
+      # salience version whose band function bands both counts is not exposed:
+      # the census is read against the active one, and dispatching a different
+      # version is a code change (registering it), not a run-time choice.
+      census_baseline_parse:
+        description: "census: the registered distribution parse counted as the incumbent."
+        type: string
+        default: dist-v1
+      census_candidate_parse:
+        description: "census: the registered distribution parse counted against the incumbent."
+        type: string
+        default: dist-v2
 
 # Least privilege by default; each job widens only to what its mode needs.
 permissions: {}
 
-# Concurrency is per-job (not workflow-level): the analysis mode cancels a
-# superseded run of themselves, while a metrics refresh or a labeling run must
-# never be cancelled mid-PR (or mid-agent) by an unrelated analysis dispatch.
+# Concurrency is per-job (not workflow-level): the corpus-reading analysis modes
+# share one group and cancel a superseded run of it, while a metrics refresh or a
+# labeling run must never be cancelled mid-PR (or mid-agent) by an unrelated
+# analysis dispatch. corpus-stats and the census share the group, so a second
+# analysis dispatch cancels the first outright — and a cancelled job runs no
+# upload step, so a superseded census loses the artifact it exists to produce.
+# Dispatch a census into a quiet window and leave it alone until it lands.
 # The labeling mode's two jobs take separate groups: they are already sequenced
 # by `needs`, and a shared group would let a second dispatch's extract slip
 # between the first dispatch's extract and its labeler.
@@ -141,6 +171,16 @@ jobs:
           # Not `TERM`: that name is the standard terminal-type variable, which
           # every subprocess consults — an avoidable namespace collision.
           TERM_YEAR: ${{ inputs.term }}
+          # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the
+          # clean-slate cutover switch; unset variable -> '0' -> off) the pulled
+          # corpus.db is a payload-free index and payload reads come from the
+          # per-case content store instead. The base-rates aggregate row columns,
+          # so the pair is inert for today's groupings — it is set because this
+          # job's read path is the shared corpus reader, and a grouping that
+          # reaches a payload must not be the thing that discovers the store was
+          # never wired here.
+          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: |
           set -euo pipefail
           # Prints the machine AnalyticsReport JSON to stdout (the run log) and appends
@@ -152,6 +192,146 @@ jobs:
             --group-by "$GROUP_BY" \
             --term "$TERM_YEAR" \
             --summary-out "$GITHUB_STEP_SUMMARY"
+
+  distribution-census:
+    # What re-reading the DISTRIBUTED phrase would move, case by case and band by
+    # band — the input-level cut a statistical review reads before any salience
+    # version pins a new parse (docs/salience.md). Read-only on exactly
+    # corpus-stats's terms: the read-only role, no contents:write, no App token,
+    # nothing written to git or to the corpus remote. What it adds is durability
+    # — the JSON *is* the review, so it leaves the runner as an artifact rather
+    # than living only on a summary page.
+    if: ${{ inputs.mode == 'census' }}
+    runs-on: ubuntu-latest
+    # What bounds this job is the credential clock, not the wall clock. The
+    # census walks the gate's scored segment and, with the corpus-split mode on,
+    # takes a latest-snapshot read per frame case — one `snapshots/` listing plus
+    # a get per snapshot walked past to reach the newest live-shaped one, so two
+    # round trips is the floor and not the term — serially, because no bounded
+    # prefetch serves this loop.
+    # Against corpus-stats's 20-minute budget for the same pull and the same scan
+    # with no per-case fetch, that is the dominant term by far. But
+    # `corpus-readonly` assumes the read-only role for the OIDC default hour and
+    # exports static credentials boto3 cannot refresh, so a scan still reading
+    # the content store at the hour mark dies on an expired token — after the
+    # whole walk, with no artifact, on an error that names the wrong cause. So
+    # the scan step is capped at 50 minutes and the job at 65: the step fails
+    # first, legibly, inside the session it was granted. Raising the ceiling is a
+    # `role-duration-seconds` on the composite, not a bigger number here.
+    timeout-minutes: 65
+    environment: prod
+    # Its own group, never cancelled: a cancelled census runs no upload step,
+    # so the artifact the mode exists to produce is lost to a sibling
+    # corpus-stats dispatch. Both jobs are read-only, so overlap is harmless.
+    concurrency:
+      group: run-analytics-census
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The census counts real snapshots, so the corpus must be on disk. No
+      # contents:write, no App token: this job cannot touch git or the corpus.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+
+      - name: Census the distribution parses
+        timeout-minutes: 50
+        env:
+          # Both parse labels pass through the environment rather than the shell
+          # line, as the corpus-stats filters do, so a maintainer-supplied value
+          # cannot inject commands; an unregistered label exits 2 with the
+          # registered set printed.
+          BASELINE_PARSE: ${{ inputs.census_baseline_parse }}
+          CANDIDATE_PARSE: ${{ inputs.census_candidate_parse }}
+          # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the
+          # clean-slate cutover switch; unset variable -> '0' -> off) the pulled
+          # corpus.db is a payload-free index and each case's latest live
+          # snapshot comes from the per-case content store instead. This pair is
+          # load-bearing here, not defensive: the census reads a snapshot per
+          # case, so a split-blind read of a payload-free blob finds no snapshot
+          # anywhere and reports the whole frame `unobservable` — a census that
+          # is silently empty rather than one that fails.
+          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/distribution-census.json"
+          # The machine DistributionCensus JSON goes to stdout, the headline and
+          # the occupied band transitions to stderr (the run log). Capture stdout
+          # to the file the upload step publishes, and summarise from that file
+          # so the page and the artifact can never disagree.
+          uv run fedcourts distribution-census \
+            --baseline-parse "$BASELINE_PARSE" \
+            --candidate-parse "$CANDIDATE_PARSE" \
+            > "$out"
+          {
+            echo "### Distribution-parse census"
+            echo
+            jq -r '
+              "| field | value |",
+              "| --- | --- |",
+              "| baseline parse | `\(.baseline_parse)` |",
+              "| candidate parse | `\(.candidate_parse)` |",
+              "| salience version | `\(.salience_version)` |",
+              "| corpus sha256 | `\(.corpus_sha256)` |",
+              "| frame cases (observable) | \(.cases) |",
+              "| unobservable | \(.unobservable) |",
+              "| count changed | \(.count_changed) |",
+              "| band changed | \(.band_changed) |"
+            ' "$out"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+          # The whole JSON belongs on the page too, but the step summary is
+          # capped at 1 MiB and the census carries a complete case-id list per
+          # changed set — deliberately, since the review checks the shifted
+          # dockets one by one. So a large census is pointed at the artifact
+          # instead of truncating the page or failing the summary write.
+          size=$(wc -c < "$out")
+          if [ "$size" -le 524288 ]; then
+            {
+              echo '```json'
+              cat "$out"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Census JSON is ${size} bytes — over the step-summary budget; read it from the \`distribution-census\` run artifact." \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the census
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: distribution-census
+          path: ${{ runner.temp }}/distribution-census.json
+          if-no-files-found: error
+          # The review of record for a parse pinning has to outlive the run page
+          # it is first read beside — a statistical review and the follow-up it
+          # provokes do not fit in the extract's single day — and the file
+          # carries the `corpus_sha256` that says which corpus state it is
+          # re-derivable against.
+          #
+          # What the window costs is a disclosure, and it is not the extract's:
+          # this republishes no stored document text, only counts, band labels,
+          # and the changed cases' ids. Those ids name ingested dockets by
+          # public docket number — the compilation-extent boundary
+          # `docs/security.md` bounds with a one-day window on the other
+          # analytics run artifacts — so this artifact rides the same one-day
+          # window, named in that inventory. The census is deterministic over
+          # the blob (the JSON carries its corpus_sha256), so the re-read path
+          # after the day is a re-dispatch, not a longer window; this
+          # repository is public, and a run artifact is downloadable by any
+          # logged-in user for as long as it exists.
+          retention-days: 1
 
   tool-usage:
     # Which configured MCP tools cells actually call. Reads `data/` only — no
@@ -340,6 +520,18 @@ jobs:
           corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
 
       - name: Extract the stored questions-presented texts
+        env:
+          # Corpus-split read side, the same pair and the same spelling every
+          # corpus-reading step in this file declares (FEDCOURTS_CORPUS_SPLIT=1 is
+          # the clean-slate cutover switch; unset variable -> '0' -> off). Inert
+          # for this step: `qp-corpus` opens the pulled blob directly rather than
+          # through the shared payload reader, so on a split blob it finds no
+          # document text and exits non-zero either way — a labeling run that
+          # cannot read its input says so rather than handing the labeler an
+          # empty extract. The pair is here so one spelling covers every step
+          # that reads the corpus, and no step is silently the exception.
+          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: |
           set -euo pipefail
           # Under $RUNNER_TEMP, never the work tree: the extract republishes
