@@ -439,6 +439,25 @@ each freeze commit is recorded here.
   byte, so it moves all three predictor digests and belongs with the next freeze
   label rather than beside the construction.
 
+- **The interim amicus reading, 2026-08-28.** The counter behind
+  `amicus_briefs` admits the plural (`amic(?:us|i)\s+curiae`) — a change to a
+  number both ends of the `amicus-increment` claim are computed from, under an
+  unmoved digest and with no data-visible boundary: it is a scoring-baseline
+  member of [process-version.md](process-version.md)'s list, like the entry
+  above. The old reading missed roughly half of all amicus-naming docket
+  entries (measured 49.5% → 4.1% on the 2026-08-27 blob), and the corpus
+  column max-latches, so the corrected counts reach open applications on their
+  next poll while every frozen context keeps the count it was provisioned
+  with. **Nine pending cells** — `scotus/73279700`, `scotus/9526000163`, and
+  `scotus/9526000245`, one `evt-motion-disposition` event each across three
+  predictors — are frozen at `amicus_briefs = 0` with the column also 0 at
+  this commit: after the first post-promotion poll their `amicus-increment`
+  compares an old-reading context against a new-reading outcome, so a
+  resolution of 1 on those cells is the measurement widening, not a docket
+  movement, and **their increment is not claimable as a forecast hit**. The
+  three `scotus/9526000203` events are unaffected — their column already read
+  2 under the old counter, so both ends move together.
+
 ## The near-term target: the OT2026 long-conference cert release
 
 The first public release aims at the **September 2026 long conference**. Before
