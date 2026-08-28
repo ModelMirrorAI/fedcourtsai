@@ -84,8 +84,8 @@ of candidates — while moving no evaluator digest, since an evaluator's canonic
 config carries no predictor list. That is a routine operation with no boundary
 behind it. Until the masking surface is folded into the evaluator's canonical
 config (which would make it a partition key rather than an honour system), a
-registry change that alters the candidate set belongs in the freeze record beside
-the masking changes.
+registry change that alters the candidate set belongs in the freeze record
+([freeze-record.md](freeze-record.md)) beside the masking changes.
 
 The **scoring baseline** is a third member of this list, and the only one with
 no data-visible boundary at all. Skill numbers are computed against the
@@ -109,8 +109,9 @@ is the only place the change is visible. (The salience *version* does have a bou
 `context.salience_version` and the pack's `base_rate_salience_version` make a
 per-version cut visible in the data.) The pre-registered baseline is therefore
 the whole tree at the `prereg/<label>` tag — lookback window included — and a
-later window change belongs in the freeze record beside the masking changes,
-never in a commit message alone.
+later window change belongs in the freeze record
+([freeze-record.md](freeze-record.md)) beside the masking changes, never in a
+commit message alone.
 
 The **provisioning cutoff** is the list's predictor-side member: where a forward
 cell's event declares a moment, provisioning places the cell at that moment
@@ -353,7 +354,7 @@ land; recording and tagging that commit complete the procedure:
    cell would read as frozen although it ran while the constant was still
    editable, and the retroactive-blessing tripwire only catches the opposite
    direction (blessed digest, pre-instant stamp) — bump past any it finds. Only then record the commit as the cutover in
-   [milestones.md](milestones.md) and tag it `prereg/<label>`
+   [freeze-record.md](freeze-record.md) and tag it `prereg/<label>`
    (e.g. `prereg/proc-v1`): an annotated tag in the `prereg/` namespace the
    *Tags* section of [pipeline.md](pipeline.md) describes, protected against
    update and deletion so the freeze point stays findable and immovable. The
@@ -379,7 +380,7 @@ actor, and `is_frozen` is a membership filter, so keeping the old predictor
 digests would bless two processes at once). The procedure above runs in full
 for the new label — including step 0's grep, which is what proves the
 supersession de-blesses nothing — and the freeze record in
-[milestones.md](milestones.md) must state the count of cells ever stamped
+[freeze-record.md](freeze-record.md) must state the count of cells ever stamped
 under the superseded label (zero, or listed). The superseded `prereg/` tag
 stays: the namespace blocks deletion, and the tag remains the honest record
 that the label was registered and then superseded before any cell ran under
@@ -390,7 +391,7 @@ cells** is the other supersession shape, and it swaps which checks do the
 work. The evaluator entries are the freeze *record*, never the enforced
 filter — an evaluation's digest is recorded while only its timing is gated
 (`graded_post_freeze`) — so retiring them de-counts nothing; the freeze
-record in [milestones.md](milestones.md) must name the retired digests and
+record in [freeze-record.md](freeze-record.md) must name the retired digests and
 the count of counted cells graded under them, since the constant no longer
 does. Where the predictor digests are **byte-identical** to the prior
 `prereg/` tag's, `FROZEN_SINCE` holds rather than moves: the instant does

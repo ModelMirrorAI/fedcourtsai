@@ -135,9 +135,10 @@ timeline ([live-sources.md](live-sources.md)).
 Two workflows carry four writer jobs over one corpus — `run-pull`'s **pull**,
 **live**, and dispatch-only **enrich**, and `run-seed`'s **historical** walker —
 differing on every axis that matters, while the shared `corpus-write` lock keeps
-at most one running at a time. These jobs are the **only** place corpus writes
-can happen: the write role is job-scoped and the pointer commit rides the data
-App, neither of which any interactive session holds — so a maintenance pass
+at most one running at a time. These jobs are the **only** place *production*
+corpus writes can happen: the write role is job-scoped and the pointer commit
+rides the data App, neither of which any interactive session holds — so a
+maintenance pass
 that mutates the corpus (a backfill, a relabel, an overhang clear) is always a
 step or dispatch input on one of these workflows, dispatch-gated where its
 dry-run is a triage list a maintainer must read before an apply:
@@ -156,6 +157,13 @@ supremecourt.gov docket JSON all become the same normalized row, then upsert
 through `fedcourtsai.corpus`) plus shared dedup/cursor utilities. **Unify the
 library and the data, not the job:** every job writes the same stores through
 the same APIs; separate jobs only keep the budget boundary crisp.
+
+One writer sits outside these four without contradicting the claim above: the
+dispatch-only `staging-corpus-refresh` workflow holds the **staging** pair's
+read-write role (`fedcourts corpus-seed-slice`), which is read-only against
+production. It writes a disposable slice, never these stores — which is the
+point of it, since that lets the read/write seams be exercised end to end with
+nothing gaining production write access.
 
 ## Storage: one corpus, one ledger
 
@@ -230,6 +238,13 @@ committed pointer moves a median of **13 times a day**, on the order of 14 GB a
 day of new objects. That is a floor on the accretion, not a count of it: a push
 whose pointer commit never lands still leaves its object behind.
 
+Those figures are measurements, and they age. The push rates were read off the
+pointer's own history on **2026-08-28** (621 revisions since 2026-07-13);
+re-measure them from `git log --follow --format=%cI -- corpus/corpus.db.ref` on
+`main`, and the blob size from `fedcourts corpus-info` after a pull. The
+lifecycle rule below is sized against them, so a figure that has moved is a
+reason to re-read that sizing.
+
 The accumulation is deliberate. `corpus/corpus.db.ref` is a git file, so **every
 pointer any commit ever carried stays resolvable**: check out a historical
 commit, `corpus-pull`, and you get byte-for-byte the index that commit's runs
@@ -297,12 +312,13 @@ contract is the same either way — historical pulls are rare and deliberate, so
 paying retrieval for one is the right trade against holding the whole tail hot.
 
 **Why 30 days.** Across the pointer's history the median gap between revisions
-is under two hours and the longest is 47, so an object is superseded within
-hours and anything past a fortnight is noncurrent with near-certainty; a
+is under two hours and the longest is 47 (1.6 h and 47.4 h on the same
+2026-08-28 read), so an object is superseded within hours and anything past a
+fortnight is noncurrent with near-certainty; a
 tighter threshold would already be safe. Thirty is chosen because the
 difference is a *constant, not a growth term*: the threshold fixes how much of
-the prefix stays in Standard — thirty days of accretion, ~430 GB — while
-everything older transitions under either choice. A fixed extra fortnight of
+the prefix stays in Standard — thirty days of accretion, ~430 GB at 13 pushes a
+day of a ~1.1 GB blob — while everything older transitions under either choice. A fixed extra fortnight of
 Standard storage is
 what buys a month of headroom for an unusual writer pause (an expired
 credential, an upstream outage, a deliberate freeze) to be noticed and resolved

@@ -566,6 +566,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull) |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store |
 | `run-analytics` — qp-topic-extract        | read-only     | the labeler's extract (full `corpus-pull`), handed to the labeling job as an artifact |
+| `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
 | `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `prod`, and it can write nothing production owns |
@@ -820,10 +821,14 @@ the repoint. Read step 5's two ordering notes before doing either.
    rather than trusting it. The
    promotion gate's **admin-read `contexts` stage**, which the maintainer runs
    with their own token, verifies the environment's deployment-branch policy
-   names `staging` — the same shape as its `review`-environment reviewer check,
-   and skipped until main's workflows bind the staging write role's variable
-   (main will reference the `staging` environment itself long before anything
-   arms the role). It is
+   names `staging` — the same shape as its `review`-environment reviewer
+   check, but **unconditional**, where that one waits until main's workflows
+   reference the environment. The trust exists from the moment the role is
+   provisioned on the AWS side, before any workflow that binds it reaches main,
+   and the branch policy predates the role (the integration runs need it too),
+   so there is no state in which checking it early is wrong — and an arming key
+   would leave a silent window over exactly the interval between provisioning
+   and promotion. It is
    deliberately **not** part of any automatic gate: reading environment and
    ruleset settings needs admin-level access that ci.yml's promotion-gate job
    does not hold, so a required check would 403 (see the rationale in

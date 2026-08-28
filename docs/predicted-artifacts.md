@@ -17,8 +17,11 @@ the same files. What varies is `prediction.json`: `granted`, `probability`, and
 `stage` — `cert`, `interim`, or `merits`), `judgment` is mandatory at one stage
 and null at the others, and the declared claim set changes *shape*. All three
 stages fan out: the merits admission is `store._merits_forecastable` (an open
-merits event on a granted, undecided docket, every one bypassing the salience
-gate), with the prompt's merits section carrying the cell contract. See
+merits event on a docket whose grant opened a merits proceeding and whose
+merits judgment *and* merits termination are both unrecorded, which is not a
+stale unparsed grant and carries no out-of-scope reason — every one bypassing
+the salience gate), with the prompt's merits section carrying the cell
+contract. See
 [decision-model.md](decision-model.md).
 
 ## Where the files land
@@ -507,7 +510,7 @@ directory without knowing which part is which invites trusting the wrong half.
   which does not read it (the rollup does read `result_status`).
   Both reach an evaluator's information set unmasked, which is
   recorded as a masking-surface entry in
-  [milestones.md](milestones.md).
+  [freeze-record.md](freeze-record.md).
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
   prediction, written by the `collect` job, which is the only observer of that.
 - **`process_version`** on `prediction.json` — stamped by `fedcourts

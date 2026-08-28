@@ -230,9 +230,11 @@ docs-only change needs none of the Python checks).
 
 ```bash
 uv sync                    # once, to sync the env the stages assume
-scripts/gate.sh            # every stage, in CI order — what CI enforces
+scripts/gate.sh            # every stage, in CI order — CI runs all but lock
 # or run just the stages that fit your change:
-scripts/gate.sh lock       # uv lock --check (the lock matches pyproject)
+scripts/gate.sh lock       # uv lock --check (the lock matches pyproject); CI
+                           # enforces it instead in setup-python-env, which
+                           # installs with `uv sync --locked`
 scripts/gate.sh lint       # ruff format --check + ruff check
 scripts/gate.sh types      # mypy
 scripts/gate.sh test       # pytest  (GATE_COV=1 adds coverage, as CI does)
@@ -295,7 +297,10 @@ same PR.
 - **Docs and code describe the current design, not its history.** No issue
   numbers, no changelog, no "we used to / now we" — on *every committed
   surface*: docs, docstrings, code/workflow/config comments, and prose that
-  code renders. State the reason in place; `git blame` finds the history.
+  code renders. State the reason in place; `git blame` finds the history. One
+  file is the deliberate exception, because dated history *is* its content:
+  `docs/freeze-record.md`, the append-only pre-registration record, whose
+  landed entries are never edited or tidied.
 - **Reference the issue in the PR, then close it yourself.** Put `Closes #<n>`
   in the PR description — it is the durable link between the work and its
   reason — but see the merge rule above: the reference does not fire from a
@@ -365,14 +370,15 @@ task-specific instructions: the prompt file named in your run
 
 | Question | Doc |
 | --- | --- |
-| What may I claim from a number? What do the strata mean? | `metrics/README.md` |
+| What may I claim from a number? What do the strata mean? (strata, floors, and reading rules all registered; the committed leaderboard and claim-score boards still render their empty state) | `metrics/README.md` |
 | What does a label trigger, and how do I operate/recover a run? | `docs/pipeline.md` |
 | How does the corpus get filled, stored, and versioned? | `docs/data-pipeline.md`, `corpus/README.md` |
-| Where does upstream data come from, and on what terms? | `docs/data-sources.md`, `docs/live-sources.md` |
+| On what terms may we use and republish upstream data? | `docs/data-sources.md` |
+| How does the SCOTUS live channel work? | `docs/live-sources.md` |
 | Which command does X, and with which flags? | `docs/cli.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
 | What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; no labels artifact yet produced) | `docs/qp-topic.md` |
-| What is pre-registered, and when does a digest move? | `docs/process-version.md` |
+| What is pre-registered, and when does a digest move? | `docs/process-version.md` (the rules), `docs/freeze-record.md` (the dated record) |
 | How is a predicted outcome decomposed and scored? (mechanical cert, interim, and merits-judgment claims implemented; vote/writing pre-registered; the semantic family an alpha declared, elicited, and graded on the merits moments, producing only the availability mask until opinion text lands) | `docs/outcome-decomposition.md` |
 | How many votes decide this, and what can I ever observe? (merits scoring registered and wired; vote accuracy scored, merits-gated, and fed to the leaderboard as `mean_vote_accuracy` — no vote source populated yet; margins pre-registered only) | `docs/decision-model.md` |
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |

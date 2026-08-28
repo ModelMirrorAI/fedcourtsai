@@ -243,8 +243,11 @@ the size of the claim set.
 That is not hypothetical here. This repo's baseline configuration pools the
 last ten Terms (`salience.base_rate_lookback_terms`, matching the rendered
 table's window — every walked Term today), while the per-Term
-band rates span roughly 26%–48%. A predictor that reports the *recent* rate
-rather than the pooled one banks about `(0.40 - 0.30)^2 = 0.01` a claim, knowing
+band rates span a wide range — [salience.md](salience.md), *Base rates &
+baselines for the predicted segment*, carries the canonical per-Term figures
+with the vintage they were rendered against. A predictor that reports the
+*recent* rate rather than the pooled one banks the square of the gap between
+them on every claim, knowing
 nothing about the case. Where `b` is estimated from `n` prior observations at
 all, the free expectation is about `pi(1-pi)/n`.
 
@@ -803,11 +806,11 @@ resolved from the event, **a moment's version bump does not re-score old cells
 under the old set — it strands them.** A prediction that states only cert-v1's
 three claims against a moment declaring `cert-v2` yields *no block at all*
 (the set is mandatory, so a partial answer scores nothing), and `validate` names
-the two unstated claims. Nothing is stranded, because no committed
-prediction carries a `claims` block and the elicitation surface moved before any
-`cert-v2` cell ran: the predict prompt asks for all five claims from the same
-promotion that carries the declaration, which is what keeps the version bump
-from being a declaration without an answer.
+the two unstated claims. Nothing is stranded, because the elicitation surface
+moved before any `cert-v2` cell ran: the predict prompt asks for all five
+claims from the same promotion that carries the declaration, so every committed
+cert-stage block states all five and none states cert-v1's three. That is what
+keeps the version bump from being a declaration without an answer.
 
 A claim total is likewise not comparable across the boundary: a `cert-v2` block
 sums over a different set, so the two are pooled no more freely than a total
@@ -1017,8 +1020,8 @@ zero). An increment claim is therefore computable end to
 end: the prediction-time value from the prediction's own context block, the
 resolution-time value from the outcome's matching signals block — `signals` at
 the cert stage, `interim_signals` at the interim one, on the identical argument. The block is nullable, and
-**every committed prediction predates it** — the field and the harness path
-are committed, no committed data yet exercises them — so an increment claim
+**only the cells that ran after the field landed carry it** — the committed
+predictions minted before it carry none at all — so an increment claim
 scores only the cells that carry the block: a coverage boundary the claim's
 declared population must state, not a defect, and a **time-skewed** one (the
 covered cohort is whatever runs after the field landed, so a coverage-limited
@@ -1155,7 +1158,7 @@ elicitation on is the second one's business.** A *set* version names what was
 asked; the *process* version names who asked it and how. Eliciting a declared
 set changes nothing about which claims it carries, so it takes a coordinated
 re-bless of the process label and its reviews (`docs/process-version.md`; the
-freeze record in [milestones.md](milestones.md) names it among the changes
+freeze record in [freeze-record.md](freeze-record.md) names it among the changes
 riding that promotion) and **not** a new set id — which would fragment a census
 across two identical declarations and spend the version vocabulary on a change
 that is not one.

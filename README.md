@@ -10,9 +10,11 @@ Agentic AI system to predict events in US federal courts — for example,
 whether a petition for certiorari will be granted or denied, the likely vote
 of each justice, and the court's reasoning.
 
-> **Status:** the pipeline is live. Ingestion runs daily across the Supreme
-> Court and the thirteen courts of appeals, the supremecourt.gov live channel
-> tracks pending cert petitions in production, and the forward record begins
+> **Status:** the pipeline is live. The daily CourtListener rotation
+> **refreshes** a tracked set spanning the Supreme Court and the thirteen
+> courts of appeals — its own new-filing discovery is off. **Discovering**
+> pending cases belongs to the supremecourt.gov live channel, SCOTUS-only,
+> which tracks pending cert petitions in production. The forward record begins
 > with the OT2026 cert cycle: the open ledger under `data/` holds SCOTUS
 > events and realized outcomes, with predictions and evaluations accumulating
 > toward the OT2026 long-conference cert release ([milestones](docs/milestones.md)).
@@ -34,19 +36,28 @@ auto-merge-gated pull requests.
 
 | Label          | Workflow        | Does                                                                 | Engine |
 |----------------|-----------------|----------------------------------------------------------------------|--------|
-| `run:pull`     | `run-pull`      | Two scheduled forward writer jobs: targeted CourtListener enrichment, and the **supremecourt.gov live poll** (discovers pending petitions, tracks conference distribution, records outcomes, provisions filed-document text) | Script |
-| _(none)_       | `run-seed`      | The **historical Term walker** (supremecourt.gov, budget-free) backfilling past Terms for base rates and back-testing — four dead-zone windows a day, sharing run-pull's corpus-write lock | Script |
+| `run:pull`     | `run-pull`      | Two scheduled forward writer jobs: targeted CourtListener enrichment, and the **supremecourt.gov live poll** (discovers pending petitions, tracks conference distribution, records outcomes, provisions filed-document text) — plus a third, **dispatch-only** job that enriches cert-granted cases with their opinion text | Script |
+| _(none)_       | `run-seed`      | The **historical Term walker** (supremecourt.gov, budget-free) backfilling past Terms for base rates and back-testing — four dead-zone windows a day, sharing run-pull's corpus-write lock. It is also the **corpus-maintenance dispatch console**: ten inputs, three of them dry-run/apply pairs whose apply mode rewrites stored corpus fields or re-grades committed cells — and only once a maintainer has read the dry run's ledger | Script |
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex + Gemini |
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes — fan-out is one cell per evaluator, and each judge grades **every** predictor for its event | Claude Code + Codex + Gemini |
-| `run:backtest` | `run-backtest`  | Maintainer-triggered cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR | Claude Code + Codex + Gemini (replay) |
+| `run:backtest` | `run-backtest`  | Maintainer-triggered cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR. A second dispatch mode replays the **deterministic salience gate** over past Terms instead — offline, token-free, into `metrics/salience-replay.json` | Claude Code + Codex + Gemini (replay); salience-gate replay is script-only |
 
 Plus `run-ops` (a read-only daily dashboard with a weekly digest) and
-`run-analytics` (corpus analysis, metrics refresh, and the qp-topic labeler),
-both schedule/dispatch only. The cascade runs pull/live → corpus → `run:predict` (fired on an
+`run-analytics` — five dispatch modes: corpus statistics, the
+distribution-parse census, the tool-usage roll-up, the metrics refresh, and the
+qp-topic labeler (the only one that runs an agent) — both schedule/dispatch
+only. The cascade runs pull/live → corpus → `run:predict` (fired on an
 arrival-cohort pick, a conference distribution, or a changed open case) →
 `run:evaluate` (fired when an
 outcome lands on a predicted event); full label/workflow mechanics and the
 cascade diagram: [`docs/pipeline.md`](docs/pipeline.md).
+
+**Both agent stages park before they spend.** In `run:predict` and
+`run:evaluate` the fan-out waits on the **review hold** — a no-op `approval`
+job bound to the `review` deployment environment, whose required reviewers gate
+it. No cell runs and no tokens are spent until a reviewer releases the
+deployment: an explicit, audit-logged step on every run that has cells to
+spend on ([`docs/pipeline.md`](docs/pipeline.md)).
 
 ### Why this shape
 
@@ -234,10 +245,13 @@ State lives in two stores, split by **kind of data**:
 
 - **Raw facts → the corpus.** Dockets, point-in-time snapshots, judges, case and
   tracking metadata, and event definitions, written identically by every
-  ingestion channel through one shared core. The corpus has two halves: a
-  small, **payload-free SQLite index** (`corpus/corpus.db` — the blob at a
-  content-addressed key in a private S3 remote, the pointer in git) serving queries,
-  scans, scope gating, and base rates; and a browsable, **write-once per-case
+  ingestion channel through one shared core. The corpus has two halves. The
+  first is a **payload-free SQLite index** serving queries, scans, scope
+  gating, and base rates — payload-free but not small, ≈1.1 GB and growing.
+  Its blob sits at a content-addressed key in a private S3 remote and is never
+  committed: git carries only the `corpus/corpus.db.ref` pointer, and
+  `fedcourts corpus-pull` fetches the blob to the gitignored
+  `corpus/corpus.db`. The second is a browsable, **write-once per-case
   content store** (an access-gated S3 store, `fedcourtsai.casestore`) holding
   the bulk payloads — dated snapshots, extracted filed-document text, opinion
   bodies — keyed to mirror the ledger's `data/cases/<court>/<docket>/` shape.
@@ -302,6 +316,8 @@ prefix in place.
 uv sync                       # install deps into .venv
 uv run fedcourts --help       # CLI (full reference: docs/cli.md)
 scripts/gate.sh               # the local gate CI enforces (stages: see AGENTS.md)
+scripts/gate.sh test          # just one stage — here, pytest
+scripts/corpus-login          # corpus reads need credentials: refresh the SSO session (the contributor key-pair flow needs no login)
 ```
 
 `pull` fetches one case from the CourtListener REST API into the corpus
@@ -324,9 +340,13 @@ defines the branch-and-PR workflow every agent (and human) change follows.
 
 ```
 src/fedcourtsai/    library: clients, corpus + casestore, schemas, registry, CLI
+tests/              the pytest suite the gate runs, offline cascade smoke included
 config/             predictor & evaluator registries, tracking settings
 data/               the git ledger of derived judgments (versioned)
+corpus/             the index's committed pointer + row-schema reference (never the blob)
+metrics/            scored outputs — leaderboard, statpack, backtests — and what may be claimed from them
 schemas/            JSON Schema exported from the pydantic models
+scripts/            the gate, the promotion gate, and the corpus-access helpers
 docs/               design & operations references (see Documentation below)
 .github/workflows/  the label-driven pipeline + CI + workflow linting
 .github/prompts/    engine-agnostic prompts shared by the three engines
@@ -334,10 +354,10 @@ docs/               design & operations references (see Documentation below)
 
 ## Documentation
 
-- [Data pipeline](docs/data-pipeline.md) (the corpus & ingestion) · [Live sources](docs/live-sources.md) · [Data sources, terms & PII](docs/data-sources.md) · [Corpus store & row schema](corpus/README.md)
+- [Data pipeline](docs/data-pipeline.md) (the corpus & ingestion) · [Live sources](docs/live-sources.md) (the pending-case track's design) · [Data sources, terms & PII](docs/data-sources.md) (the same sources' terms posture, not their design) · [Corpus store & row schema](corpus/README.md)
 - [Pipeline & labels](docs/pipeline.md) · [CLI reference](docs/cli.md)
 - [Predicted artifacts](docs/predicted-artifacts.md) (what one prediction consists of, with examples)
-- [Metrics & what may be claimed](metrics/README.md) · [Salience gate](docs/salience.md) · [Process version](docs/process-version.md)
+- [Metrics & what may be claimed](metrics/README.md) · [Salience gate](docs/salience.md) · [Process version](docs/process-version.md) · [Freeze record](docs/freeze-record.md)
 - [Outcome decomposition](docs/outcome-decomposition.md) (claim scoring: the declared mechanical cert, interim, and merits sets, and the pre-registered rest)
 - [QP topics](docs/qp-topic.md) (`qp-topic-v0`: what petitions ask about, the hand-labeled reference set, and the labeling run)
 - [Decision model](docs/decision-model.md) (vote thresholds by stage and what is observable; vote accuracy scored on merits moments, margins pre-registered only)
