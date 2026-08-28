@@ -860,9 +860,10 @@ over prior Terms — but *how many* prior Terms is a real parameter, and it move
 anchor. Per-Term high-band grant rates over the walked range (OT2017–OT2025),
 on the **`sal-v3`** segments the pack scores against, run
 **24.2%–42.4%**, a ~1.75× spread — the pack's `sal-v1` alternative segments
-give a materially different band, so read the version before the number;
-elevated runs 17.5%–22.2% on the **risk-set** rate a
-forecast is scored against (6.5%–12.5% on the terminal rate the same table shows
+give a materially different band, so read the version before the number. Nothing
+reachable sits above `high`, so that is its **risk-set** range as well as its
+terminal one; elevated runs 13.1%–18.3% on the risk-set rate a
+forecast is scored against (6.5%–12.2% on the terminal rate the same table shows
 in the lead column — see below). Anchored at an OT2026
 petition, the high band reads roughly **35% (n≈960)** pooling every prior Term,
 **36% (n≈524)** over the last five, and **42% (n≈66)** over the last one — recompute
@@ -888,8 +889,28 @@ band whose version is absent or unmatched yields **no** baseline, never a
 terminal relabel (see the version pin below). Reading either rate against the other kind of band is the error the
 pairing exists to prevent — the risk-set rate against a terminal band overstates
 the baseline for exactly the petitions whose band moved, and the terminal rate
-against a frozen band understates it several-fold in the weak bands. The top band
-has nothing above it, so its two rates coincide exactly.
+against a frozen band understates it several-fold in the weak bands.
+
+**A risk set walks the petition's reachable ladder, not the band order.** The
+caption-banded versions read two features of different kinds: `federal` and
+`state` come off the caption, which is fixed at filing, while the relist/CVSG
+tier only ever rises. So the class *partitions* the band vocabulary rather than
+sitting inside it, and each class walks its own ladder — `federal` alone;
+`state` → `high`; `baseline` → `elevated` → `high`. A federal petition is
+therefore in no weaker band's risk set (it was `federal` on day one and no
+trajectory could have taken it elsewhere), a state one is in none of `federal`'s,
+`elevated`'s or `baseline`'s, and a private one is in neither caption band's. Each class's
+weakest reachable band carries that whole class, so the three floors — `federal`,
+`state`, `baseline` — partition the scored segment instead of nesting into one
+another, and a band with nothing reachable above it has its two rates coinciding
+exactly: `federal`, and `high`, which is the ceiling of both the state and the
+private ladder. Pooling the band order's prefix instead would price a private
+petitioner's forecast against a population containing every federal petition —
+the class with the highest grant rate on the docket. The ladder is registered
+with the band rule it belongs to (`SalienceScorer.reachable`, read through
+`reachable_bands`), so a version that bands on one monotone score alone — `sal-v1`
+— keeps the whole vocabulary reachable and its risk sets stay the plain
+cumulative prefix.
 
 **The pool is version-pinned, and a lagging statpack yields no baseline rather
 than a blended one.** A band name is meaningful only under the salience version

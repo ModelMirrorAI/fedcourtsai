@@ -292,6 +292,39 @@ def _sal_v2_band(row: corpus.CorpusRow) -> str:
     return trajectory
 
 
+def _caption_reachable_bands(cls: caption.PetitionerClass) -> tuple[str, ...]:
+    """The bands a petition of ``cls`` can occupy over its life, strongest-first.
+
+    The caption-banded rule reads two features of different kinds: the class is
+    fixed at filing, while the relist/CVSG trajectory tier only ever rises. So
+    the class **partitions** the band vocabulary rather than ordering itself
+    inside it, and each class walks its own ladder:
+
+    * ``federal`` bands ``federal`` at every trajectory tier, so its ladder is
+      that one band;
+    * ``state`` bands ``state`` below ``high`` and ``high`` at it, so it climbs
+      ``state`` → ``high`` and can never reach ``federal``;
+    * ``private`` never leaves the trajectory tiers, so it climbs
+      ``baseline`` → ``elevated`` → ``high`` and reaches neither caption band.
+
+    This is what a band's **risk set** is taken over
+    (:meth:`SalienceScorer.reachable_bands`):
+    pooling the order's whole prefix would put every federal petition in the
+    risk set of bands its caption made unreachable, and price a private
+    petitioner's forecast against a population it was never in.
+    """
+    if cls == "federal":
+        return ("federal",)
+    if cls == "state":
+        return ("high", "state")
+    return ("high", "elevated", "baseline")
+
+
+def _sal_v2_reachable(row: corpus.CorpusRow) -> tuple[str, ...]:
+    """``sal-v2``'s reachable ladder: the caption partition read through ``caption-v1``."""
+    return _caption_reachable_bands(caption.petitioner_class(row))
+
+
 def _sal_v2_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
     """sal-v1's rule, plus the federal arrival carve-in."""
     return _sal_v1_carve_out(row, score, floor) or caption.petitioner_class(row) == "federal"
@@ -324,6 +357,11 @@ def _sal_v3_band(row: corpus.CorpusRow) -> str:
     return trajectory
 
 
+def _sal_v3_reachable(row: corpus.CorpusRow) -> tuple[str, ...]:
+    """``sal-v3``'s reachable ladder: the caption partition read through ``caption-v2``."""
+    return _caption_reachable_bands(caption.petitioner_class_v2(row))
+
+
 def _sal_v3_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
     """sal-v1's rule, plus the federal arrival carve-in read through ``caption-v2``."""
     return _sal_v1_carve_out(row, score, floor) or caption.petitioner_class_v2(row) == "federal"
@@ -340,6 +378,11 @@ class SalienceScorer:
     published segment. Bundling them here makes a version a single object to
     register, and makes "which function produced this band" answerable by lookup
     rather than by reading the commit that was live at the time.
+
+    ``reachable`` is the same argument one step further: which bands a row can
+    ever occupy is a property of the band *rule*, so it is registered with the
+    rule rather than inferred from the order — and the statpack's risk sets are
+    pooled over it (:meth:`reachable_bands`).
 
     The pairing of ``carve_out`` with ``bands`` is load-bearing and pinned by
     test: the always-include floor and the strongest band's cutpoint must select
@@ -367,6 +410,26 @@ class SalienceScorer:
     # `_ARRIVAL_DRAW_KEY` is a literal: registration fixes the assignment, so a
     # later default cannot re-read a frozen version's ranking.
     distribution_parse: str = "dist-v1"
+    # Which of this version's bands a given row could ever occupy, strongest-first
+    # — the ladder its `band` walks over the petition's life. `None` means every
+    # band is reachable by every row, which is what a version whose bands are
+    # cutpoints on one monotone score means (sal-v1: a petition climbs the whole
+    # vocabulary). A version that also bands on a fixed-at-filing feature
+    # partitions the vocabulary instead, and must say so here — see
+    # `_caption_reachable_bands`. Read through `reachable_bands`, never directly.
+    reachable: Callable[[corpus.CorpusRow], tuple[str, ...]] | None = None
+
+    def reachable_bands(self, row: corpus.CorpusRow) -> tuple[str, ...]:
+        """The bands ``row`` could occupy over its life, strongest-first.
+
+        A subsequence of :attr:`bands` that always contains ``band(row)``, and
+        the population a band's **risk set** is taken over: "this petition has
+        reached band *b*" means "*b* is on this row's own ladder, and the row
+        ended at *b* or above **on that ladder**" — not "the row ended at *b* or
+        above in the vocabulary's order". The two readings coincide exactly where
+        every band is reachable, which is the :data:`None` default.
+        """
+        return self.bands if self.reachable is None else self.reachable(row)
 
 
 _SAL_V1 = SalienceScorer(
@@ -384,6 +447,7 @@ _SAL_V2 = SalienceScorer(
     bands=_SAL_V2_BAND_ORDER,
     carve_out=_sal_v2_carve_out,
     selects_arrivals=True,
+    reachable=_sal_v2_reachable,
 )
 
 _SAL_V3 = SalienceScorer(
@@ -393,6 +457,7 @@ _SAL_V3 = SalienceScorer(
     bands=_SAL_V2_BAND_ORDER,  # the same band vocabulary, in the same order
     carve_out=_sal_v3_carve_out,
     selects_arrivals=True,
+    reachable=_sal_v3_reachable,
 )
 
 # Every registered version, keyed by label. A past ranking replays against the

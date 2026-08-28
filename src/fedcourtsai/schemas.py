@@ -4756,19 +4756,25 @@ class StatPackTermSegment(_Strict):
     **Two rates, answering two different questions.** A band is monotone
     non-decreasing over a petition's life — the distribution count is max-latched
     and a CVSG date, once set, stays set — so a petition passes *through* the
-    weaker bands on its way to the one it ends in.
+    weaker bands **it can reach** on its way to the one it ends in. Which those
+    are is the scorer's own
+    (:meth:`fedcourtsai.pipeline.salience.SalienceScorer.reachable_bands`): under a
+    vocabulary that interleaves a fixed-at-filing caption class among the
+    trajectory tiers, a petition walks its class's ladder and never enters
+    another class's bands.
 
     ``est_grant_rate`` conditions on the band a petition **ended** in. It is the
     descriptive cut: of the petitions that finished at one distribution, how many
     were granted.
 
     ``prefix_est_grant_rate`` conditions on having **reached** the band, which is
-    the same event as "ended here or stronger". That is the forecast baseline,
-    because a cell is scored at the band it sat in when it ran, and from there the
-    petition may still relist. Conditioning a live forecast on the terminal rate
-    would ask it to beat a number computed with knowledge of its own future, and
-    understates the honest baseline several-fold in the weaker bands (the
-    strongest band has nothing above it, so the two coincide there exactly).
+    the same event as "ended here or stronger *on this petition's own ladder*".
+    That is the forecast baseline, because a cell is scored at the band it sat in
+    when it ran, and from there the petition may still relist. Conditioning a live
+    forecast on the terminal rate would ask it to beat a number computed with
+    knowledge of its own future, and understates the honest baseline several-fold
+    in the weaker bands (a band with nothing reachable above it has the two
+    coinciding exactly).
     """
 
     band: str = Field(
@@ -4803,7 +4809,8 @@ class StatPackTermSegment(_Strict):
         ge=0,
         description="Sample-weighted resolved estimate over the band's risk set — "
         "every row that ever reached this band, not only those that ended in it. "
-        "Risk sets are nested, so this contains every stronger band's",
+        "Risk sets nest down one petition class's reachable ladder and partition "
+        "across classes, so this contains every stronger band the same class can reach",
     )
     prefix_est_grant_rate: float | None = Field(
         default=None,
@@ -4814,7 +4821,7 @@ class StatPackTermSegment(_Strict):
         "P(grant | the petition has REACHED this band). The forecast baseline — "
         "this is what a predictor is asked to beat, because a cell is scored at "
         "the band it sat in when it ran, not the one it ended in. Identical to "
-        "est_grant_rate for the strongest band, which has nothing above it; "
+        "est_grant_rate for a band with nothing reachable above it; "
         "None when the risk set is empty",
     )
 
