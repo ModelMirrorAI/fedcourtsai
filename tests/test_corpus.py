@@ -1766,7 +1766,10 @@ def test_interim_and_merits_dates_survive_a_courtlistener_write(tmp_path: Path) 
     # next rotates onto the case carries None for all three. Without the fill-in
     # latch it blanks them, leaving the max-latched `response_requested` flag
     # standing beside a NULL date — the shape an undated request takes, asserted
-    # about a request that was in fact dated.
+    # about a request that was in fact dated. The overwrite the third upsert
+    # asserts cuts both ways by design: a fresh parse corrects a wrong date, and
+    # a degraded payload (head entries missing) can equally move one later — the
+    # exposure the latch comment in `_update_clause` accepts.
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
         corpus.upsert_rows(

@@ -373,15 +373,25 @@ def test_the_cluster_field_drop_is_bulk_circuit_only() -> None:
 _PROJECTION_EXEMPT: frozenset[str] = frozenset()
 
 
-def _projection_sentinel(name: str, ordinal: int) -> Any:
-    """A value unique to `name`, typed as the ingestion model declares it.
-
-    Unique per field, not merely non-default, so a projection that passes the
-    *wrong* attribute into a column fails as loudly as one that drops it.
-    """
-    annotation = IngestCorpusRow.model_fields[name].annotation
+def _strip_optional(annotation: Any) -> Any:
     if get_origin(annotation) in (Union, UnionType):
-        annotation = next(a for a in get_args(annotation) if a is not type(None))
+        return next(a for a in get_args(annotation) if a is not type(None))
+    return annotation
+
+
+def _projection_sentinel(name: str, ordinal: int, *, parity: bool = False) -> Any:
+    """A value unique to `name` where the type can carry one, typed as declared.
+
+    Str/int/date/list sentinels are unique per field, so a projection that
+    passes the *wrong* attribute into a column fails as loudly as one that
+    drops it. Bools and enums cannot hold a per-field value in a single
+    assignment, so the guard runs twice: an all-first-member pass (catching a
+    dropped field — every storage default is falsy or None) and a `parity`
+    pass varying the value by the field's index *within its own type group*
+    (catching a swap between same-typed fields — ordinal parity would let two
+    same-parity fields collide).
+    """
+    annotation = _strip_optional(IngestCorpusRow.model_fields[name].annotation)
     item = get_args(annotation)[0] if get_origin(annotation) is list else None
     value: Any
     if item is str:
@@ -391,7 +401,16 @@ def _projection_sentinel(name: str, ordinal: int) -> Any:
     elif item is corpus.CounselEntry:
         value = [corpus.CounselEntry(party=f"{name}-sentinel")]
     elif annotation is bool:
-        value = True
+        peers = sorted(
+            n
+            for n, f in IngestCorpusRow.model_fields.items()
+            if _strip_optional(f.annotation) is bool
+        )
+        assert len(peers) <= 2, (
+            "three bool fields cannot carry pairwise-distinct sentinels in two "
+            "passes; extend the guard with a further assignment"
+        )
+        value = True if not parity else peers.index(name) == 0
     elif annotation is int:
         value = 7000 + ordinal
     elif annotation is str:
@@ -399,7 +418,13 @@ def _projection_sentinel(name: str, ordinal: int) -> Any:
     elif annotation is date:
         value = date(2031, 1, 1) + timedelta(days=ordinal)
     elif isinstance(annotation, type) and issubclass(annotation, Enum):
-        value = next(iter(annotation))
+        members = list(annotation)
+        peers = sorted(
+            n
+            for n, f in IngestCorpusRow.model_fields.items()
+            if _strip_optional(f.annotation) is annotation
+        )
+        value = members[peers.index(name) % len(members)] if parity else members[0]
     else:
         raise AssertionError(
             f"no sentinel for {name}: {annotation}. A newly shared field needs one "
@@ -421,26 +446,30 @@ def test_every_shared_field_survives_the_projection() -> None:
     shared = (
         set(IngestCorpusRow.model_fields) & set(corpus.CorpusRow.model_fields)
     ) - _PROJECTION_EXEMPT
-    sentinels = {name: _projection_sentinel(name, i) for i, name in enumerate(sorted(shared))}
-    # A SCOTUS REST row: neither condition under which the projection withholds
-    # the cluster-join family (a bulk row, off a non-SCOTUS court) holds, so
-    # every shared field is expected through.
-    row = IngestCorpusRow(
-        **{
-            **sentinels,
-            "case_id": "scotus/24100",
-            "court": "scotus",
-            "docket_id": 24100,
-            "source": CorpusSource.api,
+    for parity in (False, True):
+        sentinels = {
+            name: _projection_sentinel(name, i, parity=parity)
+            for i, name in enumerate(sorted(shared))
         }
-    )
-    store_row = to_corpus_row(row)
-    lost = {
-        name: (getattr(row, name), getattr(store_row, name))
-        for name in sorted(shared)
-        if getattr(store_row, name) != getattr(row, name)
-    }
-    assert not lost, f"shared fields lost in to_corpus_row (ingested, stored): {lost}"
+        # A SCOTUS REST row: neither condition under which the projection
+        # withholds the cluster-join family (a bulk row, off a non-SCOTUS
+        # court) holds, so every shared field is expected through.
+        row = IngestCorpusRow(
+            **{
+                **sentinels,
+                "case_id": "scotus/24100",
+                "court": "scotus",
+                "docket_id": 24100,
+                "source": CorpusSource.api,
+            }
+        )
+        store_row = to_corpus_row(row)
+        lost = {
+            name: (getattr(row, name), getattr(store_row, name))
+            for name in sorted(shared)
+            if getattr(store_row, name) != getattr(row, name)
+        }
+        assert not lost, f"shared fields lost in to_corpus_row (ingested, stored): {lost}"
 
 
 def test_the_response_and_merits_brief_dates_reach_the_store() -> None:
@@ -449,7 +478,10 @@ def test_the_response_and_merits_brief_dates_reach_the_store() -> None:
     `response_requested` without `response_requested_at` is the flag asserting
     the Court asked while the row cannot say when, which is the shape an
     undated request legitimately takes — so a projection that drops the date
-    makes every request look undated.
+    makes every request look undated. Built through the shared normalizer
+    (`from_api_docket`); in production only the live channel mints these three.
+    The introspection guard above covers the channel-independent projection —
+    this pins the three names so the regression reads as itself.
     """
     row = from_api_docket(
         {

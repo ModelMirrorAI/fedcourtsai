@@ -1309,17 +1309,13 @@ def _update_clause(column: str) -> str:
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
         # conference parse) must not wipe what another channel stamped. Safe for
-        # exactly the columns whose degraded parse yields NULL.
-        #
-        # The three dated interim/merits signals qualify on the same grounds as
-        # `cvsg_date`: only the live channel's proceedings parse computes them,
-        # so every other writer carries None, and a missing parse yields NULL
-        # rather than a confident sentinel the way `distribution_count` yields a
-        # 0. Without the latch the pull rotation blanks them on its next pass
-        # over the case. `response_requested_at` needs it most sharply, being
-        # the dated sibling of the max-latched `response_requested` flag: a
-        # latched flag left standing beside a blanked date is indistinguishable
-        # from the undated request the pair exists to express.
+        # exactly the columns whose degraded parse yields NULL. The dated
+        # interim/merits signals qualify on the same grounds as `cvsg_date`, and
+        # share its accepted exposure: their first-match parses read the
+        # earliest qualifying entry, so a payload served with its head entries
+        # missing can move a stored date later — accepted because a fresh parse
+        # must still be able to correct a wrong date, and the open-first-moment
+        # guards bound what a moved date can re-open.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
     if column in (
         "distribution_count",
