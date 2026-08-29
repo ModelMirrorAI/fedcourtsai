@@ -1761,6 +1761,55 @@ def test_live_signal_columns_survive_a_courtlistener_write(tmp_path: Path) -> No
     assert after_relist.distribution_count == 3  # a fresh parse still advances
 
 
+def test_interim_and_merits_dates_survive_a_courtlistener_write(tmp_path: Path) -> None:
+    # The dated interim/merits signals are live-parse-only, so the REST pull that
+    # next rotates onto the case carries None for all three. Without the fill-in
+    # latch it blanks them, leaving the max-latched `response_requested` flag
+    # standing beside a NULL date — the shape an undated request takes, asserted
+    # about a request that was in fact dated.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-100",
+                    response_requested=True,
+                    response_requested_at=date(2026, 3, 2),
+                    response_filed_at=date(2026, 3, 20),
+                    merits_brief_filed=date(2026, 5, 11),
+                )
+            ],
+        )
+        corpus.upsert_rows(
+            conn,
+            [_row(case_id="scotus/1", court="scotus", docket_number="25-100")],
+        )
+        after_rest = corpus.get_row(conn, "scotus/1")
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-100",
+                    response_filed_at=date(2026, 3, 21),
+                )
+            ],
+        )
+        after_reparse = corpus.get_row(conn, "scotus/1")
+    assert after_rest is not None and after_reparse is not None
+    assert after_rest.response_requested is True
+    assert after_rest.response_requested_at == date(2026, 3, 2)
+    assert after_rest.response_filed_at == date(2026, 3, 20)
+    assert after_rest.merits_brief_filed == date(2026, 5, 11)
+    # A fresh parse still overwrites, so a corrected date reaches the store.
+    assert after_reparse.response_filed_at == date(2026, 3, 21)
+    assert after_reparse.response_requested_at == date(2026, 3, 2)
+
+
 def test_distribution_count_never_regresses_on_a_degraded_parse(tmp_path: Path) -> None:
     # A degraded live parse (proceedings missing from the served payload) yields
     # a confident 0 — asserting "parsed, never distributed" — not NULL, so a

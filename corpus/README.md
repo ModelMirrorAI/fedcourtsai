@@ -173,7 +173,13 @@ role). The three escalation signals max-latch — each is monotone over an
 application's life, so a degraded parse's confident 0 never regresses a stored
 value — and `application_kind` gets the TEXT twin of that latch: a real reading
 (`extension` / `substantive`) is never wiped by a degraded parse's confident
-`unknown`, which only ever fills a genuine gap. `sample_weight` is
+`unknown`, which only ever fills a genuine gap. The dated signals beside these
+families (`response_requested_at`, `response_filed_at`, `merits_brief_filed`)
+fill-in latch for `cvsg_date`'s reason instead: a missing parse leaves each null
+rather than a confident sentinel, so no other writer may blank a date the live
+channel stamped — which on `response_requested_at` would leave the max-latched
+`response_requested` flag standing beside a null date, the shape reserved for a
+genuinely undated request. `sample_weight` is
 min-latched — an inclusion probability is only ever learned toward certainty —
 so a weighted aggregate can multiply by it and count a denial the earlier
 sampled walk kept at full strength; null means no channel asserted a weight. The

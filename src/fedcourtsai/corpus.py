@@ -1272,7 +1272,8 @@ def _update_clause(column: str) -> str:
 
     Most columns take the incoming value (``excluded``). Five latch families are
     special: channel-supplied facts (``last_pulled`` and the fill-in slice of
-    the live-parsed signals)
+    the live-parsed signals — the conference and CVSG dates, and the dated
+    interim/merits signals beside them)
     only ever fill in, so a writer that does not carry the fact keeps what
     another channel stamped; ``distribution_count``, the interim escalation
     signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
@@ -1301,11 +1302,24 @@ def _update_clause(column: str) -> str:
         "cvsg_date",
         "originating_court_name",
         "petitioner_title",
+        "response_requested_at",
+        "response_filed_at",
+        "merits_brief_filed",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
         # conference parse) must not wipe what another channel stamped. Safe for
         # exactly the columns whose degraded parse yields NULL.
+        #
+        # The three dated interim/merits signals qualify on the same grounds as
+        # `cvsg_date`: only the live channel's proceedings parse computes them,
+        # so every other writer carries None, and a missing parse yields NULL
+        # rather than a confident sentinel the way `distribution_count` yields a
+        # 0. Without the latch the pull rotation blanks them on its next pass
+        # over the case. `response_requested_at` needs it most sharply, being
+        # the dated sibling of the max-latched `response_requested` flag: a
+        # latched flag left standing beside a blanked date is indistinguishable
+        # from the undated request the pair exists to express.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
     if column in (
         "distribution_count",
