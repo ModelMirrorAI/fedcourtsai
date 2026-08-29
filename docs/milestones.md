@@ -136,8 +136,9 @@ project is actually building toward.
 
 **Housekeeping, in parallel:** verify the S3 egress projections against the split
 stores ([budget.md](budget.md)); unify the index's transport onto the same boto3
-pattern as the content store; finish re-anchoring the budget once a **`proc-v4`**
-evaluate-side per-run cost is measured at the cert stage (the predict side is
+pattern as the content store; finish re-anchoring the budget once an
+evaluate-side per-run cost under the currently blessed grading digests is
+measured at the cert stage (the predict side is
 measured; the post-freeze evaluate cells that exist grade one interim population
 under the superseded `proc-v3` evaluator digests); and re-anchor the
 per-predictor grading margin at the first `P = 4` fan-out. The last two are

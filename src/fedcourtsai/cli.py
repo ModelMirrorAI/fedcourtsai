@@ -9046,12 +9046,14 @@ _PLANNING_USD_PER_CELL = 2.50
 
 #: Per-cell rates in USD, keyed (seam, engine), from ``docs/budget.md``. The
 #: predict row is the whole-run column of *Per-cell cost is keyed on the stage*
-#: — the first post-freeze fan-out, 81 cells over 27 events. The evaluate row is
+#: — one stamped fan-out, 81 cells over 27 events, since re-based out of the
+#: frozen partition by the `proc-v5` instant. The evaluate row is
 #: that section's evaluate-cohort table, ``proc-v2`` row (the better-matched of
 #: its two pre-freeze anchors), scaled by the whole predict move (x1.218)
-#: exactly as the doc's own per-case derivation does. The doc's post-freeze
-#: evaluate rows are interim-stage and stamped under superseded evaluator
-#: digests, so they re-anchor nothing here; see the caveats below. The two sum
+#: exactly as the doc's own per-case derivation does. The doc's stamped
+#: evaluate rows are interim-stage, graded before the current instant under
+#: superseded evaluator digests, so they re-anchor nothing here; see the
+#: caveats below. The two sum
 #: to $6.79 + $8.18 = $14.97 a case — the top of the doc's $14.6-15.0 band,
 #: which the $2.50 fallback is the six-cell rounding of — so a full
 #: three-engine, both-seam fan-out prices within a cent either way. What
@@ -9076,7 +9078,9 @@ _PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
 #: three).
 _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
     "predict": [
-        "Measured, but over one post-freeze fan-out (81 cells, 27 events). "
+        "Measured, but over one stamped fan-out (81 cells, 27 events) that "
+        + "predates the current freeze instant — a shakedown figure for claims "
+        + "purposes. "
         + "docs/budget.md reads the ~+20% level gap to the 410-cell pre-freeze "
         + "ledger as an UPPER BOUND on any level effect, not a measurement of one.",
     ],
@@ -9088,14 +9092,15 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "doc's two pre-freeze anchors; the pooled four-grading row is the more "
         + "cautious one and is NOT what these rates carry. All four are "
         + "cert-stage, so the anchor is stage-narrow either way.",
-        "A post-freeze evaluate measurement EXISTS, and these rates do not use "
+        "An evaluate measurement EXISTS outside the frozen partition, and these "
+        + "rates do not use "
         + "it: two runs independently graded one six-event INTERIM population "
-        + "($6.44 and $6.69 an event, one figure per run), under evaluator "
-        + "digests `proc-v4` has "
-        + "superseded. It lands below the scaled projection, but no pre-freeze "
+        + "($6.44 and $6.69 an event, one figure per run), before the current "
+        + "instant and under since-superseded evaluator "
+        + "digests. It lands below the scaled projection, but no pre-freeze "
         + "anchor covers the interim stage, so it bounds nothing — the rates "
-        + "hold the pre-freeze anchor until a `proc-v4` evaluate fan-out reaches "
-        + "the cert stage.",
+        + "hold the pre-freeze anchor until an evaluate fan-out under the "
+        + "currently blessed grading digests reaches the cert stage.",
     ],
 }
 
@@ -9828,11 +9833,12 @@ def evaluate_plan_cmd(
     ``spend_estimate_basis.caveats`` states that on every plan, and
     ``--approval-report`` carries it into the rendered report's spend sentence.
 
-    Why the assumption stands while a post-freeze evaluate measurement exists —
-    that measurement grades one six-event interim population under evaluator
-    digests ``proc-v4`` has superseded, at a stage no pre-freeze anchor covers,
-    so the anchor holds until a ``proc-v4`` evaluate fan-out reaches the cert
-    stage — rides in ``spend_estimate_basis.caveats`` alone.
+    Why the assumption stands while a stamped evaluate measurement exists
+    outside the frozen partition — that measurement grades one six-event
+    interim population before the current instant, under since-superseded
+    evaluator digests, at a stage no pre-freeze anchor covers,
+    so the anchor holds until an evaluate fan-out under the currently blessed
+    grading digests reaches the cert stage — rides in ``spend_estimate_basis.caveats`` alone.
     """
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()

@@ -911,8 +911,9 @@ each plan job posts its report to the trigger issue, and the matrix waits on
 a required reviewer approving the `review` deployment in the Actions UI —
 one environment serves both holds, so the reviewer approves in the same
 place whichever channel is asking, though the evaluate report's spend line
-carries the weaker basis its plan states: a scaled pre-freeze anchor until a
-`proc-v4` evaluate fan-out measures the cert stage. A held run's trigger
+carries the weaker basis its plan states: a scaled pre-freeze anchor until an
+evaluate fan-out under the currently blessed grading digests measures the
+cert stage. A held run's trigger
 issue also shows on `run-ops`'s open-trigger list as a stalled fan-out — do
 not follow that list's re-fire advice while the hold is still *Waiting*, or
 the re-label mints a second plan behind the first. A run sitting in
