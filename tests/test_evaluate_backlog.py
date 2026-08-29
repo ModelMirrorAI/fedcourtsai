@@ -15,7 +15,7 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline.pull import PullQueues, evaluate_backlog
+from fedcourtsai.pipeline.pull import PullQueues, derive_evaluate_backlog, evaluate_backlog
 from fedcourtsai.registry import enabled_evaluators
 from fedcourtsai.schemas import CellFailure, EventKind
 from fedcourtsai.serialize import write_json
@@ -367,3 +367,101 @@ def test_a_resolved_event_whose_case_row_is_absent_is_skipped(tmp_path: Path) ->
     evaluate_backlog(db, tmp_path, EVALUATORS, queues, cap=25, max_attempts=5)
     assert queues.evaluate_from_backlog == 0
     assert queues.evaluate == []
+
+
+def test_the_deriver_reads_through_a_read_only_connection_and_stamps_nothing(
+    tmp_path: Path,
+) -> None:
+    """`derive_evaluate_backlog` is the scan alone: it finds the owed grading and
+    leaves `evaluate_queued_at` untouched. That is the contract the evaluate
+    stage's own schedule depends on — it runs outside the writer jobs, so it holds
+    no corpus-write credentials and could not stamp even if it wanted to."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    event = "evt-petition-disposition"
+    _resolved_event(db, "scotus", 1)
+    seed_prediction(data, "scotus", 1, event)
+
+    with corpus.connect_readonly(db) as conn:
+        backlog = derive_evaluate_backlog(
+            conn, data, EVALUATORS, cap=25, max_attempts=5, today=date(2026, 7, 20)
+        )
+
+    assert [e.as_queue_entry() for e in backlog.entries] == [
+        {"court": "scotus", "docket": 1, "events": [event]}
+    ]
+    assert backlog.case_ids == ("scotus/1",)
+    assert backlog.day == date(2026, 7, 20)
+    # The stamp the pull lane would have written is absent.
+    with corpus.connect_readonly(db) as conn:
+        row = corpus.get_row(conn, "scotus/1")
+    assert row is not None
+    assert row.evaluate_queued_at is None
+
+
+def test_a_stamp_free_derivation_repeats_until_the_grading_lands(tmp_path: Path) -> None:
+    """Without the debounce stamp the same backlog re-derives every cycle — and
+    that is correct, not a leak. Idempotency comes from the ledger the scan reads:
+    the moment the gradings are committed, the deriver goes quiet on its own."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    event = "evt-petition-disposition"
+    _resolved_event(db, "scotus", 1)
+    seed_prediction(data, "scotus", 1, event)
+
+    def _derive_readonly(day: date) -> tuple[str, ...]:
+        with corpus.connect_readonly(db) as conn:
+            return derive_evaluate_backlog(
+                conn, data, EVALUATORS, cap=25, max_attempts=5, today=day
+            ).case_ids
+
+    # Same day, same cycle, twice over: no stamp means no self-debounce.
+    assert _derive_readonly(date(2026, 7, 20)) == ("scotus/1",)
+    assert _derive_readonly(date(2026, 7, 20)) == ("scotus/1",)
+
+    for ev in enabled_evaluators(EVALUATORS):
+        seed_evaluation(data, "scotus", 1, event, evaluator_id=ev.id)
+    assert _derive_readonly(date(2026, 7, 20)) == ()
+
+
+def test_a_stamp_the_pull_lane_wrote_still_holds_the_scheduled_derivation_back(
+    tmp_path: Path,
+) -> None:
+    """The two lanes debounce against each other in the one direction that is
+    possible: the scheduled scan writes no stamp, but it honours the one the pull
+    lane wrote, so a case handed off this morning is not queued again tonight."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    event = "evt-petition-disposition"
+    _resolved_event(db, "scotus", 1)
+    seed_prediction(data, "scotus", 1, event)
+    with corpus.connect(db) as conn:
+        corpus.stamp_evaluate_queued(conn, ["scotus/1"], date(2026, 7, 20))
+
+    with corpus.connect_readonly(db) as conn:
+        same_day = derive_evaluate_backlog(
+            conn, data, EVALUATORS, cap=25, max_attempts=5, today=date(2026, 7, 20)
+        )
+        next_day = derive_evaluate_backlog(
+            conn, data, EVALUATORS, cap=25, max_attempts=5, today=date(2026, 7, 21)
+        )
+
+    assert same_day.case_ids == ()
+    assert next_day.case_ids == ("scotus/1",)
+
+
+def test_the_pull_lane_still_stamps_what_it_queued(tmp_path: Path) -> None:
+    """The pull lane owns the debounce stamp: it writes `evaluate_queued_at` on
+    every case it queued, which is what rotates the next cycle's stalest-first
+    ordering past work already handed off."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _resolved_event(db, "scotus", 1)
+    seed_prediction(tmp_path / "data", "scotus", 1, "evt-petition-disposition")
+
+    queues = _derive(tmp_path, max_attempts=5, today=date(2026, 7, 20))
+
+    assert queues.evaluate_from_backlog == 1
+    with corpus.connect_readonly(db) as conn:
+        row = corpus.get_row(conn, "scotus/1")
+    assert row is not None
+    assert row.evaluate_queued_at == date(2026, 7, 20)

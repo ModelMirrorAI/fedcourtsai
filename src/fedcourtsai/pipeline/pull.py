@@ -300,33 +300,83 @@ def _cell_capped(
     )
 
 
-def evaluate_backlog(
-    corpus_db_path: Path,
+@dataclass(frozen=True)
+class BacklogEntry:
+    """One case the evaluate backlog owes gradings on, and the events it owes."""
+
+    case_id: str
+    court: str
+    docket: int
+    events: tuple[str, ...]
+
+    def as_queue_entry(self) -> dict[str, object]:
+        """The mapping shape ``PullQueues.evaluate`` carries to the workflow."""
+        return {"court": self.court, "docket": self.docket, "events": list(self.events)}
+
+
+@dataclass(frozen=True)
+class EvaluateBacklog:
+    """What one backlog derivation found, before anything is queued or stamped.
+
+    Separating the derivation from its consumption is what lets the same scan
+    serve two callers with different authority over the corpus of record: the
+    pull seams queue *and* stamp, while the evaluate stage's own schedule only
+    reads. That schedule runs outside the writer jobs, so a stamp it wrote
+    could never be pushed — it would mutate the runner's pulled copy and die
+    with it — and it needs none (see :func:`derive_evaluate_backlog`).
+
+    ``day`` is the date the derivation ran under, carried so a caller that does
+    stamp writes the same value the debounce filtered on.
+    """
+
+    entries: tuple[BacklogEntry, ...]
+    day: date
+
+    @property
+    def case_ids(self) -> tuple[str, ...]:
+        return tuple(entry.case_id for entry in self.entries)
+
+
+def derive_evaluate_backlog(
+    conn: corpus.ReadConnection,
     data_root: Path,
     evaluators_path: Path,
-    queues: PullQueues,
     *,
     cap: int,
     max_attempts: int,
     already_queued: set[str] | None = None,
     today: date | None = None,
-) -> None:
-    """Re-derive the evaluate queue from committed ledger state.
+) -> EvaluateBacklog:
+    """Find the gradings the committed ledger still owes, reading only.
 
-    This is what makes ``run:evaluate`` level-triggered. The poll seams
-    (``pull_cases`` / ``live`` routing) queue evaluate off *this cycle's*
-    resolutions, and resolution latches closed, so a failed or paused evaluate
-    run drops those gradings with no automatic recovery. This scan finds them
-    again: an event that is resolved, has a committed prediction, and is missing
-    at least one enabled evaluator's evaluation is graded work still owed.
+    This is what makes evaluate level-triggered. An event that is resolved, has
+    a committed prediction, and is missing at least one enabled evaluator's
+    evaluation is graded work still owed — a condition on committed state, so it
+    survives a run that was dropped on the floor. The poll seams queue evaluate
+    off *this cycle's* resolutions and resolution latches closed, so without
+    this scan a failed or paused evaluate run loses those gradings with no
+    automatic recovery.
 
     Purely local — the git ledger plus the corpus, no network — so unlike the
     predict selection sweep it takes no client, no deadline, and no politeness
     throttle. ``cap`` bounds model spend and PR volume, not request rate: each
-    queued case fans out one cell per not-yet-graded evaluator. Candidates drain
-    stalest-first by ``evaluate_queued_at`` across cycles, debounced to daily by
-    the same stamp (a case queued today waits for tomorrow's cycle rather than
-    re-queuing while its run PR is in flight or failed).
+    queued case fans out one cell per not-yet-graded evaluator. Candidates sort
+    by ``evaluate_queued_at`` and a case already stamped with ``today`` is held
+    back, so a caller that stamps drains its backlog stalest-first and skips
+    what it queued this cycle. The debounce runs one way only: it holds a
+    scheduled derivation back from a case the pull lane stamped this morning,
+    while a stamp-free caller leaves nothing for the pull lane to skip on, and
+    orders on a key it never advances — the same head of the queue re-derives
+    each cycle until the ledger moves under it.
+
+    The connection is a :class:`~fedcourtsai.corpus.ReadConnection`, which keeps
+    this scan on the read seam: every read here — ``iter_resolved_events``,
+    ``get_row``, ``out_of_scope_reason_full`` — is typed to it, so a caller may
+    pass a ranged connection and no writer-only API (``commit``,
+    ``stamp_evaluate_queued``) is reachable through the parameter. It is a
+    one-method protocol, not a proof: what actually keeps the corpus of record
+    intact is that write credentials live only in the writer jobs. Stamping is
+    the caller's, on its own concrete connection (:func:`evaluate_backlog`).
 
     ``max_attempts`` is the poison-pill backstop the daily debounce lacks (counted
     from the committed ``attempt.json`` failure facts, see
@@ -335,7 +385,7 @@ def evaluate_backlog(
     every attempt — a persistent quota wall, a malformed record — cannot re-queue
     forever. The count keys on cell identity, not process version, so a retry
     under a newer version still counts against the cap; ``max_attempts == 0``
-    disables it (every ungraded cell re-queues, as before). Because the cap is
+    disables it (every ungraded cell re-queues). Because the cap is
     per (evaluator, event) it never lets one exhausted cell suppress a sibling
     evaluator still owed the same event.
 
@@ -346,56 +396,54 @@ def evaluate_backlog(
     predict funding would silently strand exactly those gradings. It uses the
     immutable scope only — SCOTUS and not out-of-scope by the row rules.
 
-    Appends to ``queues.evaluate`` (the same list the poll seams feed, so the
-    workflow consumes one queue) and counts the additions in
-    ``evaluate_from_backlog``. ``already_queued`` is the case ids this cycle's
-    poll seams already queued, so the deriver does not double-queue a case the
-    fresh-resolution path just covered — case-granular, so a case queued this
-    cycle for one event defers its *other* owed events to the next cycle. That
-    is fine: they are debounced anyway, and re-derived stalest-first later. For
-    SCOTUS, where ``evt-petition-disposition`` is typically the sole event, the
-    case rarely has other owed events at all.
+    ``already_queued`` is the case ids a caller's poll seams queued this cycle,
+    so the deriver does not double-queue a case the fresh-resolution path just
+    covered — case-granular, so a case queued this cycle for one event defers
+    its *other* owed events to the next cycle. That is fine: they are debounced
+    anyway, and re-derived stalest-first later. For SCOTUS, where
+    ``evt-petition-disposition`` is typically the sole event, the case rarely
+    has other owed events at all.
     """
-    if cap <= 0:
-        return
     day = today or date.today()
+    if cap <= 0:
+        return EvaluateBacklog(entries=(), day=day)
     seen = already_queued or set()
     evaluator_ids = [e.id for e in enabled_evaluators(evaluators_path)]
 
-    # A plain (writable) connection, matching the selection sweep: `iter_rows`
-    # and `out_of_scope_reason_full` are typed to it, and the deriver only reads
-    # here — the single write is the stamp below, on its own connection.
-    #
     # Drive from the resolved-event set and fetch each candidate's row, rather
     # than indexing the whole court and probing it. Only cases with a resolved
-    # event can be owed a grading, and that set is small (thousands) against a
+    # event can be owed a grading, and that set runs tens of thousands against a
     # SCOTUS slice of hundreds of thousands that only ever grows — so indexing
     # the court would make peak memory a function of the corpus rather than of
     # the work, for no gain. Both orders are `case_id`-ascending and the
     # candidates are re-sorted below, so the queue is unchanged either way.
-    with corpus.connect(corpus_db_path) as conn:
-        resolved_by_case: dict[str, list[str]] = {}
-        for event in corpus.iter_resolved_events(conn, court="scotus"):
-            resolved_by_case.setdefault(event.case_id, []).append(event.event_id)
-        candidates: list[corpus.CorpusRow] = []
-        for case_id in resolved_by_case:
-            if case_id in seen:
-                continue
-            row = corpus.get_row(conn, case_id)
-            if (
-                row is not None
-                and row.evaluate_queued_at != day
-                and corpus.out_of_scope_reason_full(conn, row) is None
-            ):
-                candidates.append(row)
+    #
+    # The cost is one scan plus a point query per candidate case, which a local
+    # (pulled) corpus answers in seconds. That is why a scheduled caller pulls
+    # rather than reading ranged: this access pattern is the wrong shape for a
+    # backend that fetches by range.
+    resolved_by_case: dict[str, list[str]] = {}
+    for event in corpus.iter_resolved_events(conn, court="scotus"):
+        resolved_by_case.setdefault(event.case_id, []).append(event.event_id)
+    candidates: list[corpus.CorpusRow] = []
+    for case_id in resolved_by_case:
+        if case_id in seen:
+            continue
+        row = corpus.get_row(conn, case_id)
+        if (
+            row is not None
+            and row.evaluate_queued_at != day
+            and corpus.out_of_scope_reason_full(conn, row) is None
+        ):
+            candidates.append(row)
 
     # Stalest first, so the backlog drains fairly under the cap; a never-queued
     # case (evaluate_queued_at is None) sorts first.
     candidates.sort(key=lambda r: (r.evaluate_queued_at or date.min, r.case_id))
 
-    queued_case_ids: list[str] = []
+    entries: list[BacklogEntry] = []
     for row in candidates:
-        if len(queued_case_ids) >= cap:
+        if len(entries) >= cap:
             break
         court, docket_str = row.case_id.split("/", 1)
         docket = int(docket_str)
@@ -415,13 +463,57 @@ def evaluate_backlog(
         ]
         if not owed:
             continue
-        queues.evaluate.append({"court": court, "docket": docket, "events": owed})
-        queues.evaluate_from_backlog += 1
-        queued_case_ids.append(row.case_id)
+        entries.append(
+            BacklogEntry(case_id=row.case_id, court=court, docket=docket, events=tuple(owed))
+        )
 
-    if queued_case_ids:
+    return EvaluateBacklog(entries=tuple(entries), day=day)
+
+
+def evaluate_backlog(
+    corpus_db_path: Path,
+    data_root: Path,
+    evaluators_path: Path,
+    queues: PullQueues,
+    *,
+    cap: int,
+    max_attempts: int,
+    already_queued: set[str] | None = None,
+    today: date | None = None,
+) -> None:
+    """Queue the owed gradings a pull cycle found, and stamp what it queued.
+
+    The pull lane's consumption of :func:`derive_evaluate_backlog`: it appends
+    to ``queues.evaluate`` (the same list the poll seams feed, so the workflow
+    consumes one queue), counts the additions in ``evaluate_from_backlog``, and
+    stamps ``evaluate_queued_at`` on the queued cases so the next cycle's
+    stalest-first ordering rotates past work already handed off. The stamp is a
+    corpus write, which is why it lives here rather than in the deriver: this
+    runs inside the pull writer job, the one place that holds corpus-write
+    credentials.
+    """
+    # Short-circuit a disabled deriver before opening anything: `corpus.connect`
+    # creates the database and its schema, which a cap of 0 should not provoke.
+    if cap <= 0:
+        return
+    with corpus.connect(corpus_db_path) as conn:
+        derived = derive_evaluate_backlog(
+            conn,
+            data_root,
+            evaluators_path,
+            cap=cap,
+            max_attempts=max_attempts,
+            already_queued=already_queued,
+            today=today,
+        )
+
+    for entry in derived.entries:
+        queues.evaluate.append(entry.as_queue_entry())
+        queues.evaluate_from_backlog += 1
+
+    if derived.case_ids:
         with corpus.connect(corpus_db_path) as conn:
-            corpus.stamp_evaluate_queued(conn, queued_case_ids, day)
+            corpus.stamp_evaluate_queued(conn, derived.case_ids, derived.day)
 
 
 def pull_cases(

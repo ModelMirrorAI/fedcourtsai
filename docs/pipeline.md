@@ -1443,13 +1443,21 @@ failed or dropped evaluate run lossy: the corpus push and the outcome commit bot
 land before the handoff, so the outcomes and predictions would exist with nothing
 left to grade them.
 
-The **evaluate backlog deriver** (`pipeline.pull.evaluate_backlog`) closes that.
-Each `pull-all` / `live-poll` cycle re-derives owed gradings straight from
-committed ledger state — a resolved event that has a prediction and is missing at
-least one enabled evaluator's evaluation — and appends them to the same evaluate
-queue the fresh-resolution path feeds. So a run that is dropped, fails, or is
-never dispatched is picked up on a later cycle; the trigger issue is a trigger,
-not load-bearing state.
+The **evaluate backlog deriver** (`pipeline.pull.derive_evaluate_backlog`) closes
+that. It re-derives owed gradings straight from committed ledger state — a
+resolved event that has a prediction and is missing at least one enabled
+evaluator's evaluation. So a run that is dropped, fails, or is never dispatched
+is picked up later; the trigger issue is a trigger, not load-bearing state.
+
+The scan has **two consumers**, which differ in what they may write:
+
+- The **pull lane** (`pipeline.pull.evaluate_backlog`, called each `pull-all` /
+  `live-poll` cycle) appends to the same evaluate queue the fresh-resolution path
+  feeds, and stamps `evaluate_queued_at` on what it queued.
+- The **evaluate stage itself**, whose `evaluate-matrix` / `evaluate-plan` derive
+  the same backlog when no trigger names their cases (see [cli.md](cli.md)). It
+  runs outside the writer jobs, so it stamps nothing; its idempotency is the
+  fan-out's already-graded gate instead.
 
 It mirrors the predict selection sweep, with one deliberate difference and one
 deliberate similarity:
@@ -1461,7 +1469,9 @@ deliberate similarity:
   daily and drains the backlog stalest-first, so an in-flight or failed run PR is
   not re-queued every cycle. That column is scheduling metadata only — the queue
   itself is re-derivable from git — so losing it costs at most a duplicate trigger
-  issue, never a grading.
+  issue, never a grading. It paces the **pull lane**, which writes it; a
+  stamp-free consumer honours a stamp already there but leaves none, so it is
+  paced by its caller's cadence and the per-cycle cap alone.
 
 The daily debounce paces re-queuing but has no ceiling, so a cell that fails
 *every* attempt (a persistent quota wall, a malformed record) would re-queue

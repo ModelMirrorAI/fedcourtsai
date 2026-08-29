@@ -191,7 +191,7 @@ from .pipeline.outcome import (
     snapshot_shows_disposition,
     snapshot_shows_judgment,
 )
-from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
+from .pipeline.pull import derive_evaluate_backlog, evaluate_backlog, pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
 from .pipeline.salience import (
     SALIENCE_VERSION,
@@ -8263,20 +8263,121 @@ def _scope_filtered(
     return kept
 
 
+def _evaluate_backlog_cases() -> list[CaseRequest]:
+    """The evaluate stage's own case set, derived from the corpus-level backlog.
+
+    What a scheduled evaluate run fans out over when no trigger names its cases:
+    the gradings committed state still owes — a resolved event with a committed
+    prediction and at least one enabled evaluator's evaluation missing (see
+    :func:`fedcourtsai.pipeline.pull.derive_evaluate_backlog`, whose caps this
+    takes from ``tracking.yaml``'s ``evaluate`` section).
+
+    Stamp-free, deliberately. The pull lane's use of the same deriver writes
+    ``evaluate_queued_at`` to debounce itself, but that is a write to the corpus
+    of record, and those credentials live only in the writer jobs — a scheduled
+    evaluate run has none, so a stamp it made would die with the runner. It
+    needs none either: the fan-out's already-graded gate is the idempotency, and
+    it reads the same committed ledger the deriver does. Re-deriving an
+    unchanged backlog re-mints nothing once the gradings are committed, because
+    a graded cell is dropped; a cell that has *not* been graded is work still
+    owed and should re-mint. Two consequences to hold in view. The debounce is
+    one-directional — this lane honours a stamp the pull lane wrote, but leaves
+    none of its own, so it cannot hold the pull lane off a case it just queued.
+    And the gate reads *committed* state, so it cannot see a run whose collect
+    PR has not merged; what bounds a second derivation firing into that window
+    is the workflow's concurrency group, not this gate.
+
+    Requires a **pulled** corpus, and enforces it. The scan is one pass over
+    every resolved event plus a point query per candidate case — tens of
+    thousands of them — which is the opposite shape from the point lookups a
+    trigger's named cases need, and so the opposite backend: served locally in
+    seconds, it would be a range-request storm read in place. A non-local
+    backend is refused here rather than left to be discovered as a slow run.
+    An absent corpus is refused for the same reason in reverse — for an
+    unattended lane, "nothing is owed" and "no corpus" must not be the same
+    output.
+    """
+    settings = get_settings()
+    evaluate_cfg = load_evaluate_config(settings.config_root)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "local":
+        raise typer.BadParameter(
+            f"the evaluate backlog cannot be derived over the "
+            f"{settings.corpus_backend!r} corpus backend: it scans every resolved "
+            "event and reads a row per candidate case, which the local (pulled) "
+            "corpus serves and a read-in-place backend does not. Pull the corpus "
+            "and read local, or name the cases with --body-file."
+        )
+    if not db_path.exists():
+        raise typer.BadParameter(
+            f"no corpus at {db_path} to derive the evaluate backlog from — "
+            "`fedcourts corpus-pull` first. Refusing rather than planning an "
+            "empty fan-out, which is indistinguishable from a drained backlog."
+        )
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        backlog = derive_evaluate_backlog(
+            conn,
+            settings.data_root,
+            settings.config_root / "evaluators.yaml",
+            cap=evaluate_cfg.backlog_cases_per_cycle,
+            max_attempts=evaluate_cfg.max_attempts_per_cell,
+        )
+    return [CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries]
+
+
 def _requested_cases(
-    body_file: Path | None, court: str, docket: int | None, event: list[str] | None
+    body_file: Path | None,
+    court: str,
+    docket: int | None,
+    event: list[str] | None,
+    *,
+    backlog: bool = False,
+    force: bool = False,
 ) -> list[CaseRequest]:
-    """Cases to fan out over, from a batch body file or single-case flags.
+    """Cases to fan out over, from a batch body file, single-case flags, or the backlog.
 
     ``--body-file`` (one ``{court, docket, events}`` object or a JSON array of
-    them) is the multi-case path the workflows use. The single-case
-    ``--court``/``--docket``/``--event`` flags are kept for back-compat and
-    ad-hoc invocations.
+    them) is the multi-case path a trigger issue takes. The single-case
+    ``--court``/``--docket``/``--event`` flags serve ad-hoc invocations.
+
+    ``backlog`` opens a third mode for the evaluate stage, whose schedule is its
+    own: given *no* input at all, the cases come from the corpus-level evaluate
+    backlog (:func:`_evaluate_backlog_cases`) rather than from a trigger, so a
+    run needs no issue body to know what it owes. The predict stage has no such
+    deriver — its case set is a funded salience selection, not a level on
+    committed state — so it leaves ``backlog`` unset and an input-less
+    invocation is refused.
+
+    A *half*-named single case is refused in every mode. Silence is the backlog
+    mode's trigger, so a dropped ``--docket`` would otherwise turn one intended
+    case into the whole backlog — the one typo whose blast radius is a fan-out.
+
+    ``force`` is refused with the backlog, because the two select opposite sets.
+    A re-grade is deliberate and names its target; the backlog is what committed
+    state still owes, and it drops a fully-graded case *before* the gate
+    ``--force`` disables ever sees it. Accepting the pair would answer a re-grade
+    request with an empty fan-out — the flag reading as honoured while selecting
+    nothing.
     """
     if body_file is not None:
         return parse_cases(body_file.read_text())
     if court and docket is not None:
         return [CaseRequest(court, docket, tuple(event or ()))]
+    if court or docket is not None:
+        raise typer.BadParameter("--court and --docket go together; provide both or neither.")
+    if backlog:
+        if event:
+            raise typer.BadParameter(
+                "--event names events within a single case; pass it with --court and --docket. "
+                "The backlog derives its own events per case."
+            )
+        if force:
+            raise typer.BadParameter(
+                "--force re-grades cases you name; it cannot re-grade the backlog, which "
+                "excludes a fully-graded case before the already-graded gate --force "
+                "disables. Name the target with --body-file, or --court and --docket."
+            )
+        return _evaluate_backlog_cases()
     raise typer.BadParameter("provide --body-file, or both --court and --docket.")
 
 
@@ -9001,7 +9102,10 @@ def evaluate_matrix_cmd(
     run_id: Annotated[str, typer.Option(help="Shared run id for this fan-out.")],
     body_file: Annotated[
         Path | None,
-        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
+        typer.Option(
+            help="Issue body file; its ```json block (one case or an array) is parsed. "
+            "Omit it (with no --court/--docket) to derive the cases from the evaluate backlog."
+        ),
     ] = None,
     court: Annotated[
         str, typer.Option(help="Single-case court id (ignored with --body-file).")
@@ -9018,23 +9122,33 @@ def evaluate_matrix_cmd(
         typer.Option(
             "--force",
             help="Re-mint cells for events a judge has already graded (a deliberate "
-            "re-grade after a prompt or rubric change).",
+            "re-grade after a prompt or rubric change). Needs a named case; it "
+            "cannot re-grade the backlog.",
         ),
     ] = False,
 ) -> None:
     """Emit the evaluator x case x event GitHub Actions matrix as compact JSON.
+
+    Two input modes. ``--body-file`` takes the cases from a trigger issue, and
+    ``--court``/``--docket`` name one ad hoc. Given no input at all, they come
+    from the corpus-level evaluate backlog — the gradings committed state still
+    owes — so a scheduled run derives its own work with no issue body. That
+    derivation writes no ``evaluate_queued_at`` debounce stamp: the
+    already-graded gate below is the idempotency, and the corpus of record is
+    writable only from the writer jobs. Run it where the corpus is pulled.
 
     A case with no listed ``events`` defaults to that case's resolved events.
 
     Two deterministic gates drop cells before any model spend: an event with no
     committed prediction has nothing to score, and a judge that already graded
     the event is not re-minted. The second is what makes the fan-out idempotent,
-    so a re-queue cannot double-count in the leaderboard. ``--force`` disables
-    it for a deliberate re-grade, which otherwise would need committed artifacts
-    deleted to get a cell minted.
+    so a re-queue cannot double-count in the leaderboard — and what lets the
+    backlog mode re-plan the same backlog without re-minting a graded cell.
+    ``--force`` disables it for a deliberate re-grade, which otherwise would
+    need committed artifacts deleted to get a cell minted.
     """
     fanout = _evaluate_fanout(
-        _requested_cases(body_file, court, docket, event),
+        _requested_cases(body_file, court, docket, event, backlog=True, force=force),
         run_id,
         stage="evaluate-matrix",
         force=force,
@@ -9806,7 +9920,10 @@ def predict_plan_cmd(
 def evaluate_plan_cmd(
     body_file: Annotated[
         Path | None,
-        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
+        typer.Option(
+            help="Issue body file; its ```json block (one case or an array) is parsed. "
+            "Omit it (with no --court/--docket) to plan the evaluate backlog derivation."
+        ),
     ] = None,
     court: Annotated[
         str, typer.Option(help="Single-case court id (ignored with --body-file).")
@@ -9820,7 +9937,11 @@ def evaluate_plan_cmd(
     ] = None,
     force: Annotated[
         bool,
-        typer.Option("--force", help="Plan as a deliberate re-grade (the `evaluate-matrix` flag)."),
+        typer.Option(
+            "--force",
+            help="Plan as a deliberate re-grade (the `evaluate-matrix` flag). Needs a "
+            "named case; it cannot re-grade the backlog.",
+        ),
     ] = False,
     run_id: Annotated[
         str,
@@ -9840,6 +9961,11 @@ def evaluate_plan_cmd(
     grain-split ``counts``, stdout/stderr split, and spend-gate reading as
     ``predict-plan``: the backstop's verdict is reported, never applied.
 
+    It takes ``evaluate-matrix``'s two input modes, so the backlog derivation a
+    scheduled run performs — the one that reads no trigger — has a dry run of
+    its own: omit ``--body-file`` and the plan enumerates the cells that
+    derivation would mint. Read-only in both modes, corpus included.
+
     Its ``estimated_spend_usd`` carries a weaker basis than predict's, and says
     so: the rates are ``docs/budget.md``'s pre-freeze cert-stage anchor scaled
     by the whole predict move, an assumption rather than a measurement.
@@ -9856,7 +9982,7 @@ def evaluate_plan_cmd(
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()
     fanout = _evaluate_fanout(
-        _requested_cases(body_file, court, docket, event),
+        _requested_cases(body_file, court, docket, event, backlog=True, force=force),
         planned_run_id,
         stage="evaluate-plan",
         force=force,
