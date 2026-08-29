@@ -548,7 +548,15 @@ pair the third one writes:
   **cell** jobs (credentials stay step-scoped: the background `corpus-serve`
   process and the deterministic provisioning steps hold them, the agent steps
   never do — see below), and `corpus-readonly` for the scan-heavy
-  full-pull consumers (`run-analytics` / the metrics refresh, and `run-backtest`).
+  full-pull consumers (`run-analytics` / the metrics refresh, and
+  `run-backtest`). Two operational facts ride this role. Its IAM **maximum
+  session duration** must allow the sessions its callers request —
+  `run-backtest` asks for 21600 s (6 h), the census for 8100 s — because a
+  re-provisioned role at the AWS default hour fails both at their first
+  credentialed step. And `run-backtest` is the one `corpus-readonly` caller
+  that also runs agents in the same job, so its job-wide credential export is
+  the accepted exception to the agents-hold-nothing pattern; the step comment
+  there states what the long session buys and costs.
 - **Staging read-write role** (`AWS_ROLE_TO_ASSUME_STAGING_RW`, used by
   `staging-corpus-refresh` alone) — **read + list on the production stores**
   (the slice's source, the same access the read-only role grants) and

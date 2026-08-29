@@ -29,6 +29,20 @@ inputs:
       without the corpus).
     required: false
     default: "fail"
+  role-duration-seconds:
+    description: >-
+      Credential lifetime for the assumed role, in seconds; the default is the
+      OIDC default hour, stated explicitly. The exported credentials are
+      static — boto3 cannot refresh them — so a job whose corpus or
+      content-store reads outlast this window dies mid-walk on ExpiredToken,
+      after the work and with an error naming the wrong cause. A long-reading
+      caller must pass a value covering its own step timeout. A value above
+      3600 also needs the read-only role's IAM maximum session duration to
+      allow it; an excess request fails at the assume step inside its 120s
+      action timeout (the STS reason is in the per-attempt retry lines, the
+      terminal error is the timeout), not at the hour mark.
+    required: false
+    default: "3600"
 
 runs:
   using: composite
@@ -38,6 +52,7 @@ runs:
       with:
         role-to-assume: ${{ inputs.role-to-assume }}
         aws-region: ${{ inputs.aws-region }}
+        role-duration-seconds: ${{ inputs.role-duration-seconds }}
         # Bound the assume-role wall clock: unbounded, its 12 retries over a
         # multi-minute connect timeout outlast every job budget here (see the
         # workflow-traps list in docs/pipeline.md). Note the cost this buys —

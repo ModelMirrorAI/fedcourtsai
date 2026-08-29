@@ -110,11 +110,13 @@ each as its own least-privilege job holding only the credentials its mode needs:
   `corpus_sha256` names. Two things an operator needs before dispatching
   it. It carries by far the largest budget of the read-only modes — a
   latest-snapshot read per frame case under the corpus-split mode — and what
-  bounds it is the read-only role's one-hour OIDC session rather than the wall
-  clock: the scan step is capped at 50 minutes and the job at 65, so a scan too
-  long for its credentials fails legibly inside them instead of dying on an
-  expired token after the whole walk (lifting that ceiling means a
-  `role-duration-seconds` on the `corpus-readonly` composite). And it holds its
+  bounds it is the read-only role's credential session rather than the wall
+  clock: the census passes `role-duration-seconds: 8100` to the
+  `corpus-readonly` composite, the scan step is capped at 110 minutes and the
+  job at 125, so a scan too long for its credentials fails legibly inside
+  them instead of dying on an expired token after the whole walk. Raising the
+  ceiling further is that composite input again, within the read-only role's
+  IAM maximum session duration. And it holds its
   **own** concurrency group — `run-analytics-census`, `cancel-in-progress:
   false` — rather than sharing `corpus-stats`'s: a cancelled job runs no upload
   step, so a sibling stats dispatch would otherwise take the artifact the mode
