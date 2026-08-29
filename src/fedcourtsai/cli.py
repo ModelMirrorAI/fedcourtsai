@@ -67,6 +67,7 @@ from .application_migration import (
     relabel_application_baseline_events,
 )
 from .attribution_migration import (
+    remove_ungranted_merits_events,
     remove_unmintable_baseline_events,
     reopen_misattributed_outcomes,
 )
@@ -2001,6 +2002,125 @@ def remove_unmintable_events_cmd(
     verb = "removed" if apply else "would remove"
     typer.echo(
         f"remove-unmintable-events ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.removed)} event(s); skipped {len(result.skipped)} for triage"
+    )
+    for ref in result.removed:
+        typer.echo(f"  {verb} {ref}")
+    for ref, reason in result.skipped:
+        typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("remove-ungranted-merits-events")
+def remove_ungranted_merits_events_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Remove the matching events; omit for a dry-run report."),
+    ] = False,
+    max_removals: Annotated[
+        int,
+        typer.Option(
+            "--max-removals",
+            help="Blast-radius bound: refuse to apply more removals than this.",
+        ),
+    ] = 20,
+    include_failed_attempts: Annotated[
+        bool,
+        typer.Option(
+            "--include-failed-attempts",
+            help=(
+                "Also remove a phantom whose only committed output is attempt.json "
+                "cell-failure records, deleting them with it. An attempt record under "
+                "a phantom documents spend on an event that names nothing the docket "
+                "supports; removing it trades that failure history for a ledger with "
+                "no dangling phantom paths, which is why it is an explicit choice "
+                "rather than the default. The condition is stricter than 'no "
+                "prediction and no evaluation': EVERY file under predictions/ must "
+                "be named attempt.json, and there must be no evaluations/ directory "
+                "at all, so any other artifact the harness left beside an attempt "
+                "record (usage.json, retrieval_log.json) keeps the event skipped."
+            ),
+        ),
+    ] = False,
+) -> None:
+    """Drop open SCOTUS merits events whose docket carries no cert grant, in both stores.
+
+    A merits event is born from a grant: every mint path routes through
+    `opens_merits_proceeding`, which requires the row's `date_cert_granted`, and
+    dates the grant moment from it. So an open merits-stage event on a row whose
+    grant column is NULL is one no re-ingest or convergence pass reproduces —
+    the shape left behind when the live re-poll stops reading a grant out of the
+    proceedings and overwrites the stored date with NULL (that column is in none
+    of the upsert's latch families). Removal rather than a reopen, but *not*
+    because the event stays forecastable: the fan-out already refuses it, since
+    a merits event is admitted only by `_merits_forecastable`, which needs the
+    same grant column, and `unforecastable_listed_events` names this exact
+    shape. The warrant is that the row is unmintable, permanently unresolvable
+    (merits detection reads the same grant-gated columns, so nothing ever closes
+    it), and so parks forever on the listed-unforecastable triage surface — a
+    permanent dangling row rather than a mispredicted cell. Resolved merits
+    events are out of population — one carries an observed judgment — as are
+    events whose case row is absent, since the grant column cannot be read for
+    them, and rows still labelled with a merits-proceeding disposition, where
+    deleting the event would drop the docket out of the live rotation that would
+    restore the date and so could not be undone. An event carrying committed
+    predict/evaluate output, or a committed `outcome.json` the open corpus row
+    contradicts, is skipped and reported instead. `--include-failed-attempts`
+    narrows the first of those skips to what it is really protecting: a phantom
+    that reached the fan-out before it was recognized carries only the
+    `attempt.json` failure records of the cells that ran against it, which
+    document spend on an event that names nothing the docket supports; removing
+    them with it trades that failure history for a ledger with no dangling
+    phantom paths. Which is worth more is a judgement about the record, so it is
+    an explicit choice rather than the default, and its condition is stricter
+    than "nothing predicted or graded": every file under `predictions/` must be
+    named `attempt.json` and there must be no `evaluations/` directory, so a
+    `usage.json` or `retrieval_log.json` the harness left beside an attempt
+    record keeps the event skipped. Idempotent. Dry-run by
+    default; `--apply` writes, and refuses above `--max-removals`: the
+    population is finite and non-growing (no mint produces the shape), so a
+    large count means the predicate widened — triage before raising the bound.
+    Run where the corpus is pulled — a dev checkout dry-runs it, and the apply
+    half belongs in run-seed's writer lane, which holds the corpus-write
+    credentials; the ledger directory goes first, then the corpus row, so an
+    interrupted run leaves the row as the detection handle for the next pass.
+    Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the removal.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        if apply:
+            preview = remove_ungranted_merits_events(
+                conn,
+                settings.data_root,
+                apply=False,
+                include_failed_attempts=include_failed_attempts,
+            )
+            if len(preview.removed) > max_removals:
+                typer.echo(
+                    f"remove-ungranted-merits-events: refusing to apply "
+                    f"{len(preview.removed)} removals (--max-removals {max_removals}). "
+                    "The population this sweep removes is finite and non-growing; "
+                    "a count this size means the predicate widened — triage before "
+                    "raising the bound.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+        result = remove_ungranted_merits_events(
+            conn,
+            settings.data_root,
+            apply=apply,
+            include_failed_attempts=include_failed_attempts,
+        )
+    verb = "removed" if apply else "would remove"
+    typer.echo(
+        f"remove-ungranted-merits-events ({'applied' if apply else 'dry-run'}): "
         f"{verb} {len(result.removed)} event(s); skipped {len(result.skipped)} for triage"
     )
     for ref in result.removed:
