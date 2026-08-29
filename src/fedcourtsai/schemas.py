@@ -4082,7 +4082,11 @@ class CorpusCheck(_Strict):
     artifacts) and ``failures`` how many violated the invariant; ``problems`` is a
     bounded sample of the specific violations (the full count is ``failures``, so a
     truncated sample never hides that there were more). ``detail`` is a one-line
-    human summary, e.g. the row count compared against the baseline.
+    human summary, e.g. the row count compared against the baseline. ``passed``
+    with a non-zero ``failures`` is a defined state, not a contradiction: the
+    count is held within an accepted baseline, or the check is advisory (its
+    ``detail`` then leads with ``advisory:``) — a backlog only a data pass can
+    clear, reported without holding the verdict red.
     """
 
     name: str = Field(description="Stable check identifier, e.g. `ledger_references_exist`")

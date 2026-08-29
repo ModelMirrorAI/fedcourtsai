@@ -1035,7 +1035,8 @@ freeze commit is recorded here.
   these digests at or after the instant, which is why the carrying promotion
   must land **before the long-conference predict round runs**.
 
-- **Scoring-baseline change** (no digest moves, no new process version): the
+- **The capital-marking strip re-partitions the paid scored segment,
+  2026-08-29** (no digest moves, no new process version): the
   cert **scored segment** — the paid modern-cert population
   `analytics._is_scored_segment_row` defines, which the statpack's segment base
   rates, the per-Term `classes` blocks, `cert_backtest`, and
@@ -1076,10 +1077,38 @@ freeze commit is recorded here.
   4.265%, and its grant-family rate 6.450% → 6.596%. The 178 added rows carry
   31 grant-family outcomes — **17.4%**, against the segment's own 6.6% — which
   is the fact that matters: this is a re-partition on a population correlated
-  with the outcome, not a random top-up. The per-Term and per-band anchors a
-  forward cell's skill is actually scored against therefore move by more than
-  the pooled figure suggests, and by most in the small-n bands, where a handful
-  of capital petitions is a large share of the cell.
+  with the outcome, not a random top-up. Per band (directional —
+  computed with the active scorer over current row state, unweighted, no
+  risk-set prefix), the move concentrates in `state` (+1.16pp on n ≈ 294); the
+  always-include `high` band is essentially unmoved (−0.03pp — the 43 joining
+  rows carry the band's own rate); per Term the paid grant-family rate moves
+  ≤ +0.50pp (largest at OT2021). The raw-count figures above also assume the
+  stored weights: the statpack's published rates are denial-reweighted, and 24
+  marked rows are grid denials whose stored `sample_weight` is 1 where the
+  corrected rule gives 10 (`backfill_live_signals` fills only NULL weights, so
+  the strip cannot repair them). Reweighted as stored, the paid segment reads
+  n = 13,458 weighted and grant-family **+0.089pp** rather than +0.146pp; the
+  weight repair is a writer-lane pass owed separately.
+
+  **The same strip moves the interim stratum harder, registered here too.**
+  `corpus.scotus_application_term_year` now parses 156 of the 462 marked rows
+  — application-form dockets that previously parsed to no Term at all — into
+  the per-Term interim cut (OT2025 +102, OT2024 +36, OT2026 +18; among them
+  77 granted / 74 denied / 1 withdrawn). Measured against the committed
+  statpack, whose OT2025 interim block this method reproduces exactly: OT2025
+  substantive resolved 178 → 226, grant rate 8.99% → 7.52%; OT2024 49 → 70,
+  28.57% → 20.00%; and the pooled prior-Terms anchor an OT2026 interim cell
+  grades against moves 13.22% → 10.47% — **−2.75pp, −21% relative**, roughly
+  twenty times the cert-segment move above. `interim_base_rate` is
+  harness-stamped at grade time from the committed pack, which makes this the
+  entry's sharpest non-pooling boundary. (The 135 committed interim
+  evaluations carrying a `segment_base_rate` are all proc-v3 shakedown, so
+  nothing counted is re-priced — an argument about today's ledger, which is
+  why the boundary is registered rather than assumed.) A companion data fact:
+  every one of the 156 carries a cert-shaped `evt-petition-disposition`
+  baseline minted off the unparsed number; the application relabel now reads
+  the stripped number, so its next writer-lane run relabels them into the
+  application stratum.
 
   **Nothing counted is re-based.** At this entry's date the frozen cert
   headline is empty (`metrics/leaderboard.json` `entries: []`,
@@ -1090,6 +1119,15 @@ freeze commit is recorded here.
   IFP rows, two reached a committed event and neither carries a prediction, so
   `cleanup-out-of-scope-predictions` deletes nothing — a window that closes
   when this lands, and would open only if a predict round ran first.
+
+  **The rule this entry registers.** A figure built from a pre-refresh pack —
+  a `segment_base_rate` stamped on a cert or interim cell, a `cert-backtest`
+  report, or `metrics/salience-replay.json`'s committed frame (a sal-v1
+  vintage outside the weekly refresh set, so its figures simply pre-date this
+  re-partition until someone regenerates it) — may not be pooled with, or
+  read against, a post-refresh figure under the same labels. The refresh that
+  closes the boundary: <FILL: the metrics-refresh commit that regenerates the
+  boards after this promotion>.
 
   **The entry is dated before the instant deliberately.** Landing it and
   refreshing metrics before `2026-09-05T00:00:00Z` means no counted number ever

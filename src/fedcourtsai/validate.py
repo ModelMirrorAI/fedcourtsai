@@ -145,7 +145,10 @@ CHECK_DOCKET_NUMBER_MARKING = "docket_numbers_carry_no_capital_marking"
 #: the window before the strip reaches `main`, where the writers actually run —
 #: until then the live channel keeps landing markings and a Term re-walk can add
 #: a batch at once. Raise it only after establishing why the population grew,
-#: never to silence a regression.
+#: never to silence a regression — and LOWER it as the backfill drains the
+#: population, or the headroom stops meaning anything (at 50 remaining, a
+#: 500-row regression would still pass under this ceiling). At zero, convert
+#: the advisory into a plain failing check and delete this constant.
 _DOCKET_MARKING_CEILING = 600
 
 # The staleness bound lives in `corpus` (`STALE_GRANT_DAYS`, with the
@@ -402,7 +405,12 @@ def check_docket_number_marking(conn: sqlite3.Connection) -> CorpusCheck:
     denominator is **not** the rate to quote — the marking is a SCOTUS-only
     upstream habit, so ``detail`` carries the SCOTUS count beside it and a
     reader dividing by ``checked`` would understate the concentration by two
-    orders of magnitude.
+    orders of magnitude. ``detail`` also carries the count of ``***``-shaped
+    strings as an independent denominator: the same word-regex drives the
+    ingest strip and this count, so a regex regression would zero the count
+    while the strip silently stopped working — the shape count, computed by a
+    different rule, keeps that divergence visible (0 recognized of ~460 shaped
+    is a regression, not a success).
     """
     problems = [
         f"{record['case_id']}: docket_number {stored!r} carries the capital-case "
@@ -417,6 +425,11 @@ def check_docket_number_marking(conn: sqlite3.Connection) -> CorpusCheck:
     scotus = int(
         conn.execute("SELECT count(*) AS n FROM cases WHERE court = 'scotus'").fetchone()["n"]
     )
+    shapes = int(
+        conn.execute("SELECT count(*) AS n FROM cases WHERE docket_number LIKE '%***%'").fetchone()[
+            "n"
+        ]
+    )
     if len(problems) > _DOCKET_MARKING_CEILING:
         # Past the ceiling the population is growing, so this is a write path
         # that stopped stripping — a code defect, and a failure like any other.
@@ -425,8 +438,9 @@ def check_docket_number_marking(conn: sqlite3.Connection) -> CorpusCheck:
             problems,
             checked=corpus.count(conn),
             detail=(
-                f"{len(problems)} of {scotus} SCOTUS row(s) carry the marking, above the "
-                f"ceiling of {_DOCKET_MARKING_CEILING} — a write site is landing it again"
+                f"{len(problems)} row(s) carry the marking ({shapes} ***-shaped "
+                f"corpus-wide; {scotus} SCOTUS rows for scale), above the ceiling "
+                f"of {_DOCKET_MARKING_CEILING} — a write site is landing it again"
             ),
         )
     return _advisory(
@@ -437,11 +451,17 @@ def check_docket_number_marking(conn: sqlite3.Connection) -> CorpusCheck:
             # "advisory" leads the line because `detail` is what travels into the
             # `::warning::` and the dashboard's monitored list, where nothing
             # else distinguishes this from a baseline-gated pass.
-            f"advisory: {len(problems)} of {scotus} SCOTUS row(s) still carry the "
-            "marking; cleared by re-ingest (a live-slice row on its next poll, one "
-            "outside it on a targeted re-read)"
+            f"advisory: {len(problems)} row(s) still carry the marking "
+            f"({shapes} ***-shaped string(s) corpus-wide, the remainder legitimate "
+            f"separators; {scotus} SCOTUS rows for scale); cleared by re-ingest (a "
+            "live-slice row on its next poll, one outside it on a targeted re-read)"
             if problems
-            else "no marked docket numbers stored"
+            else (
+                f"no marked docket numbers stored ({shapes} ***-shaped string(s) "
+                "are legitimate separators)"
+                if shapes
+                else "no marked docket numbers stored"
+            )
         ),
     )
 

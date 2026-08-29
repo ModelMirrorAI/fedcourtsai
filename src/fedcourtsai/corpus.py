@@ -539,10 +539,15 @@ class CorpusRow(BaseModel):
         "cannot see the marker must never clear a channel that did. False means "
         "*not marked by any channel that wrote this row* — on a row written only "
         "by the channel that omits the annotation, that is silence, not a denial. "
-        "**`last_live_polled` is this column's coverage sentinel**: only the live "
-        "channel can set the flag, so a row it has never polled reads False for "
-        "want of a writer, and any rate taken over this column must condition on "
-        "that stamp or it reads a coverage gap as an absence of capital cases.",
+        "**`last_live_polled` is this column's coverage sentinel**: the raise is "
+        "channel-agnostic by design (a future annotated channel is covered), but "
+        "in practice only supremecourt.gov serves the marking, so a row the live "
+        "channel has never polled reads False for want of a writer, and any rate "
+        "taken over this column must condition on that stamp or it reads a "
+        "coverage gap as an absence of capital cases. The sentinel is *attempted*, "
+        "not *read*: a poll that failed before ingesting a payload still stamps "
+        "(so the rotation cannot starve on it), leaving False beside a stamp on a "
+        "row no writer ever looked at.",
     )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 

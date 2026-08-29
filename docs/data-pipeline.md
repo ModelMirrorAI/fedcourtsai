@@ -1098,9 +1098,11 @@ spelling — every reader that parses a docket number strips the marking, so no
 published cut is missing those rows. The shrinking is what licenses the
 advisory, so it is enforced rather than assumed: each advisory carries a
 **ceiling**, and a count above it is not a backlog but a write path that
-stopped stripping — a code defect, and a failure like any other. Reserve the advisory shape for exactly
-that — a defect no contributor's PR can clear. Anything fixable in the code
-fails. Because event definitions live in the
+stopped stripping — a code defect, and a failure like any other. Reserve the
+advisory shape for exactly that — a defect no contributor's PR can clear.
+Anything fixable in the code fails.
+
+Because event definitions live in the
 corpus, the predict/evaluate workflows materialize each event's `event.yaml`
 into its ledger directory (`fedcourts materialize-event`) so the judgment PR
 carries it — **on first touch only**: a file already present at the ledger

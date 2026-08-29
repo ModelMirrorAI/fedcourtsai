@@ -149,7 +149,9 @@ written before the columns existed are back-filled from their stored live
 snapshots at the historical walker's start (`backfill_live_signals` —
 deterministic, idempotent, correct across corpus-blob rollbacks).
 
-`capital_case` is a fourth live-channel-only column, read not from the
+`capital_case` is a fourth column of this family — in practice live-channel
+fed, since only supremecourt.gov serves the marking, though the ingest raise
+is channel-agnostic by design — read not from the
 proceedings but from the head of the payload: the `bCapitalCase` flag, OR-ed
 with the `*** CAPITAL CASE ***` annotation upstream appends to `CaseNumber`.
 Either alone under-reports, and the annotation has to be read anyway — ingest

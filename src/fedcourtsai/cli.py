@@ -415,7 +415,10 @@ def validate_corpus_cmd(
     # A check that passed while counting failures is a known condition, not a
     # defect — held within an accepted baseline, or advisory, where the count is
     # a backlog only a data pass can clear. Either way the number is worth
-    # reading, and neither is worth holding the verdict red for.
+    # reading, and neither is worth holding the verdict red for. The cost is a
+    # standing annotation per non-zero monitored count on every writer run —
+    # the habituation risk the advisory doctrine warns about — accepted because
+    # the counts are few and each is expected to drain to zero.
     for check in verdict.checks:
         if check.passed and check.failures:
             typer.echo(

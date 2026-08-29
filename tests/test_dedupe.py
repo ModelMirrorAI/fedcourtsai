@@ -527,6 +527,33 @@ def test_a_converged_survivor_directory_is_not_reported_as_a_move(tmp_path: Path
     assert survivor_event.case_id == _KEEP
 
 
+def test_the_capital_flag_survives_the_merge() -> None:
+    # The pair population IS the annotated-spelling join misses, so the live
+    # twin is exactly the row that saw the capital marking; the CourtListener
+    # survivor's confident False must not erase it. The DB max-latch cannot
+    # save a merged False either: the upsert lands on the survivor's own
+    # stored 0, and the twin is then deleted.
+    keep, drop = _pair_rows(drop_capital_case=True)
+    merged = dedupe._merged_row(keep, drop, weight=1)
+    assert merged.capital_case is True
+
+
+def test_every_plain_bool_column_has_an_explicit_merge_rule() -> None:
+    """A plain-bool column can never ride the generic fill loop: `_lacks(False)`
+    is false, so a drop-side True is silently discarded. Every non-Optional
+    bool on the storage row must therefore appear in `_MERGE_SPECIAL` with its
+    own rule (or in the allowlist below, with the docstring's reason)."""
+    # Scope columns the merge deliberately leaves to their own machinery: the
+    # eligibility mirror re-derives from the court predicate, and the exclusion
+    # latch is the scope reconcile's to re-decide from the merged facts.
+    allowlisted = {"predict_eligible", "predict_excluded"}
+    plain_bools = {
+        name for name, field in corpus.CorpusRow.model_fields.items() if field.annotation is bool
+    }
+    unruled = plain_bools - dedupe._MERGE_SPECIAL - allowlisted
+    assert not unruled, f"plain-bool columns without an explicit merge rule: {sorted(unruled)}"
+
+
 def test_cli_dry_run_reports_and_preserves(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     corpus_root = tmp_path / "corpus"
     with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:

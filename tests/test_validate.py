@@ -1654,7 +1654,7 @@ def test_validate_corpus_prints_the_advisory_as_a_warning(tmp_path: Path) -> Non
     )
     assert result.exit_code == 0  # advisory never fails the command
     assert f"::warning::corpus-validation: {CHECK_DOCKET_NUMBER_MARKING}" in result.stdout
-    assert "advisory: 1 of" in result.stdout
+    assert "advisory: 1 row(s) still carry the marking" in result.stdout
 
 
 def test_cli_writes_verdict_and_summary(tmp_path: Path) -> None:
