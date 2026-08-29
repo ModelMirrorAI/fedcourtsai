@@ -353,8 +353,9 @@ Three qualifications bound these rows. **n = 6**, on two application dockets.
 **One stage**: all six moments are interim, against a Term whose forecast
 events run ~73–74% cert. And the gradings are attributable but for one partial
 cell — 105 of the two runs' 108 `evaluation.json` records carry `proc-v3`
-evaluator digests, the three exceptions sitting on that cell — and attributable
-to digests that `proc-v4` retired over a batch of judge-prompt changes — the
+evaluator digests, the three exceptions sitting on that cell — yet what they
+are attributable *to* is digests `proc-v4` retired over a batch of
+judge-prompt changes — the
 token-relevant one being the judge-workspace prune, which hides the committed
 `predictions/` and `evaluations/` trees from a judge cell's working tree.
 (`proc-v5` carries the `proc-v4` evaluator digests forward byte-identical, so
@@ -919,7 +920,7 @@ cost model is the predict half alone: ~one cert-stage predict cell per
 predictor per replayed petition, scored mechanically against the hidden
 outcome, so no evaluate cells at all. A default label-triggered campaign
 replays 25 petitions × 3 predictors ≈ 75 cells — **≈$140–170** at the measured
-cert per-event rates ($5.57 pre-freeze to $6.66–6.71 on the post-freeze
+cert per-event rates ($5.57 pre-freeze to $6.66–6.68 on the post-freeze
 anchors) — and model spend scales linearly with the dispatch's `--limit`, which
 is the campaign's only size cap. The dispatch path defaults to the free
 offline `stub` engine, so an accidental dispatch spends nothing; applying the
@@ -931,9 +932,10 @@ discarded — only the metrics report lands, via a reviewed PR — so backtest
 spend reaches **no committed ledger**: it is invisible to `usage-summary`, to
 every measured figure in this document, and to the spend backstop's trailing
 window (*The spend backstop*, above). Read a campaign's actual spend off its
-own run's engine logs. Measured to date there is nothing to read: no cert
-back-test report has landed, and no real-engine campaign's spend is recorded
-anywhere in-repo. Budget campaigns explicitly when planning an iteration push
+own run's engine logs. Measured to date there is nothing to read: no
+`metrics/cert-backtest.json` has landed (the committed `metrics/backtest.json`
+is the token-free deterministic reference-predictor replay, a different
+artifact), and no real-engine campaign's spend is recorded anywhere in-repo. Budget campaigns explicitly when planning an iteration push
 — a prompt-tuning series of, say, ten default-sized campaigns is ≈$1.4–1.7K of
 provider spend the window never sees — and time them away from
 conference-dense weeks for the same reason the backstop paragraph gives for
