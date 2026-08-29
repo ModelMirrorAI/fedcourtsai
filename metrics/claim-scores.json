@@ -5,7 +5,7 @@
   "forward_agreement": null,
   "forward_claim": {
     "by_predictor": {},
-    "claimed_forward": 54,
+    "claimed_forward": 60,
     "excluded": 0,
     "policy": "exclude"
   },
