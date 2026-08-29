@@ -970,7 +970,7 @@ freeze commit is recorded here.
   de-count, and claim nothing from them. The `proc-v5` freeze entry states
   the final de-counted census and points here as its licence.
 
-- Freeze commit: `<FILL: freeze commit>`, to be tagged **`prereg/proc-v5`**
+- Freeze commit: `0b019da58`, to be tagged **`prereg/proc-v5`**
   per step 4 — on this freeze commit itself, once its carrying promotion
   lands and the instant audit passes (`proc-v4`'s merge-placed tag is the
   recorded anomaly, not the rule). Blesses the six proc-v5 digests — the three
@@ -990,11 +990,11 @@ freeze commit is recorded here.
   not vacuous, because `graded_post_freeze` tests timing with no digest test
   at all, so a gap evaluation would read as counted while the constant was
   still editable. Carried to `main` by the
-  promotion tagged <FILL: promotion tag> (merge commit <FILL: merge commit>,
-  merged <FILL: merge timestamp>). Step 0's stamped-cell grep for the newly
+  promotion tagged **`promotion/2026-08-29`** (merge commit `39a3a9565`,
+  merged `2026-08-29T16:26:24Z`). Step 0's stamped-cell grep for the newly
   blessed digests at authoring: **zero** on `origin/main` and this tree,
   against 231 predictions and 138 evaluations under the retiring set; re-run
-  at the promotion: <FILL: step-0 grep at promotion>.
+  at the promotion: **zero** for all three newly blessed predictor digests.
 
   **The amendment batch**, every debt named on the record before this freeze:
   the claims-block count corrected to the five-claim cert-v2 set; the
@@ -1024,7 +1024,7 @@ freeze commit is recorded here.
   the still-blessed evaluator digests included: the timing limb tests no
   digest, and the boundary is total in both halves, per the third
   supersession shape. Final census at the carrying promotion, both halves:
-  <FILL: de-counted census at promotion — predictions and evaluations>.
+  **231 predictions and 138 evaluations** — unchanged from authoring; no stamped cell landed in the window.
   The de-count becomes **visible** at the first post-promotion
   `metrics-refresh`, not at the merge — the committed boards are static
   artifacts, and the refresh that empties their interim stage blocks is the
