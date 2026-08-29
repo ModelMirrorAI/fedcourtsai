@@ -29,6 +29,7 @@ from . import corpus
 from .config import StatpackConfig
 from .corpus import CorpusRow
 from .pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED
+from .pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from .pipeline.interim_signals import ApplicationKind
 from .pipeline.judgment import (
     grant_term_year,
@@ -505,6 +506,7 @@ class _SectionSpec:
     group_by: GroupBy
     key_fn: Callable[[CorpusRow], str | None] | None = None
     row_filter: Callable[[CorpusRow], bool] | None = None
+    scope_note: str | None = None
 
 
 # The curated breakdowns, named individually so the two published artifacts
@@ -541,8 +543,26 @@ _CERT_BY_CIRCUIT = _SectionSpec(
     True,
     GroupBy.originating_court,
 )
+# The relist cuts name the distribution parse in their scope note because a
+# parse change moves which entries count as a relist while the tier labels
+# stay the same words — a reader diffing two packs would otherwise see the
+# tiers move with no stated cause.
+_RELIST_PARSE_NOTE = (
+    "Relists are read off the stored distribution count, which holds the "
+    f"`{DEFAULT_DISTRIBUTION_PARSE}` reading; a parse change moves which "
+    "entries count as a relist, not the tier labels, so the parse travels "
+    "with the numbers. The count is an upper bound on true relists under "
+    "either reading — a reschedule before first consideration also adds a "
+    "distribution entry."
+)
 _CERT_BY_RELIST = _SectionSpec(
-    "Cert petitions by relist count", "scotus", True, True, True, GroupBy.relist_bucket
+    "Cert petitions by relist count",
+    "scotus",
+    True,
+    True,
+    True,
+    GroupBy.relist_bucket,
+    scope_note=_RELIST_PARSE_NOTE,
 )
 _CERT_BY_CVSG = _SectionSpec(
     "Cert petitions by CVSG status", "scotus", True, True, True, GroupBy.cvsg
@@ -563,6 +583,7 @@ _CERT_BY_RELIST_PAID = _SectionSpec(
     True,
     GroupBy.relist_bucket,
     row_filter=_is_scored_segment_row,
+    scope_note=_RELIST_PARSE_NOTE,
 )
 _CERT_BY_CVSG_PAID = _SectionSpec(
     "Cert petitions by CVSG status (paid scored segment)",
@@ -1437,6 +1458,7 @@ def _sections(
                 weighted=spec.weighted,
                 group_by=spec.group_by,
                 buckets=buckets,
+                scope_note=spec.scope_note,
             )
         )
     return sections
@@ -1714,7 +1736,9 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
         else ""
     )
     census = (
-        f"{pack.coverage.census_filings} docketed filing(s) across the walked Terms"
+        f"{pack.coverage.census_filings} docketed filing(s) across the walked Terms "
+        + "(exact for docketed numbers, a slight upper bound on real petitions — "
+        + "withheld serials still count)"
         if pack.coverage.census_filings is not None
         else "no Term census yet"
     )
@@ -1746,8 +1770,10 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
             "",
             "## SCOTUS cert petitions by Term",
             f"_Live/historical slice; denial-reweighted estimates. Most recent {len(shown)} "
-            f"of {len(pack.terms)} Term(s); the JSON artifact carries every Term and the "
-            "per-fee-class detail._",
+            + f"of {len(pack.terms)} Term(s); the JSON artifact carries every Term and the "
+            + "per-fee-class detail. The filings column is exact for docketed numbers and "
+            + "a slight upper bound on real petitions — withheld serials still count — and "
+            + "is not nested with `ingested`, which can exceed it._",
             "",
             (
                 "| Term | filings (paid/IFP) | ingested | est. resolved | est. base rate "

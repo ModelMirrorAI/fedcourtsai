@@ -270,7 +270,11 @@ stays outside the gate:
   refuse a comparison but never bless one. The build says so out loud — `fedcourts leaderboard` warns per
   population, naming each short predictor and its coverage — so the hazard does
   not depend on a reader doing the subtraction, and the refresh PR's headline
-  flags it too. Each `stages` block denominates its own coverage the same way,
+  flags it too. One absence shape only the refresh PR's line catches: a
+  configured predictor with **no entry at all** in a populated block (the shape
+  an engine-wide outage produces) is invisible to the build warning, which
+  iterates the entries that exist; the refresh line checks the configured
+  roster and names the predictor and the block. Each `stages` block denominates its own coverage the same way,
   against its own entries and never the cert board's, and is warned on
   separately: a stage is scored on its own events, so measuring a merits entry
   against the cert union would report short coverage for every one of them.

@@ -2697,7 +2697,7 @@ def leaderboard(
     _report_uneven_coverage(board)
     typer.echo(
         f"leaderboard [{scope}]: {board.predictors_ranked} predictor(s) from "
-        f"{board.evaluations_total} evaluation(s) "
+        f"{board.evaluations_total} cert-stage evaluation(s) "
         f"({board.forward_evaluations} forward / "
         f"{board.retrospective_evaluations} retrospective / "
         f"{board.procedural_evaluations} procedural) over "
@@ -10321,8 +10321,15 @@ def metrics_refresh_plan(
     changed = [line.strip() for line in changed_file.read_text().splitlines() if line.strip()]
     # Repo-relative paths now, since the refresh carries `data/scope/scope.json`
     # alongside `metrics/`; the roots are siblings under the repo.
+    # The roster feeds only a rendered PR's leaderboard line, so the no-change
+    # path (empty diff -> null plan) never touches the config file at all.
+    roster = (
+        [predictor.id for predictor in enabled_predictors(settings.config_root / "predictors.yaml")]
+        if changed
+        else None
+    )
     pr = metrics_refresh.render_refresh_pr(
-        changed, settings.metrics_root.parent, run_id or ids.run_id()
+        changed, settings.metrics_root.parent, run_id or ids.run_id(), predictor_roster=roster
     )
     typer.echo(
         json.dumps(

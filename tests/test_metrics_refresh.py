@@ -21,6 +21,8 @@ from fedcourtsai.schemas import (
     GroupBy,
     Leaderboard,
     LeaderboardEntry,
+    LeaderboardStage,
+    LeaderboardStageEntry,
     LeaderboardStratum,
     ScopeManifest,
     StatPack,
@@ -147,7 +149,7 @@ def test_pr_names_the_artifacts_and_reads_headlines(tmp_path: Path) -> None:
     assert pr.commit_message == pr.title
     # Headlines come from the regenerated artifacts themselves.
     assert (
-        "[frozen] 2 predictor(s) ranked from 12 evaluation(s) "
+        "[frozen] 2 predictor(s) ranked from 12 cert-stage evaluation(s) "
         "(4 forward / 8 retrospective / 0 procedural)" in pr.body
     )
     assert "2 predictor(s) over 1500 resolved event(s) (retrospective by construction)" in pr.body
@@ -180,6 +182,77 @@ def test_the_leaderboard_headline_flags_a_regrade_and_uneven_coverage(tmp_path: 
     # The magnitude travels with the flag: this is the line most likely to be
     # quoted out of the body, and a flag without an `n` cannot be read.
     assert "unequal scored-set coverage (codex-baseline 4/6)" in pr.body
+
+
+def test_the_leaderboard_headline_names_a_wholly_absent_predictor(tmp_path: Path) -> None:
+    """The shortfall scan iterates entries, so a predictor an engine-wide outage
+    kept out of a block entirely leaves no entry to scan — the roster check is
+    what names it. Without a roster the check stays off rather than reading an
+    empty roster as universal absence."""
+    metrics = _metrics_dir(tmp_path)
+    roster = ["claude-baseline", "codex-baseline", "gemini-baseline"]
+
+    pr = render_refresh_pr(
+        ["metrics/leaderboard.json"], metrics.parent, "RID", predictor_roster=roster
+    )
+    assert pr is not None
+    # The block is named beside the predictor: which population lost the engine
+    # decides the comparability consequence.
+    assert "absent from a populated block: gemini-baseline from `cert board`" in pr.body
+    assert "not a cross-engine comparison" in pr.body
+
+    without_roster = render_refresh_pr(["metrics/leaderboard.json"], metrics.parent, "RID")
+    assert without_roster is not None
+    assert "absent from a populated block" not in without_roster.body
+
+    # Absence is judged per populated block, not against the union of all
+    # entries: a predictor on the cert board but missing from a populated stage
+    # block is named with that block's key.
+    board = read_model(metrics / "leaderboard.json", Leaderboard)
+    board.stages = {
+        "interim@application-arrival": LeaderboardStage(
+            evaluations_total=3,
+            events_scored=1,
+            entries=[
+                LeaderboardStageEntry(predictor_id="claude-baseline", evaluators=3, events_scored=1)
+            ],
+        )
+    }
+    write_json(metrics / "leaderboard.json", board)
+    per_block = render_refresh_pr(
+        ["metrics/leaderboard.json"],
+        metrics.parent,
+        "RID",
+        predictor_roster=["claude-baseline", "codex-baseline"],
+    )
+    assert per_block is not None
+    assert "codex-baseline from `interim@application-arrival`" in per_block.body
+    assert "codex-baseline from `cert board`" not in per_block.body
+
+
+def test_the_leaderboard_headline_appends_the_unranked_stage_totals(tmp_path: Path) -> None:
+    """A file whose ranked board is the frozen empty state can still hold
+    populated stage blocks; the line says so rather than reading as an empty
+    artifact."""
+    metrics = _metrics_dir(tmp_path)
+    board = read_model(metrics / "leaderboard.json", Leaderboard)
+    board.stages = {
+        "interim@application-arrival": LeaderboardStage(
+            evaluations_total=6,
+            events_scored=2,
+            forward_evaluations=6,
+            entries=[
+                LeaderboardStageEntry(predictor_id="claude-baseline", evaluators=3, events_scored=2)
+            ],
+        )
+    }
+    write_json(metrics / "leaderboard.json", board)
+
+    pr = render_refresh_pr(["metrics/leaderboard.json"], metrics.parent, "RID")
+    assert pr is not None
+    # The event denominator travels with the volume count, so the evaluations
+    # cannot be read as a scored population.
+    assert "6 evaluation(s) over 2 scored event(s) in 1 unranked stage block(s)" in pr.body
 
 
 def test_pr_carries_the_claim_score_surface_with_a_sensible_suppressed_headline(
