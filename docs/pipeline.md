@@ -797,9 +797,9 @@ The full path of a change, operator's view:
    handover notes (AGENTS.md asks each for one); the workflow's own body is
    fixed, so this is a hand edit. Re-run the
    check right before merging, and merge with a **merge commit**; tag the
-   merge commit `promotion/<YYYY-MM-DD>` (annotated; `-2` for a same-day
-   second batch — the *Tags* subsection below). Live on the next workflow
-   run.
+   merge commit `promotion/<YYYY-MM-DD>` (annotated preferred, lightweight
+   acceptable; `-2` for a same-day second batch — the *Tags* subsection
+   below). Live on the next workflow run.
 5. Run that stated effect check and record what it printed. A promotion
    changes code, not state, so until something executes the check a batch that
    changed nothing is indistinguishable from one that worked. Mind the timing:
@@ -825,8 +825,14 @@ described in docs/security.md.
 
 ### Tags
 
-Annotated tags on `main` record the project's public reference points, in
-three namespaces:
+Tags on `main` record the project's public reference points, in three
+namespaces. What makes the record trustworthy is the ruleset's
+update/deletion block on these namespaces, not the tag's object type — so
+for `promotion/` and `results/` an annotated tag is preferred (for the
+message and date it carries) and a lightweight one is acceptable. A
+`prereg/` tag is annotated, and not merely by preference: the freeze
+procedure writes the pre-registration record into the tag message
+(docs/process-version.md), so the message is load-bearing there.
 
 - **`prereg/<label>`** — a pre-registration freeze commit, e.g.
   `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS` and sets

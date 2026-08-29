@@ -66,7 +66,12 @@ deterministic corpus pushes and agent PRs are visibly authored by different bots
 
 The two `main` rulesets are split so the per-rule bypass is correct (a ruleset's
 bypass list applies to the whole ruleset); further rulesets protect the
-`staging` and `ops-metrics` branches. Both require-PR rulesets pin
+`staging` and `ops-metrics` branches. One more targets tags rather than
+branches — `tags: protect record` blocks update and deletion on the three
+record namespaces (`prereg/**`, `promotion/**`, `results/**`) with an empty
+bypass list, so even an admin must edit the ruleset before a record tag can
+move; the *Tags* subsection of docs/pipeline.md rests the record's
+immutability on it. Both require-PR rulesets pin
 `allowed_merge_methods` to **`merge, squash`**: `merge` because the sync and the
 promotion must keep `main` and `staging` sharing history, `squash` because the
 data-run `collect` PRs auto-merge with it, and no rebase because replaying
