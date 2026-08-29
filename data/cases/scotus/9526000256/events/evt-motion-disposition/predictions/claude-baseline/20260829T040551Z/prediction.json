@@ -1,0 +1,64 @@
+{
+  "big_case_rationale": "A pro se, IFP-linked application to enjoin the district court hearing the applicant's own ADA employment suits; no doctrinal question, no party or public constituency beyond the applicant.",
+  "big_case_score": 0.02,
+  "case_id": "scotus/9526000256",
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.1
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.02
+    }
+  ],
+  "confidence": 0.9,
+  "context": {
+    "amicus_briefs": 0,
+    "band": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": false,
+    "response_requested": false,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-29",
+    "snapshot_provenance": "as-stored",
+    "term": 2026
+  },
+  "created_at": "2026-08-29T04:30:23Z",
+  "engine": "claude-code",
+  "event_id": "evt-motion-disposition",
+  "granted": 0,
+  "input_snapshot": "data/cases/scotus/9526000256/record/snapshots/2026-08-29.json",
+  "judgment": null,
+  "model": "claude-fable-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.01,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
+    "label": "proc-v4",
+    "pipeline_sha": "a8d5e296e7f963ad42a275e8d3a848537e4cdc84",
+    "stamped_at": "2026-08-29T04:32:18.507681Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260829T040551Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

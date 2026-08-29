@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000245",
+  "gaps": [
+    "The application's own filing text was not in the record for any candidate or for the evaluator, so reasoning about the ask could only be checked against the docket entry's wording and the district record"
+  ],
+  "helpful": [
+    "The blinded staging area was complete for all three candidates (prediction.json, both prose docs, retrieval.md, retrieval_log.json), which made the leakage grading straightforward",
+    "The retrieval_log result_capture markers were decisive for grading gemini-baseline's fully-unobserved log on its queries rather than its absent results"
+  ],
+  "notes": "Interim cell: baseline and skill left to the harness stamp per the stage rules; elicited correct/brier written for the stamp's independent-read comparison.",
+  "role": "evaluator",
+  "run_id": "20260829T040550Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "metrics/statpack.md (interim docket section)",
+    "courtlistener-mcp call_endpoint (parties)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

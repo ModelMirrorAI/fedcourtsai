@@ -1,12 +1,13 @@
-case_id: scotus/9526000245
+case_id: scotus/9526000256
 decision_target: disposition
 description: null
 docket_entry_id: null
 event_id: evt-motion-disposition
 kind: motion
 moment: arrival
-opened_at: '2026-08-25'
-resolved: true
+opened_at: null
+resolved: false
 schema_version: '1.0'
 stage: interim
-title: Katherine L. Hobbins Forester, et al. v. Adam Gerol, et al.
+title: Cassandra Perkins v. United States District Court for the Northern District
+  of Georgia, et al.
