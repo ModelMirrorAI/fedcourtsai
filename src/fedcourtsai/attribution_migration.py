@@ -1,10 +1,11 @@
 """Repair ledger records the current extraction and attribution rules cannot produce.
 
-Two shapes: :func:`reopen_misattributed_outcomes` for an outcome copied from a
-sibling case-baseline event, and :func:`remove_unmintable_baseline_events` for
-a SCOTUS entry-pinned event carrying a case-baseline id — the shape that makes
-such a copy possible. Both are deterministic, offline, dry-run by default, and
-idempotent.
+Three shapes: :func:`reopen_misattributed_outcomes` for an outcome copied from a
+sibling case-baseline event, :func:`remove_unmintable_baseline_events` for a
+SCOTUS entry-pinned event carrying a case-baseline id — the shape that makes
+such a copy possible — and :func:`remove_ungranted_merits_events` for an open
+merits event on a docket the corpus records no cert grant for. All three are
+deterministic, offline, dry-run by default, and idempotent.
 
 ## Outcomes copied from a sibling case-baseline event
 
@@ -65,6 +66,35 @@ case-baseline id is exactly what ``_cert_disposition_target`` cannot
 disambiguate. Removal, not a reopen — the event names nothing the docket
 supports, so leaving it open would park a permanent phantom on the case and, on
 a cert docket, keep it forecastable.
+
+## Merits events on a docket carrying no cert grant
+
+A merits event is born from a grant: every path that mints one — the live
+resolution pass and the corpus-convergence backfill alike — routes through
+:func:`fedcourtsai.corpus.opens_merits_proceeding`, which requires the row's
+``date_cert_granted``, and the grant moment is dated from that column. So an
+**open merits-stage** SCOTUS event on a row whose ``date_cert_granted`` is NULL
+is a second unmintable shape: the grant that would justify it is not in the
+record, and no re-ingest or convergence pass reproduces the event. The shape
+arises where a grant a merits event was already minted from is later withdrawn —
+the disposition convergence's ``disowned-grant`` arm reads the refusal back out
+of the docket text — which clears the column and strands the event behind it.
+
+Removal for the same reason as above, sharpened by what the event *forecasts*: a
+merits event asks what the Court did to the judgment below, so an open one on a
+docket that was never granted is a question with no referent, and leaving it
+open keeps it forecastable — a cell would be minted for it and graded against a
+judgment that never existed. Nothing resolves it either, since merits outcome
+detection reads the same grant-gated columns, so it would sit open forever.
+
+The population is deliberately narrow. Only **open** events: a resolved merits
+event carries an observed judgment, a real record this sweep has no standing to
+adjudicate. Only rows the corpus holds — a merits event whose case row is absent
+is outside the population, since unmintability is established from a column that
+cannot then be read. And an event whose ledger directory holds a committed
+``outcome.json`` is skipped and reported rather than removed, however the corpus
+row reads: the two stores disagreeing about openness is a triage question, not a
+licence to delete an observation.
 """
 
 from __future__ import annotations
@@ -96,6 +126,10 @@ _EVENT_DOCUMENTS = frozenset({"event.yaml", "outcome.json"})
 _UNKNOWN_EVENT_REASON = (
     "the corpus holds no row for this event, so its stage cannot be read and the "
     "reopen would silently no-op"
+)
+_RECORDED_MERITS_REASON = (
+    "the corpus row is open but the ledger carries an outcome.json; the stores "
+    "disagree about a recorded judgment, which is triage rather than a phantom"
 )
 
 
@@ -252,7 +286,12 @@ def reopen_misattributed_outcomes(
 
 @dataclass
 class UnmintableEventResult:
-    """What the unmintable-event removal dropped (or would drop on a dry run)."""
+    """What an unmintable-event removal dropped (or would drop on a dry run).
+
+    Shared by both removal sweeps — the entry-pinned case-baseline event and the
+    open merits event on an ungranted docket — which differ only in the
+    predicate that selects the population, never in what they report.
+    """
 
     applied: bool = False
     removed: list[str] = field(default_factory=list)  # "<case_id>/<event_id>" dropped
@@ -298,16 +337,76 @@ def remove_unmintable_baseline_events(
             continue
         result.removed.append(ref)
         if apply:
-            if paths is not None and paths.base.is_dir():
-                for child in sorted(paths.base.iterdir()):
-                    child.unlink()
-                paths.base.rmdir()
-            corpus.delete_event(conn, case_id, event_id)
+            _drop_event(conn, paths, case_id, event_id)
     return result
 
 
-def _removal_blocker(paths: EventPaths, data_root: Path, case_id: str) -> str | None:
-    """Why this event must not be removed, or ``None`` when it is safe to drop."""
+def remove_ungranted_merits_events(
+    conn: sqlite3.Connection, data_root: Path, *, apply: bool
+) -> UnmintableEventResult:
+    """Drop each open SCOTUS merits event whose row carries no cert grant, in both stores.
+
+    Dry run by default; ``apply`` removes the event's ledger directory and then
+    the corpus row, through the same :func:`_drop_event` seam and so in the same
+    ledger-first order as :func:`remove_unmintable_baseline_events` — see that
+    function on why the order is the convergent one for a corpus-driven scan.
+
+    The population joins ``events`` to ``cases``, so a merits event whose case
+    row is absent is out of scope rather than removed: the grant column that
+    establishes unmintability cannot be read for it. Three shapes are skipped
+    and reported — an event carrying committed predict/evaluate output, one
+    whose ledger directory holds a committed ``outcome.json`` (the stores
+    disagree about a recorded judgment), and a directory holding anything beyond
+    the two event documents. See the module docstring for why a merits event
+    without a grant is unmintable and why removal beats leaving it open.
+    """
+    result = UnmintableEventResult(applied=apply)
+    rows = conn.execute(
+        "SELECT e.case_id AS case_id, e.event_id AS event_id FROM events e "
+        "JOIN cases c ON c.case_id = e.case_id "
+        "WHERE e.court = 'scotus' AND e.stage = ? AND e.resolved = 0 "
+        "AND c.date_cert_granted IS NULL ORDER BY e.case_id, e.event_id",
+        (Stage.merits.value,),
+    ).fetchall()
+    for row in rows:
+        case_id, event_id = str(row["case_id"]), str(row["event_id"])
+        ref = f"{case_id}/{event_id}"
+        paths = _ledger_event_paths(data_root, case_id, event_id)
+        reason = _ungranted_merits_blocker(paths) if paths is not None else None
+        if reason is not None:
+            result.skipped.append((ref, reason))
+            continue
+        result.removed.append(ref)
+        if apply:
+            _drop_event(conn, paths, case_id, event_id)
+    return result
+
+
+def _drop_event(
+    conn: sqlite3.Connection, paths: EventPaths | None, case_id: str, event_id: str
+) -> None:
+    """Delete one event from both stores, ledger directory first.
+
+    The single write seam both removal sweeps use, so the order lives in one
+    place: the corpus row is each sweep's detection handle, and an interrupted
+    run must leave that handle behind for the next pass to re-find and finish.
+    ``paths`` is ``None`` for a case id off the ``<court>/<docket>`` form, which
+    has no ledger directory to drop.
+    """
+    if paths is not None and paths.base.is_dir():
+        for child in sorted(paths.base.iterdir()):
+            child.unlink()
+        paths.base.rmdir()
+    corpus.delete_event(conn, case_id, event_id)
+
+
+def _ledger_shape_blocker(paths: EventPaths) -> str | None:
+    """Why this event's committed directory forbids removal, or ``None``.
+
+    The two refusals every removal sweep shares: committed cell output under the
+    event, and a directory holding anything beyond the two event documents —
+    an unrecognized shape rather than a phantom.
+    """
     if _carries_agent_artifacts(paths):
         return _AGENT_OUTPUT_REASON
     if not paths.base.is_dir():
@@ -317,6 +416,32 @@ def _removal_blocker(paths: EventPaths, data_root: Path, case_id: str) -> str | 
     )
     if unexpected:
         return f"unrecognized files under the event directory: {', '.join(unexpected)}"
+    return None
+
+
+def _ungranted_merits_blocker(paths: EventPaths) -> str | None:
+    """Why this merits event must not be removed, or ``None`` when it is safe to drop.
+
+    Stricter than the baseline arm's blocker on the one point where the two
+    shapes differ: any committed outcome blocks the removal, rather than only
+    one that fails to copy a sibling's. The baseline arm has a fingerprint to
+    tell a copied outcome from a real observation; here the corpus row already
+    claims the event is open, so an ``outcome.json`` beside it is a
+    store disagreement with no such discriminator.
+    """
+    shape = _ledger_shape_blocker(paths)
+    if shape is not None:
+        return shape
+    if paths.outcome.is_file():
+        return _RECORDED_MERITS_REASON
+    return None
+
+
+def _removal_blocker(paths: EventPaths, data_root: Path, case_id: str) -> str | None:
+    """Why this event must not be removed, or ``None`` when it is safe to drop."""
+    shape = _ledger_shape_blocker(paths)
+    if shape is not None:
+        return shape
     if not paths.outcome.is_file():
         return None  # a phantom with no recorded observation
     outcome = read_model(paths.outcome, Outcome)
