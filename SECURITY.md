@@ -215,13 +215,12 @@ runbook, [docs/security.md](docs/security.md).
   default `GITHUB_TOKEN` do not fire workflows — so no unprivileged actor can
   produce an `issues: labeled` event with a `Bot` sender. What those facts do
   not cover is a *second* admin-installed App (the repo carries more than one):
-  its label writes are `Bot` senders too. `run-pull`, which no handoff files
-  today, closes that residue by pinning the handoff to the data App's own
-  login (`--bot-actor`); the fan-out gates are unpinned — `run-predict` /
-  `run-evaluate` narrow their claude/codex agent steps to the data App's login
-  (the claude action's `allowed_bots`, the codex action's `allow-bot-users` —
-  the same pin under two spellings), while their gemini steps and
-  `run-backtest` rely on the gate alone.
+  its label writes are `Bot` senders too. Every gate closes that residue by
+  pinning its `Bot` allowance to the data App's own login (`--bot-actor`);
+  `run-predict` / `run-evaluate` additionally narrow their claude/codex agent
+  steps to the same login (the claude action's `allowed_bots`, the codex
+  action's `allow-bot-users` — the same pin under two spellings), defence in
+  depth at the step layer for the jobs that hand control to an agent.
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
   is the sole bypass actor, so the deterministic writer jobs (`run-pull`,

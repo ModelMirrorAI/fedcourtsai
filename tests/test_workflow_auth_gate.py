@@ -103,6 +103,25 @@ def test_entry_job_authorizes_before_any_privileged_step() -> None:
             )
 
 
+def test_every_gate_pins_the_bot_allowance_to_the_data_app() -> None:
+    """The `Bot` fast-path is only safe pinned to the data App's own login.
+
+    A second admin-installed App's label writes are `Bot` senders too
+    (SECURITY.md -> *Label triggers*), so an unpinned gate extends the
+    no-permission-lookup allowance to every installed App. Each gate passes
+    ``--bot-actor`` naming the data App; this locks the flag in so a future
+    edit cannot quietly widen the allowance back out.
+    """
+    for name, (_label, entry_job) in RUN_LABELS.items():
+        wf = _load(name)
+        job = wf["jobs"][entry_job]
+        authorize = next((s for s in _steps(job) if _is_authorize_step(s)), None)
+        assert authorize is not None, f"{name}:{entry_job} has no authorize step"
+        assert '--bot-actor "fedcourtsai-data[bot]"' in authorize.get("run", ""), (
+            f"{name}:{entry_job} authorize step must pin --bot-actor to the data App"
+        )
+
+
 def _reachable_on_issue_label(job: dict[str, Any]) -> bool:
     """A job is on the label-trigger path unless its `if` pins the run to some other
     event (a job gated to `push` and so guarded by branch
