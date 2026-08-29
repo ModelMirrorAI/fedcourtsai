@@ -173,6 +173,12 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
           missing-pointer: warn
+          # With the corpus split on, the replay's snapshot provisioning reads
+          # the per-case content store for the whole run, so the static
+          # credentials must cover the job's own 330-minute cap — six hours,
+          # which the read-only role's IAM maximum session duration must allow
+          # (an excess request fails the assume step immediately and legibly).
+          role-duration-seconds: "21600"
 
       # Gemini's replay cells read the same cell env contract as a live predict
       # cell (COURT_ID/DOCKET_ID/... from `_cell_env`, plus DECIDED_BEFORE, the
