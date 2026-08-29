@@ -102,12 +102,16 @@ def project_row(
       the ``salience_*`` columns, the ``predict_*``/queue latches, tracking
       stamps, opinion linkage. The projected row therefore reads as an open,
       never-scored petition, which is what it was at the cutoff.
-      ``capital_case`` is nulled with them, by decision rather than by
-      omission: it is filing-time identity and would be safe to carry, but only
-      the live channel can set it, so carrying it would make the projection
-      read a never-polled row as *not capital* — a coverage gap dressed as a
-      fact. Nothing bands on it today; a caller that wants it reads the stored
-      row, where ``last_live_polled`` says whether the flag means anything.
+      ``capital_case`` is reset with them, by decision rather than by omission,
+      and it is the one whose reset is **not** a null: the column is a
+      non-nullable bool, so an unset projection carries a confident ``False``
+      for every case, capital ones included. That is precisely why nothing may
+      read the projected value — there is no sentinel here to distinguish
+      "not capital" from "not carried", the way ``None`` does for the signals
+      above. Carrying the stored flag instead would not fix it: only the live
+      channel can set it, so a never-polled row would still read ``False``.
+      A caller that wants the flag reads the stored row, where
+      ``last_live_polled`` says whether it means anything.
 
     ``parse`` names the registered DISTRIBUTED reading
     (:data:`~fedcourtsai.pipeline.cert_signals.DISTRIBUTION_PARSES`) the

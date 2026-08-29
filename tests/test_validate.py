@@ -641,30 +641,6 @@ def test_the_marking_advisory_is_ratcheted(monkeypatch: pytest.MonkeyPatch, tmp_
     assert "above the ceiling" in check.detail
 
 
-def test_validate_corpus_prints_the_advisory_as_a_warning(tmp_path: Path) -> None:
-    """The `::warning::` line is where a workflow-log reader meets the advisory,
-    and it is the surface most easily lost in a refactor of the summary block."""
-    db = corpus.corpus_db_path(tmp_path / "corpus")
-    _seed_corpus(db)
-    with corpus.connect(db) as conn:
-        conn.execute(
-            "UPDATE cases SET docket_number = '25-5184 *** CAPITAL CASE ***' "
-            "WHERE case_id = 'ca9/1'"
-        )
-        conn.commit()
-    result = runner.invoke(
-        app,
-        ["validate-corpus", "--out", str(tmp_path / "verdict.json")],
-        env={
-            "FEDCOURTS_CORPUS_ROOT": str(tmp_path / "corpus"),
-            "FEDCOURTS_DATA_ROOT": str(tmp_path / "data"),
-        },
-    )
-    assert result.exit_code == 0  # advisory never fails the command
-    assert f"::warning::corpus-validation: {CHECK_DOCKET_NUMBER_MARKING}" in result.stdout
-    assert "advisory: 1 of" in result.stdout
-
-
 # --- C: orphan ledger references ----------------------------------------------
 
 
@@ -1658,6 +1634,27 @@ def _cli_env(tmp_path: Path, corpus_root: Path) -> dict[str, str]:
         "FEDCOURTS_DATA_ROOT": str(tmp_path / "data"),
         "FEDCOURTS_CONFIG_ROOT": str(config_root),
     }
+
+
+def test_validate_corpus_prints_the_advisory_as_a_warning(tmp_path: Path) -> None:
+    """The `::warning::` line is where a workflow-log reader meets the advisory,
+    and it is the surface most easily lost in a refactor of the summary block."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET docket_number = '25-5184 *** CAPITAL CASE ***' "
+            "WHERE case_id = 'ca9/1'"
+        )
+        conn.commit()
+    result = runner.invoke(
+        app,
+        ["validate-corpus", "--out", str(tmp_path / "verdict.json")],
+        env=_cli_env(tmp_path, tmp_path / "corpus"),
+    )
+    assert result.exit_code == 0  # advisory never fails the command
+    assert f"::warning::corpus-validation: {CHECK_DOCKET_NUMBER_MARKING}" in result.stdout
+    assert "advisory: 1 of" in result.stdout
 
 
 def test_cli_writes_verdict_and_summary(tmp_path: Path) -> None:

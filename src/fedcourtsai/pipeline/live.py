@@ -552,9 +552,12 @@ def poll_applications(
     and the resolution lands silently as the row's latched disposition columns.
     The same politeness applies (the client paces every fetch) and the same
     soft budget: on expiry the polls done so far are committed and the rotation
-    resumes next cycle. A vanished docket (404 on a previously served number)
-    and an unaddressable stored number are both stamped so neither can pin the
-    rotation's front, exactly as in the cert refresh.
+    resumes next cycle. A vanished docket (404 on a previously served number) is
+    stamped so it cannot pin the rotation's front, exactly as in the cert
+    refresh, and an unaddressable stored number is stamped the same way — a
+    defensive arm here rather than a live one, since this rotation re-verifies
+    the addressable form with the same expression the poll parses on, where the
+    cert rotation's membership test is the more tolerant of the two.
     """
     queues = PullQueues()
     for row in due:

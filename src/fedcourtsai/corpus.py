@@ -998,7 +998,10 @@ def strip_docket_annotation(raw: str) -> str:
     what makes it safe at the **ingest write site**, where the stored value must
     stay the docket's own spelling — a consolidated ``"21-1, 21-2"`` keeps its
     comma and space, and only the marking (and the whitespace it leaves behind)
-    goes.
+    goes. An **unmarked** value is returned byte-identical, trailing whitespace
+    and double spaces included: the collapse and the trim exist to close the gap
+    the marking leaves, so they run only where there was one, and a number that
+    legitimately carries odd spacing is not re-spaced by every re-ingest.
 
     Matched by its **exact words**, not by the ``*** … ***`` shape
     :data:`_DN_ANNOTATION` reads, and the difference is why: a shape match treats

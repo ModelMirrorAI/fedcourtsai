@@ -2035,6 +2035,18 @@ def test_strip_docket_annotation_leaves_a_consolidated_circuit_docket_intact() -
     assert "17-2741" not in (corpus.normalize_docket_number(consolidated) or "")
 
 
+def test_strip_docket_annotation_rewrites_nothing_on_an_unmarked_number() -> None:
+    """The whitespace collapse exists only to close the gap the marking leaves
+    behind, so it runs only when there was a marking. An unmarked value comes
+    back byte-identical — a stored number that legitimately carries a double
+    space or edge whitespace is not silently re-spaced by every re-ingest."""
+    for unmarked in ("Docket 17-2737;  17-2741", " 24-1 ", "NEW YORK  TANK BARGE", "25-100"):
+        assert corpus.strip_docket_annotation(unmarked) == unmarked
+    # With a marking, the collapse and the trim both run.
+    assert corpus.strip_docket_annotation("24-1  *** CAPITAL CASE ***  ") == "24-1"
+    assert corpus.strip_docket_annotation("*** CAPITAL CASE *** 24-1") == "24-1"
+
+
 def test_set_merits_judgment_stamps_and_overwrites_forward(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:

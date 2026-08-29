@@ -138,12 +138,14 @@ CHECK_STALE_UNPARSED_GRANTS = "no_stale_unparsed_grants"
 CHECK_DOCKET_NUMBER_MARKING = "docket_numbers_carry_no_capital_marking"
 
 #: Ceiling on the advisory count above which it stops being advisory and fails.
-#: The strip runs at every ingest write site, so this population can only ever
-#: shrink; a count above the ceiling means a write path is landing the marking
-#: again, which is a code defect and belongs in the failing set. Set with
-#: headroom over the observed backlog so ordinary drainage never trips it.
-#: Raise it only after establishing why the population grew — never to silence
-#: a regression.
+#: The strip runs at every ingest write site, so once this branch is live the
+#: population can only ever shrink; a count above the ceiling means a write path
+#: is landing the marking again, which is a code defect and belongs in the
+#: failing set. The headroom over the measured backlog (462 SCOTUS rows) covers
+#: the window before the strip reaches `main`, where the writers actually run —
+#: until then the live channel keeps landing markings and a Term re-walk can add
+#: a batch at once. Raise it only after establishing why the population grew,
+#: never to silence a regression.
 _DOCKET_MARKING_CEILING = 600
 
 # The staleness bound lives in `corpus` (`STALE_GRANT_DAYS`, with the

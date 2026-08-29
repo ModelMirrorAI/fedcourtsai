@@ -1175,9 +1175,12 @@ def render_markdown(report: OpsReport) -> str:
 
     A consolidated view: dormant workflows drop out of the health table, spend and
     cost share one section, the agent-surfaced signals (flags, leakage, tooling) are
-    grouped and scoped to a recent window, and a healthy data verdict collapses to a
-    single line — the full breakdown appears only on a failing verdict (where
-    :func:`render_data_health` is also the escalation-issue body).
+    grouped and scoped to a recent window, and a healthy data verdict collapses to
+    its one-line summary plus any monitored counts — the full breakdown appears
+    only on a failing verdict (where :func:`render_data_health` is also the
+    escalation-issue body). The monitored block is a standing part of the green
+    dashboard, not an exception: a check that passes while counting failures
+    never reddens a verdict, so this is the only state it is ever seen in.
     """
     lines: list[str] = [
         "# Ops dashboard",
