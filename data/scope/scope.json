@@ -1,6 +1,6 @@
 {
-  "cases": 12852,
-  "eligible": 12852,
+  "cases": 12855,
+  "eligible": 12855,
   "entries": [
     {
       "case_id": "scotus/1119228",
@@ -128519,6 +128519,36 @@
       "predict_excluded": false,
       "salience_score": 0.030900000000000004,
       "salience_selected": true,
+      "salience_version": "sal-v4",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9526000262",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.024,
+      "salience_selected": false,
+      "salience_version": "sal-v4",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9526000264",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.024,
+      "salience_selected": false,
+      "salience_version": "sal-v4",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9526000265",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.0145,
+      "salience_selected": false,
       "salience_version": "sal-v4",
       "sample_weight": 1
     }
