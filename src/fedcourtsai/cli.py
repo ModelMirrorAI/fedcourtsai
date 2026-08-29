@@ -2033,8 +2033,11 @@ def remove_ungranted_merits_events_cmd(
                 "a phantom documents spend on an event that names nothing the docket "
                 "supports; removing it trades that failure history for a ledger with "
                 "no dangling phantom paths, which is why it is an explicit choice "
-                "rather than the default. Never unlocks an event carrying a "
-                "prediction.json, an evaluation.json, or an evaluations/ directory."
+                "rather than the default. The condition is stricter than 'no "
+                "prediction and no evaluation': EVERY file under predictions/ must "
+                "be named attempt.json, and there must be no evaluations/ directory "
+                "at all, so any other artifact the harness left beside an attempt "
+                "record (usage.json, retrieval_log.json) keeps the event skipped."
             ),
         ),
     ] = False,
@@ -2045,14 +2048,21 @@ def remove_ungranted_merits_events_cmd(
     `opens_merits_proceeding`, which requires the row's `date_cert_granted`, and
     dates the grant moment from it. So an open merits-stage event on a row whose
     grant column is NULL is one no re-ingest or convergence pass reproduces —
-    the shape left behind when a grant is later withdrawn as a parse gap.
-    Removal rather than a reopen: the event asks what the Court did to the
-    judgment below on a docket that was never granted, so leaving it open keeps
-    it forecastable and would have a cell graded against a judgment that never
-    existed, while nothing resolves it (merits detection reads the same
-    grant-gated columns). Resolved merits events are out of population — one
-    carries an observed judgment — as are events whose case row is absent, since
-    the grant column cannot be read for them. An event carrying committed
+    the shape left behind when the live re-poll stops reading a grant out of the
+    proceedings and overwrites the stored date with NULL (that column is in none
+    of the upsert's latch families). Removal rather than a reopen, but *not*
+    because the event stays forecastable: the fan-out already refuses it, since
+    a merits event is admitted only by `_merits_forecastable`, which needs the
+    same grant column, and `unforecastable_listed_events` names this exact
+    shape. The warrant is that the row is unmintable, permanently unresolvable
+    (merits detection reads the same grant-gated columns, so nothing ever closes
+    it), and so parks forever on the listed-unforecastable triage surface — a
+    permanent dangling row rather than a mispredicted cell. Resolved merits
+    events are out of population — one carries an observed judgment — as are
+    events whose case row is absent, since the grant column cannot be read for
+    them, and rows still labelled with a merits-proceeding disposition, where
+    deleting the event would drop the docket out of the live rotation that would
+    restore the date and so could not be undone. An event carrying committed
     predict/evaluate output, or a committed `outcome.json` the open corpus row
     contradicts, is skipped and reported instead. `--include-failed-attempts`
     narrows the first of those skips to what it is really protecting: a phantom
@@ -2061,9 +2071,11 @@ def remove_ungranted_merits_events_cmd(
     document spend on an event that names nothing the docket supports; removing
     them with it trades that failure history for a ledger with no dangling
     phantom paths. Which is worth more is a judgement about the record, so it is
-    an explicit choice rather than the default, and it never reaches an event
-    carrying a `prediction.json`, an `evaluation.json`, or an `evaluations/`
-    directory. Idempotent. Dry-run by
+    an explicit choice rather than the default, and its condition is stricter
+    than "nothing predicted or graded": every file under `predictions/` must be
+    named `attempt.json` and there must be no `evaluations/` directory, so a
+    `usage.json` or `retrieval_log.json` the harness left beside an attempt
+    record keeps the event skipped. Idempotent. Dry-run by
     default; `--apply` writes, and refuses above `--max-removals`: the
     population is finite and non-growing (no mint produces the shape), so a
     large count means the predicate widened — triage before raising the bound.

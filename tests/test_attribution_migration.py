@@ -951,3 +951,105 @@ def test_cli_ungranted_merits_opt_in_flag_drops_the_attempt_only_phantom(  # typ
     assert merits.base.exists() is False
     with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         assert [e.event_id for e in corpus.events_for_case(conn, _CASE)] == [_BASELINE]
+
+
+def test_ungranted_merits_opt_in_skips_harness_siblings_of_an_attempt(tmp_path: Path) -> None:
+    """The boundary an operator meets first: the harness writes usage.json beside the attempt."""
+    _, merits = _seed_ungranted_merits(tmp_path)
+    _write_cell_file(merits, "claude-baseline", "attempt.json")
+    usage = _write_cell_file(merits, "claude-baseline", "usage.json")
+    _write_cell_file(merits, "claude-baseline", "retrieval_log.json")
+    with _seeded(tmp_path, _ungranted_merits_rows()) as conn:
+        result = remove_ungranted_merits_events(
+            conn, _data_root(tmp_path), apply=True, include_failed_attempts=True
+        )
+        remaining = sorted(e.event_id for e in corpus.events_for_case(conn, _CASE))
+    assert result.removed == []
+    assert result.skipped == [
+        (f"{_CASE}/{MERITS_EVENT_ID}", "committed predict/evaluate output under it")
+    ]
+    assert usage.is_file()
+    assert remaining == sorted([_BASELINE, MERITS_EVENT_ID])
+
+
+def test_ungranted_merits_leaves_a_row_still_labelled_granted_alone(tmp_path: Path) -> None:
+    """The disposition leg: a granted label with no date is out of the population.
+
+    Removing the event there would be irreversible — `live_rotation` retains a
+    granted docket only while an open merits-stage event exists, so the delete
+    drops the row out of the rotation whose poll would restore the date.
+    """
+    _, merits = _seed_ungranted_merits(tmp_path)
+    with _seeded(tmp_path, _ungranted_merits_rows(), disposition=Disposition.granted) as conn:
+        result = remove_ungranted_merits_events(conn, _data_root(tmp_path), apply=True)
+        remaining = sorted(e.event_id for e in corpus.events_for_case(conn, _CASE))
+    assert result.removed == []
+    assert result.skipped == []
+    assert remaining == sorted([_BASELINE, MERITS_EVENT_ID])
+    assert merits.event_file.is_file()
+
+
+def test_ungranted_merits_removes_a_corpus_only_row(tmp_path: Path) -> None:
+    """No ledger directory at all: the row still goes, and nothing raises on the missing path."""
+    root = _data_root(tmp_path)
+    _write_event(
+        root, _BASELINE, EventKind.petition, opened_at=date(2020, 11, 5), resolved_at=_RESOLVED_AT
+    )
+    with _seeded(tmp_path, _ungranted_merits_rows()) as conn:
+        result = remove_ungranted_merits_events(conn, root, apply=True)
+        remaining = [e.event_id for e in corpus.events_for_case(conn, _CASE)]
+    assert result.removed == [f"{_CASE}/{MERITS_EVENT_ID}"]
+    assert result.skipped == []
+    assert remaining == [_BASELINE]
+    assert CasePaths(root, "scotus", _DOCKET).event(MERITS_EVENT_ID).base.exists() is False
+
+
+def test_ungranted_merits_leaves_an_event_with_no_case_row_alone(tmp_path: Path) -> None:
+    """The JOIN's out-of-population leg: no cases row means no grant column to read."""
+    root = _data_root(tmp_path)
+    paths = CasePaths(root, "scotus", _DOCKET).event(MERITS_EVENT_ID)
+    write_yaml(
+        paths.event_file,
+        PredictableEvent(
+            event_id=MERITS_EVENT_ID,
+            case_id=_CASE,
+            kind=EventKind.order,
+            title="Petitioner v. Respondent",
+            opened_at=_GRANTED_AT,
+        ),
+    )
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        # The event row alone — deliberately no `cases` row beside it.
+        corpus.upsert_events(
+            conn,
+            [
+                _event_row(
+                    MERITS_EVENT_ID,
+                    EventKind.order,
+                    resolved=False,
+                    stage=Stage.merits,
+                    decision_target="judgment",
+                )
+            ],
+        )
+        result = remove_ungranted_merits_events(conn, root, apply=True)
+        remaining = [e.event_id for e in corpus.events_for_case(conn, _CASE)]
+    assert result.removed == []
+    assert result.skipped == []
+    assert remaining == [MERITS_EVENT_ID]
+    assert paths.event_file.is_file()
+
+
+def test_ungranted_merits_skips_a_directory_named_like_an_event_document(tmp_path: Path) -> None:
+    """A permitted name in the wrong form is an unrecognized shape, not a document."""
+    _, merits = _seed_ungranted_merits(tmp_path)
+    merits.event_file.unlink()
+    merits.event_file.mkdir()
+    with _seeded(tmp_path, _ungranted_merits_rows()) as conn:
+        result = remove_ungranted_merits_events(conn, _data_root(tmp_path), apply=True)
+        remaining = sorted(e.event_id for e in corpus.events_for_case(conn, _CASE))
+    assert result.removed == []
+    assert "unrecognized files" in result.skipped[0][1]
+    assert merits.event_file.is_dir()
+    assert remaining == sorted([_BASELINE, MERITS_EVENT_ID])

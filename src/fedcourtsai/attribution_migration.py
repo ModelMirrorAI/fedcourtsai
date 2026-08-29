@@ -76,25 +76,55 @@ resolution pass and the corpus-convergence backfill alike — routes through
 **open merits-stage** SCOTUS event on a row whose ``date_cert_granted`` is NULL
 is a second unmintable shape: the grant that would justify it is not in the
 record, and no re-ingest or convergence pass reproduces the event. The shape
-arises where a grant a merits event was already minted from is later withdrawn —
-the disposition convergence's ``disowned-grant`` arm reads the refusal back out
-of the docket text — which clears the column and strands the event behind it.
+arises where a grant a merits event was already minted from stops being read out
+of the docket text. The **live re-poll** is what clears the column:
+:func:`fedcourtsai.pipeline.ingest._live_resolution` re-derives the disposition
+and its dates from the proceedings on every poll, and ``date_cert_granted`` is
+in none of the upsert's latch families (:func:`fedcourtsai.corpus._update_clause`),
+so a poll that no longer matches a grant overwrites the stored date with NULL.
+The disposition convergence's ``disowned-grant`` arm is the ledger-side sibling
+reading the same guard; it writes no corpus column of its own.
 
-Removal for the same reason as above, sharpened by what the event *forecasts*: a
-merits event asks what the Court did to the judgment below, so an open one on a
-docket that was never granted is a question with no referent, and leaving it
-open keeps it forecastable — a cell would be minted for it and graded against a
-judgment that never existed. Nothing resolves it either, since merits outcome
-detection reads the same grant-gated columns, so it would sit open forever.
+Removal, not a reopen — and the warrant is *not* that the event stays
+forecastable, because the fan-out already refuses it: a merits event is
+order-kind, outside :data:`fedcourtsai.store._FORECASTABLE_KINDS`, so it can only
+be admitted by :func:`fedcourtsai.store._merits_forecastable`, which requires
+:func:`fedcourtsai.corpus.opens_merits_proceeding` and so the very column that is
+NULL here. :func:`fedcourtsai.store.unforecastable_listed_events` already names
+this exact shape in its refusal. The warrant is what the row does *instead*: it
+is unmintable, it is permanently unresolvable (merits outcome detection reads
+the same grant-gated columns, so nothing ever closes it), and it therefore parks
+forever on the listed-unforecastable triage surface — a permanent dangling row
+that every later reader has to re-adjudicate, not a cell that would be
+mispredicted.
 
 The population is deliberately narrow. Only **open** events: a resolved merits
 event carries an observed judgment, a real record this sweep has no standing to
 adjudicate. Only rows the corpus holds — a merits event whose case row is absent
 is outside the population, since unmintability is established from a column that
-cannot then be read. And an event whose ledger directory holds a committed
+cannot then be read. An event whose ledger directory holds a committed
 ``outcome.json`` is skipped and reported rather than removed, however the corpus
 row reads: the two stores disagreeing about openness is a triage question, not a
 licence to delete an observation.
+
+Narrow in a third way that is easy to mistake for an oversight. The predicate
+also requires the row's ``disposition`` to be outside
+:data:`fedcourtsai.schemas.MERITS_PROCEEDING_DISPOSITIONS`, so it says *the grant
+is not in the record* rather than *only its date is missing*. On a row still
+labelled granted the removal would be irreversible: the granted leg of
+:func:`fedcourtsai.corpus.live_rotation` retains a docket only while an **open
+merits-stage event** exists, so deleting that event drops the row out of the very
+rotation whose next poll would restore the date, and ``backfill-merits-events``
+needs the date to re-mint. The class is empty today, so the narrowing costs
+nothing and buys back the one shape where a mistake could not be undone.
+
+The predicate is likewise **not** the whole unmintable-merits population, and
+should not be widened to one. A row re-labelled ``gvr`` keeps its grant date
+while ceasing to open a merits proceeding, so its merits event is equally
+unmintable and equally refused by
+:func:`fedcourtsai.store._merits_listing_refusal` — and is deliberately out of
+scope here. This sweep removes the NULL-grant class only; the ``gvr`` class is a
+different question about a row whose grant genuinely happened.
 
 One skip is narrowable, because a phantom that reached the fan-out before it was
 recognized carries the failure records of the cells that ran against it. An
@@ -119,7 +149,7 @@ from . import corpus
 from .paths import CasePaths, EventPaths
 from .pipeline import moments
 from .pipeline.outcome import CASE_BASELINE_ID_PREFIXES
-from .schemas import Outcome, PredictableEvent, Stage
+from .schemas import MERITS_PROCEEDING_DISPOSITIONS, Outcome, PredictableEvent, Stage
 from .serialize import read_model, write_yaml
 
 # The stages whose events carry a disposition of their own rather than the cert
@@ -147,6 +177,13 @@ _RECORDED_MERITS_REASON = (
 # prediction or evaluation beside it. `remove_ungranted_merits_events` can be
 # asked to treat a directory holding nothing else as removable.
 _ATTEMPT_DOCUMENT = "attempt.json"
+
+# The dispositions whose grant opens a merits proceeding, rendered for the
+# ungranted-merits predicate's disposition leg. Read from the constant
+# `corpus.opens_merits_proceeding` itself reads, so the sweep's notion of "the
+# grant is not in the record" cannot drift from the mint's. Safe to inline: the
+# values are closed-enum code constants, never user input.
+_MERITS_PROCEEDING_SQL = ", ".join(f"'{d.value}'" for d in sorted(MERITS_PROCEEDING_DISPOSITIONS))
 
 
 @dataclass
@@ -373,12 +410,17 @@ def remove_ungranted_merits_events(
 
     The population joins ``events`` to ``cases``, so a merits event whose case
     row is absent is out of scope rather than removed: the grant column that
-    establishes unmintability cannot be read for it. Three shapes are skipped
-    and reported — an event carrying committed predict/evaluate output, one
-    whose ledger directory holds a committed ``outcome.json`` (the stores
-    disagree about a recorded judgment), and a directory holding anything beyond
-    the two event documents. See the module docstring for why a merits event
-    without a grant is unmintable and why removal beats leaving it open.
+    establishes unmintability cannot be read for it. The disposition leg beside
+    the NULL-grant one keeps a row still labelled granted out of the sweep,
+    where the removal would be irreversible — see the module docstring, which
+    also carries why the warrant is the permanent dangling row rather than a
+    forecastable one (the fan-out already refuses this shape), and why the
+    predicate is not widened to every unmintable merits event.
+
+    Three shapes are skipped and reported — an event carrying committed
+    predict/evaluate output, one whose ledger directory holds a committed
+    ``outcome.json`` (the stores disagree about a recorded judgment), and a
+    directory holding anything beyond the two event documents.
 
     ``include_failed_attempts`` narrows the first of those skips. A phantom that
     was fanned out to cells before it was recognized carries their
@@ -397,7 +439,9 @@ def remove_ungranted_merits_events(
         "SELECT e.case_id AS case_id, e.event_id AS event_id FROM events e "
         "JOIN cases c ON c.case_id = e.case_id "
         "WHERE e.court = 'scotus' AND e.stage = ? AND e.resolved = 0 "
-        "AND c.date_cert_granted IS NULL ORDER BY e.case_id, e.event_id",
+        "AND c.date_cert_granted IS NULL "
+        f"AND (c.disposition IS NULL OR c.disposition NOT IN ({_MERITS_PROCEEDING_SQL})) "
+        "ORDER BY e.case_id, e.event_id",
         (Stage.merits.value,),
     ).fetchall()
     for row in rows:
@@ -429,9 +473,10 @@ def _drop_event(
     ``paths`` is ``None`` for a case id off the ``<court>/<docket>`` form, which
     has no ledger directory to drop.
 
-    The whole directory goes, subdirectories included, because the blocker is
-    the seam that vets the shape: nothing reaches here whose children the
-    caller's blocker has not already enumerated and accepted.
+    The whole directory goes, subdirectories included. The caller's blocker is
+    the seam that vets the shape, and it vets each child by **name** plus a
+    file/directory check — so what reaches here is a directory whose children
+    the blocker enumerated and accepted, not one this function re-verifies.
     """
     if paths is not None and paths.base.is_dir():
         shutil.rmtree(paths.base)
@@ -466,16 +511,25 @@ def _ledger_shape_blocker(paths: EventPaths, *, allow_failed_attempts: bool = Fa
     :func:`_only_failed_attempts` recognizes, and then admits ``predictions/``
     as a directory child so the second refusal does not re-block what the first
     just let through. It never widens what counts as that shape.
+
+    A permitted name is only permitted in its expected form: the two event
+    documents must be files and ``predictions/`` a directory. Name alone would
+    let a *directory* called ``event.yaml`` through to a recursive delete, which
+    is precisely the unrecognized shape this refusal exists to hold back.
     """
     attempts_only = allow_failed_attempts and _only_failed_attempts(paths)
     if _carries_agent_artifacts(paths) and not attempts_only:
         return _AGENT_OUTPUT_REASON
     if not paths.base.is_dir():
         return None  # corpus-only row: nothing committed to weigh
-    permitted = set(_EVENT_DOCUMENTS)
-    if attempts_only:
-        permitted.add(paths.predictions_dir.name)
-    unexpected = sorted(child.name for child in paths.base.iterdir() if child.name not in permitted)
+    unexpected = sorted(
+        child.name
+        for child in paths.base.iterdir()
+        if not (
+            (child.name in _EVENT_DOCUMENTS and child.is_file())
+            or (attempts_only and child.name == paths.predictions_dir.name and child.is_dir())
+        )
+    )
     if unexpected:
         return f"unrecognized files under the event directory: {', '.join(unexpected)}"
     return None
