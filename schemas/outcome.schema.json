@@ -112,6 +112,19 @@
           "minimum": 0,
           "title": "Distribution Count",
           "type": "integer"
+        },
+        "distribution_parse": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The distribution parse the corpus column is declared to hold when this block freezes \u2014 the label a comparable prediction-time count must have been frozen under, which is what lets the relist-increment resolver refuse a cross-parse comparison. None on a block written before the stamp existed; such a block discloses no parse, so the resolver masks it rather than assigning one from its vintage \u2014 an outcome's only date is the docket's decision date, which says nothing about when the block was written or under which reading",
+          "title": "Distribution Parse"
         }
       },
       "required": [

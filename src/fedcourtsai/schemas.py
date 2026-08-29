@@ -957,6 +957,17 @@ class ResolutionSignals(_Strict):
         description="Distinct conferences the petition was distributed for as at "
         "resolution; relists are this minus one, floored at 0",
     )
+    distribution_parse: str | None = Field(
+        default=None,
+        description="The distribution parse the corpus column is declared to hold "
+        "when this block freezes — the label a comparable prediction-time count "
+        "must have been frozen under, which is what lets the relist-increment "
+        "resolver refuse a cross-parse comparison. None on a block written before "
+        "the stamp existed; such a block discloses no parse, so the resolver "
+        "masks it rather than assigning one from its vintage — an outcome's only "
+        "date is the docket's decision date, which says nothing about when the "
+        "block was written or under which reading",
+    )
     cvsg_date: date | None = Field(
         default=None,
         description="Date the Court called for the Solicitor General's views, or "

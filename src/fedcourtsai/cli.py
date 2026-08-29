@@ -4069,7 +4069,10 @@ def _claim_scores_for(
     not a prediction run id). Tolerant like the context stamp, because this
     runs as a post-agent step: a missing outcome, statpack, or prediction is a
     recorded gap — the stamp then clears the field rather than failing a cell
-    that already produced its output. The lookback is the same
+    that already produced its output. (One exception rides up from
+    :func:`~fedcourtsai.pipeline.claims.score_claims`: a frozen
+    ``salience_version`` missing from the scorer registry raises, since that
+    record is corrupt rather than incomplete.) The lookback is the same
     ``salience.base_rate_lookback_terms`` the headline segment baseline uses,
     so the block and the skill score answer to one window.
 

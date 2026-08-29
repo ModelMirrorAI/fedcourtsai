@@ -415,7 +415,14 @@ one — which is why the column re-derivation orders first in the activation ste
 below, and why the flip moves `SALIENCE_VERSION` and the parse registry's
 default in one commit rather than two. The three frozen `dist-v1` versions keep
 that pin **after** the flip: a prediction frozen at `sal-v3` replays against the
-reading its band was derived from, whatever the column now holds.
+reading its band was derived from, whatever the column now holds. The
+relist-increment resolver enforces the alignment cell by cell, off the
+committed pair alone: the outcome's signals block stamps the parse the column
+declared at resolution, and where that label differs from the one the frozen
+`salience_version` pins, the claim resolves unavailable rather than comparing
+across the parse boundary (`pipeline/claims.py`) — a pair straddling an
+activation is masked, never mis-graded, and a pair aligned on either side of
+one keeps resolving.
 
 The evidence a new parse would be argued from is the **`distribution-census`**
 artifact ([cli.md](cli.md)): two parses counted over one frame — the gate's scored
