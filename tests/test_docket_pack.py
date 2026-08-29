@@ -254,6 +254,9 @@ def test_render_docket_markdown_carries_scope_and_sample_size(
         "counts are denial-reweighted estimates._" in md
     )
     assert "| paid | 6 | 5 | 1 | denied 100.0% (est. n=5) |" in md
+    # The relist cut's scope note travels here too: this pack shares the
+    # section spec with the statpack, so the parse label renders on both.
+    assert "upper bound on true relists" in md
     # The per-Term census pools the streams and states the sample size inline.
     assert "## SCOTUS cert petitions by Term" in md
     assert "| 2022 | 1310 | 1 | 0.0% (est. n=5) | 0 | — | partial |" in md
