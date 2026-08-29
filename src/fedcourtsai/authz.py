@@ -68,9 +68,9 @@ def decide_authorization(
     handoff to one login: with it set, a ``Bot`` sender with any other login is
     refused outright — no permission lookup, because an App is never a
     collaborator and a lookup could only delay the refusal. Without the pin,
-    "Bot" means "any admin-installed App"; a caller whose gate is the only
-    check on its path (run-pull) passes it so the branch means "the pipeline
-    App". Returns the same human-facing text the workflow logs.
+    "Bot" means "any admin-installed App"; every gate passes it so the branch
+    means "the pipeline App". Returns the same human-facing text the workflow
+    logs.
     """
     if sender_type == _BOT_SENDER:
         if bot_actor is not None and actor != bot_actor:

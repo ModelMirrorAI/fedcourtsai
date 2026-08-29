@@ -209,8 +209,8 @@ runbook, [docs/security.md](docs/security.md).
   so the label path syncs twice, and the run is already holding the shared
   corpus-write lock for the minute the refusal takes. Every `run:*` gate — the
   three fan-outs and the deterministic
-  writer — treats a `Bot` sender as the trusted App handoff without a
-  permission lookup. That allowance rests on two platform facts: installing a
+  writer — treats the data App's `Bot` sender as the trusted App handoff
+  without a permission lookup. That allowance rests on two platform facts: installing a
   GitHub App requires admin on the repository, and label writes made with the
   default `GITHUB_TOKEN` do not fire workflows — so no unprivileged actor can
   produce an `issues: labeled` event with a `Bot` sender. What those facts do

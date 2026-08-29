@@ -10,6 +10,8 @@ from typing import Any
 
 import yaml
 
+from tests.test_workflow_agent_bot import PIPELINE_BOT
+
 WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 
 # Each privileged label trigger and the job that carries (or gates) its work.
@@ -117,7 +119,10 @@ def test_every_gate_pins_the_bot_allowance_to_the_data_app() -> None:
         job = wf["jobs"][entry_job]
         authorize = next((s for s in _steps(job) if _is_authorize_step(s)), None)
         assert authorize is not None, f"{name}:{entry_job} has no authorize step"
-        assert '--bot-actor "fedcourtsai-data[bot]"' in authorize.get("run", ""), (
+        # Whitespace-normalized so a cosmetic reflow of the run: block cannot
+        # fail with a security-shaped message.
+        run = " ".join(str(authorize.get("run", "")).split())
+        assert f'--bot-actor "{PIPELINE_BOT}"' in run, (
             f"{name}:{entry_job} authorize step must pin --bot-actor to the data App"
         )
 
