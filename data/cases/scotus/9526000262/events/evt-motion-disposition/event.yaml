@@ -1,0 +1,13 @@
+case_id: scotus/9526000262
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-motion-disposition
+kind: motion
+moment: arrival
+opened_at: null
+resolved: true
+schema_version: '1.0'
+stage: interim
+title: Amro N. Elkabany v. Louis C. Shapiro, Judge, Superior Court of New Jersey,
+  Gloucester County, et al.
