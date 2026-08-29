@@ -8,11 +8,12 @@ therefore refuse a non-write actor *before* it does any privileged work (mint a
 token, assume the S3 role, run an agent).
 
 This module is that gate, lifted out of inline workflow bash so the decision is
-unit-tested rather than only lint-checked for shape. The rule: a ``Bot`` sender is
-the trusted pipeline-App handoff (only a maintainer-installed App can apply a
-``run:*`` label that triggers a workflow — the default ``GITHUB_TOKEN`` cannot), and
-any other sender must hold ``write`` (or higher) collaborator access. Anything else
-fails closed.
+unit-tested rather than only lint-checked for shape. The rule: a ``Bot`` sender
+matching the pinned data-App login is the trusted pipeline-App handoff (only a
+maintainer-installed App can apply a ``run:*`` label that triggers a workflow —
+the default ``GITHUB_TOKEN`` cannot — and the pin refuses every other App), and
+any other sender must hold ``write`` (or higher) collaborator access. Anything
+else fails closed.
 """
 
 from __future__ import annotations

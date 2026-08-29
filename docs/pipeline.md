@@ -6,7 +6,9 @@ stage. The label is the pipeline's trust boundary, so every label-triggered
 workflow opens with the fail-closed `fedcourts authorize-trigger` gate†: a
 labeler without write permission is refused before any token is minted, role
 assumed, or agent run. The handoff Bot is the one non-collaborator the gate
-admits, and `run-pull` pins it to a single login.
+admits, and every gate pins it to the data App's own login — so if every
+`run:*` label starts refusing Bot handoffs at once, check the App's slug
+against the pinned login before suspecting the gate.
 
 | Label           | Workflow         | Trigger(s)                          | Engine(s)            |
 |-----------------|------------------|-------------------------------------|----------------------|

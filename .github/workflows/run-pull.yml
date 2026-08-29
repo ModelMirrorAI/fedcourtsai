@@ -154,9 +154,10 @@ jobs:
       # be the pipeline App or to hold write access; deny everyone else, failing
       # closed. The decision — Bot handoff trusted, write required otherwise,
       # bounded permission lookup — lives in the tested `authorize-trigger`
-      # command, the same gate every label-triggered fan-out runs — pinned here
-      # to the data App's own login, because this job's gate is the only check
-      # on its path and an unpinned "Bot" means any admin-installed App. It
+      # command, the same gate every label-triggered fan-out runs — pinned, as
+      # at every gate, to the data App's own login, because an unpinned "Bot"
+      # means any admin-installed App; what stays specific to this job is that
+      # no step-layer check backs its gate up. It
       # refuses BEFORE the App-token mint, the credentialed checkout, and the
       # S3 role below. The command needs a working tree and a synced env, so a
       # credential-free checkout precedes it; both run only on the label path

@@ -216,11 +216,14 @@ runbook, [docs/security.md](docs/security.md).
   produce an `issues: labeled` event with a `Bot` sender. What those facts do
   not cover is a *second* admin-installed App (the repo carries more than one):
   its label writes are `Bot` senders too. Every gate closes that residue by
-  pinning its `Bot` allowance to the data App's own login (`--bot-actor`);
-  `run-predict` / `run-evaluate` additionally narrow their claude/codex agent
-  steps to the same login (the claude action's `allowed_bots`, the codex
-  action's `allow-bot-users` — the same pin under two spellings), defence in
-  depth at the step layer for the jobs that hand control to an agent.
+  pinning its `Bot` allowance to the data App's own login (`--bot-actor`).
+  The claude/codex agent steps on `run-predict` / `run-evaluate` carry their
+  own narrowing to the same login (the claude action's `allowed_bots`, the
+  codex action's `allow-bot-users`) — not redundancy: those actions refuse a
+  bot actor by default, so the step-level grant is what lets the pinned
+  handoff reach the agent at all, and `tests/test_workflow_agent_bot.py`
+  locks it in. The gemini steps and `run-backtest` have no step-layer check
+  and rely on the gate's pin alone.
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
   is the sole bypass actor, so the deterministic writer jobs (`run-pull`,
