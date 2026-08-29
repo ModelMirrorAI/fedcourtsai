@@ -1,0 +1,1 @@
+No `fedcourts query` commands were executed. Information was retrieved directly from the committed `metrics/statpack.md` and via the CourtListener MCP tool.

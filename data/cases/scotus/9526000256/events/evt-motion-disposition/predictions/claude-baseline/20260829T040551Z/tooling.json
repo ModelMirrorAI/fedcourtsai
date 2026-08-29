@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000256",
+  "run_id": "20260829T040551Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "courtlistener MCP call_endpoint (docket-entries)"
+  ],
+  "helpful": [
+    "The statpack interim section's per-Term substantive counts made the strictly-prior pooled baseline (227 resolved, 13.2%) a two-line computation.",
+    "The frozen escalation-ladder fields in record/context.json (response_requested, referred_to_court, amicus_briefs) state exactly the vantage the increment claims resolve from."
+  ],
+  "gaps": [
+    "fedcourts query has no ask/substantive filter, so --include-applications returns mostly time-extension rows and their captions are null in the returned rows; isolating comparable substantive applications (e.g. pro se injunction asks) was not possible from the CLI.",
+    "The application PDF the snapshot links is not provisioned as document text; a fetched applications text (like the cert petitions' questions-presented cut) would let a cell read the actual ask rather than infer it from the docket line."
+  ],
+  "notes": "RECAP coverage of the applicant's underlying district-court cases was two entries each, so the posture below was inferred from filings metadata."
+}
