@@ -134,8 +134,9 @@ jobs:
       # command re-derives the same fan-out the matrix step just minted (same
       # helpers, zero spend) and renders per-step counts, the would-grade
       # cell list, and the spend estimate — whose basis the report itself
-      # caveats, the evaluate side being a scaled pre-freeze anchor until a
-      # `proc-v4` evaluate fan-out measures the cert stage. Posted to the
+      # caveats, the evaluate side being a scaled pre-freeze anchor until an
+      # evaluate fan-out under the currently blessed grading digests measures
+      # the cert stage. Posted to the
       # trigger issue and the step summary BEFORE the hold, so the record of
       # what was approved exists whether or not the release ever comes.
       # Unlike predict's twin there is no stranded-run census to attach — the

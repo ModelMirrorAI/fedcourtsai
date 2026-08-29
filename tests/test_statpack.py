@@ -23,6 +23,7 @@ from fedcourtsai import analytics, corpus, fixture, serialize
 from fedcourtsai.analytics import _STATPACK_SECTIONS
 from fedcourtsai.cli import app
 from fedcourtsai.pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED, merits_base_rate
+from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION, SCORERS, SalienceScorer
 from fedcourtsai.schemas import (
     BaseRateBucket,
@@ -142,6 +143,14 @@ def test_build_statpack_relist_and_cvsg_cuts(fixture_corpus: FixtureCorpus) -> N
     cvsg = _section(pack, "Cert petitions by CVSG status (paid scored segment)")
     # scotus/305 carries the SG invitation; scotus/304 was parsed and has none.
     assert {(b.key, b.cases) for b in cvsg.buckets} == {("cvsg", 1), ("none", 5)}
+    # The relist cuts name the parse the stored count holds: a parse change
+    # moves which entries count as a relist, so the label must travel with the
+    # tiers wherever the section renders.
+    assert relists.scope_note is not None
+    assert DEFAULT_DISTRIBUTION_PARSE in relists.scope_note
+    # The docket pack's pooled relist cut shares the spec, so the note renders
+    # there too.
+    assert analytics._CERT_BY_RELIST.scope_note == relists.scope_note
 
 
 def test_build_statpack_salience_band_section(fixture_corpus: FixtureCorpus) -> None:
@@ -661,6 +670,13 @@ def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> No
     assert "**7** case(s): 5 resolved, 2 open." in md
     assert "**Live/historical slice:** 3 case(s), 2 resolved" in md
     assert "1322 docketed filing(s)" in md
+    # The census caveat travels with the figure, on this surface as on the
+    # docket pack's — a substring pin, so deleting the caveat reddens a test.
+    assert "upper bound on real petitions" in md
+    # The relist cut's scope note renders beside its numbers: the parse label
+    # and the count's own upper-bound property.
+    assert f"`{DEFAULT_DISTRIBUTION_PARSE}` reading" in md
+    assert "upper bound on true relists" in md
     assert "**Dated share:** 5 of 5 machine-readable resolved case(s)" in md
     # Full-corpus sections say so; live-slice sections state slice + weighting.
     assert "## Cases by court" in md

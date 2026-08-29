@@ -2,7 +2,10 @@
 
 Predictions committed during the July/August shakedown are real, timestamped
 forward calls — irreplaceable forward-stratum data — but they ran under a process
-still being corrected. The headline metrics must reflect only the **frozen,
+still being corrected; a post-freeze cohort can join them by declaration,
+where a dated freeze-record entry retires its digests before its claim
+window's outcomes exist (the third supersession shape below). The headline
+metrics must reflect only the **frozen,
 correct** process, without deleting the shakedown runs (a wipe reads as hiding
 results, not rigor). This is the same doctrine as [`sal-v1`](salience.md): a
 process change is a **new version**, never an in-place edit, so any past ranking
@@ -393,7 +396,7 @@ that the label was registered and then superseded before any cell ran under
 it. Its headline is legitimately empty forever.
 
 **Re-blessing the evaluator half while the prior digests carry counted
-cells** is the other supersession shape, and it swaps which checks do the
+cells** is the second supersession shape, and it swaps which checks do the
 work. The evaluator entries are the freeze *record*, never the enforced
 filter — an evaluation's digest is recorded while only its timing is gated
 (`graded_post_freeze`) — so retiring them de-counts nothing; the freeze
@@ -413,6 +416,31 @@ instant-versus-promotion audit stands. One consequence to record beside
 the count: the evaluator digest records but never partitions, so grading
 series pool across the rubric boundary the re-bless introduces, and the
 freeze record states the exposure.
+
+**Re-blessing the predictor half while the prior predictor digests carry
+counted cells** is the third supersession shape, and the only one that
+de-counts: the predictor digests are the enforced filter, so replacing them in
+`FROZEN_PROCESS_DIGESTS` removes every cell stamped under the retired digests
+from every frozen-scope artifact at once — and moving `FROZEN_SINCE` past the
+carrying promotion, the ordinary step-4 rule (the held-instant exception above
+is scoped to byte-identical predictor digests and cannot apply), independently
+drops every evaluation stamped before the new instant via
+`graded_post_freeze`, blessed evaluator digests or not, so the boundary is
+total in both halves rather than incidental to one. That is a
+retroactive-looking move, and what makes it pre-registered
+rather than retroactive is a **declaration that predates the outcomes of the
+claim window it de-counts**: a dated freeze-record entry, committed while
+that window's outcomes are still unknown, declaring the stamped cohort a
+shakedown and naming the label whose cells will be the counted record — and
+stating openly any slice of the cohort whose own outcomes already resolved,
+since for those cells the declaration creates no pre-registered boundary and
+only their prior unclaimability limits the damage. Without the
+declaration, dropping a cohort after its outcomes resolve is exactly the
+selective exclusion an external evaluator will not accept; with it, the
+boundary is the alpha ledger's own, one label later. The re-bless's freeze
+entry then states the count of cells de-counted and points at the declaration
+that licensed it, and no claim pools across the boundary in either
+direction.
 
 ## A note on local runs
 

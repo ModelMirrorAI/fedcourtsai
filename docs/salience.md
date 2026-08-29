@@ -415,7 +415,14 @@ one — which is why the column re-derivation orders first in the activation ste
 below, and why the flip moves `SALIENCE_VERSION` and the parse registry's
 default in one commit rather than two. The three frozen `dist-v1` versions keep
 that pin **after** the flip: a prediction frozen at `sal-v3` replays against the
-reading its band was derived from, whatever the column now holds.
+reading its band was derived from, whatever the column now holds. The
+relist-increment resolver enforces the alignment cell by cell, off the
+committed pair alone: the outcome's signals block stamps the parse the column
+declared at resolution, and where that label differs from the one the frozen
+`salience_version` pins, the claim resolves unavailable rather than comparing
+across the parse boundary (`pipeline/claims.py`) — a pair straddling an
+activation is masked, never mis-graded, and a pair aligned on either side of
+one keeps resolving.
 
 The evidence a new parse would be argued from is the **`distribution-census`**
 artifact ([cli.md](cli.md)): two parses counted over one frame — the gate's scored
@@ -536,9 +543,10 @@ reporting no movement on every row.
    a population banded under the same parse. A band whose membership moved but
    whose quoted rate did not is a mislabeled baseline. Expect the rebuild to
    move a *rate*, not merely to relabel members: on the `dist-v1` → `dist-v2`
-   census of record ([freeze-record.md](freeze-record.md)) `elevated` sheds 118
-   of its 2,364 rows, 5.0% of the band, so a rebuild that left `elevated`'s
-   published rate where it was would be evidence the rebuild did not happen.
+   census of record ([freeze-record.md](freeze-record.md)) `elevated` shed 118
+   of its 2,364 rows, 5.0% of the band, and the rebuild moved its published
+   rates accordingly — a rebuild that leaves the expected band's rate where it
+   was is evidence the rebuild did not happen.
    The rebuild also **re-bases every other registered version's
    `alt_segments`**, and that half is consumed: the pack bands all versions off
    the one column, so once the column reads the new parse the `sal-v1` /
@@ -636,13 +644,14 @@ step 3 asks for, is in [freeze-record.md](freeze-record.md).
 **The scored window opens at the first post-promotion metrics refresh, not at
 the flip** — the same sequencing `sal-v2` and `sal-v3` took, and it is stated
 here rather than only in their sections because it is an operator's constraint
-on the *next* predict dispatch. The committed `statpack.json` carries no `sal-v4`
-block at all (its Terms stamp `sal-v3` and its `alt_segments` hold `sal-v1` and
-`sal-v2`), so until the rebuild every `sal-v4` cell reads the version-pinned
-pool's designed `None` — legitimately empty, supporting no claim, and a whole
-round minted before the refresh has no skill column. `elevated`'s published rate
-is **expected to move** at that rebuild (118 rows, 5.0% of the band); one that
-left it unmoved would be evidence the rebuild did not happen.
+on the next predict dispatch after any future flip: a cell minted under a
+version the committed pack does not yet render reads the version-pinned pool's
+designed `None` — legitimately empty, supporting no claim — and a whole round
+minted before the refresh has no skill column. For `sal-v4` that refresh has
+run: the committed pack's Terms stamp `sal-v4`, its `alt_segments` hold
+`sal-v1`/`sal-v2`/`sal-v3`, and `elevated`'s published rates moved with the
+re-derived column (the falsification check the activation registered — a
+rebuild leaving them unmoved would have been evidence it did not happen).
 
 One maintenance command is worth naming beside that, because the flip changes
 what it would do. `unlatch-overselected` recomputes each pending cohort under
@@ -1257,23 +1266,24 @@ prediction's timing contract:
 **The lookback window is a stated choice, not a default.** The band rate is pooled
 over prior Terms — but *how many* prior Terms is a real parameter, and it moves the
 anchor. Per-Term high-band grant rates over the walked range (OT2017–OT2025),
-on the **`sal-v3`** segments the committed pack was rendered against, run
-**24.2%–42.4%**, a ~1.75× spread — the pack's `sal-v1` alternative segments
-give a materially different band, so read the version before the number. The
-active scorer is now `sal-v4`, whose `high` band sheds 41 of `sal-v3`'s rows to
-the narrower distribution parse, so this range re-bases onto `sal-v4` segments
-at the next `metrics-refresh` and is read against the pack's own vintage until
-it does. Nothing
+on the **`sal-v4`** segments the committed pack is rendered against, run
+**24.5%–42.3%**, a ~1.73× spread. The pack's `sal-v1`/`sal-v2` alternative
+segments give materially different high pools, while its `sal-v3` block is
+`sal-v4`'s pool wearing `sal-v3`'s name — the pack bands every registered
+version off the single stored `distribution_count` column, so an alternative
+block cannot exhibit a parse effect. Read the version before the number,
+know the block does not record its parse, and read every figure here against
+the pack's own vintage. Nothing
 reachable sits above `high`, so that is its **risk-set** range as well as its
-terminal one; elevated runs 13.1%–18.3% on the risk-set rate a
-forecast is scored against (6.5%–12.2% on the terminal rate the same table shows
+terminal one; elevated runs 13.2%–19.2% on the risk-set rate a
+forecast is scored against (6.9%–13.1% on the terminal rate the same table shows
 in the lead column — see below). Those risk-set figures are what the
-reachable-ladder pooling produces; the committed pack was rendered before that
-re-base and still carries the pre-re-base bracketed values, so both re-render
-at the next `metrics-refresh` — read either against the pack's own vintage. Anchored at an OT2026
-petition, the high band reads roughly **35% (n≈960)** pooling every prior Term,
-**36% (n≈524)** over the last five, and **42% (n≈66)** over the last one — recompute
-from the statpack's per-Term band table rather than quoting these. That is a
+reachable-ladder pooling produces. Anchored at an OT2026
+petition, the high band reads roughly **35.5% (n=923)** pooling every prior Term,
+**36.4% (n=505)** over the last five, and **≈42%** over the last one — a Term
+still resolving (64 of OT2025's 80 high-band petitions resolved), so the
+shortest window's anchor is censored as well as thin — recompute from the
+statpack's per-Term band table rather than quoting these. That is a
 ~7-point spread in the number a forecast's Brier skill is scored against, and in
 the prior a cell is told to start from, turning on a parameter — and the
 per-Term range above is wider still, so the parameter is stated rather than
@@ -1365,11 +1375,11 @@ under the same version, and that gap is visible instead of silently papered
 over.
 
 The tension is bias against variance, and it has no free answer. Per-Term
-high-band samples are small (66–137 weighted-resolved petitions), so a short
-window is noisy: two Terms gives n≈180. Pooling every prior Term buys n≈960 and a
+high-band samples are small (64–133 weighted-resolved petitions), so a short
+window is noisy: two Terms gives n=176. Pooling every prior Term buys n=923 and a
 stable estimate, but assumes the Court's grant behaviour is stationary across the
-whole range — and the spread above cannot adjudicate that either way: at 66–137
-petitions a Term the widest per-Term deviation is about 2.3 standard errors over
+whole range — and the spread above cannot adjudicate that either way: at 64–133
+petitions a Term the widest per-Term deviation is about 2.2 standard errors over
 nine looks, which is what a constant rate produces as often as a drifting one.
 The window is therefore stated rather than defaulted, and no skill claim rests
 on which of the two is true. Two second-order effects push the same way. The bands are frozen per version, and each per-Term entry

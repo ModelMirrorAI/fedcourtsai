@@ -7,6 +7,7 @@ from fedcourtsai import corpus
 from fedcourtsai.merits_event_migration import BRIEFED_MERITS_EVENT_ID
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import moments
+from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.events import _SCOTUS_BASELINE_ONLY_KINDS
 from fedcourtsai.pipeline.ingest import CorpusRow, from_api_docket
 from fedcourtsai.pipeline.judgment import match_merits_termination
@@ -1644,6 +1645,9 @@ def test_resolution_signals_are_frozen_onto_the_outcome() -> None:
     assert signals is not None
     assert signals.distribution_count == 3  # two relists
     assert signals.cvsg_date == date(2026, 2, 1)
+    # The block stamps the parse the column declared at freeze, which is what
+    # lets the relist-increment resolver refuse a cross-parse comparison later.
+    assert signals.distribution_parse == DEFAULT_DISTRIBUTION_PARSE
 
 
 def test_unparsed_proceedings_record_no_signals_at_all() -> None:

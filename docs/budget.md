@@ -268,7 +268,11 @@ at $5.49, which sits inside the per-event range of the cert arrival stage
 ($4.66–$8.94) *and* inside that of merits ($5.45–$10.77), the most expensive
 stage. A single draw that is consistent with every other stage ranks nothing.
 Take interim as a placeholder to be re-read at the next fan-out, not as the
-cheapest stage — and the wider post-freeze population below now reads it at
+cheapest stage — and the wider post-freeze population below ("post-freeze"
+throughout this doc names the August cohort stamped after the 2026-08-16
+`proc-v3` instant; the `proc-v5` re-bless has since re-based the frozen
+partition, so these are measurement cohorts, not claimable-partition members —
+see the re-anchor paragraph) now reads it at
 **$6.41 over 12 events**, so it is *not* the cheap stage this single draw
 suggested. That wider read leaves the row's one finding standing but narrows it:
 merits still runs above cert, $7.60 against $6.71, by ≈$0.9 rather than ≈$1.2.
@@ -288,8 +292,8 @@ and $7.49 individually, every one inside the pre-freeze per-event range
 ($2.98–$10.04, mean $5.61, SD $1.25 over the 132 complete events), and drawing
 three pre-freeze events at random clears $6.66 about 7% of the time. The two
 cohorts also straddle a process boundary: all 410 pre-freeze cells predate
-process stamping, while all 81 run cells carry the blessed `proc-v3` digest, and
-that digest is defined over the prompt bytes and resolved config
+process stamping, while all 81 run cells carry the `proc-v3` predictor digest — since retired by
+the `proc-v5` re-bless — and that digest is defined over the prompt bytes and resolved config
 ([process-version.md](process-version.md)) — the very inputs that set token
 count. Treat **≈+20% as an upper bound on any level effect**, not a measurement
 of one. Plan against $6.79 and expect it to move.
@@ -374,16 +378,18 @@ since superseded**. `proc-v4` retired those evaluator digests over a batch of
 judge-prompt changes, of which the token-count-relevant one is the
 judge-workspace prune: it hides the committed `predictions/` and `evaluations/`
 trees from a judge cell's working tree. A hidden tree is a tree not read. **The
-first `proc-v4` grading run will re-price these cells**, in a direction the
+first grading run under the currently blessed digests will re-price these
+cells**, in a direction the
 prune's mechanics suggest is downward — which is a prediction, not a reading.
 
 What the rows do **not** establish is the tempting reading. They are **not**
 evidence that the assumed ≈+22% uplift failed to appear, because the pre-freeze
 anchors they would be compared against (`$6.43`, `$6.71`) are **cert-stage**, and
 no pre-freeze interim-stage evaluate measurement exists at all. What can be said
-is narrower: the first post-freeze evaluate measurement comes in **below** what
+is narrower: the first stamped evaluate measurement comes in **below** what
 the uplift assumption projects, at a stage the pre-freeze anchor does not cover —
-so it bounds nothing until a cert-stage post-freeze grading exists. It is a
+so it bounds nothing until a cert-stage grading under the currently blessed
+digests exists. It is a
 signal to check, not a correction to apply. That is why the figures below carry a
 **measured-basis** reading beside the planning-rate one rather than replacing it.
 
@@ -592,16 +598,16 @@ measured cost, and interim is ~11–12% of the Term.
 
 Two gaps pointing opposite ways, neither settled: the wider predict population
 says the rate may be slightly low, the interim gradings say the evaluate half may
-be high. Hold `$15`, and read both as reasons to want the cert-stage `proc-v4`
-grading run rather than as slack to spend.
+be high. Hold `$15`, and read both as reasons to want a cert-stage grading run
+under the currently blessed digests rather than as slack to spend.
 
-**The re-anchor trigger is half met.** It asks for a post-freeze evaluate
-measurement, and one exists — stamped, attributable, and below the projection.
-Two things still block the re-anchor. It covers **one stage**, and the stage it
-covers is not the one the Term is mostly made of. And it ran under evaluator
-digests `proc-v4` has **superseded**, on a prompt change that bears directly on
-judge token count. **The re-anchor waits on a `proc-v4` evaluate fan-out reaching
-the cert stage**; that run, not a fuller ledger, is what settles it.
+**The re-anchor trigger is not met.** It asks for an evaluate measurement
+inside the frozen partition, and none sits there: the six-event interim
+measurement predates the freeze instant, so it is a shakedown figure now.
+It also covers **one stage**, and the stage it covers is not the one the Term
+is mostly made of, on a grading-prompt vintage predating the blessed one —
+a prompt change that bears directly on judge token count. **The re-anchor waits on an evaluate fan-out under the currently blessed
+grading digests reaching the cert stage**; that run, not a fuller ledger, is what settles it.
 
 Which is also why the measured basis rides beside the planning rate rather than
 replacing it. The plan seams' per-cell rate table is a transcription of these

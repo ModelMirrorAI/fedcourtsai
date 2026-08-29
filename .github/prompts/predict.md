@@ -52,8 +52,15 @@ the workflow places them for your run:
    after granting certiorari. A petition/appeal-kind event that records no
    stage reads as **cert** — the case-baseline kinds resolve on the cert
    standard by construction. No other stage reaches a predict cell today.
-4. The **latest snapshot** for this case — your provisioned **baseline**, the
-   guaranteed-common input every predictor in this fan-out reads. It is not a
+4. The **snapshot** for this case — your provisioned **baseline**, the
+   guaranteed-common input every predictor in this fan-out reads. Where your
+   event's declared moment fixes a cutoff, the snapshot stops **at that
+   moment** rather than at the latest poll — `context.cutoff` records it,
+   non-null even on a forward cell — so every cell of one moment conditions
+   on one information set: the cutoff is a cohort marker bounding this
+   baseline, and what it means for your retrieval is keyed on your **mode**
+   (see *Retrieval* below: nothing extra on a forward cell; the leakage
+   clock on a replay cell). It is not a
    ceiling: what else you may retrieve is governed by your cell's **mode**
    (`record/context.json`; see *Retrieval* below). Never invent facts.
 5. Any provisioned **filed-document text** under `record/documents/` — for a
@@ -64,21 +71,40 @@ the workflow places them for your run:
    prediction, anchor on the questions presented and weigh the petition against
    the BIO, and cite what you used in `reasoning.md`. A document with
    `empty_text: true` was fetched but its text could not be extracted (a scanned
-   filing with no text layer) — treat it as content-unavailable, not as absent,
-   and say so rather than inferring from a blank file. Their absence just means
+   filing with no text layer) — treat it as content-unavailable, not as
+   absent, and say so rather than inferring from a blank file.
+   `questions-presented.txt` is derived from the petition's own text: a
+   petition that extracts nothing produces **no QP file at all** (the
+   petition's own `empty_text` flag says why), while an *empty* QP file means
+   the petition had text but its questions-presented section could not be
+   usably cut. Otherwise their absence just means
    the pipeline had nothing to fetch — predict from the snapshot as before.
 6. `record/context.json` — your cell's **mode** (`forward` or `replay`) and the
    **conditioning state** the harness froze for you: `band` (your
    grant-likelihood tier under the salience version named beside it in
-   `salience_version`, as at *now*, not as the petition may end up),
+   `salience_version`, as at your snapshot — the cutoff where your moment
+   fixes one, the latest poll where none does — not as the petition may end
+   up),
    `distribution_count`, `cvsg_date`, and `term`. Use `band` rather than working
    it out yourself — it is what the evaluator scores your skill against, and it
    is recorded on your prediction. `signals_observable: false` means the snapshot
    disclosed no proceedings, so `band` is null and nobody can derive one. A replay
    cell's context may carry neither key; on a **cert-stage** cell where `band` is
-   null or absent, anchor on the **weakest** band's bracketed `reached` rate,
-   which is the whole scored segment's rate and assumes nothing about a
-   trajectory you cannot see. This fallback is cert-stage only — the salience
+   null or absent, anchor on your own caption class's floor — `federal`'s
+   bracketed `reached` rate for a federal petitioner, `state`'s for a state
+   one, and `baseline`'s (the weakest band's) for a private one. The class
+   floors **partition** the paid scored segment, so each is its own class's
+   whole population and no single cell of the table carries a segment-wide
+   rate. Read the class off the caption you were provisioned the way the
+   salience scorer does — a government party names its sovereign (state
+   markers out-rank federal ones; an officer title with no jurisdiction
+   qualifier reads federal), and a caption the rule would not confidently
+   place is `private`, whose floor is `baseline` — so when in doubt, anchor
+   on `baseline`'s floor and say so in `reasoning.md`. The
+   anchor assumes nothing about a trajectory you cannot see. Where the table
+   carries no column for your class, the pack publishes no anchor for it —
+   say so in `reasoning.md` rather than inventing one. This fallback is
+   cert-stage only — the salience
    band is a cert construct, so neither an **interim** nor a **merits** cell reaches for
    it whether or not a band happens to be frozen. Each of those stages has an
    anchor of its own, keyed on its own population: an interim cell's is the
@@ -102,7 +128,12 @@ cross-evaluator reads it, and credential-shaped runs in it are redacted at
 capture.
 
 - **`forward` mode** (a genuinely pending case): retrieval is **unrestricted**
-  — the outcome does not exist yet, so nothing you can find leaks it. Use what
+  — the outcome does not exist yet, so nothing you can find leaks it. Your
+  `cutoff`, where non-null, is **not a retrieval clock**: a placed cell's
+  snapshot stops at its moment, so the cutoff bounds only the provisioned
+  baseline, and material later than your own baseline — this docket's own
+  post-cutoff entries included — is the ordinary forward shape, not a breach.
+  Use what
   helps: this case's own docket and filings, related litigation, precedent,
   circuit-split signals. One etiquette caveat, because a web search is not
   time-bounded the way `--decided-before` corpus retrieval is: if a search
@@ -143,7 +174,12 @@ capture.
 **Corpus tooling you may use (read-only, live against the corpus).** These pull
 historical *context* — priors and base rates (in `replay` mode they are your
 main retrieval surface beside the provisioned inputs). The corpus blob is not
-on your cell's disk: `fedcourts query` (a handful of similar resolved priors, ranked) and
+on your cell's disk: `fedcourts query` (a handful of similar resolved priors,
+ranked; its returned population screens out the non-cert SCOTUS letter forms —
+time-extension and unread-ask applications, original-jurisdiction and
+miscellaneous dockets —
+unless `--include-applications`, while a substantive stay or injunction
+application returns either way, being the interim predict scope) and
 `fedcourts open-events` read it through your cell's local corpus service, which
 holds the ranged remote connection — your shell holds no cloud credentials.
 Each `query` reports its transfer as a `ranged corpus reads: N GET(s), M byte(s)`
@@ -205,9 +241,14 @@ yardstick the evaluator scores your skill against. The table's heading names the
 **salience version** its bands were computed under; where that does not match
 your context's `salience_version`, or your band does not appear among the
 table's columns, the table is no anchor for your band — a band name only means
-something under the version that assigned it — so anchor on the scored
-segment's overall rate instead (the weakest band's bracketed `reached` figure)
-and note the mismatch in `flags.json`. Pool every Term row that table
+something under the version that assigned it — so anchor on your own caption
+class's floor instead (`federal`'s bracketed `reached` figure for a federal
+petitioner, `state`'s for a state one, `baseline`'s — the weakest band's —
+for a private one; the class floors partition the paid scored segment, and no
+single cell of the table carries a segment-wide rate. Where the table carries
+no column for your class either, the pack publishes no anchor at all — say so
+in `reasoning.md` rather than inventing one) and note the mismatch in
+`flags.json`. Pool every Term row that table
 shows that precedes yours: its caption states how many of the pack's Terms are
 rendered, and where that is fewer than the pack holds, the shown window *is* your
 window. For a selected cert petition prefer it to the low whole-docket rate. For
@@ -228,7 +269,7 @@ cell identically.
 The cert-stage guidance is this prompt's spine, written where it stands
 because most cells are cert petitions: the statpack anchoring above (the
 modern-cert base rate, the relist/CVSG/circuit/fee-class cuts, the salience
-band), the three-claim `claims` block, and the relist/CVSG forecast content
+band), the five-claim `claims` block, and the relist/CVSG forecast content
 under `predicted_reasoning.md` below all govern a cert-stage cell and only a
 cert-stage cell.
 
@@ -253,10 +294,17 @@ cert-stage cell.
   carries no such column, the pack publishes no anchor for the class — say so
   in `reasoning.md` rather than inventing one). Anchor on the
   arrival population's own base rate, not the distributed population's — and
-  the published figure that *is* that rate is the **weakest** band's bracketed
-  `reached` rate (the whole paid segment, unconditional on trajectory), never
-  the relist-count cut's relist-0 figure, which is the rate among petitions
-  that *ended* undistributed and understates an arrival's future severalfold.
+  the published figure that *is* that rate is your own caption class's floor:
+  `federal`'s bracketed `reached` rate for a federal petitioner, `state`'s
+  for a state one, and `baseline`'s (the weakest band's) for a private one.
+  Each is that class's whole arrival population — the class floors partition
+  the paid scored segment, so no single cell of the table carries a
+  segment-wide arrival rate. A caption-class floor can be thin (read the `n`
+  beside the figure, and pool every prior Term row the table shows, exactly
+  as the anchoring rule above says) — but thin and right beats wide and
+  wrong, and never the relist-count cut's relist-0 figure, which is the rate
+  among petitions that *ended* undistributed and understates an arrival's
+  future severalfold.
 
 Scored separately, never pooled — the CVSG cell answers the same question from
 a strictly better evidence base, and the arrival cell from a strictly earlier
@@ -307,7 +355,8 @@ of the requested relief**:
   act. Key on your **frozen conditioning, not on the docket's shape**: where
   `record/context.json` carries `band: null` — the normal interim case, since
   the banded features are cert observations — do not derive a band or anchor on
-  the cert band table, and the weakest-band fallback under input 6 does not
+  the cert band table, and the caption-class-floor fallback under input 6
+  does not
   apply. If an interim cell's context *does* carry a band, the event was
   pinned to a cert docket rather than an application: that band describes the
   cert petition, not your application, so still do not anchor on it, and note
@@ -676,10 +725,12 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
       after the distributions your snapshot already shows). An increment from
       your vantage point, never the level: it resolves the resolution-time
       distribution count against the count frozen in your cell's
-      harness-stamped context.
+      harness-stamped context. No baseline is published for it yet, so it
+      banks rather than scores.
     - `cvsg-increment` — P(a CVSG is **called for after prediction time**,
       given none is on the docket yet). It resolves against the CVSG date
-      frozen at resolution. If the docket already shows a CVSG, still state a
+      frozen at resolution. No baseline is published for it yet either, so it
+      banks rather than scores. If the docket already shows a CVSG, still state a
       probability — the harness resolves the claim as vacuous for your cell
       and it goes unscored; the mask is the record's, never yours to apply.
     - `summary-disposition-route` — **conditional on a grant**: P(the Court

@@ -28,8 +28,10 @@ that can be rewritten proves nothing about when it was written.
 The single exception is an entry's **completion**, which the freeze procedure
 builds in. An entry authored alongside its freeze commit cannot yet state the
 facts that only the carrying promotion produces — the promotion tag, its merge
-commit and date, and the promotion-time re-run of step 0's stamped-cell grep —
-so it carries them as explicit `<FILL: …>` placeholders, and those placeholders
+commit and date, the promotion-time re-run of step 0's stamped-cell grep, and,
+where an entry lands in its own freeze commit or executes a de-count, that
+commit's hash and the de-counted census — so it carries them as explicit
+`<FILL: …>` placeholders, and those placeholders
 are filled once, at that promotion. A placeholder is the only editable content
 an entry ever has.
 
@@ -440,8 +442,8 @@ freeze commit is recorded here.
   `dist-v2`. Nothing the live pass selects, latches, or stamps moves at this
   commit; what changes is that `statpack.json` and `salience-replay.json` now
   carry a fourth version's bands. Carried to `main` by the promotion tagged
-  <FILL: promotion tag> (merge commit <FILL: merge commit>, merged
-  <FILL: merge timestamp>). No freeze procedure fills those three: the freeze
+  `promotion/2026-08-28-2` (merge commit `01c85e2c8`, merged
+  `2026-08-28T22:50:08Z`). No freeze procedure fills those three: the freeze
   step that fills placeholders fires at a `prereg/` tag and this entry has no
   freeze commit, so they are the carrying promotion's author's to complete, and
   the promotion PR carries the instruction.
@@ -813,8 +815,8 @@ freeze commit is recorded here.
   it depends on is re-derived, because the test suite pins only the label and
   would pass with the stored column untouched — and it must not sit on `main`
   over a window in which the outgoing parse is still writing. Carried to `main` by
-  the promotion tagged <FILL: promotion tag> (merge commit <FILL: merge commit>,
-  merged <FILL: merge timestamp>). No freeze procedure fills those three — this
+  the promotion tagged `promotion/2026-08-28-2` (merge commit `01c85e2c8`,
+  merged `2026-08-28T22:50:08Z`). No freeze procedure fills those three — this
   entry has no freeze commit — so they are the carrying promotion author's to
   complete.
 
@@ -831,3 +833,204 @@ freeze commit is recorded here.
   `run-backtest`'s salience-gate replay with the content store wired — a
   dispatch, not a local command — and until it runs, whether the 41 `high`-leavers
   keep their funding is unanswered.
+
+- **The relist-increment parse mask, 2026-08-28.** A masking-surface change to
+  the mechanical claim family, closing the seam the `sal-v4` activation entry
+  above records as "one seam this activation opens and does not close". Each
+  end of the claim's pair now records the distribution parse it froze under —
+  the prediction side already did, via the parse its stamped `salience_version`
+  pins, and `ResolutionSignals` gains a `distribution_parse` stamp the outcome
+  writer fills with the column's declared parse at resolution.
+  `relist-increment` resolves **unavailable** (`ClaimScore.outcome` null)
+  wherever the two labels differ, wherever the outcome's block carries **no
+  parse stamp**, and wherever the frozen count carries no `salience_version`
+  stamp — in every case the record does not disclose a comparable pair, the
+  same doctrine as the existing `None`-input masks. The mask reads only the
+  committed pair, never the parse live at scoring time, so re-scoring any cell
+  reproduces its resolution.
+
+  **An unstamped block is never assigned a parse from its vintage.** The
+  tempting fallback — read unstamped as `dist-v1`, the column's original
+  reading — fails on ordering twice over. The `dist-v2` activation promoted
+  **before** this stamp shipped, so `main`'s scheduled writers spend the
+  window between the two promotions writing `dist-v2` counts into unstamped
+  blocks; and the only date an outcome carries is the docket's **decision**
+  date, while a block is written when a poll or backfill reaches the docket —
+  days later on live rows, years later on backfills — so not even a date gate
+  can separate the eras. A date-blind or date-gated `dist-v1` fallback would
+  read an in-window block as the wide parse, agree with every `sal-v3`
+  freeze, and resolve exactly the suppressed mis-grade this change refuses —
+  silently and permanently. Masking every unstamped block costs nothing the
+  record could have paid: a sweep at this commit found 12,666 outcomes, 9,686
+  carrying a signals block, **zero stamped, newest resolved 2026-06-30**, and
+  none of them beside a claim-carrying prediction — the fallback had no
+  legitimate consumer to lose.
+
+  What it reaches: a cell whose freeze and resolution **straddle** the
+  `dist-v2` activation, in either direction — a `sal-v3` freeze against a
+  `dist-v2`-stamped block reads low and could suppress a genuine increment; an
+  active-version freeze against a wider-parse block reads high and could mint
+  a spurious one. At this activation that is the **whole committed claim
+  cohort: 106 cells across 36 cases, every one frozen at `sal-v3` and every
+  one on a still-pending event**, so each will resolve against a stamped
+  `dist-v2` block and its relist-increment claim resolves unavailable — the
+  claim's first scorable cohort is the post-flip `sal-v4` cells. The mask is
+  declared **before any such claim can resolve**, which is the timestamp this
+  entry witnesses. The nine cells on three cases the entry above names
+  (`scotus/73500263`, `scotus/73500287`, `scotus/9026000013`, three predictors
+  each) are the subset whose stored *counts* the two parses actually move; the
+  other 97 mask equally, because agreement at freeze time cannot promise
+  agreement over the docket's remaining life and the committed pair discloses
+  only the labels. The treatment that would have recovered them — stamping the
+  count under **both** registered parses on `ResolutionSignals` — is
+  deliberately not taken: the outcome writer reads `row.distribution_count`, a
+  single max-latched column, so a second reading would need a resolution-time
+  payload recount, and the latch means the stored value is not a clean
+  single-parse read for polled rows in any case. No committed grade moves
+  under any arm of the mask: the same sweep found every one of the 106
+  claim-carrying cells on a still-unresolved event — no committed outcome, no
+  stamped claim block anywhere in the cert family. No published number moves at
+  this commit — the claim's baseline
+  is the registered `None` (no strictly-prior relist cut exists), so this is a
+  masking-surface declaration, not a scoring-baseline move — and no digest
+  moves: claim resolution is harness-side arithmetic outside the process
+  digest.
+
+- **The post-freeze proc-v3 predictor cohort declared shakedown; the counted
+  record opens at `proc-v5`, 2026-08-29.** A boundary declaration rather than
+  a freeze: no digest and no constant moves at this commit, and it is made
+  now because its evidentiary value is its date. The declaration: **every
+  prediction stamped under the three predictor digests `prereg/proc-v3`
+  blessed** — byte-identical under the `proc-v4` label, whose freeze
+  re-blessed the evaluator half only — **is shakedown, not the counted
+  record, for the long-conference claim window; the counted record opens with
+  the predictor-half re-bless labeled `proc-v5`**, and no claim pools across
+  that boundary in either direction — nor across the salience boundary the
+  cohort's cert cells straddle beside it, their contexts frozen at `sal-v3`
+  while the active scorer is `sal-v4` (the activation entry above registers
+  that rule). Measured at this commit (the staging
+  tree): **231 stamped predictions** carry those digests, 77 per predictor
+  (226 labeled `proc-v3`, 5 labeled `proc-v4` with the same bytes — the
+  continuity the proc-v4 entry above records is exactly what this declaration
+  ends).
+
+  **What the date proves, stated exactly.** For the claim window this
+  declaration governs — the cert-stage record the long conference resolves —
+  it precedes every outcome: **zero** of the cohort's cert-stage predictions
+  sit on an event with a committed outcome at this commit, so the beta is
+  declared while every cert outcome is unknown, which is the standard a beta
+  claim needs. The cohort's full partition, so no slice reads as chosen:
+  **cert 105** cells (57 arrival, 30 cvsg, 18 distribution) — 0 resolved;
+  **merits 87** (66 grant, 21 briefed) — 0 resolved; **interim 38** (20
+  arrival, 9 response-filed, 9 response-requested) — **21 resolved**; and one
+  stage-less cell, unresolved. The interim slice is not clean and is stated
+  rather than hidden: those **21 predictions on 7 already-resolved
+  application events** (9% of the cohort, 55% of its interim slice) resolved
+  before this entry, so for those cells the declaration is *after* the
+  outcome and creates no pre-registered boundary. The committed frozen-scope
+  board already reads them — 54 gradings across the three interim stage
+  blocks, carrying the registered interim base rate
+  (`pipeline.base_rates.interim_base_rate`; `segment_base_rate` 0.133 on
+  these cells) and a published per-predictor Brier skill against it, at n=2
+  events per block, spanning −0.489 to +0.804 across the three predictors.
+  What limits the damage is what those figures were already: the interim
+  stage is unranked and pools into no cert figure or headline, and the
+  metrics contract already registers that an interim skill number is not by
+  itself evidence of forecast skill — its base-rate pool is the whole
+  substantive slice while the scored cells are reserve-selected on the
+  escalation ladder. Those figures are the cohort's, they are visible now,
+  and the enforcement paragraph's "claim nothing from them" is what governs
+  them. Their grading series will still split at the `proc-v5` boundary, and
+  any interim series later published across it must state this paragraph.
+
+  The grounds, all on the record before this entry: the cohort ran under a
+  frozen prompt whose amendment debts moved the information set it describes —
+  the prompt still calls the provisioned snapshot the latest while the moment
+  cutoffs bound it (the moment-cutoff entry's own caveat, 2026-08-17, above),
+  the arrival-anchor
+  instruction points a state-caption arrival cell at the weakest band's rate
+  where the reachable ladder scores it against its own class floor an order
+  of magnitude higher, and the first post-freeze rounds surfaced provisioning
+  defects (#1296 — later-moment forward cells provisioned with the latest
+  snapshot instead of their moment's information set — and #1298 — cells run
+  silently against a missing record directory), whose
+  affected cells hold heterogeneous information sets. Excluding such cells
+  after their outcomes resolved is the move an
+  external evaluator would not accept; declaring the cohort a beta before its
+  claim window's outcomes exist is the alpha ledger's own boundary, one label
+  later.
+
+  **Enforcement follows at the `proc-v5` freeze, not here.** The re-bless
+  replaces the predictor digests in `FROZEN_PROCESS_DIGESTS` and moves
+  `FROZEN_SINCE` past its carrying promotion (the third supersession shape,
+  [process-version.md](process-version.md)), which de-counts the cohort from every
+  frozen-scope artifact mechanically. Until that promotion lands, committed
+  boards built under the current constants still count the cohort — read
+  them, from this entry's date forward, as shakedown figures awaiting their
+  de-count, and claim nothing from them. The `proc-v5` freeze entry states
+  the final de-counted census and points here as its licence.
+
+- Freeze commit: `<FILL: freeze commit>`, to be tagged **`prereg/proc-v5`**
+  per step 4 — on this freeze commit itself, once its carrying promotion
+  lands and the instant audit passes (`proc-v4`'s merge-placed tag is the
+  recorded anomaly, not the rule). Blesses the six proc-v5 digests — the three
+  **predictor** digests moved by the predict-prompt amendment batch below,
+  and the three **evaluator** digests carried forward byte-identical from
+  `prereg/proc-v4` — and sets the freeze instant **`2026-09-05T00:00:00Z`**,
+  moved past the carrying promotion per the ordinary step-4 rule: the
+  predictor half moves bytes, so the held-instant exception cannot apply and
+  the auditor's check is the date comparison, promotion merge at or before
+  the instant, instant before the first counted run. The instant is guessed
+  generously late on a one-sided trade: predict is label-triggered, and the
+  live channel's transition-queued cells before the instant merely land as
+  shakedown, while a promotion slipping past the instant forces the
+  proc-v3 remedy — bump the constant in a follow-up promotion **before**
+  tagging (the `prereg/` namespace burns a tag minted over a bad instant),
+  and confirm no stamped cell carries a `stamped_at` in the gap; the check is
+  not vacuous, because `graded_post_freeze` tests timing with no digest test
+  at all, so a gap evaluation would read as counted while the constant was
+  still editable. Carried to `main` by the
+  promotion tagged <FILL: promotion tag> (merge commit <FILL: merge commit>,
+  merged <FILL: merge timestamp>). Step 0's stamped-cell grep for the newly
+  blessed digests at authoring: **zero** on `origin/main` and this tree,
+  against 231 predictions and 138 evaluations under the retiring set; re-run
+  at the promotion: <FILL: step-0 grep at promotion>.
+
+  **The amendment batch**, every debt named on the record before this freeze:
+  the claims-block count corrected to the five-claim cert-v2 set; the
+  `empty_text` parenthetical covering QP-derived rows (an unextractable
+  petition leaves the QP file empty the same way); the `query` population
+  clause (the non-cert letter forms screened out unless asked for); the
+  caption-class-floor anchors replacing all three whole-segment fallback
+  anchors — the band-null fallback, the version-mismatch fallback, and the
+  arrival anchor, whose state-caption case the reachable-ladder re-base had
+  left mis-pointed at the weakest band's figure where its own scored floor
+  runs severalfold higher: pooled over the pack's nine rendered Terms, 5.0%
+  (n = 12,591) against `state`'s 21.6% (n = 371), and on the single Term 2025
+  cells 3.9% (n = 1,132) against 39.1% (n = 23) — and the moment-cutoff passages mirroring the evaluate
+  prompt's blessed twins: the snapshot as a moment-bounded baseline
+  (`context.cutoff` a cohort marker, non-null even on a forward cell), the
+  band as at the snapshot rather than as at now, and the forward-mode
+  cutoff-is-not-a-retrieval-clock rule.
+
+  **The de-count this freeze executes.** Replacing the predictor digests
+  retires the set `prereg/proc-v3` blessed and `proc-v4` carried, removing
+  every prediction stamped under them from every frozen-scope artifact — the
+  declared-shakedown cohort, licensed by the declaration entry above (dated
+  2026-08-29, before any cert-window outcome existed; its interim exposure
+  stated there). Census at the declaration: 231 stamped predictions, 77 per
+  predictor, and 138 stamped evaluations — every evaluation predates the new
+  instant, so all of them de-count via `graded_post_freeze`, the six carrying
+  the still-blessed evaluator digests included: the timing limb tests no
+  digest, and the boundary is total in both halves, per the third
+  supersession shape. Final census at the carrying promotion, both halves:
+  <FILL: de-counted census at promotion — predictions and evaluations>.
+  The de-count becomes **visible** at the first post-promotion
+  `metrics-refresh`, not at the merge — the committed boards are static
+  artifacts, and the refresh that empties their interim stage blocks is the
+  promotion's runnable effect check (`fedcourts leaderboard`, then the
+  diff showing the blocks empty) — as the scored window opened at the first
+  refresh for `sal-v2` and `sal-v3`. The counted record for the
+  long-conference claim window opens with the first cells stamped under
+  these digests at or after the instant, which is why the carrying promotion
+  must land **before the long-conference predict round runs**.

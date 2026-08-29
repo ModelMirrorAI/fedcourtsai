@@ -945,6 +945,21 @@ def test_the_petitions_own_distribution_counts_under_both_parses() -> None:
         assert _live_distribution_count(_entries(_OWN_DISTRIBUTION), parse=parse) == 1
 
 
+def test_dist_v2_matches_are_contained_in_dist_v1s() -> None:
+    """Whatever the anchor admits, the free search admits: `dist-v2` ⊆ `dist-v1`.
+
+    The relist-increment mask's directional prose (a narrowed column can only
+    suppress against a wider freeze, never mint) rests on this containment, so
+    it is pinned over every fixture entry rather than left to the patterns'
+    construction — a future registered parse need not have the property, and
+    this test is where its absence would surface.
+    """
+    v1, v2 = DISTRIBUTION_PARSES["dist-v1"], DISTRIBUTION_PARSES["dist-v2"]
+    for text in (*_ANCILLARY_DISTRIBUTIONS, _OWN_DISTRIBUTION, "   " + _OWN_DISTRIBUTION):
+        if v2.search(text):
+            assert v1.search(text), text
+
+
 def test_dist_v2_tolerates_leading_whitespace_before_the_entry() -> None:
     """Indentation is upstream formatting, not a paper naming itself."""
     padded = f"  \n\t{_OWN_DISTRIBUTION}"

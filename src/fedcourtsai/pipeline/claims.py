@@ -61,6 +61,7 @@ from .base_rates import (
     summary_route_base_rate,
 )
 from .judgment import judgment_disturbed
+from .salience import scorer
 
 # The declared cert-stage claim ids, in the fixed order the block reports them.
 CLAIM_DISPOSITION = "disposition"
@@ -242,40 +243,49 @@ def _resolve_relist_increment(context: PredictionContext, outcome: Outcome) -> i
     strict comparison reads any non-rise as no increment.
 
     The two ends must be read under one distribution parse for that monotonicity
-    to hold across the pair: the context side follows the active scorer's
-    declared parse while the outcome side is the corpus column at
-    ``cert_signals.DEFAULT_DISTRIBUTION_PARSE``. A version pinning a *narrower*
-    reading makes the frozen count smaller than the column's, so the strict
-    comparison reports an increment the docket never made — a spurious hit, not
-    a mask (the only masks here come from ``None`` inputs, never from the
-    comparison). What keeps them comparable is that the
-    **active** version pins the default —
-    ``test_the_active_scorers_parse_is_the_one_the_corpus_column_holds`` in
-    ``tests/test_salience.py`` is the pin. A registered version pinning a
-    narrower reading is safe only while it is inactive, since no cell freezes a
-    count under a version the live pass does not score with; activating one
-    requires the corpus column to be re-derived under that reading first
-    (``docs/salience.md``).
+    to hold across the pair, and each end records its own: the context side
+    froze under the parse its stamped ``salience_version`` pins, the outcome
+    side under the ``distribution_parse`` its signals block stamps. The pair is
+    comparable only where those two labels agree, so the claim is additionally
+    masked where they differ: a cell whose freeze and resolution straddle a
+    parse activation carries a count the record cannot restate under the other
+    end's reading, which makes the mismatch a property of the record — the
+    same doctrine as the ``None``-input masks above, not a judgement about the
+    predictor. An **unstamped** signals block discloses no parse and masks the
+    same way: assigning it one from its vintage was considered and rejected,
+    because the only date an outcome carries is the docket's decision date,
+    and a block is written when a poll or backfill reaches the docket, not
+    when the court acts — no committed fact can say which reading counted it.
+    Nothing recoverable is lost, since no committed unstamped block sits
+    beside a claim-carrying prediction. A context carrying a count but no
+    ``salience_version`` stamp is masked on the same undisclosed-parse ground.
+    The version lookup itself is strict: ``salience.scorer`` raises on a label
+    missing from the add-only registry, because a committed version absent
+    from the registry is an invariant break, not an availability gap.
 
-    That pin holds the pair together *going forward* and says nothing about a
-    cell frozen **before** an activation, which is the one seam this resolver
-    does not close. A cell frozen under the outgoing version carries the wider
-    reading's count, while the re-derived column serves the narrower one — so on
-    a docket the two readings disagree about, the resolution-time count starts
-    below the frozen one and a genuine relist can fail the strict comparison.
-    The direction is the safe one: a **suppressed** increment, never a spurious
-    hit, since the comparison can only read low. The bias is bounded by the
-    per-docket parse delta, it reaches only cells frozen across an activation
-    boundary, and the named cells it reaches at the ``dist-v2`` activation are on
-    the record (``docs/freeze-record.md``). Masking those cells outright — the
-    frozen version's parse against the column's — is a scoring change and is not
-    made here.
+    For a pair frozen and resolved under one active version the mask is
+    vacuous: the **active** version pins the column's own parse —
+    ``test_the_active_scorers_parse_is_the_one_the_corpus_column_holds`` in
+    ``tests/test_salience.py`` is the pin — so both ends carry one label. What
+    the mask reaches is exactly the straddling cell, where the unmasked strict
+    comparison would read across the boundary — in either direction: a column
+    re-derived narrower reads low against the wider frozen count and could
+    suppress a genuine increment, and a suppressed true claim is still a
+    mis-grade; a wider-parse block against a narrower frozen count reads high
+    and could mint a spurious one. The cells the mask reaches at a given
+    activation are on the record (``docs/freeze-record.md``). Because both
+    parse labels come off the committed pair, re-scoring a cell reproduces the
+    same resolution whatever parse is live at scoring time.
     """
     if (
         not context.signals_observable
         or context.distribution_count is None
         or outcome.signals is None
     ):
+        return None
+    if context.salience_version is None or outcome.signals.distribution_parse is None:
+        return None
+    if scorer(context.salience_version).distribution_parse != outcome.signals.distribution_parse:
         return None
     return int(outcome.signals.distribution_count > context.distribution_count)
 
@@ -829,7 +839,11 @@ def score_claims(
     ``None`` — no block, never a crash — wherever the inputs cannot carry one:
     an event kind with no declared set, a prediction without a ``claims`` block
     (every prediction written before the field existed), or one without the
-    frozen ``context`` the resolvers and baselines condition on. The set is
+    frozen ``context`` the resolvers and baselines condition on. One input is
+    deliberately outside that tolerance: a frozen ``salience_version`` absent
+    from the add-only scorer registry raises out of the relist resolver,
+    because a committed record naming an unregistered version is corrupt
+    rather than incomplete, and a loud stop beats a quietly wrong grade. The set is
     mandatory, so a claims block that skips a declared claim, or states one
     twice, also yields ``None``: a partial answer scores nothing rather than
     scoring the half the predictor chose. A disposition claim that diverges

@@ -28,7 +28,7 @@ open PR updates in place instead of stacking a new PR per schedule tick.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -109,32 +109,47 @@ _SPECIAL_HEADLINES: dict[str, Callable[[Path], str]] = {
 }
 
 
-def _leaderboard_headline(path: Path) -> str:
+def _leaderboard_headline(path: Path, roster: Sequence[str] | None = None) -> str:
     """The board's line. Naming the scope keeps a refresh PR that drops the
     board to 0 during the shakedown reading as the frozen headline, not a
-    regression.
+    regression. The ranked counts are the **cert stage's** and say so, with the
+    unranked stage blocks' total appended — this is the line most likely to be
+    quoted out of the body, and a bare "0 evaluation(s)" over a file holding
+    populated stage blocks reads as an empty artifact.
 
-    The two audit figures append only where they have something to say, because
+    The audit figures append only where they have something to say, because
     the refresh PR body is the surface a maintainer actually reads: a
     supersession count means a standing may have moved on a re-grade, and
     unequal coverage means two entries were compared over different event sets.
     Neither is recoverable from the counts above them, and a build-time warning
     lands in the run log rather than here. The coverage clause carries the worst
-    shortfall rather than a bare flag — this is the line most likely to be
-    quoted out of the body, and a flag without a magnitude cannot be read — and
-    it checks every population, ranked board and ``stage@moment`` block alike,
-    since a stage-only gap is as much a comparability hazard as a cert one.
+    shortfall rather than a bare flag — a flag without a magnitude cannot be
+    read — and it checks every population, ranked board and ``stage@moment``
+    block alike, since a stage-only gap is as much a comparability hazard as a
+    cert one. The shortfall scan iterates entries, so a predictor with **no
+    entry at all** in a populated block is invisible to it; the roster check
+    covers that hole, naming any configured predictor absent from a block other
+    predictors were scored in, and the block it is absent from — the failure
+    shape an engine-wide outage produces, whose comparability consequence
+    depends on which population lost the engine.
+
+    The stage clause sums ``evaluations_total`` and ``events_scored`` across
+    blocks, which the stage schema's "nothing pools across blocks" contract
+    tolerates for exactly this shape and no other: these are volume counts for
+    an artifact-level inventory line, never rates or skill figures, and the
+    event denominator travels beside the evaluation count so the volume cannot
+    be read as a scored population.
     """
     board = read_model(path, Leaderboard)
     notes = ""
     if board.superseded_gradings:
         notes += f"; {board.superseded_gradings} superseded grading(s) collapsed away"
-    populations = [(board.events_scored, board.entries)] + [
-        (block.events_scored, block.entries) for block in board.stages.values()
+    populations = [("cert board", board.events_scored, board.entries)] + [
+        (key, block.events_scored, block.entries) for key, block in board.stages.items()
     ]
     shortfalls = [
         (entry.events_scored - covered, entry.predictor_id, entry.events_scored, covered)
-        for covered, entries in populations
+        for _label, covered, entries in populations
         for entry in entries
         if entry.events_scored < covered
     ]
@@ -144,9 +159,29 @@ def _leaderboard_headline(path: Path) -> str:
             f"; unequal scored-set coverage ({predictor_id} {scored}/{covered}) "
             "— not a cross-engine comparison"
         )
+    if roster:
+        rostered = set(roster)
+        absences = [
+            f"{predictor} from `{label}`"
+            for label, _covered, entries in populations
+            if entries
+            for predictor in sorted(rostered - {entry.predictor_id for entry in entries})
+        ]
+        if absences:
+            notes += (
+                f"; absent from a populated block: {', '.join(absences)} "
+                "— not a cross-engine comparison"
+            )
+    if board.stages:
+        stage_evaluations = sum(block.evaluations_total for block in board.stages.values())
+        stage_events = sum(block.events_scored for block in board.stages.values())
+        notes = (
+            f"; {stage_evaluations} evaluation(s) over {stage_events} scored "
+            f"event(s) in {len(board.stages)} unranked stage block(s)" + notes
+        )
     return (
         f"[{board.process_scope}] {board.predictors_ranked} predictor(s) ranked from "
-        f"{board.evaluations_total} evaluation(s) "
+        f"{board.evaluations_total} cert-stage evaluation(s) "
         f"({board.forward_evaluations} forward / "
         f"{board.retrospective_evaluations} retrospective / "
         f"{board.procedural_evaluations} procedural)"
@@ -194,7 +229,9 @@ def _docket_headline(path: Path) -> str:
 # The metrics-model artifacts, keyed by filename (they all live under
 # `metrics/`; anything path-ambiguous belongs in _SPECIAL_HEADLINES instead).
 _FILENAME_HEADLINES: dict[str, Callable[[Path], str]] = {
-    "leaderboard.json": _leaderboard_headline,
+    # leaderboard.json is dispatched explicitly in `_headline` — its reader is
+    # the one that takes the predictor roster, which a filename table of
+    # single-argument readers cannot carry.
     "claim-scores.json": _claim_scores_headline,
     "backtest.json": _backtest_headline,
     "statpack.json": _statpack_headline,
@@ -202,16 +239,28 @@ _FILENAME_HEADLINES: dict[str, Callable[[Path], str]] = {
 }
 
 
-def _headline(path: Path, relpath: str) -> str:
-    """One human line summarizing a refreshed artifact, read from the artifact itself."""
+def _headline(path: Path, relpath: str, roster: Sequence[str] | None = None) -> str:
+    """One human line summarizing a refreshed artifact, read from the artifact itself.
+
+    ``roster`` reaches only the leaderboard's line — the one whose absence
+    check needs to know which predictors are *configured*, not just which
+    appear in the artifact.
+    """
     special = _SPECIAL_HEADLINES.get(relpath)
     if special is not None:
         return special(path)
+    if Path(relpath).name == "leaderboard.json":
+        return _leaderboard_headline(path, roster)
     reader = _FILENAME_HEADLINES.get(Path(relpath).name)
     return reader(path) if reader is not None else "refreshed"
 
 
-def render_refresh_pr(changed: list[str], repo_root: Path, run_id: str) -> MetricsRefreshPr | None:
+def render_refresh_pr(
+    changed: list[str],
+    repo_root: Path,
+    run_id: str,
+    predictor_roster: Sequence[str] | None = None,
+) -> MetricsRefreshPr | None:
     """Render the review PR (branch / title / commit / body) for a refresh's changes.
 
     ``changed`` is the repo-relative output of ``git diff --cached --name-only`` over
@@ -220,6 +269,9 @@ def render_refresh_pr(changed: list[str], repo_root: Path, run_id: str) -> Metri
     artifacts were already current and no PR should open (returns ``None``).
     Matched on the full relative path rather than the filename, so two artifacts
     sharing a basename across directories can never be confused for one another.
+    ``predictor_roster`` is the configured predictor ids, for the leaderboard
+    line's absent-predictor check; ``None`` skips that check rather than
+    treating an empty roster as universal absence.
 
     The markdown lives in tested code rather than assembled with ``jq`` and a
     heredoc in the workflow, mirroring
@@ -233,7 +285,9 @@ def render_refresh_pr(changed: list[str], repo_root: Path, run_id: str) -> Metri
     # "metrics: refresh leaderboard, statpack" rather than a bare count.
     stems = list(dict.fromkeys(Path(rel).stem for rel in ordered))
     title = f"metrics: refresh {', '.join(stems)}"
-    rows = "\n".join(f"| `{rel}` | {_headline(repo_root / rel, rel)} |" for rel in ordered)
+    rows = "\n".join(
+        f"| `{rel}` | {_headline(repo_root / rel, rel, predictor_roster)} |" for rel in ordered
+    )
     body = (
         "Scheduled metrics refresh: the committed artifacts drifted from their "
         "inputs (the `data/` evaluations ledger and the corpus), so the scheduled "

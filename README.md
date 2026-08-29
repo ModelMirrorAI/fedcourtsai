@@ -165,9 +165,11 @@ earns no credit.
 The *process* pre-registers the same way: its prompt and agent-config digests
 freeze in a tagged commit, and every counted cell must carry a stamp matching
 them from after that instant
-([`docs/process-version.md`](docs/process-version.md)). Predictions in the
-repository from before the freeze are the **alpha/shakedown ledger** — no
-process stamp at all, or a stamp predating the freeze instant — excluded from
+([`docs/process-version.md`](docs/process-version.md)). Everything outside
+that partition is the **alpha/shakedown ledger** — no
+process stamp at all, a stamp predating the freeze instant, or a stamp under
+digests a later freeze deliberately retired behind a dated declaration —
+excluded from
 every frozen-scope performance figure, with nothing about them claimed
 ([`metrics/README.md`](metrics/README.md)).
 

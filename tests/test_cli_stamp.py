@@ -8,15 +8,17 @@ and rewrites it. These exercise the real command against seeded ledger cells.
 from __future__ import annotations
 
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
 import pytest
 from typer.testing import CliRunner, Result
 
+from fedcourtsai import process_version
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths, EventPaths
+from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.process_version import CURRENT_PROCESS_LABEL
@@ -237,7 +239,7 @@ def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
                 signals_observable=True,
                 distribution_count=1,
                 band="baseline",
-                salience_version="sal-v1",
+                salience_version=SALIENCE_VERSION,
                 term=2025,
             ),
             claims=[
@@ -255,7 +257,9 @@ def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
             resolved_at=date(2026, 5, 1),
             actual_disposition=Disposition.denied,
             actual_granted=0,
-            signals=ResolutionSignals(distribution_count=3),
+            signals=ResolutionSignals(
+                distribution_count=3, distribution_parse=DEFAULT_DISTRIBUTION_PARSE
+            ),
         ),
     )
     write_json(
@@ -266,7 +270,7 @@ def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
                 StatPackTerm(
                     term=2024,
                     base_rates=BaseRateBucket(),
-                    salience_version="sal-v1",
+                    salience_version=SALIENCE_VERSION,
                     segments=[
                         StatPackTermSegment(
                             band="baseline",
@@ -2306,6 +2310,11 @@ def test_regrade_scope_survives_an_evaluator_digest_supersession(
     annotation must say frozen-scope rather than demote it to alpha."""
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
     event_paths = _seed_cert_cell(_data_root, 32, actual=Disposition.granted)
+    # Post-instant by construction, so a freeze cutover moves this test's
+    # clock with it rather than silently demoting the cell to alpha.
+    post_freeze = (
+        (process_version.FROZEN_SINCE or datetime(2026, 1, 1, tzinfo=UTC)) + timedelta(days=4)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
     assert (
         _stamp(
             "evaluator",
@@ -2313,7 +2322,7 @@ def test_regrade_scope_survives_an_evaluator_digest_supersession(
             32,
             _CERT_EVENT,
             "RID",
-            stamped_at="2026-08-20T00:00:00Z",
+            stamped_at=post_freeze,
         ).exit_code
         == 0
     )

@@ -88,6 +88,7 @@ from ..serialize import write_json, write_yaml
 from ..store import open_events
 from . import moments
 from .cert_signals import (
+    DEFAULT_DISTRIBUTION_PARSE,
     dissent_from_denial,
     match_disposition_signal,
     mootness_disposition,
@@ -678,10 +679,20 @@ def resolution_signals(
     absent ``distribution_count`` means — the corpus treats it as the coverage
     sentinel for the whole live-signal family, so emitting a block there would
     assert an observation nobody made.
+
+    The block stamps the column's declared parse
+    (``DEFAULT_DISTRIBUTION_PARSE``) beside the count, so a later re-score can
+    tell whether the frozen prediction-time count is comparable — the
+    relist-increment resolver's parse mask reads that stamp, never the default
+    live at scoring time.
     """
     if distribution_count is None:
         return None
-    return ResolutionSignals(distribution_count=distribution_count, cvsg_date=cvsg_date)
+    return ResolutionSignals(
+        distribution_count=distribution_count,
+        distribution_parse=DEFAULT_DISTRIBUTION_PARSE,
+        cvsg_date=cvsg_date,
+    )
 
 
 def interim_resolution_signals(
