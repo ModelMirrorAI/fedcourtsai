@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 13458,
+      "checked": 13461,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -174,7 +174,7 @@
       "problems": []
     },
     {
-      "checked": 12667,
+      "checked": 12670,
       "detail": "",
       "failures": 0,
       "name": "judgment_only_on_merits_outcomes",
