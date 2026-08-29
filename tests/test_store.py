@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from fedcourtsai import corpus
+from fedcourtsai import corpus, process_version
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline import moments as moments_module
@@ -1558,18 +1558,23 @@ def test_event_has_claimable_prediction_keys_on_the_latest_run_per_predictor(
     # join. Later by the *harness* clock (`cell_clock`), which reads the frozen
     # cell's `stamped_at` and falls back to `created_at` only when unstamped —
     # so the re-run has to postdate the freeze instant, not merely the sibling's
-    # authored date.
+    # authored date; derive it from the instant so a freeze cutover moves it
+    # without touching this test.
+    rerun_at = (process_version.FROZEN_SINCE or datetime(2026, 1, 1, tzinfo=UTC)) + timedelta(
+        days=30
+    )
+    rerun_id = rerun_at.strftime("%Y%m%dT%H%M%SZ")
     write_json(
-        event.prediction("claude-baseline", "20260901T000000Z"),
+        event.prediction("claude-baseline", rerun_id),
         Prediction(
             case_id="scotus/1",
             event_id="evt-a",
             predictor_id="claude-baseline",
             engine="claude-code",
             model="claude-fable-5",
-            run_id="20260901T000000Z",
-            created_at=datetime(2026, 9, 1, tzinfo=UTC),
-            input_snapshot="record/snapshots/2026-09-01.json",
+            run_id=rerun_id,
+            created_at=rerun_at,
+            input_snapshot=f"record/snapshots/{rerun_at.date().isoformat()}.json",
             granted=0,
             probability=0.05,
             predicted_disposition=Disposition.denied,
