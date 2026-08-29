@@ -38,8 +38,9 @@ inputs:
       after the work and with an error naming the wrong cause. A long-reading
       caller must pass a value covering its own step timeout. A value above
       3600 also needs the read-only role's IAM maximum session duration to
-      allow it; an excess request fails the assume-role step immediately and
-      legibly, not at the hour mark.
+      allow it; an excess request fails at the assume step inside its 120s
+      action timeout (the STS reason is in the per-attempt retry lines, the
+      terminal error is the timeout), not at the hour mark.
     required: false
     default: "3600"
 
