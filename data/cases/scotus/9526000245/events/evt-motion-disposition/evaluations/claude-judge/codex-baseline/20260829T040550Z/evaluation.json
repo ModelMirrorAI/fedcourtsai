@@ -1,0 +1,76 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Pro se application for an injunction pending appeal from a Rule 4 dismissal of a joint pretrial habeas over state bond conditions; denied by a single Justice two days after docketing with no response call, no referral, and no amici. No doctrinal question, no institutional party, no visible public reaction. Stakes end at the parties."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9985686388888889,
+  "case_id": "scotus/9526000245",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.13215859030837004,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.0174408929922956
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.0174408929922956,
+    "total": 0.0174408929922956
+  },
+  "correct": 1,
+  "created_at": "2026-08-29T04:30:11Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell, genuinely open when predicted (prediction 2026-08-25, denial 2026-08-27). Captured calls (coverage ~0.66; the unobserved rows are MCP-side echoes of captured shell wrappers) show only pre-disposition lower-court retrieval, self-limited with date_filed lte 2026-08-25 filters; the reasoning states explicitly it used no disposition of this application, and none existed. One trailing call is a harness-redacted credential-shaped marker \u2014 removed text, not outcome material. No qp-topics read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5",
+  "notes_doc": "evaluation.md",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:11a0afbcba271935c8ead785b5c13fc2b1e43a4e18e9450a04fa41df9658a0f2",
+    "label": "proc-v4",
+    "pipeline_sha": "a8d5e296e7f963ad42a275e8d3a848537e4cdc84",
+    "stamped_at": "2026-08-29T04:33:12.584444Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20260829T040550Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.13215859030837004,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
