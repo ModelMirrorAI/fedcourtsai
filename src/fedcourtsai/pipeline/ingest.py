@@ -1062,10 +1062,13 @@ def to_corpus_row(
         originating_court_name=row.originating_court_name,
         application_kind=row.application_kind,
         response_requested=row.response_requested,
+        response_requested_at=row.response_requested_at,
+        response_filed_at=row.response_filed_at,
         referred_to_court=row.referred_to_court,
         amicus_briefs=row.amicus_briefs,
         merits_judgment=row.merits_judgment,
         merits_decided=row.merits_decided,
+        merits_brief_filed=row.merits_brief_filed,
         sample_weight=sample_weight,
     )
 
