@@ -49,6 +49,7 @@ from fedcourtsai.validate import (
     CHECK_CASE_DATES,
     CHECK_CORPUS_EVENTS_IN_LEDGER,
     CHECK_CORRECT_AGREES,
+    CHECK_DOCKET_NUMBER_MARKING,
     CHECK_DOMAIN_VALUES,
     CHECK_EVALUATION_SEMANTIC,
     CHECK_EVALUATION_TARGETS,
@@ -573,6 +574,71 @@ def test_empty_court_fails_required_columns(tmp_path: Path) -> None:
     verdict = _run(db, tmp_path / "data")
     assert not verdict.ok
     assert _verdict_by_check(verdict)[CHECK_REQUIRED_COLUMNS] is False
+
+
+# --- B: docket-number annotations (advisory) ----------------------------------
+
+
+def test_an_annotated_docket_number_warns_without_failing(tmp_path: Path) -> None:
+    """The remedy is a re-ingest, not a code fix, so the check reports its count
+    and sample while the verdict stays green — a red verdict held across the
+    whole backfill interval is one a reader learns to ignore."""
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET docket_number = '25-5184 *** CAPITAL CASE ***' "
+            "WHERE case_id = 'ca9/1'"
+        )
+        conn.commit()
+    verdict = _run(db, tmp_path / "data")
+    assert verdict.ok  # advisory: it never turns the verdict red
+    assert _verdict_by_check(verdict)[CHECK_DOCKET_NUMBER_MARKING] is True
+    check = next(c for c in verdict.checks if c.name == CHECK_DOCKET_NUMBER_MARKING)
+    assert check.failures == 1
+    assert check.checked == 1  # every case row, not just the annotated ones
+    assert any("ca9/1" in p and "25-5184" in p for p in check.problems)
+    # `detail` travels into the ::warning:: and the dashboard's monitored list,
+    # where nothing else marks this apart from a baseline-gated pass.
+    assert check.detail.startswith("advisory: ")
+    assert "re-ingest" in check.detail  # and it names the path that clears it
+
+
+def test_a_clean_docket_number_reports_nothing(tmp_path: Path) -> None:
+    """The `LIKE` is only a prefilter and the strip decides, so a docket string
+    the strip leaves alone is not a defect: a consolidated circuit docket using
+    `***` as a separator is stored exactly as served and is not counted."""
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET docket_number = ? WHERE case_id = 'ca9/1'",
+            ("Docket 17-2737***; 17-2741***; 17-2994***; August Term, 2017",),
+        )
+        conn.commit()
+    verdict = _run(db, tmp_path / "data")
+    check = next(c for c in verdict.checks if c.name == CHECK_DOCKET_NUMBER_MARKING)
+    assert verdict.ok and check.failures == 0 and check.problems == []
+
+
+def test_the_marking_advisory_is_ratcheted(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Advisory is licensed by the population only ever shrinking. Above the
+    ceiling it is not a backlog — a write path is landing the marking again,
+    which is a code defect and fails like any other check."""
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET docket_number = '25-5184 *** CAPITAL CASE ***' "
+            "WHERE case_id = 'ca9/1'"
+        )
+        conn.commit()
+    monkeypatch.setattr("fedcourtsai.validate._DOCKET_MARKING_CEILING", 0)
+    verdict = _run(db, tmp_path / "data")
+    assert not verdict.ok
+    check = next(c for c in verdict.checks if c.name == CHECK_DOCKET_NUMBER_MARKING)
+    assert check.passed is False and check.failures == 1
+    assert "above the ceiling" in check.detail
 
 
 # --- C: orphan ledger references ----------------------------------------------
@@ -1568,6 +1634,27 @@ def _cli_env(tmp_path: Path, corpus_root: Path) -> dict[str, str]:
         "FEDCOURTS_DATA_ROOT": str(tmp_path / "data"),
         "FEDCOURTS_CONFIG_ROOT": str(config_root),
     }
+
+
+def test_validate_corpus_prints_the_advisory_as_a_warning(tmp_path: Path) -> None:
+    """The `::warning::` line is where a workflow-log reader meets the advisory,
+    and it is the surface most easily lost in a refactor of the summary block."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET docket_number = '25-5184 *** CAPITAL CASE ***' "
+            "WHERE case_id = 'ca9/1'"
+        )
+        conn.commit()
+    result = runner.invoke(
+        app,
+        ["validate-corpus", "--out", str(tmp_path / "verdict.json")],
+        env=_cli_env(tmp_path, tmp_path / "corpus"),
+    )
+    assert result.exit_code == 0  # advisory never fails the command
+    assert f"::warning::corpus-validation: {CHECK_DOCKET_NUMBER_MARKING}" in result.stdout
+    assert "advisory: 1 row(s) still carry the marking" in result.stdout
 
 
 def test_cli_writes_verdict_and_summary(tmp_path: Path) -> None:

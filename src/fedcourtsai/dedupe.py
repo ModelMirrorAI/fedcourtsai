@@ -135,8 +135,11 @@ class LiveDedupeResult(BaseModel):
 # both rows, and the exclusion latch is the scope reconcile's to re-decide from
 # the merged facts), and the columns with their own merge semantics below — the
 # weight (the pair minimum), the max-latched distribution count, the monotonic
-# opinion bit, the sticky salience selection, and the fill-in salience/queue
-# stamps.
+# opinion and capital-case bits, the sticky salience selection, and the fill-in
+# salience/queue stamps. A plain-bool column can NEVER ride the generic loop —
+# `_lacks(False)` is false, so a drop-side True would be silently discarded —
+# which is exactly the capital pair shape this merge exists for; the guard test
+# in test_dedupe.py holds every plain-bool column to an explicit rule here.
 _MERGE_SPECIAL = frozenset(
     {
         "case_id",
@@ -146,6 +149,7 @@ _MERGE_SPECIAL = frozenset(
         "sample_weight",
         "distribution_count",
         "has_opinion",
+        "capital_case",
         "salience_score",
         "salience_version",
         "salience_selected",
@@ -417,8 +421,9 @@ def _merged_row(keep: corpus.CorpusRow, drop: corpus.CorpusRow, weight: int) -> 
     it lacks takes the twin's — so the live channel's signals (the conference
     stamps, the lower-court name, the cert dates) survive the drop. The columns
     with their own semantics merge by them: ``distribution_count`` takes the max
-    (proceedings only grow), ``has_opinion`` ORs (monotonic),
-    ``salience_selected`` stays sticky, the salience score/version and the queue
+    (proceedings only grow), ``has_opinion`` and ``capital_case`` OR
+    (monotonic — the live twin is the only row that could have seen the
+    capital marking), ``salience_selected`` stays sticky, the salience score/version and the queue
     stamps fill in, and ``sample_weight`` takes the pair minimum computed by the
     caller.
     """
@@ -434,6 +439,7 @@ def _merged_row(keep: corpus.CorpusRow, drop: corpus.CorpusRow, weight: int) -> 
     if counts:
         updates["distribution_count"] = max(counts)
     updates["has_opinion"] = keep.has_opinion or drop.has_opinion
+    updates["capital_case"] = keep.capital_case or drop.capital_case
     updates["sample_weight"] = weight
     if keep.salience_version is None and drop.salience_version is not None:
         updates["salience_version"] = drop.salience_version

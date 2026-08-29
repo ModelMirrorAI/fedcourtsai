@@ -149,6 +149,27 @@ written before the columns existed are back-filled from their stored live
 snapshots at the historical walker's start (`backfill_live_signals` —
 deterministic, idempotent, correct across corpus-blob rollbacks).
 
+`capital_case` is a fourth column of this family — in practice live-channel
+fed, since only supremecourt.gov serves the marking, though the ingest raise
+is channel-agnostic by design — read not from the
+proceedings but from the head of the payload: the `bCapitalCase` flag, OR-ed
+with the `*** CAPITAL CASE ***` annotation upstream appends to `CaseNumber`.
+Either alone under-reports, and the annotation has to be read anyway — ingest
+strips it out of `docket_number`, because every reader that *parses* a docket
+number reads the whole stored string and a marked number parses as nothing at
+all. Those readers strip it too, so the cuts and the live channel's addressing
+see a marked docket either way; what a stored marking costs is narrower — a
+missed identity join for any consumer that does not normalize, a wrong value
+wherever the column is displayed, and a trap for the next parse site that
+forgets. It max-latches for the reason the other live columns do, and more
+sharply: CourtListener serves the plain number and no flag, so every write from
+that channel asserts a confident False. It is the one column of the family
+**outside** `backfill_live_signals`, which fills the three proceedings-derived
+columns only. Rows predating the strip therefore converge by re-ingest rather
+than by back-fill — a live-slice row on its next poll, one outside the slice on
+a targeted re-read — and `validate-corpus` counts the remainder as an advisory
+check ([cli.md](cli.md)) rather than a failure.
+
 ## Documents: from metadata to content
 
 The document PDFs linked from each docket are the step-change in input quality

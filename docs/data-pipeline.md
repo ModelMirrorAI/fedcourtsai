@@ -1081,7 +1081,28 @@ where the corpus is already pulled** (a non-blocking trailing step on the
 corpus-writer path, publishing the verdict alongside the live-frontier
 readiness snapshot); `run-ops` — a corpus-free presenter — renders the
 **data-health** section from the verdict and escalates a failure to a single
-long-lived issue: loud, never blocking. Because event definitions live in the
+long-lived issue: loud, never blocking.
+
+Not every count in the verdict is a failure. A check may **pass while counting
+failures**, in which case the count is a known condition and rides on the
+verdict, the command's `::warning::` lines, and `run-ops`'s _Monitored_ list —
+without reddening anything. Two shapes qualify. **Baseline-gated**, where a
+tolerated floor is accepted and only an excess fails (`case_dates_ordered`).
+**Advisory**, where the defect is real but its remedy is a data pass rather
+than a code fix, so failing would hold the verdict red for however long that
+takes — and a verdict that stays red is one readers learn to ignore. A stored
+docket number still carrying the Court's `*** CAPITAL CASE ***` marking is the
+standing example: ingest strips it at the write site, so the population can only
+shrink, and the check reports what is left. The defect there is the stored
+spelling — every reader that parses a docket number strips the marking, so no
+published cut is missing those rows. The shrinking is what licenses the
+advisory, so it is enforced rather than assumed: each advisory carries a
+**ceiling**, and a count above it is not a backlog but a write path that
+stopped stripping — a code defect, and a failure like any other. Reserve the
+advisory shape for exactly that — a defect no contributor's PR can clear.
+Anything fixable in the code fails.
+
+Because event definitions live in the
 corpus, the predict/evaluate workflows materialize each event's `event.yaml`
 into its ledger directory (`fedcourts materialize-event`) so the judgment PR
 carries it — **on first touch only**: a file already present at the ledger

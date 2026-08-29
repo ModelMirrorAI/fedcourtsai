@@ -87,7 +87,7 @@ longer grows materially, while its rates below were measured Term-to-date.
 |---|---:|---|
 | Cert — paid modern-cert petitions | 1,498 | at most the pool the gate selects from (11,987 rows over eight Terms) |
 | Merits — cert grants opening a proceeding | 65 | paid `granted`, excluding the `gvr` label, which disposes of a petition without opening a proceeding |
-| Interim — substantive applications | 179 | 13.1% of OT2025's 1,365 parsed application dockets; 82.6% are extensions and 4.2% unreadable asks. Recompute from the statpack's `interim` section rather than quoting these |
+| Interim — substantive applications | 179 | 13.1% of OT2025's 1,365 parsed application dockets; 82.6% are extensions and 4.2% unreadable asks — pre-capital-strip statpack figures (the first post-strip refresh reads 227 of 1,467, 15.5%; the freeze record registers that boundary). Recompute from the statpack's `interim` section rather than quoting these |
 
 **A case is forecast more than once.** Each stage asks one question and the
 case passes several points at which it can honestly be forecast, each with a
@@ -101,7 +101,7 @@ case-equivalent.
 | cert | CVSG | 20 | 1.33% of paid petitions — but 7.0% of the paid census's grants |
 | cert | arrival | 98 | the arrival cohort, beside `N` (see below) |
 | interim | arrival | 67 | 5 reserve slots turning over at a 27.1-day mean occupancy |
-| interim | response requested | 10 | 15.1% of the 67 selected arrivals — 27 of OT2025's 179 substantive applications |
+| interim | response requested | 10 | 15.1% of the 67 selected arrivals — 27 of OT2025's 179 substantive applications (pre-capital-strip; the post-strip denominator is 227, reading 11.9%) |
 | interim | response filed | 21 | 30.6% of the 67 selected arrivals — the rate measured over the 219-substantive population the moment was declared against (a coincidental second 67: 67 of those 219 drew a filed response); the response-filed timestamp is published in no artifact, so this one rate cannot be refreshed from the pack |
 | merits | grant | 65 | **every** granted petition — the gate is bypassed at this stage |
 | merits | briefed | 62 | 96.4% of the 65 grants reach a respondent merits brief, rounded down |
@@ -681,7 +681,10 @@ Across OT2025's 1,365 parsed application dockets, 82.6% are time-extension
 requests and 4.2% carry an ask the parser cannot read; both are filtered out
 deterministically by `interim_signals.is_predictable_application` (≈$0, no
 model call), leaving the 13.1% substantive slice as the only population ever
-predicted. The stream is budgeted as a **bounded reserve defined inside the
+predicted. (Pre-capital-strip figures: the docket-number strip admits 102
+previously unparsed OT2025 application dockets, and the first post-strip
+statpack reads 1,467 parsed / 80.5% extensions / 15.5% substantive — the
+boundary the freeze record registers.) The stream is budgeted as a **bounded reserve defined inside the
 per-conference spend envelope**: `salience.interim_reserve_slots` in
 [config/tracking.yaml](../config/tracking.yaml), set to `5` and enforced by the
 selection pass — slots in use shrink the rank fill in the pass's latest

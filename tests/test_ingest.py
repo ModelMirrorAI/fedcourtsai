@@ -385,11 +385,11 @@ def _projection_sentinel(name: str, ordinal: int, *, parity: bool = False) -> An
     Str/int/date/list sentinels are unique per field, so a projection that
     passes the *wrong* attribute into a column fails as loudly as one that
     drops it. Bools and enums cannot hold a per-field value in a single
-    assignment, so the guard runs twice: an all-first-member pass (catching a
-    dropped field — every storage default is falsy or None) and a `parity`
-    pass varying the value by the field's index *within its own type group*
-    (catching a swap between same-typed fields — ordinal parity would let two
-    same-parity fields collide).
+    assignment, so the guard runs twice, indexing each field within its own
+    type group: an enum takes its first member in one pass and its
+    group-indexed member in the `parity` pass, and a bool takes a distinct
+    2-bit code across the two passes — so any drop, and any swap between
+    same-typed fields, mismatches in at least one pass.
     """
     annotation = _strip_optional(IngestCorpusRow.model_fields[name].annotation)
     item = get_args(annotation)[0] if get_origin(annotation) is list else None
@@ -406,11 +406,16 @@ def _projection_sentinel(name: str, ordinal: int, *, parity: bool = False) -> An
             for n, f in IngestCorpusRow.model_fields.items()
             if _strip_optional(f.annotation) is bool
         )
-        assert len(peers) <= 2, (
-            "three bool fields cannot carry pairwise-distinct sentinels in two "
-            "passes; extend the guard with a further assignment"
+        assert len(peers) <= 3, (
+            "four bool fields cannot carry pairwise-distinct sentinels in two "
+            "passes; extend the guard with a third assignment"
         )
-        value = True if not parity else peers.index(name) == 0
+        # Each field takes a distinct 2-bit code across the two passes,
+        # skipping 0b00 (all-False would hide a drop behind the falsy
+        # default) — so any two fields differ in some pass, and every field
+        # is True in some pass.
+        code = peers.index(name) + 1
+        value = bool((code >> (1 if parity else 0)) & 1)
     elif annotation is int:
         value = 7000 + ordinal
     elif annotation is str:

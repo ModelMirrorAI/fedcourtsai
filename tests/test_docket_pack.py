@@ -116,28 +116,44 @@ def test_fee_class_section_splits_the_numbering_streams(tmp_path: Path) -> None:
     assert [(d.disposition, d.share) for d in paid.dispositions] == [("granted", 1.0)]
 
 
-def test_fee_class_keeps_an_unreadable_docket_number_visible(tmp_path: Path) -> None:
-    # An annotated docket number is still a modern cert petition, but the fee
-    # class cannot be read from it. It joins `(none)` rather than being dropped
-    # or guessed into a stream, so the cut's coverage gap stays on the page.
+def test_fee_class_reads_past_an_annotation_and_keeps_the_rest_visible(tmp_path: Path) -> None:
+    # The fee class is read off the docket serial, so the cut's parse strips a
+    # display annotation first: an annotated petition lands in the stream its
+    # serial names rather than in the coverage gap. A spelling the strip does
+    # not reach is still a modern cert petition whose fee class cannot be read,
+    # and it joins `(none)` rather than being dropped or guessed into a stream,
+    # so the gap that remains stays on the page.
     db = tmp_path / "corpus.db"
+
+    def _petition(case_id: str, docket_number: str) -> corpus.CorpusRow:
+        return corpus.CorpusRow(
+            case_id=case_id,
+            court="scotus",
+            docket_number=docket_number,
+            disposition=Disposition.denied,
+            last_live_polled=date(2026, 7, 1),
+            sample_weight=1,
+            distribution_count=1,
+        )
+
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
             conn,
             [
-                corpus.CorpusRow(
-                    case_id="scotus/1",
-                    court="scotus",
-                    docket_number="25-7255 *** CAPITAL CASE ***",
-                    disposition=Disposition.denied,
-                    last_live_polled=date(2026, 7, 1),
-                    sample_weight=1,
-                    distribution_count=1,
-                )
+                _petition("scotus/1", "25-7255 *** CAPITAL CASE ***"),  # IFP serial
+                _petition("scotus/2", "25-100 *** CAPITAL CASE ***"),  # paid serial
+                # An en-dash spelling (escaped, so the dash is unmistakable in
+                # source): the Term-year cut folds it to a hyphen, the strict
+                # serial parse behind the fee class does not.
+                _petition("scotus/3", "25\u20137256"),
             ],
         )
     fees = _section(_pack(db), "Cert petitions by fee class (paid vs IFP)")
-    assert [(b.key, b.cases) for b in fees.buckets] == [("(none)", 1)]
+    assert sorted((b.key, b.cases) for b in fees.buckets) == [
+        ("(none)", 1),
+        ("ifp", 1),
+        ("paid", 1),
+    ]
 
 
 def test_per_term_census_pools_the_fee_streams(fixture_corpus: FixtureCorpus) -> None:

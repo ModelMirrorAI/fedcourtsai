@@ -527,6 +527,28 @@ class CorpusRow(BaseModel):
         "is pending, unsnapshotted, or its briefing is recorded in a shape the "
         "pattern misses — a coverage gap, never an observed absence.",
     )
+    capital_case: bool = Field(
+        default=False,
+        description="Whether the Court's docket marks this case a capital one — "
+        "the `*** CAPITAL CASE ***` annotation upstream appends to the docket "
+        "number, latched here at ingest as the number itself is stripped to its "
+        "canonical spelling. The flag is the only surviving record of a signal "
+        "that would otherwise sit inside an unparseable `docket_number`. "
+        "Max-latched on upsert: the two channels disagree about carrying the "
+        "annotation (CourtListener serves the plain number), so a channel that "
+        "cannot see the marker must never clear a channel that did. False means "
+        "*not marked by any channel that wrote this row* — on a row written only "
+        "by the channel that omits the annotation, that is silence, not a denial. "
+        "**`last_live_polled` is this column's coverage sentinel**: the raise is "
+        "channel-agnostic by design (a future annotated channel is covered), but "
+        "in practice only supremecourt.gov serves the marking, so a row the live "
+        "channel has never polled reads False for want of a writer, and any rate "
+        "taken over this column must condition on that stamp or it reads a "
+        "coverage gap as an absence of capital cases. The sentinel is *attempted*, "
+        "not *read*: a poll that failed before ingesting a payload still stamps "
+        "(so the rotation cannot starve on it), leaving False beside a stamp on a "
+        "row no writer ever looked at.",
+    )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
     @model_validator(mode="after")
@@ -699,7 +721,13 @@ CREATE TABLE IF NOT EXISTS cases (
     -- Closes the row's pendency for the forecast and provisioning gates without
     -- asserting anything about the judgment below, so it stays out of the
     -- statpack's parsed slice. NULL = not known to have terminated.
-    merits_terminated   TEXT
+    merits_terminated   TEXT,
+    -- The `*** CAPITAL CASE ***` annotation upstream appends to a docket
+    -- number, latched as a flag while the number itself is stored in its
+    -- canonical spelling (see CorpusRow). Max-latched on upsert, because the
+    -- channel that omits the annotation must not clear the one that carries it.
+    -- 0 = not marked by any channel that wrote this row.
+    capital_case        INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -848,6 +876,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "response_requested_at": "TEXT",
     "response_filed_at": "TEXT",
     "merits_terminated": "TEXT",
+    "capital_case": "INTEGER NOT NULL DEFAULT 0",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -946,9 +975,71 @@ _DN_WHITESPACE = re.compile(r"\s+")
 # the two upstream channels do not agree on carrying it — so leaving it in makes
 # the same docket normalize two ways and the identity join miss.
 _DN_ANNOTATION = re.compile(r"\*{2,}[^*]*\*{2,}")
+# The one annotation whose meaning is known, matched by its words rather than by
+# the shape above, and the pair `strip_docket_annotation` /
+# `is_capital_docket_number` both read. Matching the words is what keeps the
+# ingest strip from eating a consolidated circuit docket string that uses `***`
+# as a separator between numbers. Spacing is upstream's and not guaranteed, so it
+# is matched loosely.
+_DN_CAPITAL = re.compile(r"\*{2,}\s*CAPITAL\s+CASE\s*\*{2,}", re.IGNORECASE)
 # Typographic dashes (en U+2013 / em U+2014) that stand in for a plain hyphen in a
 # docket number, folded so a dash-variant reads as the modern Term-year form.
 _DN_DASHES = {0x2013: "-", 0x2014: "-"}
+
+
+def strip_docket_annotation(raw: str) -> str:
+    """A docket number with the Court's ``*** CAPITAL CASE ***`` marking removed.
+
+    Upstream serves some SCOTUS docket numbers with that marking appended —
+    ``"19-1094 *** CAPITAL CASE ***"`` — and it is a flag on the case, not part of
+    its number. Everything that *parses* a docket number (the Term/serial
+    readers behind the fee class, the Term-year cuts, and the live channel's
+    upstream addressing) reads the whole string, so a marked number parses as
+    nothing at all: the strip is what makes those readers see the docket.
+
+    The lighter sibling of :func:`normalize_docket_number`: that one folds a number
+    to a comparison key (upper-cased, whitespace-free, label-stripped) for the
+    identity join, while this one keeps the number as upstream spells it. That is
+    what makes it safe at the **ingest write site**, where the stored value must
+    stay the docket's own spelling — a consolidated ``"21-1, 21-2"`` keeps its
+    comma and space, and only the marking (and the whitespace it leaves behind)
+    goes. An **unmarked** value is returned byte-identical, trailing whitespace
+    and double spaces included: the collapse and the trim exist to close the gap
+    the marking leaves, so they run only where there was one, and a number that
+    legitimately carries odd spacing is not re-spaced by every re-ingest.
+
+    Matched by its **exact words**, not by the ``*** … ***`` shape
+    :data:`_DN_ANNOTATION` reads, and the difference is why: a shape match treats
+    the asterisks as delimiters and so eats whatever sits between two of them,
+    which on a consolidated circuit docket string that uses ``***`` as a
+    *separator* — ``"Docket 17-2737***; 17-2741***; 17-2994***; …"`` — deletes an
+    entire docket number from the stored value. Tolerable in a comparison key,
+    where the worst case is a missed join; not tolerable in a column that is the
+    record. So the write site removes only the annotation whose wording is known,
+    and anything else is stored exactly as served.
+
+    Stripping alone would be lossy, which is why the write site pairs it with
+    :func:`is_capital_docket_number`: the ``capital_case`` column carries the
+    signal the marking was the only record of.
+    """
+    if not _DN_CAPITAL.search(raw):
+        # Nothing to remove, so nothing is rewritten — not even the whitespace.
+        # The collapse exists to close the gap the marking leaves behind, and
+        # running it unconditionally would quietly re-space unrelated numbers
+        # that legitimately carry a double space.
+        return raw
+    return _DN_WHITESPACE.sub(" ", _DN_CAPITAL.sub("", raw)).strip()
+
+
+def is_capital_docket_number(raw: str) -> bool:
+    """Whether a docket number carries the Court's ``*** CAPITAL CASE ***`` marking.
+
+    The flag half of :func:`strip_docket_annotation`, reading exactly what that
+    one removes: the two are the same rule seen from either side, so the number
+    the store keeps and the flag beside it can never disagree about what was
+    there. Widen them together, or not at all.
+    """
+    return _DN_CAPITAL.search(raw) is not None
 
 
 def normalize_docket_number(raw: str | None) -> str | None:
@@ -1157,6 +1248,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         ),
         "response_filed_at": (row.response_filed_at.isoformat() if row.response_filed_at else None),
         "merits_terminated": row.merits_terminated,
+        "capital_case": int(row.capital_case),
     }
 
 
@@ -1264,6 +1356,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         response_requested_at=_optional_date(record, "response_requested_at"),
         response_filed_at=_optional_date(record, "response_filed_at"),
         merits_terminated=_optional_str(record, "merits_terminated"),
+        capital_case=bool(_optional_int(record, "capital_case")),
     )
 
 
@@ -1277,9 +1370,10 @@ def _update_clause(column: str) -> str:
     only ever fill in, so a writer that does not carry the fact keeps what
     another channel stamped; ``distribution_count``, the interim escalation
     signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
-    and the ``has_opinion`` presence bit
+    the ``has_opinion`` presence bit, and the ``capital_case`` marking
     are max-latches (proceedings are append-only and the signals monotone —
-    an opinion once linked is never unlinked — so
+    an opinion once linked is never unlinked, and only one channel can even see
+    the capital marking, so the other's confident False must not erase it — so
     each only ever grows — and ``application_kind`` gets the same protection in
     TEXT form: a real reading is never wiped by a degraded parse's confident
     ``unknown``); ``sample_weight`` is a
@@ -1323,6 +1417,7 @@ def _update_clause(column: str) -> str:
         "referred_to_court",
         "amicus_briefs",
         "has_opinion",
+        "capital_case",
     ):
         # A fill-in latch is not enough here: a degraded live parse (a payload
         # served with its proceedings missing) yields a confident 0 — not NULL —
@@ -1340,6 +1435,10 @@ def _update_clause(column: str) -> str:
         # --full` hydration and weakening the presence checks that OR on the
         # bit — the max-latch keeps the bit
         # monotonic in the store the way the model validator keeps it in memory.
+        # `capital_case` closes the family for the same reason from the other
+        # side: only one channel serves the `*** CAPITAL CASE ***` annotation the
+        # flag is read from, so every write from the channel that omits it
+        # asserts a confident 0 that would otherwise erase the marking.
         return (
             f"{column}=MAX("
             f"COALESCE(excluded.{column}, cases.{column}), "
@@ -1683,8 +1782,12 @@ def scotus_application_term_year(docket_number: str) -> int | None:
     address parses — historical spellings (``A-363``) return ``None`` and fall
     outside any per-Term application cut, as they carry none of the
     application-parsed columns anyway.
+
+    Strips a display annotation first, so an annotated stored number
+    (``"24A1099 *** CAPITAL CASE ***"``) reads as the Term it belongs to rather
+    than falling out of every per-Term cut.
     """
-    parsed = parse_scotus_application_number(docket_number)
+    parsed = parse_scotus_application_number(strip_docket_annotation(docket_number))
     if parsed is None:
         return None
     two_digit = parsed[0]
@@ -2088,10 +2191,15 @@ def is_ifp_petition(row: CorpusRow) -> bool:
     a deliberate, recorded choice, not a claim IFP cases never matter; relaxing it
     is additive. Keyed on the parsed serial, so it fires only on a genuine cert
     docket (applications / original / miscellaneous forms do not parse). SCOTUS-only.
+
+    Strips a display annotation before parsing: an annotated number parses as
+    nothing, and "does not parse" reads here as *paid*, so leaving it in would
+    invert the exclusion on exactly the annotated rows whose serial is in the
+    IFP range.
     """
     if row.court != "scotus":
         return False
-    parsed = parse_scotus_docket_number(row.docket_number)
+    parsed = parse_scotus_docket_number(strip_docket_annotation(row.docket_number))
     return parsed is not None and parsed[1] >= IFP_SERIAL_BASE
 
 
@@ -3168,12 +3276,18 @@ def application_rotation(
     )
     # Over-fetch to cover candidates the Python re-verification drops (spellings
     # the raw GLOB admits but the strict application-number parser — the form
-    # the upstream endpoint can actually be addressed by — rejects).
+    # the upstream endpoint can actually be addressed by — rejects). A stored
+    # display annotation is stripped before that parse rather than dropped by
+    # it: an annotated application is addressable at its number, so excluding it
+    # would strand a live docket the rotation exists to poll.
     cur = conn.execute(sql, (term_floor_year, limit * 2))
     picked = [
         row
         for record in cur
-        if parse_scotus_application_number((row := _from_record(record)).docket_number) is not None
+        if parse_scotus_application_number(
+            strip_docket_annotation((row := _from_record(record)).docket_number)
+        )
+        is not None
     ]
     return picked[:limit]
 
