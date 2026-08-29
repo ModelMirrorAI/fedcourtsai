@@ -209,19 +209,21 @@ runbook, [docs/security.md](docs/security.md).
   so the label path syncs twice, and the run is already holding the shared
   corpus-write lock for the minute the refusal takes. Every `run:*` gate — the
   three fan-outs and the deterministic
-  writer — treats a `Bot` sender as the trusted App handoff without a
-  permission lookup. That allowance rests on two platform facts: installing a
+  writer — treats the data App's `Bot` sender as the trusted App handoff
+  without a permission lookup. That allowance rests on two platform facts: installing a
   GitHub App requires admin on the repository, and label writes made with the
   default `GITHUB_TOKEN` do not fire workflows — so no unprivileged actor can
   produce an `issues: labeled` event with a `Bot` sender. What those facts do
   not cover is a *second* admin-installed App (the repo carries more than one):
-  its label writes are `Bot` senders too. `run-pull`, which no handoff files
-  today, closes that residue by pinning the handoff to the data App's own
-  login (`--bot-actor`); the fan-out gates are unpinned — `run-predict` /
-  `run-evaluate` narrow their claude/codex agent steps to the data App's login
-  (the claude action's `allowed_bots`, the codex action's `allow-bot-users` —
-  the same pin under two spellings), while their gemini steps and
-  `run-backtest` rely on the gate alone.
+  its label writes are `Bot` senders too. Every gate closes that residue by
+  pinning its `Bot` allowance to the data App's own login (`--bot-actor`).
+  The claude/codex agent steps on `run-predict` / `run-evaluate` carry their
+  own narrowing to the same login (the claude action's `allowed_bots`, the
+  codex action's `allow-bot-users`) — not redundancy: those actions refuse a
+  bot actor by default, so the step-level grant is what lets the pinned
+  handoff reach the agent at all, and `tests/test_workflow_agent_bot.py`
+  locks it in. The gemini steps and `run-backtest` have no step-layer check
+  and rely on the gate's pin alone.
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
   is the sole bypass actor, so the deterministic writer jobs (`run-pull`,

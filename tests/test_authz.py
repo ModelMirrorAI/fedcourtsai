@@ -68,6 +68,15 @@ def test_pinned_bot_actor_authorizes_the_pinned_login() -> None:
     assert "pipeline App handoff" in decision.message
 
 
+def test_the_pin_refuses_an_empty_bot_login() -> None:
+    """An empty actor string (a malformed event payload) is just another
+    non-matching login: refused outright, never rescued by the lookup."""
+    decision = authorize_trigger(
+        "Bot", "", "o/r", lookup=_const("admin"), bot_actor="pipeline[bot]"
+    )
+    assert not decision.authorized
+
+
 def test_the_pin_never_touches_a_user_sender() -> None:
     """The pin narrows the Bot branch only: a human actor who happens to share
     the pinned string still goes through the permission lookup."""

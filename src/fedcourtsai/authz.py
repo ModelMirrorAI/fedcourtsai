@@ -8,11 +8,12 @@ therefore refuse a non-write actor *before* it does any privileged work (mint a
 token, assume the S3 role, run an agent).
 
 This module is that gate, lifted out of inline workflow bash so the decision is
-unit-tested rather than only lint-checked for shape. The rule: a ``Bot`` sender is
-the trusted pipeline-App handoff (only a maintainer-installed App can apply a
-``run:*`` label that triggers a workflow — the default ``GITHUB_TOKEN`` cannot), and
-any other sender must hold ``write`` (or higher) collaborator access. Anything else
-fails closed.
+unit-tested rather than only lint-checked for shape. The rule: a ``Bot`` sender
+matching the pinned data-App login is the trusted pipeline-App handoff (only a
+maintainer-installed App can apply a ``run:*`` label that triggers a workflow —
+the default ``GITHUB_TOKEN`` cannot — and the pin refuses every other App), and
+any other sender must hold ``write`` (or higher) collaborator access. Anything
+else fails closed.
 """
 
 from __future__ import annotations
@@ -68,9 +69,9 @@ def decide_authorization(
     handoff to one login: with it set, a ``Bot`` sender with any other login is
     refused outright — no permission lookup, because an App is never a
     collaborator and a lookup could only delay the refusal. Without the pin,
-    "Bot" means "any admin-installed App"; a caller whose gate is the only
-    check on its path (run-pull) passes it so the branch means "the pipeline
-    App". Returns the same human-facing text the workflow logs.
+    "Bot" means "any admin-installed App"; every gate passes it so the branch
+    means "the pipeline App". Returns the same human-facing text the workflow
+    logs.
     """
     if sender_type == _BOT_SENDER:
         if bot_actor is not None and actor != bot_actor:

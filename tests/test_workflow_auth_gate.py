@@ -10,6 +10,8 @@ from typing import Any
 
 import yaml
 
+from tests.test_workflow_agent_bot import PIPELINE_BOT
+
 WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 
 # Each privileged label trigger and the job that carries (or gates) its work.
@@ -101,6 +103,28 @@ def test_entry_job_authorizes_before_any_privileged_step() -> None:
                 f"{name}:{entry_job} runs a non-allowlisted step before the authorize gate: "
                 + (step.get("name") or uses or str(step)[:80])
             )
+
+
+def test_every_gate_pins_the_bot_allowance_to_the_data_app() -> None:
+    """The `Bot` fast-path is only safe pinned to the data App's own login.
+
+    A second admin-installed App's label writes are `Bot` senders too
+    (SECURITY.md -> *Label triggers*), so an unpinned gate extends the
+    no-permission-lookup allowance to every installed App. Each gate passes
+    ``--bot-actor`` naming the data App; this locks the flag in so a future
+    edit cannot quietly widen the allowance back out.
+    """
+    for name, (_label, entry_job) in RUN_LABELS.items():
+        wf = _load(name)
+        job = wf["jobs"][entry_job]
+        authorize = next((s for s in _steps(job) if _is_authorize_step(s)), None)
+        assert authorize is not None, f"{name}:{entry_job} has no authorize step"
+        # Whitespace-normalized so a cosmetic reflow of the run: block cannot
+        # fail with a security-shaped message.
+        run = " ".join(str(authorize.get("run", "")).split())
+        assert f'--bot-actor "{PIPELINE_BOT}"' in run, (
+            f"{name}:{entry_job} authorize step must pin --bot-actor to the data App"
+        )
 
 
 def _reachable_on_issue_label(job: dict[str, Any]) -> bool:

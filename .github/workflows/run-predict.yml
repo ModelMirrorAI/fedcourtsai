@@ -55,8 +55,9 @@ jobs:
       - uses: ./.github/actions/setup-python-env
 
       # Only a maintainer-installed App can apply a `run:*` label that triggers a
-      # workflow (events from the default GITHUB_TOKEN do not), so a Bot sender is
-      # the trusted run-pull handoff; any other actor must hold write access. The
+      # workflow (events from the default GITHUB_TOKEN do not), so a Bot sender
+      # matching the pinned data-App login is the trusted run-pull handoff (any
+      # other Bot is refused); any other actor must hold write access. The
       # decision (and its fail-closed default) lives in the tested `authorize-trigger`
       # command. It refuses *before* the downstream `predict` job (which `needs: plan`)
       # mints any token, assumes the S3 role, or reads the corpus. (The label name is
@@ -73,7 +74,8 @@ jobs:
           SENDER_TYPE: ${{ github.event.sender.type }}
         run: |
           uv run fedcourts authorize-trigger \
-            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO"
+            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO" \
+            --bot-actor "fedcourtsai-data[bot]"
 
       # The scope gate (predict.scope=scotus_docket) reads each case's corpus
       # row (court + exclusion reasons) for the *specific* cases the trigger
