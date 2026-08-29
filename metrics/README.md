@@ -17,7 +17,17 @@ cannot write), both constants set in the
 pre-registration commit the `prereg/<label>` tag marks. Everything else in
 `data/` is the **alpha/shakedown ledger** — cells written before the stamp
 existed (they carry no `process_version` at all; the absent stamp is the
-marker) or run or graded before the freeze instant. Alpha cells stay
+marker), or run or graded before the freeze instant, or stamped under
+predictor digests a later freeze deliberately retired: a
+**declared-shakedown cohort**, whose period is describable as a beta only
+because its declaration — a dated entry in the freeze record — preceded the
+outcomes of the claim window it governs (*the third supersession shape* in
+[docs/process-version.md](../docs/process-version.md); the declaration
+itself states any slice whose own outcomes had already resolved). For such a
+cohort the exclusion takes effect at the retiring freeze, not at the
+declaration: between the two, committed frozen-scope artifacts still count
+the cohort, and the declaration is what marks their figures as shakedown
+reading in the meantime. Alpha cells stay
 committed with their timestamps, but they are **excluded from every
 frozen-scope performance artifact and from any claimed performance result** —
 they exercised the pipeline while the process was still moving, and nothing
@@ -210,8 +220,8 @@ stays outside the gate:
   re-grade is a legitimate operation — but it is the cue to ask **why** a cell
   was graded twice before reading a standing that a re-grade could have moved.
   Read it beside the scope, because a zero has two meanings: on an empty
-  frozen board — the committed state while `FROZEN_SINCE` is still ahead of
-  every stamped grading — nothing was in scope to supersede, so `0` is the
+  frozen board — the committed state while no stamped grading has yet reached
+  the population the board ranks — nothing was in scope to supersede, so `0` is the
   shakedown state rather than a clean audit, and re-grades in the shakedown
   ledger are counted on no committed artifact at all. `--all-versions` is where
   they show. The collapse stops at the

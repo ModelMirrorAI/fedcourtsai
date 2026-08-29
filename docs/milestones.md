@@ -77,7 +77,11 @@ petitions up for that conference; once the opening order list drops (~early
 Oct), the realized grants/denies evaluate those predictions. The deliverable is
 a blog post / short article — *"We predicted the long conference — here's how
 we did"* — with the calibration numbers attached, compared against the
-statpack's per-Term cert base rates. It is small, datable, and end-to-end, and
+statpack's per-Term cert base rates. The counted record for that release
+opens at the `proc-v5` predictor freeze (the declared boundary in
+[freeze-record.md](freeze-record.md)), so the re-bless must be promoted
+before the long-conference predict round runs. It is small, datable, and
+end-to-end, and
 it defines the scope cleanly: the petitions on that conference list are SCOTUS
 dockets, exactly the gate the budget sizes for its **bootstrapping** state
 ([budget.md](budget.md)).
