@@ -893,3 +893,77 @@ freeze commit is recorded here.
   masking-surface declaration, not a scoring-baseline move — and no digest
   moves: claim resolution is harness-side arithmetic outside the process
   digest.
+
+- **The post-freeze proc-v3 predictor cohort declared shakedown; the counted
+  record opens at `proc-v5`, 2026-08-29.** A boundary declaration rather than
+  a freeze: no digest and no constant moves at this commit, and it is made
+  now because its evidentiary value is its date. The declaration: **every
+  prediction stamped under the three predictor digests `prereg/proc-v3`
+  blessed** — byte-identical under the `proc-v4` label, whose freeze
+  re-blessed the evaluator half only — **is shakedown, not the counted
+  record, for the long-conference claim window; the counted record opens with
+  the predictor-half re-bless labeled `proc-v5`**, and no claim pools across
+  that boundary in either direction — nor across the salience boundary the
+  cohort's cert cells straddle beside it, their contexts frozen at `sal-v3`
+  while the active scorer is `sal-v4` (the activation entry above registers
+  that rule). Measured at this commit (the staging
+  tree): **231 stamped predictions** carry those digests, 77 per predictor
+  (226 labeled `proc-v3`, 5 labeled `proc-v4` with the same bytes — the
+  continuity the proc-v4 entry above records is exactly what this declaration
+  ends).
+
+  **What the date proves, stated exactly.** For the claim window this
+  declaration governs — the cert-stage record the long conference resolves —
+  it precedes every outcome: **zero** of the cohort's cert-stage predictions
+  sit on an event with a committed outcome at this commit, so the beta is
+  declared while every cert outcome is unknown, which is the standard a beta
+  claim needs. The cohort's full partition, so no slice reads as chosen:
+  **cert 105** cells (57 arrival, 30 cvsg, 18 distribution) — 0 resolved;
+  **merits 87** (66 grant, 21 briefed) — 0 resolved; **interim 38** (20
+  arrival, 9 response-filed, 9 response-requested) — **21 resolved**; and one
+  stage-less cell, unresolved. The interim slice is not clean and is stated
+  rather than hidden: those **21 predictions on 7 already-resolved
+  application events** (9% of the cohort, 55% of its interim slice) resolved
+  before this entry, so for those cells the declaration is *after* the
+  outcome and creates no pre-registered boundary. The committed frozen-scope
+  board already reads them — 54 gradings across the three interim stage
+  blocks, carrying the registered interim base rate
+  (`pipeline.base_rates.interim_base_rate`; `segment_base_rate` 0.133 on
+  these cells) and a published per-predictor Brier skill against it, at n=2
+  events per block, spanning −0.489 to +0.804 across the three predictors.
+  What limits the damage is what those figures were already: the interim
+  stage is unranked and pools into no cert figure or headline, and the
+  metrics contract already registers that an interim skill number is not by
+  itself evidence of forecast skill — its base-rate pool is the whole
+  substantive slice while the scored cells are reserve-selected on the
+  escalation ladder. Those figures are the cohort's, they are visible now,
+  and the enforcement paragraph's "claim nothing from them" is what governs
+  them. Their grading series will still split at the `proc-v5` boundary, and
+  any interim series later published across it must state this paragraph.
+
+  The grounds, all on the record before this entry: the cohort ran under a
+  frozen prompt whose amendment debts moved the information set it describes —
+  the prompt still calls the provisioned snapshot the latest while the moment
+  cutoffs bound it (the moment-cutoff entry's own caveat, 2026-08-17, above),
+  the arrival-anchor
+  instruction points a state-caption arrival cell at the weakest band's rate
+  where the reachable ladder scores it against its own class floor an order
+  of magnitude higher, and the first post-freeze rounds surfaced provisioning
+  defects (#1296 — later-moment forward cells provisioned with the latest
+  snapshot instead of their moment's information set — and #1298 — cells run
+  silently against a missing record directory), whose
+  affected cells hold heterogeneous information sets. Excluding such cells
+  after their outcomes resolved is the move an
+  external evaluator would not accept; declaring the cohort a beta before its
+  claim window's outcomes exist is the alpha ledger's own boundary, one label
+  later.
+
+  **Enforcement follows at the `proc-v5` freeze, not here.** The re-bless
+  replaces the predictor digests in `FROZEN_PROCESS_DIGESTS` and moves
+  `FROZEN_SINCE` past its carrying promotion (the third supersession shape,
+  [process-version.md](process-version.md)), which de-counts the cohort from every
+  frozen-scope artifact mechanically. Until that promotion lands, committed
+  boards built under the current constants still count the cohort — read
+  them, from this entry's date forward, as shakedown figures awaiting their
+  de-count, and claim nothing from them. The `proc-v5` freeze entry states
+  the final de-counted census and points here as its licence.
