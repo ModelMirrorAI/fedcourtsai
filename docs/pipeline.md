@@ -826,10 +826,13 @@ described in docs/security.md.
 ### Tags
 
 Tags on `main` record the project's public reference points, in three
-namespaces. Annotated is preferred for the message and date it carries, and a
-lightweight tag is acceptable: what makes the record trustworthy is the
-ruleset's update/deletion block on these namespaces, not the tag's object
-type.
+namespaces. What makes the record trustworthy is the ruleset's
+update/deletion block on these namespaces, not the tag's object type — so
+for `promotion/` and `results/` an annotated tag is preferred (for the
+message and date it carries) and a lightweight one is acceptable. A
+`prereg/` tag is annotated, and not merely by preference: the freeze
+procedure writes the pre-registration record into the tag message
+(docs/process-version.md), so the message is load-bearing there.
 
 - **`prereg/<label>`** — a pre-registration freeze commit, e.g.
   `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS` and sets
