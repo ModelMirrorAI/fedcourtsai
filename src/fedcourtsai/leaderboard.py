@@ -171,11 +171,14 @@ class CellSkill:
     per-cell ratios is a different, worse estimator. The per-cell ratio caps at
     +1 but is unbounded below, so under cert's class imbalance a mean of ratios
     is dominated by the many low-baseline denial cells and pays a predictor to
-    under-forecast the rare event: on the current pack's `baseline` band an
-    always-deny forecaster means to about +0.94 while the honest level-only
-    forecaster means to about +0.002. The ratio of sums prices the same
-    always-deny forecaster at about -0.05 and gives the level-only forecaster
-    exactly 0, and it is stable under band mix, which a mean of ratios is not.
+    under-forecast the rare event: on the `baseline` band, scored against the
+    band's own reached rate, an always-deny forecaster means to about +0.96
+    while a forecaster reporting that rate itself means to exactly 0 (the
+    leave-one-out attainable null sits near +0.002 at that band's n — a
+    different construction, see `metrics/README.md`). The ratio of sums
+    prices the same always-deny forecaster at about -0.04, and its sign is
+    invariant in the band rate, which a mean of ratios's is not — re-derive
+    both from the committed pack rather than quoting them.
 
     A baseline is ``None`` where that column does not score the cell, so the two
     columns keep independent populations and independent counts.

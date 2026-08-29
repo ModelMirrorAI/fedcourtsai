@@ -322,7 +322,7 @@ stays outside the gate:
   Three things sharpen the "~0". The attainable level-only null is **not** 0
   but `(2n − 1) / n²` for a band of weighted `n` — the score of a forecaster
   reporting the band's *published* rate, which contains its own case: about
-  +0.03 at n = 72 and about +0.06 at the floor of n = 31. (A forecaster
+  +0.03 at n = 64 and about +0.06 at the floor of n = 31. (A forecaster
   reporting the case-excluded level would score exactly 0, but reaching that
   level requires knowing the case's outcome, so it is an oracle rather than a
   null.) More generally the correction is the exact rescale
@@ -342,16 +342,31 @@ stays outside the gate:
   cert's class imbalance, because the per-cell skill ratio caps at +1 but is
   unbounded below, so a mean of ratios is dominated by the many low-baseline
   denial cells and pays a predictor to under-forecast the rare event.
-  Illustratively — the figures that follow were rendered against a pack
-  predating the reachable-ladder re-base, so re-derive them from the current
-  pack rather than quoting them — on OT2025's risk-set segments an always-deny
-  forecaster means to **+0.94**
-  in the `baseline` band, **+0.75** in `elevated` and −0.40 in `high`, against
-  about +0.002 to +0.03 for the honest level-only forecaster: the ordering is
-  inverted, and the result swings on band mix. The ratio of sums prices the
-  same always-deny forecaster at **−0.05 / −0.20 / −0.75**, correctly negative
-  and stable. What no refresh moves is the sign pattern, which is the
-  estimator's property rather than the pack's. The `population_` prefix on both field names records exactly
+  Illustratively, on three of the `sal-v4` pack's five OT2025 risk-set
+  segments (every cell scored against its band's own OT2025 reached rate `p`,
+  over that band's risk-set population — whose grant share is `p` by
+  construction, which is what reduces the whole computation to two closed
+  forms: the mean of per-cell ratios is `1 − p/(1−p)²`, the ratio of sums
+  `−p/(1−p)`; a self-consistent illustration rather than a leakage-safe
+  baseline): the mean of ratios prices an always-deny forecaster at
+  **+0.96** in the `baseline` band (`p` = 3.9%, n = 1132), **+0.825** in
+  `elevated` (13.19%, n = 273) and **−0.26** in `high` (42.2%, n = 64 — the
+  thinnest cell, in a Term still resolving) — rewarded exactly where denial
+  dominates — while the constant level-only forecaster sits at exactly 0
+  under either estimator: definitionally, since it reports the very `p` the
+  baseline is computed from, which is the case the leave-one-out null above
+  excludes. So the ordering between the two *forecasters* inverts in
+  `baseline` and `elevated`, and there it is structural: the closed form is
+  positive for any `p` below `(3 − √5)/2 ≈ 38.2%` and negative above, so the
+  denial-dominated bands invert under any rate a refresh could print, while
+  `high`'s negative sign is a fact about OT2025's 42.2% — its per-Term rates
+  straddle the threshold, and that sign does flip across refreshes. The
+  ratio of sums prices the same always-deny forecaster at
+  **−0.04 / −0.15 / −0.73**, and *its* sign is the estimator's invariant:
+  `−p/(1−p)` is negative for every `p > 0`, whatever a refresh prints.
+  Re-derive the figures from the current pack rather than quoting them
+  across refreshes — the rate is `prefix_est_grant_rate` per band, the
+  `[reached …]` bracket in `statpack.md`'s band table. The `population_` prefix on both field names records exactly
   this, against the plain `mean_*` fields beside them (`mean_brier_score` and
   the rest *are* per-cell means), so the estimator travels with the number
   rather than only with its description. One consequence to know when reading
@@ -1181,8 +1196,11 @@ the rendered table) and
   pooled accuracy and mean Brier are **not claimable** without the per-rule
   cut; per-band skill stays honest (the band separates the two populations,
   `federal` vs the slice's mix). Only the random slice's skill transfers to
-  live prospective use: it alone is selection-bias-free, and its baseline is
-  exactly the unconditional paid-arrival grant rate. And no arrival cell
+  live prospective use: it alone is selection-bias-free, and each of its cells
+  is scored against its own caption class's arrival floor — the
+  class-partitioned reached rate, since under the reachable ladder no single
+  published figure is the unconditional paid-arrival rate — so the slice's
+  pooled skill is a mixture over class floors. And no arrival cell
   minted before the first statpack rendered after its salience version was
   registered carries any baseline at all (the version-pinned pool's designed
   `None`) — its skill column is empty, not zero, and supports no claim.
