@@ -391,11 +391,12 @@ def test_row_reading_under_the_wider_rule() -> None:
 
 
 def test_scored_segment_predicate_matches_analytics() -> None:
-    """The census's local segment predicate equals `analytics`'s on every
-    plain form — held apart to break an import cycle — with one deliberate
-    divergence pinned below: an annotated docket number ("*** CAPITAL CASE
-    ***") parses here through normalization, matching the gate's own reading,
-    where `analytics`'s raw parse drops the row from the statpack cut."""
+    """The census's local segment predicate equals `analytics`'s on every form —
+    the two are held apart only to break an import cycle. The annotated docket
+    number ("*** CAPITAL CASE ***") is pinned alongside the plain ones because
+    it is the form the two most easily drift on: the gate reads it through
+    normalization, and the statpack cut only agrees because its own parse strips
+    the annotation first."""
     rows = [
         corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="24-100"),
         corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="24-5001"),
@@ -404,14 +405,21 @@ def test_scored_segment_predicate_matches_analytics() -> None:
         corpus.CorpusRow(case_id="ca9/5", court="ca9", docket_number="23-1234"),
         corpus.CorpusRow(case_id="scotus/6", court="scotus", docket_number=""),
         corpus.CorpusRow(case_id="scotus/7", court="scotus", docket_number="No. 01-7700"),
+        corpus.CorpusRow(
+            case_id="scotus/8", court="scotus", docket_number="25-100 *** CAPITAL CASE ***"
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/9", court="scotus", docket_number="25-5184 *** CAPITAL CASE ***"
+        ),
     ]
     for row in rows:
         assert _scored_segment(row) == _is_scored_segment_row(row), row.case_id
-    annotated = corpus.CorpusRow(
-        case_id="scotus/8", court="scotus", docket_number="25-100 *** CAPITAL CASE ***"
-    )
-    assert _scored_segment(annotated) is True  # the gate's reading
-    assert _is_scored_segment_row(annotated) is False  # the statpack cut's raw parse
+    # Agreement alone would also hold if both readings dropped the annotated
+    # rows, so the segment membership is pinned too: an annotated paid petition
+    # is *in*, its IFP-serial twin excluded — both read off the serial that sits
+    # behind the annotation.
+    assert _is_scored_segment_row(rows[7]) is True
+    assert _is_scored_segment_row(rows[8]) is False
 
 
 def test_petitioner_title_survives_a_channel_without_it(tmp_path: Path) -> None:

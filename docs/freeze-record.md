@@ -1034,3 +1034,67 @@ freeze commit is recorded here.
   long-conference claim window opens with the first cells stamped under
   these digests at or after the instant, which is why the carrying promotion
   must land **before the long-conference predict round runs**.
+
+- **Scoring-baseline change** (no digest moves, no new process version): the
+  cert **scored segment** — the paid modern-cert population
+  `analytics._is_scored_segment_row` defines, which the statpack's segment base
+  rates, the per-Term `classes` blocks, `cert_backtest`, and
+  `salience_replay`'s frame are all conditioned on — gains the SCOTUS
+  petitions whose stored `docket_number` carries the Court's
+  `*** CAPITAL CASE ***` marking. Recorded here because it moves a measured
+  number under unchanged digests, after `prereg/proc-v5` was tagged
+  (freeze commit `0b019da58`, instant `2026-09-05T00:00:00Z`), and the
+  pre-registered baseline is the whole tree at that tag.
+
+  **What changed and why it is a correction, not a re-definition.** Fee class is
+  read from the docket serial, and the marking is appended to the number
+  upstream, so a marked number parsed as nothing: `_fee_class` returned `None`,
+  the row fell outside the paid segment, and — the same parse, the other
+  direction — `corpus.is_ifp_petition` returned `False` on a marked IFP
+  petition, admitting it to a scope the registered Tier-0 rule excludes. Both
+  readers now strip the marking before parsing. `docs/salience.md`'s statement
+  that the scored set is paid-only, and `metrics/README.md`'s rule that an
+  anchor match the population it anchors, were **already** the registered
+  intent; the implementation did not meet them. No registered rule text moves,
+  which is why this is not a `sal-v5`: a salience version is the five things
+  `docs/salience.md` enumerates (score function, band function, band names,
+  always-include rule, distribution parse), and Tier-0 hard eligibility is none
+  of them — it lives upstream of scoring in `corpus.OUT_OF_SCOPE_RULES`.
+
+  **Measured effect.** Read from the corpus blob whose newest `last_pulled` is
+  `2026-08-29` (newest stored snapshot `2026-07-13`), 2,152,649 case rows:
+  463 stored numbers carry a `*** … ***` string, of which 462 are the Court's
+  capital marking on SCOTUS rows and one is a Second Circuit consolidated
+  docket string that uses the asterisks as a separator and is deliberately left
+  alone. Of the 462: **183 paid** modern-cert rows enter the scored segment
+  (dispositions 147 denied, 21 granted, 10 GVR, 5 unresolved — a grant-family
+  rate several times the segment's own, so the addition is **not** a random
+  slice), and **123 IFP** rows become Tier-0 out of scope, **63 of which
+  currently carry `salience_selected = 1`** — the gate has been funding
+  petitions the registered rule excludes. Pooled OT2017–OT2025 the resolved
+  paid segment moves n = 13,163 → 13,341 (+178), its grant rate 4.163% →
+  4.265%, and its grant-family rate 6.450% → 6.596%. The 178 added rows carry
+  31 grant-family outcomes — **17.4%**, against the segment's own 6.6% — which
+  is the fact that matters: this is a re-partition on a population correlated
+  with the outcome, not a random top-up. The per-Term and per-band anchors a
+  forward cell's skill is actually scored against therefore move by more than
+  the pooled figure suggests, and by most in the small-n bands, where a handful
+  of capital petitions is a large share of the cell.
+
+  **Nothing counted is re-based.** At this entry's date the frozen cert
+  headline is empty (`metrics/leaderboard.json` `entries: []`,
+  `events_scored: 0`), and the standing `interim@arrival` forward entries are
+  already declared shakedown by the 2026-08-29 declaration above and de-count
+  at the proc-v5 freeze. One marked paid docket carries predictions (three) and
+  **zero** evaluations, so no graded cell is re-priced. Of the 63 de-selected
+  IFP rows, two reached a committed event and neither carries a prediction, so
+  `cleanup-out-of-scope-predictions` deletes nothing — a window that closes
+  when this lands, and would open only if a predict round ran first.
+
+  **The entry is dated before the instant deliberately.** Landing it and
+  refreshing metrics before `2026-09-05T00:00:00Z` means no counted number ever
+  straddles the change. The committed boards move at the first
+  `metrics-refresh` after this promotion, not at the merge, and that refresh is
+  this change's runnable effect check: `fedcourts statpack`, then the diff
+  showing the paid class counts risen by the per-Term additions above and the
+  docket pack's fee-class `(none)` bucket emptied.

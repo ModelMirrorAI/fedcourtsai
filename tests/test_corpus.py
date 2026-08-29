@@ -1949,6 +1949,92 @@ def test_merits_terminated_migrates_and_survives_ingestion(tmp_path: Path) -> No
     assert kept.merits_terminated == MeritsTermination.voluntary_dismissal.value
 
 
+def test_capital_case_migrates_and_max_latches(tmp_path: Path) -> None:
+    """A DB written before the column gains it on connect at the not-marked
+    default, and the flag then only ever latches on: only one upstream channel
+    serves the marking, so every write from the other asserts a confident False
+    that must not erase it."""
+    pre = tmp_path / "pre-change.db"
+    legacy = sqlite3.connect(pre)
+    columns = ",\n".join(
+        f"{name} {ddl}" for name, ddl in corpus._CASES_COLUMN_DDL.items() if name != "capital_case"
+    )
+    legacy.executescript(
+        f"CREATE TABLE cases ({columns});\n"
+        "INSERT INTO cases (case_id, court, docket_number) VALUES "
+        "('scotus/24001', 'scotus', '23-101');"
+    )
+    legacy.commit()
+    legacy.close()
+    with corpus.connect(pre) as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(cases)")}
+        assert "capital_case" in cols
+        migrated = corpus.get_row(conn, "scotus/24001")
+        assert migrated is not None and migrated.capital_case is False
+        marked = _row(case_id="scotus/24001", court="scotus", capital_case=True)
+        corpus.upsert_rows(conn, [marked])
+        assert (row := corpus.get_row(conn, "scotus/24001")) is not None
+        assert row.capital_case is True
+        # The channel that cannot see the marking re-serves the same docket.
+        corpus.upsert_rows(conn, [_row(case_id="scotus/24001", court="scotus")])
+        kept = corpus.get_row(conn, "scotus/24001")
+    assert kept is not None and kept.capital_case is True
+
+
+def test_from_record_tolerates_record_without_capital_case() -> None:
+    """A ranged read of a remote blob packed before the column existed: the
+    missing column reads as not-marked rather than raising."""
+    record = corpus._to_record(_row())
+    del record["capital_case"]
+    row = corpus._from_record(record)  # a plain dict raises KeyError like the ranged Row
+    assert row.capital_case is False
+    assert row == _row()
+
+
+def test_docket_number_parsers_see_past_a_display_annotation() -> None:
+    """Stored rows written before the ingest strip still carry the annotation,
+    and every reader that parses the number reads the whole string — so the
+    parse-keyed predicates strip first. Without it an annotated IFP petition
+    reads as paid, inverting the exclusion on exactly those rows."""
+    ifp = _row(case_id="scotus/1", court="scotus", docket_number="25-5184 *** CAPITAL CASE ***")
+    paid = _row(case_id="scotus/2", court="scotus", docket_number="25-100 *** CAPITAL CASE ***")
+    assert corpus.is_ifp_petition(ifp) is True
+    assert corpus.is_ifp_petition(paid) is False
+    # The Term-year cuts read the same way, on both docket forms.
+    assert corpus.scotus_term_year(paid.docket_number) == 2025
+    assert corpus.scotus_application_term_year("24A1099 *** CAPITAL CASE ***") == 2024
+    assert corpus.is_modern_cert(paid) is True
+
+
+def test_strip_docket_annotation_keeps_the_upstream_spelling() -> None:
+    """The lighter sibling of `normalize_docket_number`: it removes the marking
+    and the whitespace it leaves behind, and nothing else — the stored number
+    must stay the docket's own spelling, consolidated numbers and lower-case
+    letters included."""
+    assert corpus.strip_docket_annotation("19-1094 *** CAPITAL CASE ***") == "19-1094"
+    assert corpus.strip_docket_annotation("21-1, 21-2") == "21-1, 21-2"
+    assert corpus.strip_docket_annotation("24a1099") == "24a1099"
+    assert corpus.strip_docket_annotation("") == ""
+    # Strip and flag are the same rule from either side, so the stored number
+    # and the flag beside it can never disagree about what was there.
+    assert corpus.is_capital_docket_number("19-1094 *** CAPITAL CASE ***") is True
+    assert corpus.is_capital_docket_number("19-1094") is False
+
+
+def test_strip_docket_annotation_leaves_a_consolidated_circuit_docket_intact() -> None:
+    """The write-site strip matches the marking's *words*, never the `*** … ***`
+    shape. A circuit docket string uses the asterisks as a separator between
+    numbers, so a shape match would treat the text between two of them as an
+    annotation and delete a whole docket number out of the stored column — a
+    missed join is tolerable in a comparison key, a lost number is not."""
+    consolidated = "Docket 17-2737***; 17-2741***; 17-2994***; August Term, 2017"
+    assert corpus.strip_docket_annotation(consolidated) == consolidated
+    assert corpus.is_capital_docket_number(consolidated) is False
+    # `normalize_docket_number` keeps the shape match, and is allowed to: it
+    # builds a comparison key, where over-stripping only ever costs a match.
+    assert "17-2741" not in (corpus.normalize_docket_number(consolidated) or "")
+
+
 def test_set_merits_judgment_stamps_and_overwrites_forward(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:

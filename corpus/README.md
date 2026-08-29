@@ -68,7 +68,7 @@ source.
 |-----------------------|-----------------|----------------------------------------------|
 | `case_id`             | text (PK)       | `<court_id>/<docket_id>`                      |
 | `court`               | text            | CourtListener court id                        |
-| `docket_number`       | text            |                                              |
+| `docket_number`       | text            | the docket's number as upstream spells it, less the `*** CAPITAL CASE ***` marking the Court appends to some SCOTUS numbers, which ingest strips so the readers that parse the number can see it (the marking is preserved on `capital_case`). Matched by its words, not by the `*** … ***` shape — a consolidated circuit docket uses the asterisks as a separator, and a shape match would delete a whole number out of the column |
 | `case_name`           | text            | case caption, e.g. `Doe v. Roe` (both ingestion paths) |
 | `petitioner_title`    | text            | the petitioner's structured caption (supremecourt.gov `PetitionerTitle`, role suffix stripped; live channel only, fill-in latched) — the arrival-time party-class reading (`pipeline.caption`) |
 | `date_filed`          | date            |                                              |
@@ -114,6 +114,7 @@ source.
 | `response_requested_at` | date          | when the Court or a Circuit Justice asked for a response to an interim application (live channel only, fill-in latched) — the interim stage's second forecast moment, and the dated sibling of `response_requested`; the two disagree only on an undated request |
 | `response_filed_at`   | date            | when a response to the application was filed (live channel only, fill-in latched) — the interim stage's third forecast moment; a different event from the Court asking, since a respondent may answer uninvited and a requested response may never arrive |
 | `merits_terminated`   | text            | why a granted case's merits proceeding ended **without** a disposition (the `MeritsTermination` vocabulary — a post-grant Rule 46 dismissal, a dismissal as moot, an abatement on the petitioner's death, a grant the Court vacated, a bare mandate notation), written by the backfill sweep alone; null = not known to have terminated |
+| `capital_case`        | integer (0/1)   | the Court's `*** CAPITAL CASE ***` marking, read from the annotation upstream appends to the case number and latched here as ingest strips the number to its canonical spelling; max-latched, since only one channel serves the annotation — 0 = not marked by any channel that wrote the row, which on a CourtListener-only row is silence rather than a denial |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on, while `panel` carries the structured detail.

@@ -102,6 +102,12 @@ def project_row(
       the ``salience_*`` columns, the ``predict_*``/queue latches, tracking
       stamps, opinion linkage. The projected row therefore reads as an open,
       never-scored petition, which is what it was at the cutoff.
+      ``capital_case`` is nulled with them, by decision rather than by
+      omission: it is filing-time identity and would be safe to carry, but only
+      the live channel can set it, so carrying it would make the projection
+      read a never-polled row as *not capital* — a coverage gap dressed as a
+      fact. Nothing bands on it today; a caller that wants it reads the stored
+      row, where ``last_live_polled`` says whether the flag means anything.
 
     ``parse`` names the registered DISTRIBUTED reading
     (:data:`~fedcourtsai.pipeline.cert_signals.DISTRIBUTION_PARSES`) the

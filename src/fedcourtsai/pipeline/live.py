@@ -383,10 +383,13 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
     record is complete enough to predict. Ground-truth *recording* is ungated;
     the ``evaluate`` queue requires a committed prediction to score (drops are
     surfaced on ``evaluate_skipped``), and ambiguous resolutions route to
-    ``unrecorded`` unconditionally. A petition whose docket JSON has vanished (404 on a
-    previously served number) is recorded on ``failed`` and its
-    ``last_live_polled`` still advances via the row upsert path — it must not
-    pin the rotation's front.
+    ``unrecorded`` unconditionally. Two classes are recorded on ``failed`` with
+    their ``last_live_polled`` still advancing via the row upsert path, because
+    neither may pin the rotation's front: a petition whose docket JSON has
+    vanished (404 on a previously served number), and one whose stored docket
+    number no strict parser can address — the rotation's membership test is more
+    tolerant than the addressing parse, so the residue it admits is skipped here
+    and must not be re-selected every cycle for it.
 
     ``salience_config`` (when the scope is gated) additionally suppresses a
     **relist** transition — as opposed to a petition's first distribution —
@@ -405,11 +408,32 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
             # it left off (nearest-conference-first, staleness breaking ties)
             # rather than re-doing this cycle wholesale.
             break
-        parsed = parse_scotus_docket_number(row.docket_number)
+        # `live_rotation` verifies the modern-cert form through
+        # `normalize_docket_number`, which is strictly more tolerant than this
+        # parse: it folds typographic dashes, drops a `No.` label, removes all
+        # whitespace, and shape-strips annotations the write-site strip leaves —
+        # and its Term pattern is not end-anchored, so consolidated and suffixed
+        # spellings pass it too. The two therefore do **not** agree, by design;
+        # stripping the capital marking closes the largest class, and the rest
+        # (consolidated numbers, trailing-period spellings, a parenthesized
+        # companion) reach the branch below as genuine residue.
+        parsed = parse_scotus_docket_number(corpus.strip_docket_annotation(row.docket_number))
         docket_id = int(row.case_id.rsplit("/", 1)[-1])
         if parsed is None:
-            # live_rotation verified the modern-cert form, so this is unreachable
-            # in practice; skip defensively rather than probe a malformed URL.
+            # The rotation ordered this row to the front on staleness, so a bare
+            # `continue` would re-select it every cycle and let one unaddressable
+            # row starve every petition behind it. Stamp the poll, exactly as the
+            # 404 branch does: the constraint is that no row may block its own
+            # re-poll stamp, whatever is wrong with it.
+            with corpus.connect(corpus_db_path) as conn:
+                corpus.upsert_rows(conn, [row.model_copy(update={"last_live_polled": today})])
+            queues.failed.append(
+                {
+                    "court": "scotus",
+                    "docket": docket_id,
+                    "reason": f"docket number {row.docket_number!r} is not addressable upstream",
+                }
+            )
             continue
         term, serial = parsed
         try:
@@ -529,19 +553,33 @@ def poll_applications(
     The same politeness applies (the client paces every fetch) and the same
     soft budget: on expiry the polls done so far are committed and the rotation
     resumes next cycle. A vanished docket (404 on a previously served number)
-    is stamped so it cannot pin the rotation's front, exactly as in the cert
-    refresh.
+    and an unaddressable stored number are both stamped so neither can pin the
+    rotation's front, exactly as in the cert refresh.
     """
     queues = PullQueues()
     for row in due:
         if deadline is not None and time_fn() >= deadline:
             break
-        parsed = parse_scotus_application_number(row.docket_number)
+        # Stripped before parsing for the same reason as the cert refresh: the
+        # stored number may carry a display annotation the strict addressing
+        # parser cannot see past.
+        parsed = parse_scotus_application_number(corpus.strip_docket_annotation(row.docket_number))
         docket_id = int(row.case_id.rsplit("/", 1)[-1])
         if parsed is None:
-            # application_rotation verified the addressable form, so this is
-            # unreachable in practice; skip defensively rather than probe a
-            # malformed URL.
+            # `application_rotation` re-verifies the addressable form over the
+            # same strip, so this is reachable only if the two ever disagree.
+            # Stamp the poll rather than skipping bare: an unstamped row keeps
+            # its place at the stale front of the rotation and starves the
+            # applications behind it.
+            with corpus.connect(corpus_db_path) as conn:
+                corpus.upsert_rows(conn, [row.model_copy(update={"last_live_polled": today})])
+            queues.failed.append(
+                {
+                    "court": "scotus",
+                    "docket": docket_id,
+                    "reason": f"docket number {row.docket_number!r} is not addressable upstream",
+                }
+            )
             continue
         term, serial = parsed
         try:
@@ -917,11 +955,19 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
         # its selection may postdate its last docket change), so the cert-only
         # parse would strand exactly the cases the reserve funds.
         form: Literal["cert", "application"] = "cert"
-        parsed = parse_scotus_docket_number(row.docket_number)
+        # Stripped once for both forms: a stored display annotation hides the
+        # docket from the cert and the application parser alike, and this sweep
+        # is the only path to a merits or reserve-selected cell.
+        addressable = corpus.strip_docket_annotation(row.docket_number)
+        parsed = parse_scotus_docket_number(addressable)
         if parsed is None:
-            parsed = parse_scotus_application_number(row.docket_number)
+            parsed = parse_scotus_application_number(addressable)
             form = "application"
         if parsed is None:
+            # No stamp is owed here, unlike the rotations': candidates are the
+            # whole selected slice rather than a bounded head, and a skip
+            # spends no fetch budget, so an unaddressable row delays nothing
+            # behind it.
             continue
         term, serial = parsed
         fetches += 1

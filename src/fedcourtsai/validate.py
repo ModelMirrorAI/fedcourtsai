@@ -130,6 +130,21 @@ CHECK_CORRECT_AGREES = "evaluation_correct_agrees"
 # Only a merits outcome has a judgment to record, and the field routes `correct`.
 CHECK_JUDGMENT_ONLY_MERITS = "judgment_only_on_merits_outcomes"
 CHECK_STALE_UNPARSED_GRANTS = "no_stale_unparsed_grants"
+# Advisory, not a failure: ingest strips the marking at the write site, but rows
+# written before it still carry one until they are re-ingested, and the verdict
+# must not be red for the whole interval. Named for the capital marking
+# specifically, which is exactly what it counts — a `*** … *** ` string the
+# strip leaves alone (a consolidated circuit docket) is not a defect.
+CHECK_DOCKET_NUMBER_MARKING = "docket_numbers_carry_no_capital_marking"
+
+#: Ceiling on the advisory count above which it stops being advisory and fails.
+#: The strip runs at every ingest write site, so this population can only ever
+#: shrink; a count above the ceiling means a write path is landing the marking
+#: again, which is a code defect and belongs in the failing set. Set with
+#: headroom over the observed backlog so ordinary drainage never trips it.
+#: Raise it only after establishing why the population grew — never to silence
+#: a regression.
+_DOCKET_MARKING_CEILING = 600
 
 # The staleness bound lives in `corpus` (`STALE_GRANT_DAYS`, with the
 # rationale beside it): one bound, two consumers — this check reports the
@@ -188,6 +203,29 @@ def _check(name: str, problems: list[str], *, checked: int, detail: str = "") ->
     return CorpusCheck(
         name=name,
         passed=not problems,
+        checked=checked,
+        failures=len(problems),
+        detail=detail,
+        problems=sorted(problems)[:_MAX_PROBLEMS],
+    )
+
+
+def _advisory(name: str, problems: list[str], *, checked: int, detail: str = "") -> CorpusCheck:
+    """Assemble a check that **reports** its findings without failing the verdict.
+
+    The same shape as :func:`_check` — the count in ``failures``, a bounded
+    sample in ``problems`` — but ``passed`` stays true, so the finding rides on
+    the durable verdict and in the command's warning lines while ``ok`` keeps
+    meaning "nothing here blocks a merge".
+
+    Reserved for a defect whose *remedy is a data pass, not a code fix*: failing
+    would leave the verdict red for however long the backfill takes, which trains
+    a reader to ignore a red verdict — the one cost a validator cannot afford.
+    Anything a contributor can fix in their own PR is a :func:`_check`.
+    """
+    return CorpusCheck(
+        name=name,
+        passed=True,
         checked=checked,
         failures=len(problems),
         detail=detail,
@@ -313,6 +351,97 @@ def check_required_columns(conn: sqlite3.Connection) -> CorpusCheck:
     ):
         problems.append(f"snapshot row has an empty case_id/date/payload ({record['case_id']!r})")
     return _check(CHECK_REQUIRED_COLUMNS, problems, checked=checked)
+
+
+def check_docket_number_marking(conn: sqlite3.Connection) -> CorpusCheck:
+    """No stored ``docket_number`` should carry the ``*** CAPITAL CASE ***`` marking.
+
+    Upstream appends the marking to some case numbers. It is a flag on the case,
+    never part of its number, and it is latched separately as ``capital_case``,
+    so a stored number carrying it is a **spelling defect**: the column is not
+    the number the Court assigned.
+
+    Deliberately not "the base rates are missing these rows" — every reader that
+    parses a docket number strips the marking first, so the cuts and the live
+    channel's addressing all see these dockets. What the stored annotation
+    actually costs is narrower and still worth counting: it breaks
+    :func:`~fedcourtsai.corpus.normalize_docket_number`'s identity join for any
+    consumer that does not normalize, it is wrong wherever the column is
+    displayed, and it is a trap for the next parse site that forgets to strip.
+
+    Scoped to what the ingest strip would change, which is the same rule on both
+    sides: a ``*** … ***`` string the strip leaves alone — a consolidated circuit
+    docket using the asterisks as separators — is not a defect and is not counted.
+
+    **Advisory below the ceiling, a failure above it.** Ingest strips the
+    marking at the write site, so no new row can acquire one, but a row written
+    before that strip reached the store still carries it until it is
+    re-ingested — the corpus is the only place the fix can land, and no
+    contributor's PR can make this green. Failing on the backlog would hold the
+    verdict red across that whole interval; reporting the count keeps it visible
+    and shrinking instead.
+
+    That reasoning holds only while the population is *shrinking*, which is why
+    the advisory is ratcheted at :data:`_DOCKET_MARKING_CEILING`. Every write
+    site strips, so a count above the ceiling is not a backlog — it means a
+    write path is landing the marking again, and that is a code defect, fixable
+    in a PR, and therefore a failure like any other. Without the ratchet the
+    check would greet an unbounded regression with the same warning line it
+    prints today.
+
+    Two paths clear a row, neither of them a dedicated sweep: a live-slice row
+    normalizes on its next live poll, which re-ingests the whole payload, so that
+    part of the backlog drains on its own as the rotation comes around. A row
+    outside the live slice needs a re-read aimed at it — ``refresh-dockets`` on
+    named rows, or a Term re-walk — and stays counted here until one runs.
+
+    ``checked`` is every case row, since the invariant is over all of them; the
+    ``LIKE`` is only a prefilter, and the strip decides. That corpus-wide
+    denominator is **not** the rate to quote — the marking is a SCOTUS-only
+    upstream habit, so ``detail`` carries the SCOTUS count beside it and a
+    reader dividing by ``checked`` would understate the concentration by two
+    orders of magnitude.
+    """
+    problems = [
+        f"{record['case_id']}: docket_number {stored!r} carries the capital-case "
+        + f"marking (the number is {cleaned!r})"
+        for record in conn.execute(
+            "SELECT case_id, docket_number FROM cases "
+            "WHERE docket_number LIKE '%*%' ORDER BY case_id"
+        )
+        if (cleaned := corpus.strip_docket_annotation(stored := str(record["docket_number"])))
+        != stored
+    ]
+    scotus = int(
+        conn.execute("SELECT count(*) AS n FROM cases WHERE court = 'scotus'").fetchone()["n"]
+    )
+    if len(problems) > _DOCKET_MARKING_CEILING:
+        # Past the ceiling the population is growing, so this is a write path
+        # that stopped stripping — a code defect, and a failure like any other.
+        return _check(
+            CHECK_DOCKET_NUMBER_MARKING,
+            problems,
+            checked=corpus.count(conn),
+            detail=(
+                f"{len(problems)} of {scotus} SCOTUS row(s) carry the marking, above the "
+                f"ceiling of {_DOCKET_MARKING_CEILING} — a write site is landing it again"
+            ),
+        )
+    return _advisory(
+        CHECK_DOCKET_NUMBER_MARKING,
+        problems,
+        checked=corpus.count(conn),
+        detail=(
+            # "advisory" leads the line because `detail` is what travels into the
+            # `::warning::` and the dashboard's monitored list, where nothing
+            # else distinguishes this from a baseline-gated pass.
+            f"advisory: {len(problems)} of {scotus} SCOTUS row(s) still carry the "
+            "marking; cleared by re-ingest (a live-slice row on its next poll, one "
+            "outside it on a targeted re-read)"
+            if problems
+            else "no marked docket numbers stored"
+        ),
+    )
 
 
 def check_snapshot_not_future(conn: sqlite3.Connection, today: date) -> CorpusCheck:
@@ -1414,6 +1543,7 @@ def _run_checks(
         _check(CHECK_CORPUS_OPENS, [], checked=1, detail="corpus opened"),
         check_row_count_monotonic(conn, baseline_count),
         check_required_columns(conn),
+        check_docket_number_marking(conn),
         check_snapshot_not_future(conn, today),
         check_stale_unparsed_grants(conn, today),
         check_case_dates(conn, today),

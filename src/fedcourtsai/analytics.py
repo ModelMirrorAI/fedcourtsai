@@ -27,7 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from . import corpus
 from .config import StatpackConfig
-from .corpus import CorpusRow
+from .corpus import CorpusRow, strip_docket_annotation
 from .pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED
 from .pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from .pipeline.interim_signals import ApplicationKind
@@ -221,10 +221,14 @@ def _cvsg_key(row: CorpusRow) -> str:
 
 
 def _fee_class(row: CorpusRow) -> FeeClass | None:
-    """The docket serial's numbering stream, or ``None`` off the modern-cert form."""
+    """The docket serial's numbering stream, or ``None`` off the modern-cert form.
+
+    Strips a display annotation before parsing, so an annotated stored number
+    lands in its real fee class rather than in the off-form ``None`` bucket.
+    """
     if row.court != "scotus":
         return None
-    parsed = parse_scotus_docket_number(row.docket_number)
+    parsed = parse_scotus_docket_number(strip_docket_annotation(row.docket_number))
     if parsed is None:
         return None
     return FeeClass.ifp if parsed[1] >= IFP_SERIAL_BASE else FeeClass.paid
@@ -2244,8 +2248,9 @@ def render_docket_markdown(pack: DocketPack) -> str:
         + "section that follows names them. On the era cut it is the absence of any "
         + "date signal. On the fee-class cut it is a parsing gap: fee class is read by "
         + "a stricter serial parser than the one behind the Term cuts, so docket "
-        + "numbers it cannot read — annotated ones such as a capital-case marker most "
-        + "visibly, but also consolidated and prefixed spellings — land here. That "
+        + "numbers it cannot read — consolidated and prefixed spellings, and "
+        + "dash-variant numbers the Term cut folds and this one does not — land here. "
+        + "A display annotation is not among them: both parses strip it. That "
         + "bucket is therefore **not a random slice**, so read the paid/IFP table as a "
         + "split of the petitions whose numbers parse cleanly rather than a partition "
         + "of the whole docket. Where an `(unknown)` bucket appears — the relist and "
@@ -2264,10 +2269,10 @@ def render_docket_markdown(pack: DocketPack) -> str:
             + "the paid and IFP streams, read from the discovery cursors — exact for "
             + "docketed numbers, a slight upper bound on real petitions since withheld "
             + "serials still count. **The two columns are not nested**: `ingested` counts "
-            + "rows on hand, and a row can sit outside the serial census — most visibly a "
-            + "petition whose docket number carries an annotation the serial parser "
-            + "cannot read (a capital-case marker, say), ingested under its Term but "
-            + "belonging to no stream's census — so `ingested` can "
+            + "rows on hand, and a row can sit outside the serial census — a petition "
+            + "whose docket number carries no serial the stream parser can read (a "
+            + "consolidated, prefixed, or dash-variant spelling), ingested under its "
+            + "Term but belonging to no stream's census — so `ingested` can "
             + "exceed `filings`. `ingested` and `grants "
             + "observed` are raw counts of rows on hand; the grant rate is the "
             + "denial-reweighted estimate, and its `est. n` is the reweighted resolved "

@@ -1023,19 +1023,33 @@ def render_data_health(health: DataHealth) -> str:
         lines += ["", "| Check | Failures | Sample |", "|-------|---------:|--------|"]
         lines += [f"| {name} | {n} | {sample.replace('|', '\\|')} |" for name, n, sample in rows]
 
-    # A check that passed but counted non-zero failures is a known condition held
-    # within an accepted baseline (e.g. case_dates_ordered). Surface it so the
-    # count stays visible — the verdict is green, but the monitor still reads it.
+    lines += _monitored_lines(health)
+
+    return "\n".join(lines) + "\n"
+
+
+def _monitored_lines(health: DataHealth) -> list[str]:
+    """The _Monitored_ block: checks that passed while counting failures.
+
+    Two shapes qualify, and neither is a defect: held within an accepted
+    baseline (``case_dates_ordered``), or advisory, where the count is a
+    backlog only a data pass can clear
+    (``docket_numbers_carry_no_capital_marking``). Both keep the verdict green,
+    which is exactly why the block has to render on a **green** dashboard as
+    well as a failing one — a count that only ever appears beside a failure is
+    invisible in the only state it actually occurs in.
+    """
+    corpus_v = health.corpus
     monitored = (
         [c for c in corpus_v.checks if c.passed and c.failures]
         if corpus_v is not None and not corpus_v.skipped
         else []
     )
-    if monitored:
-        lines += ["", "_Monitored (within accepted baselines):_"]
-        lines += [f"- {c.name}: {c.detail}" for c in monitored]
-
-    return "\n".join(lines) + "\n"
+    if not monitored:
+        return []
+    return ["", "_Monitored (a known condition, not a defect):_"] + [
+        f"- {c.name}: {c.detail}" for c in monitored
+    ]
 
 
 def render_leakage_digest(digest: LeakageDigest) -> str:
@@ -1244,12 +1258,17 @@ def render_markdown(report: OpsReport) -> str:
 
     lines += _render_agent_signals(report)
 
-    # A green verdict is one line; the full breakdown (and its detail table) appears
-    # only when failing — the same body the data-validation escalation issue posts.
+    # A green verdict is one line; the full breakdown (and its detail table)
+    # appears only when failing — the same body the data-validation escalation
+    # issue posts. The monitored counts ride along on the green line too: they
+    # never redden a verdict, so a green dashboard is the only place they are
+    # ever seen, and gating them behind the failing branch would hide them
+    # permanently.
     dh = report.data_health
     if dh is not None:
         if dh.ok:
             lines += ["", "**Data health:** ✅ Healthy."]
+            lines += _monitored_lines(dh)
         else:
             lines += ["", render_data_health(dh).rstrip("\n")]
 

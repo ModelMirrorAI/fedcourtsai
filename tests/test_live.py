@@ -18,8 +18,10 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.ingest import (
     CorpusSource,
     backfill_live_signals,
+    from_api_docket,
     from_live_docket,
     to_corpus_row,
+    upsert_to_corpus,
 )
 from fedcourtsai.pipeline.live import (
     LiveDiscovery,
@@ -27,6 +29,7 @@ from fedcourtsai.pipeline.live import (
     discover_live,
     ingest_live_payload,
     live_poll_all,
+    poll_live_cases,
     salience_sweep,
 )
 from fedcourtsai.pipeline.pull import PullQueues
@@ -272,6 +275,108 @@ def test_from_live_docket_untracked_lower_court_leaves_linkage_unset() -> None:
     row = from_live_docket(payload, live_docket_id(25, 100))
     assert row.originating_court is None
     assert row.originating_docket_number == "23-55501"
+
+
+def test_from_live_docket_strips_the_capital_annotation_and_latches_the_flag() -> None:
+    """The annotation upstream appends to a case number is a flag on the case,
+    not part of its number: it is stripped out of `docket_number` — so the
+    parsing readers can see the docket at all — and latched in `capital_case`,
+    which is what keeps the strip lossless."""
+    row = from_live_docket(_payload("25-5184 *** CAPITAL CASE ***"), live_docket_id(25, 5184))
+    assert row.docket_number == "25-5184"
+    assert row.capital_case is True
+    # And the number now parses, which is the whole point of stripping it.
+    assert parse_scotus_docket_number(row.docket_number) == (25, 5184)
+    plain = from_live_docket(_payload(), live_docket_id(25, 100))
+    assert plain.docket_number == "25-100" and plain.capital_case is False
+
+
+def test_from_live_docket_reads_the_payload_capital_flag() -> None:
+    """The payload's own `bCapitalCase` is the authoritative reading; the
+    annotation is only what a payload omitting the flag still says. Either
+    alone under-reports, so the two are OR-ed."""
+    flagged = _payload()
+    flagged["bCapitalCase"] = True
+    row = from_live_docket(flagged, live_docket_id(25, 100))
+    assert row.docket_number == "25-100" and row.capital_case is True
+
+
+def test_capital_flag_survives_a_channel_that_omits_the_annotation(tmp_path: Path) -> None:
+    """Only supremecourt.gov serves the marking, so a CourtListener enrichment
+    writes a confident False over the same row. The max-latch is what keeps the
+    flag from being erased by the channel that cannot see it."""
+    db = tmp_path / "corpus.db"
+    marked = from_live_docket(_payload("25-5184 *** CAPITAL CASE ***"), live_docket_id(25, 5184))
+    upsert_to_corpus(db, [marked])
+    with corpus.connect(db) as conn:
+        stored = corpus.get_row(conn, marked.case_id)
+        assert stored is not None and stored.capital_case is True
+    # The enrichment channel re-serves the same docket with the plain number.
+    upsert_to_corpus(
+        db,
+        [from_api_docket({"id": 9_025_005_184, "court_id": "scotus", "docket_number": "25-5184"})],
+    )
+    with corpus.connect(db) as conn:
+        after = corpus.get_row(conn, marked.case_id)
+        assert after is not None and after.capital_case is True
+
+
+def test_an_unaddressable_docket_number_still_advances_the_rotation(tmp_path: Path) -> None:
+    """`live_rotation` hands the poll a bounded, stalest-first head, so a row
+    skipped without a stamp is re-selected every cycle and starves every
+    petition behind it. The constraint is that no row may block its own re-poll
+    stamp, whatever is wrong with it — so an unaddressable number is recorded on
+    `failed` and its poll stamped anyway."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    row = to_corpus_row(
+        from_live_docket(_payload(), live_docket_id(25, 100)),
+        last_live_polled=date(2026, 7, 1),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        # A historical spelling the strict addressing parser cannot reach.
+        conn.execute("UPDATE cases SET docket_number = 'A-363' WHERE case_id = ?", (row.case_id,))
+        conn.commit()
+        due = corpus.get_row(conn, row.case_id)
+    assert due is not None
+    with _frontier_client({}) as client:
+        queues = poll_live_cases(client, db, tmp_path / "data", [due], today=date(2026, 7, 20))
+    assert len(queues.failed) == 1
+    assert "not addressable" in str(queues.failed[0]["reason"])
+    with corpus.connect(db) as conn:
+        stamped = corpus.get_row(conn, row.case_id)
+    assert stamped is not None and stamped.last_live_polled == date(2026, 7, 20)
+
+
+def test_an_annotated_docket_number_is_polled_not_skipped(tmp_path: Path) -> None:
+    """The rotation verifies the modern-cert form through normalization, which
+    the strict addressing parser does not apply. The two must agree on which
+    rows are addressable, or a row reaches the poll selected but unparseable and
+    the petition is never polled — stripping before the parse is what buys that
+    agreement on an annotated stored number."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    row = to_corpus_row(
+        from_live_docket(_payload(), live_docket_id(25, 100)),
+        last_live_polled=date(2026, 7, 1),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        conn.execute(
+            "UPDATE cases SET docket_number = '25-100 *** CAPITAL CASE ***' WHERE case_id = ?",
+            (row.case_id,),
+        )
+        conn.commit()
+        due = corpus.get_row(conn, row.case_id)
+    assert due is not None
+    with _frontier_client({"25-100": _payload("25-100 *** CAPITAL CASE ***")}) as client:
+        queues = poll_live_cases(client, db, tmp_path / "data", [due], today=date(2026, 7, 20))
+    assert queues.failed == []  # the docket was fetched, not skipped
+    with corpus.connect(db) as conn:
+        polled = corpus.get_row(conn, row.case_id)
+    assert polled is not None
+    assert polled.last_live_polled == date(2026, 7, 20)
+    # And the poll's own ingest normalized the stored number on the way through.
+    assert polled.docket_number == "25-100" and polled.capital_case is True
 
 
 def test_in_re_caption_without_respondent() -> None:
