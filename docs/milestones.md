@@ -31,6 +31,8 @@ Sources: [28 U.S.C. § 2](https://www.law.cornell.edu/uscode/text/28/2) (term st
 [SCOTUSblog: the long conference](https://www.scotusblog.com/2025/08/what-is-the-supreme-courts-long-conference/),
 [Court procedures](https://www.supremecourt.gov/about/procedures.aspx).
 
+## Where the pipeline stands
+
 The machinery for the first release is running end to end — ingestion live on
 all three channels, the corpus split on in production, the SCOTUS-gated
 predict/evaluate cascade producing valid ledger artifacts with per-run cost
@@ -106,12 +108,12 @@ budget.md's *Scaling plan*; no release above depends on it.
 
 - Verify the S3 egress projections against the split stores
   ([budget.md](budget.md)).
-- Unify the index's transport onto the same boto3 pattern as the content store.
 - Finish re-anchoring the budget once an evaluate-side per-run cost under the
   currently blessed grading digests is measured **at the cert stage**. The
-  predict side is measured; the blessed-digest evaluate measurements so far are
-  interim-stage only (six events under the superseded `proc-v3` digests, plus
-  one partial event under `proc-v4` — [budget.md](budget.md), *Evaluate cost*).
+  predict side is measured; the evaluate measurements so far are interim-stage
+  only — six events under the superseded `proc-v3` digests, plus a single
+  partial event under the blessed `proc-v4` ones ([budget.md](budget.md),
+  *Evaluate cost*).
 - Re-anchor the per-predictor grading margin at the first `P = 4` fan-out.
 
 The last two are distinct triggers — one prices the evaluate half at today's
@@ -135,4 +137,4 @@ replica under FLP's replication agreement — *The planned end-state* in
 [data-pipeline.md](data-pipeline.md)), docket-alert webhooks, and opinion
 bodies served from the replica. The corpus boundary and everything downstream
 of ingestion are unchanged by design under all of these; budget.md carries why
-none is cost-justified at the current scope.
+two of the three are not cost-justified at the current scope.
