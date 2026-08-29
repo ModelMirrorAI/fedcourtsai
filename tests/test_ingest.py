@@ -1,9 +1,15 @@
-from datetime import date
+from datetime import date, timedelta
+from enum import Enum
 from pathlib import Path
+from types import UnionType
+from typing import Any, Union, get_args, get_origin
 
 import pytest
 
 from fedcourtsai import corpus
+from fedcourtsai.pipeline.ingest import (
+    CorpusRow as IngestCorpusRow,
+)
 from fedcourtsai.pipeline.ingest import (
     CorpusSource,
     default_event,
@@ -350,6 +356,148 @@ def test_the_cluster_field_drop_is_bulk_circuit_only() -> None:
     assert api.judges == ["Alan Lee", "Jane Smith"]
     assert api.precedential_status == "Published"
     assert api.citation_count == 5
+
+
+# Shared field names exempt from the pass-through guard below. Empty, and the
+# guard is what keeps it empty: every exemption that would belong here is
+# structurally impossible, because none of them shares a name across the two
+# models. The storage row's caller-supplied channel state (`last_pulled`,
+# `last_live_polled`, `sample_weight`) and its derived columns
+# (`predict_eligible`, `has_opinion`) have no ingestion-model twin, and the one
+# renamed field arrives under a different name (`nature_of_suit` -> `topic`).
+# The cluster-join family the projection conditionally withholds is exempt only
+# on a bulk circuit row; the guard feeds it a SCOTUS REST row, where those
+# fields are expected to pass through like any other. So a field carrying the
+# same name on both models is a straight-through field: add it to the
+# projection rather than to this set.
+_PROJECTION_EXEMPT: frozenset[str] = frozenset()
+
+
+def _strip_optional(annotation: Any) -> Any:
+    if get_origin(annotation) in (Union, UnionType):
+        return next(a for a in get_args(annotation) if a is not type(None))
+    return annotation
+
+
+def _projection_sentinel(name: str, ordinal: int, *, parity: bool = False) -> Any:
+    """A value unique to `name` where the type can carry one, typed as declared.
+
+    Str/int/date/list sentinels are unique per field, so a projection that
+    passes the *wrong* attribute into a column fails as loudly as one that
+    drops it. Bools and enums cannot hold a per-field value in a single
+    assignment, so the guard runs twice: an all-first-member pass (catching a
+    dropped field — every storage default is falsy or None) and a `parity`
+    pass varying the value by the field's index *within its own type group*
+    (catching a swap between same-typed fields — ordinal parity would let two
+    same-parity fields collide).
+    """
+    annotation = _strip_optional(IngestCorpusRow.model_fields[name].annotation)
+    item = get_args(annotation)[0] if get_origin(annotation) is list else None
+    value: Any
+    if item is str:
+        value = [f"{name}-sentinel"]
+    elif item is corpus.PanelMember:
+        value = [corpus.PanelMember(name=f"{name}-sentinel", seniority="active")]
+    elif item is corpus.CounselEntry:
+        value = [corpus.CounselEntry(party=f"{name}-sentinel")]
+    elif annotation is bool:
+        peers = sorted(
+            n
+            for n, f in IngestCorpusRow.model_fields.items()
+            if _strip_optional(f.annotation) is bool
+        )
+        assert len(peers) <= 2, (
+            "three bool fields cannot carry pairwise-distinct sentinels in two "
+            "passes; extend the guard with a further assignment"
+        )
+        value = True if not parity else peers.index(name) == 0
+    elif annotation is int:
+        value = 7000 + ordinal
+    elif annotation is str:
+        value = f"{name}-sentinel"
+    elif annotation is date:
+        value = date(2031, 1, 1) + timedelta(days=ordinal)
+    elif isinstance(annotation, type) and issubclass(annotation, Enum):
+        members = list(annotation)
+        peers = sorted(
+            n
+            for n, f in IngestCorpusRow.model_fields.items()
+            if _strip_optional(f.annotation) is annotation
+        )
+        value = members[peers.index(name) % len(members)] if parity else members[0]
+    else:
+        raise AssertionError(
+            f"no sentinel for {name}: {annotation}. A newly shared field needs one "
+            "here so the projection guard can cover it."
+        )
+    return value
+
+
+def test_every_shared_field_survives_the_projection() -> None:
+    """Guard: a field carried by both models must actually cross the projection.
+
+    `to_corpus_row` names its columns by hand, so a field added to both models
+    and forgotten there is written as NULL by every ingestion path — silently,
+    because nothing downstream distinguishes "never projected" from "upstream
+    served nothing". This fills each shared field with a value unique to it and
+    demands that same value back off the storage row, so the omission fails a
+    test rather than reaching the corpus.
+    """
+    shared = (
+        set(IngestCorpusRow.model_fields) & set(corpus.CorpusRow.model_fields)
+    ) - _PROJECTION_EXEMPT
+    for parity in (False, True):
+        sentinels = {
+            name: _projection_sentinel(name, i, parity=parity)
+            for i, name in enumerate(sorted(shared))
+        }
+        # A SCOTUS REST row: neither condition under which the projection
+        # withholds the cluster-join family (a bulk row, off a non-SCOTUS
+        # court) holds, so every shared field is expected through.
+        row = IngestCorpusRow(
+            **{
+                **sentinels,
+                "case_id": "scotus/24100",
+                "court": "scotus",
+                "docket_id": 24100,
+                "source": CorpusSource.api,
+            }
+        )
+        store_row = to_corpus_row(row)
+        lost = {
+            name: (getattr(row, name), getattr(store_row, name))
+            for name in sorted(shared)
+            if getattr(store_row, name) != getattr(row, name)
+        }
+        assert not lost, f"shared fields lost in to_corpus_row (ingested, stored): {lost}"
+
+
+def test_the_response_and_merits_brief_dates_reach_the_store() -> None:
+    """The dated siblings of the interim escalation flags are docket facts.
+
+    `response_requested` without `response_requested_at` is the flag asserting
+    the Court asked while the row cannot say when, which is the shape an
+    undated request legitimately takes — so a projection that drops the date
+    makes every request look undated. Built through the shared normalizer
+    (`from_api_docket`); in production only the live channel mints these three.
+    The introspection guard above covers the channel-independent projection —
+    this pins the three names so the regression reads as itself.
+    """
+    row = from_api_docket(
+        {
+            **API_DOCKET,
+            "court": "https://www.courtlistener.com/api/rest/v4/courts/scotus/",
+            "response_requested": True,
+            "response_requested_at": "2026-03-02",
+            "response_filed_at": "2026-03-20",
+            "merits_brief_filed": "2026-05-11",
+        }
+    )
+    store_row = to_corpus_row(row)
+    assert store_row.response_requested is True
+    assert store_row.response_requested_at == date(2026, 3, 2)
+    assert store_row.response_filed_at == date(2026, 3, 20)
+    assert store_row.merits_brief_filed == date(2026, 5, 11)
 
 
 def test_a_summary_and_an_opinion_body_are_separate_columns() -> None:

@@ -1272,7 +1272,8 @@ def _update_clause(column: str) -> str:
 
     Most columns take the incoming value (``excluded``). Five latch families are
     special: channel-supplied facts (``last_pulled`` and the fill-in slice of
-    the live-parsed signals)
+    the live-parsed signals — the conference and CVSG dates, and the dated
+    interim/merits signals beside them)
     only ever fill in, so a writer that does not carry the fact keeps what
     another channel stamped; ``distribution_count``, the interim escalation
     signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
@@ -1301,11 +1302,20 @@ def _update_clause(column: str) -> str:
         "cvsg_date",
         "originating_court_name",
         "petitioner_title",
+        "response_requested_at",
+        "response_filed_at",
+        "merits_brief_filed",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
         # conference parse) must not wipe what another channel stamped. Safe for
-        # exactly the columns whose degraded parse yields NULL.
+        # exactly the columns whose degraded parse yields NULL. The dated
+        # interim/merits signals qualify on the same grounds as `cvsg_date`, and
+        # share its accepted exposure: their first-match parses read the
+        # earliest qualifying entry, so a payload served with its head entries
+        # missing can move a stored date later — accepted because a fresh parse
+        # must still be able to correct a wrong date, and the open-first-moment
+        # guards bound what a moved date can re-open.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
     if column in (
         "distribution_count",

@@ -110,9 +110,9 @@ source.
 | `amicus_briefs`       | integer         | amicus briefs on an interim application's docket, counted per entry; null = never application-parsed |
 | `merits_judgment`     | text            | what the Court did to the judgment below on a granted case (the `Judgment` vocabulary), parsed from the docket's terminal entry by the shared parser — the live poll latches it at ingest, the backfill reconciles offline; null = no parsed judgment |
 | `merits_decided`      | date            | docket date of the disposition entry `merits_judgment` was parsed from; null when that entry is undated |
-| `merits_brief_filed`  | date            | when the respondent filed its brief on the merits (`pipeline.merits_signals.respondent_brief_date`) — opens the merits stage's second forecast moment; null = not yet filed, or a briefing shape the pattern misses (a coverage gap, never an observed absence) |
-| `response_requested_at` | date          | when the Court or a Circuit Justice asked for a response to an interim application — the interim stage's second forecast moment, and the dated sibling of `response_requested`; the two disagree only on an undated request |
-| `response_filed_at`   | date            | when a response to the application was filed — the interim stage's third forecast moment; a different event from the Court asking, since a respondent may answer uninvited and a requested response may never arrive |
+| `merits_brief_filed`  | date            | when the respondent filed its brief on the merits (`pipeline.merits_signals.respondent_brief_date`; live channel only, fill-in latched) — opens the merits stage's second forecast moment; null = not yet filed, or a briefing shape the pattern misses (a coverage gap, never an observed absence) |
+| `response_requested_at` | date          | when the Court or a Circuit Justice asked for a response to an interim application (live channel only, fill-in latched) — the interim stage's second forecast moment, and the dated sibling of `response_requested`; the two disagree only on an undated request |
+| `response_filed_at`   | date            | when a response to the application was filed (live channel only, fill-in latched) — the interim stage's third forecast moment; a different event from the Court asking, since a respondent may answer uninvited and a requested response may never arrive |
 | `merits_terminated`   | text            | why a granted case's merits proceeding ended **without** a disposition (the `MeritsTermination` vocabulary — a post-grant Rule 46 dismissal, a dismissal as moot, an abatement on the petitioner's death, a grant the Court vacated, a bare mandate notation), written by the backfill sweep alone; null = not known to have terminated |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
@@ -173,7 +173,13 @@ role). The three escalation signals max-latch — each is monotone over an
 application's life, so a degraded parse's confident 0 never regresses a stored
 value — and `application_kind` gets the TEXT twin of that latch: a real reading
 (`extension` / `substantive`) is never wiped by a degraded parse's confident
-`unknown`, which only ever fills a genuine gap. `sample_weight` is
+`unknown`, which only ever fills a genuine gap. The dated signals beside these
+families (`response_requested_at`, `response_filed_at`, `merits_brief_filed`)
+fill-in latch for `cvsg_date`'s reason instead: a missing parse leaves each null
+rather than a confident sentinel, so no other writer may blank a date the live
+channel stamped — which on `response_requested_at` would leave the max-latched
+`response_requested` flag standing beside a null date, the shape reserved for a
+genuinely undated request. `sample_weight` is
 min-latched — an inclusion probability is only ever learned toward certainty —
 so a weighted aggregate can multiply by it and count a denial the earlier
 sampled walk kept at full strength; null means no channel asserted a weight. The
