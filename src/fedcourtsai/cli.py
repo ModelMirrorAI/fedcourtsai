@@ -2023,6 +2023,21 @@ def remove_ungranted_merits_events_cmd(
             help="Blast-radius bound: refuse to apply more removals than this.",
         ),
     ] = 20,
+    include_failed_attempts: Annotated[
+        bool,
+        typer.Option(
+            "--include-failed-attempts",
+            help=(
+                "Also remove a phantom whose only committed output is attempt.json "
+                "cell-failure records, deleting them with it. An attempt record under "
+                "a phantom documents spend on an event that names nothing the docket "
+                "supports; removing it trades that failure history for a ledger with "
+                "no dangling phantom paths, which is why it is an explicit choice "
+                "rather than the default. Never unlocks an event carrying a "
+                "prediction.json, an evaluation.json, or an evaluations/ directory."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Drop open SCOTUS merits events whose docket carries no cert grant, in both stores.
 
@@ -2039,7 +2054,16 @@ def remove_ungranted_merits_events_cmd(
     carries an observed judgment — as are events whose case row is absent, since
     the grant column cannot be read for them. An event carrying committed
     predict/evaluate output, or a committed `outcome.json` the open corpus row
-    contradicts, is skipped and reported instead. Idempotent. Dry-run by
+    contradicts, is skipped and reported instead. `--include-failed-attempts`
+    narrows the first of those skips to what it is really protecting: a phantom
+    that reached the fan-out before it was recognized carries only the
+    `attempt.json` failure records of the cells that ran against it, which
+    document spend on an event that names nothing the docket supports; removing
+    them with it trades that failure history for a ledger with no dangling
+    phantom paths. Which is worth more is a judgement about the record, so it is
+    an explicit choice rather than the default, and it never reaches an event
+    carrying a `prediction.json`, an `evaluation.json`, or an `evaluations/`
+    directory. Idempotent. Dry-run by
     default; `--apply` writes, and refuses above `--max-removals`: the
     population is finite and non-growing (no mint produces the shape), so a
     large count means the predicate widened — triage before raising the bound.
@@ -2060,7 +2084,12 @@ def remove_ungranted_merits_events_cmd(
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
         if apply:
-            preview = remove_ungranted_merits_events(conn, settings.data_root, apply=False)
+            preview = remove_ungranted_merits_events(
+                conn,
+                settings.data_root,
+                apply=False,
+                include_failed_attempts=include_failed_attempts,
+            )
             if len(preview.removed) > max_removals:
                 typer.echo(
                     f"remove-ungranted-merits-events: refusing to apply "
@@ -2071,7 +2100,12 @@ def remove_ungranted_merits_events_cmd(
                     err=True,
                 )
                 raise typer.Exit(code=1)
-        result = remove_ungranted_merits_events(conn, settings.data_root, apply=apply)
+        result = remove_ungranted_merits_events(
+            conn,
+            settings.data_root,
+            apply=apply,
+            include_failed_attempts=include_failed_attempts,
+        )
     verb = "removed" if apply else "would remove"
     typer.echo(
         f"remove-ungranted-merits-events ({'applied' if apply else 'dry-run'}): "

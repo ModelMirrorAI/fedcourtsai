@@ -95,10 +95,22 @@ cannot then be read. And an event whose ledger directory holds a committed
 ``outcome.json`` is skipped and reported rather than removed, however the corpus
 row reads: the two stores disagreeing about openness is a triage question, not a
 licence to delete an observation.
+
+One skip is narrowable, because a phantom that reached the fan-out before it was
+recognized carries the failure records of the cells that ran against it. An
+event whose only committed output is ``attempt.json`` records — no
+``prediction.json``, no ``evaluation.json``, no ``evaluations/`` directory —
+holds a history of spend on an event that names nothing the docket supports.
+Removing it trades that history for a ledger with no dangling phantom paths;
+which is worth more is a judgement about the record rather than something the
+sweep can read off it, so the removal is an explicit caller opt-in and the skip
+stays the default. The opt-in never widens past that shape: one predicted or
+graded artifact under the event keeps it skipped.
 """
 
 from __future__ import annotations
 
+import shutil
 import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -131,6 +143,10 @@ _RECORDED_MERITS_REASON = (
     "the corpus row is open but the ledger carries an outcome.json; the stores "
     "disagree about a recorded judgment, which is triage rather than a phantom"
 )
+# The document a failed cell leaves behind: an attempt record, with no
+# prediction or evaluation beside it. `remove_ungranted_merits_events` can be
+# asked to treat a directory holding nothing else as removable.
+_ATTEMPT_DOCUMENT = "attempt.json"
 
 
 @dataclass
@@ -342,7 +358,11 @@ def remove_unmintable_baseline_events(
 
 
 def remove_ungranted_merits_events(
-    conn: sqlite3.Connection, data_root: Path, *, apply: bool
+    conn: sqlite3.Connection,
+    data_root: Path,
+    *,
+    apply: bool,
+    include_failed_attempts: bool = False,
 ) -> UnmintableEventResult:
     """Drop each open SCOTUS merits event whose row carries no cert grant, in both stores.
 
@@ -359,6 +379,18 @@ def remove_ungranted_merits_events(
     disagree about a recorded judgment), and a directory holding anything beyond
     the two event documents. See the module docstring for why a merits event
     without a grant is unmintable and why removal beats leaving it open.
+
+    ``include_failed_attempts`` narrows the first of those skips. A phantom that
+    was fanned out to cells before it was recognized carries their
+    ``attempt.json`` failure records, and nothing else — no ``prediction.json``,
+    no ``evaluation.json``, no ``evaluations/`` directory. Such a record
+    documents spend on an event that names nothing the docket supports; removing
+    it trades that failure history for a ledger with no dangling phantom paths.
+    Which of the two is worth more is a judgement about the record rather than
+    something the sweep can read off the ledger, so it is an explicit caller
+    opt-in and the skip is the default. The opt-in is bounded by
+    :func:`_only_failed_attempts`: any predicted or graded artifact under the
+    event keeps it skipped whatever the flag says.
     """
     result = UnmintableEventResult(applied=apply)
     rows = conn.execute(
@@ -372,7 +404,11 @@ def remove_ungranted_merits_events(
         case_id, event_id = str(row["case_id"]), str(row["event_id"])
         ref = f"{case_id}/{event_id}"
         paths = _ledger_event_paths(data_root, case_id, event_id)
-        reason = _ungranted_merits_blocker(paths) if paths is not None else None
+        reason = (
+            _ungranted_merits_blocker(paths, include_failed_attempts=include_failed_attempts)
+            if paths is not None
+            else None
+        )
         if reason is not None:
             result.skipped.append((ref, reason))
             continue
@@ -392,34 +428,60 @@ def _drop_event(
     run must leave that handle behind for the next pass to re-find and finish.
     ``paths`` is ``None`` for a case id off the ``<court>/<docket>`` form, which
     has no ledger directory to drop.
+
+    The whole directory goes, subdirectories included, because the blocker is
+    the seam that vets the shape: nothing reaches here whose children the
+    caller's blocker has not already enumerated and accepted.
     """
     if paths is not None and paths.base.is_dir():
-        for child in sorted(paths.base.iterdir()):
-            child.unlink()
-        paths.base.rmdir()
+        shutil.rmtree(paths.base)
     corpus.delete_event(conn, case_id, event_id)
 
 
-def _ledger_shape_blocker(paths: EventPaths) -> str | None:
+def _only_failed_attempts(paths: EventPaths) -> bool:
+    """Whether every committed cell artifact under this event is an attempt record.
+
+    True only for a ``predictions/`` tree whose every file is an
+    ``attempt.json`` — a cell that failed and recorded the failure — with no
+    ``evaluations/`` directory at all. A single ``prediction.json`` or
+    ``evaluation.json`` anywhere under it makes this false, which is what keeps
+    the opt-in below from ever reaching a predicted or graded event.
+    """
+    if paths.evaluations_dir.exists():
+        return False
+    if not paths.predictions_dir.is_dir():
+        return False
+    committed = [child for child in paths.predictions_dir.rglob("*") if child.is_file()]
+    return bool(committed) and all(child.name == _ATTEMPT_DOCUMENT for child in committed)
+
+
+def _ledger_shape_blocker(paths: EventPaths, *, allow_failed_attempts: bool = False) -> str | None:
     """Why this event's committed directory forbids removal, or ``None``.
 
     The two refusals every removal sweep shares: committed cell output under the
     event, and a directory holding anything beyond the two event documents —
     an unrecognized shape rather than a phantom.
+
+    ``allow_failed_attempts`` lifts the first refusal for the one shape
+    :func:`_only_failed_attempts` recognizes, and then admits ``predictions/``
+    as a directory child so the second refusal does not re-block what the first
+    just let through. It never widens what counts as that shape.
     """
-    if _carries_agent_artifacts(paths):
+    attempts_only = allow_failed_attempts and _only_failed_attempts(paths)
+    if _carries_agent_artifacts(paths) and not attempts_only:
         return _AGENT_OUTPUT_REASON
     if not paths.base.is_dir():
         return None  # corpus-only row: nothing committed to weigh
-    unexpected = sorted(
-        child.name for child in paths.base.iterdir() if child.name not in _EVENT_DOCUMENTS
-    )
+    permitted = set(_EVENT_DOCUMENTS)
+    if attempts_only:
+        permitted.add(paths.predictions_dir.name)
+    unexpected = sorted(child.name for child in paths.base.iterdir() if child.name not in permitted)
     if unexpected:
         return f"unrecognized files under the event directory: {', '.join(unexpected)}"
     return None
 
 
-def _ungranted_merits_blocker(paths: EventPaths) -> str | None:
+def _ungranted_merits_blocker(paths: EventPaths, *, include_failed_attempts: bool) -> str | None:
     """Why this merits event must not be removed, or ``None`` when it is safe to drop.
 
     Stricter than the baseline arm's blocker on the one point where the two
@@ -428,8 +490,13 @@ def _ungranted_merits_blocker(paths: EventPaths) -> str | None:
     tell a copied outcome from a real observation; here the corpus row already
     claims the event is open, so an ``outcome.json`` beside it is a
     store disagreement with no such discriminator.
+
+    ``include_failed_attempts`` is the caller's opt-in described on
+    :func:`remove_ungranted_merits_events`; the outcome refusal below applies
+    either way, so the flag can never reach an event carrying a recorded
+    judgment.
     """
-    shape = _ledger_shape_blocker(paths)
+    shape = _ledger_shape_blocker(paths, allow_failed_attempts=include_failed_attempts)
     if shape is not None:
         return shape
     if paths.outcome.is_file():

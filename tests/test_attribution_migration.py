@@ -804,3 +804,150 @@ def test_cli_ungranted_merits_refuses_above_the_bound(tmp_path: Path, monkeypatc
     assert merits.base.exists()  # the ledger directory survived
     with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         assert len(corpus.events_for_case(conn, _CASE)) == 2
+
+
+# --- The failed-attempt opt-in ---------------------------------------------
+
+
+_CELL_RUN = "20260816T170829Z"
+
+
+def _write_cell_file(paths: EventPaths, predictor: str, filename: str) -> Path:
+    """One committed file under a predict cell's own run directory."""
+    run_dir = paths.prediction_dir(predictor, _CELL_RUN)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    document = run_dir / filename
+    document.write_text("{}\n", encoding="utf-8")
+    return document
+
+
+def test_ungranted_merits_skips_attempt_records_by_default(tmp_path: Path) -> None:
+    """The opt-in is opt-in: an attempt-only phantom is skipped unless it is asked for."""
+    _, merits = _seed_ungranted_merits(tmp_path)
+    attempt = _write_cell_file(merits, "claude-baseline", "attempt.json")
+    with _seeded(tmp_path, _ungranted_merits_rows()) as conn:
+        result = remove_ungranted_merits_events(conn, _data_root(tmp_path), apply=True)
+        remaining = sorted(e.event_id for e in corpus.events_for_case(conn, _CASE))
+    assert result.removed == []
+    assert result.skipped == [
+        (f"{_CASE}/{MERITS_EVENT_ID}", "committed predict/evaluate output under it")
+    ]
+    assert attempt.is_file()
+    assert remaining == sorted([_BASELINE, MERITS_EVENT_ID])
+
+
+def test_ungranted_merits_opt_in_removes_an_attempt_only_phantom(tmp_path: Path) -> None:
+    """Under the flag the phantom goes, and the failure records go with its directory."""
+    _, merits = _seed_ungranted_merits(tmp_path)
+    _write_cell_file(merits, "claude-baseline", "attempt.json")
+    _write_cell_file(merits, "gemini-baseline", "attempt.json")
+    _write_cell_file(merits, "codex-baseline", "attempt.json")
+    with _seeded(tmp_path, _ungranted_merits_rows()) as conn:
+        result = remove_ungranted_merits_events(
+            conn, _data_root(tmp_path), apply=True, include_failed_attempts=True
+        )
+        remaining = [e.event_id for e in corpus.events_for_case(conn, _CASE)]
+    assert result.removed == [f"{_CASE}/{MERITS_EVENT_ID}"]
+    assert result.skipped == []
+    assert merits.base.exists() is False
+    assert remaining == [_BASELINE]
+
+
+def test_ungranted_merits_opt_in_still_skips_a_predicted_event(tmp_path: Path) -> None:
+    """Guard precision: one prediction.json beside the attempts keeps the event."""
+    _, merits = _seed_ungranted_merits(tmp_path)
+    _write_cell_file(merits, "gemini-baseline", "attempt.json")
+    prediction = _write_cell_file(merits, "claude-baseline", "prediction.json")
+    with _seeded(tmp_path, _ungranted_merits_rows()) as conn:
+        result = remove_ungranted_merits_events(
+            conn, _data_root(tmp_path), apply=True, include_failed_attempts=True
+        )
+        remaining = sorted(e.event_id for e in corpus.events_for_case(conn, _CASE))
+    assert result.removed == []
+    assert result.skipped == [
+        (f"{_CASE}/{MERITS_EVENT_ID}", "committed predict/evaluate output under it")
+    ]
+    assert prediction.is_file()
+    assert remaining == sorted([_BASELINE, MERITS_EVENT_ID])
+
+
+def test_ungranted_merits_opt_in_still_skips_a_graded_event(tmp_path: Path) -> None:
+    """An evaluations/ directory blocks the opt-in even when every predict file is an attempt."""
+    _, merits = _seed_ungranted_merits(tmp_path)
+    _write_cell_file(merits, "claude-baseline", "attempt.json")
+    merits.evaluations_dir.mkdir(parents=True)
+    with _seeded(tmp_path, _ungranted_merits_rows()) as conn:
+        result = remove_ungranted_merits_events(
+            conn, _data_root(tmp_path), apply=True, include_failed_attempts=True
+        )
+        remaining = sorted(e.event_id for e in corpus.events_for_case(conn, _CASE))
+    assert result.removed == []
+    assert result.skipped == [
+        (f"{_CASE}/{MERITS_EVENT_ID}", "committed predict/evaluate output under it")
+    ]
+    assert remaining == sorted([_BASELINE, MERITS_EVENT_ID])
+
+
+def test_ungranted_merits_opt_in_still_skips_a_committed_outcome(tmp_path: Path) -> None:
+    """The outcome refusal is independent of the flag, so the opt-in cannot reach a judgment."""
+    root = _data_root(tmp_path)
+    _write_event(
+        root, _BASELINE, EventKind.petition, opened_at=date(2020, 11, 5), resolved_at=_RESOLVED_AT
+    )
+    merits = _write_event(
+        root,
+        MERITS_EVENT_ID,
+        EventKind.order,
+        opened_at=_GRANTED_AT,
+        resolved_at=date(2022, 6, 30),
+    )
+    _write_cell_file(merits, "claude-baseline", "attempt.json")
+    with _seeded(tmp_path, _ungranted_merits_rows()) as conn:
+        result = remove_ungranted_merits_events(
+            conn, root, apply=True, include_failed_attempts=True
+        )
+    assert result.removed == []
+    assert "disagree about a recorded judgment" in result.skipped[0][1]
+    assert merits.outcome.is_file()
+
+
+def test_ungranted_merits_opt_in_leaves_a_granted_docket_alone(tmp_path: Path) -> None:
+    """The flag narrows a skip; it never widens the population the predicate selects."""
+    _, merits = _seed_ungranted_merits(tmp_path)
+    _write_cell_file(merits, "claude-baseline", "attempt.json")
+    with _seeded(
+        tmp_path, _ungranted_merits_rows(), date_cert_granted=_GRANTED_AT.isoformat()
+    ) as conn:
+        result = remove_ungranted_merits_events(
+            conn, _data_root(tmp_path), apply=True, include_failed_attempts=True
+        )
+        remaining = sorted(e.event_id for e in corpus.events_for_case(conn, _CASE))
+    assert result.removed == []
+    assert result.skipped == []
+    assert remaining == sorted([_BASELINE, MERITS_EVENT_ID])
+
+
+def test_cli_ungranted_merits_opt_in_flag_drops_the_attempt_only_phantom(  # type: ignore[no-untyped-def]
+    tmp_path: Path, monkeypatch
+) -> None:
+    _, merits = _seed_ungranted_merits(tmp_path)
+    _write_cell_file(merits, "claude-baseline", "attempt.json")
+    with _seeded(tmp_path, _ungranted_merits_rows()):
+        pass
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(_data_root(tmp_path)))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    without = runner.invoke(app, ["remove-ungranted-merits-events"])
+    assert without.exit_code == 0, without.output
+    assert "would remove 0 event(s); skipped 1 for triage" in without.output
+    with_flag = runner.invoke(app, ["remove-ungranted-merits-events", "--include-failed-attempts"])
+    assert with_flag.exit_code == 0, with_flag.output
+    assert "would remove 1 event(s); skipped 0 for triage" in with_flag.output
+    assert merits.base.exists()  # still a dry run
+    applied = runner.invoke(
+        app, ["remove-ungranted-merits-events", "--apply", "--include-failed-attempts"]
+    )
+    assert applied.exit_code == 0, applied.output
+    assert "removed 1 event(s)" in applied.output
+    assert merits.base.exists() is False
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        assert [e.event_id for e in corpus.events_for_case(conn, _CASE)] == [_BASELINE]
