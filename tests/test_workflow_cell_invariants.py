@@ -1141,17 +1141,28 @@ def test_the_handoff_writes_stay_fatal_on_exhaustion() -> None:
             assert "||" not in line, f"open-run-handoff swallows an exhausted retry: {line.strip()}"
     # And no caller may absorb it either: a held or empty queue files nothing
     # and exits 0, so a failure here means the window really did lose its round.
+    #
+    # Predict is the only channel a pull window hands off. Evaluate is not a
+    # handoff at all — run-evaluate derives its own backlog on its own schedule —
+    # so the assertion is exact rather than "at least one": a second caller here
+    # would mean a stage is coupled to the pull window, which is what this
+    # assertion exists to catch.
     for job in ("pull", "live"):
         callers = [
             step
             for step in _load("run-pull.yml")["jobs"][job]["steps"]
             if str(step.get("uses") or "").endswith("open-run-handoff")
         ]
-        assert callers, f"run-pull {job!r} no longer files a handoff"
-        for step in callers:
-            assert "continue-on-error" not in step, (
-                f"run-pull {job!r} handoff must fail the window, not absorb it"
-            )
+        assert len(callers) == 1, (
+            f"run-pull {job!r} should file exactly the predict handoff, found {len(callers)}"
+        )
+        step = callers[0]
+        assert step["with"]["label"] == "run:predict", (
+            f"run-pull {job!r} files a handoff for {step['with']['label']!r}"
+        )
+        assert "continue-on-error" not in step, (
+            f"run-pull {job!r} handoff must fail the window, not absorb it"
+        )
 
 
 def test_the_list_of_retried_ops_steps_is_complete() -> None:

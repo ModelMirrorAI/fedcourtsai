@@ -199,7 +199,17 @@ runbook, [docs/security.md](docs/security.md).
   privileged job re-checks, before any privileged work, that the triggering
   actor has **write access** (failing closed), so a label applied by anyone
   else is inert — nothing that mints a token, assumes a role, or reads the
-  corpus runs ahead of that check in any `run:*` workflow. What does run ahead
+  corpus runs ahead of that check on any `run:*` **label** path. `run-evaluate`
+  also runs on a schedule and a dispatch, which are not label events and so do
+  not reach that gate; three platform facts stand in its place, and the spend
+  hold stands behind all of them. A `schedule` fires only from the **default
+  branch**, so a cron can only run what a maintainer-merged promotion put on
+  `main`. A `workflow_dispatch` is gated by GitHub on repository **write** —
+  the same bar the gate's non-Bot branch enforces. And the job binds `prod`,
+  whose deployment branches are restricted to `main` (below), so a dispatch
+  from any other ref is refused at the deployment-branch gate before a step
+  runs: no role, no secret, no agent. On every trigger alike the `review` hold
+  remains the thing between a plan and any spend. What does run ahead
   of it is accepted and named in place: the gate is a tested command, so it
   needs a working tree and a synced env, and on every label path a
   credential-free checkout and an environment setup precede it — as, on the two
@@ -220,9 +230,12 @@ runbook, [docs/security.md](docs/security.md).
   The claude/codex agent steps on `run-predict` / `run-evaluate` carry their
   own narrowing to the same login (the claude action's `allowed_bots`, the
   codex action's `allow-bot-users`) — not redundancy: those actions refuse a
-  bot actor by default, so the step-level grant is what lets the pinned
-  handoff reach the agent at all, and `tests/test_workflow_agent_bot.py`
-  locks it in. The gemini steps and `run-backtest` have no step-layer check
+  bot actor by default, so the step-level grant is what lets an App-filed
+  label round reach the agent at all, and `tests/test_workflow_agent_bot.py`
+  locks it in. On `run-predict` that grant carries the standing pull handoff;
+  on `run-evaluate`, whose rounds normally arrive on its own schedule with a
+  human actor, it is held in reserve for the label path — pinned to the one
+  login either way, which is what makes keeping it cheap. The gemini steps and `run-backtest` have no step-layer check
   and rely on the gate's pin alone.
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**

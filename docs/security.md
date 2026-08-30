@@ -225,7 +225,7 @@ which posts its `ops-dashboard` / `data-validation` issues with `GITHUB_TOKEN` t
 same way, and `run-pull`, whose pipeline-runs dashboard row and failure-only
 run-log issues ride the ambient token for the same reason (its App token is
 reserved for the writes that must trigger downstream: the corpus commits and
-the `run:predict` / `run:evaluate` handoff issues). The capability is therefore on the lower-trust, non-bypass token, scoped
+the `run:predict` handoff issues). The capability is therefore on the lower-trust, non-bypass token, scoped
 to issue comments/creation only; and the agent never touches it (the per-cell agent
 token stays comment-only and writes `flags.json` locally — the trusted `collect`
 job does the surfacing). So docket text the agent ingests cannot reach it, and the
@@ -574,7 +574,8 @@ Access mirrors each workflow's role in the pipeline:
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
 | `run-pull` (pull + live + enrich jobs), `run-seed` | read-write | corpus writers (`corpus-push` + content-store mirror) |
-| `run-predict`, `run-evaluate` — plan jobs | read-only | scope gating over the named cases — ranged point lookups, no pull |
+| `run-predict` plan job; `run-evaluate` plan job on the label path | read-only | scope gating over the named cases — ranged point lookups, no pull |
+| `run-evaluate` plan job on the schedule/dispatch path | read-only | derives the evaluate backlog — a scan over every resolved event, so it pulls the index rather than reading it in place |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull) |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store |

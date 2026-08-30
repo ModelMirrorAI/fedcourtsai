@@ -52,11 +52,11 @@ inputs:
     required: false
     default: ''
   predict-note:
-    description: 'The predict handoff''s Markdown note (held channel); empty otherwise.'
-    required: false
-    default: ''
-  evaluate-note:
-    description: 'The evaluate handoff''s Markdown note (held channel); empty otherwise.'
+    description: >-
+      The predict handoff's Markdown note (held channel); empty otherwise.
+      Predict is the only handoff a window files, so it is the only note: the
+      evaluate column is a backlog count run-evaluate's own schedule drains,
+      with no handoff here to hold and so nothing to annotate.
     required: false
     default: ''
 
@@ -71,7 +71,6 @@ runs:
         OUTCOME: ${{ inputs.outcome }}
         COMMITTED: ${{ inputs.committed }}
         PREDICT_NOTE: ${{ inputs.predict-note }}
-        EVALUATE_NOTE: ${{ inputs.evaluate-note }}
       run: |
         set -euo pipefail
         # Every GitHub API call below is retried (contract and rationale in the
@@ -154,14 +153,13 @@ runs:
           --arg outcome "$OUTCOME" \
           --arg committed "$COMMITTED" \
           --arg pnote "$PREDICT_NOTE" \
-          --arg enote "$EVALUATE_NOTE" \
           --argjson predict "$predict" \
           --argjson evaluate "$evaluate" \
           --argjson unrecorded "$unrecorded" \
           --argjson unrecorded_cases "$cases" \
           '{ts: $ts, channel: $channel, outcome: $outcome,
             predict: $predict, predict_note: $pnote,
-            evaluate: $evaluate, evaluate_note: $enote,
+            evaluate: $evaluate,
             unrecorded: $unrecorded, unrecorded_cases: $unrecorded_cases,
             committed: ($committed | if . == "true" then true elif . == "false" then false else null end)}')
 
@@ -182,10 +180,10 @@ runs:
         render() {
           {
             printf 'Auto-updated in place at the end of every `run-pull` window (pull and live), newest first, rolling 14 days. This issue stays open by design — the alarm channel is separate: an open `pull-log` / `live-log` issue means exactly "a window broke and awaits triage".\n\n'
-            echo '| Window (UTC) | Channel | Outcome | predict queued | evaluate queued | unrecorded | Corpus |'
+            echo '| Window (UTC) | Channel | Outcome | predict queued | evaluate owed | unrecorded | Corpus |'
             echo '|---|---|---|---:|---:|---:|---|'
             jq -r 'def clean: tostring | gsub("[\r\n|`]"; " ");
-              .[] | "| \(.ts | clean) | \(.channel | clean) | \(if .outcome == "success" then "✅ success" else "❌ failure" end) | \((.predict // "") | clean)\((.predict_note // "") | clean) | \((.evaluate // "") | clean)\((.evaluate_note // "") | clean) | \((.unrecorded // "") | clean) | \(if .committed == true then "committed" elif .committed == false then "no change" else "" end) |"' \
+              .[] | "| \(.ts | clean) | \(.channel | clean) | \(if .outcome == "success" then "✅ success" else "❌ failure" end) | \((.predict // "") | clean)\((.predict_note // "") | clean) | \((.evaluate // "") | clean) | \((.unrecorded // "") | clean) | \(if .committed == true then "committed" elif .committed == false then "no change" else "" end) |"' \
               <<<"$state"
             triage=$(jq -r 'def clean: tostring | gsub("[\r\n|`]"; " ");
               .[] | "\(.ts | clean) \(.channel | clean)" as $w

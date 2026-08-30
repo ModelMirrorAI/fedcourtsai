@@ -36,7 +36,12 @@ inputs:
     description: The `owner/name` this run belongs to.
     required: true
   issue:
-    description: Trigger issue number; empty when the run was not issue-triggered.
+    description: >-
+      Trigger issue number; empty when the run was not issue-triggered (a
+      scheduled round). Normalized to `collect-plan`'s own "no issue" sentinel
+      of 0 at the call below, because an empty string is not an int and the
+      aggregate step runs under `set -euo pipefail` — so passing it through
+      raw would abort the one job that turns a whole fan-out into its PR.
     required: false
     default: ''
   github-token:
@@ -233,7 +238,8 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.token }}
         REPO: ${{ inputs.repo }}
-        ISSUE: ${{ inputs.issue }}
+        # 0 is `collect-plan`'s "no issue" sentinel; see the input's description.
+        ISSUE: ${{ inputs.issue || 0 }}
         ROLE: ${{ inputs.role }}
         # Via env, never interpolated into the shell body: the matrix carries
         # court/docket/event ids parsed from the trigger issue.

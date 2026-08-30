@@ -29,10 +29,11 @@ of each justice, and the court's reasoning.
 
 The project runs as a **label-driven pipeline of GitHub Actions**: work is
 represented as GitHub issues, applying a `run:*` label triggers the matching
-workflow, and a stage hands off by opening (or labeling) an issue for the next
-stage. The judgment-heavy stages delegate to **multiple competing coding
-agents** (Claude Code, Codex, and Gemini), whose artifacts land as
-auto-merge-gated pull requests.
+workflow, and where one stage hands off to the next it does so by opening (or
+labeling) an issue — the predict channel; the evaluate stage instead derives its
+own work on a schedule and needs no issue. The judgment-heavy stages delegate
+to **multiple competing coding agents** (Claude Code, Codex, and Gemini), whose
+artifacts land as auto-merge-gated pull requests.
 
 | Label          | Workflow        | Does                                                                 | Engine |
 |----------------|-----------------|----------------------------------------------------------------------|--------|
@@ -47,9 +48,11 @@ Plus `run-ops` (a read-only daily dashboard with a weekly digest) and
 distribution-parse census, the tool-usage roll-up, the metrics refresh, and the
 qp-topic labeler (the only one that runs an agent) — both schedule/dispatch
 only. The cascade runs pull/live → corpus → `run:predict` (fired on an
-arrival-cohort pick, a conference distribution, or a changed open case) →
-`run:evaluate` (fired when an
-outcome lands on a predicted event); full label/workflow mechanics and the
+arrival-cohort pick, a conference distribution, or a changed open case).
+`run:evaluate` is not chained off it: run-evaluate runs on its own daily
+schedule and derives its own backlog — the gradings committed state still owes —
+so an outcome landing on a predicted event is picked up by the next cycle rather
+than handed off. Full label/workflow mechanics and the
 cascade diagram: [`docs/pipeline.md`](docs/pipeline.md).
 
 **Both agent stages park before they spend.** In `run:predict` and
