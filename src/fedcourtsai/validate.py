@@ -394,11 +394,14 @@ def check_docket_number_marking(conn: sqlite3.Connection) -> CorpusCheck:
     check would greet an unbounded regression with the same warning line it
     prints today.
 
-    Two paths clear a row, neither of them a dedicated sweep: a live-slice row
-    normalizes on its next live poll, which re-ingests the whole payload, so that
-    part of the backlog drains on its own as the rotation comes around. A row
-    outside the live slice needs a re-read aimed at it — ``refresh-dockets`` on
-    named rows, or a Term re-walk — and stays counted here until one runs.
+    Three paths clear a row. A live-slice row normalizes on its next live poll,
+    which re-ingests the whole payload, so that part of the backlog drains on its
+    own as the rotation comes around. A row outside the live slice needs a re-read
+    aimed at it — ``refresh-dockets`` on named rows, or a Term re-walk. Or
+    ``normalize-docket-markings`` rewrites the stored spelling in place, the
+    dedicated sweep for a backlog that is overwhelmingly decided rows no rotation
+    reaches; its apply half awaits writer-lane wiring, so rows stay counted here
+    until one of the three runs.
 
     ``checked`` is every case row, since the invariant is over all of them; the
     ``LIKE`` is only a prefilter, and the strip decides. That corpus-wide
@@ -454,7 +457,8 @@ def check_docket_number_marking(conn: sqlite3.Connection) -> CorpusCheck:
             f"advisory: {len(problems)} row(s) still carry the marking "
             f"({shapes} ***-shaped string(s) corpus-wide, the remainder legitimate "
             f"separators; {scotus} SCOTUS rows for scale); cleared by re-ingest (a "
-            "live-slice row on its next poll, one outside it on a targeted re-read)"
+            "live-slice row on its next poll, one outside it on a targeted re-read) "
+            "or by normalize-docket-markings"
             if problems
             else (
                 f"no marked docket numbers stored ({shapes} ***-shaped string(s) "

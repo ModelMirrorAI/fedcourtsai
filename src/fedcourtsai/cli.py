@@ -118,6 +118,7 @@ from .config import (
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .disposition_convergence import converge_disposition_labels
+from .docket_marking_migration import normalize_docket_markings
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
@@ -193,6 +194,7 @@ from .pipeline.outcome import (
     snapshot_shows_judgment,
 )
 from .pipeline.pull import derive_evaluate_backlog, evaluate_backlog, pull_case, pull_cases
+from .pipeline.response_backfill import backfill_response_fields
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
 from .pipeline.salience import (
     SALIENCE_VERSION,
@@ -2127,6 +2129,208 @@ def remove_ungranted_merits_events_cmd(
         typer.echo(f"  {verb} {ref}")
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("normalize-docket-markings")
+def normalize_docket_markings_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Rewrite the marked rows; omit for a dry-run report."),
+    ] = False,
+    max_rewrites: Annotated[
+        int | None,
+        typer.Option(
+            "--max-rewrites",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
+        ),
+    ] = None,
+) -> None:
+    """Converge stored docket numbers on their marking-free spelling.
+
+    Drains the population the ``docket_numbers_carry_no_capital_marking`` corpus
+    check reports, and is court-agnostic for the same reason — the marking is a
+    SCOTUS habit upstream, but a pass filtering on court would leave a row that
+    check reports with no repair.
+
+    The ingest write site stores the number with the Court's ``*** CAPITAL CASE ***``
+    marking removed and raises ``capital_case`` beside it, so the flag carries what
+    the marking was the only record of. A stored row converges on that spelling only
+    when the write site touches it again, and no automatic channel does so outside
+    the live slice: a live-slice row normalizes on its next poll, while a row
+    outside it converges only under a re-read aimed at it (``refresh-dockets`` on
+    named rows, or a Term re-walk). This is the dedicated sweep that clears the
+    backlog without one, reading the row with ``strip_docket_annotation`` and
+    raising the flag with
+    ``is_capital_docket_number``: the same pair the write site uses, so the number
+    kept and the flag raised can never disagree about what was there.
+
+    Selection is by the marking's **exact words**, never the ``*** … ***`` shape the
+    comparison key reads. A shape match treats the asterisks as delimiters, so on a
+    consolidated circuit docket that uses ``***`` as a separator between numbers it
+    would delete a whole docket number out of the column that is the record —
+    tolerable in a comparison key, where over-stripping costs only a missed join,
+    and not tolerable here.
+
+    The rewrite cannot mint a duplicate pair for ``dedupe-live-rows`` to find. Both
+    SCOTUS channels reconcile identity on ``norm_dn``, which already strips the
+    annotation by shape, so the marked and marking-free spellings of one docket
+    compare equal to the join before the rewrite as well as after: no row moves into
+    or out of any group. Rows that already share a normalized identity with another
+    row are reported as a count, because they are the dedupe pass's population and
+    this pass neither creates nor resolves them — it only makes the collision
+    visible in the stored spelling.
+
+    Idempotent: a rewritten row no longer carries the marking, so it leaves the
+    population it was selected from, and ``capital_case`` max-latches so the flag can
+    only advance. Run where the corpus is pulled — a dev checkout dry-runs it, and
+    the apply half belongs in run-seed's writer lane, which holds the corpus-write
+    credentials. ``--apply`` refuses above ``--max-rewrites``: the population is
+    finite and non-growing (the write site strips at ingest), so a count above the
+    number read in the dry run means the predicate widened — triage before raising
+    the bound. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_rewrites is None:
+        typer.echo(
+            "normalize-docket-markings: --apply requires an explicit --max-rewrites. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the convergence.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = normalize_docket_markings(conn, apply=apply, max_rewrites=max_rewrites)
+    if result.refused:
+        typer.echo(
+            f"normalize-docket-markings: refusing to apply {len(result.rewritten)} rewrites "
+            f"(--max-rewrites {max_rewrites}). The population this sweep converges is finite "
+            "and non-growing; a count this size means the predicate widened — triage before "
+            "raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "rewrote" if apply else "would rewrite"
+    shared = sum(1 for entry in result.rewritten if entry.shares_identity)
+    typer.echo(
+        f"normalize-docket-markings ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.rewritten)} marked docket number(s); "
+        f"{shared} already share a normalized identity with another row"
+    )
+    for entry in result.rewritten:
+        # Named as a shared identity rather than as the dedupe pass's work: that
+        # pass acts only on groups of exactly two, so a three-plus group shares a
+        # key here and is still left alone there.
+        note = " [shares a normalized identity with another row]" if entry.shares_identity else ""
+        typer.echo(f"  {verb} {entry.case_id}: {entry.was!r} -> {entry.now!r}{note}")
+
+
+@app.command("backfill-response-fields")
+def backfill_response_fields_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Fill the dated signals; omit for a dry-run report."),
+    ] = False,
+    max_fills: Annotated[
+        int | None,
+        typer.Option(
+            "--max-fills",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
+        ),
+    ] = None,
+) -> None:
+    """Re-derive the dated interim/merits signals from each row's newest live snapshot.
+
+    ``response_requested_at``, ``response_filed_at`` and ``merits_brief_filed`` are
+    parsed at ingest from the proceedings list. A row polled before those columns
+    existed carries the undated ``response_requested`` flag with no date beside it,
+    and no channel will ever correct it: the live poller serves the **undecided**
+    slice, so a decided row is never re-polled, and the flag is a max-latched boolean
+    a later write cannot turn back into a question. The gaps are recoverable from the
+    corpus alone — the newest stored live-shaped snapshot is the same payload the
+    original ingest read — so this re-parses it with the same pure parsers rather
+    than re-fetching.
+
+    A sibling of the live-signal back-fill rather than a widening of it, and the
+    reason is that pass's predicate. A NULL ``distribution_count`` is the
+    parse-coverage sentinel for the whole live-signal family, and that pass consumes
+    it, writing the count **unconditionally** with no max latch — sound only because
+    its predicate guarantees the column was NULL. Selecting rows whose count is
+    already stored would let a payload served with its proceedings degraded, which
+    parses as a confident ``0``, overwrite a good stored count: the precise
+    regression the latch exists to reject.
+
+    The three columns are fill-in only, matching the latch family they sit in on the
+    upsert path, so a stored value is never overwritten and the pass converges. That
+    also makes a degraded payload cheap here in a way it is not for a count — every
+    parser below yields ``None``, filling nothing, rather than a confident zero that
+    asserts a fact. Rows with no stored live-shaped snapshot are counted and
+    reported, never failed: under the corpus-split mode the payloads live in the
+    content store, and a poll that 404-stamped without storing one leaves nothing to
+    re-read. The write is a direct ``UPDATE`` of the index and never the casestore
+    mirror, so a store-side rebuild from ``case.json`` would resurrect the NULLs.
+
+    Idempotent. Run where the corpus is pulled — a dev checkout dry-runs it, and the
+    apply half belongs in run-seed's writer lane, which holds the corpus-write
+    credentials. ``--apply`` refuses above ``--max-fills``, which counts the rows
+    actually filled — finite and non-growing, since ingest fills these columns going
+    forward. The ``candidates`` denominator beside it is not: the granted arm admits
+    every new cert grant that has not yet drawn a respondent brief, so a rising
+    candidate count is the ordinary docket rather than a widened predicate. Prints
+    each filled row with the dates it gains. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_fills is None:
+        typer.echo(
+            "backfill-response-fields: --apply requires an explicit --max-fills. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = backfill_response_fields(conn, apply=apply, max_fills=max_fills)
+    if result.refused:
+        typer.echo(
+            f"backfill-response-fields: refusing to apply {len(result.filled)} fills "
+            f"(--max-fills {max_fills}). The population this sweep repairs is finite and "
+            "non-growing; a count this size means the predicate widened — triage before "
+            "raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "filled" if apply else "would fill"
+    typer.echo(
+        f"backfill-response-fields ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.filled)} of {result.candidates} candidate(s); "
+        f"{result.unchanged} read with nothing to fill; "
+        f"{result.no_snapshot} with no stored snapshot; "
+        f"{result.no_proceedings} whose snapshot discloses no proceedings"
+    )
+    for fill in result.filled:
+        gained = ", ".join(
+            f"{name} {value.isoformat()}"
+            for name, value in (
+                ("response_requested_at", fill.response_requested_at),
+                ("response_filed_at", fill.response_filed_at),
+                ("merits_brief_filed", fill.merits_brief_filed),
+            )
+            if value is not None
+        )
+        typer.echo(f"  {verb} {fill.case_id}: {gained}")
 
 
 @app.command("scope-manifest")

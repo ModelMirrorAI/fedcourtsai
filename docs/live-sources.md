@@ -165,9 +165,12 @@ forgets. It max-latches for the reason the other live columns do, and more
 sharply: CourtListener serves the plain number and no flag, so every write from
 that channel asserts a confident False. It is the one column of the family
 **outside** `backfill_live_signals`, which fills the three proceedings-derived
-columns only. Rows predating the strip therefore converge by re-ingest rather
-than by back-fill — a live-slice row on its next poll, one outside the slice on
-a targeted re-read — and `validate-corpus` counts the remainder as an advisory
+columns only. A row still carrying the marking converges either by re-ingest — a
+live-slice row on its next poll, one outside the slice on a targeted re-read — or
+by `normalize-docket-markings`, the dedicated sweep that rewrites the stored
+spelling and raises the flag without a fetch, which is what the backlog needs,
+being overwhelmingly decided rows the rotation has left. Its apply half awaits
+writer-lane wiring, so `validate-corpus` counts the remainder as an advisory
 check ([cli.md](cli.md)) rather than a failure.
 
 ## Documents: from metadata to content
