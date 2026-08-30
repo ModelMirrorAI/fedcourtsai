@@ -172,7 +172,10 @@ def test_collect_plan_refuses_the_un_normalized_empty_issue(
     result = CliRunner().invoke(app, raw)
 
     assert result.exit_code == 2
-    assert "--issue" in result.output
+    # Styling-proof: on a CI runner rich interleaves color escapes into the
+    # refusal box, splitting the asserted token mid-word.
+    plain = " ".join(re.sub(r"\x1b\[[0-9;]*m", "", result.output).split())
+    assert "--issue" in plain
 
 
 def test_the_trigger_issue_never_reaches_the_collect_shell_un_normalized() -> None:
