@@ -678,8 +678,9 @@ def rederive_distribution_counts_cmd(
     and open merits proceedings and upserts a count read under the ingest
     default, which the max latch takes where it is higher — so a re-polled row
     reverts unless `cert_signals.DEFAULT_DISTRIBUTION_PARSE` moves to the same
-    parse in the same batch. Run where the corpus is pulled (run-seed's writer
-    lane in production; a dev checkout serves the dry run). Prints a
+    parse in the same batch. Run where the corpus is pulled (run-repair's
+    `rederive-distribution-parse` pass in production; a dev checkout serves the
+    dry run). Prints a
     `DistributionRederiveResult`. Fails loud if the corpus is absent or the
     parse or version label is unregistered.
     """
@@ -1298,8 +1299,8 @@ def backfill_questions_presented_cmd(
     which rows an applied pass replaced, beside the pre-apply `corpus.db.ref`
     the command echoes. Idempotent. A
     deliberate maintainer surface, never scheduled: corpus writes exist only
-    inside the writer workflows, so this fires on an explicit `run-seed`
-    dispatch naming its `qp_backfill` input — two dispatches by design, a
+    inside the writer workflows, so this fires on an explicit `run-repair`
+    dispatch naming its `qp-backfill` pass — two dispatches by design, a
     `dry-run` whose summary ledger the maintainer reads and then an `apply`,
     which verifies its own convergence by re-running the dry-run (under the
     corpus split the durable write is the content store's per-case mirror, so
@@ -2082,7 +2083,8 @@ def remove_ungranted_merits_events_cmd(
     population is finite and non-growing (no mint produces the shape), so a
     large count means the predicate widened — triage before raising the bound.
     Run where the corpus is pulled — a dev checkout dry-runs it, and the apply
-    half belongs in run-seed's writer lane, which holds the corpus-write
+    half belongs in run-repair's `merits-phantom-removal` pass, which holds the
+    corpus-write
     credentials; the ledger directory goes first, then the corpus row, so an
     interrupted run leaves the row as the detection handle for the next pass.
     Fails loud if the corpus is absent.
@@ -2183,7 +2185,8 @@ def normalize_docket_markings_cmd(
     Idempotent: a rewritten row no longer carries the marking, so it leaves the
     population it was selected from, and ``capital_case`` max-latches so the flag can
     only advance. Run where the corpus is pulled — a dev checkout dry-runs it, and
-    the apply half belongs in run-seed's writer lane, which holds the corpus-write
+    the apply half belongs in run-repair's `normalize-docket-markings` pass,
+    which holds the corpus-write
     credentials. ``--apply`` refuses above ``--max-rewrites``: the population is
     finite and non-growing (the write site strips at ingest), so a count above the
     number read in the dry run means the predicate widened — triage before raising
@@ -2277,7 +2280,8 @@ def backfill_response_fields_cmd(
     mirror, so a store-side rebuild from ``case.json`` would resurrect the NULLs.
 
     Idempotent. Run where the corpus is pulled — a dev checkout dry-runs it, and the
-    apply half belongs in run-seed's writer lane, which holds the corpus-write
+    apply half belongs in run-repair's `response-backfill` pass, which holds the
+    corpus-write
     credentials. ``--apply`` refuses above ``--max-fills``, which counts the rows
     actually filled — finite and non-growing, since ingest fills these columns going
     forward. The ``candidates`` denominator beside it is not: the granted arm admits

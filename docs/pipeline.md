@@ -16,6 +16,7 @@ against the pinned login before suspecting the gate.
 |-----------------|------------------|-------------------------------------|----------------------|
 | `run:pull`      | `run-pull`       | daily schedules (pull + live jobs), label, manual (+ dispatch-only `enrich-opinions` mode) | script (no agent)    |
 | _(none)_        | `run-seed`       | daily schedules (4 dead-zone windows), manual | script (no agent)    |
+| _(none)_        | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | daily schedule (15:09 UTC), manual dispatch, issue labeled | Claude Code + Codex + Gemini |
 | `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
@@ -251,7 +252,7 @@ production's pair until the staging environment's store variables — the
 URLs and that pointer — are repointed. Provisioning the stores, the environment, and the role — and
 that repointing — is the maintainer runbook in [security.md](security.md).
 
-## `run-seed` and `run-pull` — the corpus writers
+## `run-seed`, `run-pull` and `run-repair` — the corpus writers
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
 accumulating resolved outcomes reverse-chronologically by Term for the statpack's
@@ -306,165 +307,166 @@ own blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
-any other corpus write. Eight further writer steps run **after the loop**, are
-not among the seven, and never run on a schedule, each gated behind its own
-dispatch input; the seven
-that read corpus rows also require the dedupe to have succeeded, since each
-must weigh a merged row rather than a twin. (Two more sit *ahead* of the loop
-on the same dispatch-only footing — the `refresh_terms` cursor reset and the
-`refresh_dockets` targeted re-serve — where they precede the walk they change.)
-`unlatch-overselected` (the `unlatch_overselected` input)
-clears the pre-resize `salience_selected`
-overhang a capacity change leaves behind (`docs/salience.md`) — the latch's one
-`1 → 0` writer, a
-deliberate one-time act rather than a converging sweep, gated on the
-dedupe so an unmerged twin cannot re-latch a cleared case.
-`backfill-questions-presented` (the `qp_backfill` input) re-derives the stored
-questions-presented rows under the current extractor: a `dry-run` dispatch
-prints the reason-class triage ledger to the run summary and writes nothing;
-an `apply` dispatch rewrites the safe classes, verifies its own convergence by
-re-running the dry-run (under the corpus split the durable write is the
-content store's, so the pointer alone cannot witness it), and pushes. The
-dry-run ledger is a maintainer's reading, so the intended procedure is two
-dispatches: `dry-run`, read, then `apply`.
-`rederive-distribution-counts` (the `rederive_distribution_parse` mode, with
-the parse label in `rederive_parse`) re-derives the corpus
-`distribution_count` column under a registered distribution parse — the first
-of the three pieces of work that activate a new parse (`docs/salience.md`).
-Its write is a direct `UPDATE` that bypasses the column's max latch, because
-the upsert path would reject a narrower reading's every row and report success;
-a row whose latest live-shaped snapshot discloses no proceedings entries is
-counted and left untouched instead, which is as much of the latch's guard as a
-single pass can carry. The rest is procedure: the **first** dispatch names the
-*incumbent* parse and must report `changed = 0`, since anything the incumbent
-reading moves is stored-column drift rather than a parse effect and would
-otherwise be folded into the candidate's count. One pass in
-either mode — the plan the dry run prints is exactly the write set, and a
-separate dry run ahead of an apply would only repeat a full-population read of
-the content store — so the two-dispatch procedure is a maintainer's reading of
-the first run, not a re-scan. It is never scheduled: the parse to run under is
-a decision read off a `distribution-census` artifact, not a state a window can
-converge toward. The label input is refused up front and again in the step
-unless it is a lowercase parse label; whether the label is *registered* is the
-command's own refusal.
+any other corpus write.
 
-Three repair passes take the same shape the disposition convergence does: a
-`none`/`dry-run`/`apply` mode input, a positive-integer bound consumed on apply
-and refused up front without it, and the two-dispatch procedure — `dry-run`,
-read the ledger off the run summary, then `apply` with the count it printed.
-The bound is what turns a widened predicate into a loud refusal rather than a
-mass rewrite. For the two whose population is finite and non-growing — the
-marking rewrite and the phantom removal — a count above the one read means
-exactly that, and nothing else. The response backfill's grows honestly between
-two dispatches, as a granted row draws the respondent brief that makes it
-fillable, so a rise there is the ordinary docket rather than the predicate.
-`normalize-docket-markings` (the
-`normalize_docket_markings` input, bounded by `normalize_max_rewrites`)
-converges stored docket numbers on their marking-free spelling, draining the
-population the `docket_numbers_carry_no_capital_marking` corpus check reports:
-the ingest write site strips the Court's capital-case marking and raises
-`capital_case` beside it, so a row outside the live slice converges only under a
-re-read aimed at it, and this is the sweep that needs none. It can neither
-create nor resolve a duplicate pair, since both channels reconcile identity on a
-key that already strips the marking by shape; and having no ledger surface — its
-write is a direct `UPDATE` of the index — it commits the pointer alone. `backfill-response-fields` (the `response_backfill` input,
-bounded by `response_max_fills`) re-derives the dated interim/merits signals
-from each row's newest stored live-shaped snapshot, which under the corpus split
-lives in the content store rather than the blob; it therefore reads through the
-job's split-mode env like the merits-judgment sweep, counts a row with no stored
+Two further writer steps sit **ahead of the loop** on a dispatch-only footing —
+the `refresh_terms` cursor reset and the `refresh_dockets` targeted re-serve —
+where they precede the walk they change. With `refresh_streams` beside them,
+those three are run-seed's whole dispatch surface; the maintenance passes live
+on **run-repair**.
+
+**run-repair** is the maintainer's repair bench — `workflow_dispatch` only, no
+schedule and no `run:*` label, one pass per dispatch, dry-run by default, and
+joined to the same `corpus-write` lock so a pass can never interleave with a
+window's corpus push. It carries a generic selector: `repair` names the pass,
+`repair_mode` is `dry-run` or `apply`, `repair_bound` carries the blast-radius
+count, `repair_target` the pass's named subject, and `repair_options` its closed
+vocabulary of switches. `dry-run` means the selected pass writes nothing — the
+prerequisites each pass is gated on still apply, so a dry-run dispatch can move
+the corpus pointer by a convergence a scheduled window would have made anyway.
+[data-pipeline.md](data-pipeline.md#maintenance-passes) is the contract — what
+each pass accepts, every refusal, the `dedupe-live-rows` prerequisite each
+corpus pass is gated on, and the dispatch commands.
+
+It is a separate workflow because its failure posture is the opposite of the
+walker's. A standing sweep fails by *not converging*, and the next window
+retries for free, which is what earns it `continue-on-error`. A pass fails by
+*refusing* — an apply without its bound, a malformed cell id, a stamp the
+command declines — and a refusal is the answer the dispatch asked for, so it
+reddens the run rather than being absorbed. Splitting them also keeps the
+bench's growth off the walker: a pass added here costs run-seed neither a
+dispatch input nor a `LOOP_BUDGET_SECONDS` conjunct. There is no `guard` job on
+run-repair, unlike run-seed, because every run was started by hand a moment
+earlier by the person waiting to read its ledger.
+
+What each pass is for:
+
+`unlatch-overselected` clears the pre-resize `salience_selected` overhang a
+capacity change leaves behind (`docs/salience.md`) — the latch's one `1 → 0`
+writer, a deliberate act rather than a converging sweep. It brings the
+predict-scope reconcile along with the dedupe prerequisite, because it
+recomputes each pending cohort's selection and must recompute over an in-scope
+corpus.
+
+`qp-backfill` re-derives the stored questions-presented rows under the current
+extractor. A `dry-run` prints the reason-class triage ledger to the run summary
+and writes nothing; an `apply` rewrites the safe classes, verifies its own
+convergence by re-running the dry-run — under the corpus split the durable write
+is the content store's, so the pointer alone cannot witness it — and pushes. The
+refusal guard holds either way: a stored full-length question the extractor can
+no longer derive is reported, never emptied.
+
+`rederive-distribution-parse` re-derives the corpus `distribution_count` column
+under the registered parse named in `repair_target` — the first of the three
+pieces of work that activate a new parse (`docs/salience.md`). Its write is a
+direct `UPDATE` that bypasses the column's max latch, because the upsert path
+would reject a narrower reading's every row and report success; a row whose
+latest live-shaped snapshot discloses no proceedings entries is counted and left
+untouched instead, which is as much of the latch's guard as a single pass can
+carry. The rest is procedure: the **first** dispatch names the *incumbent* parse
+and must report `changed = 0`, since anything the incumbent reading moves is
+stored-column drift rather than a parse effect and would otherwise be folded
+into the candidate's count. One pass in either mode — the plan the dry run
+prints is exactly the write set, and a separate dry run ahead of an apply would
+only repeat a full-population read of the content store — so the two-dispatch
+procedure is a maintainer's reading of the first run, not a re-scan. The label
+is refused up front and again in the step unless it is a lowercase parse label;
+whether the label is *registered* is the command's own refusal. Its blast-radius
+bound is fixed in code rather than dispatched, so the pass refuses a
+`repair_bound` rather than ignoring one.
+
+`normalize-docket-markings` converges stored docket numbers on their
+marking-free spelling, draining the population the
+`docket_numbers_carry_no_capital_marking` corpus check reports: the ingest write
+site strips the Court's capital-case marking and raises `capital_case` beside
+it, so a row outside the live slice converges only under a re-read aimed at it,
+and this is the sweep that needs none. It can neither create nor resolve a
+duplicate pair, since both channels reconcile identity on a key that already
+strips the marking by shape; and having no ledger surface — its write is a
+direct `UPDATE` of the index — it commits the pointer alone.
+
+`response-backfill` re-derives the dated interim/merits signals from each row's
+newest stored live-shaped snapshot, which under the corpus split lives in the
+content store rather than the blob; it therefore reads through the job's
+split-mode env like the merits-judgment sweep, counts a row with no stored
 snapshot rather than failing on it, and writes a direct `UPDATE` of the index,
 so the pointer is its own witness. Its bound counts the rows actually filled,
 not the `candidates` denominator beside them, which rises with every new cert
-grant that has not yet drawn a respondent brief.
-`remove-ungranted-merits-events` (the `merits_phantom_removal` input, bounded by
-`merits_max_removals`) drops open merits events whose docket carries no cert
+grant that has not yet drawn a respondent brief — so a rise there is the
+ordinary docket rather than a widened predicate.
+
+`merits-phantom-removal` drops open merits events whose docket carries no cert
 grant — the shape a live re-poll leaves when it stops reading a grant out of the
 proceedings and overwrites the stored date with NULL. Nothing re-mints one and
 nothing ever closes it, so it parks permanently on the listed-unforecastable
-triage surface. It is the only one of the three with a ledger half: the corpus
-row and the committed event directory under `data/` are staged in the step's one
-pointer commit, the attribution repairs' shape, because an uncommitted ledger
-half strands a directory under an id the corpus no longer carries. It runs after
-the merits-event mint, though the sequencing is a convention rather than a
-contract — the mint writes only where the grant column is non-NULL and this
-removes only where it is NULL, so neither can touch the other's population, and
-the step is gated on the dedupe rather than on the mint. `include_failed_attempts`
-widens it onto phantoms whose only committed output is `attempt.json`
-cell-failure records, deleting those records with the event; it is off by
-default because it is a trade rather than a cleanup — those records document
-real spend on an event the docket never supported — and it rides the dry-run and
-the apply together so the ledger read and the removal cover one population.
-Unlike `include_scored` it does not also demand its bound in `dry-run`: it takes
-on no re-grade backlog, and what it widens is the removal set the apply's bound
-already sizes.
+triage surface. It is the one pass with a ledger half: the corpus row and the
+committed event directory under `data/` are staged in the step's one pointer
+commit, the attribution repairs' shape, because an uncommitted ledger half
+strands a directory under an id the corpus no longer carries. It needs no
+ordering against run-seed's merits-event mint — the mint writes only where the
+grant column is non-NULL and this removes only where it is NULL, so neither can
+touch the other's population. The `include-failed-attempts` option widens it
+onto phantoms whose only committed output is `attempt.json` cell-failure
+records, deleting those records with the event; it is off by default because it
+is a trade rather than a cleanup — those records document real spend on an event
+the docket never supported — and it rides the dry-run and the apply together so
+the ledger read and the removal cover one population. Unlike `include-scored` it
+does not also demand a bound in `dry-run`: it takes on no re-grade backlog, and
+what it widens is the removal set the apply's bound already sizes.
 
-`converge-disposition-labels` and `stamp-cell --regrade` run last of all, after
-every converging sweep and after the three repairs, and in this order —
-**labels first, then the grades computed from them** — because a label rewrite
-landing after a grade was taken leaves that grade stale.
-`converge-disposition-labels` (the `disposition_convergence` input) converges
-stored disposition labels onto the current classifier, writing `outcome.json`
-under `data/` alongside the pointer in the step's one commit. Its ledger names
-**which of its two arms** each relabel came from, and the reading a maintainer
-owes them differs: `gvr` sharpens a label whose grant binary does not move,
-while `disowned-grant` withdraws a grant the classifier no longer reads at all
-— moving `actual_granted` 1 → 0 and re-dating the resolution — so that count is
-the one that shifts realized grant rates and every figure keyed on a resolution
-date (`docs/cli.md` carries each arm's warrant). By default it
-converges the population carrying **no committed predict or evaluate output**:
-rewriting the label under a cell that has already been graded would move what a
-published standing was computed from while the standing sat still, so any event
-whose directory holds agent output is reported in the dry-run ledger rather
-than rewritten. Closing that backlog is a maintainer's decision, and
-`include_scored` is where it is taken: it passes `--include-scored` to both the
-dry-run and the apply, so the ledger read and the rewrite cover the same
-population, and it is refused unless `disposition_convergence` names a mode
-*and* `disposition_max_relabels` carries a positive integer — in `dry-run` as
+`disposition-convergence` converges stored disposition labels onto the current
+classifier, writing `outcome.json` under `data/` alongside the pointer in the
+step's one commit. Its ledger names **which of its two arms** each relabel came
+from, and the reading a maintainer owes them differs: `gvr` sharpens a label
+whose grant binary does not move, while `disowned-grant` withdraws a grant the
+classifier no longer reads at all — moving `actual_granted` 1 → 0 and re-dating
+the resolution — so that count is the one that shifts realized grant rates and
+every figure keyed on a resolution date (`docs/cli.md` carries each arm's
+warrant). By default it converges the population carrying **no committed predict
+or evaluate output**: rewriting the label under a cell that has already been
+graded would move what a published standing was computed from while the standing
+sat still, so any event whose directory holds agent output is reported in the
+dry-run ledger rather than rewritten. Closing that backlog is a maintainer's
+decision, and the `include-scored` option is where it is taken: it passes
+`--include-scored` to both the dry-run and the apply, so the ledger read and the
+rewrite cover the same population, and it demands `repair_bound` in `dry-run` as
 much as in `apply`, unlike the bare bound, because what the number states there
 is a decision to take on a re-grade backlog rather than a write bound. The two
-readings are different: the plain dry-run's held-back lines size the *decision
-to widen* (they are candidates the sweep never parsed, so most will not be
-relabeled — only a candidate one of the two arms claims writes), while the bound an `apply`
-is checked against is the widened dry-run's own relabel count, which spans the
-scored and unscored confirmations together. A scored relabel is half a repair:
-the labels move here, and the grades taken under the old label catch up through
-`regrade_stale` naming the affected judge lines — three per event, one per
-judge, not one per evaluation. That can ride the same dispatch, which runs the
-two steps in this order for exactly this reason, or a following one. An `apply` dispatch also requires `disposition_max_relabels` — a positive integer, and the
-count the maintainer read off a previous `dry-run` dispatch's ledger. Anything
-else — blank, zero, negative, decimal — is refused with an error annotation
-before the scan runs: unbounded, a widened predicate becomes a mass rewrite
-rather than a loud failure. On `apply` the step still runs the dry-run into the
-step summary first, as a receipt of what the rewrite acted on.
+readings are different: the plain dry-run's held-back lines size the *decision to
+widen* (they are candidates the sweep never parsed, so most will not be
+relabeled — only a candidate one of the two arms claims writes), while the bound
+an `apply` is checked against is the widened dry-run's own relabel count, which
+spans the scored and unscored confirmations together. On `apply` the step still
+runs the dry-run into the step summary first, as a receipt of what the rewrite
+acted on.
 
-`stamp-cell --regrade` (the `regrade_stale` input) recomputes an evaluator
-cell's graded fields under the cell's original stamp and rewrites
-`evaluation.json`. It exists because this lane's sweeps rewrite and reopen
+A scored relabel is half a repair: the labels move there, and the grades taken
+under the old label catch up through `regrade-stale`, which recomputes an
+evaluator cell's graded fields under the cell's original stamp and rewrites
+`evaluation.json`. It exists because the bench's passes rewrite and reopen
 outcomes without consulting who has already graded them, so a cell's committed
-outcome can move under a committed grade; the re-grade is how those grades
-catch up. The write is ledger-only, so that step commits `data/` with no blob
-push and no pointer move. What the scoring surfaces make of the result is the
-command's contract, not the workflow's: per [metrics/README.md](../metrics/README.md),
-a standing moves honestly only through a grading the supersede-collapse counts,
-and a bare re-stamp of an existing `evaluation.json` moves it with a trace only
-in `data/`'s git history. The cells are named explicitly in `regrade_cells`,
-one `court/docket/event/run_id/actor` per line (whitespace-separated, so spaces
-work as well as newlines), one invocation per line — a cell three judges graded
-is three lines, since which judge's evaluation is rewritten is not a thing to
-infer. A `dry-run` dispatch echoes each command without invoking it. Every line
-is matched against the id grammar before anything runs and a single malformed
-line refuses the whole list — the input is maintainer-typed text entering a
-shell, and a half-applied list is harder to reason about than a refused one; an
-empty list is refused too, in `dry-run` as much as in `apply`. Neither of these
-two steps carries `continue-on-error`, nor do the re-derivation or the three
-repairs, and the reason is not that they are dispatch-only —
-`unlatch_overselected` and `qp_backfill` are dispatch-only and
-non-blocking. It is that these fail by *refusing*: an apply without its
-bound, a malformed cell id, a stamp the command declines. A refusal is the
-answer the dispatch asked for, so it fails the job and the `guard` job names
-the step. The converging sweeps fail the other way — by not converging, which
-the next window retries for free — which is what earns them the absorption. The
-full
+outcome can move under a committed grade. The write is ledger-only — no blob
+push, no pointer move — which is why it runs in its own job holding neither the
+corpus role nor the content-store env: a pass that cannot reach the corpus
+should not hold the credentials that reach it. What the scoring surfaces make of
+the result is the command's contract, not the workflow's: per
+[metrics/README.md](../metrics/README.md), a standing moves honestly only
+through a grading the supersede-collapse counts, and a bare re-stamp of an
+existing `evaluation.json` moves it with a trace only in the ledger's own
+revision history. The cells are named in `repair_target`, one
+`court/docket/event/run_id/actor` per
+line (whitespace-separated, so spaces work as well as newlines), one invocation
+per line — a cell three judges graded is three lines, since which judge's
+evaluation is rewritten is not a thing to infer. A `dry-run` echoes each command
+without invoking it. Every line is matched against the id grammar before
+anything runs and a single malformed line refuses the whole list — the input is
+maintainer-typed text entering a shell, and a half-applied list is harder to
+reason about than a refused one; an empty list is refused too, in `dry-run` as
+much as in `apply`. Because one pass runs per dispatch, the follow-through is a
+second dispatch rather than a silent second step — which is the point: the
+backlog a relabel owes is a maintainer's to schedule.
+
+The full
 design — sources, budget boundary, the
 corpus/ledger storage split, and the historical corpus — is in
 [data-pipeline.md](data-pipeline.md).
@@ -591,6 +593,30 @@ artifact, a new maintenance sweep — should land as a mode/job on `run-analytic
 (or the closest existing surface), reusing the shared composite actions
 (`setup-python-env`, `corpus-readonly`, `corpus-ranged`, `corpus-sidecar`,
 `mcp-sidecar`, `configure-git-identity`).
+
+**A `workflow_dispatch` may declare at most 10 inputs, and the "Run workflow"
+form is where the limit bites** — inputs past it are reachable by API but the
+UI silently stops rendering them, so a maintainer dispatching by hand cannot
+set them at all and a documented input becomes undispatchable with no error
+anywhere. Budget the slots: give a family of related operations **one generic
+selector** (a choice naming the operation, plus a small number of shared
+parameter fields) rather than a bespoke input per operation, which is the shape
+`run-repair` carries for the maintenance passes. Validate the combinations up
+front and refuse a field the selected operation does not take, so consolidating
+costs no strictness. `test_no_workflow_declares_more_dispatch_inputs_than_the_ui_can_render`
+pins the cap repo-wide.
+
+**On a workflow that has a `schedule:`, an input gate must be false when the
+`inputs` context is empty.** A schedule supplies no inputs, and GitHub compares
+the resulting null numerically: `inputs.mode != 'none'` is **TRUE** on every
+scheduled window (both sides coerce to `NaN`, and `NaN != NaN`), so a
+dispatch-only step gated that way fires on the schedule it was meant to skip.
+Two shapes are safe — conjoin `github.event_name == 'workflow_dispatch'`, or
+compare against `''`, which null equals under the same coercion. Prefer naming
+the value affirmatively (`inputs.mode == 'x'`, or an allow-list membership
+test), which is false under an empty context by construction; that also matters
+at *job* level, where the gate is what grants the job's credentials.
+`test_every_input_gated_step_on_a_scheduled_workflow_is_fail_closed` pins it.
 
 When you add a new `run:*` workflow or edit one, the existing workflows are the
 canonical reference — each handles these cross-cutting traps inline, so copy the
@@ -1345,11 +1371,21 @@ judgment to record.
 every other data mutation applies: a dev checkout can run the command and read
 the resulting working-tree diff, but nothing it writes can reach `main` — the
 commit credentials live only in the writer lane's jobs, and a re-grade is not a
-promotion-batch change. So the route is a maintainer-dispatched writer run that
-executes the command for each of the event's evaluators and commits the changed
-`evaluation.json` files; an agent that finds the correction composes the exact
-per-evaluator commands and leaves them where the maintainer will see them
-(`gh workflow run` is refused for a session token). Two disciplines the runbook
+promotion-batch change. That route is `run-repair`'s `regrade-stale` pass, which
+executes the command for each named cell and commits the changed
+`evaluation.json` files. An agent that finds the correction composes the
+dispatch and leaves it where the maintainer will see it (`gh workflow run` is
+refused for a session token) — one line per judge in `repair_target`:
+
+```bash
+gh workflow run run-repair.yml --ref main \
+  -f repair=regrade-stale -f repair_mode=dry-run \
+  -f repair_target='scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge
+scotus/1119228/evt-petition-certiorari/20260624T103000Z/codex-judge'
+```
+
+The `dry-run` echoes each `stamp-cell` command it would run; re-dispatch with
+`repair_mode=apply` to write. Two disciplines the runbook
 carries rather than the code: re-grade the whole event, or `validate`'s
 `evaluation_correct_agrees` fails the ledger on the half-corrected state; and
 re-grade a whole cohort against one committed statpack, since the recomputed
@@ -1588,7 +1624,7 @@ grading.
 Re-queueing costs nothing but latency: the scoring surfaces count one grading per
 (case, event, predictor, evaluator) — newest by harness clock — so a re-queued
 grading supersedes rather than double-counts (a fresh `evaluation.json` the
-collapse counts, not the in-place recompute `regrade_stale` dispatches), and the
+collapse counts, not the in-place recompute a `regrade-stale` repair dispatches), and the
 `evaluate-matrix` plan gate drops a
 cell whose judge has already graded the event (per evaluator) so a re-derivation
 spends model tokens only on the *missing* judges. The gate works at (evaluator,
