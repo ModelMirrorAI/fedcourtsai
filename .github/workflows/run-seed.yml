@@ -236,6 +236,140 @@ on:
         required: false
         default: ""
         type: string
+      normalize_docket_markings:
+        description: >-
+          Converge stored docket numbers on their marking-free spelling
+          (`fedcourts normalize-docket-markings`), draining the population the
+          `docket_numbers_carry_no_capital_marking` corpus check reports.
+          `dry-run` prints the per-row rewrite ledger — each old and new
+          spelling — to the run summary and writes nothing; `apply` rewrites
+          within an explicit blast-radius bound. Two dispatches is the
+          procedure — `dry-run`, read the count off the ledger, then `apply`
+          with that count in `normalize_max_rewrites`. The rewrite can neither
+          create nor resolve a duplicate pair: both SCOTUS channels reconcile
+          identity on a key that already strips the marking by shape, so the
+          marked and marking-free spellings compare equal to the join before
+          the rewrite as well as after, and rows that already share a
+          normalized identity are reported as the dedupe pass's population
+          rather than touched. Only fires on an explicit dispatch naming it;
+          never on the schedule.
+        required: false
+        default: none
+        type: choice
+        options:
+          - none
+          - dry-run
+          - apply
+      normalize_max_rewrites:
+        description: >-
+          The rewrite bound for `normalize_docket_markings=apply`: a positive
+          integer, and the number the maintainer read off the dry-run ledger.
+          Required on apply, and anything but a positive integer — blank, zero,
+          negative, decimal, leading-zero — is refused before the scan runs: an
+          unbounded apply would convert a widened predicate into a mass
+          rewrite. Ignored in every other mode. The population is finite and
+          non-growing, since the ingest write site strips the marking, so a
+          count above the one read means the predicate widened rather than a
+          dirtier corpus.
+        required: false
+        default: ""
+        type: string
+      response_backfill:
+        description: >-
+          Re-derive the dated interim/merits signals — the response-requested,
+          response-filed and merits-brief dates — from each row's newest stored
+          live-shaped snapshot (`fedcourts backfill-response-fields`). The gaps
+          are rows polled before those columns existed, and no channel corrects
+          them: the live poller serves the undecided slice, so a decided row is
+          never re-polled, and the undated flag beside them is a max-latched
+          boolean a later write cannot turn back into a question. `dry-run`
+          prints the fill ledger — each row with the dates it would gain — to
+          the run summary and writes nothing; `apply` fills within an explicit
+          blast-radius bound. Two dispatches is the procedure — `dry-run`, read
+          the count off the ledger, then `apply` with that count in
+          `response_max_fills`. The three columns are fill-in only, matching
+          the latch family they sit in on the upsert path, so a stored value is
+          never overwritten and a degraded payload fills nothing rather than
+          asserting a date. Only fires on an explicit dispatch naming it; never
+          on the schedule.
+        required: false
+        default: none
+        type: choice
+        options:
+          - none
+          - dry-run
+          - apply
+      response_max_fills:
+        description: >-
+          The fill bound for `response_backfill=apply`: a positive integer, and
+          the number the maintainer read off the dry-run ledger — the rows
+          actually filled, not the `candidates` denominator printed beside it.
+          That denominator is not finite: the granted arm admits every new cert
+          grant that has not yet drawn a respondent brief, so a rising
+          candidate count is the ordinary docket rather than a widened
+          predicate. Required on apply and refused before the scan runs unless
+          it is a positive integer; ignored in every other mode.
+        required: false
+        default: ""
+        type: string
+      merits_phantom_removal:
+        description: >-
+          Drop open SCOTUS merits events whose docket carries no cert grant
+          (`fedcourts remove-ungranted-merits-events`) — the shape left behind
+          when a live re-poll stops reading a grant out of the proceedings and
+          overwrites the stored date with NULL. No re-ingest or convergence
+          pass reproduces one and nothing ever closes it, so it parks forever
+          on the listed-unforecastable triage surface. `dry-run` prints the
+          removal-and-skip ledger to the run summary and writes nothing;
+          `apply` removes within an explicit blast-radius bound, in BOTH
+          stores — the corpus row and the committed event directory under
+          `data/`, staged together in the step's one pointer commit. Two
+          dispatches is the procedure — `dry-run`, read the count off the
+          ledger, then `apply` with that count in `merits_max_removals`. An
+          event carrying committed predict/evaluate output, or a committed
+          outcome the open corpus row contradicts, is skipped and reported
+          instead. Only fires on an explicit dispatch naming it; never on the
+          schedule.
+        required: false
+        default: none
+        type: choice
+        options:
+          - none
+          - dry-run
+          - apply
+      merits_max_removals:
+        description: >-
+          The removal bound for `merits_phantom_removal=apply`: a positive
+          integer, and the number the maintainer read off the dry-run ledger.
+          Required on apply here even though the command carries a default one,
+          because a deletion spanning both stores states the count it is
+          approving rather than inheriting it; anything but a positive integer
+          is refused before the scan runs. Ignored in every other mode. The
+          population is finite and non-growing — no mint produces the shape —
+          so a count above the one read means the predicate widened.
+        required: false
+        default: ""
+        type: string
+      include_failed_attempts:
+        description: >-
+          Widen `merits_phantom_removal` onto phantoms whose only committed
+          output is `attempt.json` cell-failure records, deleting those records
+          along with the event (`--include-failed-attempts`). Off by default,
+          because it is a trade rather than a tidy-up: those records document
+          real spend on an event that names nothing the docket supports, and
+          removing them buys a ledger with no dangling phantom paths at the
+          cost of that failure history. Which is worth more is a judgement
+          about the record, so it is an explicit choice per dispatch. It rides
+          the dry-run and the apply together, so the ledger read and the
+          removal that follows describe the same population, and it is refused
+          unless `merits_phantom_removal` names a mode — on its own it widens
+          nothing. The condition stays strict either way: every file under
+          `predictions/` must be named `attempt.json` and there must be no
+          `evaluations/` directory, so a `usage.json` or `retrieval_log.json`
+          the harness left beside an attempt record keeps the event skipped.
+        required: false
+        default: false
+        type: boolean
 
 permissions: {}
 
@@ -318,6 +452,13 @@ jobs:
           INCLUDE_SCORED: ${{ inputs.include_scored }}
           REGRADE_MODE: ${{ inputs.regrade_stale }}
           REGRADE_CELLS: ${{ inputs.regrade_cells }}
+          NORMALIZE_MODE: ${{ inputs.normalize_docket_markings }}
+          NORMALIZE_MAX_REWRITES: ${{ inputs.normalize_max_rewrites }}
+          RESPONSE_MODE: ${{ inputs.response_backfill }}
+          RESPONSE_MAX_FILLS: ${{ inputs.response_max_fills }}
+          MERITS_REMOVAL_MODE: ${{ inputs.merits_phantom_removal }}
+          MERITS_MAX_REMOVALS: ${{ inputs.merits_max_removals }}
+          INCLUDE_FAILED_ATTEMPTS: ${{ inputs.include_failed_attempts }}
         run: |
           set -euo pipefail
           # A targeted re-snapshot is maintainer-scale by construction: a list
@@ -423,6 +564,41 @@ jobs:
               echo "::error::regrade_stale=${REGRADE_MODE} names no cells — set regrade_cells."
               exit 1
             fi
+          fi
+          # The three repair passes below share the apply-only bound rule the
+          # disposition sweep states: the number is required on apply, ignored
+          # in every other mode, and is the count the maintainer read off a
+          # previous dry-run dispatch's ledger. Unbounded, each would convert a
+          # widened predicate into a mass rewrite rather than a loud refusal.
+          if [ "${NORMALIZE_MODE}" = "apply" ] \
+            && ! [[ "${NORMALIZE_MAX_REWRITES}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::normalize_docket_markings=apply needs normalize_max_rewrites set to a positive integer — the rewrite count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          if [ "${RESPONSE_MODE}" = "apply" ] \
+            && ! [[ "${RESPONSE_MAX_FILLS}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::response_backfill=apply needs response_max_fills set to a positive integer — the fill count read off a previous dry-run dispatch's ledger, not the candidates denominator printed beside it. Re-dispatch with that number."
+            exit 1
+          fi
+          # Stricter than the command, which carries a default bound: a
+          # deletion spanning the corpus and the committed ledger states the
+          # count it is approving rather than inheriting one.
+          if [ "${MERITS_REMOVAL_MODE}" = "apply" ] \
+            && ! [[ "${MERITS_MAX_REMOVALS}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::merits_phantom_removal=apply needs merits_max_removals set to a positive integer — the removal count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # `include_failed_attempts` widens the removal onto phantoms carrying
+          # attempt-only cell-failure records and deletes those records with the
+          # event, so it must name a mode to widen. It does NOT inherit
+          # `include_scored`'s every-mode bound rule: that number states a
+          # decision to take on a re-grade backlog, and this widening takes on
+          # none — what it grows is the removal set, which the apply's own bound
+          # already sizes.
+          if [ "${INCLUDE_FAILED_ATTEMPTS}" = "true" ] \
+            && [ "${MERITS_REMOVAL_MODE}" = "none" ]; then
+            echo "::error::include_failed_attempts needs merits_phantom_removal set to dry-run or apply — on its own it widens nothing."
+            exit 1
           fi
 
       - name: Sync the working tree to the current tip of the default branch
@@ -642,11 +818,15 @@ jobs:
           # large enough to matter against the job's hard cap. The targeted
           # re-serve is on that list even though it runs ahead of the loop
           # rather than after it: its bound is spent before this deadline is
-          # even computed, so the job's cap is what it eats into. The two
-          # dispatch-only steps absent from the list are absent deliberately —
+          # even computed, so the job's cap is what it eats into. The three
+          # repairs are all on it, including the two whose 8m bounds are small
+          # individually: they are dispatchable together, and 16m of tail
+          # against the 15m the cap leaves over a 40m loop is exactly the
+          # "large enough to matter" this list is for. The two dispatch-only
+          # steps absent from the list are absent deliberately —
           # `unlatch_overselected` and the `refresh_terms` cursor reset are
           # local, second-scale edits with no upstream traffic to pay for.
-          LOOP_BUDGET_SECONDS: ${{ (github.event.schedule == '31 2 * * *' || (github.event_name == 'workflow_dispatch' && (inputs.refresh_dockets != '' || inputs.qp_backfill != 'none' || inputs.rederive_distribution_parse != 'none' || inputs.disposition_convergence != 'none' || inputs.regrade_stale != 'none'))) && '1500' || '2400' }}
+          LOOP_BUDGET_SECONDS: ${{ (github.event.schedule == '31 2 * * *' || (github.event_name == 'workflow_dispatch' && (inputs.refresh_dockets != '' || inputs.qp_backfill != 'none' || inputs.rederive_distribution_parse != 'none' || inputs.disposition_convergence != 'none' || inputs.regrade_stale != 'none' || inputs.normalize_docket_markings != 'none' || inputs.response_backfill != 'none' || inputs.merits_phantom_removal != 'none'))) && '1500' || '2400' }}
         run: |
           set -euo pipefail
           gh auth setup-git
@@ -1315,13 +1495,303 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "distribution-count pointer"
 
+      # Converge stored docket numbers on their marking-free spelling, draining
+      # the population the `docket_numbers_carry_no_capital_marking` corpus
+      # check reports. The ingest write site stores the number with the Court's
+      # capital-case marking removed and raises `capital_case` beside it, so a
+      # stored row converges only when that site touches it again — which no
+      # automatic channel does outside the live slice. This is the dedicated
+      # sweep that drains the backlog without a re-read.
+      #
+      # Corpus-only: no ledger surface, so a pointer-only commit like the
+      # cluster scrub, and no fetch/ff-only ahead of it — nothing here reads
+      # committed `data/`. Dispatch-only and never scheduled, because the bound
+      # is a count a maintainer read off a dry run rather than a state a window
+      # can converge toward; and no continue-on-error, for the reason the
+      # disposition pair below documents — it fails by REFUSING an apply
+      # without its bound, and absorbing that would report a convergence that
+      # never happened.
+      - name: Converge stored docket markings (dispatch-only)
+        # The event_name conjunct is load-bearing for the reason the sibling
+        # dispatch-only steps document: on a schedule the inputs context is
+        # empty and the `!= 'none'` comparison evaluates TRUE. The dedupe
+        # conjunct is theirs too — this rewrites the docket-number column the
+        # channels' identity join reads through, so the bound must be checked
+        # against the merged population rather than a twin's. The rewrite
+        # itself can neither create nor resolve a collision: both channels
+        # reconcile on a key that already strips the marking by shape, so the
+        # two spellings compare equal to the join before it as well as after.
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.normalize_docket_markings != 'none' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Local like the cluster scrub — one scan of the cases table and a
+        # bounded UPDATE against the pulled blob — plus the blob push the walk
+        # pays on every window anyway. Still bounded, so the step's worst case
+        # cannot push the job past its own 55m cap: a cap hit there is a
+        # cancellation, which no failure handling absorbs.
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          NORMALIZE_MODE: ${{ inputs.normalize_docket_markings }}
+          NORMALIZE_MAX_REWRITES: ${{ inputs.normalize_max_rewrites }}
+        run: |
+          set -euo pipefail
+          # Validate the bound before anything else, including the corpus
+          # guard: a dispatch that cannot legally apply should say so in
+          # seconds, not after a full scan. The command refuses an unbounded
+          # apply on its own too; this refusal is the one with the maintainer's
+          # procedure in it. `Validate dispatch inputs` up front duplicates it
+          # word for word so a bad dispatch dies before the corpus pull; this
+          # copy is the one of record, because the step has to be safe on
+          # whatever reaches it.
+          if [ "${NORMALIZE_MODE}" = "apply" ] \
+            && ! [[ "${NORMALIZE_MAX_REWRITES}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::normalize_docket_markings=apply needs normalize_max_rewrites set to a positive integer — the rewrite count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to converge.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the docket-marking convergence"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Dry-run first, into the summary: the per-row ledger — each old and
+          # new spelling, and which rows already share a normalized identity —
+          # is the reading the apply's bound comes from, and it must outlive
+          # the step log. (On an apply this run is a receipt, not a reading:
+          # nobody reads it before the rewrite.)
+          uv run fedcourts normalize-docket-markings 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${NORMALIZE_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts normalize-docket-markings --apply \
+            --max-rewrites "${NORMALIZE_MAX_REWRITES}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Docket markings already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (docket markings)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "docket-marking pointer"
+
+      # Re-derive the dated interim/merits signals — `response_requested_at`,
+      # `response_filed_at`, `merits_brief_filed` — from each row's newest
+      # stored live-shaped snapshot. The gaps are rows polled before those
+      # columns existed, and no channel corrects them: the live poller serves
+      # the undecided slice, so a decided row is never re-polled, and the
+      # undated flag beside them is a max-latched boolean a later write cannot
+      # turn back into a question. Recoverable from the corpus alone, since
+      # that stored snapshot is the same payload the original ingest read.
+      #
+      # It reads those snapshots, which under the corpus split live in the
+      # content store rather than the blob — so like the merits-judgment sweep
+      # it depends on the job-level split-mode env pair, and a row with no
+      # stored snapshot is counted and reported rather than failed. Its write
+      # is a direct UPDATE of the index, so unlike the questions-presented
+      # backfill the pointer IS the witness here and a plain pointer commit
+      # suffices; no ledger surface, so no fetch/ff-only. Dispatch-only, never
+      # scheduled, and no continue-on-error — it fails by REFUSING an apply
+      # without its bound.
+      - name: Backfill the dated response signals (dispatch-only)
+        # The event_name conjunct is load-bearing for the sibling steps'
+        # reason: on a schedule the inputs context is empty and the `!= 'none'`
+        # comparison evaluates TRUE. The dedupe conjunct is theirs too — this
+        # fills columns off corpus rows, and an unmerged twin is a second row
+        # for the same petition, so the fill must land on the merged one.
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.response_backfill != 'none' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Network-bound like the questions-presented backfill rather than the
+        # local sweeps: one content-store read per candidate row, pooled by the
+        # shared prefetch. Sized between the merits-judgment pass and the
+        # questions-presented one — a guess, not a measurement, since the
+        # candidate set is a subset of the live slice; the first `dry-run`
+        # dispatch is what re-sizes it. This step carries no continue-on-error,
+        # so a cap hit reddens the run and the guard job names the step rather
+        # than being absorbed — which is why the bound errs generous.
+        timeout-minutes: 20
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          RESPONSE_MODE: ${{ inputs.response_backfill }}
+          RESPONSE_MAX_FILLS: ${{ inputs.response_max_fills }}
+        run: |
+          set -euo pipefail
+          # Validate the bound before anything else, including the corpus
+          # guard: a dispatch that cannot legally apply should say so in
+          # seconds, not after a full-population read of the content store.
+          # `Validate dispatch inputs` up front duplicates it word for word so
+          # a bad dispatch dies before the corpus pull; this copy is the one of
+          # record, because the step has to be safe on whatever reaches it.
+          if [ "${RESPONSE_MODE}" = "apply" ] \
+            && ! [[ "${RESPONSE_MAX_FILLS}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::response_backfill=apply needs response_max_fills set to a positive integer — the fill count read off a previous dry-run dispatch's ledger, not the candidates denominator printed beside it. Re-dispatch with that number."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to re-derive.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the response-signal backfill"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Dry-run first, into the summary: the fill ledger — each row with the
+          # dates it gains, beside the counts of rows read with nothing to fill,
+          # with no stored snapshot, and whose snapshot discloses no proceedings
+          # — is the reading the apply's bound comes from, and it must outlive
+          # the step log. (On an apply this run is a receipt, not a reading.)
+          uv run fedcourts backfill-response-fields 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${RESPONSE_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts backfill-response-fields --apply \
+            --max-fills "${RESPONSE_MAX_FILLS}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Response signals already filled; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (dated response signals)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "response-signal pointer"
+
+      # Drop open SCOTUS merits events whose docket carries no cert grant, in
+      # both stores. A merits event is born from a grant — every mint path
+      # routes through `opens_merits_proceeding`, which requires the row's
+      # `date_cert_granted` — so an open merits-stage event on a row whose
+      # grant column is NULL is one no re-ingest or convergence pass
+      # reproduces, and one nothing ever closes: merits detection reads the
+      # same grant-gated columns, so it parks forever on the
+      # listed-unforecastable triage surface rather than resolving.
+      #
+      # Ordering against the merits-event mint above, which runs on every
+      # dispatch: this step is after it, the safe direction — and also the
+      # direction that does not matter, which is worth stating so a later
+      # reorder knows what it is free to move. The two populations are disjoint
+      # by construction: the mint writes only where `date_cert_granted` is
+      # non-NULL, and this removes only where it is NULL, so neither can create
+      # or destroy the other's population. That is also why this step carries
+      # no gate on the mint's outcome, unlike the dedupe gate below — making a
+      # maintainer-dispatched repair skip on an unrelated sweep's failure buys
+      # nothing when there is no shared population to be wrong about.
+      #
+      # The ledger half is what shapes the commit. Like the attribution
+      # repairs, this deletes committed event directories under `data/` as well
+      # as the corpus row, so it reads the remote tip first — the skip guards
+      # read committed predict/evaluate output that arrives by collect PR — and
+      # stages `data/` with the pointer in ONE commit: an uncommitted ledger
+      # half strands a directory under an id the corpus no longer carries, and
+      # no later pass re-detects it. Dispatch-only, never scheduled, and no
+      # continue-on-error: it fails by REFUSING an apply without its bound.
+      - name: Remove ungranted merits phantoms (dispatch-only)
+        # The event_name conjunct is load-bearing for the sibling steps'
+        # reason: on a schedule the inputs context is empty and the `!= 'none'`
+        # comparison evaluates TRUE. The dedupe conjunct is sharpest here of
+        # all the siblings: whether an event is a phantom is read off its row's
+        # grant column, and an unmerged twin is a second row for the same
+        # petition — so the judgment, and the deletion that follows it, must be
+        # made on the merged row.
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.merits_phantom_removal != 'none' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Bounded like the attribution repairs whose shape this copies: both
+        # scans are local — committed ledger artifacts against corpus rows —
+        # with no external-service loop, and the blob push the walk pays on
+        # every window anyway.
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          MERITS_REMOVAL_MODE: ${{ inputs.merits_phantom_removal }}
+          MERITS_MAX_REMOVALS: ${{ inputs.merits_max_removals }}
+          INCLUDE_FAILED_ATTEMPTS: ${{ inputs.include_failed_attempts }}
+        run: |
+          set -euo pipefail
+          # Validate the bound and the widening before anything else, including
+          # the corpus guard: a dispatch that cannot legally apply should say so
+          # in seconds, not after a full scan. `Validate dispatch inputs` up
+          # front duplicates both word for word so a bad dispatch dies before
+          # the corpus pull; this copy is the one of record, because the step
+          # has to be safe on whatever reaches it.
+          if [ "${MERITS_REMOVAL_MODE}" = "apply" ] \
+            && ! [[ "${MERITS_MAX_REMOVALS}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::merits_phantom_removal=apply needs merits_max_removals set to a positive integer — the removal count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          if [ "${INCLUDE_FAILED_ATTEMPTS}" = "true" ] \
+            && [ "${MERITS_REMOVAL_MODE}" = "none" ]; then
+            echo "::error::include_failed_attempts needs merits_phantom_removal set to dry-run or apply — on its own it widens nothing."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to remove.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the merits-phantom removal"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # The sweep reads committed ledger artifacts out of `data/` and
+          # deletes beside them, and this checkout is only as fresh as the
+          # previous step's rebase — read the remote tip first so the skip
+          # guards see every collect PR merged in the gap. Fast-forward only,
+          # for the attribution sibling's reason: a sibling step whose push
+          # retries were exhausted holds an unpushed commit over live corpus
+          # mutations, and a reset would publish that split.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          # `--include-failed-attempts` rides both invocations below or
+          # neither, so the ledger the maintainer reads and the removal that
+          # follows describe the same population. Declared outside the guard so
+          # the expansion is total under `set -u`.
+          attempt_args=()
+          if [ "${INCLUDE_FAILED_ATTEMPTS}" = "true" ]; then
+            attempt_args+=(--include-failed-attempts)
+          fi
+          # Dry-run first, into the summary: the removal-and-skip ledger — every
+          # event removed and every skip with its reason — is the reading the
+          # apply's bound comes from, and a deletion's record must outlive the
+          # step log. (On an apply this run is a receipt, not a reading.)
+          uv run fedcourts remove-ungranted-merits-events "${attempt_args[@]}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${MERITS_REMOVAL_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts remove-ungranted-merits-events "${attempt_args[@]}" \
+            --apply --max-removals "${MERITS_MAX_REMOVALS}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere. An apply that pushed the
+          # blob but failed before the commit publishes nothing: readers resolve
+          # the committed pointer, and the next dispatch re-detects from the
+          # still-committed ledger.
+          uv run fedcourts corpus-push
+          # `git add data/` stages the deleted event directories along with the
+          # pointer — one commit, so the ledger and the corpus it must match
+          # land together or not at all. The directory guard is the add sweeps'
+          # shape (on a tip without `data/` an unguarded add fails under
+          # `set -euo pipefail` AFTER the blob push), and it cannot fail open
+          # here the way it could if this deleted the tree: what it removes is
+          # individual event directories out of the whole case tree, so a
+          # removal with anything to stage always leaves a `data/` behind it.
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "No ungranted merits phantoms to remove; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (ungranted merits phantoms)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "merits-phantom pointer"
+
       # The pair below runs in this order for a reason: a label rewrite that
       # lands after a grade was taken leaves the grade stale, so labels move
       # first and the recompute follows in the same dispatch. Neither half
       # fires on the schedule — each acts on a ledger a maintainer has read,
       # and that reading only exists because a `dry-run` dispatch produced it.
       #
-      # Like the re-derivation above, and unlike the converging sweeps and the
+      # Like the re-derivation and the three repairs above, and unlike the
+      # converging sweeps and the
       # two dispatch-only backfills — the overhang clear and the
       # questions-presented backfill — alike, neither
       # carries continue-on-error, and the distinction is not "dispatch-only". It is

@@ -169,9 +169,12 @@ columns only. A row still carrying the marking converges either by re-ingest —
 live-slice row on its next poll, one outside the slice on a targeted re-read — or
 by `normalize-docket-markings`, the dedicated sweep that rewrites the stored
 spelling and raises the flag without a fetch, which is what the backlog needs,
-being overwhelmingly decided rows the rotation has left. Its apply half awaits
-writer-lane wiring, so `validate-corpus` counts the remainder as an advisory
-check ([cli.md](cli.md)) rather than a failure.
+being overwhelmingly decided rows the rotation has left. Its apply half is
+run-seed's `normalize_docket_markings` dispatch input ([pipeline.md](pipeline.md)).
+`validate-corpus` counts the remainder as an advisory check ([cli.md](cli.md))
+rather than a failure, because rows written before the write site stripped the
+marking carry one until something reaches them, and the verdict must not be red
+for the whole interval.
 
 ## Documents: from metadata to content
 

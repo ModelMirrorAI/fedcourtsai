@@ -931,6 +931,28 @@ or network.
   because the corpus is already pulled and pushed there; the sweep window's
   walk budget yields time for them (25 min against the other windows' 40),
   so the sweeps' bounded worst case never gambles the job cap.
+- **Dispatch-gated repairs:** a corpus repair whose dry-run is a triage list a
+  maintainer must read before an apply gets a dispatch input on this lane
+  instead of a window, because the reading has no scheduled moment. Each takes
+  a `none`/`dry-run`/`apply` mode and a positive-integer bound consumed on
+  apply, refused up front without it, and the procedure is two dispatches: the
+  `dry-run` tees its ledger to the run summary, and the `apply` carries the
+  count that ledger printed. `fedcourts normalize-docket-markings`
+  (`normalize_docket_markings` / `normalize_max_rewrites`) converges stored
+  docket numbers on their marking-free spelling; `fedcourts
+  backfill-response-fields` (`response_backfill` / `response_max_fills`)
+  re-derives the dated interim/merits signals from each row's newest stored
+  live-shaped snapshot, reading it through the split-mode env pair because
+  under the split those payloads are the content store's; and `fedcourts
+  remove-ungranted-merits-events` (`merits_phantom_removal` /
+  `merits_max_removals`, widened by `include_failed_attempts`) drops open
+  merits events whose docket carries no cert grant — the one of the three with
+  a ledger half, so its deleted event directories stage into the same pointer
+  commit as the corpus row, the attribution repairs' shape. They sit after the
+  converging sweeps because they fail by refusing rather than by not
+  converging: a fail-hard step ahead of the sweeps would skip every one of
+  them. The full input inventory, including the older dispatch-gated passes,
+  is in [pipeline.md](pipeline.md).
 
 ## Pull — forward freshness
 

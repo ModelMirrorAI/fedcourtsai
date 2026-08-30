@@ -255,8 +255,11 @@ runbook, [docs/security.md](docs/security.md).
   outcomes, and evaluations under `data/` is immutable — every forward change
   is a new, attributable commit. Forward deletions of ledger records are
   confined to two bounded channels: the maintainer-reviewed `cleanup/*` PR
-  lane, and the run-seed writer lane's attribution-repair sweeps, whose CLI
-  refuses to apply above a per-run blast-radius cap. Secrets and the two
+  lane, and the run-seed writer lane's bounded repair sweeps — the attribution
+  repairs, and the dispatch-gated removal of merits events whose docket carries
+  no cert grant — each of whose CLI refuses to apply above a per-run
+  blast-radius cap, and each of which stages its ledger deletions into the same
+  commit as the corpus pointer they must match. Secrets and the two
   production S3 role ARNs live in the
   `prod` environment, whose deployment branches are restricted to `main`: a
   workflow authored on a PR branch runs without them. A second environment,
