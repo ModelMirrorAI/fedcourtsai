@@ -1,6 +1,7 @@
 import copy
 import hashlib
 import json
+import re
 import shutil
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -2512,13 +2513,16 @@ EVALUATORS_YAML = "evaluators.yaml"
 
 
 def _flat(output: str) -> str:
-    """CLI output with runs of whitespace collapsed.
+    """CLI output with ANSI styling stripped and runs of whitespace collapsed.
 
     Typer renders a refusal inside a bordered box, wrapping the message at the
     frame width, so a phrase that is contiguous in the source is split across
-    lines here. Assert against this rather than pinning the line breaks.
+    lines here — and on a CI runner rich emits color escapes mid-phrase, so a
+    substring match must strip them too. Assert against this rather than
+    pinning the line breaks or the terminal styling.
     """
-    return " ".join(output.replace("│", " ").split())
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", output)
+    return " ".join(plain.replace("│", " ").split())
 
 
 def _resolve(env: dict[str, str], *cases: str, event_id: str = EVENT) -> None:
@@ -2782,7 +2786,7 @@ def test_predict_matrix_still_refuses_an_input_less_invocation(tmp_path: Path) -
     result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"], env=env)
 
     assert result.exit_code != 0
-    assert "--body-file" in result.output
+    assert "--body-file" in _flat(result.output)
 
 
 def test_evaluate_plan_dry_runs_exactly_the_backlog_matrix_would_mint(tmp_path: Path) -> None:
