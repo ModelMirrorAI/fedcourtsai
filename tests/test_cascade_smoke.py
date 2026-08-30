@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
@@ -37,12 +38,14 @@ from fedcourtsai.pipeline.claims import (
     CLAIM_RESPONSE_REQUESTED_INCREMENT,
     CLAIM_SUMMARY_ROUTE,
 )
+from fedcourtsai.pipeline.runner import RunRequest, get_runner
 from fedcourtsai.pipeline.semantic import (
     SEMANTIC_MERITS_V1,
     SEMANTIC_SET_V1,
     graded_units,
     ordinal,
 )
+from fedcourtsai.registry import enabled_evaluators
 from fedcourtsai.schemas import (
     Disposition,
     Evaluation,
@@ -50,6 +53,7 @@ from fedcourtsai.schemas import (
     Outcome,
     Prediction,
     SemanticSupport,
+    UsageRole,
 )
 from fedcourtsai.serialize import read_model
 from fedcourtsai.store import iter_stratified_evaluations
@@ -65,6 +69,13 @@ _CERT_CLAIM_IDS = [
 
 CONFIG_ROOT = Path("config")
 RUN = "20260628T120000Z"
+
+#: The fixture's plain resolved cert petition — one event, one outcome, no
+#: second moment. The scheduled-evaluate round below predicts this case and only
+#: this case, so the backlog it then derives from the whole corpus has exactly
+#: one case in it and the assertions can name what was planned.
+BACKLOG_CASE = ("scotus", 304)
+BACKLOG_EVENT = "evt-petition-disposition"
 
 
 def test_stub_cascade_smoke(tmp_path: Path) -> None:
@@ -465,3 +476,140 @@ def test_require_predictions_fails_a_cell_that_produced_nothing(
     blocked = CliRunner().invoke(app, args, env=env)
     assert blocked.exit_code == 1
     assert "no predictor cell wrote a prediction" in blocked.output
+
+
+def _backlog_matrix(env: dict[str, str]) -> list[dict[str, Any]]:
+    """The evaluate matrix the *scheduled* plan job derives.
+
+    No ``--body-file`` and no ``--court``/``--docket``, which is how
+    ``evaluate-matrix`` is told to take its cases from the corpus-level backlog.
+    Omitting the flag and blanking it are different requests — an empty body
+    file carries no ```json block and is refused outright — so the workflow
+    builds the argument up rather than passing an empty one, and so does this.
+    """
+    result = CliRunner().invoke(app, ["evaluate-matrix", "--run-id", RUN], env=env)
+    assert result.exit_code == 0, result.output
+    include = json.loads(result.stdout)["include"]
+    assert isinstance(include, list)
+    return include
+
+
+def test_stub_scheduled_evaluate_round_smoke(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A whole scheduled evaluate round, offline: backlog → cells → validate.
+
+    The other smokes drive evaluate the way a *labelled* run does — the cases
+    come from a trigger issue, and ``run_cascade`` grades whatever it just
+    predicted in the same breath. The scheduled lane works the other way round:
+    it runs over a ledger some earlier round committed, and derives its own work
+    from committed state (resolved event + prediction + no evaluation). That
+    derivation is the only thing standing between a dropped evaluate run and a
+    grading lost for good, and until a round actually runs, nothing executes it
+    end to end — the deriver is unit-tested in ``tests/test_evaluate_backlog.py``
+    and the fan-out gates in ``tests/test_cli_matrix.py``, but no test carries a
+    ledger from predict through a *derived* matrix to a validated grading.
+
+    So: predict one case with the evaluators held off, derive the matrix from
+    the backlog, run the cells it planned, and validate. The closing assertion
+    is the one that says the round *completed* rather than merely ran — the
+    re-derivation comes back empty, because the backlog the deriver watches has
+    been drained.
+    """
+    court, docket = BACKLOG_CASE
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    fixture.build_fixture_corpus(db)
+    data_root = tmp_path / "data"
+    env = {
+        "FEDCOURTS_CORPUS_ROOT": str(tmp_path / "corpus"),
+        "FEDCOURTS_DATA_ROOT": str(data_root),
+    }
+
+    # The predict round: provision + predict + ground truth, and no grading.
+    # Holding the evaluators off is what leaves a backlog to derive — it is the
+    # committed state a dropped evaluate run leaves behind, reached here without
+    # having to fail a run to get it.
+    monkeypatch.setattr(cascade, "enabled_evaluators", lambda _path: [])
+    predicted = run_cascade(
+        corpus_db_path=db,
+        data_root=data_root,
+        config_root=CONFIG_ROOT,
+        court=court,
+        docket=docket,
+        run_id=RUN,
+    )
+    monkeypatch.setattr(cascade, "enabled_evaluators", enabled_evaluators)
+
+    assert predicted.valid, predicted.problems
+    assert predicted.events == (BACKLOG_EVENT,)
+    assert predicted.predictions and predicted.outcomes
+    assert not predicted.evaluations
+
+    # The derivation, over the whole corpus rather than a named case: every
+    # other resolved SCOTUS event in the fixture is unpredicted, and an event
+    # with nothing to score is not owed — so the backlog is exactly this case.
+    planned = _backlog_matrix(env)
+    assert planned, "the backlog owes this case's gradings; a derived round would mint nothing"
+    assert {(cell["court"], cell["docket"], cell["event_id"]) for cell in planned} == {
+        (court, docket, BACKLOG_EVENT)
+    }
+    judges = {evaluator.id for evaluator in enabled_evaluators(CONFIG_ROOT / "evaluators.yaml")}
+    assert {str(cell["evaluator_id"]) for cell in planned} == judges
+    assert {cell["run_id"] for cell in planned} == {RUN}
+
+    # The cells the matrix planned, run through the cascade's own evaluate stage
+    # — called directly rather than through `run_cascade`, so the round grades
+    # without re-predicting, which is the shape of the lane under test. That
+    # seam rather than a hand-composed loop because it *is* the blind-grading
+    # bracket (stage the candidates under aliases → run the judge → un-alias),
+    # the contract `run-evaluate` puts around its agent step: composing it here
+    # would fork a contract that must not drift. It fans out over the enabled
+    # evaluators, asserted above to be exactly the planned set.
+    runner = get_runner("stub")
+
+    def _request(role: UsageRole, actor: str, prompt: str, event_id: str) -> RunRequest:
+        return RunRequest(
+            role=role,
+            court_id=court,
+            docket_id=docket,
+            event_id=event_id,
+            actor_id=actor,
+            run_id=RUN,
+            prompt=Path(prompt),
+            data_root=data_root,
+        )
+
+    written: list[Path] = []
+    for event_id in sorted({str(cell["event_id"]) for cell in planned}):
+        written.extend(
+            cascade._evaluate_event(
+                runner=runner,
+                request=_request,
+                event_paths=CasePaths(data_root, court, docket).event(event_id),
+                data_root=data_root,
+                config_root=CONFIG_ROOT,
+                court=court,
+                docket=docket,
+                event_id=event_id,
+                run_id=RUN,
+                map_dir=data_root.parent / ".blinding",
+            )
+        )
+    assert [path for path in written if path.name == "evaluation.json"]
+
+    # Every planned cell landed its judge's grading, not just some of them.
+    for cell in planned:
+        event_paths = CasePaths(data_root, court, docket).event(str(cell["event_id"]))
+        graded = event_paths.evaluator_dir(str(cell["evaluator_id"]))
+        assert list(graded.glob("*/*/evaluation.json")), (
+            f"the matrix planned {cell['evaluator_id']} on {cell['event_id']} but it graded nothing"
+        )
+
+    # The round's ledger passes the same gate the run PR would be checked by.
+    validated = CliRunner().invoke(app, ["validate", str(data_root)])
+    assert validated.exit_code == 0, validated.output
+
+    # And the backlog is drained — the lane's resting state — so the next
+    # scheduled cycle re-derives nothing. A round that graded only some of what
+    # it planned would still be owed here.
+    assert _backlog_matrix(env) == []
