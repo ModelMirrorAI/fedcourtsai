@@ -748,7 +748,16 @@ jobs:
         if: matrix.engine == 'codex'
         # Same buffer as the Claude step: trip this step, not the job, on overrun.
         timeout-minutes: 50
-        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        # Held at v1.12's predecessor: v1.12 treats its safety strategy as
+        # protected and rejects the `sandbox_workspace_write.network_access`
+        # override the cell requires for its live retrieval contract — the
+        # refusal fires in the action's validation layer before any model
+        # call (the bare CLI accepts the same override, so the engine smoke
+        # cannot see it). Dependabot is told to skip this action below its
+        # migration; moving forward again means adopting the action's
+        # profile-based network configuration deliberately, with a cell-path
+        # check beside it.
+        uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1.11
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
