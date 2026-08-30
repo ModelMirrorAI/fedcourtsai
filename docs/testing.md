@@ -29,7 +29,12 @@ whose merits cell carries a judgment with its mandatory vote block, the one decl
 `merits-v1` claim, and the two declared `semantic-v1` propositions its grader answers
 entirely with the availability mask (the fixture corpus holds no opinion body). Each non-cert cell lands in the leaderboard's own unranked stage block
 rather than the ranked cert board, and the later-moment cert cell likewise aggregates
-into its own `cert@cvsg` block. Run just it with `uv run pytest -k cascade_smoke`.
+into its own `cert@cvsg` block. One further round drives the *scheduled* evaluate
+lane rather than a labelled one: it predicts with the judges held off, derives the
+matrix from the evaluate backlog (`evaluate-matrix` with no `--body-file`, as the
+scheduled plan job does), grades the cells that derivation planned, and requires the
+re-derivation to come back empty — the backlog drained, which is the lane's resting
+state. Run them all with `uv run pytest -k cascade_smoke`.
 
 If you changed the pydantic models, the `schemas` stage regenerates the exported
 schemas and fails on drift — so regenerate and commit them in the same change.
@@ -316,7 +321,16 @@ validator and the step of record that re-checks it), and the predict plan job's 
 guard (`test_workflow_plan_census`: the census runs before the matrix step and
 feeds it, degrades open rather than failing the job, and lets a fully-superseded
 run close with the recovery note) — so deleting a load-bearing line fails a
-named test instead of passing every linter. For a heavier local check of the
+named test instead of passing every linter. Two of the family go further and
+*run* what the YAML embeds, because a workflow string is matched against the CLI
+for the first time when the job runs: `test_workflow_repair_cli_parity` reads
+each of `run-repair`'s eight dispatch-only maintenance passes back out of the
+workflow — argv, conditional flag arrays and all, via the shared reader
+`tests/workflow_argv.py` — and executes it against the fixture corpus, so a
+renamed flag fails here rather than as a usage error mid-dispatch; and
+`test_collect_issueless` executes the collect composite's own `collect-plan`
+call with the sentinel it normalizes an absent trigger issue to, which is the
+one path a scheduled round takes and an issue-triggered run never does. For a heavier local check of the
 deterministic jobs (the `plan` job, matrix generation, the auth gate),
 [`nektos/act`](https://github.com/nektos/act) can run them in Docker — useful for
 orchestration, though its OIDC and secret handling mean it does not cover the agent
