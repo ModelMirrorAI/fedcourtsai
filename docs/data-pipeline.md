@@ -149,7 +149,7 @@ dry-run is a triage list a maintainer must read before an apply:
 | Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions & applications, granted dockets to judgment: discovery, watchlist, outcomes | granted dockets → published opinion: reporter citations and opinion body |
 | Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        | shares the CourtListener budget, bounded per dispatch |
 | Cadence   | **daily** (4 dead-zone windows)         | **daily** (4 windows)             | **daily** (4 windows)           | **dispatch only** (never scheduled) |
-| Handoffs  | none — lands already-resolved history   | predict/evaluate issues           | predict/evaluate issues         | none — enriches rows already ingested |
+| Handoffs  | none — lands already-resolved history   | predict issues                    | predict issues                  | none — enriches rows already ingested |
 
 They share an **ingestion core** (`fedcourtsai.pipeline.ingest`: a
 normalization layer where a CourtListener API docket, a bulk-shaped row, and a
@@ -956,9 +956,11 @@ or network.
      queued: a forward cell on a decided case would be a mislabeled back-test.
      The live job applies the same routing.
   2. **Detect resolution** of tracked open events → write `outcome.json`
-     deterministically when the disposition is machine-readable, and queue
-     `run:evaluate` **when the ledger holds a prediction to score**
-     (ground-truth recording is ungated; the evaluator fan-out is). Anything
+     deterministically when the disposition is machine-readable, and record the
+     owed grading on the evaluate backlog **when the ledger holds a prediction
+     to score** (ground-truth recording is ungated; the evaluator fan-out is).
+     No issue is filed for it — `run-evaluate` derives that backlog itself on
+     its own schedule. Anything
      ambiguous lands on the runner-local **unrecorded queue**, surfaced
      per-case on the pipeline-runs dashboard for maintainer triage; no issue
      is filed. A recorded cert **grant** that opens a merits proceeding —

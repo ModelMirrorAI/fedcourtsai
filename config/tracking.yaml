@@ -132,7 +132,7 @@ historical:
   # The walker ingests
   # only decided petitions, skips pending ones, and leaves a decided petition
   # whose existing case carries an open PREDICTED event to the watchlist (its
-  # re-poll queues the evaluate handoff the walker never files); the two
+  # re-poll lands it on the evaluate backlog the walker never feeds); the two
   # walkers' cursors are disjoint, so neither rewinds the other. Note the
   # frame below applies to what the WALKER ingests — a Term the forward
   # poller also onboarded (OT2025+) carries the poller's pending-petition
