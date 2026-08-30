@@ -82,8 +82,8 @@ pre-registration record's commit ids.
   to merge. **Bypass: the data App only**, so the deterministic writer jobs
   (`run-pull`, `run-seed`) push corpus facts (the corpus blob — rows and
   point-in-time snapshots — to the S3 corpus remote; its pointer, deterministic
-  `outcome.json` and `event.yaml` records, and the seed lane's bounded
-  attribution repairs to `main`) while all agent code changes — including
+  `outcome.json` and `event.yaml` records, and the seed lane's bounded repair
+  sweeps to `main`) while all agent code changes — including
   anything the dev App holds —
   go through a PR gated on the required checks. The dev App is deliberately
   **absent** from this bypass list. Required approvals are `0` — the maintainer
@@ -150,7 +150,7 @@ pre-registration record's commit ids.
   the predictions, outcomes, and evaluations under `data/` cannot be rewritten
   or dropped, even by a misbehaving writer that holds the data App's bypass
   token: a forward commit can delete a ledger record — the writer lane's
-  attribution repairs do, bounded by their per-run blast-radius cap — but the
+  bounded repair sweeps do, each capped per run — but the
   deletion is itself a permanent, attributable commit, visible and revertible
   rather than silent.
 - **`staging: require PR`** — the pre-merge branch every feature PR targets

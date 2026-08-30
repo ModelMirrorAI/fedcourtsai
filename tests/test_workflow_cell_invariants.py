@@ -1016,9 +1016,21 @@ def test_run_seeds_early_validator_duplicates_every_late_refusal_verbatim() -> N
     # exactly the same words. The step's own guards differ — its `if:` already
     # narrows the mode, so a late copy needs no mode conjunct the early one does
     # — but the text a maintainer reads may not.
+    #
+    # The list is curated rather than derived from "every step that can print an
+    # `::error::`", because two other kinds of annotation in this lane are
+    # correctly absent from the up-front copy and would make a derived list fail:
+    # a refusal the early validator does not duplicate because the input is
+    # parsed where it is consumed (the `refresh_terms` Term grammar), and a
+    # run-time failure that is not an input refusal at all (the
+    # questions-presented backfill's convergence check). A new step that refuses
+    # a dispatch input belongs here; nothing enforces that but this comment.
     for owner in (
         "Re-serve the named dockets",
         "Re-derive the distribution counts (dispatch-only)",
+        "Converge stored docket markings (dispatch-only)",
+        "Backfill the dated response signals (dispatch-only)",
+        "Remove ungranted merits phantoms (dispatch-only)",
         "Converge disposition labels (dispatch-only)",
         "Re-grade named cells (dispatch-only)",
     ):
@@ -1028,6 +1040,29 @@ def test_run_seeds_early_validator_duplicates_every_late_refusal_verbatim() -> N
         assert not drifted, (
             f"{owner}: refusal text absent from `Validate dispatch inputs` — "
             f"the two copies must stay word-for-word identical: {sorted(drifted)}"
+        )
+
+
+def test_every_mode_gated_seed_step_also_conjoins_the_dispatch_event() -> None:
+    """A `!= 'none'` mode gate is inert without the `event_name` conjunct beside it.
+
+    On a schedule the `inputs` context is empty, so `inputs.<mode> != 'none'`
+    compares null against a string and evaluates TRUE — a dispatch-only writer
+    step gated on the mode alone would fire on every scheduled window, which is
+    precisely what these gates exist to prevent. The two inputs compared against
+    `''` instead are safe on their own (a schedule yields the empty string the
+    default already carries) and are not the shape this pins.
+    """
+    steps = _load("run-seed.yml")["jobs"]["seed"]["steps"]
+    mode_gated = [s for s in steps if "!= 'none'" in str(s.get("if", ""))]
+    assert mode_gated, "run-seed carries no mode-gated step; the invariant is vacuous"
+    for step in mode_gated:
+        condition = str(step["if"])
+        assert "github.event_name == 'workflow_dispatch'" in condition, (
+            f"{step.get('name')}: gated on a `!= 'none'` mode with no "
+            "`github.event_name == 'workflow_dispatch'` conjunct — on a schedule "
+            "the empty inputs context makes that comparison TRUE, so the step "
+            "would run on every window"
         )
 
 

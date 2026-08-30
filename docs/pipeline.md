@@ -306,9 +306,9 @@ own blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
-any other corpus write. Five further writer steps run **after the loop**, are
+any other corpus write. Eight further writer steps run **after the loop**, are
 not among the seven, and never run on a schedule, each gated behind its own
-dispatch input; the four
+dispatch input; the seven
 that read corpus rows also require the dedupe to have succeeded, since each
 must weigh a merged row rather than a twin. (Two more sit *ahead* of the loop
 on the same dispatch-only footing — the `refresh_terms` cursor reset and the
@@ -348,7 +348,58 @@ converge toward. The label input is refused up front and again in the step
 unless it is a lowercase parse label; whether the label is *registered* is the
 command's own refusal.
 
-The last two are sequenced after every converging sweep, and in this order —
+Three repair passes take the same shape the disposition convergence does: a
+`none`/`dry-run`/`apply` mode input, a positive-integer bound consumed on apply
+and refused up front without it, and the two-dispatch procedure — `dry-run`,
+read the ledger off the run summary, then `apply` with the count it printed.
+The bound is what turns a widened predicate into a loud refusal rather than a
+mass rewrite. For the two whose population is finite and non-growing — the
+marking rewrite and the phantom removal — a count above the one read means
+exactly that, and nothing else. The response backfill's grows honestly between
+two dispatches, as a granted row draws the respondent brief that makes it
+fillable, so a rise there is the ordinary docket rather than the predicate.
+`normalize-docket-markings` (the
+`normalize_docket_markings` input, bounded by `normalize_max_rewrites`)
+converges stored docket numbers on their marking-free spelling, draining the
+population the `docket_numbers_carry_no_capital_marking` corpus check reports:
+the ingest write site strips the Court's capital-case marking and raises
+`capital_case` beside it, so a row outside the live slice converges only under a
+re-read aimed at it, and this is the sweep that needs none. It can neither
+create nor resolve a duplicate pair, since both channels reconcile identity on a
+key that already strips the marking by shape; and having no ledger surface — its
+write is a direct `UPDATE` of the index — it commits the pointer alone. `backfill-response-fields` (the `response_backfill` input,
+bounded by `response_max_fills`) re-derives the dated interim/merits signals
+from each row's newest stored live-shaped snapshot, which under the corpus split
+lives in the content store rather than the blob; it therefore reads through the
+job's split-mode env like the merits-judgment sweep, counts a row with no stored
+snapshot rather than failing on it, and writes a direct `UPDATE` of the index,
+so the pointer is its own witness. Its bound counts the rows actually filled,
+not the `candidates` denominator beside them, which rises with every new cert
+grant that has not yet drawn a respondent brief.
+`remove-ungranted-merits-events` (the `merits_phantom_removal` input, bounded by
+`merits_max_removals`) drops open merits events whose docket carries no cert
+grant — the shape a live re-poll leaves when it stops reading a grant out of the
+proceedings and overwrites the stored date with NULL. Nothing re-mints one and
+nothing ever closes it, so it parks permanently on the listed-unforecastable
+triage surface. It is the only one of the three with a ledger half: the corpus
+row and the committed event directory under `data/` are staged in the step's one
+pointer commit, the attribution repairs' shape, because an uncommitted ledger
+half strands a directory under an id the corpus no longer carries. It runs after
+the merits-event mint, though the sequencing is a convention rather than a
+contract — the mint writes only where the grant column is non-NULL and this
+removes only where it is NULL, so neither can touch the other's population, and
+the step is gated on the dedupe rather than on the mint. `include_failed_attempts`
+widens it onto phantoms whose only committed output is `attempt.json`
+cell-failure records, deleting those records with the event; it is off by
+default because it is a trade rather than a cleanup — those records document
+real spend on an event the docket never supported — and it rides the dry-run and
+the apply together so the ledger read and the removal cover one population.
+Unlike `include_scored` it does not also demand its bound in `dry-run`: it takes
+on no re-grade backlog, and what it widens is the removal set the apply's bound
+already sizes.
+
+`converge-disposition-labels` and `stamp-cell --regrade` run last of all, after
+every converging sweep and after the three repairs, and in this order —
 **labels first, then the grades computed from them** — because a label rewrite
 landing after a grade was taken leaves that grade stale.
 `converge-disposition-labels` (the `disposition_convergence` input) converges
@@ -379,7 +430,7 @@ scored and unscored confirmations together. A scored relabel is half a repair:
 the labels move here, and the grades taken under the old label catch up through
 `regrade_stale` naming the affected judge lines — three per event, one per
 judge, not one per evaluation. That can ride the same dispatch, which runs the
-two steps in this order for exactly this reason, or a following one. An `apply`dispatch also requires `disposition_max_relabels` — a positive integer, and the
+two steps in this order for exactly this reason, or a following one. An `apply` dispatch also requires `disposition_max_relabels` — a positive integer, and the
 count the maintainer read off a previous `dry-run` dispatch's ledger. Anything
 else — blank, zero, negative, decimal — is refused with an error annotation
 before the scan runs: unbounded, a widened predicate becomes a mass rewrite
@@ -405,12 +456,15 @@ is matched against the id grammar before anything runs and a single malformed
 line refuses the whole list — the input is maintainer-typed text entering a
 shell, and a half-applied list is harder to reason about than a refused one; an
 empty list is refused too, in `dry-run` as much as in `apply`. Neither of these
-two steps carries `continue-on-error`, and the reason is not that they are
-dispatch-only — `unlatch_overselected` and `qp_backfill` are dispatch-only and
-non-blocking. It is that these two fail by *refusing*: an apply without its
+two steps carries `continue-on-error`, nor do the re-derivation or the three
+repairs, and the reason is not that they are dispatch-only —
+`unlatch_overselected` and `qp_backfill` are dispatch-only and
+non-blocking. It is that these fail by *refusing*: an apply without its
 bound, a malformed cell id, a stamp the command declines. A refusal is the
 answer the dispatch asked for, so it fails the job and the `guard` job names
-the step. The full
+the step. The converging sweeps fail the other way — by not converging, which
+the next window retries for free — which is what earns them the absorption. The
+full
 design — sources, budget boundary, the
 corpus/ledger storage split, and the historical corpus — is in
 [data-pipeline.md](data-pipeline.md).
