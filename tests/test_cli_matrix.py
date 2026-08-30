@@ -1,5 +1,7 @@
 import copy
+import hashlib
 import json
+import re
 import shutil
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -15,6 +17,7 @@ from fedcourtsai.corpus_ranged import RangedBackendError
 from fedcourtsai.finalize import FinalizeRole
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
+from fedcourtsai.registry import enabled_evaluators
 from fedcourtsai.schemas import Disposition, Engine, EventKind, ModelUsage, Stage, UsageRole
 from fedcourtsai.serialize import write_json
 from tests.conftest import seed_evaluation, seed_prediction
@@ -2502,3 +2505,309 @@ def test_the_approval_report_leaves_the_plan_json_byte_identical(
     assert bare.exit_code == 0
     assert bare.stdout == with_report
     assert reported.endswith("\n")
+
+
+# --- the evaluate stage's second input mode: no trigger, derive the backlog ---
+
+EVALUATORS_YAML = "evaluators.yaml"
+
+
+def _flat(output: str) -> str:
+    """CLI output with ANSI styling stripped and runs of whitespace collapsed.
+
+    Typer renders a refusal inside a bordered box, wrapping the message at the
+    frame width, so a phrase that is contiguous in the source is split across
+    lines here — and on a CI runner rich emits color escapes mid-phrase, so a
+    substring match must strip them too. Assert against this rather than
+    pinning the line breaks or the terminal styling.
+    """
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", output)
+    return " ".join(plain.replace("│", " ").split())
+
+
+def _resolve(env: dict[str, str], *cases: str, event_id: str = EVENT) -> None:
+    """Mark each case's event resolved in the corpus — the backlog's first condition.
+
+    `_env` seeds rows and predictions; a grading is only owed once the event is
+    also recorded resolved, so the backlog mode needs this on top.
+    """
+    with corpus.connect(corpus.corpus_db_path(Path(env["FEDCOURTS_CORPUS_ROOT"]))) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=event_id,
+                    case_id=cid,
+                    court=cid.split("/")[0],
+                    kind=EventKind.petition,
+                    title="Disposition of the petition",
+                    resolved=True,
+                )
+                for cid in cases
+            ],
+        )
+
+
+def _stamps(env: dict[str, str], *cases: str) -> dict[str, object]:
+    with corpus.connect_readonly(corpus.corpus_db_path(Path(env["FEDCOURTS_CORPUS_ROOT"]))) as conn:
+        rows = {cid: corpus.get_row(conn, cid) for cid in cases}
+    return {cid: None if row is None else row.evaluate_queued_at for cid, row in rows.items()}
+
+
+def test_evaluate_matrix_with_no_body_file_derives_its_cases_from_the_backlog(
+    tmp_path: Path,
+) -> None:
+    """The scheduled mode: given no trigger at all, the fan-out is the gradings
+    committed state still owes — the derivation a run-evaluate cron consumes
+    instead of a handoff from the pull run."""
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    _resolve(env, "scotus/24001", "scotus/24002")
+
+    result = runner.invoke(app, ["evaluate-matrix", "--run-id", "RID"], env=env)
+
+    assert result.exit_code == 0
+    minted = {(c["docket"], c["evaluator_id"]) for c in _cells(result.stdout)}
+    # Expected from the registry, not from the output: deriving the expectation
+    # from the cells would let an evaluator silently vanishing from every cell
+    # shrink both sides together and still pass.
+    judges = {
+        e.id for e in enabled_evaluators(Path(env["FEDCOURTS_CONFIG_ROOT"]) / EVALUATORS_YAML)
+    }
+    assert minted == {(d, j) for d in (24001, 24002) for j in judges}
+
+
+def test_the_backlog_mode_mints_nothing_for_a_case_with_no_resolved_event(
+    tmp_path: Path,
+) -> None:
+    """The backlog is a level on committed state, not a list of known cases: a row
+    with a prediction but no *resolved* event is not owed a grading yet, so a
+    scheduled run over it is empty rather than a fan-out over the whole corpus."""
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+
+    result = runner.invoke(app, ["evaluate-matrix", "--run-id", "RID"], env=env)
+
+    assert result.exit_code == 0
+    assert _cells(result.stdout) == []
+
+
+def test_the_already_graded_gate_is_the_backlog_modes_idempotency(tmp_path: Path) -> None:
+    """The load-bearing test for the stamp-free design. With no debounce stamp the
+    derivation repeats, so the already-graded gate is the only thing standing
+    between a re-plan and a double-graded cell — and it holds, per (evaluator,
+    event), leaving the siblings still owed intact."""
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    _resolve(env, "scotus/24001", "scotus/24002")
+    seed_evaluation(tmp_path / "data", "scotus", 24001, EVENT)
+
+    result = runner.invoke(app, ["evaluate-matrix", "--run-id", "RID"], env=env)
+
+    assert result.exit_code == 0
+    assert "dropped 1 already-evaluated cell(s)" in result.output
+    minted = {(c["docket"], c["evaluator_id"]) for c in _cells(result.stdout)}
+    assert (24001, "claude-judge") not in minted
+    assert (24002, "claude-judge") in minted
+
+    # Grade the rest and the mode goes quiet: a re-plan of the same backlog mints
+    # nothing, which is what makes a repeating cron safe without a stamp.
+    for evaluator_id in {str(c["evaluator_id"]) for c in _cells(result.stdout)}:
+        for docket in (24001, 24002):
+            seed_evaluation(tmp_path / "data", "scotus", docket, EVENT, evaluator_id=evaluator_id)
+    again = runner.invoke(app, ["evaluate-matrix", "--run-id", "RID2"], env=env)
+    assert again.exit_code == 0
+    assert _cells(again.stdout) == []
+
+
+def test_the_backlog_mode_writes_no_debounce_stamp(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The mode must not write the corpus at all: it runs outside the writer jobs,
+    which are the only holders of corpus-write credentials. The pull lane's
+    `evaluate_queued_at` stamp is the write it would otherwise inherit from the
+    shared deriver, so its absence is asserted directly, and the stamp function is
+    made fatal to catch a call that somehow wrote nothing."""
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    _resolve(env, "scotus/24001", "scotus/24002")
+    before = _stamps(env, "scotus/24001", "scotus/24002")
+    assert before == {"scotus/24001": None, "scotus/24002": None}
+
+    def _fatal(*args: object, **kwargs: object) -> None:
+        raise AssertionError("the backlog mode must not stamp the corpus")
+
+    monkeypatch.setattr(corpus, "stamp_evaluate_queued", _fatal)
+    db = corpus.corpus_db_path(Path(env["FEDCOURTS_CORPUS_ROOT"]))
+    digest = hashlib.sha256(db.read_bytes()).hexdigest()
+
+    minted = runner.invoke(app, ["evaluate-matrix", "--run-id", "RID"], env=env)
+    assert minted.exit_code == 0, minted.output
+    # The property is write-freedom *on a run that did the work*: without this,
+    # a regression that derived an empty backlog would leave the test green
+    # while destroying what it claims to protect.
+    assert _cells(minted.stdout)
+    assert _stamps(env, "scotus/24001", "scotus/24002") == before
+    # Not just the stamp column — the file. The deriver's connection is a
+    # one-method protocol over a writable sqlite3 handle on the local backend,
+    # so a stray write elsewhere in the scan would not move the stamp.
+    assert hashlib.sha256(db.read_bytes()).hexdigest() == digest
+
+    planned = runner.invoke(app, ["evaluate-plan", "--run-id", "RID"], env=env)
+    assert planned.exit_code == 0, planned.output
+    assert _stamps(env, "scotus/24001", "scotus/24002") == before
+    assert hashlib.sha256(db.read_bytes()).hexdigest() == digest
+
+
+def test_the_backlog_mode_refuses_a_corpus_backend_with_no_query_surface(
+    tmp_path: Path,
+) -> None:
+    """A backend with no queryable connection is refused by the same gate that
+    refuses the read-in-place one, and for the stronger reason: it could not serve
+    the scan at all. It fails loudly rather than falling back to a local file the
+    runner may never have pulled."""
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))
+    _resolve(env, "scotus/24001")
+
+    result = runner.invoke(
+        app,
+        ["evaluate-matrix", "--run-id", "RID"],
+        env={**env, "FEDCOURTS_CORPUS_BACKEND": "service"},
+    )
+
+    assert result.exit_code != 0
+    assert "cannot be derived over" in _flat(result.output)
+
+
+def test_a_body_file_still_wins_over_the_backlog(tmp_path: Path) -> None:
+    """A body file names the fan-out outright, so it takes precedence: the cases
+    are the body's, and the backlog is never consulted."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    # 24002 is owed a grading too; the body names only 24001, so it must not appear.
+    _resolve(env, "scotus/24001", "scotus/24002")
+
+    result = runner.invoke(
+        app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+
+    assert result.exit_code == 0
+    assert {c["docket"] for c in _cells(result.stdout)} == {24001}
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--court", "scotus"],
+        ["--docket", "24001"],
+        ["--event", EVENT],
+    ],
+)
+def test_a_half_named_case_is_refused_rather_than_widened_to_the_backlog(
+    tmp_path: Path, flags: list[str]
+) -> None:
+    """Silence is what selects the backlog mode, so a dropped `--docket` would
+    otherwise turn one intended case into a whole-backlog fan-out. That is the one
+    typo whose blast radius is model spend, so each half-named form is an error."""
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    _resolve(env, "scotus/24001", "scotus/24002")
+
+    result = runner.invoke(app, ["evaluate-matrix", "--run-id", "RID", *flags], env=env)
+
+    assert result.exit_code != 0
+    assert '"include"' not in result.stdout
+    assert "go together" in _flat(result.output) or "--event names" in _flat(result.output)
+
+
+def test_predict_matrix_refuses_a_half_named_case_on_the_shared_helper(tmp_path: Path) -> None:
+    """The half-named refusal lives in the helper both stages share, so pin it on
+    the predict caller too — it has no backlog to be widened into, but it must not
+    start accepting a case the evaluate caller rejects."""
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))
+
+    result = runner.invoke(app, ["predict-matrix", "--run-id", "RID", "--court", "scotus"], env=env)
+
+    assert result.exit_code != 0
+    assert "go together" in _flat(result.output)
+
+
+def test_force_is_refused_with_the_backlog(tmp_path: Path) -> None:
+    """`--force` and the backlog select opposite sets: a re-grade names its target,
+    while the backlog drops a fully-graded case *before* the already-graded gate
+    `--force` disables ever sees it. Accepting the pair would answer a rubric-change
+    re-grade with an empty fan-out, the flag reading as honoured while doing
+    nothing — so it is refused instead."""
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))
+    _resolve(env, "scotus/24001")
+    for evaluator in enabled_evaluators(Path(env["FEDCOURTS_CONFIG_ROOT"]) / EVALUATORS_YAML):
+        seed_evaluation(tmp_path / "data", "scotus", 24001, EVENT, evaluator_id=evaluator.id)
+
+    result = runner.invoke(app, ["evaluate-matrix", "--run-id", "RID", "--force"], env=env)
+
+    assert result.exit_code != 0
+    assert "cannot re-grade the backlog" in _flat(result.output)
+
+
+def test_the_backlog_mode_refuses_a_read_in_place_corpus_backend(tmp_path: Path) -> None:
+    """The scan is one pass over every resolved event plus a row per candidate —
+    the opposite shape from the point lookups a named-case run makes, and so the
+    opposite backend. Refused here rather than discovered as a range-request storm
+    on an unattended run."""
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))
+    _resolve(env, "scotus/24001")
+
+    result = runner.invoke(
+        app,
+        ["evaluate-matrix", "--run-id", "RID"],
+        env={**env, "FEDCOURTS_CORPUS_BACKEND": "ranged"},
+    )
+
+    assert result.exit_code != 0
+    assert "cannot be derived over" in _flat(result.output)
+
+
+def test_the_backlog_mode_refuses_an_absent_corpus(tmp_path: Path) -> None:
+    """For an unattended lane, "nothing is owed" and "no corpus on disk" must not
+    be the same output — an empty fan-out from a runner that never pulled reads
+    exactly like a drained backlog."""
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))
+    _resolve(env, "scotus/24001")
+    corpus.corpus_db_path(Path(env["FEDCOURTS_CORPUS_ROOT"])).unlink()
+
+    result = runner.invoke(app, ["evaluate-matrix", "--run-id", "RID"], env=env)
+
+    assert result.exit_code != 0
+    assert "corpus-pull" in _flat(result.output)
+
+
+def test_predict_matrix_still_refuses_an_input_less_invocation(tmp_path: Path) -> None:
+    """The backlog mode is the evaluate stage's alone. Predict's case set is a
+    funded salience selection, not a level on committed state, so an input-less
+    predict run stays an error rather than quietly fanning out over something."""
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))
+
+    result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"], env=env)
+
+    assert result.exit_code != 0
+    assert "--body-file" in _flat(result.output)
+
+
+def test_evaluate_plan_dry_runs_exactly_the_backlog_matrix_would_mint(tmp_path: Path) -> None:
+    """The dry run of the scheduled derivation — the executed check the workflow
+    half needs before it is wired to a cron. Both modes go through one pipeline,
+    so the plan cannot describe a fan-out the minting command would not perform."""
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    _resolve(env, "scotus/24001", "scotus/24002")
+    seed_evaluation(tmp_path / "data", "scotus", 24001, EVENT)
+
+    minted = runner.invoke(app, ["evaluate-matrix", "--run-id", "RID"], env=env)
+    planned = runner.invoke(app, ["evaluate-plan", "--run-id", "RID"], env=env)
+
+    assert minted.exit_code == 0
+    assert planned.exit_code == 0
+    plan = _plan(planned.stdout)
+    _assert_evaluate_balances(plan)
+    assert plan["counts"]["provenance"]["requested_cases"] == 2
+    assert plan["counts"]["cell_ledger"]["dropped_already_evaluated_cells"] == 1
+    assert [
+        (c["evaluator_id"], c["court"], c["docket"], c["event_id"]) for c in plan["would_mint"]
+    ] == [
+        (c["evaluator_id"], c["court"], c["docket"], c["event_id"]) for c in _cells(minted.stdout)
+    ]
