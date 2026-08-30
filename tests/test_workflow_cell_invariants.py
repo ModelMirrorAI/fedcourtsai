@@ -181,6 +181,7 @@ SPLIT_PAIR_WORKFLOWS = {
     "run-evaluate.yml",
     "run-predict.yml",
     "run-pull.yml",
+    "run-repair.yml",
     "run-seed.yml",
 }
 
@@ -1018,22 +1019,14 @@ def test_run_seeds_early_validator_duplicates_every_late_refusal_verbatim() -> N
     # — but the text a maintainer reads may not.
     #
     # The list is curated rather than derived from "every step that can print an
-    # `::error::`", because two other kinds of annotation in this lane are
-    # correctly absent from the up-front copy and would make a derived list fail:
-    # a refusal the early validator does not duplicate because the input is
-    # parsed where it is consumed (the `refresh_terms` Term grammar), and a
-    # run-time failure that is not an input refusal at all (the
-    # questions-presented backfill's convergence check). A new step that refuses
-    # a dispatch input belongs here; nothing enforces that but this comment.
-    for owner in (
-        "Re-serve the named dockets",
-        "Re-derive the distribution counts (dispatch-only)",
-        "Converge stored docket markings (dispatch-only)",
-        "Backfill the dated response signals (dispatch-only)",
-        "Remove ungranted merits phantoms (dispatch-only)",
-        "Converge disposition labels (dispatch-only)",
-        "Re-grade named cells (dispatch-only)",
-    ):
+    # `::error::`", because one other kind of annotation in this lane is
+    # correctly absent from the up-front copy and would make a derived list
+    # fail: a refusal the early validator does not duplicate because the input
+    # is parsed where it is consumed (the `refresh_terms` Term grammar). The
+    # walk lane refuses exactly one dispatch input at a distance; the
+    # maintenance passes share the idiom on run-repair, pinned by the sibling
+    # below.
+    for owner in ("Re-serve the named dockets",):
         late_errors = _error_lines(str(_named_step("run-seed.yml", "seed", owner)["run"]))
         assert late_errors, f"{owner}: refuses nothing, so the pairing is vacuous"
         drifted = late_errors - early_errors
@@ -1043,27 +1036,185 @@ def test_run_seeds_early_validator_duplicates_every_late_refusal_verbatim() -> N
         )
 
 
-def test_every_mode_gated_seed_step_also_conjoins_the_dispatch_event() -> None:
-    """A `!= 'none'` mode gate is inert without the `event_name` conjunct beside it.
+# Every run-repair step that acts on the selector, and the job it lives in. The
+# list is curated rather than derived for the reason the run-seed pairing above
+# states: a derived list would also sweep in run-time failures that are not
+# input refusals (the questions-presented backfill's convergence check). A new
+# pass that refuses a selector field belongs here; nothing enforces that but
+# this comment.
+REPAIR_PASS_STEPS = (
+    ("repair", "Re-derive the distribution counts"),
+    ("repair", "Converge stored docket markings"),
+    ("repair", "Backfill the dated response signals"),
+    ("repair", "Remove ungranted merits phantoms"),
+    ("repair", "Converge disposition labels"),
+    ("regrade", "Re-grade named cells"),
+)
+
+
+def test_run_repairs_selector_gate_duplicates_every_pass_refusal_verbatim() -> None:
+    """`Validate the repair selector` is a fail-fast copy, not a second opinion.
+
+    run-repair refuses a malformed dispatch twice: once in a credential-free
+    job every writer job depends on, so a typo is refused before an App token is
+    minted or the corpus-write lock is taken, and again inside the pass that
+    acts on the field, which is the check of record because a step has to be
+    safe on whatever reaches it. The pair only earns that arrangement while it
+    is one refusal in two places — the same grammar, the same splitting, the
+    same `::error::` text. Let one copy drift and the same mistake reports
+    differently depending on where it was caught, which is worse than having
+    caught it once.
+    """
+    (early,) = [
+        s
+        for s in _load("run-repair.yml")["jobs"]["validate"]["steps"]
+        if s.get("name") == "Validate the repair selector"
+    ]
+    early_errors = _error_lines(str(early["run"]))
+    assert early_errors, "the up-front selector gate refuses nothing"
+    for job, owner in REPAIR_PASS_STEPS:
+        late_errors = _error_lines(str(_named_step("run-repair.yml", job, owner)["run"]))
+        assert late_errors, f"{owner}: refuses nothing, so the pairing is vacuous"
+        drifted = late_errors - early_errors
+        assert not drifted, (
+            f"{owner}: refusal text absent from `Validate the repair selector` — "
+            f"the two copies must stay word-for-word identical: {sorted(drifted)}"
+        )
+
+
+def test_every_input_gated_step_on_a_scheduled_workflow_is_fail_closed() -> None:
+    """An input comparison in a scheduled workflow must be false on a schedule.
 
     On a schedule the `inputs` context is empty, so `inputs.<mode> != 'none'`
     compares null against a string and evaluates TRUE — a dispatch-only writer
     step gated on the mode alone would fire on every scheduled window, which is
-    precisely what these gates exist to prevent. The two inputs compared against
-    `''` instead are safe on their own (a schedule yields the empty string the
-    default already carries) and are not the shape this pins.
+    precisely what these gates exist to prevent. Two shapes are safe on their
+    own and are what this admits: a `github.event_name == 'workflow_dispatch'`
+    conjunct, which no schedule satisfies, and a comparison against `''`, which
+    a schedule's null equals under the same coercion that makes `!= 'none'`
+    dangerous. Everything else is refused.
     """
-    steps = _load("run-seed.yml")["jobs"]["seed"]["steps"]
-    mode_gated = [s for s in steps if "!= 'none'" in str(s.get("if", ""))]
-    assert mode_gated, "run-seed carries no mode-gated step; the invariant is vacuous"
-    for step in mode_gated:
-        condition = str(step["if"])
-        assert "github.event_name == 'workflow_dispatch'" in condition, (
-            f"{step.get('name')}: gated on a `!= 'none'` mode with no "
-            "`github.event_name == 'workflow_dispatch'` conjunct — on a schedule "
-            "the empty inputs context makes that comparison TRUE, so the step "
-            "would run on every window"
+    checked = 0
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        wf = _load(path.name)
+        triggers = wf.get("on") or wf.get(True) or {}
+        if "schedule" not in triggers:
+            continue
+        for job in wf["jobs"].values():
+            for step in job.get("steps", []):
+                condition = str(step.get("if", ""))
+                if "inputs." not in condition:
+                    continue
+                checked += 1
+                fail_closed = (
+                    "github.event_name == 'workflow_dispatch'" in condition or "!= ''" in condition
+                )
+                assert fail_closed, (
+                    f"{path.name}: step {step.get('name')!r} gates on an input "
+                    "with neither a `github.event_name == 'workflow_dispatch'` "
+                    "conjunct nor a comparison against '' — on a schedule the "
+                    "empty inputs context can make that comparison TRUE, so the "
+                    "step would run on every window"
+                )
+    assert checked, "no scheduled workflow gates a step on an input; the invariant is vacuous"
+
+
+def test_every_run_repair_pass_gates_on_an_equality_against_a_declared_pass() -> None:
+    """run-repair's pass gates name their pass affirmatively, never by `!=`.
+
+    An affirmative gate — an equality, or an allow-list membership test — is
+    false under an empty `inputs` context, so it stays fail-closed if this
+    workflow ever grows a trigger that carries no inputs; an inequality is TRUE
+    there. That hazard is the scheduled-workflow check's above, headed off here
+    by shape rather than by a conjunct that would be tautological on a
+    dispatch-only workflow. Pinning each gated value against the declared choice
+    options also catches the quieter failure: a gate naming a value the selector
+    cannot produce never fires at all, and a dispatch of it looks exactly like a
+    converged no-op.
+
+    Job-level `if:` is checked with the steps, and for a second reason: the
+    corpus job's gate is what grants a pass the read-write role, `id-token:
+    write` and the App token. A deny-list there would hand every future selector
+    value the full writer credential set by default.
+    """
+    wf = _load("run-repair.yml")
+    # YAML parses a bare `on:` key to the boolean True, so both spellings are
+    # tried before indexing.
+    triggers = wf.get("on") or wf.get(True) or {}
+    options = set(triggers["workflow_dispatch"]["inputs"]["repair"]["options"])
+    gated = 0
+    for job in wf["jobs"].values():
+        for gate in (job,) if "if" in job else ():
+            condition = str(gate["if"])
+            if "inputs.repair" not in condition:
+                continue
+            gated += 1
+            assert "inputs.repair !=" not in condition, (
+                "a run-repair job gates on `inputs.repair !=` — an inequality is "
+                "TRUE under an empty inputs context, and on the corpus job it "
+                "would also grant the writer credentials to every pass added "
+                "later by default; name the passes affirmatively instead"
+            )
+            named = set(re.findall(r"[\"']([a-z][a-z-]+)[\"']", condition))
+            assert named, "a run-repair job gates on inputs.repair without naming a pass"
+            unknown = named - options
+            assert not unknown, (
+                f"a run-repair job gate names {sorted(unknown)}, which the "
+                "`repair` choice cannot produce — the job can never run"
+            )
+        for step in job.get("steps", []):
+            condition = str(step.get("if", ""))
+            if "inputs.repair " not in condition:
+                continue
+            gated += 1
+            assert "!= 'none'" not in condition or "inputs.repair !=" not in condition, (
+                f"{step.get('name')!r}: gated on `inputs.repair != 'none'` — an "
+                "inequality is TRUE under an empty inputs context; name the pass "
+                "with `==` instead"
+            )
+            named = set(re.findall(r"inputs\.repair == '([a-z-]+)'", condition))
+            assert named, f"{step.get('name')!r}: gates on inputs.repair without naming a pass"
+            unknown = named - options
+            assert not unknown, (
+                f"{step.get('name')!r}: names {sorted(unknown)}, which the "
+                f"`repair` choice cannot produce — the step can never run"
+            )
+    assert gated, "run-repair carries no selector-gated step; the invariant is vacuous"
+
+
+# GitHub's documented maximum is 10 `workflow_dispatch` inputs per workflow, and
+# the "Run workflow" form is where it bites: inputs past the limit are simply
+# unreachable through the UI a maintainer dispatches from. A workflow can still
+# be *authored* past it, so nothing but this check stops per-pass inputs from
+# accumulating back over the cap one PR at a time.
+GITHUB_MAX_DISPATCH_INPUTS = 10
+
+
+def test_no_workflow_declares_more_dispatch_inputs_than_the_ui_can_render() -> None:
+    """Every workflow stays within GitHub's 10-input dispatch cap.
+
+    Past the cap the extra inputs exist in the file and are reachable by API,
+    but the "Run workflow" form silently stops rendering them — so a maintainer
+    dispatching through the UI cannot set them, and a pass documented as
+    dispatch-gated becomes undispatchable without anyone being told. Counted per
+    workflow rather than pinned per name so a new workflow inherits the check.
+    """
+    checked = 0
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        triggers = _load(path.name).get("on") or _load(path.name).get(True) or {}
+        dispatch = triggers.get("workflow_dispatch") or {}
+        inputs = (dispatch or {}).get("inputs") or {}
+        if not inputs:
+            continue
+        checked += 1
+        assert len(inputs) <= GITHUB_MAX_DISPATCH_INPUTS, (
+            f"{path.name}: declares {len(inputs)} workflow_dispatch inputs, past "
+            f"GitHub's documented maximum of {GITHUB_MAX_DISPATCH_INPUTS} — the "
+            "Run workflow form stops rendering the rest, so they cannot be set "
+            "from the UI at all. Consolidate them behind a generic selector "
+            "rather than adding one input per pass."
         )
+    assert checked, "no workflow declares dispatch inputs; the invariant is vacuous"
 
 
 def _error_lines(run: str) -> set[str]:

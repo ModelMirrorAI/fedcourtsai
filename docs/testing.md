@@ -309,7 +309,10 @@ bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_collect`), the cell invariants
 (`test_workflow_cell_invariants`: the qp-topics oracle fence, the corpus-split
 env pair, the forward leakage guard, the run-surface retry with its inline
-copies and its still-fatal handoff writes), and the predict plan job's stranded-run
+copies and its still-fatal handoff writes, the 10-input `workflow_dispatch`
+cap the UI enforces silently, the fail-closed shape every input gate must have
+on a scheduled workflow, and the word-for-word pairing between each fail-fast
+validator and the step of record that re-checks it), and the predict plan job's stranded-run
 guard (`test_workflow_plan_census`: the census runs before the matrix step and
 feeds it, degrades open rather than failing the job, and lets a fully-superseded
 run close with the recovery note) — so deleting a load-bearing line fails a

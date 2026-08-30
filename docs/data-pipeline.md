@@ -130,26 +130,33 @@ replica serves the *historical* roles; the **live frontier** is a separate
 track with its own source, independent of both the REST budget and the replica
 timeline ([live-sources.md](live-sources.md)).
 
-## Four writer jobs, one shared core
+## Five writer jobs, one shared core
 
-Two workflows carry four writer jobs over one corpus — `run-pull`'s **pull**,
-**live**, and dispatch-only **enrich**, and `run-seed`'s **historical** walker —
+Three workflows carry five writer jobs over one corpus — `run-pull`'s **pull**,
+**live**, and dispatch-only **enrich**, `run-seed`'s **historical** walker, and
+`run-repair`'s dispatch-only **repair** bench —
 differing on every axis that matters, while the shared `corpus-write` lock keeps
-at most one running at a time. These jobs are the **only** place *production*
+at most one running at a time. Five is the count of jobs that write the
+*corpus*; run-repair carries a sixth writer job, the ledger-only **regrade**,
+which takes the same lock and commits to `main` without touching a corpus row
+(*[Corpus-writer coordination](#corpus-writer-coordination)*). These jobs are the **only** place *production*
 corpus writes can happen: the write role is job-scoped and the pointer commit
 rides the data App, neither of which any interactive session holds — so a
 maintenance pass
 that mutates the corpus (a backfill, a relabel, an overhang clear) is always a
-step or dispatch input on one of these workflows, dispatch-gated where its
-dry-run is a triage list a maintainer must read before an apply:
+step or dispatch input on one of these workflows. Its home is
+`run-repair` whenever its dry-run is a triage list a maintainer must read before
+an apply, which is what *[Maintenance passes](#maintenance-passes)* below
+describes; a pass a scheduled window can converge toward on its own is a
+standing sweep on the walker instead.
 
-| Axis      | historical (Term walker, run-seed)      | pull (enrichment, run-pull)       | live (forward poll, run-pull)   | enrich (opinions, run-pull) |
-|-----------|-----------------------------------------|-----------------------------------|---------------------------------|-----------------------------|
-| Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           | REST API (opinion clusters) |
-| Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions & applications, granted dockets to judgment: discovery, watchlist, outcomes | granted dockets → published opinion: reporter citations and opinion body |
-| Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        | shares the CourtListener budget, bounded per dispatch |
-| Cadence   | **daily** (4 dead-zone windows)         | **daily** (4 windows)             | **daily** (4 windows)           | **dispatch only** (never scheduled) |
-| Handoffs  | none — lands already-resolved history   | predict issues                    | predict issues                  | none — enriches rows already ingested |
+| Axis      | historical (Term walker, run-seed)      | pull (enrichment, run-pull)       | live (forward poll, run-pull)   | enrich (opinions, run-pull) | repair (maintenance bench, run-repair) |
+|-----------|-----------------------------------------|-----------------------------------|---------------------------------|-----------------------------|----------------------------------------|
+| Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           | REST API (opinion clusters) | the stored corpus itself — no upstream fetch |
+| Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions & applications, granted dockets to judgment: discovery, watchlist, outcomes | granted dockets → published opinion: reporter citations and opinion body | repair what no channel corrects: re-derive, relabel, normalize, remove |
+| Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        | shares the CourtListener budget, bounded per dispatch | ~0 API; each apply bounded by a blast-radius count |
+| Cadence   | **daily** (4 dead-zone windows)         | **daily** (4 windows)             | **daily** (4 windows)           | **dispatch only** (never scheduled) | **dispatch only** (never scheduled) |
+| Handoffs  | none — lands already-resolved history   | predict issues                    | predict issues                  | none — enriches rows already ingested | none |
 
 They share an **ingestion core** (`fedcourtsai.pipeline.ingest`: a
 normalization layer where a CourtListener API docket, a bulk-shaped row, and a
@@ -207,7 +214,7 @@ live in different stores, split by **kind**:
    **off** so a dev environment without the store (the fixture loop, offline
    tests) reads and writes a single self-contained blob. The store's location
    comes from `FEDCOURTS_CASESTORE_URL`, wired beside the flag as one pair at
-   job or step level: the writer lanes (`run-pull`, `run-seed`), the cell
+   job or step level: the writer lanes (`run-pull`, `run-seed`, `run-repair`), the cell
    workflows, the back-test, the integration scenarios, and the analysis
    surface. `tests/test_workflow_cell_invariants.py` pins both the spelling and
    which workflows carry it, per workflow rather than as a count, so a
@@ -442,12 +449,19 @@ the aliases retire once that secret is renamed.
 ### Corpus-writer coordination
 
 `corpus/corpus.db` is one mutable SQLite blob behind one committed pointer, and
-four writer jobs across two workflows mutate it. A blob has no merge, so the
+five writer jobs across three workflows mutate it. A blob has no merge, so the
 pointer is last-writer-wins: concurrent or divergent-base writers would silently
-drop each other's rows. Two rules prevent that: **one lock** — all four writer
-jobs, in `run-pull` (pull, live, enrich) and `run-seed` (historical), share the
+drop each other's rows. Two rules prevent that: **one lock** — every writer job,
+in `run-pull` (pull, live, enrich), `run-seed` (historical) and `run-repair`
+(the maintenance bench), shares the
 repo-level `corpus-write` concurrency group (`cancel-in-progress: false`), so
-corpus writers never run simultaneously even across workflows — and **reset to
+corpus writers never run simultaneously even across workflows. run-repair's
+ledger-only re-grade job joins the group as a sixth member without touching the
+corpus: it commits to `main` on the same push path, so it serializes against the
+pointer commits rather than racing them. Its selector-validation job is
+deliberately outside the group — it holds no credential and writes nothing, so a
+malformed dispatch is refused in seconds instead of queuing behind a walk to be
+told about a typo — and **reset to
 the live tip before mutating**: because
 `actions/checkout` pins the run's *creation-time* sha, each writer job first
 `git fetch`es and `git reset --hard`s to the current tip of the default branch
@@ -458,8 +472,8 @@ The commit-and-push is one shared retry loop —
 `.github/actions/commit-corpus-to-main/push_with_retry.sh` — that every writer
 reaches: the `pull` and `live` jobs through the `commit-corpus-to-main` composite
 action wrapping it (the action adds the stage/commit/no-op guard), and the
-historical walk's per-chunk checkpoint and its dedupe and scope-latch steps by
-calling the script directly. It rebases onto any advance and retries a *transient* push failure (a
+historical walk's per-chunk checkpoint and its sweeps, and every one of
+run-repair's passes, by calling the script directly. It rebases onto any advance and retries a *transient* push failure (a
 GitHub `commit_refs` blip, not a branch advance) with exponential backoff, long
 enough to outlast a brief server hiccup; a genuine pointer divergence still fails
 loudly and immediately.
@@ -931,28 +945,13 @@ or network.
   because the corpus is already pulled and pushed there; the sweep window's
   walk budget yields time for them (25 min against the other windows' 40),
   so the sweeps' bounded worst case never gambles the job cap.
-- **Dispatch-gated repairs:** a corpus repair whose dry-run is a triage list a
-  maintainer must read before an apply gets a dispatch input on this lane
-  instead of a window, because the reading has no scheduled moment. Each takes
-  a `none`/`dry-run`/`apply` mode and a positive-integer bound consumed on
-  apply, refused up front without it, and the procedure is two dispatches: the
-  `dry-run` tees its ledger to the run summary, and the `apply` carries the
-  count that ledger printed. `fedcourts normalize-docket-markings`
-  (`normalize_docket_markings` / `normalize_max_rewrites`) converges stored
-  docket numbers on their marking-free spelling; `fedcourts
-  backfill-response-fields` (`response_backfill` / `response_max_fills`)
-  re-derives the dated interim/merits signals from each row's newest stored
-  live-shaped snapshot, reading it through the split-mode env pair because
-  under the split those payloads are the content store's; and `fedcourts
-  remove-ungranted-merits-events` (`merits_phantom_removal` /
-  `merits_max_removals`, widened by `include_failed_attempts`) drops open
-  merits events whose docket carries no cert grant — the one of the three with
-  a ledger half, so its deleted event directories stage into the same pointer
-  commit as the corpus row, the attribution repairs' shape. They sit after the
-  converging sweeps because they fail by refusing rather than by not
-  converging: a fail-hard step ahead of the sweeps would skip every one of
-  them. The full input inventory, including the older dispatch-gated passes,
-  is in [pipeline.md](pipeline.md).
+- **What this lane does *not* carry:** a repair whose dry-run is a triage list
+  a maintainer must read before an apply. Those have no scheduled moment to
+  converge toward and fail by refusing rather than by not converging, which is
+  the opposite of every sweep above, so they live on the `run-repair` bench —
+  see *[Maintenance passes](#maintenance-passes)*. The walker's dispatch inputs
+  are therefore the walk-configuration family alone: `refresh_terms`,
+  `refresh_streams`, `refresh_dockets`.
 
 ## Pull — forward freshness
 
@@ -1017,6 +1016,194 @@ or network.
      because nothing
      resolves an event on a row carrying no judgment — but there is no longer a
      judgment to forecast, so the event stops earning cells and simply sits.
+
+## Maintenance passes
+
+The `run-repair` workflow is the maintainer's repair bench: the corpus and
+ledger passes that fix what no channel corrects. It is `workflow_dispatch`
+only — no schedule, no `run:*` label — and it joins the same `corpus-write`
+lock the walker and the pullers hold, so a pass can never interleave with a
+window's corpus push.
+
+**Why it is not a lane on the walker.** The two have opposite failure postures.
+A standing sweep is idempotent and non-blocking: it converges toward a state a
+window can reach on its own, and a hiccup must retry next window rather than
+redden a walk nobody is watching. A maintenance pass runs because a maintainer
+read a dry-run ledger and decided; it fails by **refusing** — an apply without
+its bound, a malformed cell id, a stamp the command declines — and a refusal is
+the answer the dispatch was for. Absorbing one would report work that never
+happened. Separating them also keeps the bench's growth off the production
+workflow: a pass added here costs the walk neither a dispatch input nor a
+`LOOP_BUDGET_SECONDS` conjunct.
+
+**One pass per dispatch, dry-run first.** `repair` is a single choice, so no
+two passes can arm each other, which makes the documented procedure structural
+rather than a convention. The procedure is two dispatches: `repair_mode: dry-run` tees the
+pass's ledger to the run summary and writes nothing, the maintainer reads the
+count off it, and a second dispatch applies with that count in `repair_bound`,
+for the passes that take one.
+An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
+before the write. `repair` defaults to `none`, which is refused outright: the
+form's initial state cannot start a corpus write.
+
+**The five inputs.**
+
+| Input | Shape | What it carries |
+|---|---|---|
+| `repair` | choice, default `none` | which pass to run |
+| `repair_mode` | choice `dry-run`\|`apply`, default `dry-run` | write or not |
+| `repair_bound` | string | the blast-radius bound: a positive integer, the count read off the dry-run ledger |
+| `repair_target` | string | the pass's named subject — a parse label, or a cell list |
+| `repair_options` | string | space- or comma-separated switches from the selected pass's closed vocabulary |
+
+`repair_bound` and `repair_target` are separate fields because they are
+different kinds of thing and no pass takes both: a bound is a count the
+validation checks as an integer, a target is a subject with its own grammar.
+Offering either to a pass that takes neither is **refused**, not ignored — a
+number left over from the previous dispatch is exactly how a bound meant for
+one pass silently reaches another. `repair_options` is a closed vocabulary per
+pass, and an unrecognized switch is refused loudly rather than dropped: a
+silently ignored switch would have the maintainer read a ledger for one
+population and apply against another.
+
+**What each pass accepts.**
+
+| `repair` | Command | `repair_bound` → | `repair_target` | `repair_options` |
+|---|---|---|---|---|
+| `unlatch-overselected` | `unlatch-overselected` | — | — | — |
+| `qp-backfill` | `backfill-questions-presented` | — | — | — |
+| `rederive-distribution-parse` | `rederive-distribution-counts` | — (fixed in code) | parse label, **required in both modes** | — |
+| `normalize-docket-markings` | `normalize-docket-markings` | `--max-rewrites` | — | — |
+| `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
+| `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
+| `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
+| `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
+
+A bound is required on `apply` wherever the pass takes one, and refused before
+the scan runs unless it is a positive integer — blank, zero, negative, decimal
+and leading-zero alike. An unbounded apply would convert a widened predicate
+into a mass rewrite rather than a loud refusal, and each of these populations is
+finite, so a count above the one read means the predicate widened rather than a
+dirtier corpus. The distribution re-derivation is the exception that proves it:
+its bound is fixed in code because the population's delta was measured before
+the surface existed, so moving it is a code change with the new basis stated
+beside it — which is why that pass *refuses* a `repair_bound` rather than
+ignoring one.
+
+The two targets have their own grammars, both checked all-or-nothing before
+anything runs. The distribution re-derivation takes a **parse label** —
+lowercase, `dist-v2` in shape; whether the label is *registered* is the
+command's own refusal, since that registry lives in Python. The re-grade takes a
+**cell list**: one `court/docket/event/run_id/actor` per line, whitespace-separated
+so spaces work as well as newlines, as in
+
+```
+scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge
+```
+
+One re-grade per line, so a cell three judges graded is three lines — which
+judge's evaluation is rewritten is not a thing to infer. A single malformed line
+refuses the whole list (the input is maintainer-typed text entering a shell, and
+a half-applied list is harder to reason about than a refused one), and so does
+an empty one, in `dry-run` as much as in `apply`. The grammar admits no `.`, so
+no field can be a `..` path segment.
+
+Two options carry a decision rather than a flag. `include-scored` widens the
+disposition sweep onto events already carrying committed predict/evaluate
+output; an `evaluation.json` is stamped with a `correct` bit computed from the
+outcome, so relabelling under one moves what a published standing was computed
+from while the standing sits still. Setting it takes on a re-grade backlog, so
+it demands `repair_bound` in **every** mode, `dry-run` included — a dry run that
+widens the ledger is where that decision is actually made. `include-failed-attempts`
+widens the phantom removal onto events whose only committed output is
+`attempt.json` cell-failure records, deleting those records with the event: a
+trade of failure history for a ledger with no dangling phantom paths. It does
+**not** inherit the every-mode bound rule, because it takes on no backlog — what
+it grows is the removal set, which the apply's own bound already sizes.
+
+**Prerequisites the bench brings along.** Every corpus pass is gated on a
+`dedupe-live-rows --apply` prerequisite that runs first and must succeed: any
+docket-number spelling that defeats the channels' identity join leaves a twin
+pair, and a pass that reads a row's columns must read the merged row rather than
+one half of a pair. It runs in `dry-run` dispatches too — the ledger a
+maintainer reads has to describe the same deduped population the apply will act
+on. `unlatch-overselected`
+additionally brings `reconcile-scope --apply`, in both modes and for the same
+reason: the overhang clear recomputes each pending cohort's selection, so it
+must recompute over an in-scope corpus whether or not it goes on to write.
+
+**So `dry-run` means the selected pass writes nothing — not that the dispatch
+writes nothing.** The prerequisites apply either way, and each pushes the blob
+and commits a pointer to `main` if it found anything: one such write on a
+`dry-run` dispatch, two on an `unlatch-overselected` one. Both are idempotent
+convergences the scheduled walker would have made anyway, so a dry run still
+moves the corpus no further than a window does; what it never does is the pass
+the maintainer is deciding about. Unlike their twins on the walker's schedule, both fail **hard** here: a
+failed prerequisite means the dispatched pass cannot be trusted to read the
+right rows, and a green run that quietly did nothing is the worst outcome a
+repair bench can produce.
+
+**Least privilege per pass.** The seven corpus passes run in a job holding the
+read-write corpus role, the data App token and the content-store env pair.
+`regrade-stale` runs in a separate job with none of those: it recomputes graded
+fields out of committed artifacts and writes `evaluation.json`, touching no
+corpus row, so it holds only the App token that pushes its `data/` commit. Both
+jobs commit straight to `main` on the writers' rebase-and-backoff push path.
+
+**Ordering between passes is the maintainer's.** Two pairs matter. The
+distribution re-derivation must precede an overhang clear, never follow it in
+the same sitting: anything that weighed incumbent-parse counts is stale
+afterwards, and while the scope latch self-heals next window, the overhang clear
+does not — its write erases the sticky set it recomputed. And a
+`disposition-convergence` apply that moved a label under a committed grade owes
+a `regrade-stale` dispatch naming the affected judge lines — three per event
+rather than one per evaluation. One pass per dispatch makes that follow-through
+a second dispatch rather than a silent second step, which is the point: the
+backlog a relabel owes is a maintainer's to schedule.
+
+**Dispatching.** Dispatch on `main`, in a dead zone between the scheduled
+windows (`run-pull` at `:17` and `:47`, `run-seed` at `:31`). A *queued* repair
+run can be silently evicted — GitHub keeps only the latest pending run per
+concurrency group, so a scheduled window entering `corpus-write` behind the
+dispatch cancels it, and a one-shot dispatch does not pick up where it left off.
+
+```bash
+# A bounded pass: dry-run, read the count off the run summary's ledger, then
+# apply carrying that count — the number below stands in for what you read.
+gh workflow run run-repair.yml --ref main \
+  -f repair=normalize-docket-markings -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=normalize-docket-markings -f repair_mode=apply -f repair_bound=214
+
+# A pass with an option. `include-scored` demands the bound in BOTH modes, so
+# the dry run that decides the widening states it too.
+gh workflow run run-repair.yml --ref main \
+  -f repair=disposition-convergence -f repair_mode=dry-run \
+  -f repair_options=include-scored -f repair_bound=31
+
+# A pass with a target. The re-grade takes one cell per line, one per judge.
+gh workflow run run-repair.yml --ref main \
+  -f repair=regrade-stale -f repair_mode=dry-run \
+  -f repair_target='scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge
+scotus/1119228/evt-petition-certiorari/20260624T103000Z/codex-judge'
+
+# The distribution re-derivation names its parse and takes no bound. Dispatch
+# the INCUMBENT parse first as a control: it must report `changed = 0`.
+gh workflow run run-repair.yml --ref main \
+  -f repair=rederive-distribution-parse -f repair_mode=dry-run \
+  -f repair_target=dist-v1
+```
+
+**After a pass that removes rows**, let the run's trailing verdict step finish.
+It republishes the corpus-validation verdict, which is also the next run's
+monotonic row-count baseline — so a phantom removal whose run died after the
+deletion but before that step leaves run-seed's next verdict reading a
+deliberate removal as a corpus shrink. Re-dispatch the pass (it is idempotent
+and will find nothing to remove) to republish the baseline.
+
+There is no guard job, unlike the walker's: that one exists because a scheduled
+walk fails unwatched. Every run here was started by hand a moment earlier by the
+person who wants to read its ledger.
 
 ## Event definition — deterministic, corpus-driven
 

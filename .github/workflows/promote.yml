@@ -118,8 +118,8 @@ jobs:
           # above is unaffected by which scenarios are required. A truthiness
           # test, not a `!=` comparison: a false input and an absent one both
           # yield '' and leave the gate strict, so no non-dispatch event could
-          # ever read as "skip" (compare run-seed's qp_backfill guard, where
-          # `!= 'none'` against an empty inputs context is TRUE).
+          # ever read as "skip" (the hazard a `!= 'none'` comparison carries:
+          # against an empty inputs context it is TRUE).
           PROMOTION_SKIP_SMOKE: ${{ inputs.skip_engine_smoke && '1' || '' }}
         run: |
           set -euo pipefail

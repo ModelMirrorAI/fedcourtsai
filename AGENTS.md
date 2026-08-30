@@ -38,7 +38,7 @@ non-interactive** container. Two consequences shape everything you do:
   a branch + PR (in `run:predict` / `run:evaluate` you only *write files* — the
   workflow commits, pushes, and opens the PR; do **not** push yourself).
   Corpus / bulk data goes to the remote stores (the corpus remote and the per-case
-  content store; the run-pull and run-seed writer jobs own this) — a data file never pushed
+  content store; the run-pull, run-seed and run-repair writer jobs own this) — a data file never pushed
   to a remote is lost with the runner. The ownership is exclusive, not a
   convention: the corpus-write credentials exist **only** inside those writer
   jobs (a job-scoped role plus the data App), so no interactive session or dev
@@ -46,9 +46,13 @@ non-interactive** container. Two consequences shape everything you do:
   checkout can pull and dry-run any maintenance command against the read-only
   role, which is what "run where the corpus is pulled" means wherever a
   command's docs say it. Plan any new corpus mutation as
-  a step or dispatch input on a writer workflow — dispatch-gated where its
-  dry-run needs a maintainer's reading first — never as a command someone runs
-  by hand. See `docs/data-pipeline.md`.
+  a step on a writer workflow, never as a command someone runs by hand. Where
+  its dry-run needs a maintainer's reading first, that step is a **pass on
+  `run-repair`** — one more value on the `repair` selector, not a dispatch input
+  of its own: GitHub renders at most 10 dispatch inputs, so a per-pass input
+  costs a scarce slot and a test refuses a workflow that spends them all. A
+  mutation a scheduled window can converge toward on its own is a standing sweep
+  on the walker instead. See `docs/data-pipeline.md`.
 
 ## The golden rules
 

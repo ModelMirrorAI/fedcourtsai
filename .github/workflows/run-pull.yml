@@ -88,7 +88,8 @@ on:
 
 permissions: {}
 
-# All four writers — this file's three jobs plus run-seed's historical walker —
+# Every corpus writer — this file's three jobs, run-seed's historical walker
+# and run-repair's maintenance passes —
 # write the single corpus.db pointer, so they run under ONE lock
 # to serialize corpus writers and prevent lost updates.
 # cancel-in-progress is false so a queued run waits rather than being dropped.
