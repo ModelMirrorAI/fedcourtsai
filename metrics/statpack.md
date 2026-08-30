@@ -1,21 +1,21 @@
 # Corpus statpack
 
-**2152649** case(s): 52404 resolved, 2100245 open.
+**2152649** case(s): 52409 resolved, 2100240 open.
 
-**Live/historical slice:** 22727 case(s), 21437 resolved — the polled population the live-slice sections below draw from. It also carries the interim application rows, which no cert section aggregates, so a cert section's denominator can sit below this count; 45423 docketed filing(s) across the walked Terms.
+**Live/historical slice:** 22727 case(s), 21442 resolved — the polled population the live-slice sections below draw from. It also carries the interim application rows, which no cert section aggregates, so a cert section's denominator can sit below this count; 45423 docketed filing(s) across the walked Terms (exact for docketed numbers, a slight upper bound on real petitions — withheld serials still count).
 
 **Overall base rate (resolved):** other 45.8%, denied 34.5%, dismissed 13.7%, granted 4.9%, gvr 1.1%, withdrawn 0.0%, granted-in-part 0.0%
 
-**Dated share:** 21460 of 28399 machine-readable resolved case(s) carry a resolution date (75.6%) — the slice the time-masked replay clock can anchor.
+**Dated share:** 21465 of 28404 machine-readable resolved case(s) carry a resolution date (75.6%) — the slice the time-masked replay clock can anchor.
 
-**Filing → decision timing:** median 4d, p90 112d (mean 49.6d over 2990 dated case(s))
+**Filing → decision timing:** median 4d, p90 112d (mean 49.5d over 2994 dated case(s))
 
 ## Cases by court
 _Scope: all courts; includes the frozen bulk import._
 
 | court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| scotus | 590570 | 21733 | 568837 | denied 81.3%, granted 10.6%, dismissed 4.3%, gvr 2.7%, other 1.1%, withdrawn 0.0% |
+| scotus | 590570 | 21738 | 568832 | denied 81.3%, granted 10.6%, dismissed 4.3%, gvr 2.7%, other 1.1%, withdrawn 0.0% |
 | ca9 | 247637 | 1463 | 246174 | other 94.5%, dismissed 2.6%, denied 2.0%, granted 0.8%, withdrawn 0.1% |
 | ca5 | 203464 | 1502 | 201962 | other 91.0%, dismissed 4.0%, denied 3.5%, granted 1.5% |
 | ca4 | 187218 | 15593 | 171625 | other 63.2%, dismissed 36.2%, denied 0.4%, granted 0.2%, granted-in-part 0.0% |
@@ -35,13 +35,13 @@ _Scope: scotus; includes the frozen bulk import._
 
 | era | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| (none) | 126779 | 267 | 126512 | other 76.4%, dismissed 17.6%, denied 4.5%, granted 1.5% |
+| (none) | 126778 | 267 | 126511 | other 76.4%, dismissed 17.6%, denied 4.5%, granted 1.5% |
 | 2000s | 124840 | 13 | 124827 | other 100.0% |
 | 1990s | 109307 | 12 | 109295 | other 91.7%, denied 8.3% |
 | 2010s | 97059 | 6515 | 90544 | denied 87.6%, dismissed 5.2%, gvr 3.9%, granted 3.3% |
 | 1980s | 62149 | 1 | 62148 | other 100.0% |
 | 1970s | 36385 | 3 | 36382 | other 100.0% |
-| 2020s | 33892 | 14922 | 18970 | denied 80.1%, granted 14.0%, dismissed 3.7%, gvr 2.2%, withdrawn 0.0% |
+| 2020s | 33893 | 14927 | 18966 | denied 80.1%, granted 14.0%, dismissed 3.7%, gvr 2.2%, withdrawn 0.0% |
 | 1960s | 107 | 0 | 107 | — |
 | 1910s | 20 | 0 | 20 | — |
 | 1930s | 10 | 0 | 10 | — |
@@ -96,7 +96,7 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 | _… 4 more bucket(s) in the JSON_ | | | | |
 
 ## Cert petitions by relist count (paid scored segment)
-_Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
+_Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates. Relists are read off the stored distribution count, which holds the `dist-v2` reading; a parse change moves which entries count as a relist, not the tier labels, so the parse travels with the numbers. The count is an upper bound on true relists under either reading — a reschedule before first consideration also adds a distribution entry._
 
 | relist_bucket | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
@@ -157,7 +157,7 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice._
 | _… 274 more bucket(s) in the JSON_ | | | | |
 
 ## SCOTUS cert petitions by Term
-_Live/historical slice; denial-reweighted estimates. Most recent 10 of 10 Term(s); the JSON artifact carries every Term and the per-fee-class detail._
+_Live/historical slice; denial-reweighted estimates. Most recent 10 of 10 Term(s); the JSON artifact carries every Term and the per-fee-class detail. The filings column is exact for docketed numbers and a slight upper bound on real petitions — withheld serials still count — and is not nested with `ingested`, which can exceed it._
 
 | Term | filings (paid/IFP) | ingested | est. resolved | est. base rate | est. grant rate | grants | median days | complete |
 | --- | --- | --: | --: | --- | --- | --: | --: | --- |
@@ -197,11 +197,11 @@ _SCOTUS application dockets (`YYAnnn` — stays, injunctions, vacaturs, and the 
 
 **27445** application(s): 1559 extension, 263 substantive, 82 unknown ask, 25541 never parsed.
 
-**Substantive slice:** 256 resolved, 31 granted — grant rate 12.1% (n=256). Escalation signals: response requested 54, referred to the Court 95, with amicus 51.
+**Substantive slice:** 259 resolved, 31 granted — grant rate 12.0% (n=259). Escalation signals: response requested 54, referred to the Court 95, with amicus 51.
 
 | Term | applications | extension | substantive | unknown | unparsed | resolved (subst.) | granted | grant rate | resp. requested | referred | amicus |
 | --- | --: | --: | --: | --: | --: | --: | --: | --- | --: | --: | --: |
-| 2026 | 255 | 208 | 35 | 12 | 0 | 29 | 1 | 3.4% (n=29) | 3 | 2 | 3 |
+| 2026 | 255 | 208 | 35 | 12 | 0 | 32 | 1 | 3.1% (n=32) | 3 | 2 | 3 |
 | 2025 | 1365 | 1128 | 179 | 58 | 0 | 178 | 16 | 9.0% (n=178) | 27 | 60 | 24 |
 | 2024 | 1261 | 223 | 49 | 12 | 977 | 49 | 14 | 28.6% (n=49) | 24 | 33 | 24 |
 | 2023 | 1177 | 0 | 0 | 0 | 1177 | 0 | 0 | — | 0 | 0 | 0 |

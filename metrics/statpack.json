@@ -2,19 +2,19 @@
   "corpus_rows": 2152649,
   "coverage": {
     "census_filings": 45423,
-    "live_slice_resolved": 21437,
+    "live_slice_resolved": 21442,
     "live_slice_rows": 22727
   },
-  "dated_resolved": 21460,
+  "dated_resolved": 21465,
   "interim": {
     "applications": 27445,
     "extension": 1559,
     "referred_to_court": 95,
     "response_requested": 54,
     "substantive": 263,
-    "substantive_grant_rate": 0.12109375,
+    "substantive_grant_rate": 0.11969111969111969,
     "substantive_granted": 31,
-    "substantive_resolved": 256,
+    "substantive_resolved": 259,
     "terms": [
       {
         "applications": 255,
@@ -22,9 +22,9 @@
         "referred_to_court": 2,
         "response_requested": 3,
         "substantive": 35,
-        "substantive_grant_rate": 0.034482758620689655,
+        "substantive_grant_rate": 0.03125,
         "substantive_granted": 1,
-        "substantive_resolved": 29,
+        "substantive_resolved": 32,
         "term": 2026,
         "unknown": 12,
         "unparsed": 0,
@@ -385,7 +385,7 @@
     "unparsed": 25541,
     "with_amicus": 51
   },
-  "machine_readable_resolved": 28399,
+  "machine_readable_resolved": 28404,
   "merits": {
     "affirmed": 147,
     "affirmed_in_part": 10,
@@ -527,51 +527,51 @@
     ],
     "vacated": 121
   },
-  "open": 2100245,
+  "open": 2100240,
   "overall": {
     "cases": 2152649,
     "dispositions": [
       {
         "count": 24005,
         "disposition": "other",
-        "share": 0.458075719410732
+        "share": 0.45803201740159133
       },
       {
-        "count": 18101,
+        "count": 18105,
         "disposition": "denied",
-        "share": 0.34541256392641784
+        "share": 0.3454559331412544
       },
       {
         "count": 7162,
         "disposition": "dismissed",
-        "share": 0.1366689565682009
+        "share": 0.13665591787670056
       },
       {
-        "count": 2548,
+        "count": 2549,
         "disposition": "granted",
-        "share": 0.04862224257690253
+        "share": 0.04863668453891507
       },
       {
         "count": 577,
         "disposition": "gvr",
-        "share": 0.011010609877108618
+        "share": 0.011009559426816005
       },
       {
         "count": 8,
         "disposition": "withdrawn",
-        "share": 0.00015266010228226853
+        "share": 0.00015264553798011792
       },
       {
         "count": 3,
         "disposition": "granted-in-part",
-        "share": 5.72475383558507e-05
+        "share": 5.7242076742544216e-05
       }
     ],
     "key": "",
-    "open": 2100245,
-    "resolved": 52404
+    "open": 2100240,
+    "resolved": 52409
   },
-  "resolved": 52404,
+  "resolved": 52409,
   "schema_version": "1.0",
   "sections": [
     {
@@ -580,39 +580,39 @@
           "cases": 590570,
           "dispositions": [
             {
-              "count": 17674,
+              "count": 17678,
               "disposition": "denied",
-              "share": 0.8132333317995675
+              "share": 0.8132302879749747
             },
             {
-              "count": 2304,
+              "count": 2305,
               "disposition": "granted",
-              "share": 0.10601389591864906
+              "share": 0.10603551384672003
             },
             {
               "count": 941,
               "disposition": "dismissed",
-              "share": 0.04329821009524686
+              "share": 0.04328825098905143
             },
             {
               "count": 577,
               "disposition": "gvr",
-              "share": 0.0265494869553214
+              "share": 0.0265433802557733
             },
             {
               "count": 232,
               "disposition": "other",
-              "share": 0.010675010352919524
+              "share": 0.010672554972858588
             },
             {
               "count": 5,
               "disposition": "withdrawn",
-              "share": 0.0002300648782956794
+              "share": 0.00023001196062195234
             }
           ],
           "key": "scotus",
-          "open": 568837,
-          "resolved": 21733
+          "open": 568832,
+          "resolved": 21738
         },
         {
           "cases": 247637,
@@ -985,7 +985,7 @@
     {
       "buckets": [
         {
-          "cases": 126779,
+          "cases": 126778,
           "dispositions": [
             {
               "count": 204,
@@ -1009,7 +1009,7 @@
             }
           ],
           "key": "(none)",
-          "open": 126512,
+          "open": 126511,
           "resolved": 267
         },
         {
@@ -1098,37 +1098,37 @@
           "resolved": 3
         },
         {
-          "cases": 33892,
+          "cases": 33893,
           "dispositions": [
             {
-              "count": 11952,
+              "count": 11956,
               "disposition": "denied",
-              "share": 0.8009650180940893
+              "share": 0.8009646948482615
             },
             {
-              "count": 2087,
+              "count": 2088,
               "disposition": "granted",
-              "share": 0.13986060849752044
+              "share": 0.1398807529979232
             },
             {
               "count": 552,
               "disposition": "dismissed",
-              "share": 0.036992360273421794
+              "share": 0.03697996918335902
             },
             {
               "count": 326,
               "disposition": "gvr",
-              "share": 0.021846937407854174
+              "share": 0.02183961948147652
             },
             {
               "count": 5,
               "disposition": "withdrawn",
-              "share": 0.00033507572711432784
+              "share": 0.0003349634889797012
             }
           ],
           "key": "2020s",
-          "open": 18970,
-          "resolved": 14922
+          "open": 18966,
+          "resolved": 14927
         },
         {
           "cases": 107,
@@ -2009,7 +2009,7 @@
       "court": "scotus",
       "group_by": "relist_bucket",
       "live_slice": true,
-      "scope_note": null,
+      "scope_note": "Relists are read off the stored distribution count, which holds the `dist-v2` reading; a parse change moves which entries count as a relist, not the tier labels, so the parse travels with the numbers. The count is an upper bound on true relists under either reading \u2014 a reschedule before first consideration also adds a distribution entry.",
       "title": "Cert petitions by relist count (paid scored segment)",
       "weighted": true
     },
@@ -10096,8 +10096,8 @@
     }
   ],
   "timing": {
-    "cases": 2990,
-    "mean_days": 49.6,
+    "cases": 2994,
+    "mean_days": 49.5,
     "median_days": 4.0,
     "p90_days": 112.0
   }

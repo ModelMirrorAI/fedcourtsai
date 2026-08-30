@@ -1,252 +1,30 @@
 {
   "entries": [],
   "evaluations_total": 0,
-  "evaluator_agreement": {
-    "claude-judge": {
-      "events": 2,
-      "rank_agreement": 1.0
-    },
-    "codex-judge": {
-      "events": 2,
-      "rank_agreement": 1.0
-    },
-    "gemini-judge": {
-      "events": 2,
-      "rank_agreement": 1.0
-    }
-  },
+  "evaluator_agreement": {},
   "events_scored": 0,
   "forward_claim": {
     "by_predictor": {},
-    "claimed_forward": 60,
+    "claimed_forward": 0,
     "excluded": 0,
     "policy": "exclude"
   },
   "forward_evaluations": 0,
   "frozen_process": {
     "digests": [
-      "sha256:06a854e7847cddf2d03ff391f3fe9dfc52e739180e0d30aed72aea2f0b909bdf",
       "sha256:11a0afbcba271935c8ead785b5c13fc2b1e43a4e18e9450a04fa41df9658a0f2",
-      "sha256:7ca86f57bbbddeb6bd61784f69532745a6cce57b72da16e054f374153148a506",
-      "sha256:93dfaec3a09edc07a97fd871c032bc8388b4512f691ee7082b717473d76c9289",
+      "sha256:8c401008655b9fb13080faeb30bc78a3a0d7e6c598bd149d90386409bada4c4f",
       "sha256:9fb7b6f1683a7bcb363cb19ae2084dfec734a9e1251b7b9fcc41dd2564aaff78",
-      "sha256:b9f548f4f1e2cb1c07e9ba59f7d352220a2d8ae45d82e00f436dc044bd260b1a"
+      "sha256:b46b3c6df26f763bb607b091c283c5e7aa55c9a936ab3486e598f5a0f0de312e",
+      "sha256:b9f548f4f1e2cb1c07e9ba59f7d352220a2d8ae45d82e00f436dc044bd260b1a",
+      "sha256:eba87d4c4f66e8d9270d72f5e2809de4cce384d2a16451f6ad1e24bf60115774"
     ],
-    "since": "2026-08-16T00:00:00Z"
+    "since": "2026-09-05T00:00:00Z"
   },
   "predictors_ranked": 0,
   "procedural_evaluations": 0,
   "process_scope": "frozen",
   "retrospective_evaluations": 0,
   "schema_version": "1.0",
-  "stages": {
-    "interim@arrival": {
-      "entries": [
-        {
-          "evaluators": 3,
-          "events_scored": 3,
-          "forward": {
-            "accuracy": 0.625,
-            "accuracy_scored": 8,
-            "evaluations": 8,
-            "events_scored": 3,
-            "mean_brier_score": 0.2447125,
-            "mean_reasoning_quality": 0.88375,
-            "mean_vote_accuracy": null,
-            "population_brier_skill_score": 0.163947175578542,
-            "population_realized_term_skill_score": null,
-            "realized_term_skill_scored": 0,
-            "skill_scored": 8
-          },
-          "predictor_id": "claude-baseline",
-          "procedural": null,
-          "retrospective": null
-        },
-        {
-          "evaluators": 3,
-          "events_scored": 3,
-          "forward": {
-            "accuracy": 0.625,
-            "accuracy_scored": 8,
-            "evaluations": 8,
-            "events_scored": 3,
-            "mean_brier_score": 0.17648125,
-            "mean_reasoning_quality": 0.83875,
-            "mean_vote_accuracy": null,
-            "population_brier_skill_score": 0.3970571690455966,
-            "population_realized_term_skill_score": null,
-            "realized_term_skill_scored": 0,
-            "skill_scored": 8
-          },
-          "predictor_id": "codex-baseline",
-          "procedural": null,
-          "retrospective": null
-        },
-        {
-          "evaluators": 3,
-          "events_scored": 3,
-          "forward": {
-            "accuracy": 0.25,
-            "accuracy_scored": 8,
-            "evaluations": 8,
-            "events_scored": 3,
-            "mean_brier_score": 0.42937525,
-            "mean_reasoning_quality": 0.5975,
-            "mean_vote_accuracy": null,
-            "population_brier_skill_score": -0.46694750165671817,
-            "population_realized_term_skill_score": null,
-            "realized_term_skill_scored": 0,
-            "skill_scored": 8
-          },
-          "predictor_id": "gemini-baseline",
-          "procedural": null,
-          "retrospective": null
-        }
-      ],
-      "evaluations_total": 24,
-      "events_scored": 3,
-      "forward_evaluations": 24,
-      "procedural_evaluations": 0,
-      "retrospective_evaluations": 0
-    },
-    "interim@response-filed": {
-      "entries": [
-        {
-          "evaluators": 3,
-          "events_scored": 2,
-          "forward": {
-            "accuracy": 0.5,
-            "accuracy_scored": 6,
-            "evaluations": 6,
-            "events_scored": 2,
-            "mean_brier_score": 0.36624999999999996,
-            "mean_reasoning_quality": 0.8216666666666667,
-            "mean_vote_accuracy": null,
-            "population_brier_skill_score": 0.047326589595375834,
-            "population_realized_term_skill_score": null,
-            "realized_term_skill_scored": 0,
-            "skill_scored": 6
-          },
-          "predictor_id": "claude-baseline",
-          "procedural": null,
-          "retrospective": null
-        },
-        {
-          "evaluators": 3,
-          "events_scored": 2,
-          "forward": {
-            "accuracy": 1.0,
-            "accuracy_scored": 6,
-            "evaluations": 6,
-            "events_scored": 2,
-            "mean_brier_score": 0.07539999999999998,
-            "mean_reasoning_quality": 0.8883333333333333,
-            "mean_vote_accuracy": null,
-            "population_brier_skill_score": 0.8038728323699422,
-            "population_realized_term_skill_score": null,
-            "realized_term_skill_scored": 0,
-            "skill_scored": 6
-          },
-          "predictor_id": "codex-baseline",
-          "procedural": null,
-          "retrospective": null
-        },
-        {
-          "evaluators": 3,
-          "events_scored": 2,
-          "forward": {
-            "accuracy": 0.5,
-            "accuracy_scored": 6,
-            "evaluations": 6,
-            "events_scored": 2,
-            "mean_brier_score": 0.34420000000000006,
-            "mean_reasoning_quality": 0.6283333333333333,
-            "mean_vote_accuracy": null,
-            "population_brier_skill_score": 0.10468208092485531,
-            "population_realized_term_skill_score": null,
-            "realized_term_skill_scored": 0,
-            "skill_scored": 6
-          },
-          "predictor_id": "gemini-baseline",
-          "procedural": null,
-          "retrospective": null
-        }
-      ],
-      "evaluations_total": 18,
-      "events_scored": 2,
-      "forward_evaluations": 18,
-      "procedural_evaluations": 0,
-      "retrospective_evaluations": 0
-    },
-    "interim@response-requested": {
-      "entries": [
-        {
-          "evaluators": 3,
-          "events_scored": 2,
-          "forward": {
-            "accuracy": 0.5,
-            "accuracy_scored": 6,
-            "evaluations": 6,
-            "events_scored": 2,
-            "mean_brier_score": 0.25625,
-            "mean_reasoning_quality": 0.87,
-            "mean_vote_accuracy": null,
-            "population_brier_skill_score": 0.3334537572254336,
-            "population_realized_term_skill_score": null,
-            "realized_term_skill_scored": 0,
-            "skill_scored": 6
-          },
-          "predictor_id": "claude-baseline",
-          "procedural": null,
-          "retrospective": null
-        },
-        {
-          "evaluators": 3,
-          "events_scored": 2,
-          "forward": {
-            "accuracy": 0.5,
-            "accuracy_scored": 6,
-            "evaluations": 6,
-            "events_scored": 2,
-            "mean_brier_score": 0.229,
-            "mean_reasoning_quality": 0.8250000000000001,
-            "mean_vote_accuracy": null,
-            "population_brier_skill_score": 0.40433526011560683,
-            "population_realized_term_skill_score": null,
-            "realized_term_skill_scored": 0,
-            "skill_scored": 6
-          },
-          "predictor_id": "codex-baseline",
-          "procedural": null,
-          "retrospective": null
-        },
-        {
-          "evaluators": 3,
-          "events_scored": 2,
-          "forward": {
-            "accuracy": 0.0,
-            "accuracy_scored": 6,
-            "evaluations": 6,
-            "events_scored": 2,
-            "mean_brier_score": 0.4925,
-            "mean_reasoning_quality": 0.5583333333333333,
-            "mean_vote_accuracy": null,
-            "population_brier_skill_score": -0.2810693641618498,
-            "population_realized_term_skill_score": null,
-            "realized_term_skill_scored": 0,
-            "skill_scored": 6
-          },
-          "predictor_id": "gemini-baseline",
-          "procedural": null,
-          "retrospective": null
-        }
-      ],
-      "evaluations_total": 18,
-      "events_scored": 2,
-      "forward_evaluations": 18,
-      "procedural_evaluations": 0,
-      "retrospective_evaluations": 0
-    }
-  },
-  "superseded_gradings": 51
+  "superseded_gradings": 0
 }
