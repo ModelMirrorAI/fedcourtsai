@@ -1,7 +1,7 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 1708.5,
+    "actions_minutes": 1698.3,
     "actions_monthly_usd": 0.0,
     "estimated_monthly_usd": 1027.45,
     "fixed_monthly_usd": 115.0,
@@ -557,7 +557,7 @@
     "warnings": 16,
     "window_days": 14
   },
-  "generated_at": "2026-08-31T15:48:59.985142+00:00",
+  "generated_at": "2026-08-31T16:20:03.308262+00:00",
   "health": [
     {
       "failures": 0,
@@ -576,9 +576,9 @@
       "last_run_at": "2026-08-31T15:32:01Z",
       "median_seconds": 388,
       "p95_seconds": 438,
-      "runs_considered": 56,
-      "success_rate": 0.875,
-      "successes": 49,
+      "runs_considered": 55,
+      "success_rate": 0.8727272727272727,
+      "successes": 48,
       "workflow": "ci"
     },
     {
@@ -587,9 +587,9 @@
       "last_run_at": "2026-08-31T15:39:10Z",
       "median_seconds": 153,
       "p95_seconds": 164,
-      "runs_considered": 74,
-      "success_rate": 0.9459459459459459,
-      "successes": 70,
+      "runs_considered": 72,
+      "success_rate": 0.9444444444444444,
+      "successes": 68,
       "workflow": "codeql"
     },
     {
@@ -661,12 +661,12 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-08-31T15:48:15Z",
+      "last_run_at": "2026-08-31T16:19:16Z",
       "median_seconds": 55,
       "p95_seconds": 55,
-      "runs_considered": 2,
+      "runs_considered": 3,
       "success_rate": 1.0,
-      "successes": 1,
+      "successes": 2,
       "workflow": "run-ops"
     },
     {
@@ -693,22 +693,22 @@
     },
     {
       "failures": 0,
-      "last_conclusion": "success",
-      "last_run_at": "2026-08-31T15:26:41Z",
+      "last_conclusion": null,
+      "last_run_at": "2026-08-31T16:18:17Z",
       "median_seconds": 147,
       "p95_seconds": 524,
-      "runs_considered": 3,
+      "runs_considered": 4,
       "success_rate": 1.0,
       "successes": 3,
       "workflow": "run-repair"
     },
     {
       "failures": 0,
-      "last_conclusion": "success",
-      "last_run_at": "2026-08-31T08:48:56Z",
+      "last_conclusion": null,
+      "last_run_at": "2026-08-31T16:19:41Z",
       "median_seconds": 95,
       "p95_seconds": 948,
-      "runs_considered": 6,
+      "runs_considered": 7,
       "success_rate": 1.0,
       "successes": 6,
       "workflow": "run-seed"
