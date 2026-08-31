@@ -695,10 +695,12 @@ def event_has_claimable_prediction(
     over. The predicate refuses exactly that, and admits the case the carve-out
     exists for — an event whose cohort a board already counts, missing an engine.
 
-    Keyed per predictor on the latest prediction, the same rule `stratify`
-    joins on, so this answers the question the board will ask rather than a
-    near-miss of it. While no freeze is in force there is a single process
-    scope and any committed prediction qualifies.
+    Keyed per predictor on the latest prediction — the right key *here*, where
+    no evaluation exists yet to name a graded run, and exactly the fallback
+    rule :func:`scored_prediction` gives an unstamped record — so this answers
+    the question the board will ask rather than a near-miss of it. While no
+    freeze is in force there is a single process scope and any committed
+    prediction qualifies.
     """
     predictions_root = CasePaths(data_root, court_id, docket_id).event(event_id).predictions_dir
     by_predictor: dict[str, list[Prediction]] = {}
@@ -770,18 +772,45 @@ class ExcludedCell(NamedTuple):
     reason: str
 
 
+def scored_prediction(
+    event_dir: Path, predictor_id: str, prediction_run_id: str | None
+) -> Prediction | None:
+    """The prediction an evaluation graded, or ``None`` where the predictor wrote none.
+
+    The one join rule every evaluation reader shares — the stratified boards,
+    the leaderboard's agreement views, the stamp-time computations, and the
+    ``validate`` gates all resolve through here, so no two enforcers of one
+    rule can score different predictions. A harness-stamped
+    ``prediction_run_id`` names the graded run outright; a record stamped
+    before the field existed — or one naming a run whose artifact is gone, a
+    state the append-only ledger does not produce and ``validate`` refuses —
+    falls back to the predictor's **latest** prediction by
+    :func:`fedcourtsai.integrity.cell_clock`, the historical rule the stamp
+    exists to retire. The path is assembled inline because ``event_dir`` is a
+    bare directory here, not a :class:`fedcourtsai.paths.EventPaths` — it
+    mirrors the glob one line below.
+    """
+    if prediction_run_id is not None:
+        named = event_dir / "predictions" / predictor_id / prediction_run_id / "prediction.json"
+        if named.is_file():
+            return read_model(named, Prediction)
+    files = sorted(event_dir.glob(f"predictions/{predictor_id}/*/prediction.json"))
+    predictions = [read_model(p, Prediction) for p in files]
+    return max(predictions, key=cell_clock) if predictions else None
+
+
 class _ScopedCell(NamedTuple):
     """One in-scope ``evaluation.json`` with the siblings its stratum needs.
 
     :func:`stratify`'s first pass: the record, the event directory its path
-    identifies, and the latest prediction the frozen gate already resolved —
+    identifies, and the scored prediction the frozen gate already resolved —
     carried so the run collapse can drop a superseded grading before the
     outcome join, and so the survivor's prediction is not read twice.
     """
 
     evaluation: Evaluation
     event_dir: Path
-    latest_prediction: Prediction
+    scored_prediction: Prediction
 
 
 class StratifiedRun(NamedTuple):
@@ -821,12 +850,14 @@ def stratify(
     prediction's **harness clock** (:func:`fedcourtsai.integrity.cell_clock` —
     the process stamp, with the agent-written ``created_at`` only as the
     unstamped fallback: the stratum boundary is a pre-registration boundary and
-    must not rest on a clock the agent controls). An
-    evaluation names the predictor but not a prediction run, so when the
-    predictor ran the event more than once the **latest** prediction's clock
-    decides: the cell is forward only if even the newest
-    prediction predates the resolution — the conservative reading, so a possibly
-    post-resolution prediction is never presented as a forward forecast. An
+    must not rest on a clock the agent controls). The clock that decides is
+    the **scored** prediction's — the run the evaluation's harness-stamped
+    ``prediction_run_id`` names (:func:`scored_prediction`) — so a predictor's
+    later replay of an already-graded event cannot move the graded cell's
+    stratum in either direction. A record stamped before the field existed
+    falls back to the predictor's **latest** prediction's clock: the
+    conservative reading for an ambiguous join, since it never presents a
+    possibly post-resolution prediction as a forward forecast. An
     evaluation can only exist for a resolved event with a real prediction (the
     referential checks enforce both), so a missing sibling artifact raises
     rather than guessing a stratum.
@@ -895,23 +926,12 @@ def stratify(
         evaluation = read_model(path, Evaluation)
         # event_dir/evaluations/<evaluator>/<predictor>/<run>/evaluation.json
         event_dir = path.parents[4]
-        scored: Prediction | None = None
-        if evaluation.prediction_run_id is not None:
-            named = (
-                event_dir
-                / "predictions"
-                / evaluation.predictor_id
-                / evaluation.prediction_run_id
-                / "prediction.json"
-            )
-            if named.is_file():
-                scored = read_model(named, Prediction)
+        scored = scored_prediction(event_dir, evaluation.predictor_id, evaluation.prediction_run_id)
         if scored is None:
-            prediction_files = sorted(
-                event_dir.glob(f"predictions/{evaluation.predictor_id}/*/prediction.json")
+            raise FileNotFoundError(
+                f"{path} grades a predictor with no committed prediction on this "
+                f"event — the referential checks refuse this ledger"
             )
-            predictions = [read_model(p, Prediction) for p in prediction_files]
-            scored = max(predictions, key=cell_clock)
         if frozen_only and not (
             is_frozen(scored.process_version) and graded_post_freeze(evaluation.process_version)
         ):
@@ -928,7 +948,7 @@ def stratify(
     # indistinguishable from a cell that was graded once, so the boards take
     # their audit line from this difference rather than re-scanning the ledger.
     superseded = len(scoped) - len(survivors)
-    for evaluation, event_dir, latest in survivors:
+    for evaluation, event_dir, scored in survivors:
         outcome = read_model(event_dir / "outcome.json", Outcome)
         # A mootness-basis outcome never enters the forward/retrospective
         # skill aggregates — the label tracks vacatur practice, not
@@ -936,9 +956,9 @@ def stratify(
         # cell therefore routes procedural, not retrospective; under exclude
         # it is dropped like any breaching cell.
         procedural = outcome.disposition_basis == "mootness"
-        if latest.context is not None and latest.context.mode == "forward":
+        if scored.context is not None and scored.context.mode == "forward":
             claimed_forward += 1
-        breach = forward_claim_breach(latest, outcome)
+        breach = forward_claim_breach(scored, outcome)
         if breach is not None:
             excluded.append(ExcludedCell(evaluation, breach))
             if policy == "exclude":
@@ -948,7 +968,7 @@ def stratify(
             stratum = (
                 PROCEDURAL
                 if procedural
-                else classify_stratum(cell_clock(latest), outcome.resolved_at)
+                else classify_stratum(cell_clock(scored), outcome.resolved_at)
             )
         event = read_model(event_dir / "event.yaml", PredictableEvent)
         # Stage normalization for stratification: a missing/null stage on a

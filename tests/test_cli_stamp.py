@@ -489,20 +489,17 @@ def test_stamp_evaluator_fails_a_risk_set_basis_that_resolves_no_version(
     assert sibling["base_rate_salience_version"] == SALIENCE_VERSION
 
 
-def test_stamp_evaluator_scores_the_interim_set_off_the_application_term(
-    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The production join for an interim cell: `stamp-cell` computes the block.
+def _seed_interim_cell(data_root: Path, metrics_root: Path) -> EventPaths:
+    """A graded interim cell whose every harness number is derivable by hand.
 
-    Every interim moment declares `interim-v1`, so the harness scores four rows
-    here. Only `interim-disposition` carries a baseline — pooled over the
-    application Terms strictly before the cell's own, which the frozen context
-    carries as the `YYAnnn` Term — while the three escalation increments resolve
-    from both committed ends and stay unscored for want of a conditioned cut.
+    Prediction ``RID`` at probability 0.2 on a denied outcome, frozen to
+    application Term 2026, with a statpack whose strictly-prior pool (OT2025)
+    reads 0.10 — so the stamp's expected record is Brier 0.04, rate 0.10,
+    skill ``1 - 0.04/0.01``, ``correct`` 1, and an `interim-disposition`
+    claim score of ``0.10**2 - 0.20**2``.
     """
-    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
     event = "evt-motion-disposition"
-    event_paths = CasePaths(_data_root, "scotus", 7).event(event)
+    event_paths = CasePaths(data_root, "scotus", 7).event(event)
     write_yaml(
         event_paths.event_file,
         PredictableEvent(
@@ -562,7 +559,7 @@ def test_stamp_evaluator_scores_the_interim_set_off_the_application_term(
         ),
     )
     write_json(
-        tmp_path / "metrics" / "statpack.json",
+        metrics_root / "statpack.json",
         StatPack(
             corpus_rows=1,
             interim=StatPackInterim(
@@ -590,6 +587,23 @@ def test_stamp_evaluator_scores_the_interim_set_off_the_application_term(
             brier_score=0.04,  # (0.2 - 0)**2
         ),
     )
+    return event_paths
+
+
+def test_stamp_evaluator_scores_the_interim_set_off_the_application_term(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The production join for an interim cell: `stamp-cell` computes the block.
+
+    Every interim moment declares `interim-v1`, so the harness scores four rows
+    here. Only `interim-disposition` carries a baseline — pooled over the
+    application Terms strictly before the cell's own, which the frozen context
+    carries as the `YYAnnn` Term — while the three escalation increments resolve
+    from both committed ends and stay unscored for want of a conditioned cut.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-motion-disposition"
+    event_paths = _seed_interim_cell(_data_root, tmp_path / "metrics")
 
     result = _stamp("evaluator", "claude-judge", 7, event, "RID")
     assert result.exit_code == 0, result.output
@@ -624,6 +638,61 @@ def test_stamp_evaluator_scores_the_interim_set_off_the_application_term(
     assert stamped["brier_score"] == pytest.approx(0.04)
     assert stamped["segment_base_rate"] == pytest.approx(0.10)
     assert stamped["brier_skill_score"] == pytest.approx(1 - 0.04 / 0.01)
+
+
+def test_a_regrade_reproduces_the_interim_numbers_off_the_named_run(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every stamp-time number joins the named run, pinned by value.
+
+    After the grading is stamped, a *divergent* re-run lands: a different
+    probability (which moves the Brier and the claim scores), the opposite
+    disposition (which flips `correct`), and a different frozen application
+    Term (which empties the strictly-prior pool and so clears the segment
+    base rate). A re-grade must reproduce the original numbers from the run
+    the record names — any one of the harness computations silently
+    reverting to the latest-prediction join flips a figure here.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-motion-disposition"
+    event_paths = _seed_interim_cell(_data_root, tmp_path / "metrics")
+    assert _stamp("evaluator", "claude-judge", 7, event, "RID").exit_code == 0
+
+    seeded = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert seeded.context is not None
+    write_json(
+        event_paths.prediction("claude-baseline", "ZID"),
+        seeded.model_copy(
+            update={
+                "run_id": "ZID",
+                "created_at": datetime(2027, 1, 1, tzinfo=UTC),
+                "granted": 1,
+                "probability": 0.9,
+                "predicted_disposition": Disposition.granted,
+                "context": seeded.context.model_copy(update={"term": 2025}),
+                "claims": [
+                    ClaimProbability(claim_id="interim-disposition", probability=0.9),
+                    ClaimProbability(claim_id="response-requested-increment", probability=0.4),
+                    ClaimProbability(claim_id="referral-increment", probability=0.3),
+                    ClaimProbability(claim_id="amicus-increment", probability=0.6),
+                ],
+            }
+        ),
+    )
+    result = _regrade("evaluator", "claude-judge", 7, event, "RID")
+    assert result.exit_code == 0, result.output
+
+    regraded = json.loads(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID").read_text()
+    )
+    assert regraded["prediction_run_id"] == "RID"
+    # RID's numbers, not ZID's: 1 vs 0, 0.04 vs 0.81, 0.10 vs a cleared pool.
+    assert regraded["correct"] == 1
+    assert regraded["brier_score"] == pytest.approx(0.04)
+    assert regraded["segment_base_rate"] == pytest.approx(0.10)
+    assert regraded["brier_skill_score"] == pytest.approx(1 - 0.04 / 0.01)
+    rows = {row["claim_id"]: row for row in regraded["claim_scores"]["claims"]}
+    assert rows["interim-disposition"]["score"] == pytest.approx(0.10**2 - 0.20**2)
 
 
 def test_stamp_evaluator_clears_the_pair_where_the_pack_has_no_interim_section(
@@ -2179,27 +2248,63 @@ def test_stamp_names_the_graded_prediction_and_a_regrade_preserves_it(
     """
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
     event_paths = _seed_cert_cell(_data_root, 23, actual=Disposition.granted)
+    context = PredictionContext(
+        mode="forward",
+        snapshot_date=date(2026, 1, 1),
+        signals_observable=True,
+        band="baseline",
+        salience_version="sal-v1",
+        term=2024,
+    )
+    prediction_path = event_paths.prediction("claude-baseline", "RID")
+    seeded = read_model(prediction_path, Prediction)
+    write_json(prediction_path, seeded.model_copy(update={"context": context}))
     eval_path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
     record = read_model(eval_path, Evaluation)
-    write_json(eval_path, record.model_copy(update={"prediction_run_id": "fabricated"}))
+    write_json(
+        eval_path,
+        record.model_copy(
+            update={"prediction_run_id": "fabricated", "base_rate_basis": "risk_set"}
+        ),
+    )
 
     stamp_result = _stamp("evaluator", "claude-judge", 23, _CERT_EVENT, "RID")
     assert stamp_result.exit_code == 0, stamp_result.output
-    assert json.loads(eval_path.read_text())["prediction_run_id"] == "RID"
+    stamped = json.loads(eval_path.read_text())
+    assert stamped["prediction_run_id"] == "RID"
+    assert stamped["correct"] == 0  # `gvr` against `granted`
+    assert stamped["base_rate_salience_version"] == "sal-v1"
 
     # The predictor re-runs the event after the grading: newer on the harness
-    # clock, so the latest-prediction fallback would join to it.
-    seeded = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    # clock, so the latest-prediction fallback would join to it — and
+    # divergent on every axis a cert stamp reads, so a silent re-join flips a
+    # figure below rather than passing on identical numbers.
     write_json(
         event_paths.prediction("claude-baseline", "ZID"),
-        seeded.model_copy(update={"run_id": "ZID", "created_at": datetime(2027, 1, 1, tzinfo=UTC)}),
+        seeded.model_copy(
+            update={
+                "run_id": "ZID",
+                "created_at": datetime(2027, 1, 1, tzinfo=UTC),
+                "granted": 1,
+                "probability": 0.9,
+                "predicted_disposition": Disposition.granted,
+                "context": context.model_copy(
+                    update={"band": "high", "salience_version": "sal-v9"}
+                ),
+            }
+        ),
     )
     result = _regrade("evaluator", "claude-judge", 23, _CERT_EVENT, "RID")
     assert result.exit_code == 0, result.output
-    assert json.loads(eval_path.read_text())["prediction_run_id"] == "RID", (
+    regraded = json.loads(eval_path.read_text())
+    assert regraded["prediction_run_id"] == "RID", (
         "a re-grade must preserve the stamped graded-prediction identity, "
         "not re-resolve it to the newer run"
     )
+    # RID's readings, not ZID's: the label bit and the version the risk_set
+    # basis resolves both come off the named run.
+    assert regraded["correct"] == 0
+    assert regraded["base_rate_salience_version"] == "sal-v1"
 
 
 def test_regrade_fails_the_mispaired_basis_after_the_graded_fields_land(

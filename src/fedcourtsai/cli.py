@@ -268,6 +268,7 @@ from .store import (
     ledger_cell_counts,
     open_events,
     resolved_events,
+    scored_prediction,
     stratify,
     unforecastable_listed_events,
 )
@@ -3987,7 +3988,15 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     :func:`fedcourtsai.validate.check_evaluation_correct_agrees` collapses to
     the latest runs and requires the evaluators to agree, so a half-re-graded
     event fails the ledger — which is the check doing its job, not an obstacle
-    to route around.
+    to route around. One divergence a re-grade cannot repair: gradings that
+    straddle a re-prediction each preserve their own ``prediction_run_id``,
+    so their bits stay computed against different runs through any number of
+    re-grades. The remedy there is the ordinary re-stamp of the event's
+    evaluations, which re-resolves the identity to the latest prediction — at
+    the stated cost that it rewrites ``process_version``, attributing the
+    grading to the registry in force now rather than the one that produced
+    it; that trade is why the straddle should be repaired promptly, not left
+    to age.
     """
     settings = get_settings()
     if role not in ("predictor", "evaluator"):
@@ -4048,9 +4057,13 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             # post-run, when the latest prediction is the scored one) and
             # overwrites an evaluator-written value; a re-grade leaves it
             # untouched, so a predictor re-run after the grading cannot
-            # re-point the record. Written back onto `record` first, so the
-            # graded computations below judge the same prediction the stamp
-            # names.
+            # re-point the record. Assigned unconditionally on the ordinary
+            # path, `None` included — the one way the harness could forget an
+            # identity, safe because nothing removes a prediction from the
+            # append-only ledger, so a stamp that resolves nothing is a cell
+            # that never had a prediction to name. Written back onto `record`
+            # first, so the graded computations below judge the same
+            # prediction the stamp names.
             if not regrade:
                 scored = _latest_prediction_for(event_paths, record.predictor_id)
                 cell_update["prediction_run_id"] = scored.run_id if scored is not None else None
@@ -4455,20 +4468,19 @@ def _claim_scores_for(
 def _scored_prediction_for(event_paths: EventPaths, evaluation: Evaluation) -> Prediction | None:
     """The prediction this evaluation grades, or ``None``.
 
-    The join every stamp-time computation uses. A stamped
-    ``prediction_run_id`` names the graded run outright, so a predictor
-    re-run between the grading and a later re-stamp cannot re-point these
-    computations at a prediction the evaluator never judged. A record
-    stamped before the field existed — or one naming a run whose artifact
-    is gone, a state the append-only ledger does not produce — falls back
-    to the predictor's latest prediction, the historical rule the stamp
-    exists to retire.
+    :func:`fedcourtsai.store.scored_prediction` over the cell's own record —
+    the join every stamp-time computation uses, and the same resolver the
+    stratified boards and the ``validate`` gates read, so no two enforcers of
+    one rule can score different predictions. A stamped ``prediction_run_id``
+    names the graded run outright (a ``None`` covers both a record predating
+    the field and a stamp that resolved no prediction at all — the second is
+    loud elsewhere, since ``correct`` stamps null beside it); the fallback is
+    the predictor's latest prediction, the historical rule the stamp exists
+    to retire.
     """
-    if evaluation.prediction_run_id is not None:
-        named = event_paths.prediction(evaluation.predictor_id, evaluation.prediction_run_id)
-        if named.is_file():
-            return read_model(named, Prediction)
-    return _latest_prediction_for(event_paths, evaluation.predictor_id)
+    return scored_prediction(
+        event_paths.base, evaluation.predictor_id, evaluation.prediction_run_id
+    )
 
 
 def _latest_prediction_for(event_paths: EventPaths, predictor_id: str) -> Prediction | None:
