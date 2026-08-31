@@ -1126,8 +1126,13 @@ freeze commit is recorded here.
   vintage outside the weekly refresh set, so its figures simply pre-date this
   re-partition until someone regenerates it) — may not be pooled with, or
   read against, a post-refresh figure under the same labels. The refresh that
-  closes the boundary: <FILL: the metrics-refresh commit that regenerates the
-  boards after this promotion>.
+  closes the boundary: `5435f0a24` (`metrics: refresh statpack, scope`, run
+  `33406805287`, over blob `a9767436f34c`), merged to `main` in `cd6dcdd1a` at
+  `2026-08-31T15:20:38Z` — before the 2026-09-05 instant, with no predict
+  round in the promotion-to-refresh window. That refresh closes the statpack
+  half of the effect check; the docket pack regenerates on demand
+  (`fedcourts docket`), so its fee-class `(none)` bucket empties at its next
+  regeneration, not on the refresh schedule.
 
   **The entry is dated before the instant deliberately.** Landing it and
   refreshing metrics before `2026-09-05T00:00:00Z` means no counted number ever
