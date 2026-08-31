@@ -365,8 +365,8 @@ walk and not after it — so without it a denial from a fully-walked range would
 stand for ten petitions, nine of which the corpus is separately counting at 1.
 A weight of 10 is a checkable claim about nine specific neighbouring serials, so
 `sampled_block_is_enumerated` checks it: it counts how many of the serials within
-nine either side are stored in the live slice, and a majority means those
-petitions are observed rather than passed over. The read is **per row**, not per
+nine either side are stored in the live slice, and a count in the enumerated
+range means those petitions are observed rather than passed over. The read is **per row**, not per
 Term, because the enumerating walk resumes from the sampled walk's persisted
 cursor — one Term can carry a sampled prefix and an enumerated tail, and a
 whole-Term verdict would hand one regime's answer to the other's rows.
