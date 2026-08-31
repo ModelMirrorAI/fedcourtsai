@@ -868,15 +868,19 @@ def stratify(
     surface built on this stream — the leaderboard and the ops dashboard both — is
     the frozen headline by construction and the two cannot disagree. It filters on
     the *prediction's* stamp, not the evaluation's digest: the competitor being
-    ranked is the predictor. The evaluation's own **harness stamp**
+    ranked is the predictor. The scored prediction is the one the evaluation's
+    harness-stamped ``prediction_run_id`` names — so a grading of a de-counted
+    prediction stays attributed to that prediction and cannot ride a frozen
+    re-run of the same cell into the counted figures — falling back, for
+    records stamped before the field existed, to the predictor's latest
+    prediction for the event. The evaluation's own **harness stamp**
     must additionally be at or after the freeze instant
     (:func:`process_version.graded_post_freeze` — its digest is recorded but
-    not enforced): an evaluation names its
-    predictor but not the prediction run it graded, so the join above is to
-    the latest prediction, and without the time gate a shakedown evaluation
-    would ride into the frozen headline the moment the same predictor re-ran
-    its event under the frozen process. An unstamped shakedown prediction is
-    never frozen, so the shakedown ledger drops out for free.
+    not enforced): under the latest-prediction fallback, without the time gate
+    a shakedown evaluation would ride into the frozen headline the moment the
+    same predictor re-ran its event under the frozen process. An unstamped
+    shakedown prediction is never frozen, so the shakedown ledger drops out
+    for free.
     ``frozen_only=False`` is the all-versions view, which reproduces every
     scored cell regardless of process.
     """
@@ -891,16 +895,28 @@ def stratify(
         evaluation = read_model(path, Evaluation)
         # event_dir/evaluations/<evaluator>/<predictor>/<run>/evaluation.json
         event_dir = path.parents[4]
-        prediction_files = sorted(
-            event_dir.glob(f"predictions/{evaluation.predictor_id}/*/prediction.json")
-        )
-        predictions = [read_model(p, Prediction) for p in prediction_files]
-        latest = max(predictions, key=cell_clock)
+        scored: Prediction | None = None
+        if evaluation.prediction_run_id is not None:
+            named = (
+                event_dir
+                / "predictions"
+                / evaluation.predictor_id
+                / evaluation.prediction_run_id
+                / "prediction.json"
+            )
+            if named.is_file():
+                scored = read_model(named, Prediction)
+        if scored is None:
+            prediction_files = sorted(
+                event_dir.glob(f"predictions/{evaluation.predictor_id}/*/prediction.json")
+            )
+            predictions = [read_model(p, Prediction) for p in prediction_files]
+            scored = max(predictions, key=cell_clock)
         if frozen_only and not (
-            is_frozen(latest.process_version) and graded_post_freeze(evaluation.process_version)
+            is_frozen(scored.process_version) and graded_post_freeze(evaluation.process_version)
         ):
             continue
-        scoped.append(_ScopedCell(evaluation, event_dir, latest))
+        scoped.append(_ScopedCell(evaluation, event_dir, scored))
 
     # The run collapse runs *after* the scope gate, never before: a cell graded
     # under the frozen process and re-graded outside it must keep the frozen

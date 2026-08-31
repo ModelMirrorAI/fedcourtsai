@@ -1810,6 +1810,70 @@ def test_the_superseded_count_is_scoped_like_the_board_it_sits_on(
     assert stratify(data_root, frozen_only=False).superseded == 1
 
 
+def test_a_decounted_predictions_grading_cannot_ride_a_frozen_rerun(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The stamped ``prediction_run_id`` anchors the frozen-scope join.
+
+    A shakedown prediction is graded, then the predictor re-runs the event
+    under the blessed process. Joined to the *latest* prediction, the old
+    grading would attach to the frozen re-run and ride into the counted
+    figures — a judgment of work the frozen process never produced. The stamp
+    keeps the grading attributed to the run it judged, which the frozen scope
+    then excludes; a record stamped before the field existed still takes the
+    latest-prediction fallback, asserted beside it so retiring the fallback
+    is a deliberate act rather than a refactor's side effect.
+    """
+    bless_process(monkeypatch, "sha256:blessed", since=datetime(2026, 1, 1, tzinfo=UTC))
+    data_root = tmp_path / "data"
+    rerun_stamp = ProcessVersion(
+        label="proc-v1", digest="sha256:blessed", stamped_at=datetime(2026, 7, 1, tzinfo=UTC)
+    )
+    for predictor, named_run in (("alpha", "p1"), ("legacy", None)):
+        # The graded shakedown: prediction p1 unstamped, its grading stamped
+        # post-instant. `alpha`'s grading names p1; `legacy`'s predates the
+        # field.
+        _write_cell(
+            data_root,
+            _evaluation(
+                predictor,
+                event_id=f"evt-{predictor}",
+                prediction_run_id=named_run,
+                process_version=_graded_at(2),
+            ),
+            process_version=None,
+        )
+        # The frozen re-run, later on the harness clock than p1's authored date.
+        event = CasePaths(data_root, "ca9", 123).event(f"evt-{predictor}")
+        write_json(
+            event.prediction(predictor, "p2"),
+            Prediction(
+                case_id="ca9/123",
+                event_id=f"evt-{predictor}",
+                predictor_id=predictor,
+                engine=Engine.claude_code,
+                run_id="p2",
+                created_at=datetime(2026, 6, 30, tzinfo=UTC),
+                input_snapshot="corpus",
+                granted=1,
+                probability=0.7,
+                predicted_disposition=Disposition.granted,
+                process_version=rerun_stamp,
+            ),
+        )
+
+    counted = {cell[0].predictor_id for cell in stratify(data_root).cells}
+    assert counted == {"legacy"}, (
+        "the stamped grading must stay on its de-counted prediction (out of the "
+        "frozen scope); only the legacy record takes the latest-prediction fallback"
+    )
+    # Both remain honest cells in the all-versions view.
+    assert {cell[0].predictor_id for cell in stratify(data_root, frozen_only=False).cells} == {
+        "alpha",
+        "legacy",
+    }
+
+
 def test_the_superseded_count_is_taken_before_the_forward_claim_exclusion(
     tmp_path: Path,
 ) -> None:

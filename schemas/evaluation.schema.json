@@ -524,6 +524,19 @@
       "title": "Notes Doc",
       "type": "string"
     },
+    "prediction_run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Run id of the prediction this evaluation graded. Harness-stamped by the ordinary `stamp-cell --role evaluator` from the prediction it resolves at stamp time \u2014 never the evaluator's word (an evaluator-written value is overwritten) \u2014 and left untouched by a re-grade, so a predictor re-run after the grading cannot re-point the record at a prediction it never judged. Null on records stamped before the field existed; every reader then falls back to the predictor's latest prediction for the event.",
+      "title": "Prediction Run Id"
+    },
     "predictor_id": {
       "title": "Predictor Id",
       "type": "string"

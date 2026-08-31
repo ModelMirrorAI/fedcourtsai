@@ -2167,6 +2167,41 @@ def test_regrade_recomputes_correct_under_the_producing_process_stamp(
     assert regraded["process_version"] == produced_under
 
 
+def test_stamp_names_the_graded_prediction_and_a_regrade_preserves_it(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``prediction_run_id`` is the harness's word, resolved once.
+
+    The ordinary stamp resolves the scored prediction and overwrites an
+    evaluator-written value; a re-grade leaves the stamped identity alone —
+    so a predictor re-run between the grading and a later correction cannot
+    re-point the record at a prediction the evaluator never judged.
+    """
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event_paths = _seed_cert_cell(_data_root, 23, actual=Disposition.granted)
+    eval_path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    record = read_model(eval_path, Evaluation)
+    write_json(eval_path, record.model_copy(update={"prediction_run_id": "fabricated"}))
+
+    stamp_result = _stamp("evaluator", "claude-judge", 23, _CERT_EVENT, "RID")
+    assert stamp_result.exit_code == 0, stamp_result.output
+    assert json.loads(eval_path.read_text())["prediction_run_id"] == "RID"
+
+    # The predictor re-runs the event after the grading: newer on the harness
+    # clock, so the latest-prediction fallback would join to it.
+    seeded = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    write_json(
+        event_paths.prediction("claude-baseline", "ZID"),
+        seeded.model_copy(update={"run_id": "ZID", "created_at": datetime(2027, 1, 1, tzinfo=UTC)}),
+    )
+    result = _regrade("evaluator", "claude-judge", 23, _CERT_EVENT, "RID")
+    assert result.exit_code == 0, result.output
+    assert json.loads(eval_path.read_text())["prediction_run_id"] == "RID", (
+        "a re-grade must preserve the stamped graded-prediction identity, "
+        "not re-resolve it to the newer run"
+    )
+
+
 def test_regrade_fails_the_mispaired_basis_after_the_graded_fields_land(
     _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
