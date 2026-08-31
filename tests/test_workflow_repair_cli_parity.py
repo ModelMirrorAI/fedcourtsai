@@ -13,12 +13,17 @@ rather than retyped here — a copy would drift exactly as the workflow does —
 selector inputs are filled with representative values, and the command is
 executed against the offline fixture corpus. What they prove is *parity*, not a
 pass's behaviour: every flag the workflow passes still exists and still parses.
+One test goes a step further, because the qp pass's convergence gate couples to
+the CLI's *output wording* rather than its argv: it replays the step's own
+invocations over a purpose-seeded corpus and asserts the workflow's grepped
+literal against the converged summary — the one seam argv parity cannot see.
 The passes' own semantics are pinned at their unit seams
 (`tests/test_dedupe.py`, `tests/test_distribution_rederive.py`,
 `tests/test_docket_marking_migration.py`, `tests/test_response_backfill.py`,
-`tests/test_attribution_migration.py`, `tests/test_disposition_convergence.py`
-and `tests/test_cli_stamp.py`), which is why a near-empty fixture corpus is
-enough here — a pass with nothing to do still parses every flag it was given.
+`tests/test_attribution_migration.py`, `tests/test_disposition_convergence.py`,
+`tests/test_documents.py` and `tests/test_cli_stamp.py`), which is why a
+near-empty fixture corpus is enough here — a pass with nothing to do still
+parses every flag it was given.
 """
 
 from __future__ import annotations
@@ -34,6 +39,7 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus, fixture
 from fedcourtsai.cli import app
 from tests.conftest import seed_evaluation, seed_prediction
+from tests.test_documents import _seed_qp_backfill_corpus
 from tests.workflow_argv import command_argv, expand, logical_lines, shell_arrays
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -373,3 +379,59 @@ def test_the_regrade_dry_run_preview_names_the_argv_it_would_run() -> None:
     assert _flags(previewed.split()) == _flags(executed), (
         "the re-grade's dry-run preview and the command it previews disagree on flags"
     )
+
+
+#: The presence-required convergence grep, in the one polarity the qp pass
+#: uses: `if ! grep -q "<literal>" /tmp/qp-verify.txt` fails the dispatch when
+#: the literal is absent. Anchored on the `!` so a future must-be-ABSENT grep
+#: over the same file cannot be mistaken for a literal the converged run has
+#: to print.
+_CONVERGENCE_GREP = re.compile(r'!\s*grep -q "([^"]+)" /tmp/qp-verify\.txt')
+
+
+def test_the_qp_convergence_grep_matches_a_converged_run(tmp_path: Path) -> None:
+    """The literal the workflow greps is a substring of the converged summary.
+
+    The questions-presented apply gates its corpus push on grepping the
+    re-run's summary line — a literal in workflow shell coupled to an f-string
+    in `cli.py`, and neither gate sees the pair: to `actionlint` the grep is
+    opaque shell, and to the Python gate the workflow is not code. A rewording
+    of either side turns the convergence check into an unconditional failure,
+    discovered mid-dispatch after the corpus-write lock is taken. So the
+    coupling is executed here: both the literal *and* the invocations it is
+    grepped from are read out of the workflow, never retyped, and the literal
+    is asserted against the output of the re-run the step actually gates on.
+    """
+    greps = _CONVERGENCE_GREP.findall(RUN_REPAIR.read_text())
+    assert greps, "run-repair.yml no longer greps a qp convergence literal"
+    (step,) = _steps_for("qp-backfill")
+    argvs = [
+        argv
+        for argv in command_argv(str(step["run"]), FEDCOURTS)
+        if argv and argv[0] not in REMOTE_COMMANDS
+    ]
+    assert argvs, "the qp-backfill step no longer invokes the CLI"
+    corpus_root = tmp_path / "corpus"
+    _seed_qp_backfill_corpus(corpus_root)
+    env = {
+        "FEDCOURTS_CORPUS_ROOT": str(corpus_root),
+        # Offline is a property of the test, exactly as `_run` pins it: with
+        # an ambient casestore URL or split flag, the apply would mirror
+        # writes to a real per-case content store.
+        "FEDCOURTS_COURTLISTENER_API_TOKEN": "",
+        "FEDCOURTS_CASESTORE_URL": "",
+        "FEDCOURTS_CORPUS_SPLIT": "0",
+        "FEDCOURTS_CORPUS_BACKEND": "local",
+    }
+    output = ""
+    for argv in argvs:
+        result = CliRunner().invoke(app, argv, env=env)
+        assert result.exit_code == 0, f"{' '.join(argv)}: {result.output}"
+        output = result.output
+    for literal in greps:
+        assert literal in output, (
+            f"run-repair.yml greps {literal!r} for convergence, but the step's own "
+            f"re-run prints no such line over a converged corpus — either the "
+            f"wording drifted, or the apply no longer converges (the counts are in "
+            f"the output above)"
+        )
