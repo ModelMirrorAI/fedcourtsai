@@ -1422,7 +1422,9 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
 # green.
 CODEX_ACTION_CELL_WORKFLOWS = ("run-predict.yml", "run-evaluate.yml")
 CODEX_NPM_PIN_WORKFLOWS = ("run-backtest.yml", "integration-test.yml")
-_CODEX_NPM_PIN = re.compile(r"@openai/codex@([\w.-]+)")
+# Ends on a word character, never a dot: prose comments in the run blocks can
+# put a sentence-ending period right after a pin.
+_CODEX_NPM_PIN = re.compile(r"@openai/codex@([\w-]+(?:\.[\w-]+)*)")
 
 
 def _codex_action_step(name: str) -> dict[str, Any]:
@@ -1451,10 +1453,17 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
         f"{predict['uses']!r} vs {evaluate['uses']!r} — the v1.11 hold and its "
         f"rationale (the network-access override refusal) apply to both or neither"
     )
-    for key in ("codex-version", "codex-args", "sandbox", "safety-strategy"):
-        assert predict["with"].get(key) == evaluate["with"].get(key), (
+    for key in ("codex-version", "codex-args", "sandbox", "safety-strategy", "effort"):
+        # Presence first: a `.get()` comparison would pass vacuously when an
+        # input vanishes from both cells at once, and `safety-strategy` has no
+        # other anchor in the repo.
+        assert key in predict["with"] and key in evaluate["with"], (
+            f"codex-action input {key!r} missing from a cell step — it is part "
+            f"of the lockstep invocation surface"
+        )
+        assert predict["with"][key] == evaluate["with"][key], (
             f"codex-action input {key!r} differs between the cell workflows: "
-            f"{predict['with'].get(key)!r} vs {evaluate['with'].get(key)!r}"
+            f"{predict['with'][key]!r} vs {evaluate['with'][key]!r}"
         )
 
     # The runner's argv is the same invocation for back-tests and the stub
@@ -1463,14 +1472,19 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
         role=UsageRole.predictor,
         court_id="scotus",
         docket_id=1,
-        event_id="evt-cert-vote",
+        event_id="evt-petition-disposition",
         actor_id="codex-baseline",
         run_id="20260101T000000Z",
         prompt=Path(".github/prompts/predict.md"),
         data_root=Path("data"),
     )
     argv = CodexRunner().build_command(request).argv
-    action_overrides = _config_overrides(json.loads(str(predict["with"]["codex-args"])))
+    action_args = json.loads(str(predict["with"]["codex-args"]))
+    assert isinstance(action_args, list) and action_args[::2] == ["-c"] * (len(action_args) // 2), (
+        f"codex-args must be `-c key=value` pairs only, got {action_args!r} — any "
+        f"other flag would drift from the runner unseen by the override comparison"
+    )
+    action_overrides = _config_overrides(action_args)
     assert action_overrides == _config_overrides(argv), (
         f"codex config overrides drifted: the action passes {action_overrides!r}, "
         f"CodexRunner.build_command passes {_config_overrides(argv)!r}"
