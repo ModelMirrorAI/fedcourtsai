@@ -1200,12 +1200,17 @@ freeze commit is recorded here.
   117 the withdrawn repair would have added. The code half of this
   correction is owed
   separately: extract the rule as a named function and guard it on density
-  — a denial with an off-grid live-slice sibling among the nine serials its
-  weight would stand for is in an enumerated range and stays at weight 1,
-  the same block-of-nine predicate the neighbour evidence above tests; a
-  cell-wide reading would wrongly fire on the 2,583 genuinely sampled rows,
-  whose cells hold off-grid keeps (grants and other non-grid rows) while
-  their grid blocks hold none.
+  — a denial whose block of nine serials holds seven or more stored
+  live-slice siblings is in an enumerated range and stays at weight 1. The
+  guard counts within the block, never cell-wide, and it counts rather than
+  testing presence, because the blob separates the two populations by count
+  alone: sampled blocks hold at most six stored siblings (the walk's
+  grant-family keeps — 682 of the 2,583 genuinely sampled rows hold at
+  least one, distribution 0: 1,901, 1: 577, 2: 88, 3: 15, 4: 1, 5: 1, so a
+  presence test would wrongly strip ~26% of the legacy sampling weight),
+  enumerated blocks hold ten or more, and the range between is empty; the
+  24 targets' blocks read 7–8, the enumerated side, which is the same
+  evidence the neighbour figures above state.
 
 - **The retroactive-blessing tripwire moves to the bless boundary,
   2026-08-31** (no digest added or retired, no instant moved, no new process
