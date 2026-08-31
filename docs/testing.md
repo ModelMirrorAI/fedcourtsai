@@ -327,7 +327,10 @@ for the first time when the job runs: `test_workflow_repair_cli_parity` reads
 each of `run-repair`'s eight dispatch-only maintenance passes back out of the
 workflow — argv, conditional flag arrays and all, via the shared reader
 `tests/workflow_argv.py` — and executes it against the fixture corpus, so a
-renamed flag fails here rather than as a usage error mid-dispatch; and
+renamed flag fails here rather than as a usage error mid-dispatch (its qp
+test also replays the pass's convergence re-run over a seeded corpus and
+asserts the workflow's grepped literal against the summary the CLI prints —
+the one coupling that lives in output wording rather than argv); and
 `test_collect_issueless` executes the collect composite's own `collect-plan`
 call with the sentinel it normalizes an absent trigger issue to, which is the
 one path a scheduled round takes and an issue-triggered run never does. For a heavier local check of the
