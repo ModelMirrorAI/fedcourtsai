@@ -1193,19 +1193,31 @@ freeze commit is recorded here.
   the stored weights were right all along, and every committed board already
   read them. The rule's latent over-derivation — the probed-vs-kept gap,
   which `backfill_live_signals`'s NULL-only predicate scoped correctly by
-  accident — remains open in code, and it is not small: run over the whole
-  live slice instead of NULL-only, the rule matches 1,567 on-grid
-  stored-weight-1 denials, 1,224 of them paid scored-segment rows — 11,016
-  phantom weighted denials, nearly doubling the 13,341 segment, against the
-  117 the withdrawn repair would have added. The code half of this
-  correction is owed
-  separately: extract the rule as a named function and guard it on density
-  — a denial with an off-grid live-slice sibling among the nine serials its
-  weight would stand for is in an enumerated range and stays at weight 1,
-  the same block-of-nine predicate the neighbour evidence above tests; a
-  cell-wide reading would wrongly fire on the 2,583 genuinely sampled rows,
-  whose cells hold off-grid keeps (grants and other non-grid rows) while
-  their grid blocks hold none.
+  accident — was not small: run unguarded over the whole live slice
+  instead of NULL-only, the rule matches 1,567 on-grid stored-weight-1
+  denials, 1,224 of them paid scored-segment rows — 11,016 phantom
+  weighted denials, nearly doubling the 13,341 segment, against the 117
+  the withdrawn repair would have added. The code half of this correction
+  landed with it: the rule is extracted as a named function and guarded
+  on density — a denial whose eighteen neighbouring serials, nine either
+  side, hold seven or more stored live-slice rows is in an enumerated
+  range and stays at weight 1 (the walk did not record which side of a
+  kept serial its block fell, so the guard looks both ways). The guard
+  counts within that window, never cell-wide, and it counts rather than
+  testing presence, because the blob separates the two populations by
+  count alone: a sampled row's window holds at most six stored
+  neighbours — the walk's grant-family keeps, and 1,156 of the 2,583
+  genuinely sampled rows hold at least one (distribution 0: 1,427;
+  1: 813; 2: 263; 3: 65; 4: 10; 5: 3; 6: 2), so a presence test would
+  wrongly strip the sampling weight from 44.8% of them, 40.3% of the
+  legacy weight — an enumerated row's window holds ten or more, and the
+  range between is empty of both. The 24 targets' windows read 17–18,
+  the enumerated side (their eight nearest alone read 7–8, the neighbour
+  figures above), and guarded, the same whole-slice run matches 117
+  rows, not 1,567: the grid rows genuinely inside sampled ranges yet
+  latched at weight 1 — an under-count left open as its own repair, and,
+  though identically sized by coincidence, a different population from
+  the 117 phantoms the withdrawn repair would have added.
 
 - **The retroactive-blessing tripwire moves to the bless boundary,
   2026-08-31** (no digest added or retired, no instant moved, no new process
