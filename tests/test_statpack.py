@@ -153,6 +153,121 @@ def test_build_statpack_relist_and_cvsg_cuts(fixture_corpus: FixtureCorpus) -> N
     assert analytics._CERT_BY_RELIST.scope_note == relists.scope_note
 
 
+def test_build_statpack_capital_case_cut(tmp_path: Path) -> None:
+    # The measurable form of the population-correction reading: capital
+    # petitions are separated from the rest of the paid scored segment, both
+    # cuts denial-reweighted, so the base-rate difference can be read per pack
+    # instead of quoted from a one-off query.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="24-100",
+                    disposition=Disposition.granted,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    capital_case=True,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="24-101",
+                    disposition=Disposition.denied,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=5,
+                ),
+                # IFP: out of the paid scored segment the section is filtered to,
+                # so it joins no bucket here at all.
+                corpus.CorpusRow(
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="24-5100",
+                    disposition=Disposition.denied,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    capital_case=True,
+                ),
+            ],
+        )
+    pack = analytics.build_statpack(corpus_db_path=db)
+    capital = _section(pack, "Cert petitions by capital-case marking (paid scored segment)")
+    assert (capital.group_by, capital.weighted, capital.cert_stage) == (
+        GroupBy.capital_case,
+        True,
+        True,
+    )
+    assert [(b.key, b.cases, b.resolved) for b in capital.buckets] == [
+        ("unmarked", 5, 5),
+        ("capital", 1, 1),
+    ]
+    marked = next(b for b in capital.buckets if b.key == "capital")
+    assert [(d.disposition, d.share) for d in marked.dispositions] == [("granted", 1.0)]
+    # `unmarked` is a negative only one channel can assert, so what the bucket
+    # means travels with the numbers wherever the section renders — the statpack
+    # markdown included, which is the surface predict and evaluate cells read.
+    assert capital.scope_note == analytics._CAPITAL_MARKING_NOTE
+    assert analytics._CAPITAL_MARKING_NOTE in analytics.render_statpack_markdown(pack)
+    # The docket pack's pooled capital cut carries the same note.
+    assert analytics._CERT_BY_CAPITAL.scope_note == capital.scope_note
+
+
+def test_every_capital_section_is_live_slice_scoped() -> None:
+    """The capital note tells a reader no `(unknown)` bucket appears in the
+    section carrying it, and that is true only while every such section is
+    live-slice scoped — `last_live_polled` is both the note's coverage sentinel
+    and the live-slice predicate. A later capital cut over a wider population
+    would inherit a scope note that lies about its own buckets, in a document
+    published to be quoted, so the coupling is asserted rather than remembered."""
+    carrying = [
+        spec
+        for spec in (*_STATPACK_SECTIONS, *analytics._DOCKET_SECTIONS)
+        if spec.scope_note is analytics._CAPITAL_MARKING_NOTE
+    ]
+    assert carrying, "the capital note reached neither published pack"
+    assert all(spec.live_slice for spec in carrying), [
+        spec.title for spec in carrying if not spec.live_slice
+    ]
+
+
+def test_capital_cut_never_reads_an_unpolled_row_as_unmarked(tmp_path: Path) -> None:
+    # The section is live-slice scoped and `last_live_polled` *is* the live-slice
+    # marker, so the `(unknown)` bucket is empty by construction here — the
+    # unpolled petition is out of the section's population rather than inflating
+    # its `unmarked` count. The guard in the key function is what makes the same
+    # column safe on `fedcourts stats`, which has no such scope.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="24-100",
+                    disposition=Disposition.denied,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="24-101",
+                    disposition=Disposition.denied,
+                    sample_weight=1,
+                ),
+            ],
+        )
+    capital = _section(
+        analytics.build_statpack(corpus_db_path=db),
+        "Cert petitions by capital-case marking (paid scored segment)",
+    )
+    assert [(b.key, b.cases) for b in capital.buckets] == [("unmarked", 1)]
+
+
 def test_build_statpack_salience_band_section(fixture_corpus: FixtureCorpus) -> None:
     # The pack-wide segment board: paid scored segment, live slice, denial-weighted,
     # split by sal-v1 band. scotus/304 (one relist → elevated, weight 5, denied) and
@@ -1040,10 +1155,15 @@ def test_the_predictor_facing_cuts_are_paid_only(fixture_corpus: FixtureCorpus) 
     titles = [s.title for s in _pack(fixture_corpus).sections]
     assert "Cert petitions by relist count (paid scored segment)" in titles
     assert "Cert petitions by CVSG status (paid scored segment)" in titles
+    # The capital cut is the same shape and for the same reason: the marking's
+    # measured lift is a statement about the segment the gate selects from, and
+    # pooling IFP would price it against a population no cell is ever in.
+    assert "Cert petitions by capital-case marking (paid scored segment)" in titles
     # The pooled versions stay off the predictor-facing pack; the court-facing
     # docket pack keeps them, where describing the whole docket is the point.
     assert "Cert petitions by relist count" not in titles  # the pooled cut
     assert "Cert petitions by CVSG status" not in titles
+    assert "Cert petitions by capital-case marking" not in titles
 
 
 def test_the_docket_pack_warns_that_the_gvr_split_is_not_cross_term_comparable(

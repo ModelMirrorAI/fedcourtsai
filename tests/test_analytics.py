@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import analytics
+from fedcourtsai import analytics, corpus
 from fedcourtsai.analytics import AnalyticsQuery
 from fedcourtsai.cli import app
 from fedcourtsai.schemas import AnalyticsReport, BaseRateBucket, Disposition, GroupBy
@@ -135,6 +135,65 @@ def test_group_by_cert_signal_dimensions(fixture_corpus: FixtureCorpus) -> None:
     # Both fixture petitions are paid-stream serials (845 and 12 < 5001); the
     # A-form application docket has no fee class and stays visible as (none).
     assert [(b.key, b.cases) for b in fee.buckets] == [("paid", 2), ("(none)", 1)]
+
+
+def test_group_by_capital_case_buckets_the_unpolled_as_unknown(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # `capital_case` is a plain boolean column, but only supremecourt.gov serves
+    # the marking it is latched from, so a row no live poll ever stamped reads
+    # False for want of a writer. Bucketing that row as `unmarked` would read a
+    # coverage gap as an absence of capital cases, so `last_live_polled` gates
+    # the key: the four bulk-import circuit rows land in `(unknown)`, and only
+    # the three live-slice SCOTUS rows can assert anything at all.
+    report = _report(fixture_corpus, group_by=GroupBy.capital_case)
+    assert [(b.key, b.cases) for b in report.buckets] == [("(unknown)", 4), ("unmarked", 3)]
+
+
+def test_group_by_capital_case_separates_the_three_states(tmp_path: Path) -> None:
+    # The full vocabulary on one corpus: a marked petition, a polled petition
+    # the marking never reached, and an unpolled row that can say neither. The
+    # denominator a capital rate is taken over is the first two only — which is
+    # the whole point of keeping the third in its own bucket.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="24-100",
+                    disposition=Disposition.granted,
+                    last_live_polled=date(2026, 7, 1),
+                    capital_case=True,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="24-101",
+                    disposition=Disposition.denied,
+                    last_live_polled=date(2026, 7, 1),
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="24-102",
+                    disposition=Disposition.denied,
+                ),
+            ],
+        )
+    report = analytics.run_analytics(
+        corpus_db_path=db, query=AnalyticsQuery(group_by=GroupBy.capital_case)
+    )
+    assert sorted((b.key, b.cases) for b in report.buckets) == [
+        ("(unknown)", 1),
+        ("capital", 1),
+        ("unmarked", 1),
+    ]
+    # The separation is the measurable claim: the marked petition's grant is not
+    # diluted by the row that was never looked at.
+    assert _shares(_bucket(report, "capital")) == {"granted": 1.0}
 
 
 def test_filter_term_is_scotus_only(fixture_corpus: FixtureCorpus) -> None:

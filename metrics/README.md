@@ -1127,8 +1127,11 @@ the rendered table) and
   counted `sample_weight` times so denials the earlier sampled walk kept at a
   higher weight do not bias them — the **modern discretionary-cert cut** (the calibration
   anchor, undiluted by merits-era labels), grant/deny by originating circuit,
-  by relist count, by CVSG status, and by **salience band** (the active
-  scorer's frozen grant-likelihood tier over the paid scored segment), plus a
+  by relist count, by CVSG status, by **capital-case marking** over the same
+  paid scored segment (whose `unmarked` bucket is an upper bound — read its rule
+  below; it renders the next time the metrics refresh runs), and by **salience
+  band** (the
+  active scorer's frozen grant-likelihood tier over the paid scored segment), plus a
   by-originating-court reader table that names state courts. A coverage block
   states the pack's own denominators, and the per-Term array carries each
   October Term's cursor-derived filings census by fee class (paid/IFP),
@@ -1277,7 +1280,9 @@ the rendered table) and
   models are any good. Composition by court and by decade era; then, over the
   live/historical slice of modern discretionary-cert petitions, the disposition
   split, the originating circuit, the relist count, the CVSG status, the paid/IFP
-  fee class, and a reader table that names the state courts a petition came from;
+  fee class, a capital-case marking cut that renders the next time
+  `fedcourts docket` runs, and a reader table that names the state courts a
+  petition came from;
   then a per-Term census of docketed filings against ingestion, grant rate, grants
   observed, and pace to grant. `fedcourts docket` produces both files.
 
@@ -1298,7 +1303,24 @@ the rendered table) and
   prints the observed `ingested (rows)` beside the estimate.
   `(none)` and `(unknown)` buckets are rendered rather than dropped, so a coverage
   gap is never hidden inside a rate — `(unknown)` on the relist and CVSG cuts means
-  *not yet parsed*, not *did not happen*. What the petitions are about — the
+  *not yet parsed*, not *did not happen*. The **capital-case cut**, which renders
+  the next time each pack is built, carries the same shape of caveat one step
+  further, and its inline scope note says so: the flag is latched from
+  supremecourt.gov's own `bCapitalCase` field OR-ed with the
+  `*** CAPITAL CASE ***` annotation it appends to the docket number, and no
+  other channel serves either reading, so `last_live_polled` is that column's
+  coverage sentinel and an unpolled row would bucket `(unknown)` — none will,
+  since both packs' capital cuts are live-slice scoped, which *is* that stamp.
+  Inside the slice the stamp records an attempted poll rather than an ingested
+  payload, so `unmarked` means *no channel that wrote this row read either
+  signal* — silence, not a denial. Read `unmarked` as an upper bound:
+  contamination runs one way, into that bucket, so it can only shrink an
+  observed gap between the two, never widen it. That bounds the *comparison*,
+  not the capital rate itself, which is a floor only if the rows a poll did
+  reach are outcome-representative of the rows it did not. And the cut is
+  **marginal**: it says what the two populations are, never what the marking
+  adds over the relist, CVSG and band cuts beside it — a claim only a
+  conditional comparison can support. What the petitions are about — the
   `qp-topic-v0` claim taxonomy of `docs/qp-topic.md` — renders as its own cut of
   primary labels the next time `fedcourts docket` runs over a gate-passing labels
   artifact, always beside the labeler that produced it, that labeler's agreement

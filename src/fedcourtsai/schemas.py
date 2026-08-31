@@ -347,13 +347,23 @@ class GroupBy(StrEnum):
     one ``(none)`` bucket, so coverage is visible rather than silently dropped.
     ``era`` buckets by decade (:func:`fedcourtsai.corpus.case_era` — Term year,
     else filing/decision date), so historical cases base-rate against their own
-    period; rows with no date signal share one ``(none)`` bucket. The three
+    period; rows with no date signal share one ``(none)`` bucket. Three of the
     cert-signal dimensions read the live-parsed columns: ``relist_bucket``
     groups by relists (`distribution_count` - 1, floored at 0) into 0 / 1 / 2 /
     3+ buckets, ``cvsg`` by whether the Court called for the views of the
     Solicitor General, and ``fee_class`` by the docket serial's numbering
     stream (paid / IFP); rows the live channel never parsed share one
     ``(unknown)`` bucket on the first two, so parse coverage stays visible.
+    ``capital_case`` groups by whether the Court's docket marks the case a
+    capital one (``capital`` / ``unmarked``). The flag is latched from
+    supremecourt.gov's ``bCapitalCase`` payload field OR-ed with the
+    ``*** CAPITAL CASE ***`` annotation the same channel appends to the docket
+    number, and no other channel serves either reading, so ``last_live_polled``
+    is that column's coverage sentinel: a row the live channel never polled
+    shares the same ``(unknown)`` bucket rather than reading as unmarked, which
+    would let a coverage gap pass for an absence of capital cases. The
+    positive needs no such guard — the column max-latches, so only a writer that
+    saw the signal can have raised it.
     ``salience_band`` groups by the active scorer's frozen grant-likelihood band
     over the paid modern-cert petitions — the
     predicted segment — so a case's base rate is its own salience tier's rate.
@@ -375,6 +385,7 @@ class GroupBy(StrEnum):
     relist_bucket = "relist_bucket"
     cvsg = "cvsg"
     fee_class = "fee_class"
+    capital_case = "capital_case"
     salience_band = "salience_band"
     qp_topic = "qp_topic"
 

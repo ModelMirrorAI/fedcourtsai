@@ -95,7 +95,7 @@ on:
         type: string
         default: ""
       group_by:
-        description: "corpus-stats: break base-rates down by court / topic / judge / term_year / disposition / originating_court / era / relist_bucket / cvsg / fee_class / salience_band. Empty = overall only."
+        description: "corpus-stats: break base-rates down by court / topic / judge / term_year / disposition / originating_court / era / relist_bucket / cvsg / fee_class / capital_case / salience_band. Empty = overall only."
         type: string
         default: ""
       term:
