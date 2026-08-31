@@ -1206,3 +1206,86 @@ freeze commit is recorded here.
   cell-wide reading would wrongly fire on the 2,583 genuinely sampled rows,
   whose cells hold off-grid keeps (grants and other non-grid rows) while
   their grid blocks hold none.
+
+- **The retroactive-blessing tripwire moves to the bless boundary,
+  2026-08-31** (no digest added or retired, no instant moved, no new process
+  version — the six new literals the constant gains are derived facts about
+  git, not pre-registered choices, per the tag paragraph below): the
+  enforcement correction the `proc-v5` entry above already traded for. `FROZEN_PROCESS_DIGESTS` now maps each blessed digest to the
+  instant it was blessed — the merge time of the promotion that carried its
+  freeze commit to `main` — and the ledger tripwire
+  (`tests/test_process_version.py`) asserts a committed prediction's
+  `stamped_at` is at or after **that** moment rather than at or after
+  `FROZEN_SINCE`. Nothing about counting changes: `is_frozen` and
+  `graded_post_freeze` still gate on the instant alone, and the map's
+  membership semantics are identical to the frozenset's.
+
+  **The `prereg/proc-v5` tag predates this shape, and correctly.** That tag
+  sits on freeze commit `0b019da58` (`2026-08-29T14:01:23Z`), whose tree holds
+  a bare `frozenset` with no bless moments — it could not have held them, since
+  its own carrying merge had not yet happened. The pre-registered baseline is
+  unaffected: the six blessed digests and the `2026-09-05T00:00:00Z` instant at
+  that tag are exactly the six and the instant in force now, and the bless
+  moments are facts about git recorded afterwards, not choices the tag could
+  have pre-registered. An auditor reads them here and from the constant on
+  `main`, and re-derives them with the two `git log` commands below.
+
+  **Why the instant was the wrong boundary for this test.** The two moments
+  answer two questions. A stamp before its digest's **bless moment** ran
+  against a commitment still editable on `main` — retroactive blessing, which
+  no declaration licenses. A stamp in the window between the bless moment and
+  the **counting instant** ran against an immutable commitment and is merely
+  uncounted, because the instant is guessed generously late by design. The
+  `proc-v5` entry registered exactly that trade in advance — "the live
+  channel's transition-queued cells before the instant merely land as
+  shakedown" — so a tripwire keyed on the instant contradicted the entry it
+  was meant to enforce, and would fail the build on the first honest cell of
+  the open `2026-08-29T16:26:24Z` → `2026-09-05T00:00:00Z` window. The licence
+  for this correction is that sentence, not a new registration.
+
+  **The bless moments, each verified from git.** The three **predictor**
+  digests (`sha256:eba87d4c…` claude-baseline, `sha256:b46b3c6d…`
+  codex-baseline, `sha256:8c401008…` gemini-baseline) are blessed at
+  **`2026-08-29T16:26:24Z`**: `git log -1 --format=%cI 39a3a9565`, the
+  `promotion/2026-08-29` merge this file's `proc-v5` entry already names as
+  their carrying promotion, whose tree carries all six literals
+  (`git show 39a3a9565:src/fedcourtsai/process_version.py`). The three
+  **evaluator** digests (`sha256:11a0afbc…` claude-judge, `sha256:9fb7b6f1…`
+  codex-judge, `sha256:b9f548f4…` gemini-judge) carried forward
+  byte-identical from `prereg/proc-v4`, so they keep proc-v4's bless moment,
+  **`2026-08-26T14:46:40Z`**: `git log -1 --format=%cI 6d92ed81b`, the
+  `promotion/2026-08-26` merge, on which `prereg/proc-v4` itself sits (the
+  merge-placed tag that entry records as its anomaly) and whose tree carries
+  those three literals verbatim. Immutable bytes do not need re-blessing, so
+  the carried digests keep the earlier moment rather than inheriting
+  proc-v5's.
+
+  **Zero committed cells are reclassified, and zero counted numbers move.**
+  Verified against the ledger on `origin/main`, not asserted — the ref step 0's
+  doctrine names, and identical to this branch's for the cells counted here
+  (`git diff --name-only origin/staging origin/main -- data/cases` touches
+  only `attempt.json` and `event.yaml`, no `prediction.json` or
+  `evaluation.json`). The
+  tripwire is predictions-only, and all **231** stamped committed predictions
+  carry the *retired* proc-v3/proc-v4 predictor digests (`sha256:06a854e7…`
+  76+1, `sha256:7ca86f57…` 75+2, `sha256:93dfaec3…` 75+2, the second figure of
+  each pair the proc-v4-labelled re-stamps) — **zero** carry any of the three
+  blessed proc-v5 predictor digests, so the tripwire's loop body executes zero
+  times under either boundary and cannot have reclassified anything. The
+  evaluation half is outside the test but checked anyway: the **6** committed
+  evaluations carrying blessed evaluator digests are two runs of three cells
+  each, stamped `2026-08-29T04:29:37Z` (`sha256:b9f548f4…`) and
+  `2026-08-29T04:33:12Z` (`sha256:11a0afbc…`) — `sha256:9fb7b6f1…` carries
+  none — both after their `2026-08-26T14:46:40Z` bless and before the instant,
+  the shakedown window read correctly by both boundaries. On the counted side, the only
+  digest-membership site in the tree is `is_frozen`, which was untouched and
+  still pairs membership with the timing test; the boards' provenance block
+  rebuilds byte-identical to the committed one (`frozen_process.digests`, the
+  same six sorted, `since` still `2026-09-05T00:00:00Z`), and
+  `metrics/leaderboard.json` and `metrics/claim-scores.json` both still read
+  `entries: []` under `process_scope: frozen`. What changes is which cell the
+  build refuses, so the runnable effect check is the pair that must both hold
+  once this is live and a predict round has landed in the window: `uv run
+  pytest tests/test_process_version.py::test_no_committed_cell_predates_the_bless_it_claims`
+  green over the ledger on `main`, and `uv run fedcourts leaderboard` still
+  reporting an empty frozen scope until `2026-09-05T00:00:00Z`.

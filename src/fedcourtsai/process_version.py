@@ -15,14 +15,27 @@ deliberately excluded from the digest — see :class:`fedcourtsai.schemas.Proces
 
 The freeze is a deliberate, explicit event: one "freeze commit" fills
 :data:`FROZEN_PROCESS_DIGESTS` and :data:`FROZEN_SINCE` together — the
-digest(s) a maintainer reads off ``fedcourts process-digest --all``, and the
-instant a run's harness stamp must be at or after to count. A later
-evaluator-half re-bless revises the set's evaluator entries while holding
-the instant; a predictor-half re-bless replaces the enforced entries and
-moves the instant, de-counting every cell stamped under the retired digests —
-licensed only by a shakedown declaration dated before the de-counted claim
-window's outcomes (the freeze record carries each). The cutover procedure,
-its verification, and the supersession
+digest(s) a maintainer reads off ``fedcourts process-digest --all``, each
+carrying the instant it was blessed, and the instant a run's harness stamp
+must be at or after to count. Those are **two** boundaries doing two jobs,
+and they are deliberately not the same moment:
+
+- the **bless moment** — a digest's value in the map — is when that process's
+  bytes became immutable on ``main``, so it is the *retroactivity* boundary. A
+  cell stamped before it ran against a commitment that could still be edited,
+  which is retroactive blessing and nothing licenses it. Auditable from git:
+  it is the merge time of the promotion that carried the freeze commit.
+- the **counting instant**, :data:`FROZEN_SINCE`, is when the headline starts
+  counting. It is guessed generously late at the freeze commit, so cells
+  minted in the window between the two boundaries land honestly in the ledger
+  and are de-counted by timing — shakedown, not retroactivity.
+
+A later evaluator-half re-bless revises the map's evaluator entries while
+holding the instant; a predictor-half re-bless replaces the enforced entries
+and moves the instant, de-counting every cell stamped under the retired
+digests — licensed only by a shakedown declaration dated before the
+de-counted claim window's outcomes (the freeze record carries each). The
+cutover procedure, its verification, and the supersession
 notes live in ``docs/process-version.md``.
 """
 
@@ -30,8 +43,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
+from types import MappingProxyType
 
 from .pricing import DEFAULT_MODELS
 from .registry import (
@@ -46,13 +61,14 @@ from .schemas import EvaluatorConfig, FrozenProcessRecord, PredictorConfig, Proc
 # named process change; the digest moves on *any* input change regardless.
 CURRENT_PROCESS_LABEL = "proc-v5"
 
-# The blessed process digests — the frozen-headline set: the six proc-v5
+# The blessed process digests, each mapped to its bless moment — the
+# frozen-headline set: the six proc-v5
 # baselines (claude/codex/gemini, predictor and evaluator each), read off
 # `fedcourts process-digest --all`; set together with FROZEN_SINCE below,
 # which a test pins. proc-v5 revises the **predictor half only**: the three
 # evaluator digests are byte-identical to the ones proc-v4 blessed and carry
-# forward, while the predictor digests supersede the set proc-v3 blessed and
-# proc-v4 carried — the set holds one blessed process per actor, so the
+# forward, while the predictor digests supersede the ones proc-v3 blessed and
+# proc-v4 carried — the map holds one blessed process per actor, so the
 # retired digests are replaced rather than kept beside these. Because the
 # predictor digest is the enforced membership filter (`is_frozen`), retiring
 # those digests **de-counts every prediction stamped under them**: that is
@@ -62,29 +78,68 @@ CURRENT_PROCESS_LABEL = "proc-v5"
 # `docs/process-version.md`). Keyed on the digest, never the label, so a
 # process that drifted under an unchanged label is not silently blessed; the
 # evaluator entries are the freeze *record* of the blessed grading process.
-FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset(
+#
+# Each digest maps to **the instant it was blessed**: the merge time of the
+# promotion that carried its freeze commit to `main`, the moment its bytes
+# stopped being editable. That is the retroactivity boundary the tripwire
+# enforces (`at_or_after_bless`), and it is a different question from
+# FROZEN_SINCE's — see this module's docstring. The value is read off git
+# (`git log -1 --format=%cI <carrying merge>`) at step 4 of the cutover, so
+# an auditor can re-derive every entry; a digest carried forward
+# byte-identical from an earlier label keeps that label's bless moment,
+# because those bytes have been immutable since then.
+#
+# These values are **auditable, not enforced**: nothing compares them against
+# git at test time, only that each is aware and not in the future (which
+# catches a forecast the cutover's step 4 never corrected). The witness is the
+# dated entry in `docs/freeze-record.md`, which carries the merge and the
+# command that yields it.
+FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
     {
-        # predictors: claude-baseline, codex-baseline, gemini-baseline
-        "sha256:eba87d4c4f66e8d9270d72f5e2809de4cce384d2a16451f6ad1e24bf60115774",
-        "sha256:b46b3c6df26f763bb607b091c283c5e7aa55c9a936ab3486e598f5a0f0de312e",
-        "sha256:8c401008655b9fb13080faeb30bc78a3a0d7e6c598bd149d90386409bada4c4f",
-        # evaluators: claude-judge, codex-judge, gemini-judge
-        "sha256:11a0afbcba271935c8ead785b5c13fc2b1e43a4e18e9450a04fa41df9658a0f2",
-        "sha256:9fb7b6f1683a7bcb363cb19ae2084dfec734a9e1251b7b9fcc41dd2564aaff78",
-        "sha256:b9f548f4f1e2cb1c07e9ba59f7d352220a2d8ae45d82e00f436dc044bd260b1a",
+        # predictors: claude-baseline, codex-baseline, gemini-baseline —
+        # blessed by `promotion/2026-08-29` (merge `39a3a9565`).
+        "sha256:eba87d4c4f66e8d9270d72f5e2809de4cce384d2a16451f6ad1e24bf60115774": datetime(
+            2026, 8, 29, 16, 26, 24, tzinfo=UTC
+        ),
+        "sha256:b46b3c6df26f763bb607b091c283c5e7aa55c9a936ab3486e598f5a0f0de312e": datetime(
+            2026, 8, 29, 16, 26, 24, tzinfo=UTC
+        ),
+        "sha256:8c401008655b9fb13080faeb30bc78a3a0d7e6c598bd149d90386409bada4c4f": datetime(
+            2026, 8, 29, 16, 26, 24, tzinfo=UTC
+        ),
+        # evaluators: claude-judge, codex-judge, gemini-judge — carried
+        # forward byte-identical from `prereg/proc-v4`, so they keep that
+        # label's bless moment: `promotion/2026-08-26` (merge `6d92ed81b`).
+        "sha256:11a0afbcba271935c8ead785b5c13fc2b1e43a4e18e9450a04fa41df9658a0f2": datetime(
+            2026, 8, 26, 14, 46, 40, tzinfo=UTC
+        ),
+        "sha256:9fb7b6f1683a7bcb363cb19ae2084dfec734a9e1251b7b9fcc41dd2564aaff78": datetime(
+            2026, 8, 26, 14, 46, 40, tzinfo=UTC
+        ),
+        "sha256:b9f548f4f1e2cb1c07e9ba59f7d352220a2d8ae45d82e00f436dc044bd260b1a": datetime(
+            2026, 8, 26, 14, 46, 40, tzinfo=UTC
+        ),
     }
 )
 
-# The freeze instant, set in the same commit that fills the set above (a test
-# pins the coupling). The digest is a pure content hash, so a cell stamped
-# *before* the freeze with the very bytes about to be blessed would otherwise
-# read as frozen retroactively — pre-registration means the commitment
-# preceded the run, and only a time cutoff can say so. Compared against the
-# stamp's `stamped_at`, which the harness writes; anything at or after the
-# instant is in. The literal must be at or after the date of the promotion
-# merge that carried this commit to `main` (verified against
-# `promotion/<YYYY-MM-DD>` before the `prereg/` tag is minted) and before the
-# first run intended to count — see the cutover procedure in
+# The freeze instant — the **counting** boundary, set in the same commit that
+# fills the map above (a test pins the coupling). The digest is a pure content
+# hash, so a cell stamped *before* the freeze with the very bytes about to be
+# blessed would otherwise read as frozen retroactively — pre-registration
+# means the commitment preceded the run, and only a time cutoff can say so.
+# Compared against the stamp's `stamped_at`, which the harness writes; anything
+# at or after the instant is in. It is deliberately guessed *late*, so it sits
+# at or after every bless moment in the map above and a cell minted in the
+# window between them lands as shakedown rather than as a counted cell. One
+# shape inverts that order — the held-instant evaluator re-bless noted below,
+# where the instant precedes the newly blessed entries' bless moment. Nothing
+# gates that gap shut: `graded_post_freeze` tests timing with no digest limb,
+# so an evaluation stamped inside it would count. What holds is the cutover's
+# step 0 plus the fact that cells are minted from `main`, which is an audited
+# convention rather than an invariant. The literal must be at or
+# after the date of the promotion merge that carried this commit to `main`
+# (verified against `promotion/<YYYY-MM-DD>` before the `prereg/` tag is
+# minted) and before the first run intended to count — see the cutover in
 # `docs/process-version.md`. The exception is an evaluator-half re-bless,
 # which holds this instant while swapping only the evaluator entries above:
 # the enforced predictor half is byte-identical to the prior `prereg/` tag's,
@@ -208,6 +263,40 @@ def at_or_after_freeze(moment: datetime) -> bool:
     return moment >= FROZEN_SINCE
 
 
+def blessed_at(digest: str) -> datetime | None:
+    """The instant ``digest`` was blessed, or ``None`` if it never was.
+
+    The bless moment is the merge time of the promotion that carried the freeze
+    commit naming this digest to ``main`` — when its bytes stopped being
+    editable, and so the earliest a cell could have run against a *commitment*
+    rather than a draft.
+    """
+    return FROZEN_PROCESS_DIGESTS.get(digest)
+
+
+def at_or_after_bless(process_version: ProcessVersion | None) -> bool:
+    """Whether a stamped cell was minted at or after its own digest was blessed.
+
+    The **retroactivity** boundary, not the counting one: a cell that passes
+    this and still predates :data:`FROZEN_SINCE` is an honest shakedown cell —
+    it ran against a commitment already immutable on ``main``, and only timing
+    keeps it out of the headline. A cell that *fails* it carries a digest
+    blessed after it ran, which is retroactive blessing and no declaration
+    licenses it.
+
+    False for an unstamped cell and for an unblessed digest — neither has a
+    bless moment to be after — and false for a naive ``stamped_at``, which has
+    no defined order against the aware bless instant, the same exclusion rule
+    :func:`at_or_after_freeze` applies.
+    """
+    if process_version is None:
+        return False
+    bless = FROZEN_PROCESS_DIGESTS.get(process_version.digest)
+    if bless is None or process_version.stamped_at.tzinfo is None:
+        return False
+    return process_version.stamped_at >= bless
+
+
 def graded_post_freeze(process_version: ProcessVersion | None) -> bool:
     """Whether an evaluation's own harness stamp is at or after the freeze.
 
@@ -232,7 +321,9 @@ def is_frozen(process_version: ProcessVersion | None) -> bool:
     stamped cell's ``stamped_at`` must also be at or after
     :data:`FROZEN_SINCE`: the digest says *which* process ran, never *when*,
     and a shakedown run of the very bytes later blessed is still a shakedown
-    run.
+    run. The **counting** instant is the one gated here, never the digest's own
+    bless moment — a cell minted in the window between them is a legitimate
+    ledger cell that this correctly leaves out of the headline.
     """
     if process_version is None or process_version.digest not in FROZEN_PROCESS_DIGESTS:
         return False
