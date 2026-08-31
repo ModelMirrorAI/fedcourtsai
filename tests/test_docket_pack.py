@@ -57,6 +57,11 @@ def test_docket_sections_are_court_facing_only() -> None:
     titles = [spec.title for spec in _DOCKET_SECTIONS]
     assert not any("salience" in title.lower() for title in titles)
     assert "Cert petitions by fee class (paid vs IFP)" in titles
+    # The capital cut is published pooled here, like relist and CVSG: this
+    # artifact describes the whole cert docket, so narrowing it to the scored
+    # segment would smuggle in the selection claim the pack excludes.
+    assert "Cert petitions by capital-case marking" in titles
+    assert "Cert petitions by capital-case marking (paid scored segment)" not in titles
     # `_SectionSpec` is frozen, so a cut published by both artifacts compares equal
     # only while every scope flag agrees — the drift this catches.
     assert set(_DOCKET_SECTIONS) & set(_STATPACK_SECTIONS)
@@ -114,6 +119,65 @@ def test_fee_class_section_splits_the_numbering_streams(tmp_path: Path) -> None:
     assert [(b.key, b.cases, b.resolved) for b in fees.buckets] == [("ifp", 4, 4), ("paid", 1, 1)]
     paid = next(b for b in fees.buckets if b.key == "paid")
     assert [(d.disposition, d.share) for d in paid.dispositions] == [("granted", 1.0)]
+
+
+def test_capital_case_section_pools_both_fee_streams(tmp_path: Path) -> None:
+    # The court-facing cut is the whole cert docket, IFP included — capital
+    # petitions arrive on both numbering streams, and a capital share taken over
+    # the paid stream alone would not describe the docket this artifact is about.
+    # Reweighted like every other section here, so the share estimates the
+    # population rather than the walked sample.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="24-100",
+                    disposition=Disposition.granted,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    capital_case=True,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="24-5100",
+                    disposition=Disposition.denied,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    capital_case=True,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="24-101",
+                    disposition=Disposition.denied,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=4,
+                ),
+            ],
+        )
+    capital = _section(_pack(db), "Cert petitions by capital-case marking")
+    assert (capital.group_by, capital.weighted, capital.cert_stage) == (
+        GroupBy.capital_case,
+        True,
+        True,
+    )
+    assert [(b.key, b.cases, b.resolved) for b in capital.buckets] == [
+        ("unmarked", 4, 4),
+        ("capital", 2, 2),
+    ]
+    # What the `unmarked` bucket can and cannot assert renders with the numbers.
+    # Pinned against the note's own text, not against words like "coverage" or
+    # "upper bound": both already appear in the pack preamble and the relist
+    # note above this section, so a substring assertion on them passes with the
+    # caveat deleted.
+    md = analytics.render_docket_markdown(_pack(db))
+    assert "## Cert petitions by capital-case marking" in md
+    assert analytics._CAPITAL_MARKING_NOTE in md
 
 
 def test_fee_class_reads_past_an_annotation_and_keeps_the_rest_visible(tmp_path: Path) -> None:
