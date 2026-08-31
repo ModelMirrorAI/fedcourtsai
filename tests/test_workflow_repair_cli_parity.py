@@ -34,6 +34,7 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus, fixture
 from fedcourtsai.cli import app
 from tests.conftest import seed_evaluation, seed_prediction
+from tests.test_documents import _seed_qp_backfill_corpus
 from tests.workflow_argv import command_argv, expand, logical_lines, shell_arrays
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -373,3 +374,31 @@ def test_the_regrade_dry_run_preview_names_the_argv_it_would_run() -> None:
     assert _flags(previewed.split()) == _flags(executed), (
         "the re-grade's dry-run preview and the command it previews disagree on flags"
     )
+
+
+def test_the_qp_convergence_grep_matches_a_converged_run(tmp_path: Path) -> None:
+    """The literal the workflow greps is a substring of the converged summary.
+
+    The questions-presented apply gates its corpus push on grepping the
+    re-run's summary line — a literal in workflow shell coupled to an f-string
+    in `cli.py`, and neither gate sees the pair: to `actionlint` the grep is
+    opaque shell, and to the Python gate the workflow is not code. A rewording
+    of either side turns the convergence check into an unconditional failure,
+    discovered mid-dispatch after the corpus-write lock is taken. So the
+    coupling is executed here: the literal is read out of the workflow, never
+    retyped, and asserted against the output of a real converged run.
+    """
+    greps = re.findall(r'grep -q "([^"]+)" /tmp/qp-verify\.txt', RUN_REPAIR.read_text())
+    assert greps, "run-repair.yml no longer greps a qp convergence literal"
+    _seed_qp_backfill_corpus(tmp_path / "corpus")
+    env = {"FEDCOURTS_CORPUS_ROOT": str(tmp_path / "corpus")}
+    applied = CliRunner().invoke(app, ["backfill-questions-presented", "--apply"], env=env)
+    assert applied.exit_code == 0, applied.output
+    converged = CliRunner().invoke(app, ["backfill-questions-presented"], env=env)
+    assert converged.exit_code == 0, converged.output
+    for literal in greps:
+        assert literal in converged.output, (
+            f"run-repair.yml greps {literal!r} for convergence, but a converged "
+            f"backfill-questions-presented run prints no such line — the dispatch "
+            f"would fail its apply on a wording drift, not a real divergence"
+        )
