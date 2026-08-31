@@ -17,7 +17,7 @@
       "problems": []
     },
     {
-      "checked": 4308492,
+      "checked": 4308483,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4305419,
+      "checked": 4305410,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4308492,
+      "checked": 4308483,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 87,
+      "checked": 78,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -190,7 +190,7 @@
       "problems": []
     }
   ],
-  "corpus_events": 2152770,
+  "corpus_events": 2152761,
   "corpus_rows": 2152649,
   "ok": true,
   "schema_version": "1.0",
