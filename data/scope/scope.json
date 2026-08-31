@@ -118404,7 +118404,7 @@
     },
     {
       "case_id": "scotus/73274933",
-      "out_of_scope_reason": null,
+      "out_of_scope_reason": "in-forma-pauperis petition \u2014 a documented predict-scope exclusion",
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.030900000000000004,
@@ -118454,7 +118454,7 @@
     },
     {
       "case_id": "scotus/73274940",
-      "out_of_scope_reason": null,
+      "out_of_scope_reason": "in-forma-pauperis petition \u2014 a documented predict-scope exclusion",
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.024800000000000003,
