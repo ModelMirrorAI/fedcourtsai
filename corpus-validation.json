@@ -26,32 +26,11 @@
     },
     {
       "checked": 2152649,
-      "detail": "advisory: 462 row(s) still carry the marking (463 ***-shaped string(s) corpus-wide, the remainder legitimate separators; 590570 SCOTUS rows for scale); cleared by re-ingest (a live-slice row on its next poll, one outside it on a targeted re-read) or by normalize-docket-markings",
-      "failures": 462,
+      "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
+      "failures": 0,
       "name": "docket_numbers_carry_no_capital_marking",
       "passed": true,
-      "problems": [
-        "scotus/15421408: docket_number '18-1249 *** CAPITAL CASE ***' carries the capital-case marking (the number is '18-1249')",
-        "scotus/16584785: docket_number '18-1109 *** CAPITAL CASE ***' carries the capital-case marking (the number is '18-1109')",
-        "scotus/16879491: docket_number '19-411 *** CAPITAL CASE ***' carries the capital-case marking (the number is '19-411')",
-        "scotus/18739725: docket_number '19-1302 *** CAPITAL CASE ***' carries the capital-case marking (the number is '19-1302')",
-        "scotus/29114262: docket_number '20-927 *** CAPITAL CASE ***' carries the capital-case marking (the number is '20-927')",
-        "scotus/59772701: docket_number '20-507 *** CAPITAL CASE ***' carries the capital-case marking (the number is '20-507')",
-        "scotus/59832351: docket_number '20-363 *** CAPITAL CASE ***' carries the capital-case marking (the number is '20-363')",
-        "scotus/59911200: docket_number '20-701 *** CAPITAL CASE ***' carries the capital-case marking (the number is '20-701')",
-        "scotus/59929478: docket_number '20-287 *** CAPITAL CASE ***' carries the capital-case marking (the number is '20-287')",
-        "scotus/60034112: docket_number '20-1084 *** CAPITAL CASE ***' carries the capital-case marking (the number is '20-1084')",
-        "scotus/61603304: docket_number '20-1009 *** CAPITAL CASE ***' carries the capital-case marking (the number is '20-1009')",
-        "scotus/6217670: docket_number '17-193 *** CAPITAL CASE ***' carries the capital-case marking (the number is '17-193')",
-        "scotus/63261333: docket_number '21-439 *** CAPITAL CASE ***' carries the capital-case marking (the number is '21-439')",
-        "scotus/63264749: docket_number '21-511 *** CAPITAL CASE ***' carries the capital-case marking (the number is '21-511')",
-        "scotus/63329486: docket_number '21-1268 *** CAPITAL CASE ***' carries the capital-case marking (the number is '21-1268')",
-        "scotus/6337904: docket_number '17-251 *** CAPITAL CASE ***' carries the capital-case marking (the number is '17-251')",
-        "scotus/63397659: docket_number '21-679 *** CAPITAL CASE ***' carries the capital-case marking (the number is '21-679')",
-        "scotus/65413633: docket_number '21-444 *** CAPITAL CASE ***' carries the capital-case marking (the number is '21-444')",
-        "scotus/65414967: docket_number '21-442 *** CAPITAL CASE ***' carries the capital-case marking (the number is '21-442')",
-        "scotus/65652781: docket_number '21-846 *** CAPITAL CASE ***' carries the capital-case marking (the number is '21-846')"
-      ]
+      "problems": []
     },
     {
       "checked": 3073,
