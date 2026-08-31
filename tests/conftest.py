@@ -11,7 +11,7 @@ from __future__ import annotations
 import threading
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
@@ -235,18 +235,55 @@ def two_versions(monkeypatch: pytest.MonkeyPatch) -> SalienceScorer:
     return toy
 
 
+def open_freeze_window() -> tuple[str, datetime] | None:
+    """One digest and a stamp inside the live `[bless, instant)` window, or None.
+
+    The shape a predict round lands while the counting instant is still ahead:
+    a blessed digest, minted after the promotion that made its bytes immutable
+    and before the headline starts counting. Read off the module so a freeze
+    cutover moves every window test at once, and returns ``None`` where no
+    such window is open — nothing blessed, no instant, or the instant already
+    reached — which the callers turn into a skip.
+
+    The latest-blessed digest is the one a round stamps under the current
+    predictor-half re-bless, where it is the enforced half; after an
+    evaluator-half re-bless it would be an evaluator digest instead, and the
+    window it reports simply closes.
+
+    The stamp is taken from the instant's edge rather than the bless moment's,
+    so these tests keep running for the whole life of a late-guessed instant
+    instead of only the day after the promotion.
+    """
+    since = process_version.FROZEN_SINCE
+    if not process_version.FROZEN_PROCESS_DIGESTS or since is None:
+        return None
+    digest, blessed = max(process_version.FROZEN_PROCESS_DIGESTS.items(), key=lambda kv: kv[1])
+    minted = since - timedelta(seconds=1)
+    return None if minted < blessed else (digest, minted)
+
+
 def bless_process(
     monkeypatch: pytest.MonkeyPatch,
     *digests: str,
     since: datetime | None = None,
+    blessed_at: datetime = datetime(1970, 1, 1, tzinfo=UTC),
 ) -> None:
-    """Patch the frozen digest set AND the freeze instant together.
+    """Patch the frozen digest map AND the freeze instant together.
 
-    Patching the set alone is an incomplete freeze by construction: the real
+    Patching the map alone is an incomplete freeze by construction: the real
     module-level ``FROZEN_SINCE`` would leak into the test, which is exactly
     how a test goes red on the actual freeze commit. ``since`` defaults to
     ``None`` — no time gate — because most tests exercise digest membership;
     pass an instant to exercise the cutoff itself.
+
+    ``blessed_at`` is the *other* boundary — when the digests became immutable
+    on ``main``, which the retroactivity tripwire reads. It defaults to the
+    epoch, so every stamp a test invents is trivially post-bless; pass it only
+    to exercise that boundary.
     """
-    monkeypatch.setattr(process_version, "FROZEN_PROCESS_DIGESTS", frozenset(digests))
+    monkeypatch.setattr(
+        process_version,
+        "FROZEN_PROCESS_DIGESTS",
+        MappingProxyType({digest: blessed_at for digest in digests}),
+    )
     monkeypatch.setattr(process_version, "FROZEN_SINCE", since)

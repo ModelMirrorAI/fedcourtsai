@@ -4815,9 +4815,12 @@ def process_digest_cmd(
     blessed digest(s) into ``FROZEN_PROCESS_DIGESTS`` in ``process_version.py``
     **and set ``FROZEN_SINCE`` beside it** (the two move together — a test
     pins it) in one small freeze commit, and record that commit as the cutover
-    in the docs. Because the digest excludes the pipeline commit, the blessed
-    set survives unrelated pipeline changes — predict/evaluate can resume at a
-    newer HEAD and still match.
+    in the docs. Each digest's value there is its **bless moment**, the
+    carrying promotion's merge time, written once that promotion lands; it is
+    the retroactivity boundary, separate from the counting instant. Because
+    the digest excludes the pipeline commit, the blessed map survives
+    unrelated pipeline changes — predict/evaluate can resume at a newer HEAD
+    and still match.
     """
     settings = get_settings()
     if all_actors:

@@ -1261,9 +1261,9 @@ def test_the_board_records_the_freeze_constants(tmp_path: Path) -> None:
             process_scope=scope,
         )
         assert board.frozen_process is not None
-        assert set(board.frozen_process.digests) == process_version.FROZEN_PROCESS_DIGESTS
-        # Deterministically sorted — not merely coincident with frozenset order,
-        # which is hash-seed dependent — so the byte-identity round-trip holds.
+        assert set(board.frozen_process.digests) == set(process_version.FROZEN_PROCESS_DIGESTS)
+        # Deterministically sorted — not merely coincident with the map's
+        # insertion order — so the byte-identity round-trip holds.
         assert board.frozen_process.digests == sorted(board.frozen_process.digests)
         assert board.frozen_process.since == process_version.FROZEN_SINCE
 

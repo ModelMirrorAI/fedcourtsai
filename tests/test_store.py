@@ -20,6 +20,7 @@ from fedcourtsai.schemas import (
     Moment,
     Outcome,
     Prediction,
+    ProcessVersion,
     Stage,
     UsageRole,
 )
@@ -38,7 +39,7 @@ from fedcourtsai.store import (
     resolved_events,
     unforecastable_listed_events,
 )
-from tests.conftest import frozen_stamp, seed_prediction
+from tests.conftest import frozen_stamp, open_freeze_window, seed_prediction
 
 
 def _event(event_id: str, *, resolved: bool) -> corpus.CorpusEvent:
@@ -1580,4 +1581,46 @@ def test_event_has_claimable_prediction_keys_on_the_latest_run_per_predictor(
             predicted_disposition=Disposition.denied,
         ),
     )
+    assert not event_has_claimable_prediction(data_root, "scotus", 1, "evt-a")
+
+
+def test_a_window_prediction_is_ledgered_but_not_claimable(tmp_path: Path) -> None:
+    """A cell minted between the bless moment and the counting instant.
+
+    Its digest is blessed and its stamp postdates the promotion that made
+    those bytes immutable, so it is an honest ledger cell and the
+    retroactive-blessing tripwire does not fire on it. The counting boundary
+    is what keeps it out: every claimable surface reads the partition through
+    `is_frozen`, which gates on the instant. Pinned here because the window is
+    open whenever a freeze commit guesses the instant late, and a membership
+    test that forgot the timing limb would silently admit these.
+    """
+    opening = open_freeze_window()
+    if opening is None:
+        pytest.skip("no window between a bless moment and the counting instant is open")
+    digest, minted = opening
+
+    data_root = tmp_path / "data"
+    run_id = minted.strftime("%Y%m%dT%H%M%SZ")
+    stamp = ProcessVersion(
+        label=process_version.CURRENT_PROCESS_LABEL, digest=digest, stamped_at=minted
+    )
+    write_json(
+        CasePaths(data_root, "scotus", 1).event("evt-a").prediction("claude-baseline", run_id),
+        Prediction(
+            case_id="scotus/1",
+            event_id="evt-a",
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            model="claude-fable-5",
+            run_id=run_id,
+            created_at=minted,
+            input_snapshot=f"record/snapshots/{minted.date().isoformat()}.json",
+            granted=0,
+            probability=0.05,
+            predicted_disposition=Disposition.denied,
+            process_version=stamp,
+        ),
+    )
+    assert process_version.at_or_after_bless(stamp)
     assert not event_has_claimable_prediction(data_root, "scotus", 1, "evt-a")

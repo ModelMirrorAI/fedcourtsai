@@ -294,7 +294,11 @@ stays outside the gate:
   instant — so *what was blessed* is readable from the artifact rather than by
   resolving the build's commit back to `fedcourtsai.process_version`. The
   digest list pools predictors and evaluators; only the predictor subset is the
-  enforced membership filter, which the flat list does not distinguish. It
+  enforced membership filter, which the flat list does not distinguish. It also
+  drops the per-digest **bless moment** the constant carries beside each entry —
+  that moment bounds retroactivity, not counting, so it changes no figure on the
+  board; read it off `fedcourtsai.process_version` or the dated entry in
+  [freeze-record.md](../docs/freeze-record.md). It
   appears on every build, an `"all"`-scope
   one included, as the partition's definition rather than a claim it was
   applied (`claim-scores.json` carries the identical block; null on a
