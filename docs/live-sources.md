@@ -350,11 +350,40 @@ which is now everything the walk writes), min-latched so a weight can only ever
 be learned toward certainty. The column stays because the corpus still holds
 denials an earlier sampled walk kept at weight 10: a weighted aggregate
 multiplies by it so that legacy frame cannot bias a base rate, and each such row
-regresses to 1 as a re-walk re-serves it.
+regresses to 1 as a re-walk re-serves it — correctly only where the re-walk
+enumerates the whole block, so that the nine petitions the weight stood for
+arrive with it. A row regressed while its neighbours did not arrive leaves them
+represented by nobody, which under-counts that block's denials rather than
+over-counting them.
 Weights land exactly at ingest time; the backfill for pre-capture rows
-recovers them by rule (denied + serial on the sample grid + walker cursor
-covers the serial), whose one residual — a pre-capture poller-resolved denial
-inside a walker-covered range reads as sampled — is bounded and conservative.
+recovers them by rule (`legacy_denial_sample_weight`: denied + serial on the
+sample grid + walker cursor covers the serial + the block it would stand for is
+not already stored row by row). The last conjunct is what the first three cannot
+supply: landing on the grid below the cursor proves the serial was *probed*, not
+that only one in ten was *kept*, and those coincided during the legacy sampled
+walk and not after it — so without it a denial from a fully-walked range would
+stand for ten petitions, nine of which the corpus is separately counting at 1.
+A weight of 10 is a checkable claim about nine specific neighbouring serials, so
+`sampled_block_is_enumerated` checks it: it counts how many of the serials within
+nine either side are stored in the live slice, and a majority means those
+petitions are observed rather than passed over. The read is **per row**, not per
+Term, because the enumerating walk resumes from the sampled walk's persisted
+cursor — one Term can carry a sampled prefix and an enumerated tail, and a
+whole-Term verdict would hand one regime's answer to the other's rows.
+
+The criterion between the two error directions is that over-weighting fabricates
+an observation while under-weighting only forgoes a correction. The enumeration
+check is a **deny-list**, so the rule's default is the sampled weight — the
+fabricating side — and both known residuals land there: a pre-capture
+poller-resolved denial inside a *sampled* range reads as sampled, and a block
+only partly stored (the walk's grant-family keeps, or a neighbourhood straddling
+the resume boundary) stays sampled until enough of it is present. What bounds
+them is where the threshold sits rather than the shape of the rule: measured
+across the corpus's grid denials a sampled block holds at most six stored
+neighbours and an enumerated one at least ten, and the cut is placed at the low
+edge of that empty band so the slack goes to catching enumeration. Only the
+reverse misclassification — a genuinely sampled block read as enumerated — fails
+safe.
 When a stream's end is observed (consecutive 404s), the walk persists
 `frontier_serial` beside the cursor — `frontier_serial = last_serial` is the
 per-Term **walk complete** signal, and the cursors alone give an exact filings
