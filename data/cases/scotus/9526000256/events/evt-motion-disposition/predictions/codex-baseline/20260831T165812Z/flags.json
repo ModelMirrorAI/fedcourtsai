@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000256",
+  "run_id": "20260831T165812Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The event declares the arrival moment, but event.opened_at, the snapshot DocketedDate, and context.cutoff are null. The provisioned baseline is therefore an as-stored 2026-08-31 snapshot rather than a demonstrably arrival-time freeze; no application text was provisioned. The prediction uses the harness-frozen signal state and does not infer an exact arrival date."
+    }
+  ]
+}

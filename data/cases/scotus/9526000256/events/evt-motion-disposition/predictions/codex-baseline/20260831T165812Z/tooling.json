@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000256",
+  "run_id": "20260831T165812Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "CourtListener MCP search",
+    "CourtListener MCP endpoint schemas"
+  ],
+  "helpful": [
+    "The interim statpack supplied the eligible prior-Term anchor.",
+    "The corpus query supplied a directional check on zero-signal applications."
+  ],
+  "gaps": [
+    "Provisioned application text was unavailable.",
+    "CourtListener search did not expose the target Eleventh Circuit docket or application."
+  ],
+  "notes": "The default uv cache path was read-only; setting UV_CACHE_DIR to /tmp/uv-cache made the sanctioned corpus CLI usable."
+}
