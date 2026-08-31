@@ -119,7 +119,8 @@ jobs:
           SENDER_TYPE: ${{ github.event.sender.type }}
         run: |
           uv run fedcourts authorize-trigger \
-            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO"
+            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO" \
+            --bot-actor "fedcourtsai-data[bot]"
 
       # The real-engine replay shells out to the agent CLIs through the tested
       # runner seam — the same binaries the devcontainer ships. Installed only
@@ -173,6 +174,17 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
           missing-pointer: warn
+          # With the corpus split on, the replay's snapshot provisioning reads
+          # the per-case content store for the whole run, so the static
+          # credentials must cover the job's own 330-minute cap — six hours,
+          # which the read-only role's IAM maximum session duration must allow
+          # (an excess request fails at the assume step inside its 120s action
+          # timeout, not at the hour mark). Cost, stated: this is the one
+          # composite caller that also runs agents in the same job env, so the
+          # six hours also extend how long a compromised agent could use the
+          # read-only credential — accepted because the role reads only what
+          # the replay has already pulled beside it.
+          role-duration-seconds: "21600"
 
       # Gemini's replay cells read the same cell env contract as a live predict
       # cell (COURT_ID/DOCKET_ID/... from `_cell_env`, plus DECIDED_BEFORE, the

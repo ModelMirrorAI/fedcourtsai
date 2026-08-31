@@ -480,7 +480,7 @@ def test_render_data_health_surfaces_monitored_within_baseline() -> None:
     md = ops.render_data_health(health)
     assert "✅ Healthy" in md
     assert "| Check | Failures | Sample |" not in md  # not a failure
-    assert "Monitored (within accepted baselines)" in md
+    assert "Monitored (a known condition, not a defect)" in md
     assert "case_dates_ordered: 0 future-dated, 20 decided-before-filed" in md
 
 
@@ -534,6 +534,41 @@ def test_render_markdown_healthy_data_health_is_one_line() -> None:
     md = ops.render_markdown(report)
     # A green verdict collapses to a single line — no full section, no detail table.
     assert "**Data health:** ✅ Healthy." in md
+    assert "## Data health" not in md and "Ledger schema" not in md
+
+
+def test_render_markdown_green_verdict_still_carries_the_monitored_counts() -> None:
+    """A monitored count never reddens a verdict, so a green dashboard is the
+    only state it ever occurs in — gating it behind the failing branch would
+    hide it permanently. The one-line collapse still holds otherwise."""
+    health = _healthy().model_copy(
+        update={
+            "corpus": CorpusValidation(
+                ok=True,
+                corpus_rows=500,
+                checks=[
+                    CorpusCheck(name="corpus_opens", passed=True),
+                    CorpusCheck(
+                        name="docket_numbers_carry_no_capital_marking",
+                        passed=True,
+                        failures=462,
+                        detail="advisory: 462 of 590570 SCOTUS row(s) still carry the marking",
+                    ),
+                ],
+            )
+        }
+    )
+    report = ops.build_ops_report(
+        generated_at="2026-06-26T12:00:00+00:00",
+        runs=[],
+        usage=[],
+        data_health=health,
+    )
+    md = ops.render_markdown(report)
+    assert "**Data health:** ✅ Healthy." in md
+    assert "Monitored (a known condition, not a defect)" in md
+    assert "docket_numbers_carry_no_capital_marking: advisory: 462 of" in md
+    # Still collapsed: the monitored lines ride the green line, not a full section.
     assert "## Data health" not in md and "Ledger schema" not in md
 
 

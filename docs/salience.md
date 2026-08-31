@@ -498,8 +498,9 @@ reporting no movement on every row.
 
 1. **Re-derive the corpus `distribution_count` column** under the new parse, on
    a writer job — `fedcourts rederive-distribution-counts --parse <label>`
-   ([cli.md](cli.md)), dispatched as run-seed's `rederive_distribution_parse`
-   step (`dry-run`, read, then `apply`; [pipeline.md](pipeline.md)). Its write
+   ([cli.md](cli.md)), dispatched as run-repair's `rederive-distribution-parse`
+   pass, naming the label in `repair_target` (`dry-run`, read, then `apply`;
+   [pipeline.md](pipeline.md)). Its write
    bypasses the max latch (a direct `UPDATE`, the shape the bulk scrubs use),
    because the latch lives in the upsert path
    itself: a narrower reading routed through `upsert_rows` is a silent no-op
@@ -964,16 +965,19 @@ decision, not part of the pass: run `dedupe-live-rows --apply` first (a merge
 takes the latch stickily from either twin), and disclose the cleared set in
 any write-up whose cohort it reshapes. Because the corpus is written only by
 the writer lane, the `--apply` runs there rather than from a checkout: dispatch
-**`run-seed` with `unlatch_overselected`** set, which runs the `dedupe-live-rows`
-sweep and the scope reconcile ahead of the clear in the same run — so the
-"dedupe first" prerequisite is satisfied by ordering, and the clear is gated on
-that sweep succeeding — then commits the pointer to `main` like every other
-corpus write. Prefer a dispatch when the walk is already at its frontier, so
-the walk loop exits early and leaves the sweep budget to the clear (the clear
-plus the ~1GB push runs several minutes, and the dispatch shares the job's
-wall-clock cap with the walk). Dry-run it first from a read-only checkout
-(`fedcourts unlatch-overselected`, the default) to see the count and the
-cleared-id set before the dispatch.
+**`run-repair` with `repair=unlatch-overselected`**, which runs the
+`dedupe-live-rows` sweep and the scope reconcile ahead of the clear in the same
+run — so the "dedupe first" prerequisite is satisfied by ordering, and the clear
+is gated on both succeeding — then commits the pointer to `main` like every
+other corpus write. The bench never shares a job with the walk, so the clear
+(several minutes, with the ~1GB push) never competes with a walk loop for the
+job's wall-clock cap. Read the count and the cleared-id set before the write:
+either from a read-only checkout (`fedcourts unlatch-overselected`, the
+default), or by dispatching the pass with `repair_mode=dry-run`, which prints
+the same ledger to the run summary and clears nothing. That dispatch still runs
+the clear's two prerequisites — the dedupe and the scope reconcile — as applies,
+since the ledger has to be computed over the corpus the write would act on; both
+are convergences a scheduled window makes anyway.
 
 **Enforcement wiring** is small but real (it is not free):
 

@@ -67,6 +67,7 @@ from .application_migration import (
     relabel_application_baseline_events,
 )
 from .attribution_migration import (
+    remove_ungranted_merits_events,
     remove_unmintable_baseline_events,
     reopen_misattributed_outcomes,
 )
@@ -117,6 +118,7 @@ from .config import (
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .disposition_convergence import converge_disposition_labels
+from .docket_marking_migration import normalize_docket_markings
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
@@ -191,7 +193,8 @@ from .pipeline.outcome import (
     snapshot_shows_disposition,
     snapshot_shows_judgment,
 )
-from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
+from .pipeline.pull import derive_evaluate_backlog, evaluate_backlog, pull_case, pull_cases
+from .pipeline.response_backfill import backfill_response_fields
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
 from .pipeline.salience import (
     SALIENCE_VERSION,
@@ -412,6 +415,19 @@ def validate_corpus_cmd(
         f"corpus-validation: {status} — {passed}/{len(verdict.checks)} check(s) passed over "
         f"{verdict.corpus_rows} row(s) -> {destination}"
     )
+    # A check that passed while counting failures is a known condition, not a
+    # defect — held within an accepted baseline, or advisory, where the count is
+    # a backlog only a data pass can clear. Either way the number is worth
+    # reading, and neither is worth holding the verdict red for. The cost is a
+    # standing annotation per non-zero monitored count on every writer run —
+    # the habituation risk the advisory doctrine warns about — accepted because
+    # the counts are few and each is expected to drain to zero.
+    for check in verdict.checks:
+        if check.passed and check.failures:
+            typer.echo(
+                f"::warning::corpus-validation: {check.name} — {check.failures} row(s); "
+                f"{check.detail}"
+            )
     if not verdict.ok:
         for check in verdict.checks:
             if not check.passed:
@@ -662,8 +678,9 @@ def rederive_distribution_counts_cmd(
     and open merits proceedings and upserts a count read under the ingest
     default, which the max latch takes where it is higher — so a re-polled row
     reverts unless `cert_signals.DEFAULT_DISTRIBUTION_PARSE` moves to the same
-    parse in the same batch. Run where the corpus is pulled (run-seed's writer
-    lane in production; a dev checkout serves the dry run). Prints a
+    parse in the same batch. Run where the corpus is pulled (run-repair's
+    `rederive-distribution-parse` pass in production; a dev checkout serves the
+    dry run). Prints a
     `DistributionRederiveResult`. Fails loud if the corpus is absent or the
     parse or version label is unregistered.
     """
@@ -1282,8 +1299,8 @@ def backfill_questions_presented_cmd(
     which rows an applied pass replaced, beside the pre-apply `corpus.db.ref`
     the command echoes. Idempotent. A
     deliberate maintainer surface, never scheduled: corpus writes exist only
-    inside the writer workflows, so this fires on an explicit `run-seed`
-    dispatch naming its `qp_backfill` input — two dispatches by design, a
+    inside the writer workflows, so this fires on an explicit `run-repair`
+    dispatch naming its `qp-backfill` pass — two dispatches by design, a
     `dry-run` whose summary ledger the maintainer reads and then an `apply`,
     which verifies its own convergence by re-running the dry-run (under the
     corpus split the durable write is the content store's per-case mirror, so
@@ -1994,6 +2011,330 @@ def remove_unmintable_events_cmd(
         typer.echo(f"  {verb} {ref}")
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("remove-ungranted-merits-events")
+def remove_ungranted_merits_events_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Remove the matching events; omit for a dry-run report."),
+    ] = False,
+    max_removals: Annotated[
+        int,
+        typer.Option(
+            "--max-removals",
+            help="Blast-radius bound: refuse to apply more removals than this.",
+        ),
+    ] = 20,
+    include_failed_attempts: Annotated[
+        bool,
+        typer.Option(
+            "--include-failed-attempts",
+            help=(
+                "Also remove a phantom whose only committed output is attempt.json "
+                "cell-failure records, deleting them with it. An attempt record under "
+                "a phantom documents spend on an event that names nothing the docket "
+                "supports; removing it trades that failure history for a ledger with "
+                "no dangling phantom paths, which is why it is an explicit choice "
+                "rather than the default. The condition is stricter than 'no "
+                "prediction and no evaluation': EVERY file under predictions/ must "
+                "be named attempt.json, and there must be no evaluations/ directory "
+                "at all, so any other artifact the harness left beside an attempt "
+                "record (usage.json, retrieval_log.json) keeps the event skipped."
+            ),
+        ),
+    ] = False,
+) -> None:
+    """Drop open SCOTUS merits events whose docket carries no cert grant, in both stores.
+
+    A merits event is born from a grant: every mint path routes through
+    `opens_merits_proceeding`, which requires the row's `date_cert_granted`, and
+    dates the grant moment from it. So an open merits-stage event on a row whose
+    grant column is NULL is one no re-ingest or convergence pass reproduces —
+    the shape left behind when the live re-poll stops reading a grant out of the
+    proceedings and overwrites the stored date with NULL (that column is in none
+    of the upsert's latch families). Removal rather than a reopen, but *not*
+    because the event stays forecastable: the fan-out already refuses it, since
+    a merits event is admitted only by `_merits_forecastable`, which needs the
+    same grant column, and `unforecastable_listed_events` names this exact
+    shape. The warrant is that the row is unmintable, permanently unresolvable
+    (merits detection reads the same grant-gated columns, so nothing ever closes
+    it), and so parks forever on the listed-unforecastable triage surface — a
+    permanent dangling row rather than a mispredicted cell. Resolved merits
+    events are out of population — one carries an observed judgment — as are
+    events whose case row is absent, since the grant column cannot be read for
+    them, and rows still labelled with a merits-proceeding disposition, where
+    deleting the event would drop the docket out of the live rotation that would
+    restore the date and so could not be undone. An event carrying committed
+    predict/evaluate output, or a committed `outcome.json` the open corpus row
+    contradicts, is skipped and reported instead. `--include-failed-attempts`
+    narrows the first of those skips to what it is really protecting: a phantom
+    that reached the fan-out before it was recognized carries only the
+    `attempt.json` failure records of the cells that ran against it, which
+    document spend on an event that names nothing the docket supports; removing
+    them with it trades that failure history for a ledger with no dangling
+    phantom paths. Which is worth more is a judgement about the record, so it is
+    an explicit choice rather than the default, and its condition is stricter
+    than "nothing predicted or graded": every file under `predictions/` must be
+    named `attempt.json` and there must be no `evaluations/` directory, so a
+    `usage.json` or `retrieval_log.json` the harness left beside an attempt
+    record keeps the event skipped. Idempotent. Dry-run by
+    default; `--apply` writes, and refuses above `--max-removals`: the
+    population is finite and non-growing (no mint produces the shape), so a
+    large count means the predicate widened — triage before raising the bound.
+    Run where the corpus is pulled — a dev checkout dry-runs it, and the apply
+    half belongs in run-repair's `merits-phantom-removal` pass, which holds the
+    corpus-write
+    credentials; the ledger directory goes first, then the corpus row, so an
+    interrupted run leaves the row as the detection handle for the next pass.
+    Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the removal.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        if apply:
+            preview = remove_ungranted_merits_events(
+                conn,
+                settings.data_root,
+                apply=False,
+                include_failed_attempts=include_failed_attempts,
+            )
+            if len(preview.removed) > max_removals:
+                typer.echo(
+                    f"remove-ungranted-merits-events: refusing to apply "
+                    f"{len(preview.removed)} removals (--max-removals {max_removals}). "
+                    "The population this sweep removes is finite and non-growing; "
+                    "a count this size means the predicate widened — triage before "
+                    "raising the bound.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+        result = remove_ungranted_merits_events(
+            conn,
+            settings.data_root,
+            apply=apply,
+            include_failed_attempts=include_failed_attempts,
+        )
+    verb = "removed" if apply else "would remove"
+    typer.echo(
+        f"remove-ungranted-merits-events ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.removed)} event(s); skipped {len(result.skipped)} for triage"
+    )
+    for ref in result.removed:
+        typer.echo(f"  {verb} {ref}")
+    for ref, reason in result.skipped:
+        typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("normalize-docket-markings")
+def normalize_docket_markings_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Rewrite the marked rows; omit for a dry-run report."),
+    ] = False,
+    max_rewrites: Annotated[
+        int | None,
+        typer.Option(
+            "--max-rewrites",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
+        ),
+    ] = None,
+) -> None:
+    """Converge stored docket numbers on their marking-free spelling.
+
+    Drains the population the ``docket_numbers_carry_no_capital_marking`` corpus
+    check reports, and is court-agnostic for the same reason — the marking is a
+    SCOTUS habit upstream, but a pass filtering on court would leave a row that
+    check reports with no repair.
+
+    The ingest write site stores the number with the Court's ``*** CAPITAL CASE ***``
+    marking removed and raises ``capital_case`` beside it, so the flag carries what
+    the marking was the only record of. A stored row converges on that spelling only
+    when the write site touches it again, and no automatic channel does so outside
+    the live slice: a live-slice row normalizes on its next poll, while a row
+    outside it converges only under a re-read aimed at it (``refresh-dockets`` on
+    named rows, or a Term re-walk). This is the dedicated sweep that clears the
+    backlog without one, reading the row with ``strip_docket_annotation`` and
+    raising the flag with
+    ``is_capital_docket_number``: the same pair the write site uses, so the number
+    kept and the flag raised can never disagree about what was there.
+
+    Selection is by the marking's **exact words**, never the ``*** … ***`` shape the
+    comparison key reads. A shape match treats the asterisks as delimiters, so on a
+    consolidated circuit docket that uses ``***`` as a separator between numbers it
+    would delete a whole docket number out of the column that is the record —
+    tolerable in a comparison key, where over-stripping costs only a missed join,
+    and not tolerable here.
+
+    The rewrite cannot mint a duplicate pair for ``dedupe-live-rows`` to find. Both
+    SCOTUS channels reconcile identity on ``norm_dn``, which already strips the
+    annotation by shape, so the marked and marking-free spellings of one docket
+    compare equal to the join before the rewrite as well as after: no row moves into
+    or out of any group. Rows that already share a normalized identity with another
+    row are reported as a count, because they are the dedupe pass's population and
+    this pass neither creates nor resolves them — it only makes the collision
+    visible in the stored spelling.
+
+    Idempotent: a rewritten row no longer carries the marking, so it leaves the
+    population it was selected from, and ``capital_case`` max-latches so the flag can
+    only advance. Run where the corpus is pulled — a dev checkout dry-runs it, and
+    the apply half belongs in run-repair's `normalize-docket-markings` pass,
+    which holds the corpus-write
+    credentials. ``--apply`` refuses above ``--max-rewrites``: the population is
+    finite and non-growing (the write site strips at ingest), so a count above the
+    number read in the dry run means the predicate widened — triage before raising
+    the bound. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_rewrites is None:
+        typer.echo(
+            "normalize-docket-markings: --apply requires an explicit --max-rewrites. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the convergence.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = normalize_docket_markings(conn, apply=apply, max_rewrites=max_rewrites)
+    if result.refused:
+        typer.echo(
+            f"normalize-docket-markings: refusing to apply {len(result.rewritten)} rewrites "
+            f"(--max-rewrites {max_rewrites}). The population this sweep converges is finite "
+            "and non-growing; a count this size means the predicate widened — triage before "
+            "raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "rewrote" if apply else "would rewrite"
+    shared = sum(1 for entry in result.rewritten if entry.shares_identity)
+    typer.echo(
+        f"normalize-docket-markings ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.rewritten)} marked docket number(s); "
+        f"{shared} already share a normalized identity with another row"
+    )
+    for entry in result.rewritten:
+        # Named as a shared identity rather than as the dedupe pass's work: that
+        # pass acts only on groups of exactly two, so a three-plus group shares a
+        # key here and is still left alone there.
+        note = " [shares a normalized identity with another row]" if entry.shares_identity else ""
+        typer.echo(f"  {verb} {entry.case_id}: {entry.was!r} -> {entry.now!r}{note}")
+
+
+@app.command("backfill-response-fields")
+def backfill_response_fields_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Fill the dated signals; omit for a dry-run report."),
+    ] = False,
+    max_fills: Annotated[
+        int | None,
+        typer.Option(
+            "--max-fills",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
+        ),
+    ] = None,
+) -> None:
+    """Re-derive the dated interim/merits signals from each row's newest live snapshot.
+
+    ``response_requested_at``, ``response_filed_at`` and ``merits_brief_filed`` are
+    parsed at ingest from the proceedings list. A row polled before those columns
+    existed carries the undated ``response_requested`` flag with no date beside it,
+    and no channel will ever correct it: the live poller serves the **undecided**
+    slice, so a decided row is never re-polled, and the flag is a max-latched boolean
+    a later write cannot turn back into a question. The gaps are recoverable from the
+    corpus alone — the newest stored live-shaped snapshot is the same payload the
+    original ingest read — so this re-parses it with the same pure parsers rather
+    than re-fetching.
+
+    A sibling of the live-signal back-fill rather than a widening of it, and the
+    reason is that pass's predicate. A NULL ``distribution_count`` is the
+    parse-coverage sentinel for the whole live-signal family, and that pass consumes
+    it, writing the count **unconditionally** with no max latch — sound only because
+    its predicate guarantees the column was NULL. Selecting rows whose count is
+    already stored would let a payload served with its proceedings degraded, which
+    parses as a confident ``0``, overwrite a good stored count: the precise
+    regression the latch exists to reject.
+
+    The three columns are fill-in only, matching the latch family they sit in on the
+    upsert path, so a stored value is never overwritten and the pass converges. That
+    also makes a degraded payload cheap here in a way it is not for a count — every
+    parser below yields ``None``, filling nothing, rather than a confident zero that
+    asserts a fact. Rows with no stored live-shaped snapshot are counted and
+    reported, never failed: under the corpus-split mode the payloads live in the
+    content store, and a poll that 404-stamped without storing one leaves nothing to
+    re-read. The write is a direct ``UPDATE`` of the index and never the casestore
+    mirror, so a store-side rebuild from ``case.json`` would resurrect the NULLs.
+
+    Idempotent. Run where the corpus is pulled — a dev checkout dry-runs it, and the
+    apply half belongs in run-repair's `response-backfill` pass, which holds the
+    corpus-write
+    credentials. ``--apply`` refuses above ``--max-fills``, which counts the rows
+    actually filled — finite and non-growing, since ingest fills these columns going
+    forward. The ``candidates`` denominator beside it is not: the granted arm admits
+    every new cert grant that has not yet drawn a respondent brief, so a rising
+    candidate count is the ordinary docket rather than a widened predicate. Prints
+    each filled row with the dates it gains. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_fills is None:
+        typer.echo(
+            "backfill-response-fields: --apply requires an explicit --max-fills. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = backfill_response_fields(conn, apply=apply, max_fills=max_fills)
+    if result.refused:
+        typer.echo(
+            f"backfill-response-fields: refusing to apply {len(result.filled)} fills "
+            f"(--max-fills {max_fills}). The population this sweep repairs is finite and "
+            "non-growing; a count this size means the predicate widened — triage before "
+            "raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "filled" if apply else "would fill"
+    typer.echo(
+        f"backfill-response-fields ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.filled)} of {result.candidates} candidate(s); "
+        f"{result.unchanged} read with nothing to fill; "
+        f"{result.no_snapshot} with no stored snapshot; "
+        f"{result.no_proceedings} whose snapshot discloses no proceedings"
+    )
+    for fill in result.filled:
+        gained = ", ".join(
+            f"{name} {value.isoformat()}"
+            for name, value in (
+                ("response_requested_at", fill.response_requested_at),
+                ("response_filed_at", fill.response_filed_at),
+                ("merits_brief_filed", fill.merits_brief_filed),
+            )
+            if value is not None
+        )
+        typer.echo(f"  {verb} {fill.case_id}: {gained}")
 
 
 @app.command("scope-manifest")
@@ -8250,20 +8591,121 @@ def _scope_filtered(
     return kept
 
 
+def _evaluate_backlog_cases() -> list[CaseRequest]:
+    """The evaluate stage's own case set, derived from the corpus-level backlog.
+
+    What a scheduled evaluate run fans out over when no trigger names its cases:
+    the gradings committed state still owes — a resolved event with a committed
+    prediction and at least one enabled evaluator's evaluation missing (see
+    :func:`fedcourtsai.pipeline.pull.derive_evaluate_backlog`, whose caps this
+    takes from ``tracking.yaml``'s ``evaluate`` section).
+
+    Stamp-free, deliberately. The pull lane's use of the same deriver writes
+    ``evaluate_queued_at`` to debounce itself, but that is a write to the corpus
+    of record, and those credentials live only in the writer jobs — a scheduled
+    evaluate run has none, so a stamp it made would die with the runner. It
+    needs none either: the fan-out's already-graded gate is the idempotency, and
+    it reads the same committed ledger the deriver does. Re-deriving an
+    unchanged backlog re-mints nothing once the gradings are committed, because
+    a graded cell is dropped; a cell that has *not* been graded is work still
+    owed and should re-mint. Two consequences to hold in view. The debounce is
+    one-directional — this lane honours a stamp the pull lane wrote, but leaves
+    none of its own, so it cannot hold the pull lane off a case it just queued.
+    And the gate reads *committed* state, so it cannot see a run whose collect
+    PR has not merged; what bounds a second derivation firing into that window
+    is the workflow's concurrency group, not this gate.
+
+    Requires a **pulled** corpus, and enforces it. The scan is one pass over
+    every resolved event plus a point query per candidate case — tens of
+    thousands of them — which is the opposite shape from the point lookups a
+    trigger's named cases need, and so the opposite backend: served locally in
+    seconds, it would be a range-request storm read in place. A non-local
+    backend is refused here rather than left to be discovered as a slow run.
+    An absent corpus is refused for the same reason in reverse — for an
+    unattended lane, "nothing is owed" and "no corpus" must not be the same
+    output.
+    """
+    settings = get_settings()
+    evaluate_cfg = load_evaluate_config(settings.config_root)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "local":
+        raise typer.BadParameter(
+            f"the evaluate backlog cannot be derived over the "
+            f"{settings.corpus_backend!r} corpus backend: it scans every resolved "
+            "event and reads a row per candidate case, which the local (pulled) "
+            "corpus serves and a read-in-place backend does not. Pull the corpus "
+            "and read local, or name the cases with --body-file."
+        )
+    if not db_path.exists():
+        raise typer.BadParameter(
+            f"no corpus at {db_path} to derive the evaluate backlog from — "
+            "`fedcourts corpus-pull` first. Refusing rather than planning an "
+            "empty fan-out, which is indistinguishable from a drained backlog."
+        )
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        backlog = derive_evaluate_backlog(
+            conn,
+            settings.data_root,
+            settings.config_root / "evaluators.yaml",
+            cap=evaluate_cfg.backlog_cases_per_cycle,
+            max_attempts=evaluate_cfg.max_attempts_per_cell,
+        )
+    return [CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries]
+
+
 def _requested_cases(
-    body_file: Path | None, court: str, docket: int | None, event: list[str] | None
+    body_file: Path | None,
+    court: str,
+    docket: int | None,
+    event: list[str] | None,
+    *,
+    backlog: bool = False,
+    force: bool = False,
 ) -> list[CaseRequest]:
-    """Cases to fan out over, from a batch body file or single-case flags.
+    """Cases to fan out over, from a batch body file, single-case flags, or the backlog.
 
     ``--body-file`` (one ``{court, docket, events}`` object or a JSON array of
-    them) is the multi-case path the workflows use. The single-case
-    ``--court``/``--docket``/``--event`` flags are kept for back-compat and
-    ad-hoc invocations.
+    them) is the multi-case path a trigger issue takes. The single-case
+    ``--court``/``--docket``/``--event`` flags serve ad-hoc invocations.
+
+    ``backlog`` opens a third mode for the evaluate stage, whose schedule is its
+    own: given *no* input at all, the cases come from the corpus-level evaluate
+    backlog (:func:`_evaluate_backlog_cases`) rather than from a trigger, so a
+    run needs no issue body to know what it owes. The predict stage has no such
+    deriver — its case set is a funded salience selection, not a level on
+    committed state — so it leaves ``backlog`` unset and an input-less
+    invocation is refused.
+
+    A *half*-named single case is refused in every mode. Silence is the backlog
+    mode's trigger, so a dropped ``--docket`` would otherwise turn one intended
+    case into the whole backlog — the one typo whose blast radius is a fan-out.
+
+    ``force`` is refused with the backlog, because the two select opposite sets.
+    A re-grade is deliberate and names its target; the backlog is what committed
+    state still owes, and it drops a fully-graded case *before* the gate
+    ``--force`` disables ever sees it. Accepting the pair would answer a re-grade
+    request with an empty fan-out — the flag reading as honoured while selecting
+    nothing.
     """
     if body_file is not None:
         return parse_cases(body_file.read_text())
     if court and docket is not None:
         return [CaseRequest(court, docket, tuple(event or ()))]
+    if court or docket is not None:
+        raise typer.BadParameter("--court and --docket go together; provide both or neither.")
+    if backlog:
+        if event:
+            raise typer.BadParameter(
+                "--event names events within a single case; pass it with --court and --docket. "
+                "The backlog derives its own events per case."
+            )
+        if force:
+            raise typer.BadParameter(
+                "--force re-grades cases you name; it cannot re-grade the backlog, which "
+                "excludes a fully-graded case before the already-graded gate --force "
+                "disables. Name the target with --body-file, or --court and --docket."
+            )
+        return _evaluate_backlog_cases()
     raise typer.BadParameter("provide --body-file, or both --court and --docket.")
 
 
@@ -8988,7 +9430,10 @@ def evaluate_matrix_cmd(
     run_id: Annotated[str, typer.Option(help="Shared run id for this fan-out.")],
     body_file: Annotated[
         Path | None,
-        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
+        typer.Option(
+            help="Issue body file; its ```json block (one case or an array) is parsed. "
+            "Omit it (with no --court/--docket) to derive the cases from the evaluate backlog."
+        ),
     ] = None,
     court: Annotated[
         str, typer.Option(help="Single-case court id (ignored with --body-file).")
@@ -9005,23 +9450,33 @@ def evaluate_matrix_cmd(
         typer.Option(
             "--force",
             help="Re-mint cells for events a judge has already graded (a deliberate "
-            "re-grade after a prompt or rubric change).",
+            "re-grade after a prompt or rubric change). Needs a named case; it "
+            "cannot re-grade the backlog.",
         ),
     ] = False,
 ) -> None:
     """Emit the evaluator x case x event GitHub Actions matrix as compact JSON.
+
+    Two input modes. ``--body-file`` takes the cases from a trigger issue, and
+    ``--court``/``--docket`` name one ad hoc. Given no input at all, they come
+    from the corpus-level evaluate backlog — the gradings committed state still
+    owes — so a scheduled run derives its own work with no issue body. That
+    derivation writes no ``evaluate_queued_at`` debounce stamp: the
+    already-graded gate below is the idempotency, and the corpus of record is
+    writable only from the writer jobs. Run it where the corpus is pulled.
 
     A case with no listed ``events`` defaults to that case's resolved events.
 
     Two deterministic gates drop cells before any model spend: an event with no
     committed prediction has nothing to score, and a judge that already graded
     the event is not re-minted. The second is what makes the fan-out idempotent,
-    so a re-queue cannot double-count in the leaderboard. ``--force`` disables
-    it for a deliberate re-grade, which otherwise would need committed artifacts
-    deleted to get a cell minted.
+    so a re-queue cannot double-count in the leaderboard — and what lets the
+    backlog mode re-plan the same backlog without re-minting a graded cell.
+    ``--force`` disables it for a deliberate re-grade, which otherwise would
+    need committed artifacts deleted to get a cell minted.
     """
     fanout = _evaluate_fanout(
-        _requested_cases(body_file, court, docket, event),
+        _requested_cases(body_file, court, docket, event, backlog=True, force=force),
         run_id,
         stage="evaluate-matrix",
         force=force,
@@ -9793,7 +10248,10 @@ def predict_plan_cmd(
 def evaluate_plan_cmd(
     body_file: Annotated[
         Path | None,
-        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
+        typer.Option(
+            help="Issue body file; its ```json block (one case or an array) is parsed. "
+            "Omit it (with no --court/--docket) to plan the evaluate backlog derivation."
+        ),
     ] = None,
     court: Annotated[
         str, typer.Option(help="Single-case court id (ignored with --body-file).")
@@ -9807,7 +10265,11 @@ def evaluate_plan_cmd(
     ] = None,
     force: Annotated[
         bool,
-        typer.Option("--force", help="Plan as a deliberate re-grade (the `evaluate-matrix` flag)."),
+        typer.Option(
+            "--force",
+            help="Plan as a deliberate re-grade (the `evaluate-matrix` flag). Needs a "
+            "named case; it cannot re-grade the backlog.",
+        ),
     ] = False,
     run_id: Annotated[
         str,
@@ -9827,6 +10289,11 @@ def evaluate_plan_cmd(
     grain-split ``counts``, stdout/stderr split, and spend-gate reading as
     ``predict-plan``: the backstop's verdict is reported, never applied.
 
+    It takes ``evaluate-matrix``'s two input modes, so the backlog derivation a
+    scheduled run performs — the one that reads no trigger — has a dry run of
+    its own: omit ``--body-file`` and the plan enumerates the cells that
+    derivation would mint. Read-only in both modes, corpus included.
+
     Its ``estimated_spend_usd`` carries a weaker basis than predict's, and says
     so: the rates are ``docs/budget.md``'s pre-freeze cert-stage anchor scaled
     by the whole predict move, an assumption rather than a measurement.
@@ -9843,7 +10310,7 @@ def evaluate_plan_cmd(
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()
     fanout = _evaluate_fanout(
-        _requested_cases(body_file, court, docket, event),
+        _requested_cases(body_file, court, docket, event, backlog=True, force=force),
         planned_run_id,
         stage="evaluate-plan",
         force=force,

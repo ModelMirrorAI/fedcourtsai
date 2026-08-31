@@ -43,16 +43,18 @@ name: run-pull
 # `corpus-push`). The new outcomes and the
 # small corpus pointer are committed DIRECTLY to main (they are CourtListener
 # facts, not agent output — see docs/data-pipeline.md). It then opens
-# a `run:predict` issue for each changed case with open events and a `run:evaluate`
-# issue for each case that gained an outcome; a case that appears decided but
-# whose outcome could not be recorded deterministically is surfaced on the
-# pipeline-runs dashboard for maintainer triage (no issue is filed for it).
+# a `run:predict` issue for each changed case with open events; a case that
+# appears decided but whose outcome could not be recorded deterministically is
+# surfaced on the pipeline-runs dashboard for maintainer triage (no issue is
+# filed for it). Grading is not handed off from here: the outcomes this window
+# commits are what run-evaluate's own scheduled backlog derivation reads, so a
+# resolved event reaches a judge by that lane, not by an issue filed here.
 # Run logging creates nothing on the happy path: every window (pull and live,
 # success or failure) lands its row on the single long-lived `Pipeline runs`
 # dashboard issue, edited in place (.github/actions/run-log-dashboard), and a
 # failing window opens (or reuses, same day) a `pull-log` / `live-log` issue
 # left open for a human — so an open run-log issue means exactly "a window
-# broke". The corpus commits and the run:predict / run:evaluate handoff issues
+# broke". The corpus commits and the run:predict handoff issues
 # use the GitHub App token so they trigger downstream workflows; the logging
 # writes (dashboard + run-log issues) ride the ambient GITHUB_TOKEN instead —
 # they must trigger nothing, and their labels are deliberately NOT `run:*`
@@ -86,7 +88,8 @@ on:
 
 permissions: {}
 
-# All four writers — this file's three jobs plus run-seed's historical walker —
+# Every corpus writer — this file's three jobs, run-seed's historical walker
+# and run-repair's maintenance passes —
 # write the single corpus.db pointer, so they run under ONE lock
 # to serialize corpus writers and prevent lost updates.
 # cancel-in-progress is false so a queued run waits rather than being dropped.
@@ -125,24 +128,22 @@ jobs:
     # clean-slate cutover): '1' stops packing payloads into the blob (the corpus
     # collapses to the small metadata index) and routes the writer's own payload
     # reads to the store. Unset variable → '0' → off; needs CASESTORE_URL set.
-    # PREDICT_HANDOFF_ENABLED / EVALUATE_HANDOFF_ENABLED pause their fan-out's
-    # trigger issues without pausing ingestion — set either to '0' in the
-    # `prod` environment (a repo-level variable of the same name works too)
-    # and that channel keeps collecting and committing while it stays quiet (a
-    # provider spend cap, a pipeline change being staged). Unset → '1' →
-    # filing, so a mistyped variable keeps the tournament running rather than
-    # silently stopping it.
+    # PREDICT_HANDOFF_ENABLED pauses the predict fan-out's trigger issues without
+    # pausing ingestion — set it to '0' in the `prod` environment (a repo-level
+    # variable of the same name works too) and the channel keeps collecting and
+    # committing while it stays quiet (a provider spend cap, a pipeline change
+    # being staged). Unset → '1' → filing, so a mistyped variable keeps the
+    # tournament running rather than silently stopping it.
     #
-    # Both queues are level-triggered, so holding either costs latency alone,
-    # never a missed prediction/grading: predict's selection sweep re-derives
-    # its queue from corpus state, and evaluate's backlog deriver (see
-    # docs/pipeline.md) re-derives owed gradings from committed ledger state on
-    # a later cycle. See the handoff action.
+    # The queue is level-triggered, so holding it costs latency alone, never a
+    # missed prediction: the selection sweep re-derives it from corpus state on a
+    # later cycle. See the handoff action. Evaluate has no switch here because it
+    # has no handoff here — run-evaluate derives its own backlog on its own
+    # schedule, and pausing it is that workflow's to hold.
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
       PREDICT_HANDOFF_ENABLED: ${{ vars.PREDICT_HANDOFF_ENABLED || '1' }}
-      EVALUATE_HANDOFF_ENABLED: ${{ vars.EVALUATE_HANDOFF_ENABLED || '1' }}
     permissions:
       contents: write
       issues: write
@@ -154,9 +155,10 @@ jobs:
       # be the pipeline App or to hold write access; deny everyone else, failing
       # closed. The decision — Bot handoff trusted, write required otherwise,
       # bounded permission lookup — lives in the tested `authorize-trigger`
-      # command, the same gate every label-triggered fan-out runs — pinned here
-      # to the data App's own login, because this job's gate is the only check
-      # on its path and an unpinned "Bot" means any admin-installed App. It
+      # command, the same gate every label-triggered fan-out runs — pinned, as
+      # at every gate, to the data App's own login, because an unpinned "Bot"
+      # means any admin-installed App; what stays specific to this job is that
+      # no step-layer check backs its gate up. It
       # refuses BEFORE the App-token mint, the credentialed checkout, and the
       # S3 role below. The command needs a working tree and a synced env, so a
       # credential-free checkout precedes it; both run only on the label path
@@ -343,18 +345,6 @@ jobs:
           noun: predict
           enabled: ${{ env.PREDICT_HANDOFF_ENABLED }}
 
-      # Likewise one run:evaluate issue for the window's newly-resolved cases.
-      - name: Open the run:evaluate handoff for newly resolved events
-        id: evaluate-handoff
-        uses: ./.github/actions/open-run-handoff
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          repo: ${{ github.repository }}
-          queue: evaluate-queue.json
-          label: run:evaluate
-          noun: evaluate
-          enabled: ${{ env.EVALUATE_HANDOFF_ENABLED }}
-
       # Success or failure, the window lands its row on the long-lived
       # `Pipeline runs` dashboard issue (edited in place; the unrecorded
       # outcomes ride along per case for maintainer triage). Never on
@@ -388,7 +378,6 @@ jobs:
           outcome: ${{ job.status }}
           committed: ${{ steps.commit.outputs.committed }}
           predict-note: ${{ steps.predict-handoff.outputs.note }}
-          evaluate-note: ${{ steps.evaluate-handoff.outputs.note }}
 
       # Ops analytics: the same counts in the Actions UI, no roll-up needed.
       - name: Roll the window up on the Actions summary
@@ -396,10 +385,13 @@ jobs:
         env:
           COMMITTED: ${{ steps.commit.outputs.committed }}
           PREDICT_NOTE: ${{ steps.predict-handoff.outputs.note }}
-          EVALUATE_NOTE: ${{ steps.evaluate-handoff.outputs.note }}
         run: |
           set -euo pipefail
           predict=$(jq 'length' predict-queue.json)
+          # The evaluate row is a backlog reading, not a handoff: this window's
+          # deriver counted the gradings committed state owes and stamped them,
+          # and run-evaluate's own schedule is what fans them out. Reported here
+          # because this window is where the number moves.
           evaluate=$(jq 'length' evaluate-queue.json)
           unrecorded=$(jq 'length' unrecorded-queue.json)
           if [ "${COMMITTED:-false}" = "true" ]; then
@@ -411,10 +403,10 @@ jobs:
             echo "## run-pull — $(date -u +%Y-%m-%d)"
             echo "$snap"
             echo ""
-            echo "| Handoff | Count |"
+            echo "| Channel | Count |"
             echo "|---------|------:|"
             echo "| run:predict cases queued | ${predict}${PREDICT_NOTE} |"
-            echo "| run:evaluate cases queued | ${evaluate}${EVALUATE_NOTE} |"
+            echo "| evaluate backlog cases owed | ${evaluate} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -528,14 +520,13 @@ jobs:
     environment: prod
     # Corpus-split flags (see the pull job): dual-write off unless CASESTORE_URL
     # is set; FEDCOURTS_CORPUS_SPLIT is the phase-4 go-live switch (unset → '0' → off).
-    # PREDICT_HANDOFF_ENABLED / EVALUATE_HANDOFF_ENABLED likewise mirror `pull`
-    # — both writers queue at the same seam, so a pause has to hold both or
-    # trigger issues keep arriving from whichever channel is left unheld.
+    # PREDICT_HANDOFF_ENABLED is read here exactly as in `pull`: both writers
+    # queue at the same seam, and one variable holds both, so a pause set once
+    # leaves no window still filing.
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
       PREDICT_HANDOFF_ENABLED: ${{ vars.PREDICT_HANDOFF_ENABLED || '1' }}
-      EVALUATE_HANDOFF_ENABLED: ${{ vars.EVALUATE_HANDOFF_ENABLED || '1' }}
     # The ambient GITHUB_TOKEN carries exactly the non-triggering issue writes
     # (the pipeline-runs dashboard row and the failure run-log issue — the
     # doctrine in docs/security.md: issue writes that must trigger nothing stay
@@ -658,17 +649,6 @@ jobs:
           noun: predict
           enabled: ${{ env.PREDICT_HANDOFF_ENABLED }}
 
-      - name: Open the run:evaluate handoff for newly resolved events
-        id: evaluate-handoff
-        uses: ./.github/actions/open-run-handoff
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          repo: ${{ github.repository }}
-          queue: evaluate-queue.json
-          label: run:evaluate
-          noun: evaluate
-          enabled: ${{ env.EVALUATE_HANDOFF_ENABLED }}
-
       # Unrecorded outcomes are surfaced on the dashboard/summary below, exactly
       # as in `pull`: live resolution is machine-readable by construction (the
       # disposition orders ride in the proceedings text), so a non-empty
@@ -691,17 +671,16 @@ jobs:
           outcome: ${{ job.status }}
           committed: ${{ steps.commit.outputs.committed }}
           predict-note: ${{ steps.predict-handoff.outputs.note }}
-          evaluate-note: ${{ steps.evaluate-handoff.outputs.note }}
 
       - name: Roll the window up on the Actions summary
         if: success()
         env:
           COMMITTED: ${{ steps.commit.outputs.committed }}
           PREDICT_NOTE: ${{ steps.predict-handoff.outputs.note }}
-          EVALUATE_NOTE: ${{ steps.evaluate-handoff.outputs.note }}
         run: |
           set -euo pipefail
           predict=$(jq 'length' predict-queue.json)
+          # A backlog reading, not a handoff — see the pull job's copy.
           evaluate=$(jq 'length' evaluate-queue.json)
           unrecorded=$(jq 'length' unrecorded-queue.json)
           if [ "${COMMITTED:-false}" = "true" ]; then
@@ -713,10 +692,10 @@ jobs:
             echo "## run-pull (live) — $(date -u +%Y-%m-%d)"
             echo "$snap"
             echo ""
-            echo "| Handoff | Count |"
+            echo "| Channel | Count |"
             echo "|---------|------:|"
             echo "| run:predict cases queued | ${predict}${PREDICT_NOTE} |"
-            echo "| run:evaluate cases queued | ${evaluate}${EVALUATE_NOTE} |"
+            echo "| evaluate backlog cases owed | ${evaluate} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
           } >> "$GITHUB_STEP_SUMMARY"
 

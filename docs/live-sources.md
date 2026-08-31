@@ -149,6 +149,33 @@ written before the columns existed are back-filled from their stored live
 snapshots at the historical walker's start (`backfill_live_signals` —
 deterministic, idempotent, correct across corpus-blob rollbacks).
 
+`capital_case` is a fourth column of this family — in practice live-channel
+fed, since only supremecourt.gov serves the marking, though the ingest raise
+is channel-agnostic by design — read not from the
+proceedings but from the head of the payload: the `bCapitalCase` flag, OR-ed
+with the `*** CAPITAL CASE ***` annotation upstream appends to `CaseNumber`.
+Either alone under-reports, and the annotation has to be read anyway — ingest
+strips it out of `docket_number`, because every reader that *parses* a docket
+number reads the whole stored string and a marked number parses as nothing at
+all. Those readers strip it too, so the cuts and the live channel's addressing
+see a marked docket either way; what a stored marking costs is narrower — a
+missed identity join for any consumer that does not normalize, a wrong value
+wherever the column is displayed, and a trap for the next parse site that
+forgets. It max-latches for the reason the other live columns do, and more
+sharply: CourtListener serves the plain number and no flag, so every write from
+that channel asserts a confident False. It is the one column of the family
+**outside** `backfill_live_signals`, which fills the three proceedings-derived
+columns only. A row still carrying the marking converges either by re-ingest — a
+live-slice row on its next poll, one outside the slice on a targeted re-read — or
+by `normalize-docket-markings`, the dedicated sweep that rewrites the stored
+spelling and raises the flag without a fetch, which is what the backlog needs,
+being overwhelmingly decided rows the rotation has left. Its apply half is
+run-repair's `normalize-docket-markings` pass ([pipeline.md](pipeline.md)).
+`validate-corpus` counts the remainder as an advisory check ([cli.md](cli.md))
+rather than a failure, because rows written before the write site stripped the
+marking carry one until something reaches them, and the verdict must not be red
+for the whole interval.
+
 ## Documents: from metadata to content
 
 The document PDFs linked from each docket are the step-change in input quality
@@ -250,15 +277,16 @@ against a measured share, not a schedule.
 
 Decided and specified here; not yet built. What a pass must hold to:
 
-- **Where it runs.** As a dispatch-gated mode on `run-pull` beside the
-  dispatch-only opinion enrichment — a mode, not a workflow of its own. The
-  writer jobs are the only place a production corpus write can happen, and a
-  maintenance pass whose dry run is a triage list a maintainer reads before an
-  apply is dispatch-gated by the same rule (*Four writer jobs, one shared core*
-  in [data-pipeline.md](data-pipeline.md)). Tesseract is installed by that step
-  alone, so no scheduled lane grows the dependency. Dry run by default and
-  bounded per dispatch like the enrichment beside it, so a backlog clears in
-  slices rather than in one long job; runner minutes are the whole cost.
+- **Where it runs.** As a pass on `run-repair` — a `repair` selector value, not
+  a workflow of its own. The writer jobs are the only place a production corpus
+  write can happen, and a pass whose dry run is a triage list a maintainer reads
+  before an apply belongs on the bench by the standing rule (*Five writer jobs,
+  one shared core* and *Maintenance passes* in
+  [data-pipeline.md](data-pipeline.md)): it re-derives stored text with no
+  upstream fetch, which is that lane's charter exactly. Tesseract is installed
+  by that step alone, so no scheduled lane grows the dependency. Dry run by
+  default, and bounded through `repair_bound` so a backlog clears in slices
+  rather than in one long job; runner minutes are the whole cost.
 - **What it reads.** Stored **petitions** whose text is empty or
   whitespace-only and whose page count is above zero. A zero-page row is either
   a PDF the extractor could not open or a derived section — `pages` carries

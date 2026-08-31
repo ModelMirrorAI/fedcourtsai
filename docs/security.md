@@ -19,7 +19,8 @@ lands via a PR" an *identity*-enforced invariant rather than a policy the
 agent is merely instructed to follow (that the PR is *reviewed* is a
 convention `AGENTS.md` carries, not something identity enforces):
 
-- **data App** — used by the deterministic writers `run-pull` and `run-seed`.
+- **data App** — used by the deterministic writers `run-pull`, `run-seed`
+  and `run-repair`.
   Its client id is the `DATA_APP_CLIENT_ID` variable and its private key the
   `DATA_APP_PRIVATE_KEY` secret. This App **is** a bypass actor on `main: require
   PR`, so the writers push corpus facts straight to `main`.
@@ -38,6 +39,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 |----------|-----|-------------|-------|
 | `run-pull` | data | contents, issues | commit facts to `main`; open handoff issues; publish the verdict/frontier JSONs to `ops-metrics` |
 | `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
+| `run-repair` | data | contents (both writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the validation job holds no credential |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
 | `run-backtest` | dev | contents, pull-requests | open the reviewed back-test PR (minted after the replay ran) |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
@@ -66,7 +68,12 @@ deterministic corpus pushes and agent PRs are visibly authored by different bots
 
 The two `main` rulesets are split so the per-rule bypass is correct (a ruleset's
 bypass list applies to the whole ruleset); further rulesets protect the
-`staging` and `ops-metrics` branches. Both require-PR rulesets pin
+`staging` and `ops-metrics` branches. One more targets tags rather than
+branches — `tags: protect record` blocks update and deletion on the three
+record namespaces (`prereg/**`, `promotion/**`, `results/**`) with an empty
+bypass list, so even an admin must edit the ruleset before a record tag can
+move; the *Tags* subsection of docs/pipeline.md rests the record's
+immutability on it. Both require-PR rulesets pin
 `allowed_merge_methods` to **`merge, squash`**: `merge` because the sync and the
 promotion must keep `main` and `staging` sharing history, `squash` because the
 data-run `collect` PRs auto-merge with it, and no rebase because replaying
@@ -75,10 +82,11 @@ pre-registration record's commit ids.
 
 - **`main: require PR`** — requires a pull request plus the status checks below
   to merge. **Bypass: the data App only**, so the deterministic writer jobs
-  (`run-pull`, `run-seed`) push corpus facts (the corpus blob — rows and
+  (`run-pull`, `run-seed`, `run-repair`) push corpus facts (the corpus blob —
+  rows and
   point-in-time snapshots — to the S3 corpus remote; its pointer, deterministic
-  `outcome.json` and `event.yaml` records, and the seed lane's bounded
-  attribution repairs to `main`) while all agent code changes — including
+  `outcome.json` and `event.yaml` records, and the writer lanes' bounded repair
+  sweeps to `main`) while all agent code changes — including
   anything the dev App holds —
   go through a PR gated on the required checks. The dev App is deliberately
   **absent** from this bypass list. Required approvals are `0` — the maintainer
@@ -145,7 +153,7 @@ pre-registration record's commit ids.
   the predictions, outcomes, and evaluations under `data/` cannot be rewritten
   or dropped, even by a misbehaving writer that holds the data App's bypass
   token: a forward commit can delete a ledger record — the writer lane's
-  attribution repairs do, bounded by their per-run blast-radius cap — but the
+  bounded repair sweeps do, each capped per run — but the
   deletion is itself a permanent, attributable commit, visible and revertible
   rather than silent.
 - **`staging: require PR`** — the pre-merge branch every feature PR targets
@@ -175,7 +183,7 @@ pre-registration record's commit ids.
   staging-environment deployments execute.
 - **`ops-metrics: protect history`** — the same force-push and deletion block on the
   orphan `ops-metrics` branch, where `run-ops` appends its JSON snapshots and the
-  corpus-writer path (`run-pull` and `run-seed`, via the `publish-corpus-verdict`
+  corpus-writer path (`run-pull`, `run-seed` and `run-repair`, via the `publish-corpus-verdict`
   action) publishes
   the data-validation verdict and live-frontier snapshot for `run-ops` to present.
   Every writer only ever does a normal append push (never a force-push), so the rule
@@ -220,7 +228,7 @@ which posts its `ops-dashboard` / `data-validation` issues with `GITHUB_TOKEN` t
 same way, and `run-pull`, whose pipeline-runs dashboard row and failure-only
 run-log issues ride the ambient token for the same reason (its App token is
 reserved for the writes that must trigger downstream: the corpus commits and
-the `run:predict` / `run:evaluate` handoff issues). The capability is therefore on the lower-trust, non-bypass token, scoped
+the `run:predict` handoff issues). The capability is therefore on the lower-trust, non-bypass token, scoped
 to issue comments/creation only; and the agent never touches it (the per-cell agent
 token stays comment-only and writes `flags.json` locally — the trusted `collect`
 job does the surfacing). So docket text the agent ingests cannot reach it, and the
@@ -521,7 +529,8 @@ S3 stores — the corpus remote (the index blob under its content-addressed
 `index/sha256/<digest>` keys) and the per-case content store — plus the staging
 pair the third one writes:
 
-- **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull` and `run-seed`) —
+- **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull`, `run-seed` and
+  `run-repair`'s corpus job) —
   **append-only**: it grants *enumerated object actions* — get, put, list —
   never `s3:*`, with an explicit `Deny` on every delete and on the two
   bucket-configuration changes that are delete-equivalent, **versioning** and
@@ -543,7 +552,15 @@ pair the third one writes:
   **cell** jobs (credentials stay step-scoped: the background `corpus-serve`
   process and the deterministic provisioning steps hold them, the agent steps
   never do — see below), and `corpus-readonly` for the scan-heavy
-  full-pull consumers (`run-analytics` / the metrics refresh, and `run-backtest`).
+  full-pull consumers (`run-analytics` / the metrics refresh, and
+  `run-backtest`). Two operational facts ride this role. Its IAM **maximum
+  session duration** must allow the sessions its callers request —
+  `run-backtest` asks for 21600 s (6 h), the census for 8100 s — because a
+  re-provisioned role at the AWS default hour fails both at their first
+  credentialed step. And `run-backtest` is the one `corpus-readonly` caller
+  that also runs agents in the same job, so its job-wide credential export is
+  the accepted exception to the agents-hold-nothing pattern; the step comment
+  there states what the long session buys and costs.
 - **Staging read-write role** (`AWS_ROLE_TO_ASSUME_STAGING_RW`, used by
   `staging-corpus-refresh` alone) — **read + list on the production stores**
   (the slice's source, the same access the read-only role grants) and
@@ -560,8 +577,9 @@ Access mirrors each workflow's role in the pipeline:
 
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
-| `run-pull` (pull + live + enrich jobs), `run-seed` | read-write | corpus writers (`corpus-push` + content-store mirror) |
-| `run-predict`, `run-evaluate` — plan jobs | read-only | scope gating over the named cases — ranged point lookups, no pull |
+| `run-pull` (pull + live + enrich jobs), `run-seed`, `run-repair` (corpus job only) | read-write | corpus writers (`corpus-push` + content-store mirror) |
+| `run-predict` plan job; `run-evaluate` plan job on the label path | read-only | scope gating over the named cases — ranged point lookups, no pull |
+| `run-evaluate` plan job on the schedule/dispatch path | read-only | derives the evaluate backlog — a scan over every resolved event, so it pulls the index rather than reading it in place |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull) |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store |
@@ -732,7 +750,7 @@ any workflow that might want to edit it.
 ## The staging corpus (provisioning runbook)
 
 The production corpus is single-writer by construction — the write credentials
-exist only inside `run-pull` and `run-seed` — which is exactly why no
+exist only inside `run-pull`, `run-seed` and `run-repair` — which is exactly why no
 orchestration change can be rehearsed against a real corpus before it is
 promoted. The **staging corpus** is the surface that closes that gap: a lean
 slice of real cases, in its **own bucket/prefix pair**, with the same two-store

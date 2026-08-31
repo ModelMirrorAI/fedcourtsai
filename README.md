@@ -29,15 +29,17 @@ of each justice, and the court's reasoning.
 
 The project runs as a **label-driven pipeline of GitHub Actions**: work is
 represented as GitHub issues, applying a `run:*` label triggers the matching
-workflow, and a stage hands off by opening (or labeling) an issue for the next
-stage. The judgment-heavy stages delegate to **multiple competing coding
-agents** (Claude Code, Codex, and Gemini), whose artifacts land as
-auto-merge-gated pull requests.
+workflow, and where one stage hands off to the next it does so by opening (or
+labeling) an issue — the predict channel; the evaluate stage instead derives its
+own work on a schedule and needs no issue. The judgment-heavy stages delegate
+to **multiple competing coding agents** (Claude Code, Codex, and Gemini), whose
+artifacts land as auto-merge-gated pull requests.
 
 | Label          | Workflow        | Does                                                                 | Engine |
 |----------------|-----------------|----------------------------------------------------------------------|--------|
 | `run:pull`     | `run-pull`      | Two scheduled forward writer jobs: targeted CourtListener enrichment, and the **supremecourt.gov live poll** (discovers pending petitions, tracks conference distribution, records outcomes, provisions filed-document text) — plus a third, **dispatch-only** job that enriches cert-granted cases with their opinion text | Script |
-| _(none)_       | `run-seed`      | The **historical Term walker** (supremecourt.gov, budget-free) backfilling past Terms for base rates and back-testing — four dead-zone windows a day, sharing run-pull's corpus-write lock. It is also the **corpus-maintenance dispatch console**: twelve inputs, four of them dry-run/apply pairs whose apply mode rewrites stored corpus fields or re-grades committed cells — and only once a maintainer has read the dry run's ledger | Script |
+| _(none)_       | `run-seed`      | The **historical Term walker** (supremecourt.gov, budget-free) backfilling past Terms for base rates and back-testing — four dead-zone windows a day, sharing the corpus-write lock. Its trailing sweeps converge the corpus toward what a window can reach on its own; each is idempotent and non-blocking | Script |
+| _(none)_       | `run-repair`    | The **corpus-maintenance bench**: eight dispatch-gated passes that rewrite stored corpus fields, remove ledger records, or re-grade committed cells — one pass per dispatch, dry-run by default, and an apply only once a maintainer has read that dry run's ledger. Never scheduled; shares the corpus-write lock | Script |
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex + Gemini |
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes — fan-out is one cell per evaluator, and each judge grades **every** predictor for its event | Claude Code + Codex + Gemini |
 | `run:backtest` | `run-backtest`  | Maintainer-triggered cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR. A second dispatch mode replays the **deterministic salience gate** over past Terms instead — offline, token-free, into `metrics/salience-replay.json` | Claude Code + Codex + Gemini (replay); salience-gate replay is script-only |
@@ -47,9 +49,11 @@ Plus `run-ops` (a read-only daily dashboard with a weekly digest) and
 distribution-parse census, the tool-usage roll-up, the metrics refresh, and the
 qp-topic labeler (the only one that runs an agent) — both schedule/dispatch
 only. The cascade runs pull/live → corpus → `run:predict` (fired on an
-arrival-cohort pick, a conference distribution, or a changed open case) →
-`run:evaluate` (fired when an
-outcome lands on a predicted event); full label/workflow mechanics and the
+arrival-cohort pick, a conference distribution, or a changed open case).
+`run:evaluate` is not chained off it: run-evaluate runs on its own daily
+schedule and derives its own backlog — the gradings committed state still owes —
+so an outcome landing on a predicted event is picked up by the next cycle rather
+than handed off. Full label/workflow mechanics and the
 cascade diagram: [`docs/pipeline.md`](docs/pipeline.md).
 
 **Both agent stages park before they spend.** In `run:predict` and

@@ -87,7 +87,11 @@ def relabel_application_baseline_events(
         "SELECT case_id, docket_number FROM cases WHERE court = 'scotus' ORDER BY case_id"
     ).fetchall()
     for record in records:
-        if parse_scotus_application_number(record["docket_number"]) is None:
+        # Strip the capital-case marking before parsing, as `default_event`'s
+        # own ingest path does — the two must read one docket the same way or
+        # an annotated application keeps a cert-shaped baseline.
+        docket_number = corpus.strip_docket_annotation(str(record["docket_number"]))
+        if parse_scotus_application_number(docket_number) is None:
             continue
         case_id = str(record["case_id"])
         events = {e.event_id: e for e in corpus.events_for_case(conn, case_id)}

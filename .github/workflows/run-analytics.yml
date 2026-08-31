@@ -210,15 +210,13 @@ jobs:
     # round trips is the floor and not the term — serially, because no bounded
     # prefetch serves this loop.
     # Against corpus-stats's 20-minute budget for the same pull and the same scan
-    # with no per-case fetch, that is the dominant term by far. But
-    # `corpus-readonly` assumes the read-only role for the OIDC default hour and
-    # exports static credentials boto3 cannot refresh, so a scan still reading
-    # the content store at the hour mark dies on an expired token — after the
-    # whole walk, with no artifact, on an error that names the wrong cause. So
-    # the scan step is capped at 50 minutes and the job at 65: the step fails
-    # first, legibly, inside the session it was granted. Raising the ceiling is a
-    # `role-duration-seconds` on the composite, not a bigger number here.
-    timeout-minutes: 65
+    # with no per-case fetch, that is the dominant term by far. The composite's
+    # credentials are static (boto3 cannot refresh them), so the scan step's cap
+    # must sit inside the credential window `role-duration-seconds` grants below
+    # — the step then fails first, legibly, inside the session, instead of dying
+    # mid-walk on ExpiredToken with no artifact and an error naming the wrong
+    # cause. An 8100-second session, a 110-minute step, a 125-minute job.
+    timeout-minutes: 125
     environment: prod
     # Its own group, never cancelled: a cancelled census runs no upload step,
     # so the artifact the mode exists to produce is lost to a sibling
@@ -243,9 +241,18 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+          # Covers the census step's cap below plus everything before it —
+          # checkout, env sync, up to 120s of assume-role retry, and the
+          # composite's own uncapped corpus pull — so the step cap, not the
+          # credential clock, is what a too-long scan hits. Needs the
+          # read-only role's IAM maximum session duration to allow it; an
+          # excess request fails at the assume step inside its 120s action
+          # timeout (the STS reason is in the retry lines, the terminal
+          # error is the timeout), not at the hour mark.
+          role-duration-seconds: "8100"
 
       - name: Census the distribution parses
-        timeout-minutes: 50
+        timeout-minutes: 110
         env:
           # Both parse labels pass through the environment rather than the shell
           # line, as the corpus-stats filters do, so a maintainer-supplied value

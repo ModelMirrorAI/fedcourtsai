@@ -14,6 +14,12 @@ updates:
       actions:
         patterns:
           - "*"
+    ignore:
+      # v1.12 rejects the legacy sandbox network override the codex cells
+      # pass; the pin is held (with the reason at both use sites) until the
+      # cells adopt the action's profile-based network configuration, so a
+      # group bump must not re-move it in the meantime.
+      - dependency-name: openai/codex-action
 
   # Python dependencies, resolved from pyproject.toml + uv.lock.
   - package-ecosystem: uv

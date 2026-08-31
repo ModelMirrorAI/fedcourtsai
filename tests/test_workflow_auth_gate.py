@@ -10,6 +10,8 @@ from typing import Any
 
 import yaml
 
+from tests.test_workflow_agent_bot import PIPELINE_BOT
+
 WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 
 # Each privileged label trigger and the job that carries (or gates) its work.
@@ -101,6 +103,59 @@ def test_entry_job_authorizes_before_any_privileged_step() -> None:
                 f"{name}:{entry_job} runs a non-allowlisted step before the authorize gate: "
                 + (step.get("name") or uses or str(step)[:80])
             )
+
+
+def test_every_gate_pins_the_bot_allowance_to_the_data_app() -> None:
+    """The `Bot` fast-path is only safe pinned to the data App's own login.
+
+    A second admin-installed App's label writes are `Bot` senders too
+    (SECURITY.md -> *Label triggers*), so an unpinned gate extends the
+    no-permission-lookup allowance to every installed App. Each gate passes
+    ``--bot-actor`` naming the data App; this locks the flag in so a future
+    edit cannot quietly widen the allowance back out.
+    """
+    for name, (_label, entry_job) in RUN_LABELS.items():
+        wf = _load(name)
+        job = wf["jobs"][entry_job]
+        authorize = next((s for s in _steps(job) if _is_authorize_step(s)), None)
+        assert authorize is not None, f"{name}:{entry_job} has no authorize step"
+        # Whitespace-normalized so a cosmetic reflow of the run: block cannot
+        # fail with a security-shaped message.
+        run = " ".join(str(authorize.get("run", "")).split())
+        assert f'--bot-actor "{PIPELINE_BOT}"' in run, (
+            f"{name}:{entry_job} authorize step must pin --bot-actor to the data App"
+        )
+
+
+def test_the_gate_is_never_conditioned_off_the_label_path() -> None:
+    """A gate that runs on no event is a gate in name only.
+
+    The authorize step may carry a condition, because a workflow with a schedule
+    or dispatch trigger beside its label has events this gate cannot meaningfully
+    judge: on a `schedule` there is no sender, and `github.actor` is whoever last
+    touched the workflow on the default branch rather than a requester. Those
+    triggers are gated by the platform instead (default-branch-only for a cron,
+    repository write for a dispatch, and the `prod` environment's main-only
+    deployment branches) — see SECURITY.md -> *Label triggers*. But exactly one
+    condition is sanctioned, `github.event_name == 'issues'`, which narrows the
+    gate to the path it guards and nothing else.
+    Anything else — a stray `false`, an extra disjunct admitting some other event
+    unjudged, a typo'd event name — would leave the label path ungated while every
+    other assertion in this file still passed, since they only check that the step
+    is present, ordered, and pinned.
+    """
+    for name, (_label, entry_job) in RUN_LABELS.items():
+        wf = _load(name)
+        job = wf["jobs"][entry_job]
+        authorize = next((s for s in _steps(job) if _is_authorize_step(s)), None)
+        assert authorize is not None, f"{name}:{entry_job} has no authorize step"
+        if "if" not in authorize:
+            continue
+        cond = " ".join(str(authorize["if"]).split())
+        assert cond == "github.event_name == 'issues'", (
+            f"{name}:{entry_job} conditions its authorize gate on {cond!r}; the only "
+            "sanctioned narrowing is github.event_name == 'issues'"
+        )
 
 
 def _reachable_on_issue_label(job: dict[str, Any]) -> bool:

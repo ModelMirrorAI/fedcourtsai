@@ -55,8 +55,9 @@ jobs:
       - uses: ./.github/actions/setup-python-env
 
       # Only a maintainer-installed App can apply a `run:*` label that triggers a
-      # workflow (events from the default GITHUB_TOKEN do not), so a Bot sender is
-      # the trusted run-pull handoff; any other actor must hold write access. The
+      # workflow (events from the default GITHUB_TOKEN do not), so a Bot sender
+      # matching the pinned data-App login is the trusted run-pull handoff (any
+      # other Bot is refused); any other actor must hold write access. The
       # decision (and its fail-closed default) lives in the tested `authorize-trigger`
       # command. It refuses *before* the downstream `predict` job (which `needs: plan`)
       # mints any token, assumes the S3 role, or reads the corpus. (The label name is
@@ -73,7 +74,8 @@ jobs:
           SENDER_TYPE: ${{ github.event.sender.type }}
         run: |
           uv run fedcourts authorize-trigger \
-            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO"
+            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO" \
+            --bot-actor "fedcourtsai-data[bot]"
 
       # The scope gate (predict.scope=scotus_docket) reads each case's corpus
       # row (court + exclusion reasons) for the *specific* cases the trigger
@@ -778,7 +780,16 @@ jobs:
         if: matrix.engine == 'codex' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         # Same buffer as the Claude step: trip this step, not the job, on overrun.
         timeout-minutes: 50
-        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        # Held at v1.12's predecessor: v1.12 treats its safety strategy as
+        # protected and rejects the `sandbox_workspace_write.network_access`
+        # override the cell requires for its live retrieval contract — the
+        # refusal fires in the action's validation layer before any model
+        # call (the bare CLI accepts the same override, so the engine smoke
+        # cannot see it). Dependabot is told to skip this action below its
+        # migration; moving forward again means adopting the action's
+        # profile-based network configuration deliberately, with a cell-path
+        # check beside it.
+        uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1.11
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
@@ -1197,14 +1208,20 @@ jobs:
           github-token: ${{ github.token }}
           courtlistener-token: ${{ secrets.COURTLISTENER_API_TOKEN }}
 
-      - name: Flag a stalled run on the trigger issue
+      - name: Flag a stalled run
         # A run that produced no output opens no PR, so nothing would close — or
         # even mention — the trigger issue; it would sit silently orphaned open.
         # Post the tested stall comment (rendered by the aggregate step) with the
         # ambient GITHUB_TOKEN: commenting triggers nothing, so the contents-write
         # App token stays out of it. Runs even if the aggregate step failed; the
         # file is absent whenever the run produced output.
-        if: ${{ always() && github.event.issue.number }}
+        # A round with no trigger issue has nothing to orphan, but the stall
+        # itself still has to be visible, so the report falls back to the step
+        # summary rather than being skipped — a silent stall is exactly what this
+        # step exists to stop. This workflow triggers on `issues` alone, so that
+        # branch is unreachable here and kept for symmetry: the collect job is
+        # held byte-identical to run-evaluate's, where the branch does run.
+        if: ${{ always() }}
         # Two retried gh calls inside the deduped issue-comment command,
         # each worth up to 105s against a degraded API — bounded per step so a
         # degraded API at one report cannot spend the collect job's cap that
@@ -1218,6 +1235,20 @@ jobs:
         run: |
           set -euo pipefail
           [ -s stall-comment.md ] || exit 0
+          if [ -z "$ISSUE" ]; then
+            # The rendered comment is addressed to a trigger issue, so its closing
+            # retry line does not apply to a round that has none. Say what does
+            # before replaying it, rather than leaving the contradiction to be
+            # untangled during an incident.
+            {
+              echo '## stalled run'
+              echo ''
+              echo 'This round had no trigger issue, so the retry advice below does not apply: there is nothing to re-label and nothing left open. The cells it failed to produce are still owed, so the next scheduled derivation picks them up; `workflow_dispatch` runs one now.'
+              echo ''
+              cat stall-comment.md
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           # Marker-deduped: this step reruns whenever collect does, and rerunning
           # collect is the documented recovery for a transfer failure, so a plain
           # comment would stack a copy per attempt and bury the warning.
@@ -1225,12 +1256,15 @@ jobs:
             --marker "<!-- collect-stall: ${GITHUB_RUN_ID} -->" \
             --body-file stall-comment.md
 
-      - name: Flag a secret-scan hit on the trigger issue
+      - name: Flag a secret-scan hit
         # A withheld branch opens no PR, so without this the scan hit would be
         # visible only in the Actions log. Same ambient-token posture as the
         # stall step above; the file is absent whenever the scan came back
         # clean.
-        if: ${{ always() && github.event.issue.number }}
+        # Falls back to the step summary on an issue-less round, like the stall
+        # step — with more at stake: a security report that is skipped because
+        # the round had no issue is a security report deduped into silence.
+        if: ${{ always() }}
         # Same bound as the stall step above, for the same reason.
         timeout-minutes: 5
         shell: bash
@@ -1241,6 +1275,13 @@ jobs:
         run: |
           set -euo pipefail
           [ -s secret-scan-issue.md ] || exit 0
+          if [ -z "$ISSUE" ]; then
+            {
+              echo '## secret-scan hit (branch withheld)'
+              cat secret-scan-issue.md
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           # Marker-deduped: this step reruns whenever collect does, and rerunning
           # collect is the documented recovery for a transfer failure, so a plain
           # comment would stack a copy per attempt and bury the warning.

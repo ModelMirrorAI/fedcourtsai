@@ -1,19 +1,24 @@
 # Pipeline & labels
 
 Work is represented as GitHub issues; applying a `run:*` label triggers the
-matching workflow. A stage hands off by creating/labeling an issue for the next
-stage. The label is the pipeline's trust boundary, so every label-triggered
+matching workflow. Where one stage hands off to the next it does so by creating
+and labeling an issue — the predict channel; the evaluate stage instead derives
+its own work on a schedule and needs no issue.
+The label is the pipeline's trust boundary, so every label-triggered
 workflow opens with the fail-closed `fedcourts authorize-trigger` gate†: a
 labeler without write permission is refused before any token is minted, role
 assumed, or agent run. The handoff Bot is the one non-collaborator the gate
-admits, and `run-pull` pins it to a single login.
+admits, and every gate pins it to the data App's own login — so if every
+`run:*` label starts refusing Bot handoffs at once, check the App's slug
+against the pinned login before suspecting the gate.
 
 | Label           | Workflow         | Trigger(s)                          | Engine(s)            |
 |-----------------|------------------|-------------------------------------|----------------------|
 | `run:pull`      | `run-pull`       | daily schedules (pull + live jobs), label, manual (+ dispatch-only `enrich-opinions` mode) | script (no agent)    |
 | _(none)_        | `run-seed`       | daily schedules (4 dead-zone windows), manual | script (no agent)    |
+| _(none)_        | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
-| `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
+| `run:evaluate`  | `run-evaluate`   | daily schedule (15:09 UTC), manual dispatch, issue labeled | Claude Code + Codex + Gemini |
 | `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
@@ -26,7 +31,11 @@ admits, and `run-pull` pins it to a single login.
 `run:backtest` — are the gated ones: each runs `authorize-trigger` as its entry
 job's first non-setup step, and `tests/test_workflow_auth_gate.py` locks that
 shape in so an edit cannot quietly drop a guard. A workflow with no label row is
-dispatch- or schedule-only, which GitHub already write-gates. The refusal
+dispatch- or schedule-only, which GitHub already write-gates; `run-evaluate` is
+both, and gates its label path while leaving its schedule and dispatch to the
+platform gates that already cover them (a cron runs only from the default
+branch, a dispatch needs repository write, and the `prod` environment admits
+only `main`) — the carve-out is stated in [SECURITY.md](../SECURITY.md). The refusal
 posture, and what a lookup outage means, is the *Label triggers* bullet in
 [SECURITY.md](../SECURITY.md); the lookup's bounded retry is in *Authoring or
 changing a workflow* below.
@@ -108,11 +117,13 @@ each as its own least-privilege job holding only the credentials its mode needs:
   `corpus_sha256` names. Two things an operator needs before dispatching
   it. It carries by far the largest budget of the read-only modes — a
   latest-snapshot read per frame case under the corpus-split mode — and what
-  bounds it is the read-only role's one-hour OIDC session rather than the wall
-  clock: the scan step is capped at 50 minutes and the job at 65, so a scan too
-  long for its credentials fails legibly inside them instead of dying on an
-  expired token after the whole walk (lifting that ceiling means a
-  `role-duration-seconds` on the `corpus-readonly` composite). And it holds its
+  bounds it is the read-only role's credential session rather than the wall
+  clock: the census passes `role-duration-seconds: 8100` to the
+  `corpus-readonly` composite, the scan step is capped at 110 minutes and the
+  job at 125, so a scan too long for its credentials fails legibly inside
+  them instead of dying on an expired token after the whole walk. Raising the
+  ceiling further is that composite input again, within the read-only role's
+  IAM maximum session duration. And it holds its
   **own** concurrency group — `run-analytics-census`, `cancel-in-progress:
   false` — rather than sharing `corpus-stats`'s: a cancelled job runs no upload
   step, so a sibling stats dispatch would otherwise take the artifact the mode
@@ -241,7 +252,7 @@ production's pair until the staging environment's store variables — the
 URLs and that pointer — are repointed. Provisioning the stores, the environment, and the role — and
 that repointing — is the maintainer runbook in [security.md](security.md).
 
-## `run-seed` and `run-pull` — the corpus writers
+## `run-seed`, `run-pull` and `run-repair` — the corpus writers
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
 accumulating resolved outcomes reverse-chronologically by Term for the statpack's
@@ -296,111 +307,166 @@ own blast-radius cap. The dedupe runs first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
-any other corpus write. Five further writer steps run **after the loop**, are
-not among the seven, and never run on a schedule, each gated behind its own
-dispatch input; the four
-that read corpus rows also require the dedupe to have succeeded, since each
-must weigh a merged row rather than a twin. (Two more sit *ahead* of the loop
-on the same dispatch-only footing — the `refresh_terms` cursor reset and the
-`refresh_dockets` targeted re-serve — where they precede the walk they change.)
-`unlatch-overselected` (the `unlatch_overselected` input)
-clears the pre-resize `salience_selected`
-overhang a capacity change leaves behind (`docs/salience.md`) — the latch's one
-`1 → 0` writer, a
-deliberate one-time act rather than a converging sweep, gated on the
-dedupe so an unmerged twin cannot re-latch a cleared case.
-`backfill-questions-presented` (the `qp_backfill` input) re-derives the stored
-questions-presented rows under the current extractor: a `dry-run` dispatch
-prints the reason-class triage ledger to the run summary and writes nothing;
-an `apply` dispatch rewrites the safe classes, verifies its own convergence by
-re-running the dry-run (under the corpus split the durable write is the
-content store's, so the pointer alone cannot witness it), and pushes. The
-dry-run ledger is a maintainer's reading, so the intended procedure is two
-dispatches: `dry-run`, read, then `apply`.
-`rederive-distribution-counts` (the `rederive_distribution_parse` mode, with
-the parse label in `rederive_parse`) re-derives the corpus
-`distribution_count` column under a registered distribution parse — the first
-of the three pieces of work that activate a new parse (`docs/salience.md`).
-Its write is a direct `UPDATE` that bypasses the column's max latch, because
-the upsert path would reject a narrower reading's every row and report success;
-a row whose latest live-shaped snapshot discloses no proceedings entries is
-counted and left untouched instead, which is as much of the latch's guard as a
-single pass can carry. The rest is procedure: the **first** dispatch names the
-*incumbent* parse and must report `changed = 0`, since anything the incumbent
-reading moves is stored-column drift rather than a parse effect and would
-otherwise be folded into the candidate's count. One pass in
-either mode — the plan the dry run prints is exactly the write set, and a
-separate dry run ahead of an apply would only repeat a full-population read of
-the content store — so the two-dispatch procedure is a maintainer's reading of
-the first run, not a re-scan. It is never scheduled: the parse to run under is
-a decision read off a `distribution-census` artifact, not a state a window can
-converge toward. The label input is refused up front and again in the step
-unless it is a lowercase parse label; whether the label is *registered* is the
-command's own refusal.
+any other corpus write.
 
-The last two are sequenced after every converging sweep, and in this order —
-**labels first, then the grades computed from them** — because a label rewrite
-landing after a grade was taken leaves that grade stale.
-`converge-disposition-labels` (the `disposition_convergence` input) converges
-stored disposition labels onto the current classifier, writing `outcome.json`
-under `data/` alongside the pointer in the step's one commit. Its ledger names
-**which of its two arms** each relabel came from, and the reading a maintainer
-owes them differs: `gvr` sharpens a label whose grant binary does not move,
-while `disowned-grant` withdraws a grant the classifier no longer reads at all
-— moving `actual_granted` 1 → 0 and re-dating the resolution — so that count is
-the one that shifts realized grant rates and every figure keyed on a resolution
-date (`docs/cli.md` carries each arm's warrant). By default it
-converges the population carrying **no committed predict or evaluate output**:
-rewriting the label under a cell that has already been graded would move what a
-published standing was computed from while the standing sat still, so any event
-whose directory holds agent output is reported in the dry-run ledger rather
-than rewritten. Closing that backlog is a maintainer's decision, and
-`include_scored` is where it is taken: it passes `--include-scored` to both the
-dry-run and the apply, so the ledger read and the rewrite cover the same
-population, and it is refused unless `disposition_convergence` names a mode
-*and* `disposition_max_relabels` carries a positive integer — in `dry-run` as
+Two further writer steps sit **ahead of the loop** on a dispatch-only footing —
+the `refresh_terms` cursor reset and the `refresh_dockets` targeted re-serve —
+where they precede the walk they change. With `refresh_streams` beside them,
+those three are run-seed's whole dispatch surface; the maintenance passes live
+on **run-repair**.
+
+**run-repair** is the maintainer's repair bench — `workflow_dispatch` only, no
+schedule and no `run:*` label, one pass per dispatch, dry-run by default, and
+joined to the same `corpus-write` lock so a pass can never interleave with a
+window's corpus push. It carries a generic selector: `repair` names the pass,
+`repair_mode` is `dry-run` or `apply`, `repair_bound` carries the blast-radius
+count, `repair_target` the pass's named subject, and `repair_options` its closed
+vocabulary of switches. `dry-run` means the selected pass writes nothing — the
+prerequisites each pass is gated on still apply, so a dry-run dispatch can move
+the corpus pointer by a convergence a scheduled window would have made anyway.
+[data-pipeline.md](data-pipeline.md#maintenance-passes) is the contract — what
+each pass accepts, every refusal, the `dedupe-live-rows` prerequisite each
+corpus pass is gated on, and the dispatch commands.
+
+It is a separate workflow because its failure posture is the opposite of the
+walker's. A standing sweep fails by *not converging*, and the next window
+retries for free, which is what earns it `continue-on-error`. A pass fails by
+*refusing* — an apply without its bound, a malformed cell id, a stamp the
+command declines — and a refusal is the answer the dispatch asked for, so it
+reddens the run rather than being absorbed. Splitting them also keeps the
+bench's growth off the walker: a pass added here costs run-seed neither a
+dispatch input nor a `LOOP_BUDGET_SECONDS` conjunct. There is no `guard` job on
+run-repair, unlike run-seed, because every run was started by hand a moment
+earlier by the person waiting to read its ledger.
+
+What each pass is for:
+
+`unlatch-overselected` clears the pre-resize `salience_selected` overhang a
+capacity change leaves behind (`docs/salience.md`) — the latch's one `1 → 0`
+writer, a deliberate act rather than a converging sweep. It brings the
+predict-scope reconcile along with the dedupe prerequisite, because it
+recomputes each pending cohort's selection and must recompute over an in-scope
+corpus.
+
+`qp-backfill` re-derives the stored questions-presented rows under the current
+extractor. A `dry-run` prints the reason-class triage ledger to the run summary
+and writes nothing; an `apply` rewrites the safe classes, verifies its own
+convergence by re-running the dry-run — under the corpus split the durable write
+is the content store's, so the pointer alone cannot witness it — and pushes. The
+refusal guard holds either way: a stored full-length question the extractor can
+no longer derive is reported, never emptied.
+
+`rederive-distribution-parse` re-derives the corpus `distribution_count` column
+under the registered parse named in `repair_target` — the first of the three
+pieces of work that activate a new parse (`docs/salience.md`). Its write is a
+direct `UPDATE` that bypasses the column's max latch, because the upsert path
+would reject a narrower reading's every row and report success; a row whose
+latest live-shaped snapshot discloses no proceedings entries is counted and left
+untouched instead, which is as much of the latch's guard as a single pass can
+carry. The rest is procedure: the **first** dispatch names the *incumbent* parse
+and must report `changed = 0`, since anything the incumbent reading moves is
+stored-column drift rather than a parse effect and would otherwise be folded
+into the candidate's count. One pass in either mode — the plan the dry run
+prints is exactly the write set, and a separate dry run ahead of an apply would
+only repeat a full-population read of the content store — so the two-dispatch
+procedure is a maintainer's reading of the first run, not a re-scan. The label
+is refused up front and again in the step unless it is a lowercase parse label;
+whether the label is *registered* is the command's own refusal. Its blast-radius
+bound is fixed in code rather than dispatched, so the pass refuses a
+`repair_bound` rather than ignoring one.
+
+`normalize-docket-markings` converges stored docket numbers on their
+marking-free spelling, draining the population the
+`docket_numbers_carry_no_capital_marking` corpus check reports: the ingest write
+site strips the Court's capital-case marking and raises `capital_case` beside
+it, so a row outside the live slice converges only under a re-read aimed at it,
+and this is the sweep that needs none. It can neither create nor resolve a
+duplicate pair, since both channels reconcile identity on a key that already
+strips the marking by shape; and having no ledger surface — its write is a
+direct `UPDATE` of the index — it commits the pointer alone.
+
+`response-backfill` re-derives the dated interim/merits signals from each row's
+newest stored live-shaped snapshot, which under the corpus split lives in the
+content store rather than the blob; it therefore reads through the job's
+split-mode env like the merits-judgment sweep, counts a row with no stored
+snapshot rather than failing on it, and writes a direct `UPDATE` of the index,
+so the pointer is its own witness. Its bound counts the rows actually filled,
+not the `candidates` denominator beside them, which rises with every new cert
+grant that has not yet drawn a respondent brief — so a rise there is the
+ordinary docket rather than a widened predicate.
+
+`merits-phantom-removal` drops open merits events whose docket carries no cert
+grant — the shape a live re-poll leaves when it stops reading a grant out of the
+proceedings and overwrites the stored date with NULL. Nothing re-mints one and
+nothing ever closes it, so it parks permanently on the listed-unforecastable
+triage surface. It is the one pass with a ledger half: the corpus row and the
+committed event directory under `data/` are staged in the step's one pointer
+commit, the attribution repairs' shape, because an uncommitted ledger half
+strands a directory under an id the corpus no longer carries. It needs no
+ordering against run-seed's merits-event mint — the mint writes only where the
+grant column is non-NULL and this removes only where it is NULL, so neither can
+touch the other's population. The `include-failed-attempts` option widens it
+onto phantoms whose only committed output is `attempt.json` cell-failure
+records, deleting those records with the event; it is off by default because it
+is a trade rather than a cleanup — those records document real spend on an event
+the docket never supported — and it rides the dry-run and the apply together so
+the ledger read and the removal cover one population. Unlike `include-scored` it
+does not also demand a bound in `dry-run`: it takes on no re-grade backlog, and
+what it widens is the removal set the apply's bound already sizes.
+
+`disposition-convergence` converges stored disposition labels onto the current
+classifier, writing `outcome.json` under `data/` alongside the pointer in the
+step's one commit. Its ledger names **which of its two arms** each relabel came
+from, and the reading a maintainer owes them differs: `gvr` sharpens a label
+whose grant binary does not move, while `disowned-grant` withdraws a grant the
+classifier no longer reads at all — moving `actual_granted` 1 → 0 and re-dating
+the resolution — so that count is the one that shifts realized grant rates and
+every figure keyed on a resolution date (`docs/cli.md` carries each arm's
+warrant). By default it converges the population carrying **no committed predict
+or evaluate output**: rewriting the label under a cell that has already been
+graded would move what a published standing was computed from while the standing
+sat still, so any event whose directory holds agent output is reported in the
+dry-run ledger rather than rewritten. Closing that backlog is a maintainer's
+decision, and the `include-scored` option is where it is taken: it passes
+`--include-scored` to both the dry-run and the apply, so the ledger read and the
+rewrite cover the same population, and it demands `repair_bound` in `dry-run` as
 much as in `apply`, unlike the bare bound, because what the number states there
 is a decision to take on a re-grade backlog rather than a write bound. The two
-readings are different: the plain dry-run's held-back lines size the *decision
-to widen* (they are candidates the sweep never parsed, so most will not be
-relabeled — only a candidate one of the two arms claims writes), while the bound an `apply`
-is checked against is the widened dry-run's own relabel count, which spans the
-scored and unscored confirmations together. A scored relabel is half a repair:
-the labels move here, and the grades taken under the old label catch up through
-`regrade_stale` naming the affected judge lines — three per event, one per
-judge, not one per evaluation. That can ride the same dispatch, which runs the
-two steps in this order for exactly this reason, or a following one. An `apply`dispatch also requires `disposition_max_relabels` — a positive integer, and the
-count the maintainer read off a previous `dry-run` dispatch's ledger. Anything
-else — blank, zero, negative, decimal — is refused with an error annotation
-before the scan runs: unbounded, a widened predicate becomes a mass rewrite
-rather than a loud failure. On `apply` the step still runs the dry-run into the
-step summary first, as a receipt of what the rewrite acted on.
+readings are different: the plain dry-run's held-back lines size the *decision to
+widen* (they are candidates the sweep never parsed, so most will not be
+relabeled — only a candidate one of the two arms claims writes), while the bound
+an `apply` is checked against is the widened dry-run's own relabel count, which
+spans the scored and unscored confirmations together. On `apply` the step still
+runs the dry-run into the step summary first, as a receipt of what the rewrite
+acted on.
 
-`stamp-cell --regrade` (the `regrade_stale` input) recomputes an evaluator
-cell's graded fields under the cell's original stamp and rewrites
-`evaluation.json`. It exists because this lane's sweeps rewrite and reopen
+A scored relabel is half a repair: the labels move there, and the grades taken
+under the old label catch up through `regrade-stale`, which recomputes an
+evaluator cell's graded fields under the cell's original stamp and rewrites
+`evaluation.json`. It exists because the bench's passes rewrite and reopen
 outcomes without consulting who has already graded them, so a cell's committed
-outcome can move under a committed grade; the re-grade is how those grades
-catch up. The write is ledger-only, so that step commits `data/` with no blob
-push and no pointer move. What the scoring surfaces make of the result is the
-command's contract, not the workflow's: per [metrics/README.md](../metrics/README.md),
-a standing moves honestly only through a grading the supersede-collapse counts,
-and a bare re-stamp of an existing `evaluation.json` moves it with a trace only
-in `data/`'s git history. The cells are named explicitly in `regrade_cells`,
-one `court/docket/event/run_id/actor` per line (whitespace-separated, so spaces
-work as well as newlines), one invocation per line — a cell three judges graded
-is three lines, since which judge's evaluation is rewritten is not a thing to
-infer. A `dry-run` dispatch echoes each command without invoking it. Every line
-is matched against the id grammar before anything runs and a single malformed
-line refuses the whole list — the input is maintainer-typed text entering a
-shell, and a half-applied list is harder to reason about than a refused one; an
-empty list is refused too, in `dry-run` as much as in `apply`. Neither of these
-two steps carries `continue-on-error`, and the reason is not that they are
-dispatch-only — `unlatch_overselected` and `qp_backfill` are dispatch-only and
-non-blocking. It is that these two fail by *refusing*: an apply without its
-bound, a malformed cell id, a stamp the command declines. A refusal is the
-answer the dispatch asked for, so it fails the job and the `guard` job names
-the step. The full
+outcome can move under a committed grade. The write is ledger-only — no blob
+push, no pointer move — which is why it runs in its own job holding neither the
+corpus role nor the content-store env: a pass that cannot reach the corpus
+should not hold the credentials that reach it. What the scoring surfaces make of
+the result is the command's contract, not the workflow's: per
+[metrics/README.md](../metrics/README.md), a standing moves honestly only
+through a grading the supersede-collapse counts, and a bare re-stamp of an
+existing `evaluation.json` moves it with a trace only in the ledger's own
+revision history. The cells are named in `repair_target`, one
+`court/docket/event/run_id/actor` per
+line (whitespace-separated, so spaces work as well as newlines), one invocation
+per line — a cell three judges graded is three lines, since which judge's
+evaluation is rewritten is not a thing to infer. A `dry-run` echoes each command
+without invoking it. Every line is matched against the id grammar before
+anything runs and a single malformed line refuses the whole list — the input is
+maintainer-typed text entering a shell, and a half-applied list is harder to
+reason about than a refused one; an empty list is refused too, in `dry-run` as
+much as in `apply`. Because one pass runs per dispatch, the follow-through is a
+second dispatch rather than a silent second step — which is the point: the
+backlog a relabel owes is a maintainer's to schedule.
+
+The full
 design — sources, budget boundary, the
 corpus/ledger storage split, and the historical corpus — is in
 [data-pipeline.md](data-pipeline.md).
@@ -448,15 +514,14 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  │  disposition is machine-readable (git ledger);
                                  │  else queue an unrecorded outcome, surfaced
                                  │  per-case on the pipeline-runs dashboard
+                                 ├─ derive + stamp the evaluate backlog (owed gradings,
+                                 │  beside this cycle's fresh resolutions; the pair is
+                                 │  reported as a count — no issue is filed for it)
                                  └─ create issues  ← APP TOKEN
-                                    ├─ run:predict    (changed case with open forecastable events,
-                                    │                  unless the docket already looks
-                                    │                  decided — skipped + surfaced;
-                                    │                  held if PREDICT_HANDOFF_ENABLED=0)
-                                    └─ run:evaluate   (predicted event that gained
-                                                       an outcome, or an owed grading
-                                                       the backlog deriver surfaces;
-                                                       held if EVALUATE_HANDOFF_ENABLED=0)
+                                    └─ run:predict    (changed case with open forecastable events,
+                                                       unless the docket already looks
+                                                       decided — skipped + surfaced;
+                                                       held if PREDICT_HANDOFF_ENABLED=0)
    daily ×4 → run-pull (live job) → push fresh facts to the corpus
                                  ├─ probe supremecourt.gov docket-number frontier
                                  │  → onboard new petitions + applications
@@ -468,16 +533,19 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  │  → write outcome.json (git ledger); else queue an
                                  │    unrecorded outcome, surfaced per-case on the
                                  │    pipeline-runs dashboard
-                                 └─ create run:predict / run:evaluate issues  ← APP TOKEN
-                                    (held per-channel by PREDICT_HANDOFF_ENABLED /
-                                     EVALUATE_HANDOFF_ENABLED)
+                                 ├─ derive + stamp the evaluate backlog (as above)
+                                 └─ create run:predict issues  ← APP TOKEN
+                                    (held by PREDICT_HANDOFF_ENABLED)
        run:predict → plan (build matrix, post the plan report)
                                  → approval (the review hold: required
                                  │           reviewers release the spend)
                                  → predict[matrix] (artifact per cell)
                                  └─ collect → one auto-merged PR per run (+ a draft for partials;
                                               a facts-only PR when a run lands nothing)
-       run:evaluate → plan (build matrix, post the plan report)
+       daily / run:evaluate → run-evaluate
+                                 → plan (derive the backlog — or read the trigger
+                                 │       issue's cases — then build the matrix and
+                                 │       render the plan report)
                                  → approval (the same review hold)
                                  → evaluate[matrix] (artifact per cell)
                                  └─ collect → one auto-merged PR per run (+ a draft for partials;
@@ -525,6 +593,30 @@ artifact, a new maintenance sweep — should land as a mode/job on `run-analytic
 (or the closest existing surface), reusing the shared composite actions
 (`setup-python-env`, `corpus-readonly`, `corpus-ranged`, `corpus-sidecar`,
 `mcp-sidecar`, `configure-git-identity`).
+
+**A `workflow_dispatch` may declare at most 10 inputs, and the "Run workflow"
+form is where the limit bites** — inputs past it are reachable by API but the
+UI silently stops rendering them, so a maintainer dispatching by hand cannot
+set them at all and a documented input becomes undispatchable with no error
+anywhere. Budget the slots: give a family of related operations **one generic
+selector** (a choice naming the operation, plus a small number of shared
+parameter fields) rather than a bespoke input per operation, which is the shape
+`run-repair` carries for the maintenance passes. Validate the combinations up
+front and refuse a field the selected operation does not take, so consolidating
+costs no strictness. `test_no_workflow_declares_more_dispatch_inputs_than_the_ui_can_render`
+pins the cap repo-wide.
+
+**On a workflow that has a `schedule:`, an input gate must be false when the
+`inputs` context is empty.** A schedule supplies no inputs, and GitHub compares
+the resulting null numerically: `inputs.mode != 'none'` is **TRUE** on every
+scheduled window (both sides coerce to `NaN`, and `NaN != NaN`), so a
+dispatch-only step gated that way fires on the schedule it was meant to skip.
+Two shapes are safe — conjoin `github.event_name == 'workflow_dispatch'`, or
+compare against `''`, which null equals under the same coercion. Prefer naming
+the value affirmatively (`inputs.mode == 'x'`, or an allow-list membership
+test), which is false under an empty context by construction; that also matters
+at *job* level, where the gate is what grants the job's credentials.
+`test_every_input_gated_step_on_a_scheduled_workflow_is_fail_closed` pins it.
 
 When you add a new `run:*` workflow or edit one, the existing workflows are the
 canonical reference — each handles these cross-cutting traps inline, so copy the
@@ -609,8 +701,9 @@ pattern rather than rediscovering it:
   and pipeline-runs dashboards, the weekly digest, the data-validation
   escalation, the per-day `pull-log` / `live-log` alarms, the seed guard,
   run-backtest's result comment — are bookkeeping about a run rather than the
-  work. The **handoff writes** are the work: `open-run-handoff`'s trigger-issue
-  create, and the trigger-issue closes in run-predict / run-evaluate. Outside
+  work. The **handoff writes** are the work: `open-run-handoff`'s predict
+  trigger-issue create, and the trigger-issue closes in run-predict /
+  run-evaluate. Outside
   those two lists a bare call is fine and a repo-wide rule would be one nobody
   could keep — the collect jobs' own PR plumbing and ci.yml's label read are
   not on this surface. A transient 5xx costs something the run never earned,
@@ -619,7 +712,7 @@ pattern rather than rediscovering it:
   work; on the dashboard (`continue-on-error`), the alarms (which only fire on
   an already-failed window), and the back-test comment (`continue-on-error`
   too) nothing turns red and the *record* is what goes missing; at
-  `open-run-handoff` a blip costs the whole predict/evaluate round, and a lost
+  `open-run-handoff` a blip costs the whole predict round, and a lost
   trigger-issue close leaves an issue that run-ops reads as a stalled fan-out.
   `gh` also sets no client-side request timeout, so a stalled connect hangs to
   the job's kill with nothing written.
@@ -797,9 +890,9 @@ The full path of a change, operator's view:
    handover notes (AGENTS.md asks each for one); the workflow's own body is
    fixed, so this is a hand edit. Re-run the
    check right before merging, and merge with a **merge commit**; tag the
-   merge commit `promotion/<YYYY-MM-DD>` (annotated; `-2` for a same-day
-   second batch — the *Tags* subsection below). Live on the next workflow
-   run.
+   merge commit `promotion/<YYYY-MM-DD>` (annotated preferred, lightweight
+   acceptable; `-2` for a same-day second batch — the *Tags* subsection
+   below). Live on the next workflow run.
 5. Run that stated effect check and record what it printed. A promotion
    changes code, not state, so until something executes the check a batch that
    changed nothing is indistinguishable from one that worked. Mind the timing:
@@ -825,8 +918,14 @@ described in docs/security.md.
 
 ### Tags
 
-Annotated tags on `main` record the project's public reference points, in
-three namespaces:
+Tags on `main` record the project's public reference points, in three
+namespaces. What makes the record trustworthy is the ruleset's
+update/deletion block on these namespaces, not the tag's object type — so
+for `promotion/` and `results/` an annotated tag is preferred (for the
+message and date it carries) and a lightweight one is acceptable. A
+`prereg/` tag is annotated, and not merely by preference: the freeze
+procedure writes the pre-registration record into the tag message
+(docs/process-version.md), so the message is load-bearing there.
 
 - **`prereg/<label>`** — a pre-registration freeze commit, e.g.
   `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS` and sets
@@ -883,9 +982,12 @@ hand until there is a reason to parameterize it.
 
 ## The predict/evaluate matrix
 
-`plan` parses the issue body's ` ```json ``` ` case block and runs
-`fedcourts predict-matrix` / `evaluate-matrix`, which expands the **registry ×
-cases × events** into a GitHub Actions matrix. When prediction scope is gated
+`plan` runs `fedcourts predict-matrix` / `evaluate-matrix`, which expands the
+**registry × cases × events** into a GitHub Actions matrix. Where the cases come
+from depends on the round: from the issue body's ` ```json ``` ` case block for
+`run:predict` and for a labelled `run:evaluate`, and — for a scheduled or
+dispatched `run:evaluate`, which has no issue — from the evaluate backlog the
+matrix command derives itself. When prediction scope is gated
 (`predict.scope=scotus_docket`) the builder reads each case's corpus row (only a
 SCOTUS docket is in scope, minus the shared exclusion reasons), so `plan` first
 pulls the corpus; with the gate on
@@ -907,28 +1009,34 @@ stays in the predict queue and re-runs next cycle, so the cap defers rather than
 drops. This is the numeric backstop, distinct from the coarse
 `PREDICT_HANDOFF_ENABLED` on/off pause below — and distinct again from the
 **review hold**, the per-run gate between plan and spend on both fan-outs:
-each plan job posts its report to the trigger issue, and the matrix waits on
+each plan job renders its report to the run's step summary — and posts it to
+the trigger issue where there is one — and the matrix waits on
 a required reviewer approving the `review` deployment in the Actions UI —
 one environment serves both holds, so the reviewer approves in the same
 place whichever channel is asking, though the evaluate report's spend line
 carries the weaker basis its plan states: a scaled pre-freeze anchor until an
 evaluate fan-out under the currently blessed grading digests measures the
-cert stage. A held run's trigger
-issue also shows on `run-ops`'s open-trigger list as a stalled fan-out — do
+cert stage. A scheduled evaluate round has no trigger issue, so its report
+lives only on that summary — the page the pending deployment review links to,
+which is where the approver reads it. An issue-triggered held run also shows
+on `run-ops`'s open-trigger list as a stalled fan-out — do
 not follow that list's re-fire advice while the hold is still *Waiting*, or
 the re-label mints a second plan behind the first. A run sitting in
 *Waiting* is a request for that decision, not a stall; a hold that
 does not release (rejected, cancelled, or expired) closes its trigger issue
 with the plan report as the record, and re-labelling re-queues with a fresh
-plan. Approve one held run at a time, and treat a hold older than a day as a
+plan. A declined scheduled round has no issue to close and needs no re-queue:
+the backlog it declined is re-derived on the next tick.
+Approve one held run at a time, and treat a hold older than a day as a
 stale plan to reject and re-queue rather than release: the plan-time gates —
 predict's already-predicted gate and stranded-run guard, evaluate's
 predictionless and already-graded drops — were all evaluated when the plan
 was minted, so a long
 hold un-anchors them — two simultaneously held plans over overlapping
 events were each minted before the other spent, and releasing both
-double-spends the overlap. The plan reports on the two issues make the
-overlap visible before either release; a mechanical post-release re-check
+double-spends the overlap. The two plan reports make the overlap visible
+before either release — on the trigger issue where the round has one, on the
+run's step summary otherwise; a mechanical post-release re-check
 belongs to the auto-release follow-up, where no human reads the reports. A
 rejected hold is an unsatisfied-gate report, not an incident — but unlike
 `promote`, whose failures the ops dashboard annotates as gate reports, the
@@ -1008,8 +1116,11 @@ re-queue.
 If the matrix comes back **empty** — every queued case was out of scope (or already
 predicted) — the `predict`/`evaluate` and `collect` jobs are skipped, so nothing
 would otherwise close the trigger issue; the `plan` job closes it with a note
-instead of leaving it orphaned open. (Pull avoids filing such all-out-of-scope runs
-in the first place; this is the backstop for a manually-filed or partial one.) Note
+instead of leaving it orphaned open. (Pull avoids filing such all-out-of-scope
+runs in the first place, so for `run:predict` this is the backstop for a
+manually-filed or partial one. A scheduled `run:evaluate` has no issue to close
+and reports the empty matrix on its step summary instead — for it a drained
+backlog is the ordinary resting state, not an exception.) Note
 the volume cap above can also empty the matrix (when it defers *every* case);
 so can the ex-post spend backstop (`spend.ceiling_usd` in `config/tracking.yaml`
 — armed, see [budget.md](budget.md)) when the trailing window's measured spend
@@ -1177,7 +1288,10 @@ runs by the `run-ops` dashboard into a tooling-feedback digest. See the
 [data-pipeline.md](data-pipeline.md).
 
 To trigger prediction/evaluation for **one** case, open an issue whose body
-contains a single object and apply `run:predict` (or `run:evaluate`):
+contains a single object and apply `run:predict` (or `run:evaluate`). For
+evaluate this is the manual path — a deliberate one-off over cases you picked;
+the lane's normal round is the schedule, which names no cases because it derives
+them:
 
     ```json
     {"court": "ca9", "docket": 64512345, "events": ["evt-motion-stay"]}
@@ -1257,11 +1371,21 @@ judgment to record.
 every other data mutation applies: a dev checkout can run the command and read
 the resulting working-tree diff, but nothing it writes can reach `main` — the
 commit credentials live only in the writer lane's jobs, and a re-grade is not a
-promotion-batch change. So the route is a maintainer-dispatched writer run that
-executes the command for each of the event's evaluators and commits the changed
-`evaluation.json` files; an agent that finds the correction composes the exact
-per-evaluator commands and leaves them where the maintainer will see them
-(`gh workflow run` is refused for a session token). Two disciplines the runbook
+promotion-batch change. That route is `run-repair`'s `regrade-stale` pass, which
+executes the command for each named cell and commits the changed
+`evaluation.json` files. An agent that finds the correction composes the
+dispatch and leaves it where the maintainer will see it (`gh workflow run` is
+refused for a session token) — one line per judge in `repair_target`:
+
+```bash
+gh workflow run run-repair.yml --ref main \
+  -f repair=regrade-stale -f repair_mode=dry-run \
+  -f repair_target='scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge
+scotus/1119228/evt-petition-certiorari/20260624T103000Z/codex-judge'
+```
+
+The `dry-run` echoes each `stamp-cell` command it would run; re-dispatch with
+`repair_mode=apply` to write. Two disciplines the runbook
 carries rather than the code: re-grade the whole event, or `validate`'s
 `evaluation_correct_agrees` fails the ledger on the half-corrected state; and
 re-grade a whole cohort against one committed statpack, since the recomputed
@@ -1279,7 +1403,7 @@ three remedies:
 |---|---|---|
 | *artifact did not transfer* | the cell likely succeeded; its output still exists | **re-run the `collect` job** |
 | *no cell output at all* | the cell died before it could report | **re-queue** — no rerun helps |
-| *secret scan did not pass; withholding &lt;branch&gt;* (log), with a redacted report on the trigger issue | that branch was withheld — its cells' output sits only in the run's cell artifacts | **review the flagged content, then salvage by hand or accept a re-spend** — see below |
+| *secret scan did not pass; withholding &lt;branch&gt;* (log), with a redacted report on the trigger issue — or on the run's step summary, for a round that has no issue | that branch was withheld — its cells' output sits only in the run's cell artifacts | **review the flagged content, then salvage by hand or accept a re-spend** — see below |
 
 A secret-scan withhold starts with a judgment call the other two rows do not
 need. Locate the flagged content first: the scan runs per PR kind, so a hit
@@ -1305,11 +1429,14 @@ stranded-run guard covers a withheld run in either role: the withhold leaves
 `collect` concluding success, which the predict census reads as collected,
 so a re-applied label re-spends every cell the withheld run already paid for.
 
-The first two gaps keep the trigger issue open, so a run never auto-merges
-presenting itself as complete while omitting cells; a withheld ready branch
-keeps it open the same way, while a hit confined to the draft or the flag
+The first two gaps keep the trigger issue open, so an issue-triggered run never
+auto-merges presenting itself as complete while omitting cells; a withheld ready
+branch keeps it open the same way, while a hit confined to the draft or the flag
 roll-up leaves the ready PR to merge and close it — check the run log before
-trusting a closed issue as evidence the whole run landed.
+trusting a closed issue as evidence the whole run landed. A scheduled evaluate
+round has no issue to hold open, and needs none: its omitted cells are still
+ungraded, so the next derivation finds them again. That is the property to lean
+on there — not a closed issue, which for that lane never existed.
 
 A **wholesale-failed run** — every cell died, so no ready or partial PR opens —
 still records one `attempt.json` fact per failed cell via a small auto-merging
@@ -1364,22 +1491,28 @@ unaffected: the draft path only triggers when the agent stopped early.
 ## Pausing the tournament without pausing ingestion
 
 `seed`/`pull`/`live` (cheap, API-budgeted) and `predict`/`evaluate` (the model
-spend) can be run independently. Two variables hold each fan-out at its handoff
-seam:
+spend) can be run independently. The two fan-outs are held by different levers,
+because only one of them has a handoff seam to hold:
 
-| Variable | Unset | Effect when `0` or `false` |
+| Channel | Lever | Effect |
 |---|---|---|
-| `PREDICT_HANDOFF_ENABLED` | `1` — files | `run:predict` issues are not filed |
-| `EVALUATE_HANDOFF_ENABLED` | `1` — files | `run:evaluate` issues are not filed |
+| `run:predict` | `PREDICT_HANDOFF_ENABLED` = `0`/`false` | the pull window files no `run:predict` issue |
+| `run:evaluate` | disable the `run-evaluate` workflow | every trigger stops — schedule, dispatch and label alike; no round is planned |
 
-Set either in the `prod` environment (a repository-level variable of the same
-name works identically, unless an environment-level one shadows it). Both
-default to filing, so an unset or mistyped variable keeps the tournament
+Set the variable in the `prod` environment (a repository-level variable of the
+same name works identically, unless an environment-level one shadows it). It
+defaults to filing, so an unset or mistyped variable keeps the tournament
 running: the failure that costs coverage is the quiet one. Ingestion is
 untouched — the corpus keeps refreshing and outcomes keep being recorded, so a
 pause costs prediction/grading coverage for that window, never data. A full
-tournament pause needs both variables set to `0` — holding only one leaves the
-other channel's trigger issues arriving on their own.
+tournament pause needs both levers, and neither implies the other.
+
+Evaluate has no handoff variable because it takes no handoff: nothing files it a
+trigger issue, so there is nothing to withhold. What stands in for one is the
+disable — and, per-round, the `review` hold, which can decline a planned round
+without stopping the lane. Both are lossless for the same reason the predict
+pause is: the backlog is a condition on committed state, re-derived from scratch
+on the next cycle.
 
 **Holding predict is lossless, and resuming needs no backfill.** The predict
 queue lives in the corpus, not in the issue — the issue is only a trigger
@@ -1426,32 +1559,52 @@ backlog is legible as a paused channel and not misread as a stalled fan-out.
 
 ### The evaluate queue is level-triggered too
 
-The poll seams queue `run:evaluate` off *this cycle's* resolutions — events that
-`result.resolved` reports as newly closed — and `upsert_events` is
-resolved-latching, so no later poll re-emits them. On its own that would make a
-failed or dropped evaluate run lossy: the corpus push and the outcome commit both
-land before the handoff, so the outcomes and predictions would exist with nothing
-left to grade them.
+Resolution latches closed: `upsert_events` never re-emits an event a poll already
+reported as resolved. So an evaluate round that fails, is declined, or never runs
+cannot be recovered by waiting for the resolution to come round again — the corpus
+push and the outcome commit both landed already, and the outcomes and predictions
+would sit there with nothing left to grade them.
 
-The **evaluate backlog deriver** (`pipeline.pull.evaluate_backlog`) closes that.
-Each `pull-all` / `live-poll` cycle re-derives owed gradings straight from
-committed ledger state — a resolved event that has a prediction and is missing at
-least one enabled evaluator's evaluation — and appends them to the same evaluate
-queue the fresh-resolution path feeds. So a run that is dropped, fails, or is
-never dispatched is picked up on a later cycle; the trigger issue is a trigger,
-not load-bearing state.
+The **evaluate backlog deriver** (`pipeline.pull.derive_evaluate_backlog`) is what
+makes that impossible. It asks a question about committed state — which resolved
+events have a prediction and are missing at least one enabled evaluator's
+evaluation — so the answer reconstructs itself from the ledger every time it is
+asked, and a lost round is simply re-derived.
+
+Two callers ask it, with different authority (see [cli.md](cli.md) for the
+command-level contract):
+
+- **`run-evaluate`'s own schedule**, at plan time, is what the fan-out actually
+  runs on: `evaluate-matrix` with no `--body-file` derives the backlog and fans
+  out over it. It reads only — the corpus of record is writable from the writer
+  jobs alone — so it writes no `evaluate_queued_at` stamp and needs none. The
+  plan's already-graded gate is the idempotency: re-deriving an unchanged backlog
+  re-mints nothing once the gradings are committed, while a cell that was *not*
+  graded is work still owed and should re-mint.
+- **Each `pull-all` / `live-poll` cycle**, whose `pipeline.pull.evaluate_backlog`
+  appends the derived cases to the same evaluate queue the fresh-resolution path
+  feeds, stamps `evaluate_queued_at` on what it derived, and reports the queue's
+  size on the run log. It files no trigger issue.
 
 It mirrors the predict selection sweep, with one deliberate difference and one
 deliberate similarity:
 
 - **Different:** it is purely local (git ledger + corpus, no network), so its
   `evaluate.backlog_cases_per_cycle` cap bounds model spend and PR volume, not
-  request rate.
-- **Same:** an `evaluate_queued_at` corpus column debounces re-derivation to
-  daily and drains the backlog stalest-first, so an in-flight or failed run PR is
-  not re-queued every cycle. That column is scheduling metadata only — the queue
-  itself is re-derivable from git — so losing it costs at most a duplicate trigger
-  issue, never a grading.
+  request rate. On the scheduled lane that cap and the cron's cadence are the
+  whole of the pacing.
+- **Same:** the `evaluate_queued_at` corpus column orders the drain stalest-first
+  and debounces to daily. It paces the **pull lane**, which writes it; the
+  debounce runs one way only, since the scheduled lane honours a stamp the pull
+  lane wrote this morning but leaves none of its own, so it orders on a key it
+  never advances. That column is scheduling metadata — the backlog itself is
+  re-derivable from git — so losing it costs at most a duplicate round, never a
+  grading.
+
+Because the gate reads *committed* state, it cannot see a round whose collect PR
+has not merged. What keeps a second derivation out of that window is
+`run-evaluate`'s concurrency group, which serializes every round of the workflow
+regardless of trigger — not the gate.
 
 The daily debounce paces re-queuing but has no ceiling, so a cell that fails
 *every* attempt (a persistent quota wall, a malformed record) would re-queue
@@ -1471,7 +1624,7 @@ grading.
 Re-queueing costs nothing but latency: the scoring surfaces count one grading per
 (case, event, predictor, evaluator) — newest by harness clock — so a re-queued
 grading supersedes rather than double-counts (a fresh `evaluation.json` the
-collapse counts, not the in-place recompute `regrade_stale` dispatches), and the
+collapse counts, not the in-place recompute a `regrade-stale` repair dispatches), and the
 `evaluate-matrix` plan gate drops a
 cell whose judge has already graded the event (per evaluator) so a re-derivation
 spends model tokens only on the *missing* judges. The gate works at (evaluator,
@@ -1484,18 +1637,27 @@ leaving it to a ledger scan: every entry carries its own `events_scored` against
 the board's union, and `fedcourts leaderboard` warns when they are unequal
 (`metrics/README.md`).
 
-An `EVALUATE_HANDOFF_ENABLED` pause switch mirrors `PREDICT_HANDOFF_ENABLED`:
-holding it costs latency alone — a held window re-derives on resume rather than
-being lost — so a full pause of both channels needs both variables set to `0`.
+Pausing evaluate costs latency alone, for the same reason: a cycle that never
+ran re-derives on the next tick rather than being lost. Its lever is the
+workflow disable rather than a handoff variable (see *Pausing the tournament*
+above), and a full pause of both channels needs each channel's own.
 
 ### Disabling the workflow is not the same as holding the handoff
 
-Disabling `run-predict` / `run-evaluate` in the GitHub UI stops the *runs* but
+For **predict**, disabling `run-predict` in the GitHub UI stops the *runs* but
 not the *issues*. The issues keep arriving and sit unconsumed — and `run-ops`
 lists every still-open `run:*` issue as a **stalled fan-out**, so a
 workflow-disabled-only pause steadily reddens the ops dashboard with what looks
-like broken runs. Holding the handoff avoids that; for a full pause of either
-channel, hold the handoff *and* disable the workflow.
+like broken runs. Holding the handoff avoids that; for a full pause, hold the
+handoff *and* disable the workflow.
+
+For **evaluate** the pipeline files no issue, so disabling `run-evaluate` leaves
+its scheduled rounds nothing to strand — the disable is the pause, and the
+backlog waits. The label path is the exception that survives: a hand-labelled
+`run:evaluate` issue filed against the disabled workflow does sit unconsumed, and
+`run-ops` still lists `run:evaluate` among its trigger labels, so it reads as a
+stalled fan-out exactly as a predict issue would. Do not file one while the
+workflow is disabled.
 
 ### Recovering from a manual disable
 
@@ -1512,10 +1674,13 @@ step's mechanics are silent about what they drop:
    enabled workflow with the handoff still held creates nothing, so this
    order has no window in which events fire into a disabled workflow.
 2. **Then restore the handoff, if it was held** — variable administration,
-   on the same maintainer-only list. A full pause holds the handoff *and*
-   disables the workflow (above); restoring the handoff while the workflow
-   is still disabled would file trigger issues whose label events are
-   dropped, manufacturing exactly the re-label work of the next step.
+   on the same maintainer-only list. Predict only: a full predict pause holds
+   the handoff *and* disables the workflow (above), and restoring the handoff
+   while the workflow is still disabled would file trigger issues whose label
+   events are dropped, manufacturing exactly the re-label work of the next
+   step. Evaluate has no handoff to restore, and step 3 does not apply to it
+   either — its next scheduled tick resumes the lane on its own, and
+   `workflow_dispatch` runs one immediately if the wait is too long.
 3. **Re-apply the `run:*` label on each trigger issue that should now run.**
    Label events fired while the workflow was disabled were dropped, and an
    already-applied label fires no event (both GitHub's own event mechanics,
@@ -1531,12 +1696,13 @@ step's mechanics are silent about what they drop:
    withhold re-spends every cell the withheld run already paid for (same
    section); and a queued event that resolved during the pause closes as
    out of scope — the forecastability re-check working across the gap.
-4. **The hold, not the enable, is still the spend gate.** A re-applied label
-   starts at the plan job, which posts a fresh plan report, and the matrix
-   waits behind the approval job on the `review` environment's required
-   reviewers — so a recovery cannot leak spend past the hold, and the fresh
-   plan re-anchors the already-predicted gate and the stranded-run guard
-   exactly as the review-hold rules above require of a re-queue.
+4. **The hold, not the enable, is still the spend gate.** A re-applied label —
+   or an evaluate round resuming on its schedule — starts at the plan job,
+   which renders a fresh plan report, and the matrix waits behind the approval
+   job on the `review` environment's required reviewers. So a recovery cannot
+   leak spend past the hold, and the fresh plan re-anchors the already-predicted
+   gate and the stranded-run guard exactly as the review-hold rules above
+   require of a re-queue.
 
 ## Snapshot sequencing
 

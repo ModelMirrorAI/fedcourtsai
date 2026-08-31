@@ -192,6 +192,12 @@ class CorpusRow(BaseModel):
         "from — the merits event's resolution date; None for an undated entry, "
         "and meaningful only beside a non-None `merits_judgment`.",
     )
+    capital_case: bool = Field(
+        default=False,
+        description="Whether the docket carries the Court's `*** CAPITAL CASE "
+        "***` marking. Read from the annotation upstream appends to the case "
+        "number, which the same normalization strips out of `docket_number`.",
+    )
     nature_of_suit: str | None = Field(default=None, description="Nature/topic of the matter")
     judges: list[str] = Field(default_factory=list)
     panel: list[corpus.PanelMember] = Field(
@@ -474,11 +480,20 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
     disposition = _disposition(record)
     if disposition is None and court == "scotus":
         disposition = _cert_date_disposition(date_cert_granted, date_cert_denied)
+    # The strip runs on every route, not just the live one: the shape is a
+    # docket-number spelling, and any channel that ever serves it would
+    # otherwise land a number nothing can parse. The live route arrives already
+    # stripped and carrying its flag (`map_live_docket`), so the OR keeps that
+    # reading while letting a bulk or API row that carries the marker raise it.
+    docket_number = _clean(record.get("docket_number")) or ""
     return CorpusRow(
         case_id=ids.case_id(court, docket_id),
         court=court,
         docket_id=docket_id,
-        docket_number=_clean(record.get("docket_number")) or "",
+        docket_number=corpus.strip_docket_annotation(docket_number),
+        capital_case=(
+            bool(record.get("capital_case")) or corpus.is_capital_docket_number(docket_number)
+        ),
         case_name=_clean(record.get("case_name") or record.get("case_name_full")) or "",
         petitioner_title=_clean(record.get("petitioner_title")),
         date_filed=_date(record.get("date_filed")),
@@ -858,10 +873,23 @@ def map_live_docket(
     parties, attorneys, counsel = _live_counsel(payload)
     lower_court = _clean(payload.get("LowerCourt"))
     lower_numbers = _clean(payload.get("LowerCourtCaseNumbers"))
+    # Upstream appends a display annotation to some case numbers
+    # ("19-1094 *** CAPITAL CASE ***"). It is a flag on the case, not part of
+    # the number, and every reader of the stored column parses the whole string
+    # — so storing it raw makes the docket unparseable to the fee-class,
+    # Term-year, and live-addressing readers alike. Strip it here, at the write
+    # site, and latch what it said in `capital_case` so the strip loses nothing.
+    case_number = _clean(payload.get("CaseNumber")) or ""
     return {
         "id": docket_id,
         "court_id": "scotus",
-        "docket_number": _clean(payload.get("CaseNumber")) or "",
+        "docket_number": corpus.strip_docket_annotation(case_number),
+        # Two readings of one fact, OR-ed: the payload's own flag is the
+        # authoritative one, and the annotation is what a payload that omits the
+        # flag still says. Either alone would under-report.
+        "capital_case": (
+            bool(payload.get("bCapitalCase")) or corpus.is_capital_docket_number(case_number)
+        ),
         "case_name": case_name,
         "petitioner_title": petitioner or None,
         "date_filed": _clean(payload.get("DocketedDate")),
@@ -1062,10 +1090,14 @@ def to_corpus_row(
         originating_court_name=row.originating_court_name,
         application_kind=row.application_kind,
         response_requested=row.response_requested,
+        response_requested_at=row.response_requested_at,
+        response_filed_at=row.response_filed_at,
         referred_to_court=row.referred_to_court,
         amicus_briefs=row.amicus_briefs,
         merits_judgment=row.merits_judgment,
         merits_decided=row.merits_decided,
+        merits_brief_filed=row.merits_brief_filed,
+        capital_case=row.capital_case,
         sample_weight=sample_weight,
     )
 
@@ -1168,7 +1200,13 @@ def backfill_live_signals(db_path: Path) -> tuple[int, int]:
         for record in unweighted:
             weight = 1
             if record["disposition"] == Disposition.denied.value:
-                parsed = parse_scotus_docket_number(record["docket_number"])
+                # Stored numbers written before the ingest strip still carry a
+                # display annotation, which parses as nothing — and "unparsed"
+                # reads here as weight 1, so an annotated sampled denial would
+                # silently count at full strength in every weighted aggregate.
+                parsed = parse_scotus_docket_number(
+                    corpus.strip_docket_annotation(str(record["docket_number"]))
+                )
                 if parsed is not None and parsed[1] % LEGACY_DENIAL_SAMPLE_EVERY == 0:
                     term, serial = parsed
                     stream = "historical-ifp" if serial >= IFP_SERIAL_BASE else "historical-paid"

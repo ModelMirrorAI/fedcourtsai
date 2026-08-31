@@ -60,6 +60,7 @@ def _decided_row() -> corpus.CorpusRow:
         predict_queued_at=date(2024, 2, 20),
         evaluate_queued_at=date(2024, 3, 10),
         last_live_polled=date(2024, 6, 30),
+        capital_case=True,
     )
 
 
@@ -76,6 +77,9 @@ def test_projection_nulls_every_outcome_and_latch_field() -> None:
     assert row.salience_selected is False
     assert row.predict_queued_at is None and row.evaluate_queued_at is None
     assert row.predict_excluded is False
+    # Reset by decision, not omission: the stored flag has no per-viewpoint
+    # sentinel, so the projection must not carry it (asof.py states why).
+    assert row.capital_case is False
     assert row.distributed_for_conference is None  # the caller derives the as-of value
 
 

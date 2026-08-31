@@ -1,8 +1,11 @@
 """The trusted pipeline-App bot must reach the agent step.
 
-`run-pull` files the `run:predict` / `run:evaluate` handoff
-issues as the data App (`fedcourtsai-data[bot]`), and the plan job's
-`authorize-trigger` gate approves that Bot sender. But claude-code-action and
+`run-pull` files the `run:predict` handoff issues as the data App
+(`fedcourtsai-data[bot]`), and the plan job's
+`authorize-trigger` gate approves that Bot sender. `run-evaluate` carries the
+same allowance for its label path — its own rounds arrive on a schedule with a
+human actor, so nothing files it a Bot-sent label today, and the grant is held
+in reserve pinned to that one login. But claude-code-action and
 codex-action each run their *own* actor check and refuse a bot by default, so the
 automated handoff silently dies at the agent step unless the bot is allowlisted
 there too. These tests lock that allowlist in — a regression here breaks the whole

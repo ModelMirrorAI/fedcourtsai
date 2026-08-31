@@ -2,7 +2,7 @@
   "$defs": {
     "CorpusCheck": {
       "additionalProperties": false,
-      "description": "One named corpus-integrity or referential check and its result.\n\n``checked`` is how many items the check examined (rows, snapshots, or ledger\nartifacts) and ``failures`` how many violated the invariant; ``problems`` is a\nbounded sample of the specific violations (the full count is ``failures``, so a\ntruncated sample never hides that there were more). ``detail`` is a one-line\nhuman summary, e.g. the row count compared against the baseline.",
+      "description": "One named corpus-integrity or referential check and its result.\n\n``checked`` is how many items the check examined (rows, snapshots, or ledger\nartifacts) and ``failures`` how many violated the invariant; ``problems`` is a\nbounded sample of the specific violations (the full count is ``failures``, so a\ntruncated sample never hides that there were more). ``detail`` is a one-line\nhuman summary, e.g. the row count compared against the baseline. ``passed``\nwith a non-zero ``failures`` is a defined state, not a contradiction: the\ncount is held within an accepted baseline, or the check is advisory (its\n``detail`` then leads with ``advisory:``) \u2014 a backlog only a data pass can\nclear, reported without holding the verdict red.",
       "properties": {
         "checked": {
           "default": 0,

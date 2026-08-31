@@ -513,6 +513,10 @@ directory without knowing which part is which invites trusting the wrong half.
   [freeze-record.md](freeze-record.md).
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
   prediction, written by the `collect` job, which is the only observer of that.
+  One path removes a committed one: the `include-failed-attempts` widening on
+  run-repair's `merits-phantom-removal` pass, which deletes attempt records
+  along with the phantom merits event they document spend against, and is off
+  unless a dispatch asks for it ([pipeline.md](pipeline.md)).
 - **`process_version`** on `prediction.json` — stamped by `fedcourts
   stamp-cell` from the prompt-template bytes and the resolved configuration in
   force at run time. Anything an agent puts there is overwritten. The `digest`

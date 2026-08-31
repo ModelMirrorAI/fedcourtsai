@@ -433,10 +433,12 @@ def _scored_segment(row: corpus.CorpusRow) -> bool:
     importing it — ``analytics`` imports ``pipeline.salience``, which the
     ``sal-v2`` scorer's caption bands make an importer of this module, so an
     ``analytics`` import here would close a cycle. A test pins the two
-    predicates equal on every plain form; the one pinned divergence is an
-    annotated docket number ("*** CAPITAL CASE ***"), which parses here
-    through normalization — the gate's own reading — where the statpack
-    cut's raw parse drops the row.
+    predicates equal on every form, the annotated docket number
+    ("*** CAPITAL CASE ***") included: this side reads it through
+    normalization, the statpack cut through the annotation strip its own parse
+    applies, and the two agree because both see past the annotation. That form
+    is the one the pair most easily drifts on, which is why it is pinned
+    explicitly rather than left to the plain cases.
     """
     if not corpus.is_modern_cert(row):
         return False

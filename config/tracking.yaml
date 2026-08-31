@@ -132,7 +132,7 @@ historical:
   # The walker ingests
   # only decided petitions, skips pending ones, and leaves a decided petition
   # whose existing case carries an open PREDICTED event to the watchlist (its
-  # re-poll queues the evaluate handoff the walker never files); the two
+  # re-poll lands it on the evaluate backlog the walker never feeds); the two
   # walkers' cursors are disjoint, so neither rewinds the other. Note the
   # frame below applies to what the WALKER ingests — a Term the forward
   # poller also onboarded (OT2025+) carries the poller's pending-petition
@@ -210,8 +210,12 @@ evaluate:
   # evaluation), so a failed or paused run:evaluate self-heals instead of losing
   # those gradings. Unlike the selection sweep this costs no network (git ledger +
   # corpus only), so the cap bounds model spend and PR volume, not request rate:
-  # each queued case fans out one cell per not-yet-graded evaluator. The backlog
-  # drains across cycles, stalest first, under a daily evaluate_queued_at debounce.
+  # each queued case fans out one cell per not-yet-graded evaluator. It bounds
+  # both consumers of the deriver: the pull cycle, which drains stalest first
+  # under a daily evaluate_queued_at debounce it writes itself, and the evaluate
+  # stage's own trigger-free derivation, which writes no stamp and so re-presents
+  # the same head of the queue every run until the ledger moves under it. On that
+  # second lane this cap and the caller's cadence are the only pacing there is.
   backlog_cases_per_cycle: 25
   # Per-cell poison-pill cap for the durable failure queue — the committed
   # per-run `attempt.json` facts the collect job writes, counted by

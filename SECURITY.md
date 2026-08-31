@@ -199,7 +199,17 @@ runbook, [docs/security.md](docs/security.md).
   privileged job re-checks, before any privileged work, that the triggering
   actor has **write access** (failing closed), so a label applied by anyone
   else is inert — nothing that mints a token, assumes a role, or reads the
-  corpus runs ahead of that check in any `run:*` workflow. What does run ahead
+  corpus runs ahead of that check on any `run:*` **label** path. `run-evaluate`
+  also runs on a schedule and a dispatch, which are not label events and so do
+  not reach that gate; three platform facts stand in its place, and the spend
+  hold stands behind all of them. A `schedule` fires only from the **default
+  branch**, so a cron can only run what a maintainer-merged promotion put on
+  `main`. A `workflow_dispatch` is gated by GitHub on repository **write** —
+  the same bar the gate's non-Bot branch enforces. And the job binds `prod`,
+  whose deployment branches are restricted to `main` (below), so a dispatch
+  from any other ref is refused at the deployment-branch gate before a step
+  runs: no role, no secret, no agent. On every trigger alike the `review` hold
+  remains the thing between a plan and any spend. What does run ahead
   of it is accepted and named in place: the gate is a tested command, so it
   needs a working tree and a synced env, and on every label path a
   credential-free checkout and an environment setup precede it — as, on the two
@@ -209,23 +219,28 @@ runbook, [docs/security.md](docs/security.md).
   so the label path syncs twice, and the run is already holding the shared
   corpus-write lock for the minute the refusal takes. Every `run:*` gate — the
   three fan-outs and the deterministic
-  writer — treats a `Bot` sender as the trusted App handoff without a
-  permission lookup. That allowance rests on two platform facts: installing a
+  writer — treats the data App's `Bot` sender as the trusted App handoff
+  without a permission lookup. That allowance rests on two platform facts: installing a
   GitHub App requires admin on the repository, and label writes made with the
   default `GITHUB_TOKEN` do not fire workflows — so no unprivileged actor can
   produce an `issues: labeled` event with a `Bot` sender. What those facts do
   not cover is a *second* admin-installed App (the repo carries more than one):
-  its label writes are `Bot` senders too. `run-pull`, which no handoff files
-  today, closes that residue by pinning the handoff to the data App's own
-  login (`--bot-actor`); the fan-out gates are unpinned — `run-predict` /
-  `run-evaluate` narrow their claude/codex agent steps to the data App's login
-  (the claude action's `allowed_bots`, the codex action's `allow-bot-users` —
-  the same pin under two spellings), while their gemini steps and
-  `run-backtest` rely on the gate alone.
+  its label writes are `Bot` senders too. Every gate closes that residue by
+  pinning its `Bot` allowance to the data App's own login (`--bot-actor`).
+  The claude/codex agent steps on `run-predict` / `run-evaluate` carry their
+  own narrowing to the same login (the claude action's `allowed_bots`, the
+  codex action's `allow-bot-users`) — not redundancy: those actions refuse a
+  bot actor by default, so the step-level grant is what lets an App-filed
+  label round reach the agent at all, and `tests/test_workflow_agent_bot.py`
+  locks it in. On `run-predict` that grant carries the standing pull handoff;
+  on `run-evaluate`, whose rounds normally arrive on its own schedule with a
+  human actor, it is held in reserve for the label path — pinned to the one
+  login either way, which is what makes keeping it cheap. The gemini steps and `run-backtest` have no step-layer check
+  and rely on the gate's pin alone.
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
   is the sole bypass actor, so the deterministic writer jobs (`run-pull`,
-  `run-seed`) push corpus facts
+  `run-seed`, `run-repair`) push corpus facts
   straight to `main` while everything agentic goes through that PR — enforced
   by identity, since the agent workflows authenticate as a separate,
   non-bypass **dev App**. Both rulesets require **zero** approving reviews, so
@@ -240,8 +255,11 @@ runbook, [docs/security.md](docs/security.md).
   outcomes, and evaluations under `data/` is immutable — every forward change
   is a new, attributable commit. Forward deletions of ledger records are
   confined to two bounded channels: the maintainer-reviewed `cleanup/*` PR
-  lane, and the run-seed writer lane's attribution-repair sweeps, whose CLI
-  refuses to apply above a per-run blast-radius cap. Secrets and the two
+  lane, and the writer lanes' bounded repair sweeps — run-seed's attribution
+  repairs, and run-repair's dispatch-gated removal of merits events whose
+  docket carries no cert grant — each of whose CLI refuses to apply above a
+  per-run blast-radius cap, and each of which stages its ledger deletions into
+  the same commit as the corpus pointer they must match. Secrets and the two
   production S3 role ARNs live in the
   `prod` environment, whose deployment branches are restricted to `main`: a
   workflow authored on a PR branch runs without them. A second environment,

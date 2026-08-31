@@ -8,7 +8,7 @@ name: staging-corpus-refresh
 #
 # Its own workflow file rather than a mode on an existing one, on AGENTS.md's
 # risk-class rule: this is a **corpus writer**, and every other corpus writer
-# (run-pull, run-seed) is its own workflow for the same reason — a job holding
+# (run-pull, run-seed, run-repair) is its own workflow for the same reason — a job holding
 # a write-capable role and a job holding a read-only one are different risk
 # classes, and permissions are scoped per job. Its whole permission surface
 # is one file to read: the staging read-write role's trust names the
@@ -188,7 +188,7 @@ jobs:
           # a per-line list cannot be typed there at all, and a pasted one
           # arrives space-joined. Writing that verbatim hands the command one
           # long "id" and the run dies at the grammar check having done
-          # nothing. Same idiom as run-seed's `regrade_cells`, which tolerates
+          # nothing. Same idiom as run-repair's `repair_target`, which tolerates
           # both for the same reason. Blank lines are dropped with `sed` rather
           # than `grep -v`, whose exit 1 on an all-blank value would trip
           # pipefail before the command's own emptiness refusal is reached.

@@ -970,7 +970,7 @@ freeze commit is recorded here.
   de-count, and claim nothing from them. The `proc-v5` freeze entry states
   the final de-counted census and points here as its licence.
 
-- Freeze commit: `<FILL: freeze commit>`, to be tagged **`prereg/proc-v5`**
+- Freeze commit: `0b019da58`, to be tagged **`prereg/proc-v5`**
   per step 4 — on this freeze commit itself, once its carrying promotion
   lands and the instant audit passes (`proc-v4`'s merge-placed tag is the
   recorded anomaly, not the rule). Blesses the six proc-v5 digests — the three
@@ -990,11 +990,11 @@ freeze commit is recorded here.
   not vacuous, because `graded_post_freeze` tests timing with no digest test
   at all, so a gap evaluation would read as counted while the constant was
   still editable. Carried to `main` by the
-  promotion tagged <FILL: promotion tag> (merge commit <FILL: merge commit>,
-  merged <FILL: merge timestamp>). Step 0's stamped-cell grep for the newly
+  promotion tagged **`promotion/2026-08-29`** (merge commit `39a3a9565`,
+  merged `2026-08-29T16:26:24Z`). Step 0's stamped-cell grep for the newly
   blessed digests at authoring: **zero** on `origin/main` and this tree,
   against 231 predictions and 138 evaluations under the retiring set; re-run
-  at the promotion: <FILL: step-0 grep at promotion>.
+  at the promotion: **zero** for all three newly blessed predictor digests.
 
   **The amendment batch**, every debt named on the record before this freeze:
   the claims-block count corrected to the five-claim cert-v2 set; the
@@ -1024,7 +1024,7 @@ freeze commit is recorded here.
   the still-blessed evaluator digests included: the timing limb tests no
   digest, and the boundary is total in both halves, per the third
   supersession shape. Final census at the carrying promotion, both halves:
-  <FILL: de-counted census at promotion — predictions and evaluations>.
+  **231 predictions and 138 evaluations** — unchanged from authoring; no stamped cell landed in the window.
   The de-count becomes **visible** at the first post-promotion
   `metrics-refresh`, not at the merge — the committed boards are static
   artifacts, and the refresh that empties their interim stage blocks is the
@@ -1034,3 +1034,105 @@ freeze commit is recorded here.
   long-conference claim window opens with the first cells stamped under
   these digests at or after the instant, which is why the carrying promotion
   must land **before the long-conference predict round runs**.
+
+- **The capital-marking strip re-partitions the paid scored segment,
+  2026-08-29** (no digest moves, no new process version): the
+  cert **scored segment** — the paid modern-cert population
+  `analytics._is_scored_segment_row` defines, which the statpack's segment base
+  rates, the per-Term `classes` blocks, `cert_backtest`, and
+  `salience_replay`'s frame are all conditioned on — gains the SCOTUS
+  petitions whose stored `docket_number` carries the Court's
+  `*** CAPITAL CASE ***` marking. Recorded here because it moves a measured
+  number under unchanged digests, after `prereg/proc-v5` was tagged
+  (freeze commit `0b019da58`, instant `2026-09-05T00:00:00Z`), and the
+  pre-registered baseline is the whole tree at that tag.
+
+  **What changed and why it is a correction, not a re-definition.** Fee class is
+  read from the docket serial, and the marking is appended to the number
+  upstream, so a marked number parsed as nothing: `_fee_class` returned `None`,
+  the row fell outside the paid segment, and — the same parse, the other
+  direction — `corpus.is_ifp_petition` returned `False` on a marked IFP
+  petition, admitting it to a scope the registered Tier-0 rule excludes. Both
+  readers now strip the marking before parsing. `docs/salience.md`'s statement
+  that the scored set is paid-only, and `metrics/README.md`'s rule that an
+  anchor match the population it anchors, were **already** the registered
+  intent; the implementation did not meet them. No registered rule text moves,
+  which is why this is not a `sal-v5`: a salience version is the five things
+  `docs/salience.md` enumerates (score function, band function, band names,
+  always-include rule, distribution parse), and Tier-0 hard eligibility is none
+  of them — it lives upstream of scoring in `corpus.OUT_OF_SCOPE_RULES`.
+
+  **Measured effect.** Read from the corpus blob whose newest `last_pulled` is
+  `2026-08-29` (newest stored snapshot `2026-07-13`), 2,152,649 case rows:
+  463 stored numbers carry a `*** … ***` string, of which 462 are the Court's
+  capital marking on SCOTUS rows and one is a Second Circuit consolidated
+  docket string that uses the asterisks as a separator and is deliberately left
+  alone. Of the 462: **183 paid** modern-cert rows enter the scored segment
+  (dispositions 147 denied, 21 granted, 10 GVR, 5 unresolved — a grant-family
+  rate several times the segment's own, so the addition is **not** a random
+  slice), and **123 IFP** rows become Tier-0 out of scope, **63 of which
+  currently carry `salience_selected = 1`** — the gate has been funding
+  petitions the registered rule excludes. Pooled OT2017–OT2025 the resolved
+  paid segment moves n = 13,163 → 13,341 (+178), its grant rate 4.163% →
+  4.265%, and its grant-family rate 6.450% → 6.596%. The 178 added rows carry
+  31 grant-family outcomes — **17.4%**, against the segment's own 6.6% — which
+  is the fact that matters: this is a re-partition on a population correlated
+  with the outcome, not a random top-up. Per band (directional —
+  computed with the active scorer over current row state, unweighted, no
+  risk-set prefix), the move concentrates in `state` (+1.16pp on n ≈ 294); the
+  always-include `high` band is essentially unmoved (−0.03pp — the 43 joining
+  rows carry the band's own rate); per Term the paid grant-family rate moves
+  ≤ +0.50pp (largest at OT2021). The raw-count figures above also assume the
+  stored weights: the statpack's published rates are denial-reweighted, and 24
+  marked rows are grid denials whose stored `sample_weight` is 1 where the
+  corrected rule gives 10 (`backfill_live_signals` fills only NULL weights, so
+  the strip cannot repair them). Reweighted as stored, the paid segment reads
+  n = 13,458 weighted and grant-family **+0.089pp** rather than +0.146pp; the
+  weight repair is a writer-lane pass owed separately.
+
+  **The same strip moves the interim stratum harder, registered here too.**
+  `corpus.scotus_application_term_year` now parses 156 of the 462 marked rows
+  — application-form dockets that previously parsed to no Term at all — into
+  the per-Term interim cut (OT2025 +102, OT2024 +36, OT2026 +18; among them
+  77 granted / 74 denied / 1 withdrawn). Measured against the committed
+  statpack, whose OT2025 interim block this method reproduces exactly: OT2025
+  substantive resolved 178 → 226, grant rate 8.99% → 7.52%; OT2024 49 → 70,
+  28.57% → 20.00%; and the pooled prior-Terms anchor an OT2026 interim cell
+  grades against moves 13.22% → 10.47% — **−2.75pp, −21% relative**, roughly
+  twenty times the cert-segment move above. `interim_base_rate` is
+  harness-stamped at grade time from the committed pack, which makes this the
+  entry's sharpest non-pooling boundary. (The 135 committed interim
+  evaluations carrying a `segment_base_rate` are all proc-v3 shakedown, so
+  nothing counted is re-priced — an argument about today's ledger, which is
+  why the boundary is registered rather than assumed.) A companion data fact:
+  every one of the 156 carries a cert-shaped `evt-petition-disposition`
+  baseline minted off the unparsed number; the application relabel now reads
+  the stripped number, so its next writer-lane run relabels them into the
+  application stratum.
+
+  **Nothing counted is re-based.** At this entry's date the frozen cert
+  headline is empty (`metrics/leaderboard.json` `entries: []`,
+  `events_scored: 0`), and the standing `interim@arrival` forward entries are
+  already declared shakedown by the 2026-08-29 declaration above and de-count
+  at the proc-v5 freeze. One marked paid docket carries predictions (three) and
+  **zero** evaluations, so no graded cell is re-priced. Of the 63 de-selected
+  IFP rows, two reached a committed event and neither carries a prediction, so
+  `cleanup-out-of-scope-predictions` deletes nothing — a window that closes
+  when this lands, and would open only if a predict round ran first.
+
+  **The rule this entry registers.** A figure built from a pre-refresh pack —
+  a `segment_base_rate` stamped on a cert or interim cell, a `cert-backtest`
+  report, or `metrics/salience-replay.json`'s committed frame (a sal-v1
+  vintage outside the weekly refresh set, so its figures simply pre-date this
+  re-partition until someone regenerates it) — may not be pooled with, or
+  read against, a post-refresh figure under the same labels. The refresh that
+  closes the boundary: <FILL: the metrics-refresh commit that regenerates the
+  boards after this promotion>.
+
+  **The entry is dated before the instant deliberately.** Landing it and
+  refreshing metrics before `2026-09-05T00:00:00Z` means no counted number ever
+  straddles the change. The committed boards move at the first
+  `metrics-refresh` after this promotion, not at the merge, and that refresh is
+  this change's runnable effect check: `fedcourts statpack`, then the diff
+  showing the paid class counts risen by the per-Term additions above and the
+  docket pack's fee-class `(none)` bucket emptied.

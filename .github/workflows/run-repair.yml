@@ -1,0 +1,1330 @@
+name: run-repair
+
+# The maintainer's repair bench: the dispatch-gated corpus and ledger
+# maintenance passes, one per dispatch, dry-run first, never scheduled.
+#
+# Why these do not live beside the walk in run-seed: the two are different
+# trigger classes with different failure postures. run-seed is production —
+# four scheduled windows a day whose sweeps are non-blocking by contract,
+# because a hiccup must converge next window rather than redden a walk nobody
+# is watching. A repair pass is the opposite: it runs because a maintainer read
+# a dry-run ledger and decided, it fails by REFUSING (an apply without its
+# bound, a malformed cell id, a stamp the command declines), and a refusal is
+# the answer the dispatch was for. Absorbing one would report work that never
+# happened. Keeping them apart also keeps the passes' growth off the production
+# workflow: every pass added here costs run-seed nothing — not a dispatch
+# input, not a `LOOP_BUDGET_SECONDS` conjunct, not a step the walk must budget
+# a tail for.
+#
+# One pass per dispatch is structural, not a convention: `repair` is a single
+# choice, so no two passes can arm each other. That matches the documented
+# procedure — `dry-run`, read the ledger the run summary carries, then `apply`
+# with the count read off it. It also settles the sizing question a shared job
+# would raise: two thirty-minute passes beside a walk do not fit one job cap.
+#
+# It is a corpus writer like run-pull's and run-seed's jobs, so its writer jobs
+# join the repo-level `corpus-write` concurrency group: the corpus is a single
+# blob (pull -> mutate -> push -> commit corpus/corpus.db.ref to main), so only
+# one writer runs at a time regardless of workflow. The selector validation
+# deliberately sits OUTSIDE that group, in its own credential-free job, so a
+# malformed dispatch is refused in seconds rather than queuing behind a walk to
+# be told about a typo.
+#
+# A *queued* repair run can be silently evicted, the hazard run-pull's enrich
+# job documents: GitHub keeps only the latest pending run per concurrency
+# group, so a scheduled window entering `corpus-write` behind this dispatch
+# cancels it — and a one-shot dispatch, unlike a rotation, does not pick up
+# where it left off. Dispatch in a dead zone between the scheduled windows
+# (run-pull at `:17` and `:47`, run-seed at `:31`) to avoid ever queuing.
+#
+# No guard job, unlike run-seed: that one exists because a scheduled walk fails
+# unwatched and commits to main with no PR gate, so a cancellation has to raise
+# its own escalation. Every run here was started by hand a moment earlier by
+# the one person who wants to read its ledger.
+#
+# The full pass inventory, with each pass's inputs, refusals and procedure, is
+# in docs/data-pipeline.md, *Maintenance passes*.
+on:
+  workflow_dispatch:
+    inputs:
+      repair:
+        description: "Which maintenance pass to run — one per dispatch; see docs/data-pipeline.md, Maintenance passes."
+        required: false
+        default: none
+        type: choice
+        options:
+          - none
+          - unlatch-overselected
+          - qp-backfill
+          - rederive-distribution-parse
+          - normalize-docket-markings
+          - response-backfill
+          - merits-phantom-removal
+          - disposition-convergence
+          - regrade-stale
+      repair_mode:
+        description: "dry-run prints the pass's ledger and writes nothing for the pass itself; apply writes and pushes; prerequisites apply either way — see docs/data-pipeline.md, Maintenance passes."
+        required: false
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+      repair_bound:
+        description: "Blast-radius bound: the positive integer read off the dry-run ledger, required on apply where the pass takes one — see docs/data-pipeline.md, Maintenance passes."
+        required: false
+        default: ""
+        type: string
+      repair_target:
+        description: "The pass's named subject — a distribution parse label, or the cell list to re-grade — see docs/data-pipeline.md, Maintenance passes."
+        required: false
+        default: ""
+        type: string
+      repair_options:
+        description: "Space- or comma-separated switches from the selected pass's closed vocabulary — see docs/data-pipeline.md, Maintenance passes."
+        required: false
+        default: ""
+        type: string
+
+permissions: {}
+
+jobs:
+  # The selector gate. It holds no credential, takes no lock, checks out
+  # nothing, and reaches no network: it reads the five dispatch inputs out of
+  # the environment and refuses anything the selected pass cannot legally run.
+  # Every writer job below `needs:` it, so a malformed dispatch is refused
+  # before an App token is minted, before a role is assumed, and before the
+  # corpus-write lock is taken.
+  #
+  # Every refusal here that a step can reach is ALSO enforced in the step that
+  # acts on the input — those are the checks of record, because a step has to be
+  # safe on whatever reaches it, and this job is a fail-fast duplicate rather
+  # than a substitute. The containment is one-directional by design: the
+  # refusals with no late twin (`none`, an unknown pass, a bound or target
+  # offered to a pass that reads neither) are hygiene about the dispatch form,
+  # and a step that never reads a field is already safe when it is set.
+  # The two copies are kept word-for-word identical (the same grammar, the same
+  # splitting, the same all-or-nothing refusal, the same `::error::` text), so
+  # one mistake can never produce two differently worded refusals depending on
+  # where it was caught. A test pins the pairing.
+  validate:
+    runs-on: ubuntu-latest
+    # Seconds of bash over five environment variables.
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Validate the repair selector
+        # The inputs are maintainer-typed free text entering a shell, so they
+        # are handled as data here exactly as they are downstream: expanded
+        # from the environment, never interpolated into this script.
+        env:
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+          REPAIR_TARGET: ${{ inputs.repair_target }}
+          REPAIR_OPTIONS: ${{ inputs.repair_options }}
+        run: |
+          set -euo pipefail
+          # A dispatch that names no pass asked for nothing. Refusing it is
+          # what makes `none` a safe default on the choice: the form's initial
+          # state cannot start a corpus write, and a mis-click costs a red run
+          # in seconds rather than a pass nobody chose.
+          if [ "${REPAIR}" = "none" ]; then
+            echo "::error::repair names no pass — pick one from the list. A dispatch left on the default asked for nothing."
+            exit 1
+          fi
+          # What each pass accepts. `bound`/`target` name the field the pass
+          # reads and when it is required; `options` is its closed vocabulary.
+          # A field the pass does not take is refused rather than ignored: a
+          # number left over from the previous dispatch is exactly how a bound
+          # meant for one pass silently reaches another.
+          bound_flag=""
+          bound_required_on_apply=0
+          target_kind=""
+          accepted_options=""
+          case "${REPAIR}" in
+            unlatch-overselected) ;;
+            qp-backfill) ;;
+            rederive-distribution-parse)
+              target_kind="parse" ;;
+            normalize-docket-markings)
+              bound_flag="--max-rewrites"; bound_required_on_apply=1 ;;
+            response-backfill)
+              bound_flag="--max-fills"; bound_required_on_apply=1 ;;
+            merits-phantom-removal)
+              bound_flag="--max-removals"; bound_required_on_apply=1
+              accepted_options="include-failed-attempts" ;;
+            disposition-convergence)
+              bound_flag="--max-relabels"; bound_required_on_apply=1
+              accepted_options="include-scored" ;;
+            regrade-stale)
+              target_kind="cells" ;;
+            *)
+              echo "::error::unknown repair pass '${REPAIR}' — the selector and this validation have drifted apart; correct the workflow."
+              exit 1 ;;
+          esac
+          # Parse the option list against the selected pass's closed
+          # vocabulary, all-or-nothing: every unknown token is named, then the
+          # whole list is refused. A silently ignored switch is the failure
+          # this exists to prevent — the maintainer would read a ledger for one
+          # population and apply against another.
+          include_scored=0
+          include_failed_attempts=0
+          option_malformed=0
+          # `printf '%s\n'`, not '%s': `read` returns non-zero on a final line
+          # with no terminator, so an unterminated last token would be dropped
+          # by the loop — silently, and past the all-or-nothing check below.
+          while IFS= read -r option; do
+            [ -n "$option" ] || continue
+            case " ${accepted_options} " in
+              *" ${option} "*) ;;
+              *)
+                echo "::error::repair=${REPAIR} does not accept the option '${option}' — it accepts: ${accepted_options:-none}."
+                option_malformed=1
+                continue ;;
+            esac
+            case "$option" in
+              include-scored) include_scored=1 ;;
+              include-failed-attempts) include_failed_attempts=1 ;;
+            esac
+          done < <(printf '%s\n' "${REPAIR_OPTIONS}" | tr -s ', \t\r' '\n')
+          if [ "$option_malformed" -ne 0 ]; then
+            echo "::error::refusing the whole option list — correct the switches above and re-dispatch."
+            exit 1
+          fi
+          # A bound offered to a pass that takes none is refused, not dropped.
+          if [ -z "${bound_flag}" ] && [ -n "${REPAIR_BOUND}" ]; then
+            echo "::error::repair=${REPAIR} takes no repair_bound — its blast radius is fixed in code, or it has none. Clear the field and re-dispatch."
+            exit 1
+          fi
+          # Same for a target: only the two passes that name a subject read it.
+          if [ -z "${target_kind}" ] && [ -n "${REPAIR_TARGET}" ]; then
+            echo "::error::repair=${REPAIR} takes no repair_target — only the distribution re-derivation (a parse label) and the re-grade (a cell list) name a subject. Clear the field and re-dispatch."
+            exit 1
+          fi
+          if [ "$bound_required_on_apply" -eq 1 ] && [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # `include-scored` widens the disposition sweep onto events already
+          # carrying predict/evaluate output and owes a re-grade for each
+          # relabel, so it must carry the bound in EVERY mode — not the
+          # apply-only rule above. A dry run that widens the ledger is where
+          # the decision to take on that backlog is actually made, so the
+          # number is stated there too; what the apply is checked against is
+          # the widened dry-run's own relabel count, not the plain run's
+          # held-back lines, which bound the population rather than count the
+          # rewrites.
+          if [ "$include_scored" -eq 1 ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::the include-scored option needs repair_bound set to a positive integer — relabelling a graded cell takes on a re-grade backlog, so its size is stated up front in dry-run as much as in apply. Read the held-back lines off a plain dry-run dispatch's ledger."
+            exit 1
+          fi
+          # `include-failed-attempts` deliberately does NOT inherit that
+          # every-mode rule: that number states a decision to take on a
+          # re-grade backlog, and this widening takes on none — what it grows
+          # is the removal set, which the apply's own bound already sizes.
+          if [ "$include_failed_attempts" -eq 1 ]; then
+            echo "include-failed-attempts: the removal will include phantoms whose only committed output is attempt.json cell-failure records."
+          fi
+          # The parse label is required in BOTH running modes, not just apply:
+          # the dry run's whole product is a plan attributable to one reading,
+          # so a re-derivation with no reading named is not a cheaper dry run,
+          # it is an unanswerable one. Whether the label is *registered* is the
+          # command's refusal, not this one's — the registry lives in Python.
+          if [ "${target_kind}" = "parse" ] \
+            && ! [[ "${REPAIR_TARGET}" =~ ^[a-z][a-z0-9-]*$ ]]; then
+            echo "::error::repair=rederive-distribution-parse needs repair_target set to a distribution parse label — lowercase, e.g. dist-v2. A re-derivation names its reading rather than inheriting the ingest default, so there is no default to fall back on. Re-dispatch with the label."
+            exit 1
+          fi
+          if [ "${target_kind}" = "cells" ]; then
+            # The grammar excludes `.` deliberately — with no dots no field can
+            # be a `..` path segment, whatever the command does with it.
+            pattern='^[a-z0-9-]+/[0-9]+/evt-[a-z0-9-]+/[0-9]{8}T[0-9]{6}Z/[a-z0-9-]+$'
+            malformed=0
+            cells=()
+            # `printf '%s\n'`, not '%s': `read` returns non-zero on a final line
+            # with no terminator, so an unterminated last cell would be dropped
+            # by the loop — silently, and past the all-or-nothing check below.
+            # The blank line this adds is absorbed by the emptiness guard.
+            while IFS= read -r line; do
+              [ -n "$line" ] || continue
+              if [[ "$line" =~ $pattern ]]; then
+                cells+=("$line")
+              else
+                echo "::error::malformed regrade cell (want court/docket/event/run_id/actor, e.g. scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge): ${line}"
+                malformed=1
+              fi
+            done < <(printf '%s\n' "${REPAIR_TARGET}" | tr -s ' \t\r' '\n')
+            if [ "$malformed" -ne 0 ]; then
+              echo "::error::refusing the whole list — correct the lines above and re-dispatch."
+              exit 1
+            fi
+            if [ "${#cells[@]}" -eq 0 ]; then
+              echo "::error::repair=regrade-stale names no cells — set repair_target."
+              exit 1
+            fi
+          fi
+          # No separate "target is required" refusal: each target grammar above
+          # already rejects the empty string — the parse label against its
+          # regex, the cell list against the emptiness guard — so a missing
+          # target is refused in the words of the pass that wanted it rather
+          # than a generic second message that could never be reached.
+          echo "repair=${REPAIR} mode=${REPAIR_MODE} accepted; the step of record re-checks every refusal above."
+
+  # The corpus passes: every pass that pulls the blob, mutates it and pushes.
+  # Structured like run-seed's writer job without the walk — same App token,
+  # same read-write role, same `prod` environment, same pointer-commit shape.
+  repair:
+    needs: [validate]
+    # Named as an allow-list, never as "everything but the re-grade": this job
+    # is where the corpus role, `id-token: write` and the App token live, so a
+    # pass reaches them only by being named here. A deny-list would hand every
+    # future selector value the full writer credential set by default, which is
+    # the wrong direction for a list that is expected to grow.
+    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","merits-phantom-removal","disposition-convergence"]'), inputs.repair) }}
+    # Join the repo-wide corpus-writer lock: one writer at a time across
+    # run-pull, run-seed and this bench. cancel-in-progress:false so a
+    # dispatch queues behind a running window rather than cancelling it.
+    #
+    # A job the `if:` will skip is given a unique throwaway group instead, the
+    # idiom run-pull uses at workflow level: the group is assigned without
+    # waiting on the `if:`, so a shared name would let the skipped sibling take
+    # the group's single pending slot and evict an in-flight writer — or this
+    # run's own real pass — before ever being skipped. The condition is the
+    # `if:` above, repeated because no context available here can hold it once.
+    concurrency:
+      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","merits-phantom-removal","disposition-convergence"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # Headroom over the largest pass (30m) plus setup, the dedupe prerequisite
+    # (10m) and the trailing verdict. A hit here cancels the run, which no
+    # failure handling absorbs; kept well under the App token's 1h life so one
+    # token covers the whole run.
+    timeout-minutes: 55
+    environment: prod
+    # Corpus-split flags (see run-pull): dual-write off unless CASESTORE_URL is
+    # set; FEDCOURTS_CORPUS_SPLIT is the go-live switch (unset → '0' → off).
+    # The passes that read stored snapshots out of the content store — the
+    # questions-presented backfill, the distribution re-derivation and the
+    # response-signal backfill — depend on this pair.
+    env:
+      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+    # The ambient GITHUB_TOKEN reads only: the checkout uses it, which is what
+    # `contents: read` is for. Every WRITE — the corpus push and every gh call —
+    # runs on the App token instead, so the ambient one carries no write at all.
+    permissions:
+      contents: read
+      id-token: write # assume the AWS role for the corpus S3 remote (read-write)
+    steps:
+      # One token up front: the whole run stays inside its 1h life, so no
+      # mid-run re-mint is needed. Scoped to contents:write only (the corpus
+      # pushes) — progress goes to the Actions step summary, not an issue, so
+      # no issues:write is needed.
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # actions/checkout pins this run's frozen github.sha — the branch tip when
+        # the run was CREATED, not when it starts. A run that queues behind another
+        # corpus writer on the shared corpus-write lock therefore checks out a
+        # stale base, so the corpus blob it pulls and mutates is built on an
+        # obsolete pointer and the final commit cannot rebase onto the advanced
+        # tip (an unmergeable corpus/corpus.db.ref conflict). Reset to the live tip
+        # first, under the lock, so we always mutate the latest committed corpus.
+        # The repo is public, so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # Same read-write (append-only) role as run-pull's and run-seed's
+      # writers: a pass adds and rewrites rows in the corpus blob but can never
+      # wipe remote objects. The 1h session outlasts the job's own cap.
+      - name: Configure AWS credentials (corpus S3 remote, read-write)
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 3600 # 1h
+          # Bound the assume-role wall clock: unbounded, its 12 retries over a
+          # multi-minute connect timeout outlast every job budget here (see the
+          # workflow-traps list in docs/pipeline.md). Note the cost this buys —
+          # the action does not clear its timer on the error path, so ANY failing
+          # assume-role now burns the full 120s and ends on "Action timed out"
+          # rather than its own message; the real cause is earlier in the log.
+          action-timeout-s: 120
+
+      - name: Pull the current corpus from the remote
+        # Named so the trailing verdict can require it: `validate-corpus` is
+        # graceful when no corpus is on disk and returns a *skipped* verdict,
+        # which would otherwise be published over the last real one.
+        id: corpus-pull
+        env:
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          # Every pass reads prior corpus state; a repo with no committed
+          # pointer yet has nothing to repair, and each pass's own guard says
+          # so rather than the pull failing here. Checksum-verified.
+          uv run fedcourts corpus-pull --missing-pointer warn
+
+      # The standing prerequisite every corpus pass here is gated on. Merge and
+      # drop the live-minted duplicate SCOTUS rows first: any docket-number
+      # spelling that defeats the channels' identity join leaves a twin pair,
+      # and a pass that reads a row's columns — a disposition, a grant, a
+      # count, a latch — must read the merged row rather than one half of a
+      # pair. `docs/salience.md`'s "run dedupe first" prerequisite, enforced
+      # rather than merely ordered. Idempotent: a clean corpus finds nothing
+      # and persists nothing, so on a converged corpus this costs seconds.
+      #
+      # NOT continue-on-error, unlike its twin on run-seed's schedule: there a
+      # failed sweep converges next window, here it means the pass the
+      # maintainer dispatched cannot be trusted to read the right rows, and a
+      # green run that quietly did nothing is the worst outcome a repair bench
+      # can produce. Failing hard is also what makes it fail-closed on the
+      # ledger half: a dedupe that mutated the workspace blob and then failed
+      # its push stops the job, so those uncommitted moves go to the scrapheap
+      # with the runner rather than into a later pass's commit. The explicit
+      # `steps.dedupe-live-rows.outcome == 'success'` conjunct each pass
+      # carries is belt-and-braces rather than the thing supplying that
+      # property — the implicit `success()` already skips them — and it states
+      # the prerequisite where a reader of one pass will see it.
+      #
+      # It runs in `dry-run` dispatches too, and its apply is a write a dry-run
+      # dispatch performs. That is deliberate: the ledger a maintainer reads
+      # off a dry run is what they then apply on, so it has to describe the
+      # same deduped population the apply will act on. The scope reconcile
+      # below is the other one, on the pass that needs it.
+      - name: Dedupe live-minted duplicate rows
+        id: dedupe-live-rows
+        timeout-minutes: 10
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to dedupe.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping dedupe"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # The merge reads committed `data/` as a refusal guard (a twin whose
+          # events carry committed cell output must not merge), so it needs the
+          # remote tip, not this checkout's — a collect PR merging output under
+          # the twin since the last sync must be visible. Fast-forward only,
+          # for the passes' reason: an unpushed local commit upstream fails
+          # this closed rather than publishing a split.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          # Dry-run first, into the summary: the merge moves ledger event
+          # directories with the re-keyed rows, and the would-move ledger must
+          # outlive the step log the way each pass's does.
+          uv run fedcourts dedupe-live-rows 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          uv run fedcourts dedupe-live-rows --apply
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          # The merge writes both halves: the re-keyed rows into the corpus and
+          # the moved minted-event directories into `data/`. Stage them into the
+          # one pointer commit so both land together on the push path.
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "No duplicate pairs to persist."
+            exit 0
+          fi
+          git commit -m "repair: dedupe live-minted duplicate rows (corpus + ledger)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "dedupe pointer"
+
+      # The overhang clear's second prerequisite, and the reason it is a step
+      # rather than a note: the clear recomputes each pending cohort's
+      # selection, so it must recompute over an in-scope corpus. run-seed's
+      # daily window gave it that ordering for free by running the reconcile
+      # ahead of it; here the pass that needs it brings it along. Runs for that
+      # pass alone — no other pass reads the scope latch — and fails hard for
+      # the dedupe prerequisite's reason.
+      - name: Reconcile predict scope (latch out-of-scope cases)
+        id: reconcile-scope
+        if: ${{ inputs.repair == 'unlatch-overselected' && steps.dedupe-live-rows.outcome == 'success' }}
+        timeout-minutes: 10
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to reconcile.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping scope reconcile"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          uv run fedcourts reconcile-scope --apply
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Scope latch already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: latch out-of-scope cases"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "scope-latch pointer"
+
+      # Clear the pre-resize `salience_selected` overhang. The sticky latch is
+      # additive, so petitions latched under old capacity caps keep earning
+      # cells the shipped envelope never budgeted; this recomputes each pending
+      # cohort under the current config and clears the latch on pending
+      # petitions a from-scratch selection would not pick. A committed
+      # prediction on a cleared case stays committed and graded.
+      #
+      # The printed `SalienceUnlatchResult` (the cleared-id ledger + the
+      # pre-apply pointer) is the record of the pre-resize sticky set the write
+      # erases, so it goes to the run summary, which outlives the step log.
+      - name: Clear the pre-resize salience overhang (unlatch-overselected)
+        # Every pass gates on an EQUALITY against its own selector value, never
+        # on `!= 'none'`: an equality is false under an empty inputs context,
+        # so the gate stays fail-closed if this workflow ever grows a trigger
+        # that carries no inputs. The job gates are the same shape — an
+        # allow-list membership test, false for a value nobody named — so the
+        # property holds at both levels; a test pins both.
+        if: ${{ inputs.repair == 'unlatch-overselected' && steps.dedupe-live-rows.outcome == 'success' && steps.reconcile-scope.outcome == 'success' }}
+        # Sized for an apply, which recomputes twice — the dry run that lands
+        # the cleared-id ledger in the summary, then the write — over a
+        # recompute the sibling scope reconcile does in ~8 min, plus the ~1GB
+        # push. Generous so the write completes and commits its pointer rather
+        # than being cancelled mid-flight (below that cost a cap leaves nothing
+        # applied). Still bounded, so the step's worst case stays under the
+        # job's own cap: a job-cap hit is a cancellation, which no failure
+        # handling absorbs.
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to reconcile.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping unlatch-overselected"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Dry-run first, into the summary: the cleared-id ledger is the
+          # reading the apply is decided on, and it must outlive the step log.
+          uv run fedcourts unlatch-overselected 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts unlatch-overselected --apply 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "No overhang to clear; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: clear pre-resize salience overhang"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "unlatch-overselected pointer"
+
+      # Re-derive the stored questions-presented rows with the current
+      # extractor. The refusal guard makes the apply non-destructive (a stored
+      # full-length question the current extractor cannot re-derive is
+      # reported, never emptied), and the apply verifies itself: under the
+      # corpus split the durable write is the content store's per-case PUT —
+      # best-effort, per-case failures logged not raised — and the blob and
+      # pointer may not move at all, so convergence is witnessed by re-running
+      # the dry-run and requiring zero remaining rewrites, not by the pointer.
+      #
+      # No fetch/ff-only here, unlike the ledger passes: the command reads
+      # corpus rows and documents only — no `data/` guard — and commits only
+      # the pointer.
+      - name: Backfill questions presented
+        if: ${{ inputs.repair == 'qp-backfill' && steps.dedupe-live-rows.outcome == 'success' }}
+        # A guess sized above the local passes, not a measurement: the pass
+        # reads stored petition text per live-slice SCOTUS row — under the
+        # split mode one content-store GET each, twice on an apply, plus the
+        # mirror PUTs. The first `dry-run` dispatch is what measures the real
+        # cost; resize from its wall clock.
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to re-derive.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping questions-presented backfill"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Dry-run first, into the summary: the reason-class ledger is the
+          # triage record, and it must outlive the step log either way.
+          uv run fedcourts backfill-questions-presented 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts backfill-questions-presented --apply 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          # Convergence check: the command is idempotent, so a clean apply
+          # leaves the re-run with nothing to rewrite. This is the witness the
+          # pointer cannot be under the split mode (see the step comment) —
+          # and it is what catches a swallowed content-store write.
+          uv run fedcourts backfill-questions-presented 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY" | tee /tmp/qp-verify.txt
+          if ! grep -q "would rewrite 0," /tmp/qp-verify.txt; then
+            echo "::error::apply did not converge — the re-run still reports rewrites (a content-store write may have failed; see the warnings above)"
+            exit 1
+          fi
+          # Blob before pointer commit, as everywhere. Under the split mode
+          # the blob carries no document text, so an unmoved pointer here is
+          # the normal converged outcome, not a missing write.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "pointer unmoved — the durable write is the content store's, verified converged above."
+            exit 0
+          fi
+          git commit -m "repair: converge corpus (questions presented)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "questions-presented pointer"
+
+      # Re-derive the corpus `distribution_count` column under a registered
+      # distribution parse. The first of the three pieces of work that activate
+      # a new parse (`docs/salience.md`), and the only one that touches stored
+      # state: the write is a direct UPDATE that bypasses the column's max
+      # latch, because a narrower reading routed through the upsert would be a
+      # silent no-op. The guard the latch was providing is the command's own: a
+      # row whose latest live-shaped snapshot discloses no proceedings is
+      # counted and left untouched, never written to 0. The apply refuses above
+      # the command's blast-radius bound — fixed in code, not a dispatch input,
+      # because the population is finite and its delta was measured before the
+      # surface existed; moving it is a code change with the new basis stated
+      # beside it, which is why this pass refuses a `repair_bound`.
+      #
+      # **Dispatch the INCUMBENT parse first**, as a `dry-run` control: it must
+      # report `changed = 0`, since the stored column is the incumbent reading
+      # of those same snapshots, and anything it moves is stored-column drift
+      # rather than the parse — until it is zero, a candidate's changed set is
+      # a sum nothing can decompose.
+      #
+      # It does not belong in the same dispatch as the overhang clear, which the
+      # selector makes structural: anything that weighed
+      # incumbent-parse counts before this ran is stale afterwards, and while
+      # the scope reconcile self-heals next window, the overhang clear does not
+      # — its write erases the sticky set it recomputed. Clear the overhang
+      # under the bands the re-derivation leaves behind, not before.
+      - name: Re-derive the distribution counts
+        if: ${{ inputs.repair == 'rederive-distribution-parse' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Network-bound like the questions-presented backfill rather than the
+        # local passes: under the corpus split the pass reads one content-store
+        # object per live-slice SCOTUS row (tens of thousands), pooled by the
+        # shared prefetch, then pays the blob push. The first `dry-run`
+        # dispatch is what re-sizes it.
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_TARGET: ${{ inputs.repair_target }}
+        run: |
+          set -euo pipefail
+          # Validate the label before anything else, including the corpus
+          # guard: a dispatch that cannot legally run should say so in seconds,
+          # not after a full-population read. `Validate the repair selector`
+          # duplicates this word for word so a bad dispatch dies before any
+          # credential is minted; this copy is the one of record, because the
+          # step has to be safe on whatever reaches it.
+          if ! [[ "${REPAIR_TARGET}" =~ ^[a-z][a-z0-9-]*$ ]]; then
+            echo "::error::repair=rederive-distribution-parse needs repair_target set to a distribution parse label — lowercase, e.g. dist-v2. A re-derivation names its reading rather than inheriting the ingest default, so there is no default to fall back on. Re-dispatch with the label."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to re-derive.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the distribution re-derivation"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # One pass, whichever mode: the command's plan IS its write set, so an
+          # apply prints the same report a dry run would and a separate dry run
+          # ahead of it would only repeat a full-population read over the
+          # content store. Declared outside the guard so the expansion is total
+          # under `set -u`.
+          apply_args=()
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            apply_args+=(--apply)
+          fi
+          uv run fedcourts rederive-distribution-counts --parse "${REPAIR_TARGET}" \
+            "${apply_args[@]}" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Distribution counts already re-derived under this parse; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: converge corpus (distribution counts)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "distribution-count pointer"
+
+      # Converge stored docket numbers on their marking-free spelling, draining
+      # the population the `docket_numbers_carry_no_capital_marking` corpus
+      # check reports. The ingest write site stores the number with the Court's
+      # capital-case marking removed and raises `capital_case` beside it, so a
+      # stored row converges only when that site touches it again — which no
+      # automatic channel does outside the live slice. This is the dedicated
+      # pass that drains the backlog without a re-read.
+      #
+      # The rewrite can neither create nor resolve a duplicate pair: both
+      # SCOTUS channels reconcile identity on a key that already strips the
+      # marking by shape, so the marked and marking-free spellings compare
+      # equal to the join before the rewrite as well as after, and rows that
+      # already share a normalized identity are reported as the dedupe pass's
+      # population rather than touched.
+      #
+      # Corpus-only: no ledger surface, so a pointer-only commit, and no
+      # fetch/ff-only ahead of it — nothing here reads committed `data/`.
+      - name: Converge stored docket markings
+        if: ${{ inputs.repair == 'normalize-docket-markings' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Local: one scan of the cases table and a bounded UPDATE against the
+        # pulled blob, plus the blob push.
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # Validate the bound before anything else, including the corpus
+          # guard: a dispatch that cannot legally apply should say so in
+          # seconds, not after a full scan. The command refuses an unbounded
+          # apply on its own too; this refusal is the one with the maintainer's
+          # procedure in it. `Validate the repair selector` duplicates it word
+          # for word so a bad dispatch dies before any credential is minted;
+          # this copy is the one of record, because the step has to be safe on
+          # whatever reaches it. The refusal names the pass through `${REPAIR}`
+          # rather than a literal so the two copies are identical as text, not
+          # merely equivalent once expanded.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to converge.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the docket-marking convergence"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Dry-run first, into the summary: the per-row ledger — each old and
+          # new spelling, and which rows already share a normalized identity —
+          # is the reading the apply's bound comes from, and it must outlive
+          # the step log. (On an apply this run is a receipt, not a reading:
+          # nobody reads it before the rewrite.)
+          uv run fedcourts normalize-docket-markings 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts normalize-docket-markings --apply \
+            --max-rewrites "${REPAIR_BOUND}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Docket markings already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: converge corpus (docket markings)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "docket-marking pointer"
+
+      # Re-derive the dated interim/merits signals — `response_requested_at`,
+      # `response_filed_at`, `merits_brief_filed` — from each row's newest
+      # stored live-shaped snapshot. The gaps are rows polled before those
+      # columns existed, and no channel corrects them: the live poller serves
+      # the undecided slice, so a decided row is never re-polled, and the
+      # undated flag beside them is a max-latched boolean a later write cannot
+      # turn back into a question. Recoverable from the corpus alone, since
+      # that stored snapshot is the same payload the original ingest read.
+      #
+      # It reads those snapshots, which under the corpus split live in the
+      # content store rather than the blob — so it depends on the job-level
+      # split-mode env pair, and a row with no stored snapshot is counted and
+      # reported rather than failed. The three columns are fill-in only,
+      # matching the latch family they sit in on the upsert path, so a stored
+      # value is never overwritten and a degraded payload fills nothing rather
+      # than asserting a date. Its write is a direct UPDATE of the index, so
+      # the pointer IS the witness here and a plain pointer commit suffices; no
+      # ledger surface, so no fetch/ff-only.
+      - name: Backfill the dated response signals
+        if: ${{ inputs.repair == 'response-backfill' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Network-bound like the questions-presented backfill rather than the
+        # local passes: one content-store read per candidate row, pooled by the
+        # shared prefetch. A guess, not a measurement, since the candidate set
+        # is a subset of the live slice; the first `dry-run` dispatch re-sizes
+        # it.
+        timeout-minutes: 20
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # Validate the bound before anything else, including the corpus
+          # guard: a dispatch that cannot legally apply should say so in
+          # seconds, not after a full-population read of the content store.
+          # `Validate the repair selector` duplicates it word for word so a bad
+          # dispatch dies before any credential is minted; this copy is the one
+          # of record, because the step has to be safe on whatever reaches it.
+          # The refusal names the pass through `${REPAIR}` rather than a literal
+          # so the two copies are identical as text, not merely equivalent once
+          # expanded.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to re-derive.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the response-signal backfill"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Dry-run first, into the summary: the fill ledger — each row with the
+          # dates it gains, beside the counts of rows read with nothing to fill,
+          # with no stored snapshot, and whose snapshot discloses no proceedings
+          # — is the reading the apply's bound comes from, and it must outlive
+          # the step log. The bound is the rows actually FILLED, not the
+          # `candidates` denominator printed beside it: that denominator is not
+          # finite, since the granted arm admits every new cert grant that has
+          # not yet drawn a respondent brief. (On an apply this run is a
+          # receipt, not a reading.)
+          uv run fedcourts backfill-response-fields 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts backfill-response-fields --apply \
+            --max-fills "${REPAIR_BOUND}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Response signals already filled; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: converge corpus (dated response signals)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "response-signal pointer"
+
+      # Drop open SCOTUS merits events whose docket carries no cert grant, in
+      # both stores. A merits event is born from a grant — every mint path
+      # routes through `opens_merits_proceeding`, which requires the row's
+      # `date_cert_granted` — so an open merits-stage event on a row whose
+      # grant column is NULL is one no re-ingest or convergence pass
+      # reproduces, and one nothing ever closes: merits detection reads the
+      # same grant-gated columns, so it parks forever on the
+      # listed-unforecastable triage surface rather than resolving. The shape
+      # is what a live re-poll leaves behind when it stops reading a grant out
+      # of the proceedings and overwrites the stored date with NULL.
+      #
+      # It needs no ordering against run-seed's scheduled merits-event mint,
+      # which is why that sweep did not have to come along: the two populations
+      # are disjoint by construction — the mint writes only where
+      # `date_cert_granted` is non-NULL, and this removes only where it is NULL
+      # — so neither can create or destroy the other's population.
+      #
+      # The ledger half is what shapes the commit. This deletes committed event
+      # directories under `data/` as well as the corpus row, so it reads the
+      # remote tip first — the skip guards read committed predict/evaluate
+      # output that arrives by collect PR — and stages `data/` with the pointer
+      # in ONE commit: an uncommitted ledger half strands a directory under an
+      # id the corpus no longer carries, and no later pass re-detects it. An
+      # event carrying committed predict/evaluate output, or a committed
+      # outcome the open corpus row contradicts, is skipped and reported.
+      - name: Remove ungranted merits phantoms
+        # The dedupe gate is sharpest here of all the passes: whether an event
+        # is a phantom is read off its row's grant column, and an unmerged twin
+        # is a second row for the same petition — so the judgment, and the
+        # deletion that follows it, must be made on the merged row.
+        if: ${{ inputs.repair == 'merits-phantom-removal' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Local: both scans are committed ledger artifacts against corpus rows,
+        # with no external-service loop, plus the blob push.
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+          REPAIR_OPTIONS: ${{ inputs.repair_options }}
+        run: |
+          set -euo pipefail
+          # Validate the bound and the option vocabulary before anything else,
+          # including the corpus guard: a dispatch that cannot legally apply
+          # should say so in seconds, not after a full scan. `Validate the
+          # repair selector` duplicates both word for word so a bad dispatch
+          # dies before any credential is minted; this copy is the one of
+          # record, because the step has to be safe on whatever reaches it.
+          # Both refusals name the pass and its vocabulary through variables
+          # rather than literals, so the two copies are identical as text and
+          # not merely equivalent once expanded.
+          #
+          # Stricter than the command, which carries a default bound: a
+          # deletion spanning the corpus and the committed ledger states the
+          # count it is approving rather than inheriting one.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          accepted_options="include-failed-attempts"
+          include_failed_attempts=0
+          option_malformed=0
+          while IFS= read -r option; do
+            [ -n "$option" ] || continue
+            case " ${accepted_options} " in
+              *" ${option} "*) ;;
+              *)
+                echo "::error::repair=${REPAIR} does not accept the option '${option}' — it accepts: ${accepted_options:-none}."
+                option_malformed=1
+                continue ;;
+            esac
+            case "$option" in
+              include-failed-attempts) include_failed_attempts=1 ;;
+            esac
+          done < <(printf '%s\n' "${REPAIR_OPTIONS}" | tr -s ', \t\r' '\n')
+          if [ "$option_malformed" -ne 0 ]; then
+            echo "::error::refusing the whole option list — correct the switches above and re-dispatch."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to remove.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the merits-phantom removal"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # The pass reads committed ledger artifacts out of `data/` and
+          # deletes beside them, and this checkout is only as fresh as the
+          # sync — read the remote tip first so the skip guards see every
+          # collect PR merged in the gap. Fast-forward only: if an earlier
+          # step's push retries were exhausted, its local commit is unpushed
+          # while its corpus mutations survive in the workspace DB, and a hard
+          # reset would publish that split.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          # `--include-failed-attempts` rides both invocations below or
+          # neither, so the ledger the maintainer reads and the removal that
+          # follows describe the same population. It is a trade rather than a
+          # tidy-up: those records document real spend on an event that names
+          # nothing the docket supports, and removing them buys a ledger with
+          # no dangling phantom paths at the cost of that failure history. The
+          # condition stays strict either way: every file under `predictions/`
+          # must be named `attempt.json` and there must be no `evaluations/`
+          # directory, so a `usage.json` or `retrieval_log.json` the harness
+          # left beside an attempt record keeps the event skipped. Declared
+          # outside the guard so the expansion is total under `set -u`.
+          attempt_args=()
+          if [ "$include_failed_attempts" -eq 1 ]; then
+            attempt_args+=(--include-failed-attempts)
+          fi
+          # Dry-run first, into the summary: the removal-and-skip ledger — every
+          # event removed and every skip with its reason — is the reading the
+          # apply's bound comes from, and a deletion's record must outlive the
+          # step log. (On an apply this run is a receipt, not a reading.)
+          uv run fedcourts remove-ungranted-merits-events "${attempt_args[@]}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts remove-ungranted-merits-events "${attempt_args[@]}" \
+            --apply --max-removals "${REPAIR_BOUND}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere. An apply that pushed the
+          # blob but failed before the commit publishes nothing: readers resolve
+          # the committed pointer, and the next dispatch re-detects from the
+          # still-committed ledger.
+          uv run fedcourts corpus-push
+          # `git add data/` stages the deleted event directories along with the
+          # pointer — one commit, so the ledger and the corpus it must match
+          # land together or not at all. The directory guard is the add passes'
+          # shape (on a tip without `data/` an unguarded add fails under
+          # `set -euo pipefail` AFTER the blob push), and it cannot fail open
+          # here the way it could if this deleted the tree: what it removes is
+          # individual event directories out of the whole case tree, so a
+          # removal with anything to stage always leaves a `data/` behind it.
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "No ungranted merits phantoms to remove; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: converge corpus (ungranted merits phantoms)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "merits-phantom pointer"
+
+      # Converge stored disposition labels against the current classifier.
+      # Events carrying committed predict/evaluate output are held back:
+      # relabelling under a scored evaluation would silently restate what was
+      # graded, so the ledger names them and the sweep moves on. Reaching them
+      # takes the `include-scored` option.
+      #
+      # The relabel is only half the repair. `regrade-stale` recomputes graded
+      # fields under an outcome rather than moving one, so it is the
+      # follow-through, not an alternative route: labels first, then a
+      # `regrade-stale` dispatch naming the affected judge lines — three per
+      # event rather than one per evaluation. One pass per dispatch means that
+      # follow-through is a second dispatch rather than a second step, which is
+      # what makes it visible: the re-grade backlog a relabel owes is the
+      # maintainer's to schedule.
+      - name: Converge disposition labels
+        if: ${{ inputs.repair == 'disposition-convergence' && steps.dedupe-live-rows.outcome == 'success' }}
+        # The scan is local — committed outcome labels against corpus rows —
+        # with the apply's writes under `data/`.
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+          REPAIR_OPTIONS: ${{ inputs.repair_options }}
+        run: |
+          set -euo pipefail
+          # Validate the bound and the option vocabulary before anything else,
+          # including the corpus guard: a dispatch that cannot legally apply
+          # should say so in seconds, not after a full scan. The command
+          # refuses an unbounded apply on its own too; this refusal is the one
+          # with the maintainer's procedure in it. `Validate the repair
+          # selector` duplicates it word for word so a bad dispatch dies before
+          # any credential is minted; this copy is the one of record, because
+          # the step has to be safe on whatever reaches it. Both refusals name
+          # the pass and its vocabulary through variables rather than literals,
+          # so the two copies are identical as text and not merely equivalent
+          # once expanded.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          accepted_options="include-scored"
+          include_scored=0
+          option_malformed=0
+          while IFS= read -r option; do
+            [ -n "$option" ] || continue
+            case " ${accepted_options} " in
+              *" ${option} "*) ;;
+              *)
+                echo "::error::repair=${REPAIR} does not accept the option '${option}' — it accepts: ${accepted_options:-none}."
+                option_malformed=1
+                continue ;;
+            esac
+            case "$option" in
+              include-scored) include_scored=1 ;;
+            esac
+          done < <(printf '%s\n' "${REPAIR_OPTIONS}" | tr -s ', \t\r' '\n')
+          if [ "$option_malformed" -ne 0 ]; then
+            echo "::error::refusing the whole option list — correct the switches above and re-dispatch."
+            exit 1
+          fi
+          # `include-scored` widens the sweep onto events already carrying
+          # predict/evaluate output and owes a re-grade for each relabel, so it
+          # must carry the bound in EVERY mode — not the apply-only rule above.
+          # A dry run that widens the ledger is where the decision to take on
+          # that backlog is actually made, so the number is stated there too;
+          # what the apply is checked against is the widened dry-run's own
+          # relabel count, not the plain run's held-back lines, which bound the
+          # population rather than count the rewrites.
+          if [ "$include_scored" -eq 1 ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::the include-scored option needs repair_bound set to a positive integer — relabelling a graded cell takes on a re-grade backlog, so its size is stated up front in dry-run as much as in apply. Read the held-back lines off a plain dry-run dispatch's ledger."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to converge against.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping disposition convergence"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # The sweep reads committed ledger artifacts out of `data/` and
+          # rewrites beside them, so it needs the remote tip, not this
+          # checkout's — the scored-cell holdback is keyed on grades that
+          # arrive by collect PR. Fast-forward only, for the merits-phantom
+          # pass's reason: an unpushed local commit over live corpus mutations
+          # must fail this closed rather than be reset away.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          # `--include-scored` rides both invocations below or neither, so the
+          # ledger the maintainer reads and the rewrite that follows describe
+          # the same population. Without it the sweep converges only events
+          # carrying no committed predict/evaluate output: rewriting a graded
+          # cell's label would move what a published standing was computed from
+          # while the standing itself sat still, so those events are reported
+          # instead. With it they are in, which is a bounded decision the
+          # validation above makes the maintainer state.
+          scored_args=()
+          if [ "$include_scored" -eq 1 ]; then
+            scored_args+=(--include-scored)
+          fi
+          # Dry-run first, into the summary: the relabel ledger is the reading
+          # the apply's bound comes from, and it must outlive the step log.
+          # (On an apply this run is a receipt, not a reading — nobody reads it
+          # before the rewrite.)
+          uv run fedcourts converge-disposition-labels "${scored_args[@]}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts converge-disposition-labels "${scored_args[@]}" \
+            --apply --max-relabels "${REPAIR_BOUND}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          # The rewrites land in `data/` (`outcome.json`); stage them with the
+          # pointer so the ledger and the corpus it must match move together
+          # or not at all.
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "Disposition labels already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: converge corpus (disposition labels)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "disposition-label pointer"
+
+      # Trailing, NON-BLOCKING data-validation, as on run-pull's and run-seed's
+      # writer jobs: produce the correctness verdict on the now-current corpus
+      # and publish it for run-ops to present and escalate — loud-not-fatal by
+      # contract.
+      #
+      # It matters more here than the cadence alone suggests, because a pass
+      # can legitimately shrink the corpus: the merits-phantom removal deletes
+      # rows, and the verdict this publishes is the next run's monotonic
+      # row-count baseline. Republishing it after the pass is what keeps
+      # run-seed's next verdict from reading a deliberate removal as a corpus
+      # shrink.
+      #
+      # `continue-on-error` protects the step from its OWN failure; without a
+      # status function the implicit `success()` still lets any unrelated
+      # upstream failure skip it — so a refused pass would withhold the corpus
+      # data-health reading, which is exactly when it is most wanted.
+      # `!cancelled()` restores it — NOT `always()`, because a cancelled job
+      # (the hard timeout-minutes kill, an OOM) is stopped mid-step, and a
+      # verdict over that reports a corpus state nobody committed. The
+      # corpus-pull gate is the same argument applied to the corpus on disk: a
+      # run that failed before the pull has no corpus, and `validate-corpus` is
+      # graceful about that — it returns a *skipped* verdict, which would
+      # replace the last real reading with a blank one and leave the next run
+      # no baseline.
+      #
+      # One case the gates do NOT cover, and deliberately: a pass that pushed
+      # the blob and then failed before its pointer commit holds rows no commit
+      # covers, and this step still publishes a verdict over them. That is more
+      # reachable here than on run-seed, precisely because these passes fail
+      # hard rather than absorbing — so read a verdict published by a red run
+      # as describing the runner's blob, not the committed corpus. Closing it
+      # means gating this step on every pass's outcome, which is a wider change
+      # than this one.
+      - name: Produce + publish the corpus validation verdict
+        if: ${{ !cancelled() && steps.corpus-pull.outcome == 'success' }}
+        continue-on-error: true
+        uses: ./.github/actions/publish-corpus-verdict
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+  # The ledger-only pass, in its own job because its credentials are a strict
+  # subset: it recomputes graded fields out of committed artifacts and writes
+  # `evaluation.json`, touching no corpus row. So no AWS role, no
+  # `id-token: write`, no corpus remote, no content-store env — only the App
+  # token that pushes the `data/` commit. A pass that cannot reach the corpus
+  # should not hold the credentials that reach it.
+  #
+  # It needs no dedupe prerequisite either, for the same reason it needs no
+  # corpus: an unmerged twin row cannot change what a committed outcome already
+  # says.
+  regrade:
+    needs: [validate]
+    if: ${{ inputs.repair == 'regrade-stale' }}
+    # It commits to `main` on the same push path as the corpus writers, so it
+    # joins their lock rather than racing their pointer commits — and takes the
+    # throwaway group when it will be skipped, for the corpus job's reason.
+    concurrency:
+      group: ${{ inputs.repair == 'regrade-stale' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # One local recompute per named cell over a maintainer-sized list, plus
+    # setup.
+    timeout-minutes: 25
+    environment: prod
+    permissions:
+      contents: read
+    steps:
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # Same stale-base hazard as the corpus job: a run that queued behind a
+        # writer on the shared lock checked out a frozen sha, and the
+        # evaluations being rewritten arrive by collect PR. The repo is public,
+        # so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # Recompute the graded fields of named evaluator cells under their
+      # original stamp, for cells whose committed outcome moved after the grade
+      # was taken — the corpus passes rewrite and reopen outcomes without
+      # consulting who has already graded them.
+      #
+      # What the scoring surfaces make of the result is the command's contract,
+      # not this step's: per `metrics/README.md`, a standing moves honestly only
+      # through a grading the supersede-collapse counts, and a bare re-stamp of
+      # an existing `evaluation.json` moves it with a trace only in `data/`'s
+      # git history. This step names cells and invokes the command; it cannot
+      # supply that property if the command does not.
+      - name: Re-grade named cells
+        # One re-grade per line, so a cell graded by three judges is three
+        # lines — the list is explicit on purpose: a re-grade rewrites a
+        # committed evaluation, and which judge's is not a thing to infer.
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_TARGET: ${{ inputs.repair_target }}
+        run: |
+          set -euo pipefail
+          # `repair_target` is maintainer-typed free text entering a shell, so
+          # it is handled as data throughout: expanded from the environment
+          # (never interpolated into this script), split on whitespace, and
+          # every line matched against the id grammar before a command sees
+          # it. The grammar excludes `.` deliberately — with no dots no field
+          # can be a `..` path segment, whatever the command does with it.
+          # `Validate the repair selector` duplicates this whole block word for
+          # word so a bad list dies before any credential is minted; this copy
+          # is the one of record, because the step has to be safe on whatever
+          # reaches it.
+          pattern='^[a-z0-9-]+/[0-9]+/evt-[a-z0-9-]+/[0-9]{8}T[0-9]{6}Z/[a-z0-9-]+$'
+          malformed=0
+          cells=()
+          # `printf '%s\n'`, not '%s': `read` returns non-zero on a final line
+          # with no terminator, so an unterminated last cell would be dropped
+          # by the loop — silently, and past the all-or-nothing check below.
+          # The blank line this adds is absorbed by the emptiness guard.
+          while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            # Bash's own regex match: no pipeline, so no interaction with
+            # pipefail and no per-line subprocess.
+            if [[ "$line" =~ $pattern ]]; then
+              cells+=("$line")
+            else
+              echo "::error::malformed regrade cell (want court/docket/event/run_id/actor, e.g. scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge): ${line}"
+              malformed=1
+            fi
+          done < <(printf '%s\n' "${REPAIR_TARGET}" | tr -s ' \t\r' '\n')
+          # All-or-nothing: a half-applied list is worse to reason about than a
+          # refused one, and the fix is the same edit either way.
+          if [ "$malformed" -ne 0 ]; then
+            echo "::error::refusing the whole list — correct the lines above and re-dispatch."
+            exit 1
+          fi
+          if [ "${#cells[@]}" -eq 0 ]; then
+            echo "::error::repair=regrade-stale names no cells — set repair_target."
+            exit 1
+          fi
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+            # Recompute on top of the remote tip, not this checkout's: the
+            # evaluations being rewritten arrive by collect PR, and a re-grade
+            # computed against a stale copy would commit a rewrite of a
+            # superseded file. Fast-forward only, so an exhausted push retry
+            # upstream fails this step closed rather than being reset away.
+            git fetch origin "$GITHUB_REF_NAME"
+            git merge --ff-only FETCH_HEAD
+          fi
+          touched=()
+          for cell in "${cells[@]}"; do
+            IFS=/ read -r court docket event run actor <<<"$cell"
+            if [ "${REPAIR_MODE}" != "apply" ]; then
+              echo "would run: uv run fedcourts stamp-cell --regrade --court ${court} --docket ${docket} --event ${event} --run-id ${run} --role evaluator --actor ${actor}" \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            uv run fedcourts stamp-cell --regrade \
+              --court "$court" --docket "$docket" --event "$event" \
+              --run-id "$run" --role evaluator --actor "$actor" 2>&1 \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            touched+=("data/cases/${court}/${docket}/events/${event}/evaluations/${actor}")
+          done
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          # Stage the named cells' evaluator directories, never a blanket
+          # `git add data/`. This commit carries no corpus pointer, so anything
+          # it stages that the corpus half never moved for would publish a
+          # ledger-only split; an enumerated, grammar-checked jail is what keeps
+          # that impossible. The jail is the named actor's directory, one level
+          # wider than the named run id — the re-grade rewrites in place, so
+          # nothing else under that actor changes, and no other actor's path and
+          # no traversal is reachable from the grammar.
+          git add -- "${touched[@]}"
+          if git diff --cached --quiet; then
+            echo "Re-grade reproduced the stored grades; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: re-grade named cells"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "re-grade ledger"
