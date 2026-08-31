@@ -1141,3 +1141,52 @@ freeze commit is recorded here.
   this change's runnable effect check: `fedcourts statpack`, then the diff
   showing the paid class counts risen by the per-Term additions above and the
   docket pack's fee-class `(none)` bucket emptied.
+
+- **The owed grid-denial weight repair is withdrawn; the raw `+0.146pp`
+  stands as the registered paid-segment delta, 2026-08-31** (no digest
+  moves, no committed number moves): the capital-marking entry above names,
+  as an owed writer-lane pass, a `sample_weight` repair for 24 marked grid
+  denials "stored 1 where the corrected rule gives 10", and publishes the
+  projection that under it the reweighted paid segment reads n = 13,458
+  weighted and grant-family **+0.089pp** rather than +0.146pp. Building that
+  pass falsified its premise, so the repair is withdrawn and the projection
+  with it: the raw figures (n = 13,341; **+0.146pp** raw and as-published,
+  since the statpack always read the stored weights) are the registered
+  delta, and the committed boards — which never carried the projection — do
+  not move.
+
+  **Why the premise is false.** The derivation rule
+  (`legacy_denial_sample_weight`, extracted from `backfill_live_signals`)
+  tests that a denial's serial is on the legacy walker's 1-in-10 grid at or
+  below its cursor — which proves the serial was *probed*, not that only one
+  in ten was *kept*. The two coincided only during the legacy IFP walk, and
+  every genuinely sampled row shows it: the corpus's 2,583 `sample_weight =
+  10` rows all sit in eight IFP OT2017–OT2024 (Term, stream) cells with
+  serial coverage 0.127–0.135, and none is capital. The 24 targets — 13 paid
+  OT2017–OT2024, 11 IFP OT2025 — sit in cells with coverage 0.994–1.000, and
+  each has 7–8 of its 8 nearest serial neighbours individually present at
+  weight 1: their ranges are enumerated, so weight 1 is *correct*.
+  Reweighting them would have made one row stand for ten petitions, nine of
+  which are already present — 216 phantom weighted denials (117 inside the
+  paid scored segment; the projection's own arithmetic, 13,458 − 13,341 =
+  13 × 9, is exactly those phantoms), moving per-Term band base rates by up
+  to 5.4pp. Provenance confirms the class: `capital_case` latches from the
+  upstream boolean as well as the number parse, so the flag never attributed
+  a stored weight to a defeated parse, and the blob holds no word-marked
+  asterisk spelling at all (7 asterisk rows corpus-wide, all circuit-court
+  separators). The repo's standing invariants said so independently — the
+  budget's paid-census note, and the caption and distribution censuses, which
+  raise on any scored-segment row with `sample_weight != 1`. Evidence read
+  from the blob pulled 2026-08-31 (newest stored snapshot 2026-07-13).
+
+  **What this entry changes and what it leaves.** The withdrawal corrects a
+  *projection* the capital-marking entry published beside its registered
+  figures; the entry's registered raw deltas, its scored-segment
+  re-partition, and its pooling rule are untouched. No counted figure moves:
+  the stored weights were right all along, and every committed board already
+  read them. The rule's latent over-derivation — the probed-vs-kept gap,
+  which `backfill_live_signals`'s NULL-only predicate scoped correctly by
+  accident — is closed in code by a density guard on the extracted rule (a
+  denial with an off-grid live-slice sibling in its own (Term, stream) cell
+  is in an enumerated range and stays at weight 1), landing as the code half
+  of this correction.
