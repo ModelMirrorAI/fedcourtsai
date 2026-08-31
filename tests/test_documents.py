@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from datetime import date
 from pathlib import Path
@@ -23,11 +24,13 @@ from fedcourtsai.pipeline.documents import (
     KIND_QUESTIONS_PRESENTED,
     _qp_stored_is_fragment,
     backfill_questions_presented,
+    document_fetch_losses,
     document_text_coverage,
     extract_pdf_text,
     extract_questions_presented,
     fetch_case_documents,
     questions_presented_extract,
+    reset_document_fetch_losses,
     select_documents,
 )
 from fedcourtsai.supremecourt import SupremeCourtClient
@@ -622,6 +625,110 @@ def test_fetch_case_documents_skips_stored_urls_and_missing() -> None:
     assert [d.kind for d in documents] == [KIND_BRIEF_IN_OPPOSITION]
 
 
+def _failing_doc_client(*, unserved: set[str], raising: set[str]) -> SupremeCourtClient:
+    """A client whose documents 404 or fail transport, per URL.
+
+    The two silent-loss branches of the fetch path, produced apart: an unserved
+    URL is the rolling-window miss (``get_document`` returns ``None``), a
+    raising one a transport failure the client's own retry does not clear.
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        key = str(request.url)
+        if key in raising:
+            raise httpx.ConnectError("upstream unreachable", request=request)
+        if key in unserved:
+            return httpx.Response(404)
+        return httpx.Response(200, content=_pdf("Served."))
+
+    inner = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        headers={"User-Agent": supremecourt.BROWSER_USER_AGENT},
+    )
+    return SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None)
+
+
+def test_fetch_case_documents_records_every_dropped_document(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # The provisioning gap has to be diagnosable rather than silent: each skip
+    # is counted by reason and warned into the run log, so a case that reaches
+    # prediction with no petition carries the route it took instead of only the
+    # fact that it has none.
+    payload = {
+        "ProceedingsandOrder": [
+            _PAYLOAD["ProceedingsandOrder"][0],  # petition
+            {
+                "Date": "Jun 01 2026",
+                "Text": "Brief of respondents Bette Eakin, et al. in opposition filed.",
+                "Links": [
+                    {"Description": "Main Document", "DocumentUrl": "https://example/lead.pdf"}
+                ],
+            },
+            {
+                "Date": "Jun 02 2026",
+                "Text": "Brief of respondent Northampton County in opposition filed.",
+                "Links": [
+                    {"Description": "Main Document", "DocumentUrl": "https://example/second.pdf"}
+                ],
+            },
+        ]
+    }
+    reset_document_fetch_losses()
+    client = _failing_doc_client(
+        unserved={"https://example/petition.pdf", "https://example/second.pdf"},
+        raising={"https://example/lead.pdf"},
+    )
+    with client, caplog.at_level(logging.WARNING, logger="fedcourtsai.pipeline.documents"):
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            payload,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 7, 10),
+        )
+    assert documents == []  # unchanged: recording is not a control-flow change
+    losses = document_fetch_losses()
+    assert losses.unavailable == 2  # the petition and the second brief
+    assert losses.http_error == 1  # the lead brief's transport failure
+    # A case count, not a third per-brief one: every selected brief failed, so
+    # the docket lists an opposition the corpus will not hold.
+    assert losses.bio_empty == 1
+    assert losses.records == 4
+    # And the run log carries it, which is the half that survives an ephemeral
+    # runner — nothing there reads a counter.
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert "https://example/petition.pdf" in logged
+    assert "unavailable" in logged and "http-error" in logged
+    assert "2 selected brief(s), none fetched" in logged
+    assert logged.count("scotus/9025000100") == 4
+
+    # The counter is a record of one pass, not a running total across them.
+    reset_document_fetch_losses()
+    assert document_fetch_losses().records == 0
+
+
+def test_fetch_case_documents_records_nothing_on_a_clean_fetch() -> None:
+    # The counter must stay a signal: a pass that lost nothing records nothing,
+    # including the idempotency skips, which are not losses.
+    reset_document_fetch_losses()
+    served = {
+        "https://example/petition.pdf": _pdf("QUESTION PRESENTED Whether X. PARTIES TO THE Acme."),
+        "https://example/bio.pdf": _pdf("The petition should be denied."),
+    }
+    with _doc_client(served) as client:
+        fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            _PAYLOAD,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 7, 10),
+        )
+    assert document_fetch_losses().records == 0
+
+
 # --- corpus storage + cell provisioning --------------------------------------------
 
 
@@ -1197,7 +1304,7 @@ def test_backfill_questions_presented_cli_fails_loud(tmp_path: Path) -> None:
 
 
 def _seed_text_coverage_corpus(corpus_root: Path) -> Path:
-    """Six SCOTUS rows spanning every cut and every caveat the measure reports.
+    """Seven SCOTUS rows spanning every cut and every caveat the measure reports.
 
     - scotus/10: paid modern-cert, a scanned filing — the petition and the
       questions-presented row derived from it both read back empty.
@@ -1210,6 +1317,9 @@ def _seed_text_coverage_corpus(corpus_root: Path) -> Path:
       failure mode, which no extraction fix reaches.
     - scotus/15: an empty petition stored with zero pages, which is the
       could-not-open branch rather than a scan.
+    - scotus/16: an interim application docket, distributed and queued and
+      holding nothing — structurally petitionless, so the queued count must
+      hold it out rather than report it as a provisioning gap.
     """
     db = corpus.corpus_db_path(corpus_root)
     with corpus.connect(db) as conn:
@@ -1237,6 +1347,9 @@ def _seed_text_coverage_corpus(corpus_root: Path) -> Path:
                     # Distributed and queued, but holding nothing to read.
                     (14, "25-14", date(2026, 6, 2), 1, date(2026, 6, 3)),
                     (15, "25-15", date(2026, 6, 2), 1, None),
+                    # An application, not a cert petition: no petition is ever
+                    # selected for it, so its absence is the docket form.
+                    (16, "26A245", date(2026, 6, 2), 1, date(2026, 6, 3)),
                 )
             ],
         )
@@ -1267,8 +1380,8 @@ def test_document_text_coverage_counts_empty_text_by_kind_and_segment(tmp_path: 
     # scotus/13 carries an empty petition but no live-slice stamp: documents
     # reach the corpus on that channel only, so counting it would import a row
     # the pipeline can never provision a cell from.
-    assert coverage.cases == 5
-    assert coverage.cases_read == 4  # scotus/14 served nothing
+    assert coverage.cases == 6
+    assert coverage.cases_read == 4  # scotus/14 and scotus/16 served nothing
     assert coverage.offloaded is False
     # The petition cut, which is the one a scanning decision reads.
     assert coverage.kind_totals(KIND_PETITION) == (4, 2)
@@ -1287,12 +1400,15 @@ def test_document_text_coverage_counts_empty_text_by_kind_and_segment(tmp_path: 
     # The two counts that keep the empty share from being read as the whole
     # problem: a distributed case with nothing stored, and an empty petition
     # that is a failed open rather than a scan.
-    assert coverage.distributed == 5
-    assert coverage.distributed_without_petition == 1
-    # The narrow denominator: scotus/10 and scotus/14 are queued, and only
-    # scotus/14 holds no petition.
-    assert coverage.queued == 2
+    # The wide count is the unfiltered stock, so the application docket is in it.
+    assert coverage.distributed == 6
+    assert coverage.distributed_without_petition == 2
+    # The narrow denominator: scotus/10, scotus/14 and scotus/16 are queued, two
+    # of them hold no petition, and only scotus/14 is a gap — scotus/16 is an
+    # application docket, which no petition was ever selected for.
+    assert coverage.queued == 3
     assert coverage.queued_without_petition == 1
+    assert coverage.queued_application_forms == 1
     assert coverage.unopened_petitions == 1
 
     # The triage list an extraction fix would work from: case_ids in walk order,
@@ -1302,6 +1418,9 @@ def test_document_text_coverage_counts_empty_text_by_kind_and_segment(tmp_path: 
         "scotus/12": [KIND_BRIEF_IN_OPPOSITION],
         "scotus/15": [KIND_PETITION],
     }
+    # And the second ledger, for the mode no extraction fix reaches: the gap
+    # named, the structural floor held out of it.
+    assert coverage.queued_without_petition_cases == ["scotus/14"]
 
 
 def test_document_text_coverage_reach_counts_only_the_counted_kinds(tmp_path: Path) -> None:
@@ -1327,7 +1446,7 @@ def test_document_text_coverage_reach_counts_only_the_counted_kinds(tmp_path: Pa
         coverage = document_text_coverage(conn)
     assert coverage.cases_read == 4
     # And it is still counted as a distributed case holding no petition.
-    assert coverage.distributed_without_petition == 1
+    assert coverage.distributed_without_petition == 2
 
 
 def test_document_text_coverage_share_is_none_over_an_unread_cut(tmp_path: Path) -> None:
@@ -1360,11 +1479,17 @@ def test_corpus_info_text_coverage_is_opt_in(
     assert "1 with pages but no text layer, 1 a PDF the extractor could not open" in measured.stdout
     # The other failure mode, printed beside the first rather than left to a
     # reader to notice it is missing.
-    assert "missing documents: 1 of 5 distributed case(s) hold no petition row" in measured.stdout
-    assert "and 1 of 2 queued for prediction" in measured.stdout
+    assert "missing documents: 2 of 6 distributed case(s) hold no petition row" in measured.stdout
+    assert "and 1 of 3 queued for prediction" in measured.stdout
+    # The queued count's exclusion is printed, not left to a reader to infer
+    # from the docket forms — and it says which side of the ratio it left, since
+    # a filtered numerator over an unfiltered denominator is otherwise a share
+    # of nothing in particular.
+    assert "1 further queued case(s) hold no petition because they are interim" in measured.stdout
+    assert "out of the count above but still inside its denominator" in measured.stdout
     # A reach count, said to be one.
     assert (
-        "text frame: the pass read documents for 4 of the 5 live-slice case(s)" in measured.stdout
+        "text frame: the pass read documents for 4 of the 6 live-slice case(s)" in measured.stdout
     )
     assert "a reach count, not a failure rate" in measured.stdout
     assert "scored petition            n=3 empty=2 (66.67%)" in measured.stdout
@@ -1376,6 +1501,13 @@ def test_corpus_info_text_coverage_is_opt_in(
     assert "scotus/10: petition, questions-presented" in measured.stdout
     assert "scotus/12: brief-in-opposition" in measured.stdout
     assert "scotus/15: petition" in measured.stdout
+    # The second ledger: the queued gap enumerated, so a store-configured run
+    # names the cases a provisioning repair would be designed against — and the
+    # application docket is not among them.
+    assert "no petition, queued (1 case(s)):" in measured.stdout
+    queued_ledger = measured.stdout.split("no petition, queued (1 case(s)):")[1]
+    assert queued_ledger.splitlines()[1].strip() == "scotus/14"
+    assert "scotus/16" not in queued_ledger
 
 
 def test_corpus_info_text_coverage_caveats_a_blob_only_read(
@@ -1411,10 +1543,13 @@ def test_corpus_info_text_coverage_self_limits_when_the_store_serves_nothing(
     result = runner.invoke(app, ["corpus-info", "--text-coverage"])
     assert result.exit_code == 0, result.output
     assert "text coverage: 0 of 0 stored petition(s) carry no text (-)" in result.stdout
-    assert "text frame: the pass read documents for 0 of the 5 live-slice case(s)" in result.stdout
+    assert "text frame: the pass read documents for 0 of the 6 live-slice case(s)" in result.stdout
     # Every distributed case reads as holding no petition, which is the loudest
     # form the self-limit takes: nothing was readable, and the report says it in
-    # the count a reader is most likely to act on.
-    assert "missing documents: 5 of 5 distributed case(s)" in result.stdout
-    assert "and 2 of 2 queued for prediction" in result.stdout
+    # the count a reader is most likely to act on. The application docket still
+    # comes out of the queued count — that exclusion is read off the docket
+    # number, so it holds whether or not a document was served.
+    assert "missing documents: 6 of 6 distributed case(s)" in result.stdout
+    assert "and 2 of 3 queued for prediction" in result.stdout
+    assert "1 further queued case(s) hold no petition because they are interim" in result.stdout
     assert "text source: the per-case content store" in result.stdout

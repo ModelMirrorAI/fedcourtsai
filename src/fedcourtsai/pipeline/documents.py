@@ -31,6 +31,7 @@ extractor fix onto the rows an unchanged petition URL would otherwise freeze.
 from __future__ import annotations
 
 import io
+import logging
 import re
 import sqlite3
 from collections import Counter
@@ -54,6 +55,8 @@ from ..supremecourt import SupremeCourtClient
 # `supremecourt`, so nothing here closes a cycle.
 from .caption import _scored_segment
 from .prefetch import prefetch_by_case
+
+logger = logging.getLogger(__name__)
 
 # Document kinds, in provisioning order. `questions_presented` is derived from
 # the petition text rather than fetched (see the module docstring).
@@ -380,6 +383,90 @@ def extract_questions_presented(petition_text: str) -> str | None:
     return "" if heading_seen else None
 
 
+# The ways a selected document produces no stored row. A missing document is an
+# expected condition here (the upstream link window is a rolling one), which is
+# exactly why the skips have to be *recorded*: undifferentiated, a link the
+# upstream did not serve and a transport failure leave the same trace — none —
+# and the population that reaches prediction with no petition is then a count
+# with no route attached to it. The reasons are kept apart because their repairs
+# differ: a transport failure is worth re-attempting on the same URL, and a link
+# that was not served is worth chasing to a different one.
+FETCH_LOSS_HTTP_ERROR = "http-error"
+FETCH_LOSS_UNAVAILABLE = "unavailable"
+FETCH_LOSS_BIO_EMPTY = "bio-empty"
+
+
+@dataclass(frozen=True)
+class DocumentFetchLosses:
+    """How many selected documents a fetch pass dropped, by reason.
+
+    ``http_error`` is a transport failure the client's own retry did not clear;
+    ``unavailable`` an upstream 404 (:meth:`SupremeCourtClient.get_document`
+    returns ``None``) — the rolling-window miss; ``bio_empty`` a case whose
+    opposition briefs were all selected and none fetched, so the combined
+    ``brief-in-opposition`` row was never built. The last counts *cases*, not
+    briefs, and does not partition the two above it: the per-brief failures that
+    emptied the group are counted there as well.
+    """
+
+    http_error: int = 0
+    unavailable: int = 0
+    bio_empty: int = 0
+
+    @property
+    def records(self) -> int:
+        """How many losses were recorded — a record count, not a document count.
+
+        Named for what it sums, because the fields do not share a unit: the two
+        fetch reasons count documents and ``bio_empty`` counts cases, so a
+        "total documents lost" reading of it would double-count every case
+        whose whole opposition failed. What it is good for is the only question
+        that needs one number: whether this pass lost anything at all.
+        """
+        return self.http_error + self.unavailable + self.bio_empty
+
+
+# Process-wide and monotonic within a run, read through `document_fetch_losses`.
+# The fetch path is serial by construction — `provision_documents` is called
+# from the live poller's own sequential walk, and nothing here rides the
+# read-side prefetch pool — so the counter needs no lock.
+_fetch_losses: Counter[str] = Counter()
+
+
+def _record_fetch_loss(reason: str, case_id: str, kind: str, detail: str) -> None:
+    """Count one dropped document and say so in the run log.
+
+    Both halves matter and neither replaces the other: the counter is what a
+    caller in the same process can assert on, and the warning is what survives
+    into the run log of an ephemeral runner, where nothing reads a counter. The
+    level is ``warning`` even for the expected 404, because the default root
+    configuration discards anything below it and a silently discarded record is
+    the condition this exists to end.
+    """
+    _fetch_losses[reason] += 1
+    logger.warning("documents: dropped %s for %s (%s): %s", kind, case_id, reason, detail)
+
+
+def document_fetch_losses() -> DocumentFetchLosses:
+    """What this process has recorded, since start or the last reset.
+
+    Nothing in the pipeline resets it: the poller's whole run is the unit a
+    reader wants, and the run log carries the per-document detail either way.
+    :func:`reset_document_fetch_losses` exists for a caller that wants one
+    pass's record read apart from another's.
+    """
+    return DocumentFetchLosses(
+        http_error=_fetch_losses[FETCH_LOSS_HTTP_ERROR],
+        unavailable=_fetch_losses[FETCH_LOSS_UNAVAILABLE],
+        bio_empty=_fetch_losses[FETCH_LOSS_BIO_EMPTY],
+    )
+
+
+def reset_document_fetch_losses() -> None:
+    """Zero the counter, so one pass's record is not read over another's."""
+    _fetch_losses.clear()
+
+
 def _combine_bio_documents(
     client: SupremeCourtClient,
     case_id: str,
@@ -398,7 +485,9 @@ def _combine_bio_documents(
     byte-compatible with the old single-URL key): the set is re-fetched only
     when a brief is added or superseded. The combined text is capped at
     ``char_cap`` total, earliest brief first (the lead respondent's, typically);
-    a failed fetch of one brief never drops the others.
+    a failed fetch of one brief never drops the others, and each failure —
+    plus the case-level case where none of them fetched — is recorded
+    (:func:`document_fetch_losses`).
     """
     if not bio_refs:
         return None
@@ -419,8 +508,10 @@ def _combine_bio_documents(
         try:
             data = client.get_document(ref.url)
         except httpx.HTTPError:
+            _record_fetch_loss(FETCH_LOSS_HTTP_ERROR, case_id, ref.kind, ref.url)
             continue
         if data is None:
+            _record_fetch_loss(FETCH_LOSS_UNAVAILABLE, case_id, ref.kind, ref.url)
             continue
         extracted = extract_pdf_text(data, char_cap=char_cap)
         fetched_urls.append(ref.url)
@@ -434,6 +525,15 @@ def _combine_bio_documents(
         pages += extracted.pages
         truncated = truncated or extracted.truncated
     if not fetched_urls:
+        # Every selected brief failed, so the case ends the pass with no
+        # opposition row despite the docket listing one — recorded apart from
+        # the per-brief failures because it is the outcome a reader cares about.
+        _record_fetch_loss(
+            FETCH_LOSS_BIO_EMPTY,
+            case_id,
+            KIND_BRIEF_IN_OPPOSITION,
+            f"{len(bio_refs)} selected brief(s), none fetched",
+        )
         return None
     text = "\n\n".join(blocks)
     if len(text) > char_cap:
@@ -477,7 +577,10 @@ def fetch_case_documents(
     yields nothing usable stores the empty-text row the extractor's degraded
     result names, never a fragment. A missing or unextractable
     document degrades to a skip / an empty-text row; an upstream error skips
-    just that document, never the poll.
+    just that document, never the poll. Every such skip is recorded
+    (:func:`document_fetch_losses`) and warned into the run log, because the
+    degradation is exactly what makes a later "this case holds no petition"
+    count unattributable otherwise.
     """
     refs = select_documents(payload)
     bio_refs = [ref for ref in refs if ref.kind == KIND_BRIEF_IN_OPPOSITION]
@@ -491,8 +594,10 @@ def fetch_case_documents(
         try:
             data = client.get_document(ref.url)
         except httpx.HTTPError:
+            _record_fetch_loss(FETCH_LOSS_HTTP_ERROR, case_id, ref.kind, ref.url)
             continue
         if data is None:
+            _record_fetch_loss(FETCH_LOSS_UNAVAILABLE, case_id, ref.kind, ref.url)
             continue
         extracted = extract_pdf_text(data, char_cap=char_cap)
         document = corpus.CaseDocument(
@@ -838,7 +943,8 @@ class TextCoverage(BaseModel):
         ge=0,
         description="Of those, the ones holding no petition row at all. The other "
         "failure mode, and the one an extraction fix does not reach: there is "
-        "nothing stored to re-extract",
+        "nothing stored to re-extract. Unfiltered, matching the stock it is taken "
+        "over — the application-form exclusion applies to the queued count alone",
     )
     queued: int = Field(
         ge=0,
@@ -849,7 +955,18 @@ class TextCoverage(BaseModel):
     queued_without_petition: int = Field(
         ge=0,
         description="Of the queued rows, the ones holding no petition row: what a "
-        "text-extraction fix cannot recover on the population that is predicted",
+        "text-extraction fix cannot recover on the population that is predicted. "
+        "Application-form dockets are excluded (`queued_application_forms` counts "
+        "them), so this is the provisioning gap and not a structural floor plus "
+        "one; `queued_without_petition_cases` names every case in it",
+    )
+    queued_application_forms: int = Field(
+        ge=0,
+        description="Of the queued rows holding no petition, the interim "
+        "application dockets — structurally petitionless, since an application is "
+        "not a cert petition and the petition pattern has nothing to match. "
+        "Counted apart rather than dropped, so the excluded floor stays visible "
+        "and the undifferentiated total is recoverable as the sum of the two",
     )
     unopened_petitions: int = Field(
         ge=0,
@@ -870,6 +987,12 @@ class TextCoverage(BaseModel):
         default_factory=dict,
         description="case_id -> the kinds that read back empty, in case_id order: "
         "the triage list an extraction fix would work from",
+    )
+    queued_without_petition_cases: list[str] = Field(
+        default_factory=list,
+        description="The `queued_without_petition` cases themselves, in case_id "
+        "order: the triage list a provisioning fix works from, since the route a "
+        "missing petition took is a per-case question and a count names no case",
     )
 
     def kind_totals(self, kind: str) -> tuple[int, int]:
@@ -924,6 +1047,19 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
     petition actually costs a cell on. Reading the empty share without these
     beside it is how a decision gets made about the smaller of the two modes.
 
+    On the queued count — the one a repair is planned against — the **interim
+    application dockets are held out** (``queued_application_forms``, on
+    :func:`corpus.is_scotus_application_form`): an application is not a cert
+    petition, so :func:`select_documents`' petition pattern has nothing to
+    match and no fetch was ever attempted or missed. Pooled in, they are a
+    structural floor reported as a provisioning gap, which is a repair aimed at
+    cases that cannot be repaired. The wide ``distributed`` count keeps them,
+    matching what it is: an unfiltered stock. And because the route a real gap
+    took is a per-case question — a case whose documents were never provisioned
+    reads exactly like one whose fetch was attempted and served nothing — the
+    queued class is enumerated (``queued_without_petition_cases``) and not only
+    counted.
+
     Split-aware by construction: every read goes through
     :func:`corpus.documents_for_case`, which the registered payload source
     serves from the per-case content store under the corpus-split mode and the
@@ -949,8 +1085,9 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
         for kind in TEXT_COVERAGE_KINDS
     }
     empty_documents: dict[str, list[str]] = {}
+    queued_without_petition_cases: list[str] = []
     cases_read = unopened_petitions = 0
-    distributed_without_petition = queued_without_petition = 0
+    distributed_without_petition = queued_without_petition = queued_application_forms = 0
     # Materialized before the fetch: `iter_rows` rides `conn`, which under the
     # offloaded schedule must not be walked while readers are in flight.
     rows = [row for row in corpus.iter_rows(conn, court="scotus") if corpus.is_live_slice(row)]
@@ -966,6 +1103,11 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
     # The narrow denominator beside it: a missing petition costs a prediction
     # only where one was minted.
     queued = {row.case_id for row in rows if row.predict_queued_at is not None}
+    # The rows for which "no petition row" is the docket form, not a gap. The
+    # frame is already SCOTUS-only, which is the gate the predicate's callers owe.
+    application_forms = {
+        row.case_id for row in rows if corpus.is_scotus_application_form(row.docket_number)
+    }
     case_ids = list(segments)
     with prefetch_by_case(
         case_ids,
@@ -998,7 +1140,11 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
                 if case_id in distributed:
                     distributed_without_petition += 1
                 if case_id in queued:
-                    queued_without_petition += 1
+                    if case_id in application_forms:
+                        queued_application_forms += 1
+                    else:
+                        queued_without_petition += 1
+                        queued_without_petition_cases.append(case_id)
     return TextCoverage(
         cases=len(case_ids),
         cases_read=cases_read,
@@ -1006,6 +1152,7 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
         distributed_without_petition=distributed_without_petition,
         queued=len(queued),
         queued_without_petition=queued_without_petition,
+        queued_application_forms=queued_application_forms,
         unopened_petitions=unopened_petitions,
         offloaded=corpus.payload_reads_offloaded(),
         # Zero-filled and ordered by construction (kind within segment), so the
@@ -1015,9 +1162,10 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
             for (kind, segment), (stored, blank) in tallies.items()
         ],
         # `iter_rows` yields in case_id order, the prefetch preserves input
-        # order, and `documents_for_case` orders by kind — so the ledger is
+        # order, and `documents_for_case` orders by kind — so the ledgers are
         # deterministic on either schedule, without a re-sort.
         empty_documents=empty_documents,
+        queued_without_petition_cases=queued_without_petition_cases,
     )
 
 
