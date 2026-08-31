@@ -79,7 +79,7 @@ UNSAMPLED_WEIGHT: Final = 1
 # How far either side of a kept serial the block it stands for reaches. A sampled
 # row represents itself plus the `LEGACY_DENIAL_SAMPLE_EVERY - 1` petitions the
 # walk passed over, and which side of the serial they fell is not recorded — so
-# the check looks both ways and asks for a majority rather than guessing the
+# the check looks both ways over the doubled window rather than guessing the
 # block's alignment.
 _SAMPLE_BLOCK_SPAN: Final = LEGACY_DENIAL_SAMPLE_EVERY - 1
 
