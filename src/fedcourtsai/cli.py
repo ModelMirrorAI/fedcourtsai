@@ -5514,7 +5514,9 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
 
     Note what the empty share is *not*: a case whose petition row is absent
     entirely never enters it, which is why the missing-document population gets
-    its own line rather than being left to a reader to notice.
+    its own line rather than being left to a reader to notice — and its own
+    case-id ledger below, since the two failure modes are repaired case by case
+    from opposite ends and neither is actionable as a bare count.
     """
     if coverage.offloaded:
         typer.echo("text source: the per-case content store")
@@ -5545,9 +5547,18 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
         f"missing documents: {coverage.distributed_without_petition} of "
         f"{coverage.distributed} distributed case(s) hold no petition row at all, "
         f"and {coverage.queued_without_petition} of {coverage.queued} queued for "
-        "prediction; an extraction fix reaches none of them. The wide count is a "
-        "stock — a row distributed before the document channel existed was never "
-        "fetched for — so read the queued one for what is recoverable now."
+        "prediction; an extraction fix reaches none of them. The wide count is an "
+        "unfiltered stock — a row distributed before the document channel existed "
+        "was never fetched for — so read the queued one for what is recoverable now."
+    )
+    # The queued count's own exclusion, printed rather than left implicit: held
+    # out of the number above, it would otherwise be an absence a reader can only
+    # notice by knowing the docket forms.
+    typer.echo(
+        f"  ({coverage.queued_application_forms} further queued case(s) hold no "
+        "petition because they are interim application dockets — structurally "
+        "petitionless, not a provisioning gap, so they are out of the count "
+        "above but still inside its denominator)"
     )
     typer.echo(
         f"text frame: the pass read documents for {coverage.cases_read} of the "
@@ -5582,6 +5593,14 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
         typer.echo(f"empty text ({len(coverage.empty_documents)} case(s)):")
         for case_id, kinds in coverage.empty_documents.items():
             typer.echo(f"  {case_id}: {', '.join(kinds)}")
+    # The second ledger, for the failure mode no extraction fix reaches. Printed
+    # for the reason the first is: a repair here is a per-case route question —
+    # a case whose documents were never provisioned reads the same as one whose
+    # fetch was attempted and served nothing — and a count names no case.
+    if coverage.queued_without_petition_cases:
+        typer.echo(f"no petition, queued ({len(coverage.queued_without_petition_cases)} case(s)):")
+        for case_id in coverage.queued_without_petition_cases:
+            typer.echo(f"  {case_id}")
 
 
 def _ensure_corpus_layout(db_path: Path) -> None:

@@ -214,7 +214,18 @@ an empty derived questions-presented row is as likely to be a capture the
 deriver would not vouch for. And the command reports the **absent** petition
 beside the empty one, because that is the larger failure and a different
 repair: a document never fetched has nothing to re-extract, so an empty-text
-share read on its own would size the smaller of the two problems.
+share read on its own would size the smaller of the two problems. That absent
+population is enumerated over the queued rows, not only counted: a petition can
+be missing by several routes — a case that reached the queue without its
+documents ever being provisioned, a fetch that failed, a link upstream no
+longer serves — and only the case ids let a given case be assigned to one. The
+interim application dockets are held out of the count and reported beside it,
+since an application is not a cert petition: no petition is ever selected for
+one, so its absence is the docket form rather than a gap. On the fetch side the
+routes are recorded as they happen — `documents.document_fetch_losses` counts
+every dropped document by reason (a transport failure, a link the upstream did
+not serve, an opposition whose every brief failed) and each one is warned into
+the run log — so those causes stop leaving the same trace, which is none.
 **The questions presented
 are derived from the petition PDF, never from `QPLink`:** the `/qp/` page is
 generated when certiorari is *granted* and opens with the grant order, so the
@@ -244,9 +255,12 @@ written only where the petition has text.
 
 The larger gap on the queued population is a different one: 29 of those 242
 cases hold no stored petition at all — itself the recoverable-now cut of a much
-wider stock of distributed rows nothing was ever fetched for. No extraction fix
-reaches any of them; that is a fetch question, repaired in the fetch path or
-not at all.
+wider stock of distributed rows nothing was ever fetched for. That 29 is
+undifferentiated: it pools the provisioning gap with the interim application
+dockets, which hold no petition by their form. The report counts those apart
+and enumerates the rest, so a read of the same population prints a smaller gap
+and names the cases in it. No extraction fix reaches any of them; that is a
+fetch question, repaired in the fetch path or not at all.
 
 So the scanned-petition class is small on every population, and on this blob it
 is a bounded 270 documents, each named in the report's case-id ledger alongside
@@ -291,9 +305,10 @@ Decided and specified here; not yet built. What a pass must hold to:
   whitespace-only and whose page count is above zero. A zero-page row is either
   a PDF the extractor could not open or a derived section — `pages` carries
   both — and neither is OCR's to repair; a case holding no petition row is a
-  fetch gap. Both stay out of the population. The coverage report's case-id
-  ledger names the kinds that read back empty but not their page counts, so the
-  pass re-derives that filter itself. The PDF is re-fetched by the row's stored
+  fetch gap, or on an application docket no gap at all. Both stay out of the
+  population. The coverage report's case-id ledger names the kinds that read
+  back empty but not their page counts, so the pass re-derives that filter
+  itself. The PDF is re-fetched by the row's stored
   URL, which for a petition is the single link that was fetched:
   supremecourt.gov, free and politeness-capped, so the pass spends none of the
   CourtListener budget.

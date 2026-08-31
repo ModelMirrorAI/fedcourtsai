@@ -20,6 +20,7 @@ import pytest
 
 from fedcourtsai import casestore, corpus, fixture, process_version
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import documents
 from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.salience import SalienceScorer
 from fedcourtsai.schemas import Disposition, Evaluation, Prediction, ProcessVersion
@@ -50,6 +51,17 @@ def _reset_casestore_transport() -> Iterator[None]:
     casestore.reset_active_transport()
     yield
     casestore.reset_active_transport()
+
+
+@pytest.fixture(autouse=True)
+def _reset_document_fetch_losses() -> None:
+    """Keep the process-wide document-fetch loss counter per-test.
+
+    Nothing in the pipeline resets it — a whole poll run is the unit a reader
+    wants there — so without this any test that fetches documents would leave
+    its skips in the count a later test reads.
+    """
+    documents.reset_document_fetch_losses()
 
 
 class DictSnapshotSource:
