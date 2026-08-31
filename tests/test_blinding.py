@@ -55,7 +55,7 @@ from fedcourtsai.schemas import (
     SemanticClaim,
     Stage,
 )
-from fedcourtsai.serialize import write_json, write_text, write_yaml
+from fedcourtsai.serialize import read_model, write_json, write_text, write_yaml
 from fedcourtsai.validate import (
     check_evaluation_targets,
     run_ledger_referential_checks,
@@ -714,6 +714,37 @@ def test_an_alias_that_survives_fails_the_gate_loudly(ledger: Path) -> None:
     check = check_evaluation_targets(ledger)
     assert not check.passed
     assert any(ALIAS_PREFIX in problem for problem in check.problems)
+
+
+def test_a_dangling_prediction_run_id_fails_the_gate(ledger: Path) -> None:
+    """A stamped run id must resolve, and must be a plain segment.
+
+    Every scoring surface resolves the named run *first*, so a dangling
+    pointer would silently score a different prediction than the record
+    claims — the exact undetectable disagreement the field exists to close —
+    and a separator-carrying value could resolve into another predictor's
+    cell. Both are the pointer discipline `check_prediction_docs` already
+    applies to a prediction's named prose.
+    """
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _unblind(ledger)
+    assert check_evaluation_targets(ledger).passed
+
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    real = result.candidates[0].predictor_id
+    eval_path = event_paths.evaluation(EVALUATOR, real, EVALUATE_RUN)
+    record = read_model(eval_path, Evaluation)
+
+    committed = record.model_copy(update={"prediction_run_id": PREDICT_RUN})
+    write_json(eval_path, committed)
+    assert check_evaluation_targets(ledger).passed
+
+    for bad in ("no-such-run", f"../{real}/{PREDICT_RUN}"):
+        write_json(eval_path, record.model_copy(update={"prediction_run_id": bad}))
+        check = check_evaluation_targets(ledger)
+        assert not check.passed
+        assert any("prediction_run_id" in problem for problem in check.problems)
 
 
 def test_unblinding_is_idempotent(ledger: Path) -> None:

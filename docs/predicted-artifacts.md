@@ -575,8 +575,10 @@ in prose.
   (`docs/decision-model.md`) — `reasoning_quality`, a structured `leakage`
   assessment over the harness-captured retrieval log, and the evaluator's own
   independent `big_case` read. `correct`, `claim_scores`,
-  `base_rate_salience_version`, and `process_version` are the harness's, never
-  the evaluator's word — as is the whole skill record of `brier_score`,
+  `base_rate_salience_version`, `prediction_run_id` (which prediction run this
+  record graded — the anchor every scoring join resolves first, so a later
+  re-prediction cannot re-point a standing grading), and `process_version` are
+  the harness's, never the evaluator's word — as is the whole skill record of `brier_score`,
   `segment_base_rate`, and `brier_skill_score` on the two stages whose pool the
   harness computes (below), which leaves `brier_score` the evaluator's on a cert
   cell only. `correct` takes no such exemption: a label comparison needs no

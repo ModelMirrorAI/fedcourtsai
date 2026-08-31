@@ -268,6 +268,7 @@ from .store import (
     ledger_cell_counts,
     open_events,
     resolved_events,
+    scored_prediction,
     stratify,
     unforecastable_listed_events,
 )
@@ -3987,7 +3988,15 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     :func:`fedcourtsai.validate.check_evaluation_correct_agrees` collapses to
     the latest runs and requires the evaluators to agree, so a half-re-graded
     event fails the ledger — which is the check doing its job, not an obstacle
-    to route around.
+    to route around. One divergence a re-grade cannot repair: gradings that
+    straddle a re-prediction each preserve their own ``prediction_run_id``,
+    so their bits stay computed against different runs through any number of
+    re-grades. The remedy there is the ordinary re-stamp of the event's
+    evaluations, which re-resolves the identity to the latest prediction — at
+    the stated cost that it rewrites ``process_version``, attributing the
+    grading to the registry in force now rather than the one that produced
+    it; that trade is why the straddle should be repaired promptly, not left
+    to age.
     """
     settings = get_settings()
     if role not in ("predictor", "evaluator"):
@@ -4043,6 +4052,24 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         record = read_model(path, model_cls)
         cell_update = dict(update)
         if isinstance(record, Evaluation):
+            # The graded-prediction identity is the harness's word like every
+            # stamped field: the ordinary stamp resolves it (immediately
+            # post-run, when the latest prediction is the scored one) and
+            # overwrites an evaluator-written value; a re-grade leaves it
+            # untouched, so a predictor re-run after the grading cannot
+            # re-point the record. Assigned unconditionally on the ordinary
+            # path, `None` included — the one way the harness could forget an
+            # identity, safe because nothing removes a prediction from the
+            # append-only ledger, so a stamp that resolves nothing is a cell
+            # that never had a prediction to name. Written back onto `record`
+            # first, so the graded computations below judge the same
+            # prediction the stamp names.
+            if not regrade:
+                scored = _latest_prediction_for(event_paths, record.predictor_id)
+                cell_update["prediction_run_id"] = scored.run_id if scored is not None else None
+                record = record.model_copy(
+                    update={"prediction_run_id": cell_update["prediction_run_id"]}
+                )
             # Assigned unconditionally, like `context` above: the claim block is
             # the harness's word (docs/outcome-decomposition.md), so an
             # evaluator-authored one is replaced — with the computed block where
@@ -4426,7 +4453,7 @@ def _claim_scores_for(
     """
     outcome = _outcome_for(event_paths)
     statpack = _statpack_for(settings)
-    latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+    latest = _scored_prediction_for(event_paths, evaluation)
     if outcome is None or statpack is None or latest is None:
         return None
     return score_claims(
@@ -4438,13 +4465,32 @@ def _claim_scores_for(
     )
 
 
-def _latest_prediction_for(event_paths: EventPaths, predictor_id: str) -> Prediction | None:
-    """The scored prediction for one predictor on this event, or ``None``.
+def _scored_prediction_for(event_paths: EventPaths, evaluation: Evaluation) -> Prediction | None:
+    """The prediction this evaluation grades, or ``None``.
 
-    The join every scoring surface uses — an evaluation records its predictor,
-    not a prediction run id, so the scored prediction is that predictor's
-    **latest** for the event by :func:`fedcourtsai.integrity.cell_clock`.
-    ``None`` where the predictor wrote none.
+    :func:`fedcourtsai.store.scored_prediction` over the cell's own record —
+    the join every stamp-time computation uses, and the same resolver the
+    stratified boards and the ``validate`` gates read, so no two enforcers of
+    one rule can score different predictions. A stamped ``prediction_run_id``
+    names the graded run outright (a ``None`` covers both a record predating
+    the field and a stamp that resolved no prediction at all — the second is
+    loud elsewhere, since ``correct`` stamps null beside it); the fallback is
+    the predictor's latest prediction, the historical rule the stamp exists
+    to retire.
+    """
+    return scored_prediction(
+        event_paths.base, evaluation.predictor_id, evaluation.prediction_run_id
+    )
+
+
+def _latest_prediction_for(event_paths: EventPaths, predictor_id: str) -> Prediction | None:
+    """A predictor's **latest** prediction on this event, or ``None``.
+
+    By :func:`fedcourtsai.integrity.cell_clock`; ``None`` where the predictor
+    wrote none. The fallback join for evaluations with no stamped
+    ``prediction_run_id``, and the resolver the ordinary stamp reads that run
+    id from — at stamp time, immediately post-run, the latest prediction *is*
+    the scored one.
     """
     files = sorted(event_paths.predictions_dir.glob(f"{predictor_id}/*/prediction.json"))
     predictions = [read_model(p, Prediction) for p in files]
@@ -4540,7 +4586,7 @@ def _skill_record_for(
     )
     stage = _event_stage_and_opened(event_paths)[0]
     if stage not in _HARNESS_SKILL_STAGES:
-        latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+        latest = _scored_prediction_for(event_paths, evaluation)
         context = latest.context if latest is not None else None
         version = _base_rate_salience_version_for(evaluation, context)
         return (
@@ -4646,7 +4692,7 @@ def _harness_correct_for(
     missing input suppresses the bit rather than failing a cell that already
     produced its output.
     """
-    latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+    latest = _scored_prediction_for(event_paths, evaluation)
     if latest is None or outcome is None:
         return None
     return is_correct(latest, outcome)
@@ -4673,7 +4719,7 @@ def _harness_brier_for(
     a post-agent step, so a missing input suppresses the number rather than
     failing a cell that already produced its output.
     """
-    latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+    latest = _scored_prediction_for(event_paths, evaluation)
     if latest is None or outcome is None:
         return None
     return brier_score(latest, outcome)
@@ -4723,7 +4769,7 @@ def _harness_base_rate_for(
         if grant_term is None:
             return None
         return merits_base_rate(grant_term, statpack, lookback_terms=lookback)
-    latest = _latest_prediction_for(event_paths, evaluation.predictor_id)
+    latest = _scored_prediction_for(event_paths, evaluation)
     if latest is None or latest.context is None or latest.context.term is None:
         return None
     return interim_base_rate(latest.context.term, statpack, lookback_terms=lookback)

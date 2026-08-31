@@ -120,8 +120,10 @@ the cell onto the merits axis, where the predictor was never asked for a
 judgment and the cell scores 0 against a question it never received. The merits
 outcome builder is the field's only writer, so `validate`'s
 `judgment_only_on_merits_outcomes` holds that invariant on the artifact. And
-because `correct` is a function of two committed artifacts — the predictor's
-latest prediction *as at the stamp* and the outcome — rather than a judgment
+because `correct` is a function of two committed artifacts — the prediction the
+evaluation's harness-stamped `prediction_run_id` names (the predictor's latest
+*as at the stamp*, resolved once and preserved thereafter) and the outcome —
+rather than a judgment
 about them, `evaluation_correct_agrees` requires the **current** stamped
 gradings of one `(case_id, event_id, predictor_id)` cell to record the same bit
 across evaluators; where they differ, the stamps read different pairs (a

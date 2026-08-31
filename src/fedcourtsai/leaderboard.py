@@ -79,7 +79,6 @@ from .integrity import (
     PROCEDURAL,
     RETROSPECTIVE,
     StratifiedCell,
-    cell_clock,
     latest_evaluations,
 )
 from .pipeline.base_rates import realized_band_rate
@@ -104,6 +103,7 @@ from .schemas import (
     Stratum,
 )
 from .serialize import read_model
+from .store import scored_prediction
 
 #: One scored cell's identity — ``(case, event, predictor, evaluator, run)``.
 #: The join key for per-cell figures the board computes at render rather than
@@ -384,11 +384,13 @@ def big_case_agreement(
     be events wearing the name of cases. Predictors with no comparable case are
     absent from the map (their ``big_case`` stays null).
 
-    ``frozen_only`` (the default) keeps only events whose latest prediction was
-    produced by a frozen process, and only reads whose evaluation carries a harness stamp at or
-    after the freeze instant, so this section defaults to the frozen headline exactly like the
-    score aggregates — a shakedown big-case read never rides alongside a
-    frozen-only board, even where its event was later re-run frozen. Within
+    ``frozen_only`` (the default) keeps only cells whose **scored** prediction —
+    the run each evaluation's harness stamp names, latest as the legacy
+    fallback — was produced by a frozen process, and only reads whose
+    evaluation carries a harness stamp at or after the freeze instant, so this
+    section defaults to the frozen headline exactly like the score aggregates —
+    a shakedown big-case read never rides alongside a frozen-only board, even
+    where its event was later re-run frozen. Within
     that scope each judge contributes one read per cell
     (:func:`_scoped_evaluations`), so a re-graded cell cannot weight its own
     judge twice inside the panel mean.
@@ -396,7 +398,12 @@ def big_case_agreement(
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
         return {}
-    reads: dict[tuple[str, str, str], list[float]] = defaultdict(list)
+    # Panel reads keyed per graded prediction run, not per event alone:
+    # gradings that straddle a re-prediction judged different artifacts, so
+    # each named run pairs with its own panel rather than folding two
+    # questions into one mean. On an un-straddled ledger the grouping is
+    # identical to a per-event one.
+    reads: dict[tuple[str, str, str, str], tuple[float, list[float]]] = {}
     for evaluation in _scoped_evaluations(
         cases_dir,
         in_scope=lambda evaluation: (
@@ -405,8 +412,14 @@ def big_case_agreement(
     ):
         if evaluation.big_case is None:
             continue
-        key = (evaluation.predictor_id, evaluation.case_id, evaluation.event_id)
-        reads[key].append(evaluation.big_case.evaluator_score)
+        scored = _scored_prediction(cases_dir, evaluation)
+        if scored is None or scored.big_case_score is None:
+            continue
+        if frozen_only and not is_frozen(scored.process_version):
+            continue
+        key = (evaluation.predictor_id, evaluation.case_id, evaluation.event_id, scored.run_id)
+        _, scores = reads.setdefault(key, (scored.big_case_score, []))
+        scores.append(evaluation.big_case.evaluator_score)
 
     # Collapsed to the CASE, not the event. Big-caseness is a property of the
     # case — the same dispute is the same size at cert and at merits — so a
@@ -414,16 +427,9 @@ def big_case_agreement(
     # *non-independent* points to a rank correlation that treats its inputs as
     # independent, and `cases` would count events while calling them cases.
     per_case: dict[tuple[str, str], list[tuple[float, float]]] = defaultdict(list)
-    for (predictor_id, case_id, event_id), evaluator_scores in reads.items():
-        latest = _latest_prediction(cases_dir, case_id, event_id, predictor_id)
-        if latest is None:
-            continue
-        if frozen_only and not is_frozen(latest.process_version):
-            continue
-        if latest.big_case_score is None:
-            continue
+    for (predictor_id, case_id, _event_id, _run_id), (own_score, evaluator_scores) in reads.items():
         panel_mean = sum(evaluator_scores) / len(evaluator_scores)
-        per_case[(predictor_id, case_id)].append((latest.big_case_score, panel_mean))
+        per_case[(predictor_id, case_id)].append((own_score, panel_mean))
 
     points: dict[str, list[tuple[float, float]]] = defaultdict(list)
     for (predictor_id, _case_id), moments_read in sorted(per_case.items()):
@@ -437,35 +443,33 @@ def big_case_agreement(
     }
 
 
-def _latest_prediction(
-    cases_dir: Path, case_id: str, event_id: str, predictor_id: str
-) -> Prediction | None:
-    """The newest prediction a predictor wrote for an event, or ``None``."""
-    files = sorted(
-        (cases_dir / case_id / "events" / event_id).glob(
-            f"predictions/{predictor_id}/*/prediction.json"
-        )
+def _scored_prediction(cases_dir: Path, evaluation: Evaluation) -> Prediction | None:
+    """The prediction this evaluation graded, or ``None``.
+
+    :func:`fedcourtsai.store.scored_prediction` over the record's own fields —
+    the same named-run-first join the stratified boards and the stamp use
+    (latest by harness clock only as the legacy fallback), so the agreement
+    views and the score aggregates read one graded artifact per cell.
+    """
+    return scored_prediction(
+        cases_dir / evaluation.case_id / "events" / evaluation.event_id,
+        evaluation.predictor_id,
+        evaluation.prediction_run_id,
     )
-    predictions = [read_model(p, Prediction) for p in files]
-    if not predictions:
-        return None
-    # The harness clock, matching the stratified join's latest-selection down
-    # to the tiebreak (path order first, then the clock).
-    return max(predictions, key=cell_clock)
 
 
-def _latest_prediction_is_frozen(
-    cases_dir: Path, case_id: str, event_id: str, predictor_id: str
-) -> bool:
-    """Whether that prediction ran a blessed process.
+def _scored_prediction_is_frozen(cases_dir: Path, evaluation: Evaluation) -> bool:
+    """Whether the graded prediction ran a blessed process.
 
     One definition, shared by both agreement views, so a frozen-only big-case
     board and a frozen-only evaluator board always cover the same cells — the
-    partition keys on the *prediction's* stamp because the predictor is the
-    competitor being ranked.
+    partition keys on the *scored prediction's* stamp because the predictor is
+    the competitor being ranked, and on the scored run rather than the latest
+    so a shakedown grading cannot enter a frozen view when its predictor
+    later re-runs the event frozen.
     """
-    latest = _latest_prediction(cases_dir, case_id, event_id, predictor_id)
-    return latest is not None and is_frozen(latest.process_version)
+    scored = _scored_prediction(cases_dir, evaluation)
+    return scored is not None and is_frozen(scored.process_version)
 
 
 def evaluator_agreement(
@@ -509,9 +513,7 @@ def evaluator_agreement(
             not frozen_only
             or (
                 graded_post_freeze(evaluation.process_version)
-                and _latest_prediction_is_frozen(
-                    cases_dir, evaluation.case_id, evaluation.event_id, evaluation.predictor_id
-                )
+                and _scored_prediction_is_frozen(cases_dir, evaluation)
             )
         ),
     ):
@@ -590,9 +592,11 @@ def skill_components(
     the same band population — the ``terminal`` basis re-derives the band from
     the corpus row, which the committed ledger does not carry, so those cells
     are omitted rather than scored on a mismatched pairing. And the scored
-    prediction — the predictor's **latest** for the event, the join every
-    scoring surface uses — must carry the frozen band, version, and Term the
-    pairing is keyed on.
+    prediction — the run the evaluation's stamped ``prediction_run_id`` names,
+    the join every scoring surface uses (latest as the legacy fallback) — must
+    carry the frozen band, version, and Term the pairing is keyed on, so the
+    realized rate and the ``brier_score`` it sits beside describe one
+    prediction.
     """
     cases_dir = data_root / "cases"
     outcomes: dict[tuple[str, str], Outcome] = {}
@@ -714,10 +718,8 @@ def _realized_rate(
     """This cell's realized-Term band rate, or ``None`` where it does not qualify."""
     if statpack is None or stage != Stage.cert or evaluation.base_rate_basis != "risk_set":
         return None
-    latest = _latest_prediction(
-        cases_dir, evaluation.case_id, evaluation.event_id, evaluation.predictor_id
-    )
-    context = latest.context if latest is not None else None
+    scored = _scored_prediction(cases_dir, evaluation)
+    context = scored.context if scored is not None else None
     if context is None or context.band is None:
         return None
     if context.salience_version is None or context.term is None:

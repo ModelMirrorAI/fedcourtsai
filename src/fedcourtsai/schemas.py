@@ -1368,6 +1368,20 @@ class Evaluation(_Strict):
         "written before the field existed)",
     )
     run_id: str
+    prediction_run_id: str | None = Field(
+        default=None,
+        description="Run id of the prediction this evaluation graded. "
+        "Harness-stamped by the ordinary `stamp-cell --role evaluator` from "
+        "the prediction it resolves at stamp time — never the evaluator's "
+        "word (an evaluator-written value is overwritten). A re-grade leaves "
+        "it untouched, so a predictor re-run between the grading and a "
+        "correction cannot re-point the record at a prediction it never "
+        "judged; an ordinary re-stamp *does* re-resolve it, which is why a "
+        "corrected outcome is routed to `--regrade` and the re-stamp is "
+        "reserved for converging gradings that straddle a re-prediction. "
+        "Null on records stamped before the field existed; every reader then "
+        "falls back to the predictor's latest prediction for the event.",
+    )
     created_at: datetime
     correct: int | None = Field(
         ge=0,

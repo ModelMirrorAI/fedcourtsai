@@ -21,7 +21,7 @@ from fedcourtsai.leaderboard import (
     NO_STAGE_KEY,
     CellSkill,
     _evaluation_key,
-    _latest_prediction,
+    _scored_prediction,
     big_case_agreement,
     build_leaderboard,
     evaluator_agreement,
@@ -1101,7 +1101,8 @@ def test_big_case_agreement_averages_the_evaluator_panel(tmp_path: Path) -> None
 
 
 def test_big_case_agreement_uses_the_latest_prediction_score(tmp_path: Path) -> None:
-    # The latest prediction's score wins. Latest scores (0.1, 0.9) are concordant
+    # No stamped run id on these gradings, so the legacy fallback joins the
+    # latest prediction, whose score wins. Latest scores (0.1, 0.9) are concordant
     # with the panel (0.2, 0.8) → +1. A stale earlier score of 0.9 on case 1, if
     # used, would tie the x-axis with case 2 → undefined (None). So +1 proves the
     # recency latch.
@@ -1587,9 +1588,10 @@ def test_a_breaching_mootness_cell_stays_procedural_under_the_retrospective_poli
     assert len(run.excluded) == 1
 
 
-def test_latest_prediction_keys_on_the_harness_stamp(tmp_path: Path) -> None:
-    # The big-case/agreement joins' latest-pick must match the stratified
-    # join's clock: a run stamped later outranks a run merely created later.
+def test_scored_prediction_fallback_keys_on_the_harness_stamp(tmp_path: Path) -> None:
+    # A record with no stamped `prediction_run_id` takes the latest-prediction
+    # fallback, and its latest-pick must match the stratified join's clock: a
+    # run stamped later outranks a run merely created later.
     data_root = tmp_path / "data"
     ev = _evaluation("alpha", event_id="evt-a")
     _write_cell(data_root, ev, predicted_at=datetime(2026, 6, 20, tzinfo=UTC))
@@ -1616,9 +1618,9 @@ def test_latest_prediction_keys_on_the_harness_stamp(tmp_path: Path) -> None:
         ),
     )
 
-    latest = _latest_prediction(data_root / "cases", ev.case_id, ev.event_id, ev.predictor_id)
+    scored = _scored_prediction(data_root / "cases", ev)
 
-    assert latest is not None and latest.run_id == "p0"
+    assert scored is not None and scored.run_id == "p0"
 
 
 # --- run collapse: one grading per cell per judge ---------------------------------
@@ -1808,6 +1810,129 @@ def test_the_superseded_count_is_scoped_like_the_board_it_sits_on(
 
     assert stratify(data_root).superseded == 0
     assert stratify(data_root, frozen_only=False).superseded == 1
+
+
+def test_a_decounted_predictions_grading_cannot_ride_a_frozen_rerun(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The stamped ``prediction_run_id`` anchors the frozen-scope join.
+
+    A shakedown prediction is graded, then the predictor re-runs the event
+    under the blessed process. Joined to the *latest* prediction, the old
+    grading would attach to the frozen re-run and ride into the counted
+    figures — a judgment of work the frozen process never produced. The stamp
+    keeps the grading attributed to the run it judged, which the frozen scope
+    then excludes; a record stamped before the field existed still takes the
+    latest-prediction fallback, asserted beside it so retiring the fallback
+    is a deliberate act rather than a refactor's side effect.
+    """
+    bless_process(monkeypatch, "sha256:blessed", since=datetime(2026, 1, 1, tzinfo=UTC))
+    data_root = tmp_path / "data"
+    rerun_stamp = ProcessVersion(
+        label="proc-v1", digest="sha256:blessed", stamped_at=datetime(2026, 7, 1, tzinfo=UTC)
+    )
+    for predictor, named_run in (("alpha", "p1"), ("legacy", None)):
+        # The graded shakedown: prediction p1 unstamped, its grading stamped
+        # post-instant. `alpha`'s grading names p1; `legacy`'s predates the
+        # field.
+        _write_cell(
+            data_root,
+            _evaluation(
+                predictor,
+                event_id=f"evt-{predictor}",
+                prediction_run_id=named_run,
+                process_version=_graded_at(2),
+            ),
+            process_version=None,
+        )
+        # The frozen re-run, later on the harness clock than p1's authored date.
+        event = CasePaths(data_root, "ca9", 123).event(f"evt-{predictor}")
+        write_json(
+            event.prediction(predictor, "p2"),
+            Prediction(
+                case_id="ca9/123",
+                event_id=f"evt-{predictor}",
+                predictor_id=predictor,
+                engine=Engine.claude_code,
+                run_id="p2",
+                created_at=datetime(2026, 6, 30, tzinfo=UTC),
+                input_snapshot="corpus",
+                granted=1,
+                probability=0.7,
+                predicted_disposition=Disposition.granted,
+                process_version=rerun_stamp,
+            ),
+        )
+
+    counted = {cell[0].predictor_id for cell in stratify(data_root).cells}
+    assert counted == {"legacy"}, (
+        "the stamped grading must stay on its de-counted prediction (out of the "
+        "frozen scope); only the legacy record takes the latest-prediction fallback"
+    )
+    # Both remain honest cells in the all-versions view.
+    assert {cell[0].predictor_id for cell in stratify(data_root, frozen_only=False).cells} == {
+        "alpha",
+        "legacy",
+    }
+
+
+def test_the_big_case_column_keys_frozen_scope_on_the_named_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The stratified boards' de-counted-grading guard, on the big-case column.
+
+    Same shape as the stratify test above: a shakedown prediction's big-case
+    read is graded and stamped, then the predictor re-runs the event under
+    the blessed process with a different `big_case_score`. The frozen
+    agreement view must not admit the shakedown read on the re-run's stamp —
+    the evaluator formed it against the run it graded — while a record
+    stamped before the field existed still keys on the latest run.
+    """
+    bless_process(monkeypatch, "sha256:blessed", since=datetime(2026, 1, 1, tzinfo=UTC))
+    data_root = tmp_path / "data"
+    for predictor, named_run in (("alpha", "p1"), ("legacy", None)):
+        case_id = f"scotus/{1 if predictor == 'alpha' else 2}"
+        _write_big_case_cell(data_root, predictor, case_id, pred_score=0.9, eval_scores=[0.8])
+        court, _, docket = case_id.partition("/")
+        event = CasePaths(data_root, court, int(docket)).event("evt-petition-disposition")
+        # Re-point the grading's identity and stamp it post-instant.
+        eval_path = event.evaluation("eval-0", predictor, "r1")
+        record = read_model(eval_path, Evaluation)
+        write_json(
+            eval_path,
+            record.model_copy(
+                update={"prediction_run_id": named_run, "process_version": _graded_at(2)}
+            ),
+        )
+        # The frozen re-run, later on the harness clock, scoring its own size.
+        write_json(
+            event.prediction(predictor, "p2"),
+            Prediction(
+                case_id=case_id,
+                event_id="evt-petition-disposition",
+                predictor_id=predictor,
+                engine=Engine.claude_code,
+                run_id="p2",
+                created_at=datetime(2026, 6, 30, tzinfo=UTC),
+                input_snapshot="corpus",
+                granted=1,
+                probability=0.7,
+                predicted_disposition=Disposition.granted,
+                big_case_score=0.1,
+                process_version=ProcessVersion(
+                    label="proc-v1",
+                    digest="sha256:blessed",
+                    stamped_at=datetime(2026, 7, 1, tzinfo=UTC),
+                ),
+            ),
+        )
+
+    frozen = big_case_agreement(data_root)
+    assert "alpha" not in frozen, (
+        "the stamped shakedown read must stay keyed to its unfrozen run, not "
+        "ride the frozen re-run into the frozen view"
+    )
+    assert frozen["legacy"].cases == 1  # the fallback keys on the frozen latest
 
 
 def test_the_superseded_count_is_taken_before_the_forward_claim_exclusion(

@@ -1301,3 +1301,45 @@ freeze commit is recorded here.
   pytest tests/test_process_version.py::test_no_committed_cell_predates_the_bless_it_claims`
   green over the ledger on `main`, and `uv run fedcourts leaderboard` still
   reporting an empty frozen scope until `2026-09-05T00:00:00Z`.
+
+- **The evaluation-to-prediction join resolves the stamped graded run,
+  2026-08-31** (no digest added or retired, no instant moved, no committed
+  number moved): the input-selection rule beneath five harness-owned numbers
+  changes under unchanged digests, which is exactly the "who computes a
+  scored number sits outside the digest" class `docs/process-version.md`
+  routes through this record. An evaluation now carries a harness-stamped
+  `prediction_run_id` — resolved once by the ordinary stamp, preserved by
+  `--regrade`, never the evaluator's word — and every reader joins it
+  **named run first**: `correct`, `brier_score`, `segment_base_rate`,
+  `brier_skill_score`, and `claim_scores` at stamp time, the stratified
+  boards, the leaderboard's agreement views and realized-Term pairing, and
+  `validate`'s basis gate, all through one resolver, so a grading of a
+  de-counted prediction can no longer ride a frozen re-run of its cell into
+  the counted figures. The **forward/retrospective stratum boundary moves
+  with it**: the scored prediction's harness clock now decides the stratum,
+  not the latest prediction's — the graded artifact is the one whose timing
+  the claim describes — with the latest-prediction rule surviving only as
+  the fallback for records stamped before the field existed, where its
+  conservative reading (never present a possibly post-resolution prediction
+  as forward) is still the right default for an ambiguous join.
+
+  **No committed figure moves, verified rather than asserted.** All 150
+  committed evaluations predate the field (`prediction_run_id` null), so
+  every one takes the fallback and the build is byte-identical over the
+  ledger as committed; only 4 `(event, predictor)` cells in the whole ledger
+  hold more than one prediction run (all `evt-petition-disposition`, dockets
+  `73281059` / `73281063` / `73281345`), none of them carries any
+  evaluation, and every prediction in them is unstamped; the committed
+  boards read `entries: []` under `process_scope: frozen` before and after.
+  The newest committed evaluation stamp is `2026-08-29T04:33:12Z`, before
+  the `2026-09-05T00:00:00Z` instant, so **zero** legacy records are in
+  frozen scope and the fallback carries no counted cell today. The one open
+  edge is promotion order: an evaluate round stamped in the window between
+  the instant and the promotion that carries this change would mint
+  null-field records that *are* frozen-scope and read through the fallback,
+  with `graded_post_freeze` as their only belt — so this change should
+  promote before the first post-instant evaluate round, and the runnable
+  effect check is `uv run fedcourts validate data` green (the new
+  `check_evaluation_targets` pointer discipline holds over the ledger) with
+  `uv run fedcourts leaderboard` still reporting an empty frozen scope until
+  the instant.
