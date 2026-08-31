@@ -25,6 +25,12 @@ of them while every gate stays green:
   leg must name the same sidecar URL, write the client config to the same
   file, and pin the same `CODEX_HOME`, or the smoke answers a question about a
   configuration nothing else runs;
+* the **codex invocation surface** — the two cell workflows' codex-action
+  steps, the npm pins of the same CLI in `run-backtest` and
+  `integration-test`, and `CodexRunner.build_command`'s config overrides are
+  one invocation described in four places, held in lockstep only by comments;
+  a drifted member runs codex under sandbox or search semantics nothing else
+  uses, and every gate stays green;
 * the **labeler transcript capture** — the qp-topic labeler's execution log is
   scanned and published as a short-lived artifact, and every clause of that
   (the scan gate, the retention window, the survive-failure condition, and the
@@ -41,6 +47,7 @@ Each would regress silently: the cell still runs, the artifact still validates,
 the integration gate stays green. So the contracts get pinned here instead.
 """
 
+import json
 import re
 import textwrap
 from pathlib import Path
@@ -53,6 +60,8 @@ from fedcourtsai.agent_feedback import (
     _GH_BACKOFF_SECONDS,
     _GH_TIMEOUT_SECONDS,
 )
+from fedcourtsai.pipeline.runner import CodexRunner, RunRequest
+from fedcourtsai.schemas import UsageRole
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
@@ -1399,3 +1408,82 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
     # of silently dropping the review-PR back-link from the comment.
     report = str(_named_step(*BACKTEST_REPORT_STEP)["run"])
     assert "pr_url=$(gh_retry gh pr list" in report
+
+
+# The codex invocation surface, described in four places that certify each
+# other only while they agree: the codex-action steps of the two cell
+# workflows (the action pin and its `codex-version` / `codex-args` / `sandbox`
+# inputs), the npm pins of the same CLI in run-backtest and the engine smoke,
+# and `CodexRunner.build_command`'s mirrored `-c` overrides. Each carries a
+# "keep in lockstep" comment and nothing else held them together: a member
+# that drifts runs codex under sandbox or web-search semantics nothing else
+# uses — a strictly smaller (or larger) information set than the engines it
+# is scored against — and the cell still runs, still validates, and stays
+# green.
+CODEX_ACTION_CELL_WORKFLOWS = ("run-predict.yml", "run-evaluate.yml")
+CODEX_NPM_PIN_WORKFLOWS = ("run-backtest.yml", "integration-test.yml")
+_CODEX_NPM_PIN = re.compile(r"@openai/codex@([\w.-]+)")
+
+
+def _codex_action_step(name: str) -> dict[str, Any]:
+    steps: list[dict[str, Any]] = [
+        step
+        for job in _load(name)["jobs"].values()
+        for step in job.get("steps", []) or []
+        if str(step.get("uses") or "").startswith("openai/codex-action@")
+    ]
+    assert len(steps) == 1, f"{name}: expected exactly one codex-action step, found {len(steps)}"
+    return steps[0]
+
+
+def _config_overrides(argv: list[str]) -> list[str]:
+    """The values handed to ``-c``, in order — the config surface itself."""
+    return [argv[i + 1] for i, flag in enumerate(argv[:-1]) if flag == "-c"]
+
+
+def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> None:
+    """One codex invocation, four surfaces: both cell steps share the action
+    pin and its inputs; the runner mirrors the config overrides and sandbox;
+    the npm installs pin the CLI version the action pins."""
+    predict, evaluate = (_codex_action_step(name) for name in CODEX_ACTION_CELL_WORKFLOWS)
+    assert predict["uses"] == evaluate["uses"], (
+        f"the codex-action pin differs between the cell workflows: "
+        f"{predict['uses']!r} vs {evaluate['uses']!r} — the v1.11 hold and its "
+        f"rationale (the network-access override refusal) apply to both or neither"
+    )
+    for key in ("codex-version", "codex-args", "sandbox", "safety-strategy"):
+        assert predict["with"].get(key) == evaluate["with"].get(key), (
+            f"codex-action input {key!r} differs between the cell workflows: "
+            f"{predict['with'].get(key)!r} vs {evaluate['with'].get(key)!r}"
+        )
+
+    # The runner's argv is the same invocation for back-tests and the stub
+    # cascade; its `-c` overrides and sandbox mode must match the action's.
+    request = RunRequest(
+        role=UsageRole.predictor,
+        court_id="scotus",
+        docket_id=1,
+        event_id="evt-cert-vote",
+        actor_id="codex-baseline",
+        run_id="20260101T000000Z",
+        prompt=Path(".github/prompts/predict.md"),
+        data_root=Path("data"),
+    )
+    argv = CodexRunner().build_command(request).argv
+    action_overrides = _config_overrides(json.loads(str(predict["with"]["codex-args"])))
+    assert action_overrides == _config_overrides(argv), (
+        f"codex config overrides drifted: the action passes {action_overrides!r}, "
+        f"CodexRunner.build_command passes {_config_overrides(argv)!r}"
+    )
+    assert argv[argv.index("--sandbox") + 1] == predict["with"]["sandbox"], (
+        "the runner's --sandbox mode differs from the action's `sandbox:` input"
+    )
+
+    # The CLI the action installs is the CLI the npm surfaces pin.
+    version = str(predict["with"]["codex-version"])
+    for name in CODEX_NPM_PIN_WORKFLOWS:
+        pins = {pin for block in _joined_run_blocks(name) for pin in _CODEX_NPM_PIN.findall(block)}
+        assert pins == {version}, (
+            f"{name}: @openai/codex npm pin(s) {sorted(pins)!r} differ from the "
+            f"cell steps' codex-version {version!r}"
+        )
