@@ -74,6 +74,7 @@ from . import corpus
 from .ledger_events import EVENT_DOCUMENTS, move_event_directory
 from .paths import CasePaths, EventPaths
 from .pipeline import moments
+from .pipeline.ingest import UNSAMPLED_WEIGHT
 from .schemas import Outcome, PredictableEvent
 from .serialize import read_model
 from .supremecourt import is_live_docket_id
@@ -87,7 +88,7 @@ class DuplicatePair(BaseModel):
     keep: str  # the CourtListener-keyed case_id (docket id below the live range)
     drop: str  # the live-minted case_id (docket id in the reserved range)
     agreed: bool  # date_filed, date_decided and disposition agree (None agrees)
-    weight: int  # min of the pair's sample_weights (None reads as 1)
+    weight: int  # min of the pair's asserted sample_weights (a NULL asserts nothing)
 
 
 class SkippedPair(BaseModel):
@@ -243,14 +244,23 @@ def _candidates(conn: sqlite3.Connection) -> list[tuple[DuplicatePair, list[str]
         conflicts = _conflicts(keep_row, drop_row)
         # The survivor's weight is the pair's minimum — exactly what the
         # ingestion upsert's min-latch lands when two channels weight one row,
-        # applied here because the missed join kept that latch from firing. The
-        # live channel demonstrably included this petition (it minted a row for
-        # it) and asserts a weight on every row it writes — the poller and the
-        # keep-every-decided-petition walk include with certainty, weight 1 —
-        # so the petition's inclusion probability is the pair's best (lowest)
-        # inverse weight. None reads as 1, the weight backfill's own
-        # fall-through for a spelling its serial parser cannot read.
-        weight = min(keep_row.sample_weight or 1, drop_row.sample_weight or 1)
+        # applied here because the missed join kept that latch from firing. So
+        # the petition's inclusion probability is the pair's best (lowest)
+        # inverse weight.
+        #
+        # A NULL is **not** a weight of 1 in that minimum, and this is where the
+        # difference bites: the CourtListener-keyed row is the survivor and
+        # `pull` never writes the column at all, so reading its NULL as certainty
+        # would let every merge strip the live twin's sampled weight — a silent
+        # re-weighting of the legacy frame, performed by a de-duplication pass
+        # that observed nothing about the block. A NULL asserts nothing and is
+        # skipped; the fall-through applies only when neither row asserted.
+        asserted = [
+            weight
+            for weight in (keep_row.sample_weight, drop_row.sample_weight)
+            if weight is not None
+        ]
+        weight = min(asserted) if asserted else UNSAMPLED_WEIGHT
         found.append(
             (
                 DuplicatePair(keep=keep_id, drop=drop_id, agreed=not conflicts, weight=weight),

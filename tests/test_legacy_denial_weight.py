@@ -16,8 +16,12 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
+from typing import Literal
+
+import pytest
 
 from fedcourtsai import corpus
+from fedcourtsai.pipeline import ingest as ingest_module
 from fedcourtsai.pipeline.ingest import (
     _ENUMERATED_BLOCK_MIN_KEPT,
     LEGACY_DENIAL_SAMPLE_EVERY,
@@ -28,7 +32,9 @@ from fedcourtsai.pipeline.ingest import (
     live_slice_serials,
     sampled_block_is_enumerated,
 )
+from fedcourtsai.pipeline.live import ingest_live_payload
 from fedcourtsai.schemas import Disposition
+from tests.test_live import _DENIED_ENTRY, _GRANTED_ENTRY, _payload
 
 _POLLED = date(2026, 7, 1)
 #: Comfortably past every serial these tests use, in both streams, so what
@@ -56,15 +62,31 @@ def _row(
     )
 
 
-@contextmanager
-def _seeded(tmp_path: Path, rows: list[corpus.CorpusRow]) -> Iterator[sqlite3.Connection]:
+def _seed_frame(tmp_path: Path, rows: list[corpus.CorpusRow], *, cursor: int = _CURSOR) -> Path:
+    """Land a walk's stored rows and its cursors; return the corpus path.
+
+    Split out from :func:`_seeded` because the writer-seam tests below drive
+    ``ingest_live_payload``, which opens its own connections — the frame has to
+    be a committed corpus rather than a connection held open around them.
+
+    ``cursor`` is settable because :func:`corpus.set_live_cursor` is forward-only
+    — a later write below the stored serial is ignored — so a test that needs the
+    walk caught mid-stream has to seed the cursor there rather than move it back.
+    """
     db = corpus.corpus_db_path(tmp_path / "corpus")
     with corpus.connect(db) as conn:
         corpus.upsert_rows(conn, rows)
         for term in (19, 20):
             for stream in ("historical-paid", "historical-ifp"):
-                corpus.set_live_cursor(conn, term, stream, _CURSOR)
+                corpus.set_live_cursor(conn, term, stream, cursor)
         conn.commit()
+    return db
+
+
+@contextmanager
+def _seeded(tmp_path: Path, rows: list[corpus.CorpusRow]) -> Iterator[sqlite3.Connection]:
+    db = _seed_frame(tmp_path, rows)
+    with corpus.connect(db) as conn:
         yield conn
 
 
@@ -393,3 +415,197 @@ def test_legacy_sample_cell_reads_the_cell_and_the_serial() -> None:
     assert legacy_sample_cell("19-840 *** CAPITAL CASE ***") == (_PAID, 840)
     assert legacy_sample_cell("26A11") is None
     assert legacy_sample_cell("") is None
+
+
+# --- the writer seam ------------------------------------------------------------
+#
+# Deriving the rule correctly is half of it. The other half is that no channel
+# writing with certainty can bypass it: a walker re-serve, a rotation re-poll, or
+# a frontier onboard that asserts `UNSAMPLED_WEIGHT` on a grid denial whose block
+# is still stored one row in ten min-latches away a sampling weight nothing
+# observed the nine petitions behind. Every live-channel SCOTUS write funnels
+# through `ingest_live_payload`, so that is where the assertion is checked.
+
+
+def _serve(
+    db: Path,
+    tmp_path: Path,
+    number: str,
+    *,
+    denied: bool = True,
+    weight: int = UNSAMPLED_WEIGHT,
+    form: Literal["cert", "application"] = "cert",
+) -> int | None:
+    """Re-serve one docket through the live-ingest seam; read back its stored weight."""
+    entry = _DENIED_ENTRY if denied else _GRANTED_ENTRY
+    payload = _payload(number, proceedings=[entry])
+    term, serial = number.split("-")
+    docket_id = int(f"{term}{int(serial):07d}")
+    result = ingest_live_payload(
+        db, tmp_path / "data", payload, docket_id, today=_POLLED, sample_weight=weight, form=form
+    )
+    with corpus.connect(db) as conn:
+        stored = corpus.get_row(conn, result.case_id)
+    assert stored is not None
+    return stored.sample_weight
+
+
+def test_a_certainty_write_onto_a_sampled_block_keeps_the_sampled_weight(
+    tmp_path: Path,
+) -> None:
+    """The latch this guard exists to stop, at the seam that used to write it.
+
+    The walker re-serves one grid denial inside a range still stored one row in
+    ten. It includes that row with certainty and says so — but certainty about
+    *this* petition is not observation of the nine it stands for, and the block
+    around it is untouched. So the weight is derived, not taken, and the row
+    keeps the ten.
+    """
+    db = _seed_frame(tmp_path, _sampled(10, 2000))
+    assert _serve(db, tmp_path, "19-1000") == LEGACY_DENIAL_SAMPLE_EVERY
+
+
+def test_a_certainty_write_onto_an_enumerated_block_lands_at_one(tmp_path: Path) -> None:
+    """The other side, and why the guard is not simply "never write 1 on the grid".
+
+    Same grid serial, same cursor, same assertion — but here the walk has stored
+    the block row by row, so the nine petitions are counted individually and a
+    ten would invent nine more. The certainty is warranted and is written.
+    """
+    db = _seed_frame(tmp_path, _enumerated(900, 1100))
+    assert _serve(db, tmp_path, "19-1000") == UNSAMPLED_WEIGHT
+
+
+def test_a_repaired_weight_survives_a_later_re_serve(tmp_path: Path) -> None:
+    """The durability property: repair, then re-walk, and the repair is still there.
+
+    The min-latch keeps the smaller of stored and incoming, so an incoming 1 is
+    what erases a repaired 10 — and before this guard every re-serve carried one.
+    With the weight derived against the unchanged block the re-serve carries a
+    10 instead, and ``MIN(10, 10)`` holds. This is the whole reason the guard is
+    the durable half of the repair rather than a tidy-up beside it.
+    """
+    db = _seed_frame(tmp_path, _sampled(10, 2000))
+    # The writer-lane pass sets the row to the sampled weight.
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET sample_weight = ? WHERE case_id = ?",
+            (LEGACY_DENIAL_SAMPLE_EVERY, "scotus/190001000"),
+        )
+        conn.commit()
+    assert _serve(db, tmp_path, "19-1000") == LEGACY_DENIAL_SAMPLE_EVERY
+    # And again: idempotent, not merely surviving one pass.
+    assert _serve(db, tmp_path, "19-1000") == LEGACY_DENIAL_SAMPLE_EVERY
+
+
+def test_a_re_serve_regresses_the_weight_once_the_block_is_enumerated(tmp_path: Path) -> None:
+    """The guard withholds the regression; it does not prevent it.
+
+    The point of the sampling weight is that it lapses when the walk actually
+    enumerates the range. Repair the row to 10, then enumerate its block and
+    re-serve it: the derivation now reads the block as walked row by row, writes
+    1, and the min-latch takes it. A guard that latched 10 permanently would
+    freeze the legacy frame into a corpus that had outgrown it.
+    """
+    db = _seed_frame(tmp_path, _sampled(10, 2000))
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET sample_weight = ? WHERE case_id = ?",
+            (LEGACY_DENIAL_SAMPLE_EVERY, "scotus/190001000"),
+        )
+        corpus.upsert_rows(conn, _enumerated(991, 1009))
+        conn.commit()
+    assert _serve(db, tmp_path, "19-1000") == UNSAMPLED_WEIGHT
+
+
+def test_a_grant_on_the_grid_is_written_with_the_certainty_it_was_included_with(
+    tmp_path: Path,
+) -> None:
+    """The sample was drawn over denials only, so a grant short-circuits.
+
+    Its serial is on the grid inside a sampled block — the two conditions that
+    decide a denial — and it still lands at 1, because the walk kept the grant
+    family in full and no grant ever stood for nine others.
+    """
+    db = _seed_frame(tmp_path, _sampled(10, 2000))
+    assert _serve(db, tmp_path, "19-1000", denied=False) == UNSAMPLED_WEIGHT
+
+
+def test_an_application_write_is_outside_the_sampled_frame(tmp_path: Path) -> None:
+    """The application rotation's rows can never be sampled-frame rows.
+
+    An application number is not a Term-form docket number, so it names no walk
+    cell and no serial: the derivation falls through on the parse, before the
+    cursor read or the live-slice scan the density guard needs.
+    """
+    db = _seed_frame(tmp_path, _sampled(10, 2000))
+    payload = _payload("19A11", proceedings=[_DENIED_ENTRY])
+    result = ingest_live_payload(
+        db, tmp_path / "data", payload, 190009911, today=_POLLED, form="application"
+    )
+    with corpus.connect(db) as conn:
+        stored = corpus.get_row(conn, result.case_id)
+    assert stored is not None and stored.sample_weight == UNSAMPLED_WEIGHT
+
+
+def test_a_caller_asserting_a_weight_it_alone_knows_is_written_as_given(
+    tmp_path: Path,
+) -> None:
+    """Only an assertion of *certainty* is re-derived.
+
+    A caller passing anything else is claiming knowledge the corpus cannot
+    reproduce — the seam has no way to check it and no business overwriting it —
+    so it is written as given and left to the min-latch. Pinned because the
+    guard's shape reads as "derive the weight" and it is in fact "check the
+    certainty": an enumerated block, where the derivation would say 1.
+    """
+    db = _seed_frame(tmp_path, _enumerated(900, 1100))
+    assert _serve(db, tmp_path, "19-1000", weight=LEGACY_DENIAL_SAMPLE_EVERY) == (
+        LEGACY_DENIAL_SAMPLE_EVERY
+    )
+
+
+def test_the_forward_walk_writes_certainty_because_its_cursor_trails_it(
+    tmp_path: Path,
+) -> None:
+    """The path where the assertion and the derivation always agree, and why.
+
+    The walker sets a stream's cursor *after* each serial is served, so at ingest
+    the stored cursor is ``serial - 1`` and the rule's cursor conjunct
+    short-circuits before the density guard is consulted. A forward walk
+    therefore writes :data:`UNSAMPLED_WEIGHT` on an on-grid denial even where its
+    block is sparse — which is what lets a re-walk regress the legacy frame at
+    all. The guard bites on the below-cursor re-serves instead, which the tests
+    above cover.
+    """
+    # The walk is *at* 1000: every serial below it is served and its cursor
+    # trails by one. The same block is sparse, so a below-cursor re-serve here
+    # would derive the sampled weight — the contrast is the cursor alone.
+    db = _seed_frame(tmp_path, _sampled(10, 2000), cursor=999)
+    assert _serve(db, tmp_path, "19-1000") == UNSAMPLED_WEIGHT
+
+
+def test_the_cheap_conjuncts_are_settled_before_the_slice_is_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ordering pinned as behavior, not as a docstring claim.
+
+    The density guard's read is the one expensive step, and the seam now runs
+    per row rather than once per batch — so a reordering that put it ahead of
+    the disposition, parse, grid or cursor tests would make every live write pay
+    it. Making the read raise turns that from a performance regression, which no
+    test would catch, into a failure.
+    """
+    monkeypatch.setattr(
+        ingest_module,
+        "live_slice_serials",
+        lambda conn: pytest.fail("the live slice was read for a row the cheap tests settle"),
+    )
+    db = _seed_frame(tmp_path, _sampled(10, 2000))
+    assert _serve(db, tmp_path, "19-1000", denied=False) == UNSAMPLED_WEIGHT  # not a denial
+    assert _serve(db, tmp_path, "19-1001") == UNSAMPLED_WEIGHT  # off the grid
+    assert _serve(db, tmp_path, "21-1000") == UNSAMPLED_WEIGHT  # cell never probed
+    payload = _payload("19A11", proceedings=[_DENIED_ENTRY])
+    ingest_live_payload(
+        db, tmp_path / "data", payload, 190009911, today=_POLLED, form="application"
+    )

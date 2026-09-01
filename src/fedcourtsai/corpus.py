@@ -371,11 +371,13 @@ class CorpusRow(BaseModel):
     sample_weight: int | None = Field(
         default=None,
         description="Inverse inclusion probability of this row under the corpus's "
-        "construction: 1 for every row its channel includes with certainty, "
+        "construction: 1 where the corpus can show the row stands only for itself, "
         "the legacy sampling interval for a denial the earlier historical walker kept by its "
-        "systematic serial sample — so a weighted aggregate can multiply by it "
-        "and count sampled denials at full strength. None means no channel "
-        "asserted a weight: permanent on rows the live channel never wrote, "
+        "systematic serial sample whose block is still stored one row in ten — so a "
+        "weighted aggregate can multiply by it and count sampled denials at full "
+        "strength. A writing channel asserts certainty but does not decide the value: "
+        "the live-ingest seam re-derives it against the block. None means no channel "
+        "weighted the row: permanent on rows the live channel never wrote, "
         "pre-capture within the live slice (backfilled by rule).",
     )
     predict_eligible: bool = Field(
@@ -911,6 +913,24 @@ def _migrate_cases(conn: sqlite3.Connection) -> None:
         "THEN coalesce(date_cert_granted, date_cert_denied, date_decided) "
         "ELSE date_decided END) DESC, "
         "case_id)"
+    )
+    # The sampling-weight rule reads every live-slice SCOTUS docket number to
+    # decide whether one grid denial's block is stored row by row
+    # (`pipeline.ingest.live_slice_serials`). The live slice is a small,
+    # slowly-growing minority of the SCOTUS rows, which are themselves a minority
+    # of the table — but the predicate is a NULL test on a column no index
+    # covered, so serving it meant visiting every SCOTUS row and pulling its full
+    # payload (opinion text included) to read one field. Holding exactly the live
+    # slice, in (court, docket_number) order, makes the read an ordered walk of a
+    # small covering index instead: the query never touches the table, which is
+    # the difference between tens of milliseconds and tens of seconds — and the
+    # rule runs per row at the live-ingest seam, not only in the back-fill's
+    # once-per-batch reading. Created here rather than in the base schema for the
+    # same reason as the index above: its partial predicate names a migrated
+    # column, which a legacy table gains only in the loop above.
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cases_live_docket ON cases(court, docket_number) "
+        "WHERE last_live_polled IS NOT NULL"
     )
 
 

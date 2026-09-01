@@ -360,18 +360,37 @@ never collide) and **ingests every decided petition**, denials included. The
 walk has already fetched the payload by the time it can read the disposition, so
 declining to store one saves no request; it only drops a row the corpus can then
 recover solely by re-walking the whole Term. Every row records its **inverse
-inclusion probability** as `sample_weight` (1 for anything kept with certainty,
-which is now everything the walk writes), min-latched so a weight can only ever
-be learned toward certainty. The column stays because the corpus still holds
-denials an earlier sampled walk kept at weight 10: a weighted aggregate
-multiplies by it so that legacy frame cannot bias a base rate, and each such row
-regresses to 1 as a re-walk re-serves it — correctly only where the re-walk
-enumerates the whole block, so that the nine petitions the weight stood for
-arrive with it. A row regressed while its neighbours did not arrive leaves them
-represented by nobody, which under-counts that block's denials rather than
-over-counting them.
-Weights land exactly at ingest time; the backfill for pre-capture rows
-recovers them by rule (`legacy_denial_sample_weight`: denied + serial on the
+inclusion probability** as `sample_weight` — 1 where the corpus can show the row
+stands only for itself, min-latched so a weight can only ever be learned toward
+certainty. The column stays because the corpus still holds denials an earlier
+sampled walk kept at weight 10: a weighted aggregate multiplies by it so that
+legacy frame cannot bias a base rate, and each such row regresses to 1 once a
+re-walk has **enumerated its block**, so that the nine petitions the weight stood
+for arrive with it. Regressing it on the re-serve of the kept serial alone would
+leave those nine represented by nobody, which under-counts that block's denials
+rather than over-counting them.
+
+**So a channel does not get to assert the certainty; it is checked.** Every
+live-channel write that lands a SCOTUS payload — frontier discovery, the cert
+and application rotations, the selection sweep, and the walker's own ingest —
+reaches the corpus through `ingest_live_payload`, and a caller asserting weight
+1 there has that assertion re-derived through `legacy_denial_sample_weight`
+(density guard included) before it is written. (The rotations also write bare
+poll stamps directly, but each re-upserts the row it read, so it echoes the
+stored weight and can never lower one.) Touching a row is not observing the
+block it stands for: a grid denial whose neighbours are still stored one in ten
+keeps its sampling weight however many times the walk re-serves it alone. That
+is what makes a re-weighting of the legacy frame durable — the min-latch keeps
+the smaller of stored and incoming, so a repaired 10 would otherwise be erased
+by the next re-serve's 1. A caller asserting any weight *other* than 1 is
+claiming knowledge the corpus cannot reproduce, and that value is written as
+given. The derivation is affordable per row because the density guard's read of
+the live slice is served by `idx_cases_live_docket`, a covering partial index
+over exactly that slice; every other outcome is settled on the row's own columns
+and one cursor lookup.
+
+Weights land exactly at ingest time; the backfill for pre-capture rows recovers
+them by the same rule (`legacy_denial_sample_weight`: denied + serial on the
 sample grid + walker cursor covers the serial + the block it would stand for is
 not already stored row by row). The last conjunct is what the first three cannot
 supply: landing on the grid below the cursor proves the serial was *probed*, not

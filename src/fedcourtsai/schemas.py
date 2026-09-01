@@ -4260,7 +4260,7 @@ class ScopeManifestEntry(_Strict):
     )
     sample_weight: int | None = Field(
         default=None,
-        description="Inverse inclusion probability the sampling channel asserted; null if none",
+        description="Inverse inclusion probability the corpus derives for this row; null if none",
     )
     salience_score: float | None = Field(
         default=None,
