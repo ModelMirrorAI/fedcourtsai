@@ -3316,6 +3316,71 @@ def conference_watchlist(conn: ReadConnection, *, term_floor_year: int = 2017) -
     ]
 
 
+# The resolution-date expression `idx_cases_priors_recency` is built over (see
+# `_migrate_cases`), spelled against a qualified `cases` so it can sit in a join.
+# `IS NULL` over it is the SQL form of "``resolution_date`` has not happened yet":
+# on SCOTUS the cert grant/denial date, elsewhere the docket decision date.
+_UNRESOLVED_SQL = (
+    "(CASE WHEN cases.court = 'scotus' "
+    "THEN coalesce(cases.date_cert_granted, cases.date_cert_denied, cases.date_decided) "
+    "ELSE cases.date_decided END) IS NULL"
+)
+
+
+def snapshot_bearing_open_cases(conn: ReadConnection, *, court: str, limit: int) -> list[CorpusRow]:
+    """Up to ``limit`` still-predictable cases the blob stores a snapshot for.
+
+    The bounded candidate window a caller needing *some* case it can actually
+    provision reads — the integration suite's run-time case resolver
+    (:func:`fedcourtsai.integration_check.resolve_integration_case`).
+
+    A row qualifies when the blob holds a snapshot for it, it carries no
+    ``disposition`` and no resolution date (:func:`resolution_date` — the cert
+    grant/denial date on SCOTUS, so a granted petition awaiting its merits
+    judgment is *not* still-predictable at the case baseline, which is the shape
+    a forward provisioning gate refuses), it carries no predict-scope exclusion
+    latch, and it has at least one unresolved event. Ordered by
+    ``last_live_polled`` **descending** — most recently polled first, never-polled
+    rows at the tail — with ``case_id`` breaking ties, so the same corpus always
+    yields the same window. The live poll is the freshness signal that matters
+    here and ``last_pulled`` is not: the pull governor rotates over the whole
+    active set including the historical bulk import, so its newest stamps are
+    ancient dockets a repair sweep happened to touch, while the live channel
+    stamps exactly the modern petitions the suite wants.
+
+    **The snapshot set is what makes this bounded**, and it is why the join is
+    written to drive from ``snapshots``: that table covers a tiny fraction of the
+    corpus, so a co-routine over ``idx_snapshots_case`` feeding point seeks into
+    ``idx_cases_priors_recency`` visits candidates in the thousands rather than
+    walking the court's whole slice — the difference between a page or two of
+    ranged reads and the blob. ``CROSS JOIN`` states that order rather than
+    leaving it to the planner, which otherwise drives from ``cases`` and walks
+    every undisposed row in the court to find the few that are snapshotted.
+
+    Empty under the **corpus-split** mode, where the blob carries no snapshot
+    rows at all (the content store holds them); callers must handle that, since
+    an empty window there means "cannot tell from the index", not "no such case"
+    — :func:`payload_reads_offloaded` is the seam that distinguishes them. The
+    remaining screen stays with the caller, which holds the connection: the full
+    scope reason (:func:`out_of_scope_reason_full`, whose snapshot-aware rules
+    the ``predict_excluded`` latch cannot carry on its own).
+    """
+    if limit <= 0:
+        return []
+    sql = (
+        "SELECT cases.* FROM (SELECT DISTINCT case_id FROM snapshots) AS snap "
+        "CROSS JOIN cases ON cases.case_id = snap.case_id "
+        "WHERE cases.court = ? "
+        f"AND {_UNRESOLVED_SQL} "
+        "AND cases.disposition IS NULL "
+        "AND cases.predict_excluded = 0 "
+        "AND EXISTS (SELECT 1 FROM events "
+        "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
+        "ORDER BY cases.last_live_polled DESC, cases.case_id ASC LIMIT ?"
+    )
+    return [_from_record(record) for record in conn.execute(sql, (court, limit))]
+
+
 # --- predictable event definitions (raw facts) ---------------------------------
 
 # The writers' bound column list IS the migration's DDL map (see

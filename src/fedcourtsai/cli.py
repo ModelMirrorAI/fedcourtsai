@@ -7596,6 +7596,96 @@ def corpus_integration_check(
     _finish_integration_report(report, summary_out)
 
 
+@app.command("corpus-integration-case")
+def corpus_integration_case(
+    court: Annotated[str, typer.Option(help="Court to resolve a case in.")] = "scotus",
+    scan_limit: Annotated[
+        int,
+        typer.Option(
+            min=1,
+            help="How many candidates the bounded window admits — the cap on both "
+            "the index walk and the per-candidate snapshot reads.",
+        ),
+    ] = integration_check.DEFAULT_CANDIDATE_SCAN,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Resolve a case the integration suite can run on, and print it as `key=value`.
+
+    A subject `corpus-integration-check` and the cell scenarios can take. A
+    static default cannot serve: each deployment environment resolves its own
+    corpus pair, so a case named in one is absent from another, and any one case
+    drifts out of shape as its docket resolves. This reads whichever corpus the
+    run actually holds and returns the first case that is **snapshot-bearing**,
+    **in predict scope**, and **still predictable** — the last asked of the very
+    gate the cascade leg applies (`provision-snapshot --refuse-terminal`'s
+    record check), so a cert-granted petition awaiting merits judgment, which
+    reads as undisposed but is refused there, is never handed over.
+
+    Candidates come most recently **live-polled** first, then `case_id`: the
+    live channel stamps exactly the modern petitions the suite wants, so its
+    newest stamp is the case whose row and stored snapshot best reflect the
+    live docket. (Not `last_pulled` — the pull governor rotates over the whole
+    active set including the historical bulk import, so its freshest stamps are
+    ancient dockets a repair sweep happened to touch.) The window is driven from
+    the blob's snapshot index, which covers a tiny fraction of the corpus, so
+    the read stays bounded rather than walking the court's whole slice.
+    Deterministic given a corpus.
+
+    Prints exactly two lines on stdout, appendable straight to a step's
+    ``$GITHUB_OUTPUT``:
+
+        court=scotus
+        docket=71234567
+
+    The human line — the case, its live-poll stamp, its snapshot date, its open
+    events — goes to stderr. Exits 2 when nothing in the window qualifies,
+    naming what each candidate was rejected for, and 1 when the local backend
+    finds no pulled corpus. Runs on the local and ranged backends: the corpus
+    query service exposes no unresolved-first census surface, so resolve on
+    ranged and pass the case to the service leg. Under the corpus-split mode
+    the blob carries no snapshot rows, so the window cannot answer at all and
+    the command says so rather than reporting an absent case.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    if backend in ("service", "casestore"):
+        # Reachable from the ambient setting alone (the service scenario exports
+        # it), which `_corpus_backend` never sees — so refuse here too.
+        typer.echo(
+            f"the {backend} backend cannot resolve a case (it serves no "
+            "unresolved-first census); use --corpus-backend local or ranged.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if backend == "local" and not db_path.exists():
+        typer.echo(
+            f"No corpus at {db_path} — `fedcourts corpus-pull` to fetch it from the remote.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    try:
+        resolved = integration_check.resolve_integration_case(
+            corpus_db_path=db_path,
+            data_root=settings.data_root,
+            court=court,
+            backend=backend,
+            scan_limit=scan_limit,
+        )
+    except integration_check.CaseResolutionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    polled = resolved.last_live_polled.isoformat() if resolved.last_live_polled else "never"
+    typer.echo(
+        f"resolved {resolved.case_id} (candidate {resolved.scanned}): live-polled "
+        f"{polled}, snapshot {resolved.snapshot_date.isoformat()}, open "
+        f"event(s) {', '.join(resolved.open_event_ids)}",
+        err=True,
+    )
+    typer.echo(f"court={resolved.court}")
+    typer.echo(f"docket={resolved.docket}")
+
+
 @app.command("mcp-integration-check")
 def mcp_integration_check(
     url: Annotated[

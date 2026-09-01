@@ -18,6 +18,12 @@ a point lookup belongs, a block-cache regression — fails the check instead of
 hiding in a run log. The decisions live here, typed and tested; the workflow
 step is one ``fedcourts corpus-integration-check`` call.
 
+:func:`resolve_integration_case` supplies that call its subject. Which case the
+suite reads cannot be a static default: each deployment environment resolves its
+own corpus pair, so a case named in one is simply absent from another, and any
+one case drifts out of shape as its docket resolves. The resolver picks a
+qualifying case out of the corpus the run actually holds.
+
 :func:`run_mcp_check` is the same posture pointed at the other sidecar: a
 minimal MCP client (initialize → tools/list over streamable HTTP) that proves
 the tokenless CourtListener MCP sidecar completes the protocol handshake and
@@ -29,13 +35,16 @@ from __future__ import annotations
 
 import json
 import time
+from collections import Counter
 from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 import httpx
 from pydantic import BaseModel, Field
 
-from . import corpus, corpus_service, ids
+from . import corpus, corpus_service, ids, store
 from .corpus_ranged import RangedConnection
 from .schemas import Disposition
 from .serialize import write_raw_json
@@ -46,6 +55,164 @@ from .serialize import write_raw_json
 # exist yet — into decided, enriched territory; on the production corpus 200
 # granted rows span roughly two Terms.
 HYDRATION_SURVEY_LIMIT = 200
+
+
+# --- the run-time case resolver ------------------------------------------------
+
+# How many candidates the resolver's bounded window admits. Wide enough that a
+# run of scope- or gate-failing rows at the head does not exhaust it, narrow
+# enough that the whole resolution stays a page or two of index over the ranged
+# backend — and it caps the per-candidate snapshot reads too.
+DEFAULT_CANDIDATE_SCAN = 25
+
+
+class CaseResolutionError(RuntimeError):
+    """No case in the scanned window is shaped for the integration suite."""
+
+
+@dataclass(frozen=True)
+class ResolvedCase:
+    """The case the integration suite should run against, and the evidence for it."""
+
+    court: str
+    docket: int
+    case_id: str
+    last_live_polled: date | None
+    snapshot_date: date
+    open_event_ids: tuple[str, ...]
+    scanned: int
+
+
+def _docket_id(row: corpus.CorpusRow) -> int | None:
+    """The numeric docket half of a row's ``case_id``, or ``None`` if it is not one.
+
+    The inverse of :func:`fedcourtsai.ids.case_id`, kept defensive: the suite's
+    ``--docket`` input is an integer, so a row whose id cannot round-trip through
+    one is not a case the resolver can hand over, whatever else it qualifies on.
+    """
+    _, _, docket = row.case_id.partition("/")
+    try:
+        return int(docket)
+    except ValueError:
+        return None
+
+
+def resolve_integration_case(
+    *,
+    corpus_db_path: Path,
+    data_root: Path,
+    court: str = "scotus",
+    backend: corpus.CorpusBackend | None = None,
+    scan_limit: int = DEFAULT_CANDIDATE_SCAN,
+) -> ResolvedCase:
+    """Pick a case the integration suite's read set and cells can actually run on.
+
+    The suite needs a case that is **still predictable** (its event has not
+    happened yet), **in predict scope**, and **snapshot-bearing** — the three
+    properties a static default cannot keep, since each deployment environment
+    resolves its own corpus pair and any one case drifts out of shape as its
+    docket moves. Resolving at run time against the corpus the environment
+    actually serves makes the same command correct on the production corpus and
+    on the lean staging pair alike.
+
+    Reads :func:`fedcourtsai.corpus.snapshot_bearing_open_cases`' bounded
+    window — snapshotted, unresolved, unlatched, at least one open event,
+    ordered **most recently live-polled first** — and returns the first
+    candidate that also clears two further screens:
+
+    * the full scope reason (:func:`fedcourtsai.corpus.out_of_scope_reason_full`,
+      which adds the snapshot-aware rules the row-only latch cannot carry);
+    * the **record gate the consumer itself applies** —
+      :func:`fedcourtsai.store.forward_refusal_reason_from_parts` at the case
+      baseline, the exact check ``provision-snapshot --refuse-terminal`` runs in
+      the suite's cascade leg. Asking the real gate rather than approximating it
+      is the point: the gate refuses on a latched *resolution date* as well as a
+      disposition, so a cert-granted petition awaiting merits judgment reads as
+      undisposed to a naive filter and is refused by the step that matters.
+
+    Most-recently-live-polled-first is the ordering because the live channel
+    stamps exactly the modern petitions the suite wants, and its newest stamp is
+    the case whose row and stored snapshot best reflect the live docket.
+    (Not ``last_pulled``: the pull governor rotates over the whole active set
+    including the historical bulk import, so its freshest stamps are ancient
+    dockets a repair sweep happened to touch.) Deterministic given a corpus, and
+    bounded by ``scan_limit``.
+
+    Two checks the suite's later steps own stay theirs: the textual terminal
+    scan over the payload, and the snapshot staleness bound (which the
+    integration harness deliberately leaves off, since a fixed case's snapshot
+    ages on calendar time alone). Raises :class:`CaseResolutionError` — carrying
+    the per-reason tally of what the window rejected — when nothing qualifies.
+    """
+    choice = corpus.resolve_backend(backend)
+    rejected: Counter[str] = Counter()
+    scanned = 0
+    with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
+        candidates = corpus.snapshot_bearing_open_cases(conn, court=court, limit=scan_limit)
+        if not candidates and corpus.payload_reads_offloaded():
+            # The window is keyed on the blob's `snapshots` table, which the
+            # corpus split empties — so "no candidates" there means the index
+            # cannot answer, not that no case qualifies. Say which it is rather
+            # than reporting an unanswerable read as an absent case.
+            raise CaseResolutionError(
+                "cannot resolve a case under the corpus-split mode: the snapshot "
+                "index the candidate window reads lives in the blob, and the "
+                "split moves the payloads to the content store, so the window is "
+                "empty by construction. Name the case explicitly, or resolve "
+                "against a blob that carries its snapshot rows."
+            )
+        for row in candidates:
+            scanned += 1
+            docket = _docket_id(row)
+            if docket is None:
+                rejected["case id carries no integer docket"] += 1
+                continue
+            reason = corpus.out_of_scope_reason_full(conn, row)
+            if reason is not None:
+                rejected[reason] += 1
+                continue
+            events = corpus.events_for_case(conn, row.case_id)
+            # The case baseline (no event id) is the shape the suite's cascade
+            # leg provisions, so it is the shape the gate is asked about.
+            refusal = store.forward_refusal_reason_from_parts(
+                data_root, row.court, docket, "", events, row
+            )
+            if refusal is not None:
+                rejected[refusal] += 1
+                continue
+            found = corpus.latest_snapshot(conn, row.case_id)
+            if found is None:
+                rejected["no stored snapshot"] += 1
+                continue
+            snapshot_date, payload = found
+            if not payload:
+                rejected["stored snapshot decodes to an empty object"] += 1
+                continue
+            open_ids = tuple(event.event_id for event in events if not event.resolved)
+            if not open_ids:
+                # The window's EXISTS said otherwise; treat a disagreeing read as
+                # a rejection rather than handing over an eventless case.
+                rejected["no open event"] += 1
+                continue
+            return ResolvedCase(
+                court=row.court,
+                docket=docket,
+                case_id=row.case_id,
+                last_live_polled=row.last_live_polled,
+                snapshot_date=snapshot_date,
+                open_event_ids=open_ids,
+                scanned=scanned,
+            )
+    tally = (
+        "; ".join(f"{reason} ({n})" for reason, n in sorted(rejected.items()))
+        if rejected
+        else "the blob stores no snapshot for any unresolved, unlatched case with an open event"
+    )
+    raise CaseResolutionError(
+        f"no case in {court} is shaped for the integration suite: {scanned} "
+        f"candidate(s) in a {scan_limit}-row window, none usable — {tally}. "
+        f"Widen the scan limit, refresh the corpus, or name a case explicitly."
+    )
 
 
 class IntegrationStep(BaseModel):
