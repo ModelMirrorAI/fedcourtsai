@@ -7611,7 +7611,7 @@ def corpus_integration_case(
 ) -> None:
     """Resolve a case the integration suite can run on, and print it as `key=value`.
 
-    The subject `corpus-integration-check` and the cell scenarios take. A
+    A subject `corpus-integration-check` and the cell scenarios can take. A
     static default cannot serve: each deployment environment resolves its own
     corpus pair, so a case named in one is absent from another, and any one case
     drifts out of shape as its docket resolves. This reads whichever corpus the
