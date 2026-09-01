@@ -1,0 +1,3 @@
+- Used CourtListener MCP `search` tool to look up "Dexter Johnson" cases in the Fifth Circuit (`ca5`) to understand the procedural history, although the specific July 2025 unpublished opinion was not found.
+- Searched CourtListener MCP `search` tool for docket `23-70002` in `ca5` and retrieved the docket metadata.
+- Read `metrics/statpack.md` to compute the merits disturbed baseline (69.8% over the past 10 grant Terms).

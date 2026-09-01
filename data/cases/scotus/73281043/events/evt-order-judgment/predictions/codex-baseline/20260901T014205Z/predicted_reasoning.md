@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will reverse the Fifth Circuit and remand, most likely by a 6–3 vote. Chief Justice Roberts and Justices Thomas, Alito, Gorsuch, Kavanaugh, and Barrett will vote to disturb the judgment; Justices Sotomayor, Kagan, and Jackson will dissent.
+
+The majority will read the statutory phrase as a unit: a successive application must rely on a “new rule of constitutional law, made retroactive to cases on collateral review by the Supreme Court, that was previously unavailable.” “That was previously unavailable” will be held to describe the new rule, rather than whether a particular prisoner's claim had enough factual support to be worth bringing. Atkins existed before Johnson's offense and first federal habeas proceeding, so later changes in diagnostic practice did not make Atkins a newly available rule.
+
+The opinion will reinforce that reading through AEDPA's structure. Section 2244(b)(2)(A) addresses new constitutional law, while Section 2244(b)(2)(B) separately addresses newly discovered facts and restricts that route to evidence bearing on guilt of the underlying offense. Treating later medical evidence or changed diagnostic standards as making an old constitutional rule “previously unavailable” would evade that separation and the limits Congress placed on new-fact claims. The Court will reject the Fifth Circuit's “some possibility of merit” test as an atextual futility exception, even if it describes that test as statutory interpretation.
+
+The rule will likely be categorical rather than confined to these facts. The Court will state that claim-specific weakness, futility, or later factual development cannot make an already available Supreme Court rule unavailable under Section 2244(b)(2)(A), and it will treat Section 2255(h)(2)'s materially identical language consistently. The majority will reject the interlocutory-posture objection after having granted review of the order; the split is unusually hard to review in the ordinary authorization posture.
+
+The dissent will defend a practical reading of “available,” argue that a claim incapable of success was not genuinely available, and emphasize that the DSM-5 and the Court's later intellectual-disability cases transformed Johnson's Atkins claim. It will also stress the capital stakes and the risk that the majority's rule forecloses federal consideration of a potentially valid intellectual-disability claim.
+
+The most likely judgment label is `reversed`, not merely vacated. A dismissal as improvidently granted remains possible because the case comes from a certified interlocutory appeal and the respondent disputes whether the petition tracks the certified question, but the grant despite those disclosed objections makes that route distinctly less likely.

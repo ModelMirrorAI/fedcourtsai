@@ -1,0 +1,3 @@
+* Web search for `"Americans for Citizen Voting" Michigan Board of State Canvassers Supreme Court 2026` to understand the background of the ballot initiative, the deadlock, and the filing timeline.
+* Web search for `"Michigan Supreme Court" 170595 order OR ruled OR denied "Americans for Citizen Voting"` to determine the status of the underlying state court litigation.
+* Consulted the `metrics/statpack.md` to compute the pooled base rate for substantive applications across Terms prior to OT2026 (OT2024 and OT2025).

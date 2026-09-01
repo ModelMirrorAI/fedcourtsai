@@ -1,0 +1,15 @@
+{
+  "case_id": "scotus/9526000274",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "The CourtListener search allowed identifying the lower court Fourth Circuit case details."
+  ],
+  "notes": "The interim statpack requires manual aggregation of prior terms since the pooled rate is not printed as a single line, but the data is clear."
+}

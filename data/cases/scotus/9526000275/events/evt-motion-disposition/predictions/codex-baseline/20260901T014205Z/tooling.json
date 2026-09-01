@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000275",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "CourtListener MCP opinion search",
+    "Supreme Court docket PDF retrieval",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The snapshot preserved a direct link to the emergency application.",
+    "The interim statpack supplied a qualifying prior-Term base rate."
+  ],
+  "gaps": [
+    "No filed-document text was provisioned for the application.",
+    "CourtListener search did not locate the exact Michigan proceeding or an adversarial filing."
+  ],
+  "notes": "The snapshot plus its linked filing supported a useful arrival-time forecast. A provisioned extraction of the main application and any response would reduce one-sided-document retrieval work."
+}

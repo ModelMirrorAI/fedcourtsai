@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000274",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "CourtListener MCP search and document retrieval",
+    "committed interim statpack"
+  ],
+  "helpful": [
+    "The statpack exposed the valid strictly prior application-Term baseline.",
+    "CourtListener supplied the lower-court opinion, stay motion, and recent controlling context."
+  ],
+  "gaps": [
+    "The Supreme Court application and response texts were not provisioned or available through the configured legal-research surface."
+  ],
+  "notes": "The related lower-court stay motion substantially supplied the application theory, but direct provision of application-docket PDFs would reduce uncertainty."
+}

@@ -1,0 +1,64 @@
+{
+  "big_case_rationale": "The application affects nationwide broadcast-advertising prices for party and joint-fundraising campaign speech immediately before a federal election.",
+  "big_case_score": 0.82,
+  "case_id": "scotus/9526000274",
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.74
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.96
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.65
+    }
+  ],
+  "confidence": 0.72,
+  "context": {
+    "amicus_briefs": 0,
+    "band": null,
+    "cutoff": "2026-09-01",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": false,
+    "response_requested": true,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-31",
+    "snapshot_provenance": "dated",
+    "term": 2026
+  },
+  "created_at": "2026-09-01T02:50:29Z",
+  "engine": "codex",
+  "event_id": "evt-brief-response-disposition",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/9526000274/record/snapshots/2026-08-31.json",
+  "judgment": null,
+  "model": "gpt-5.6-sol",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.74,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b46b3c6df26f763bb607b091c283c5e7aa55c9a936ab3486e598f5a0f0de312e",
+    "label": "proc-v5",
+    "pipeline_sha": "5aee44cdc02a75de18787858c515a91c46baba75",
+    "stamped_at": "2026-09-01T02:51:52.064698Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260901T014205Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

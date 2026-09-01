@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/9526000274",
+  "gaps": [
+    "Provisioned filed-document text for interim applications (the stay application and any filed responses) would materially sharpen merits reads: supremecourt.gov blocks direct PDF fetches (403/429), so the filings' own arguments were reachable only through press coverage.",
+    "A statpack cut of interim grant rate conditional on response-requested would give this moment a conditioned anchor; today the ladder columns are right-censored counts only."
+  ],
+  "helpful": [
+    "The statpack interim-docket per-Term table made the strictly-prior pooled baseline (31/296) directly computable.",
+    "fedcourts query --include-applications surfaced a close recent comparator (26A203) with its full escalation-ladder state."
+  ],
+  "notes": "Forward-mode web retrieval (SCOTUSblog + news search) carried most of the case-specific signal; the snapshot alone identified the parties and the ladder state but not the subject matter.",
+  "role": "predictor",
+  "run_id": "20260901T014205Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "WebSearch",
+    "WebFetch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000273",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service)",
+    "metrics/statpack.md (interim-docket section)",
+    "fedcourts paths"
+  ],
+  "helpful": [
+    "The per-row capital_case and application_kind fields on query results made it possible to isolate the true comparable class (capital stay applications) by client-side filtering.",
+    "The interim section's per-Term substantive counts made the strictly-prior pooled baseline (31/296) directly computable."
+  ],
+  "gaps": [
+    "No structured query filter for application ask or capital_case — isolating capital stay priors required pulling 200 rows (36 GETs, ~9 MB) and filtering client-side.",
+    "No provisioned application/opposition text for this docket (no record/documents/), so claim strength was inferred from parties and posture rather than the filings.",
+    "fedcourts corpus-info is not runnable against the cell's service backend, so corpus vintage had to be inferred from the newest resolved prior returned."
+  ],
+  "notes": "Forward interim cell ripe for disposition at snapshot time; deliberately skipped live CourtListener/web retrieval about this case to avoid surfacing its own outcome."
+}
