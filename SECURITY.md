@@ -35,8 +35,10 @@ runbook, [docs/security.md](docs/security.md).
   **MCP sidecar composite's launch step**,
   whose background `fedcourts mcp-serve` process inherits it and serves the
   CourtListener MCP tools over localhost HTTP — the cells launch it, and so
-  does `integration-test`'s engine-smoke **codex** leg, which exists to
-  exercise that very wiring — and the collect job's
+  does `integration-test` — its engine-smoke **codex** leg, which exists to
+  exercise that very wiring, and its engine-actions-smoke legs, whose
+  invocation blocks name the client config that sidecar serves — and the
+  collect job's
   **aggregate step**, where the secret scan (below) needs the live value to
   search the run's output for it — a step that parses agent bytes with
   jq/git/tested Python but never executes them. (Pull's ingestion holds the

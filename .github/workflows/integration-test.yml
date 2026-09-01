@@ -12,8 +12,12 @@ name: integration-test
 # of both jobs that bind one — plan, which resolves the case out of that
 # environment's corpus, and scenario (YAML anchors do not work in workflows);
 # keep the three expressions identical, or the title stops naming the
-# environment the jobs actually bound.
-run-name: "integration-test: ${{ (inputs.scenario == 'all' || inputs.scenario == 'all-offline') && inputs.scenario || format('{0} / {1}', inputs.scenario, inputs.engine) }} @ ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}"
+# environment the jobs actually bound. A schedule carries no inputs at all, so
+# the scenario half would render as the degenerate ` / ` pair: the canary
+# names itself instead, in a shape that matches no freshness prefix (there is
+# no ` / <engine> @` in it) on top of the two screens it already fails — it
+# runs from `main`, not `staging`, and binds `prod`.
+run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-actions-smoke (canary)' || ((inputs.scenario == 'all' || inputs.scenario == 'all-offline') && inputs.scenario || format('{0} / {1}', inputs.scenario, inputs.engine)) }} @ ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}"
 
 # Live integration scenarios for the pieces a PR branch cannot exercise through
 # the trigger path: the corpus read backends, the credential-scoped corpus
@@ -22,23 +26,39 @@ run-name: "integration-test: ${{ (inputs.scenario == 'all' || inputs.scenario ==
 # side-effect free: no corpus write, no git
 # write, no PR, no issue — results go to the Actions step summary and the run
 # log, and any cell output lands only in the runner's throwaway checkout. Every
-# scenario is also token-free except engine-smoke, which spends about one
-# predict cell's worth of the selected engine's model tokens and says so on
-# its input — so a whole-suite `all` dispatch spends three cells' worth, and
-# `all-offline` (the same suite with the engine-smoke legs dropped) spends
+# scenario is also token-free except the two engine scenarios, which say so on
+# their inputs: engine-smoke spends about one predict cell's worth of the
+# selected engine's model tokens, and engine-actions-smoke a boot probe's —
+# so a whole-suite `all` dispatch spends three cells' worth plus three probes,
+# and `all-offline` (the same suite with both engine families dropped) spends
 # nothing. The collect scenario is environment-free on top of token-free:
 # it exercises the collect-run composite against synthetic cell artifacts
 # with every write surface stubbed or diverted on the runner, so its job
 # binds no deployment environment and is the one scenario that still
 # dispatches from any branch.
 #
-# Manual dispatch only. Its own workflow rather than a run-analytics mode
-# because it is a preflight of the pipeline *infrastructure* itself, not an
-# analysis that answers a question about the data: it is dispatched around
-# changes to the read seams, the sidecars, and the corpus-consuming workflows —
-# run-analytics included, so the preflight should not live on a surface it
-# exists to check — and a distinct workflow gives release preflights their own
-# run history.
+# Manual dispatch, plus one scheduled arm. Its own workflow rather than a
+# run-analytics mode because it is a preflight of the pipeline
+# *infrastructure* itself, not an analysis that answers a question about the
+# data: it is dispatched around changes to the read seams, the sidecars, and
+# the corpus-consuming workflows — run-analytics included, so the preflight
+# should not live on a surface it exists to check — and a distinct workflow
+# gives release preflights their own run history.
+#
+# The schedule is the **boot canary**: one engine-actions-smoke leg per engine,
+# daily, so a provider-side or action-side flip between promotions is found by
+# a cron rather than by the next paid round. It is a mode on this workflow
+# rather than a workflow of its own precisely because the invocation blocks it
+# probes live here already; what it adds is a trigger, and the run it produces
+# can never be mistaken for freshness evidence (see `run-name:` above). GitHub
+# cron is best-effort and drops runs under load — this repository's own
+# schedules are among the ones it drops — so a missed day is tolerable by
+# design: the canary narrows the window between a provider flip and its
+# discovery, and the promotion gate, not the canary, is what stands between a
+# broken invocation and `main`. It also raises no alarm of its own: this
+# workflow opens no issue and posts no comment, by the side-effect-free
+# invariant that lets it run unattended at all, so what the canary buys is a
+# breakage already sitting in the run history when someone next looks.
 #
 # The `deploy-environment` input is what lets a change be exercised against real
 # infrastructure before it is promoted, and its `auto` default resolves the
@@ -59,18 +79,29 @@ run-name: "integration-test: ${{ (inputs.scenario == 'all' || inputs.scenario ==
 # either way (the AWS trust policies pin each role to its named environments;
 # docs/security.md describes the wiring and when to revisit the shape).
 on:
+  # The boot canary, daily. 11:53 UTC is a deliberately quiet slot: no other
+  # schedule in this repository uses hour 11 (they sit at 01/02/03/04/05/07/08/
+  # 10/13/14/15/16/19/20/22), and minute 53 collides with none of the minutes
+  # already in use — GitHub queues every repository's crons together, so a
+  # shared minute is where a dropped run is likeliest, and the top of the hour
+  # is the most congested minute of all. It also lands a few hours ahead of the
+  # day's evaluate round (15:39), so a red canary is visible before the round
+  # that would pay for the same breakage.
+  schedule:
+    - cron: "53 11 * * *"
   workflow_dispatch:
     inputs:
       scenario:
         description: >-
           Which integration scenario to run. `all` fans the promotion gate's
           whole required suite out of one dispatch — the matrix legs plus the
-          environment-free collect job, with engine-smoke once per engine —
-          and therefore SPENDS MODEL TOKENS: three engine-smoke cells' worth,
-          one per engine. `all-offline` is that same suite with the three
-          engine-smoke legs dropped: token-free end to end, and accepted as
-          whole-suite freshness evidence only by a promotion dispatched with
-          its own engine-smoke skip set.
+          environment-free collect job, with engine-smoke and
+          engine-actions-smoke once per engine each — and therefore SPENDS
+          MODEL TOKENS: three engine-smoke cells' worth plus three boot
+          probes. `all-offline` is that same suite with both engine families
+          dropped: token-free end to end, and accepted as whole-suite
+          freshness evidence only by a promotion dispatched with its own
+          engine-smoke skip set.
         type: choice
         default: ranged-reads
         options:
@@ -78,6 +109,7 @@ on:
           - corpus-service
           - stub-cascade
           - engine-smoke
+          - engine-actions-smoke
           - mcp-sidecar
           - collect
           - qp-topic
@@ -127,12 +159,13 @@ on:
         default: ""
       engine:
         description: >-
-          engine-smoke only — which real engine drives the cell. SPENDS MODEL
-          TOKENS: one predict cell's worth against the run's open-event case;
-          a resolved or multi-event case also replays evaluator cells, so
-          narrow with `event` when pinning one. Ignored by `all`,
-          which runs one smoke per engine, and by `all-offline`, which runs
-          no smoke at all.
+          engine-smoke and engine-actions-smoke only — which real engine runs.
+          SPENDS MODEL TOKENS: for engine-smoke, one predict cell's worth
+          against the run's open-event case (a resolved or multi-event case
+          also replays evaluator cells, so narrow with `event` when pinning
+          one); for engine-actions-smoke, one boot probe. Ignored by `all`,
+          which runs one of each per engine, and by `all-offline`, which runs
+          neither.
         type: choice
         default: claude-code
         options:
@@ -160,6 +193,18 @@ on:
           Unused by the collect scenario, whose job binds no environment and
           so dispatches from anywhere.
         type: choice
+        # The scheduled canary supplies no input at all and lands on `prod`,
+        # which is what it needs — a schedule runs from `main`, and `prod` is
+        # where the engine keys are. But it gets there by a coercion, not by a
+        # clause: `null != 'auto'` is true, `true && null` yields null, and the
+        # falsy null falls through to the branch resolution. The
+        # scheduled-workflow trap in docs/pipeline.md would have an input gate
+        # like this rewritten affirmatively — `inputs.deploy-environment ==
+        # 'auto' && <branch resolution> || inputs.deploy-environment`. Do NOT
+        # rewrite this one that way: that shape hands a schedule the empty
+        # string, and the canary would bind no environment, hold no keys, and
+        # fail every leg. The trap is about gates that must be FALSE on a
+        # schedule; this expression must produce a value on one.
         default: auto
         options:
           - auto
@@ -180,16 +225,20 @@ permissions: {}
 # instead of superseding each other. The two whole-suite scenarios keep
 # separate groups, and neither shares one with a single-scenario run: none can
 # cancel or queue behind another, and an overlap on the same scenario is
-# harmless because every scenario is idempotent and side-effect free.
+# harmless because every scenario is idempotent and side-effect free. The
+# canary keys on its own name for the whole-suite reason: a schedule supplies
+# no inputs, so the pair would collapse to a constant anyway, and naming it
+# says which runs supersede each other.
 concurrency:
-  group: integration-test-${{ (inputs.scenario == 'all' || inputs.scenario == 'all-offline') && inputs.scenario || format('{0}-{1}', inputs.scenario, inputs.engine) }}
+  group: integration-test-${{ github.event_name == 'schedule' && 'canary' || ((inputs.scenario == 'all' || inputs.scenario == 'all-offline') && inputs.scenario || format('{0}-{1}', inputs.scenario, inputs.engine)) }}
   cancel-in-progress: true
 
 jobs:
   # Expands the dispatch into the {scenario, engine} legs the job below fans
   # out over: `all` becomes the required suite's matrix legs (collect rides
   # the run as its own job, not a leg), `all-offline` those same legs minus
-  # the token-spending engine-smoke ones, any
+  # the token-spending engine ones, the scheduled canary the
+  # engine-actions-smoke legs alone, any
   # other scenario one leg carrying the inputs unchanged — so a
   # single-scenario dispatch runs exactly the steps, env, and environment
   # binding it always has.
@@ -201,7 +250,15 @@ jobs:
   # unusable corpus cheap — the whole matrix, engine smokes included, is
   # downstream of this job, so it never starts.
   plan:
-    if: ${{ inputs.scenario != 'collect' }}
+    # The schedule disjunct is not decoration: on a scheduled run the `inputs`
+    # context is empty, and GitHub coerces both sides of a comparison against
+    # null numerically — so `inputs.scenario != 'collect'` happens to be TRUE
+    # there (NaN != NaN) and the canary would run on a coincidence of the
+    # coercion rules rather than on anything stated. Naming the schedule says
+    # what is meant, and survives someone hardening the inequality into the
+    # fail-closed shape the scheduled-workflow trap in docs/pipeline.md asks
+    # for everywhere it is a hazard rather than the intent.
+    if: ${{ github.event_name == 'schedule' || inputs.scenario != 'collect' }}
     runs-on: ubuntu-latest
     # 15, not 5: the resolve path checks out, builds the Python env, assumes
     # the read-only role, and walks a bounded candidate window over the blob.
@@ -228,9 +285,13 @@ jobs:
       FEDCOURTS_CORPUS_POINTER: ${{ vars.FEDCOURTS_CORPUS_POINTER }}
       # Whether this dispatch resolves a case at all: only when the dispatcher
       # left `docket` at the sentinel AND some leg of it actually reads one.
-      # The mcp-sidecar and qp-topic scenarios touch no corpus, so a corpus
-      # that cannot answer must not redden a dispatch of theirs — each is
-      # required freshness evidence in its own right.
+      # The mcp-sidecar, qp-topic and engine-actions-smoke scenarios touch no
+      # corpus, so a corpus that cannot answer must not redden a dispatch of
+      # theirs — each is required freshness evidence in its own right, and the
+      # canary's whole subject is the invocation path, which is reachable on a
+      # day the corpus is not. (The scheduled canary reaches this expression
+      # with an empty `inputs.scenario`, which the list does not contain, so it
+      # resolves nothing either way.)
       RESOLVE_CASE: ${{ inputs.docket == '' && contains(fromJSON('["all", "all-offline", "ranged-reads", "corpus-service", "stub-cascade", "engine-smoke"]'), inputs.scenario) }}
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
@@ -243,39 +304,53 @@ jobs:
         id: plan
         env:
           # Inputs pass through the environment (never interpolated into the
-          # shell) so a maintainer-supplied value cannot inject commands.
-          SCENARIO: ${{ inputs.scenario }}
+          # shell) so a maintainer-supplied value cannot inject commands. A
+          # schedule carries none, so the canary names its own arm here rather
+          # than letting an empty scenario fall through the single-leg default
+          # — one place decides what a cron run does. `canary` is not a
+          # dispatch option: nothing but this expression can select it.
+          SCENARIO: ${{ github.event_name == 'schedule' && 'canary' || inputs.scenario }}
           ENGINE: ${{ inputs.engine }}
         run: |
           set -euo pipefail
+          # The promotion gate's required suite — keep in lockstep with
+          # REQUIRED_SCENARIOS in scripts/promotion-gate.sh (a workflow-shape
+          # test pins the two ends). collect is required evidence too, but it
+          # needs no environment or engine, so it stays out of this matrix and
+          # joins a whole-suite run through its own job below. The engine field
+          # is meaningful only for the two engine scenarios; the other legs
+          # carry the engine input's default as a benign constant.
+          #
+          # One literal for every derived selection below, filtered rather than
+          # copied: `all-offline` is this minus exactly the legs that spend
+          # model tokens, the canary is exactly the engine-actions-smoke ones,
+          # and a second literal could drift from the first.
+          suite='[
+            {"scenario": "ranged-reads", "engine": "claude-code"},
+            {"scenario": "corpus-service", "engine": "claude-code"},
+            {"scenario": "stub-cascade", "engine": "claude-code"},
+            {"scenario": "mcp-sidecar", "engine": "claude-code"},
+            {"scenario": "qp-topic", "engine": "claude-code"},
+            {"scenario": "engine-smoke", "engine": "claude-code"},
+            {"scenario": "engine-smoke", "engine": "codex"},
+            {"scenario": "engine-smoke", "engine": "gemini"},
+            {"scenario": "engine-actions-smoke", "engine": "claude-code"},
+            {"scenario": "engine-actions-smoke", "engine": "codex"},
+            {"scenario": "engine-actions-smoke", "engine": "gemini"}
+          ]'
           case "$SCENARIO" in
-          all | all-offline)
-            # The promotion gate's required suite — keep in lockstep with
-            # REQUIRED_SCENARIOS in scripts/promotion-gate.sh (a
-            # workflow-shape test pins the two ends). collect is required
-            # evidence too, but it needs no environment or engine, so it
-            # stays out of this matrix and joins a whole-suite run through
-            # its own job below. The engine field is meaningful only for
-            # engine-smoke; the other legs carry the engine input's default
-            # as a benign constant.
-            matrix='[
-              {"scenario": "ranged-reads", "engine": "claude-code"},
-              {"scenario": "corpus-service", "engine": "claude-code"},
-              {"scenario": "stub-cascade", "engine": "claude-code"},
-              {"scenario": "mcp-sidecar", "engine": "claude-code"},
-              {"scenario": "qp-topic", "engine": "claude-code"},
-              {"scenario": "engine-smoke", "engine": "claude-code"},
-              {"scenario": "engine-smoke", "engine": "codex"},
-              {"scenario": "engine-smoke", "engine": "gemini"}
-            ]'
-            # One literal for both whole-suite scenarios, filtered rather than
-            # copied: `all-offline` is `all` minus exactly the legs that spend
-            # model tokens, and a second literal could drift from the first.
-            if [ "$SCENARIO" = all-offline ]; then
-              matrix=$(jq -c '[.[] | select(.scenario != "engine-smoke")]' <<<"$matrix")
-            else
-              matrix=$(jq -c . <<<"$matrix")
-            fi
+          all)
+            matrix=$(jq -c . <<<"$suite")
+            ;;
+          all-offline)
+            matrix=$(jq -c '[.[] | select(.scenario != "engine-smoke"
+                                      and .scenario != "engine-actions-smoke")]' <<<"$suite")
+            ;;
+          canary)
+            # The scheduled boot canary: every engine's invocation block, and
+            # nothing else. Derived from the suite literal, so the canary can
+            # only ever run legs the promotion gate also requires.
+            matrix=$(jq -c '[.[] | select(.scenario == "engine-actions-smoke")]' <<<"$suite")
             ;;
           *)
             matrix=$(jq -nc --arg s "$SCENARIO" --arg e "$ENGINE" \
@@ -377,8 +452,9 @@ jobs:
   scenario:
     # Every dispatch-selected scenario except `collect`, which runs on its own
     # environment-free job below: it needs no role variables, so binding it to
-    # this job's deployment environment would only add a needless gate.
-    if: ${{ inputs.scenario != 'collect' }}
+    # this job's deployment environment would only add a needless gate. Plus
+    # the scheduled canary, named for the reason the plan job's gate carries.
+    if: ${{ github.event_name == 'schedule' || inputs.scenario != 'collect' }}
     needs: plan
     runs-on: ubuntu-latest
     strategy:
@@ -728,8 +804,13 @@ jobs:
       # top-level version is exactly pinned (transitive dependencies resolve
       # fresh at every install), so npm lifecycle scripts must never see
       # credentials.
+      #
+      # The engine-actions-smoke legs take this step for gemini alone: that
+      # engine's production invocation is a CLI call, while claude and codex
+      # run through actions that install their own CLI — and letting them do
+      # that is part of what the leg exercises.
       - name: Install the selected agent CLI
-        if: ${{ matrix.scenario == 'engine-smoke' }}
+        if: ${{ matrix.scenario == 'engine-smoke' || (matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'gemini') }}
         env:
           ENGINE: ${{ matrix.engine }}
         # zizmor: ignore[adhoc-packages] — top-level exact-version pins,
@@ -768,8 +849,12 @@ jobs:
       # sandbox nothing and need neither sysctl. Each knob is probed before
       # writing, as upstream does: a kernel without the knob has nothing to
       # loosen.
+      #
+      # Both codex legs need it: the actions-smoke leg passes the cells' own
+      # `sandbox: workspace-write` / `safety-strategy: drop-sudo` pair, so its
+      # turn runs under the same bubblewrap sandbox.
       - name: Enable unprivileged user namespaces for the codex sandbox
-        if: ${{ matrix.scenario == 'engine-smoke' && matrix.engine == 'codex' }}
+        if: ${{ (matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke') && matrix.engine == 'codex' }}
         run: |
           set -euo pipefail
           if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
@@ -830,13 +915,21 @@ jobs:
       # carries the fuller rationale), and respectGitIgnore lets the cell read
       # its gitignored provisioned record files. Only non-secret identifiers
       # belong on this allowlist — it is written raw here, with no
-      # credential-shape screen in the path.
+      # credential-shape screen in the path. It is also the base file the
+      # actions-smoke leg merges its MCP servers over, exactly as the cell
+      # step writes settings and merges in one go — which is why the literal
+      # is the cell step's byte for byte, telemetry block included (a test
+      # compares the two). That file is part of what gemini is *invoked with*:
+      # its schema has twice produced a silent no-op from a wrong namespace,
+      # so a probe sending a trimmed one would certify a configuration the
+      # cells do not run. Telemetry costs this workflow nothing — the log is
+      # gitignored and nothing here reads or uploads it.
       - name: Configure the Gemini cell env allowlist
-        if: ${{ matrix.scenario == 'engine-smoke' && matrix.engine == 'gemini' }}
+        if: ${{ (matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke') && matrix.engine == 'gemini' }}
         run: |
           set -euo pipefail
           mkdir -p .gemini
-          printf '%s\n' '{"context":{"fileFiltering":{"respectGitIgnore":false}},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","FEDCOURTS_CORPUS_BACKEND","FEDCOURTS_CORPUS_SERVICE_URL"]}}}' > .gemini/settings.json
+          printf '%s\n' '{"context":{"fileFiltering":{"respectGitIgnore":false}},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","FEDCOURTS_CORPUS_BACKEND","FEDCOURTS_CORPUS_SERVICE_URL"]}}}' > .gemini/settings.json
 
       # The backend split that makes this faithful: `--corpus-backend ranged`
       # pins the cascade's own provisioning reads to the blob (using this
@@ -973,6 +1066,261 @@ jobs:
           # rerun 409s here.
           overwrite: true
 
+      # --- engine-actions-smoke: each engine's own invocation block ----------
+
+      # The second token-spending scenario, and the one the engine smoke above
+      # cannot stand in for. It drives each engine through the *invocation
+      # block the production cells use* — claude-code-action and codex-action
+      # at their pinned shas with the cells' `with:` inputs, and gemini through
+      # the CLI call run-predict makes (that engine has no pinned action: the
+      # upstream one `uses:` unpinned actions the org's policy rejects) — on a
+      # prompt that asks for one word. What it certifies is **acceptance**:
+      # that these inputs, at this sha, are still taken by the invocation
+      # surface and reach a completed turn. It says nothing about output
+      # quality, and it is deliberately not what the engine smoke says: that
+      # leg drives the bare CLI through the tested runner seam, so a refusal
+      # raised in an action's own validation layer — before any model call —
+      # passes it unseen and surfaces first in a paid production cell. A
+      # static comparison of the two surfaces cannot see it either; only
+      # executing the action can.
+      #
+      # The leg's worth is therefore exactly the fidelity of the input blocks
+      # below. Two deviations are deliberate and marked in place (the kickoff
+      # prompt, and claude's GitHub token); everything else is the cell step's
+      # own value, and a test holds the codex block in lockstep with both cell
+      # workflows' codex steps so a bump to one cannot leave this leg probing
+      # an invocation nothing runs.
+      - name: Resolve the engine's production cell identity
+        id: cell
+        if: ${{ matrix.scenario == 'engine-actions-smoke' }}
+        env:
+          ENGINE: ${{ matrix.engine }}
+        run: |
+          set -euo pipefail
+          case "$ENGINE" in
+            claude-code) predictor=claude-baseline ;;
+            codex) predictor=codex-baseline ;;
+            gemini) predictor=gemini-baseline ;;
+            # Fail loudly rather than leaving `predictor` unset for `set -u` to
+            # trip on further down: this is the leg's first step, so it is
+            # where an engine the leg has no invocation block for should stop.
+            *)
+              echo "::error::no cell identity is defined for engine '${ENGINE}'"
+              exit 1
+              ;;
+          esac
+          # The model a cell of this engine actually runs. The baseline
+          # predictors pin no override (a test holds them to that), so the
+          # engine default in fedcourtsai.pricing is what the predict matrix
+          # resolves into the cell — read from the package rather than
+          # restated here, where a default bump would leave the probe asking
+          # about a model production stopped using.
+          model=$(uv run python -c \
+            'import sys; from fedcourtsai.pricing import DEFAULT_MODELS; print(DEFAULT_MODELS[sys.argv[1]])' \
+            "$ENGINE")
+          # Shape-screen before the append: both values become step outputs
+          # that ride straight into an action's `with:` block.
+          case "$model" in
+            "" | *[!a-zA-Z0-9.-]*)
+              echo "::error::the resolved model id is not a bare identifier"
+              exit 1
+              ;;
+          esac
+          printf 'predictor=%s\nmodel=%s\n' "$predictor" "$model" >> "$GITHUB_OUTPUT"
+
+      # The same composite the cells launch, so the client config each
+      # invocation names below points at a server that answers: `--mcp-config
+      # mcp-servers.json` is part of claude's production args, and codex reads
+      # its config.toml at startup. Health stays warn-only, as in the cells —
+      # the `mcp-sidecar` scenario is what gates on the sidecar itself, and a
+      # degraded upstream must not redden a leg whose subject is the
+      # invocation.
+      - uses: ./.github/actions/mcp-sidecar
+        if: ${{ matrix.scenario == 'engine-actions-smoke' }}
+        with:
+          role: predictor
+          actor: ${{ steps.cell.outputs.predictor }}
+          courtlistener-api-token: ${{ secrets.COURTLISTENER_API_TOKEN }}
+
+      # run-predict's "Configure agent retrieval (MCP)" step, engine for
+      # engine: the tested `mcp-config` command emits each client's format
+      # from the versioned manifest and this step only plumbs stdout to the
+      # file that engine reads. Each generated file names a localhost URL and
+      # carries no token.
+      - name: Configure the invocation's MCP retrieval
+        if: ${{ matrix.scenario == 'engine-actions-smoke' }}
+        env:
+          ENGINE: ${{ matrix.engine }}
+          PREDICTOR_ID: ${{ steps.cell.outputs.predictor }}
+        run: |
+          set -euo pipefail
+          case "$ENGINE" in
+            claude-code)
+              uv run fedcourts mcp-config --engine claude-code \
+                --role predictor --actor "$PREDICTOR_ID" \
+                --http-url courtlistener=http://127.0.0.1:8378/mcp > mcp-servers.json
+              ;;
+            codex)
+              mkdir -p .codex
+              uv run fedcourts mcp-config --engine codex \
+                --role predictor --actor "$PREDICTOR_ID" \
+                --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
+              ;;
+            gemini)
+              # Merged over the settings file the allowlist step above wrote,
+              # as the cell step does in one pass.
+              uv run fedcourts mcp-config --engine gemini \
+                --role predictor --actor "$PREDICTOR_ID" \
+                --base-settings .gemini/settings.json \
+                --http-url courtlistener=http://127.0.0.1:8378/mcp > .gemini/settings.json.new
+              mv .gemini/settings.json.new .gemini/settings.json
+              ;;
+          esac
+
+      - name: Smoke the Claude Code cell invocation
+        id: actions_smoke_claude
+        if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'claude-code' }}
+        # Far below the cell step's 50: one word is one turn, and a bound that
+        # tight is what keeps a hung invocation from eating the job budget.
+        timeout-minutes: 10
+        uses: anthropics/claude-code-action@a874e9ecd7bb36efdad65429c6b35815f5a08f10 # v1.0.210
+        with:
+          allowed_bots: "fedcourtsai-data[bot]"
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # DEVIATION, in the safe direction. The cells hand the action a
+          # freshly minted App token (issues/PR write, for the agent's own
+          # comment on the trigger issue); a probe has no issue to comment on,
+          # and minting a live write credential for one would be a posture
+          # change. The job's own token instead — capped at `contents: read`
+          # by the permissions block above. Not omitted: with no token the
+          # action falls back to an OIDC exchange that mints an installation
+          # token defaulting to contents/issues/pull-requests *write*.
+          github_token: ${{ github.token }}
+          settings: |
+            {
+              "env": {
+                "ENABLE_PROMPT_CACHING_1H": "1"
+              }
+            }
+          # DEVIATION, and the point of the leg: the cells' kickoff prompt
+          # names a case and asks for a prediction. This asks for one word, so
+          # what the run costs is a boot probe and what it proves is that the
+          # invocation was accepted.
+          prompt: |
+            Reply with the single word: ok
+
+            Use no tools, read no files, and write no files. This is a boot
+            probe of the invocation path, not a task.
+          claude_args: |
+            --model ${{ steps.cell.outputs.model }}
+            --max-turns 120
+            --permission-mode bypassPermissions
+            --mcp-config mcp-servers.json
+
+      - name: Smoke the Codex cell invocation
+        id: actions_smoke_codex
+        if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'codex' }}
+        timeout-minutes: 10
+        uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1.11
+        env:
+          # Pin codex's home to the workspace dir the config was written into,
+          # as the cell step does; the session rollout the assertion below
+          # reads lands under it.
+          CODEX_HOME: ${{ github.workspace }}/.codex
+        with:
+          allow-bot-users: "fedcourtsai-data[bot]"
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # DEVIATION, as on the claude leg above: a boot probe, not a cell.
+          prompt: |
+            Reply with the single word: ok
+
+            Use no tools, read no files, and write no files. This is a boot
+            probe of the invocation path, not a task.
+          model: ${{ steps.cell.outputs.model }}
+          effort: high
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
+          codex-version: "0.144.1"
+          codex-args: '["-c","sandbox_workspace_write.network_access=true","-c","web_search=live"]'
+
+      - name: Smoke the Gemini cell invocation
+        id: actions_smoke_gemini
+        if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'gemini' }}
+        timeout-minutes: 10
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Headless runs need the workspace trusted explicitly (the CLI exits
+          # 55 otherwise), exactly as the cell step declares it.
+          GEMINI_CLI_TRUST_WORKSPACE: "true"
+          MODEL_ID: ${{ steps.cell.outputs.model }}
+          # DEVIATION, as on the two legs above: a boot probe, not a cell.
+          PROMPT: |
+            Reply with the single word: ok
+
+            Use no tools, read no files, and write no files. This is a boot
+            probe of the invocation path, not a task.
+        run: |
+          set -euo pipefail
+          # The result goes to RUNNER_TEMP rather than the workspace: the CLI
+          # has just run `--yolo` over the checkout, so a workspace path can
+          # be pre-planted, and the assertion below must read this step's own
+          # output. Never rendered into the step summary — it is model output.
+          gemini --yolo --model "$MODEL_ID" --prompt "$PROMPT" --output-format json \
+            > "$RUNNER_TEMP/gemini-actions-smoke.json"
+
+      # The leg's verdict, stated rather than implied. An invocation refused in
+      # its validation layer fails its own step and reddens the leg on its own
+      # — but a mis-spelled `if:` above would skip every step and leave the leg
+      # green having invoked nothing, which is precisely the vacuous pass this
+      # scenario exists to replace. So each engine must leave the evidence of a
+      # completed turn that the cells' own capture steps read — claude's
+      # execution file, codex's session rollout, gemini's JSON result — and an
+      # absent one fails here whatever the reason. Evidence of completion only:
+      # nothing reads what the model said.
+      - name: Assert the invocation was accepted and completed
+        if: ${{ matrix.scenario == 'engine-actions-smoke' }}
+        env:
+          ENGINE: ${{ matrix.engine }}
+          CLAUDE_EXECUTION_FILE: ${{ steps.actions_smoke_claude.outputs.execution_file }}
+          CODEX_HOME: ${{ github.workspace }}/.codex
+          GEMINI_RESULT: ${{ runner.temp }}/gemini-actions-smoke.json
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+          case "$ENGINE" in
+            claude-code)
+              [ -n "$CLAUDE_EXECUTION_FILE" ] \
+                || fail "the claude-code action reported no execution file — the step did not run"
+              [ -s "$CLAUDE_EXECUTION_FILE" ] \
+                || fail "the claude-code execution file is empty — no turn completed"
+              ;;
+            codex)
+              [ -d "$CODEX_HOME/sessions" ] \
+                || fail "codex wrote no sessions directory — the step did not run"
+              # A rollout file appears when the session starts, so this
+              # evidences a session, not a finished turn — the action's own
+              # exit status is what carries the rest.
+              [ -n "$(find "$CODEX_HOME/sessions" -type f -name '*.jsonl' -print -quit)" ] \
+                || fail "codex left no session rollout — the session never started"
+              ;;
+            gemini)
+              [ -s "$GEMINI_RESULT" ] \
+                || fail "the gemini CLI wrote no result — the step did not run"
+              jq -e 'type == "object"' "$GEMINI_RESULT" > /dev/null \
+                || fail "the gemini CLI result is not the documented JSON object"
+              ;;
+            # An engine with no completion evidence defined for it is the
+            # vacuous pass in another spelling: without this arm the case falls
+            # through and the step prints the success line having checked
+            # nothing. The resolve step above would die first today, but that
+            # is an accident of ordering, not this assertion's own contract.
+            *)
+              fail "unknown engine '${ENGINE}': no completion evidence is defined for it"
+              ;;
+          esac
+          echo "engine-actions-smoke: the ${ENGINE} cell invocation was accepted and completed" \
+            >> "$GITHUB_STEP_SUMMARY"
+
       # Both sidecars' logs carry startup lines (the corpus one's
       # `health-check corpus read:` transfer evidence among them) and
       # per-request records (server noise, no secrets — GitHub masks the
@@ -992,7 +1340,7 @@ jobs:
       # evidence lines are at the top and an engine-smoke's query records
       # scroll them off a tail alone.
       - name: Show the sidecar logs
-        if: ${{ always() && (matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' || matrix.scenario == 'mcp-sidecar') }}
+        if: ${{ always() && (matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke' || matrix.scenario == 'mcp-sidecar') }}
         continue-on-error: true
         run: |
           set -euo pipefail
@@ -1065,7 +1413,10 @@ jobs:
     # so the promotion freshness suite must include it — and because this job
     # is a separate job in the same run, a whole-suite title is evidence only
     # if this job succeeded too (a run concludes success only when every job
-    # did). Token-free, so `all-offline` keeps it.
+    # did). Token-free, so `all-offline` keeps it. Three affirmative
+    # equalities, which is also what keeps the canary out: an empty `inputs`
+    # context satisfies none of them, so the schedule runs the engine legs and
+    # nothing else without needing a clause of its own.
     if: ${{ inputs.scenario == 'collect' || inputs.scenario == 'all' || inputs.scenario == 'all-offline' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20

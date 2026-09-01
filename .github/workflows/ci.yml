@@ -220,13 +220,13 @@ jobs:
           # be the loudest thing this check says. The annotation lands on the
           # PR; the summary survives in the run record the promotion is
           # audited from.
-          echo "::warning::promotion-gate: engine smokes waived by the ${WAIVER_LABEL} label — this batch may merge with no real-engine evidence at ${HEAD_SHA}"
+          echo "::warning::promotion-gate: engine scenarios waived by the ${WAIVER_LABEL} label — this batch may merge with no real-engine evidence at ${HEAD_SHA}"
           {
-            echo "## Engine smokes waived on this batch"
+            echo "## Engine scenarios waived on this batch"
             echo
-            echo "\`${WAIVER_LABEL}\` is on this PR, so the three \`engine-smoke\` scenarios left the required set and a token-free \`scenario=all-offline\` run counts as whole-suite evidence at \`${HEAD_SHA}\`."
+            echo "\`${WAIVER_LABEL}\` is on this PR, so the six token-spending engine entries — three \`engine-smoke\` and three \`engine-actions-smoke\` — left the required set and a token-free \`scenario=all-offline\` run counts as whole-suite evidence at \`${HEAD_SHA}\`."
             echo
-            echo "What that trades away: the only evidence that a real engine cell still runs in the production posture at the sha being promoted — \`claude-code\`, \`codex\`, and \`gemini\` all unrun. Every other gate is unchanged and still strict."
+            echo "What that trades away, for \`claude-code\`, \`codex\` and \`gemini\` alike: that a real cell still runs in the production posture at the sha being promoted, and that each engine's own invocation block is still accepted by the surface that receives it. The second is the one an action version bump breaks — silently, on the promotion carrying the bump. Every other gate is unchanged and still strict."
             echo
             echo "Remove the label and re-run this check to demand them."
           } >>"$GITHUB_STEP_SUMMARY"
