@@ -1343,3 +1343,28 @@ freeze commit is recorded here.
   `check_evaluation_targets` pointer discipline holds over the ledger) with
   `uv run fedcourts leaderboard` still reporting an empty frozen scope until
   the instant.
+
+- **The bless-boundary tripwire arms its evaluation half, 2026-09-01** (no
+  digest added or retired, no instant moved, no committed number moved): the
+  ledger tripwire that walks committed stamps against their digests' bless
+  moments now runs over both halves —
+  `test_no_committed_cell_predates_the_bless_it_claims` over predictions and
+  `test_no_committed_evaluation_predates_the_bless_it_claims` over
+  evaluations — superseding the 2026-08-31 entry's "the tripwire is
+  predictions-only" scope and mechanizing the freeze procedure's by-hand
+  evaluation gap check (step 4). Enforcement scope, stated precisely: the
+  tripwire sees a cell only from its digest's bless moment on; the
+  `[held instant, new evaluator bless)` window of a held-instant re-bless
+  stays governed by the minted-from-`main` convention while open, with the
+  tripwire detecting any violation at the re-bless. Verified at arming, over
+  the ledger as committed: 150 evaluations, 138 stamped, **6** under
+  currently blessed digests (3 under `sha256:11a0afbc…` stamped
+  `2026-08-29T04:33:12Z`, 3 under `sha256:b9f548f4…` stamped
+  `2026-08-29T04:29:37Z`, both against the carried-forward
+  `2026-08-26T14:46:40Z` bless), zero retroactive; the prediction half
+  executes over 19 of 660; `metrics/leaderboard.json` and
+  `metrics/claim-scores.json` still read `entries: []` under
+  `process_scope: frozen`. The runnable effect check is the pair:
+  `uv run pytest tests/test_process_version.py -k predates` green over the
+  ledger on `main`, and the boards still empty until the
+  `2026-09-05T00:00:00Z` instant.

@@ -10,7 +10,7 @@ a frozen-scope performance artifact only if its **prediction's**
 `process_version` stamp carries a digest in `FROZEN_PROCESS_DIGESTS` with a
 stamp at or after the `FROZEN_SINCE` freeze instant — the partition keys on
 the prediction because the predictor is the competitor being ranked; the
-evaluator's own digest is recorded and never enforced — *and* the
+evaluator's own digest is recorded and never enforced for counting — *and* the
 evaluation's own harness stamp is at or after that instant (the stamp, never
 the agent-written `created_at`: the boundary rests only on clocks the agent
 cannot write), both constants set in the
@@ -580,15 +580,19 @@ stays outside the gate:
   boundary is not one population and may not be read as one — the same rule
   `declared_set_versions` states for a claim total, applied to the evaluator's
   process. The boundary is visible per cell: the bracket rides a prompt change,
-  so it moves every evaluator's process digest. It is not *enforced* anywhere —
-  the frozen filter keys on the **prediction's** stamp, because the competitor
-  being ranked is the predictor — so an evaluation's own digest is recorded and
-  read by nothing, and this is a rule for the reader rather than a partition the
-  code applies. Two consequences follow: report the distinct evaluator process
-  digests a pooled grade figure spans, and treat more than one as demoting the
-  figure to coverage. The same boundary moves the denominator, not only the
-  anchor: under the bracket exactly one candidate is staged per predictor, so an
+  so it moves every evaluator's process digest. It is not enforced as a
+  *counting* partition — the frozen filter keys on the **prediction's** stamp,
+  because the competitor being ranked is the predictor — so for pooling this is
+  a rule for the reader rather than a partition the code applies. Two
+  consequences follow: report the distinct evaluator process digests a pooled
+  grade figure spans, and treat more than one as demoting the figure to
+  coverage. The same boundary moves the denominator, not only the anchor:
+  under the bracket exactly one candidate is staged per predictor, so an
   event a predictor ran twice contributes one grade rather than several.
+  (The evaluation digest's *retroactivity* is separately guarded: the
+  evaluation-ledger tripwire in `tests/test_process_version.py` fails the
+  suite on a stamp that predates the bless moment of a digest currently
+  blessed.)
 
   The anchor is not the only channel the bracket closes, and the second one
   reaches further than `reasoning_quality`. The bracket also takes the committed
