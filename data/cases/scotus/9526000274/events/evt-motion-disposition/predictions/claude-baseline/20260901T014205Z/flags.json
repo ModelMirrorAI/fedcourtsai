@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000274",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "Forward-mode disclosure: the forecast leans decisively on public pre-cutoff material retrieved from the web — SCOTUSblog reporting that the administration's response supports the applicants, and the CA4 panel split (Wilkinson jurisdictional dissent). No disposition of 26A274 itself was surfaced. The government's response PDF on supremecourt.gov returned HTTP 403, so its position rests on the reporting, not the brief text.",
+      "event_id": "evt-motion-disposition"
+    }
+  ]
+}

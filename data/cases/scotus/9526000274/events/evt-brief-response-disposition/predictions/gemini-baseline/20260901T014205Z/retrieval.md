@@ -1,0 +1,2 @@
+- Web search: `"26A274" "National Republican Congressional Committee" Supreme Court` (Surfaced details about the Fourth Circuit vacatur, the FCC's lowest unit charge guidance, and the SG's brief supporting the applicants).
+- `cat metrics/statpack.md | grep -A 20 "The interim docket"` (Surfaced base rates for substantive interim applications for Terms 2024 and 2025).

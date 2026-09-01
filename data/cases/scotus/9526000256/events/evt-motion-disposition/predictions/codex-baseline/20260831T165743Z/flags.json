@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000256",
+  "run_id": "20260831T165743Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The snapshot links the application PDF, but no record/documents content or documents.json was provisioned. The record therefore identifies only generic injunctive relief and does not disclose the requested injunction, legal theory, merits showing, or asserted irreparable harm. The event also has no opened_at and the snapshot's DocketedDate is blank."
+    }
+  ]
+}

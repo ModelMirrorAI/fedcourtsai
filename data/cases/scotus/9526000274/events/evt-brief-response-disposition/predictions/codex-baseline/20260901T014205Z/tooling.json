@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000274",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP search and document reading",
+    "fedcourts query",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The statpack supplied the stage-correct prior-Term baseline.",
+    "CourtListener provided the lower-court opinion and dissent.",
+    "The frozen context made the escalation state explicit."
+  ],
+  "gaps": [
+    "The application and filed response text were not provisioned."
+  ],
+  "notes": "The corpus query's recency ranking mixed substantive applications with many extensions, so it was useful only as a qualitative ladder check."
+}

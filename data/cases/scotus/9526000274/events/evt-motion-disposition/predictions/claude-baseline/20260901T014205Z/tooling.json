@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000274",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "WebSearch", "WebFetch"],
+  "helpful": [
+    "The statpack interim section now pools past the 50-resolved floor for a Term-2026 cell, so a real scored baseline existed",
+    "fedcourts query --include-applications surfaced a same-week granted application (26A203) as an escalation/amicus comparator",
+    "The frozen context's response_requested/referred/amicus fields made the increment claims unambiguous"
+  ],
+  "gaps": [
+    "No provisioned document text for interim cells — the application and response PDFs were linked on the snapshot but supremecourt.gov returned 403 to the fetcher, so the parties' actual arguments came from secondary reporting",
+    "fedcourts query has no free-text or party-name filter, so finding topically similar applications (election/agency-stay) is not possible from the corpus directly"
+  ],
+  "notes": "Budget: 1 corpus query, 1 web search, 2 web fetches (1 failed)."
+}

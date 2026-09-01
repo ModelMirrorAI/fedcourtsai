@@ -1,0 +1,9 @@
+# Forecast
+
+The Court is more likely than not to grant an unqualified stay of the Fourth Circuit's judgment pending certiorari. The application will probably be referred to the full Court, with a short administrative stay possible while the remaining response arrives. A final interim disposition is likely on or shortly after the September 3 response deadline, before the challenged advertising rule takes effect for the general-election period on September 4.
+
+The record already shows that the Chief Justice requested a response, so no response-request increment remains from this prediction point. The application has not yet been referred to the full Court and no amicus brief is shown. I expect referral and give slightly better-than-even odds that at least one amicus brief is filed before disposition, given the nationwide campaign-advertising stakes and the organized participants on both sides.
+
+The likely basis for relief is that the applicants have shown a fair prospect of Supreme Court review and reversal on agency finality and exhaustion. The Fourth Circuit majority allowed review of an FCC Media Bureau notice while full-Commission review remained pending, notwithstanding contrary decisions from several circuits. The Court's August 24 decision in *Trump v. California* reinforces its current concern with judicial intervention before executive or agency action becomes final. The equities also favor temporarily preserving the prior advertising practice during an election and avoiding a rule change days before the lowest-unit-charge period begins.
+
+If the Court denies relief, the likeliest reason is that the Media Bureau notice already has concrete legal effect and the full Commission's posture makes further agency review futile. On balance, however, the circuit split, panel dissent, federal respondents' support for a stay, compressed election deadline, and requested response point toward a grant.

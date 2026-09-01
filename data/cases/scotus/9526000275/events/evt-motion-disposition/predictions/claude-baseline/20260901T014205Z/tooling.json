@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/9526000275",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "WebSearch",
+    "WebFetch"
+  ],
+  "helpful": [
+    "The statpack interim-docket section's per-Term resolved/granted counts made the pooled prior-Term baseline directly computable (296 resolved, 10.5%), and its caveats (censoring, denial-first collapse) were exactly what the ladder claims needed.",
+    "Web search filled the gap left by the missing document text: the underlying dispute, signature counts, and ballot deadlines were all recoverable from public coverage."
+  ],
+  "gaps": [
+    "supremecourt.gov DocketPDF URLs return HTTP 403 to the runner's fetch tool, so the application's own text was unreachable even though the snapshot carries its URL; a provisioned application-text document (the interim analogue of petition.txt) would remove the biggest input gap on interim cells.",
+    "fedcourts query has no filter for application ask (stay vs injunction vs vacatur) or for election-related subject matter, so close interim priors cannot be pulled from the corpus."
+  ],
+  "notes": "Free-text query attempt was rejected as designed; the structured retry cost one extra turn but the error message's inline interface summary made recovery immediate."
+}

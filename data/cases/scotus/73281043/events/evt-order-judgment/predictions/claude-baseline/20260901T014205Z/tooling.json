@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281043",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md (merits docket section)",
+    "courtlistener MCP search",
+    "provisioned documents (petition, BIO, questions-presented)"
+  ],
+  "helpful": [
+    "The statpack merits section's per-Term disturbed table with the excluded count made the pooled baseline unambiguous to compute.",
+    "Provisioned petition and BIO text were the decisive inputs: the petition's appendix quotations of the CA5 panel opinion and the en banc dissent substituted well for the opinion itself.",
+    "context.json's explicit stage guidance (band is a cert construct) prevented a wrong anchor."
+  ],
+  "gaps": [
+    "The decision below (CA5 23-70002) was not retrievable: not in the corpus by citation and not in CourtListener's opinion index by case name or docket number. A provisioned lower-court-opinion text for merits cells would remove reliance on the parties' adversarial quotations.",
+    "No committed conditional cuts for merits cells (e.g. disturbed rate by petitioner class or by circuit below); the adjustment from the pooled 69.8% baseline is entirely judgment."
+  ],
+  "notes": "Corpus citation lookup printed the sparse-coverage note and was not retried per the prompt's guidance. Total retrieval: 1 corpus query + 3 MCP searches, well under budget."
+}

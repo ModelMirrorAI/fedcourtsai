@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000274",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The forecast materially relies on the public August 24, 2026 per curiam in Trump v. California, which predates the provisioned August 31 snapshot and was cited by both the applicants and the Solicitor General; it is legitimate forward signal and does not reveal this application's outcome."
+    }
+  ]
+}
