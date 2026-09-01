@@ -752,8 +752,9 @@ def _predict_cell_capped(
 ) -> bool:
     """Whether a predict cell has exhausted the per-cell attempt cap.
 
-    The predict-seam mirror of :func:`fedcourtsai.pipeline.pull._cell_capped`:
-    counts the committed ``attempt.json`` failure facts at the ``predict`` seam
+    The live channel's own reading of what
+    :func:`fedcourtsai.pipeline.pull._cell_capped` answers at the ``predict``
+    seam: it counts the committed ``attempt.json`` failure facts at that seam
     (:func:`fedcourtsai.matrix.cell_failure_count`), keyed on cell identity — the
     corpus-blind ``collect`` job records one per failed run, so a cell retried
     across runs counts against the same cap rather than resetting it.

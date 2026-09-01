@@ -193,7 +193,13 @@ from .pipeline.outcome import (
     snapshot_shows_disposition,
     snapshot_shows_judgment,
 )
-from .pipeline.pull import derive_evaluate_backlog, evaluate_backlog, pull_case, pull_cases
+from .pipeline.pull import (
+    derive_evaluate_backlog,
+    derive_predict_backlog,
+    evaluate_backlog,
+    pull_case,
+    pull_cases,
+)
 from .pipeline.response_backfill import backfill_response_fields
 from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
 from .pipeline.salience import (
@@ -8721,13 +8727,75 @@ def _evaluate_backlog_cases() -> list[CaseRequest]:
     return [CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries]
 
 
+def _predict_backlog_cases() -> list[CaseRequest]:
+    """The predict stage's own case set, derived from the corpus-level backlog.
+
+    What a scheduled predict run fans out over when no trigger names its cases:
+    the forecasts committed state still owes — an in-scope, funded, **provisioned**
+    case with an open forecastable event some enabled predictor has not covered
+    (see :func:`fedcourtsai.pipeline.pull.derive_predict_backlog`, which spells
+    the admission predicates out in order). Its cap is the live channel's own
+    per-cycle sweep cap (``tracking.yaml``'s ``salience.sweep_cases_per_cycle``),
+    because the two select from the same population and a scheduled derivation
+    should not be able to fan out wider than the lane it stands in for; the
+    per-cell attempt cap comes from the ``predict`` section.
+
+    Stamp-free, exactly as :func:`_evaluate_backlog_cases` is and for the same
+    reason: ``predict_queued_at`` is a write to the corpus of record, and those
+    credentials live only in the writer jobs, so a stamp made here would die with
+    the runner. It needs none — the fan-out's per-``(predictor, event)``
+    already-predicted skip is the idempotency, reading the same committed ledger
+    the deriver does, so re-deriving an unchanged backlog re-mints nothing that
+    landed while a cell still missing is work still owed. The same two
+    consequences hold: the debounce is one-directional (this lane honours the
+    stamp the pull/live lane wrote and leaves none of its own), and the gate
+    reads *committed* state, so what bounds a second derivation firing before a
+    collect PR merges is the workflow's concurrency group, not this gate.
+
+    Requires a **pulled** corpus, and enforces it, for the reason the evaluate
+    twin does: one pass over every open event plus a point query per candidate
+    case is the opposite shape from the point lookups a trigger's named cases
+    need, so a non-local backend is refused rather than discovered as a
+    range-request storm, and an absent corpus is refused because for an
+    unattended lane "nothing is owed" and "no corpus" must not be the same
+    output.
+    """
+    settings = get_settings()
+    salience_cfg = load_salience_config(settings.config_root)
+    predict_cfg = load_predict_config(settings.config_root)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "local":
+        raise typer.BadParameter(
+            f"the predict backlog cannot be derived over the "
+            f"{settings.corpus_backend!r} corpus backend: it scans every open "
+            "event and reads a row per candidate case, which the local (pulled) "
+            "corpus serves and a read-in-place backend does not. Pull the corpus "
+            "and read local, or name the cases with --body-file."
+        )
+    if not db_path.exists():
+        raise typer.BadParameter(
+            f"no corpus at {db_path} to derive the predict backlog from — "
+            "`fedcourts corpus-pull` first. Refusing rather than planning an "
+            "empty fan-out, which is indistinguishable from a drained backlog."
+        )
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        backlog = derive_predict_backlog(
+            conn,
+            settings.data_root,
+            settings.config_root / "predictors.yaml",
+            cap=salience_cfg.sweep_cases_per_cycle,
+            max_attempts=predict_cfg.max_attempts_per_cell,
+        )
+    return [CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries]
+
+
 def _requested_cases(
     body_file: Path | None,
     court: str,
     docket: int | None,
     event: list[str] | None,
     *,
-    backlog: bool = False,
+    backlog: Literal["predict", "evaluate"] | None = None,
     force: bool = False,
 ) -> list[CaseRequest]:
     """Cases to fan out over, from a batch body file, single-case flags, or the backlog.
@@ -8736,13 +8804,11 @@ def _requested_cases(
     them) is the multi-case path a trigger issue takes. The single-case
     ``--court``/``--docket``/``--event`` flags serve ad-hoc invocations.
 
-    ``backlog`` opens a third mode for the evaluate stage, whose schedule is its
-    own: given *no* input at all, the cases come from the corpus-level evaluate
-    backlog (:func:`_evaluate_backlog_cases`) rather than from a trigger, so a
-    run needs no issue body to know what it owes. The predict stage has no such
-    deriver — its case set is a funded salience selection, not a level on
-    committed state — so it leaves ``backlog`` unset and an input-less
-    invocation is refused.
+    ``backlog`` opens a third mode, and names which stage's deriver answers it:
+    given *no* input at all, the cases come from the corpus-level backlog —
+    :func:`_predict_backlog_cases` or :func:`_evaluate_backlog_cases` — rather
+    than from a trigger, so a scheduled run needs no issue body to know what it
+    owes. Both derivations read committed state and write nothing.
 
     A *half*-named single case is refused in every mode. Silence is the backlog
     mode's trigger, so a dropped ``--docket`` would otherwise turn one intended
@@ -8753,7 +8819,7 @@ def _requested_cases(
     state still owes, and it drops a fully-graded case *before* the gate
     ``--force`` disables ever sees it. Accepting the pair would answer a re-grade
     request with an empty fan-out — the flag reading as honoured while selecting
-    nothing.
+    nothing. Only the evaluate stage carries the flag at all.
     """
     if body_file is not None:
         return parse_cases(body_file.read_text())
@@ -8761,7 +8827,7 @@ def _requested_cases(
         return [CaseRequest(court, docket, tuple(event or ()))]
     if court or docket is not None:
         raise typer.BadParameter("--court and --docket go together; provide both or neither.")
-    if backlog:
+    if backlog is not None:
         if event:
             raise typer.BadParameter(
                 "--event names events within a single case; pass it with --court and --docket. "
@@ -8773,7 +8839,7 @@ def _requested_cases(
                 "excludes a fully-graded case before the already-graded gate --force "
                 "disables. Name the target with --body-file, or --court and --docket."
             )
-        return _evaluate_backlog_cases()
+        return _predict_backlog_cases() if backlog == "predict" else _evaluate_backlog_cases()
     raise typer.BadParameter("provide --body-file, or both --court and --docket.")
 
 
@@ -9316,7 +9382,10 @@ def predict_matrix_cmd(
     run_id: Annotated[str, typer.Option(help="Shared run id for this fan-out.")],
     body_file: Annotated[
         Path | None,
-        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
+        typer.Option(
+            help="Issue body file; its ```json block (one case or an array) is parsed. "
+            "Omit it (with no --court/--docket) to derive the cases from the predict backlog."
+        ),
     ] = None,
     court: Annotated[
         str, typer.Option(help="Single-case court id (ignored with --body-file).")
@@ -9345,11 +9414,20 @@ def predict_matrix_cmd(
 ) -> None:
     """Emit the predictor x case x event GitHub Actions matrix as compact JSON.
 
+    Two input modes. ``--body-file`` takes the cases from a trigger issue, and
+    ``--court``/``--docket`` name one ad hoc. Given no input at all, they come
+    from the corpus-level predict backlog — the forecasts committed state still
+    owes, on cases that are in scope, funded, and already provisioned — so a
+    scheduled run derives its own work with no issue body. That derivation
+    writes no ``predict_queued_at`` debounce stamp: the per-(predictor, event)
+    already-predicted skip below is the idempotency, and the corpus of record is
+    writable only from the writer jobs. Run it where the corpus is pulled.
+
     A case with no listed ``events`` defaults to that case's open case-baseline
     (petition/appeal-kind) events.
     """
     fanout = _predict_fanout(
-        _requested_cases(body_file, court, docket, event),
+        _requested_cases(body_file, court, docket, event, backlog="predict"),
         run_id,
         stage="predict-matrix",
         stranded_file=stranded_file,
@@ -9544,7 +9622,7 @@ def evaluate_matrix_cmd(
     need committed artifacts deleted to get a cell minted.
     """
     fanout = _evaluate_fanout(
-        _requested_cases(body_file, court, docket, event, backlog=True, force=force),
+        _requested_cases(body_file, court, docket, event, backlog="evaluate", force=force),
         run_id,
         stage="evaluate-matrix",
         force=force,
@@ -10153,7 +10231,10 @@ def _echo_plan(
 def predict_plan_cmd(
     body_file: Annotated[
         Path | None,
-        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
+        typer.Option(
+            help="Issue body file; its ```json block (one case or an array) is parsed. "
+            "Omit it (with no --court/--docket) to plan the predict backlog derivation."
+        ),
     ] = None,
     court: Annotated[
         str, typer.Option(help="Single-case court id (ignored with --body-file).")
@@ -10191,6 +10272,11 @@ def predict_plan_cmd(
     plan document on stdout, its summary lines on stderr, and — on request —
     the ``--approval-report`` markdown.
 
+    It takes ``predict-matrix``'s two input modes, so the backlog derivation a
+    scheduled run performs — the one that reads no trigger — has a dry run of
+    its own: omit ``--body-file`` and the plan enumerates the cells that
+    derivation would mint. Read-only in both modes, corpus included.
+
     stdout is a single JSON object. ``counts`` splits by grain — ``provenance``
     counts cases and events, ``cell_ledger`` counts cells — because the two are
     read for different questions and a flat block invites reading a case count
@@ -10216,7 +10302,7 @@ def predict_plan_cmd(
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()
     fanout = _predict_fanout(
-        _requested_cases(body_file, court, docket, event),
+        _requested_cases(body_file, court, docket, event, backlog="predict"),
         planned_run_id,
         stage="predict-plan",
         stranded_file=stranded_file,
@@ -10378,7 +10464,7 @@ def evaluate_plan_cmd(
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()
     fanout = _evaluate_fanout(
-        _requested_cases(body_file, court, docket, event, backlog=True, force=force),
+        _requested_cases(body_file, court, docket, event, backlog="evaluate", force=force),
         planned_run_id,
         stage="evaluate-plan",
         force=force,

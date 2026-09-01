@@ -2777,16 +2777,18 @@ def test_the_backlog_mode_refuses_an_absent_corpus(tmp_path: Path) -> None:
     assert "corpus-pull" in _flat(result.output)
 
 
-def test_predict_matrix_still_refuses_an_input_less_invocation(tmp_path: Path) -> None:
-    """The backlog mode is the evaluate stage's alone. Predict's case set is a
-    funded salience selection, not a level on committed state, so an input-less
-    predict run stays an error rather than quietly fanning out over something."""
+def test_predict_matrix_derives_its_own_backlog_when_given_no_input(tmp_path: Path) -> None:
+    """Predict takes the same second input mode, over its own deriver. This fixture
+    provisions no documents, so the backlog's provisioning predicate holds every
+    case and the fan-out is empty — the point here being that an input-less run is
+    a *derivation*, not a refusal. `tests/test_predict_backlog.py` carries the
+    populated derivation and the predicate itself."""
     env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))
 
     result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"], env=env)
 
-    assert result.exit_code != 0
-    assert "--body-file" in _flat(result.output)
+    assert result.exit_code == 0, result.output
+    assert _cells(result.stdout) == []
 
 
 def test_evaluate_plan_dry_runs_exactly_the_backlog_matrix_would_mint(tmp_path: Path) -> None:
