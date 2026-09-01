@@ -454,6 +454,38 @@ spans the scored and unscored confirmations together. On `apply` the step still
 runs the dry-run into the step summary first, as a receipt of what the rewrite
 acted on.
 
+`sampled-frame-weight-repair` restores the derived sampling weight on the legacy
+denial-sampling frame's latched-down rows: grid denials genuinely inside sampled
+ranges that a channel writing with certainty min-latched to 1, leaving the nine
+petitions each stands for represented by nobody. Where the other passes move
+which bucket a row falls in, this one moves the weights themselves, so every
+weighted denominator that admits IFP rows moves with it — the statpack's and
+docket pack's weighted sections, the ops digest's always-deny floor, and one
+committed prose figure in
+[outcome-decomposition.md](outcome-decomposition.md). Its population, direction
+and expected magnitudes are therefore pre-registered in
+[freeze-record.md](freeze-record.md), and its dry-run ledger is read against that
+entry. Every conjunct of the membership predicate is the guard's own rule — the
+grid test, the walker's cursor, and the density guard's neighbourhood reading —
+so the pass and the ingest seam that has to keep its result cannot drift apart;
+the scope is the entry's, narrower than the rule, and a row the rule reaches
+outside the registered cells is reported in the ledger and left alone rather than
+repaired. The write is a direct `UPDATE` bypassing the column's **min** latch:
+the stored weight only ever latches downward, an inclusion probability only ever
+learned toward certainty, so the same value through the upsert path would be
+discarded silently. Convergence is witnessed inside the command rather than by a
+grep in the step: the apply re-runs its own selection and exits non-zero if
+anything remains, which stops the job before the blob is pushed. No ledger
+surface, so a pointer-only commit. **No scored number moves**: every
+scored-segment cut is gated on a paid serial and this population is IFP, so
+`metrics/leaderboard.json`, `metrics/claim-scores.json` and the back-tests are
+unchanged. **The apply is not finished when the blob is pushed.** The weekly
+metrics refresh regenerates the statpack; `metrics/docket.{json,md}` is on
+demand (`fedcourts docket`) and the whole-slice IFP-inclusive figure in
+[outcome-decomposition.md](outcome-decomposition.md) is hand-written, so neither
+heals on a schedule and a stale copy of either carries no marker saying so. The
+apply's own output names them.
+
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an
 evaluator cell's graded fields under the cell's original stamp and rewrites

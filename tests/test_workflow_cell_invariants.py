@@ -1061,6 +1061,7 @@ REPAIR_PASS_STEPS = (
     ("repair", "Backfill the dated response signals"),
     ("repair", "Remove ungranted merits phantoms"),
     ("repair", "Converge disposition labels"),
+    ("repair", "Repair the sampled-frame weights"),
     ("regrade", "Re-grade named cells"),
 )
 

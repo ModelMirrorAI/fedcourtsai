@@ -1,6 +1,6 @@
 """`run-repair`'s embedded CLI strings, executed against the fixture corpus.
 
-`run-repair.yml` is dispatch-only, so its eight maintenance passes are argv that
+`run-repair.yml` is dispatch-only, so its nine maintenance passes are argv that
 nothing runs until a maintainer runs one — in front of the maintainer, at the
 moment they most want it to work. A flag renamed in `cli.py` leaves the workflow
 string behind, and the whole cost of that drift lands on the dispatch as a usage
@@ -21,7 +21,8 @@ The passes' own semantics are pinned at their unit seams
 (`tests/test_dedupe.py`, `tests/test_distribution_rederive.py`,
 `tests/test_docket_marking_migration.py`, `tests/test_response_backfill.py`,
 `tests/test_attribution_migration.py`, `tests/test_disposition_convergence.py`,
-`tests/test_documents.py` and `tests/test_cli_stamp.py`), which is why a
+`tests/test_sampled_frame_repair.py`, `tests/test_documents.py` and
+`tests/test_cli_stamp.py`), which is why a
 near-empty fixture corpus is enough here — a pass with nothing to do still
 parses every flag it was given.
 """
@@ -130,7 +131,7 @@ def _cli_steps() -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
 
 def _ungated_cli_steps() -> list[dict[str, Any]]:
     """The CLI-invoking steps no pass gate selects — every corpus-pass dispatch
-    runs these, whichever of the seven it named (the re-grade has its own job,
+    runs these, whichever of the eight it named (the re-grade has its own job,
     which none of them are in).
 
     Keyed on ``(job, step name)``, not the name alone: two jobs carrying a
@@ -270,7 +271,7 @@ def _seed_stamped_cell(data_root: Path) -> None:
 
 @pytest.mark.parametrize("pass_name", _passes())
 def test_every_run_repair_pass_still_parses_against_the_cli(pass_name: str, tmp_path: Path) -> None:
-    """Each pass's own argv, executed. The drift detector for all eight."""
+    """Each pass's own argv, executed. The drift detector for all nine."""
     invocations = _pass_invocations(pass_name)
     assert invocations, (
         f"no `uv run fedcourts` invocation found for repair={pass_name} — either the "
@@ -285,7 +286,7 @@ def test_the_repair_prerequisites_still_parse_against_the_cli(tmp_path: Path) ->
     """The ungated steps every dispatch runs, whichever pass it selected.
 
     The dedupe runs before any pass and in both modes, so drift here breaks all
-    eight at once — and it breaks them *before* the selected pass, which reads
+    nine at once — and it breaks them *before* the selected pass, which reads
     as the pass being broken.
     """
     invocations: list[list[str]] = []

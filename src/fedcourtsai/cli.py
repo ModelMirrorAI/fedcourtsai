@@ -183,6 +183,7 @@ from .pipeline.documents import (
     questions_presented_extract,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
+from .pipeline.ingest import UNSAMPLED_WEIGHT
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
 from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
@@ -211,6 +212,10 @@ from .pipeline.salience import (
     reconcile_salience_selection,
     registered_versions,
     unlatch_overselected,
+)
+from .pipeline.sampled_frame_repair import (
+    SampledFrameWeightRepair,
+    repair_sampled_frame_weights,
 )
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
@@ -2241,6 +2246,167 @@ def normalize_docket_markings_cmd(
         # key here and is still left alone there.
         note = " [shares a normalized identity with another row]" if entry.shares_identity else ""
         typer.echo(f"  {verb} {entry.case_id}: {entry.was!r} -> {entry.now!r}{note}")
+
+
+def _repair_cell_label(entry: SampledFrameWeightRepair) -> str:
+    """One repair's walk cell, as the ledger names it.
+
+    The Term is rendered from the corpus's own century pivot rather than a local
+    ``20{term}``: the ledger's out-of-scope lines are where a maintainer
+    adjudicates a population the freeze record does not cover, and a pre-2000
+    docket misnamed there is a misread of exactly the row that most needs
+    reading. Falls back to the two-digit term where the pivot declines the
+    number, rather than guessing a century.
+    """
+    term, stream = entry.cell
+    named = f"OT{entry.term_year}" if entry.term_year is not None else f"term {term:02d}"
+    return f"{named}/{stream}"
+
+
+@app.command("repair-sampled-frame-weights")
+def repair_sampled_frame_weights_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the derived weights; omit for a dry-run ledger."),
+    ] = False,
+    max_repairs: Annotated[
+        int | None,
+        typer.Option(
+            "--max-repairs",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
+        ),
+    ] = None,
+) -> None:
+    """Restore the derived sampling weight on the registered latched-down rows.
+
+    The registered repair of the legacy denial-sampling frame
+    (``docs/freeze-record.md``): live-slice SCOTUS rows the guarded rule
+    ``legacy_denial_sample_weight`` derives at the sampled weight and that are
+    **stored at 1** — grid denials genuinely inside sampled ranges, min-latched
+    to certainty by a channel that asserted it, so the nine petitions each stands
+    for are represented by nobody.
+
+    Every conjunct of the membership predicate is the guard's own rule rather
+    than a restatement of it — the grid, the walker's cursor, the density guard's
+    neighbourhood reading — so the pass and the writer that has to keep its
+    result cannot drift apart. The *scope* is the freeze record's and is narrower
+    than the rule: only rows inside the eight ``historical-ifp`` OT2017-OT2024
+    cells are repaired. A row the rule derives at the sampled weight outside them
+    is a different population needing its own entry, so it is reported and left
+    alone.
+
+    The write is a direct ``UPDATE`` that deliberately bypasses the upsert path's
+    **min latch**: the stored weight only ever latches downward, an inclusion
+    probability only ever learned toward certainty, so the same 1 → 10 routed
+    through ``upsert_rows`` would report success having changed nothing. What
+    replaces the latch is the guard, which is narrower than it — a row whose
+    block the corpus now stores row by row derives 1 and is never selected — so
+    the pass cannot invent a petition the corpus already counts. It moves the
+    weights themselves rather than which bucket a row falls in, so every weighted
+    denominator that admits IFP rows moves with it, which is why it is a
+    registered decision on the frame rather than a convergence sweep.
+
+    The apply witnesses itself: the selection is re-run over the written corpus
+    and must come back empty, and this exits non-zero if it does not. That is the
+    check the pointer cannot be, a direct ``UPDATE`` of a column no downstream
+    artifact recomputes moving the blob whether or not it moved the right rows.
+
+    Run where the corpus is pulled — a dev checkout dry-runs it, and the apply
+    half belongs in run-repair's ``sampled-frame-weight-repair`` pass, which holds
+    the corpus-write credentials. ``--apply`` refuses above ``--max-repairs``:
+    read the dry-run ledger and pass the count you are approving. Fails loud if
+    the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_repairs is None:
+        typer.echo(
+            "repair-sampled-frame-weights: --apply requires an explicit --max-repairs. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the repair.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = repair_sampled_frame_weights(conn, apply=apply, max_repairs=max_repairs)
+    # A refused apply is labelled as one rather than as a dry run: nothing was
+    # written either way, but the ledger's own header is what a reader attributes
+    # it to, and "dry-run" on a dispatch that asked to write is the wrong
+    # provenance.
+    if result.refused:
+        mode, verb = "refused", "refused to repair"
+    elif result.applied:
+        mode, verb = "applied", "repaired"
+    else:
+        mode, verb = "dry-run", "would repair"
+    typer.echo(
+        f"repair-sampled-frame-weights ({mode}): "
+        f"{verb} {len(result.repairs)} row(s) of {result.scanned} live-slice SCOTUS "
+        f"denial(s) stored at weight {UNSAMPLED_WEIGHT}; "
+        f"{len(result.out_of_registration)} outside the registered cells, untouched"
+    )
+    for entry in result.repairs:
+        typer.echo(
+            f"  {verb} {entry.case_id} ({entry.docket_number}): {entry.was} -> {entry.now} "
+            f"[cell {_repair_cell_label(entry)}, serial {entry.serial}, "
+            f"{entry.block_neighbours} stored neighbour(s) in its block]"
+        )
+    for entry in result.out_of_registration:
+        # Named, not counted away: the freeze-record entry's predicate is the
+        # pass's scope law, and a row the rule reaches outside it is the shape a
+        # widening would take. A maintainer reading only the repairs would never
+        # see it.
+        typer.echo(
+            f"  outside the registered cells, untouched: {entry.case_id} "
+            f"({entry.docket_number}) would be {entry.was} -> {entry.now} "
+            f"[cell {_repair_cell_label(entry)}] — a different population, and one that "
+            "needs its own freeze-record entry before any pass touches it",
+            err=True,
+        )
+    if result.refused:
+        typer.echo(
+            f"repair-sampled-frame-weights: refusing to apply {len(result.repairs)} repair(s) "
+            f"(--max-repairs {max_repairs}). Nothing was written. The population is fixed by "
+            "the registered predicate, so a count above the one read off the dry run means "
+            "the predicate reached rows the freeze record does not cover — triage the ledger "
+            "above before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if result.applied and result.remaining:
+        # The apply's own witness. A direct UPDATE of a column nothing downstream
+        # recomputes moves the blob whether or not it moved the right rows, so a
+        # re-derivation that still selects rows is a failed apply reported as one
+        # — before the workflow pushes the blob.
+        typer.echo(
+            f"repair-sampled-frame-weights: the apply did not converge — the re-derivation "
+            f"still selects {result.remaining} row(s). The write reached fewer rows than the "
+            "ledger named; do not push this blob without triaging it.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if result.applied and result.repairs:
+        # The follow-through, printed where the apply's own record is rather than
+        # left in a doc: the corpus now disagrees with every committed weighted
+        # artifact, and only some of them heal on a schedule. Named individually
+        # because the on-demand ones carry no marker distinguishing a stale pack
+        # from a current one.
+        typer.echo(
+            "repair-sampled-frame-weights: the weighted artifacts are now stale against the "
+            "corpus. The scheduled metrics refresh regenerates the statpack; "
+            "metrics/docket.{json,md} is on demand (fedcourts docket) and the IFP-inclusive "
+            "whole-slice relist figure in docs/outcome-decomposition.md is hand-written — "
+            "neither heals on its own. The ops digest's always-deny floor re-bases here too. "
+            "No scored number moves: every scored-segment cut is gated on a paid serial and "
+            "this population is IFP.",
+            err=True,
+        )
 
 
 @app.command("backfill-response-fields")
