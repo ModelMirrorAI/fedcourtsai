@@ -299,11 +299,10 @@ direction or a false alarm in the other:
   every entry from git. It is the **retroactivity** boundary. A cell stamped
   before it ran against a commitment that could still be edited, so the digest
   was applied to it backwards — retroactive blessing, which nothing licenses,
-  and which the ledger tripwire in `tests/test_process_version.py` catches
-  over **predictions**. It is deliberately predictions-only: the digest half
-  of the claim lives there, an evaluation's digest is recorded and never
-  gated on, so the evaluation half's guard stays the freeze procedure's
-  instant rule and its by-hand gap check.
+  and which the ledger tripwires in `tests/test_process_version.py` catch
+  over **predictions and evaluations alike**: each half of the ledger is
+  walked against its digests' bless moments, so a stamp before its bless
+  fails the suite on either side.
   A digest carried forward byte-identical from an earlier label keeps that
   label's bless moment: those bytes have been immutable since then.
 - The **counting instant**, `FROZEN_SINCE`, is when the headline starts
@@ -315,17 +314,22 @@ direction or a false alarm in the other:
   while an instant guessed early blesses runs made while the constant was
   still editable.
 
-So a stamp in `[bless, instant)` passes the tripwire and fails `is_frozen`,
-which is exactly the intended reading. The two moments are independent, not
+So a stamp in `[bless, instant)` passes the tripwire and fails `is_frozen`
+(`graded_post_freeze`, on the evaluation half), which is exactly the intended
+reading. The two moments are independent, not
 ordered: the held-instant evaluator re-bless below leaves the instant *before*
 the newly blessed entries' bless moment. That inversion opens a real gap
 rather than a harmless one — an evaluation stamped in `[held instant, new
 evaluator bless)` passes `graded_post_freeze`, which tests timing with no
-digest limb, and so counts under a rubric not yet immutable on `main`. What
-closes it is not a gate but step 0's grep plus the fact that cells are minted
-from `main`: nothing can carry the new evaluator bytes before the promotion
-lands them. Read the ordering as an audited convention, not an enforced
-invariant.
+digest limb, and so counts under a rubric not yet immutable on `main`. While
+that window is open, nothing mechanical holds it shut: the evaluation
+tripwire cannot see a digest the map does not yet hold, so what keeps the
+gap empty is that cells are minted from `main` — nothing can carry the new
+evaluator bytes before the promotion lands them — an audited convention,
+not an enforced invariant. What the tripwire adds is detection from the
+bless moment on: once the promotion lands the digest, any cell stamped in
+the gap reddens the suite, so a violation of the convention is caught at
+the re-bless instead of resting on a maintainer's grep.
 
 ## What defaults to frozen, and what stays version-blind
 
@@ -376,9 +380,11 @@ land; recording and tagging that commit complete the procedure:
    ran under bytes that only this freeze makes immutable, so it necessarily
    predates the digest's bless moment, the tripwire fires on it, and the
    freeze commit cannot land green — which makes this step a precondition
-   rather than a note. An **evaluation** carrying one is the same fact with no
-   mechanical guard behind it (the tripwire is predictions-only), so it has to
-   be read here. Record what the grep found in the freeze record either way,
+   rather than a note. An **evaluation** carrying one fails its own tripwire
+   the same way, so both halves are preconditions the suite enforces — at
+   the promotion PR, whose merge-preview checkout holds `main`'s ledger; a
+   staging run walks a ledger that lags it, which is why the grep targets
+   `origin/main`. Record what the grep found in the freeze record either way,
    and **re-run it at promotion time**, since cells land continuously and the
    authoring-time check can go stale.
 1. Read the current digests: `fedcourts process-digest --all` prints the label,
@@ -439,14 +445,12 @@ land; recording and tagging that commit complete the procedure:
    stamped under the *newly blessed* digests, which step 0 proves are none.)
    On a slip — an instant that fell *before* the carrying merge — a cell
    stamped in the gap would read as frozen although it ran while the constant
-   was still editable. On the **prediction** half recording the true bless
-   moment catches that mechanically: such a cell predates its digest's bless
-   and the tripwire fires on it. The **evaluation** half is still a
-   maintainer's grep, because the tripwire is predictions-only and
-   `graded_post_freeze` tests timing with no digest test at all, so a gap
-   evaluation reads as counted and nothing in the suite sees it — confirm by
-   hand that no stamped evaluation carries a `stamped_at` in the gap. Bump
-   past anything either check finds. Only then record the commit as the cutover in
+   was still editable. Recording the true bless moment catches that
+   mechanically on **both halves**: such a cell predates its digest's bless
+   and its ledger tripwire fires on it, prediction and evaluation alike.
+   (`graded_post_freeze` still tests timing with no digest limb — a gap cell
+   fails its tripwire even where that filter would count it.) Bump past
+   anything the tripwires find. Only then record the commit as the cutover in
    [freeze-record.md](freeze-record.md) and tag it `prereg/<label>`
    (e.g. `prereg/proc-v1`): an annotated tag in the `prereg/` namespace the
    *Tags* section of [pipeline.md](pipeline.md) describes, protected against
@@ -481,9 +485,12 @@ it. Its headline is legitimately empty forever.
 
 **Re-blessing the evaluator half while the prior digests carry counted
 cells** is the second supersession shape, and it swaps which checks do the
-work. The evaluator entries are the freeze *record*, never the enforced
-filter — an evaluation's digest is recorded while only its timing is gated
-(`graded_post_freeze`) — so retiring them de-counts nothing; the freeze
+work. The evaluator entries are the freeze *record*, never the counting
+filter — an evaluation's digest never partitions the headline, though its
+retroactivity is tripwired against the bless moment while the digest stays
+in the map; only its timing is gated for counting (`graded_post_freeze`) —
+so retiring them de-counts nothing, and it also takes their cells out of
+the tripwire's reach (harmless for cells that already passed); the freeze
 record in [freeze-record.md](freeze-record.md) must name the retired digests and
 the count of counted cells graded under them, since the constant no longer
 does. Where the predictor digests are **byte-identical** to the prior
