@@ -220,6 +220,36 @@ def _cvsg_key(row: CorpusRow) -> str:
     return "none" if row.distribution_count is not None else _UNKNOWN_KEY
 
 
+def _capital_case_key(row: CorpusRow) -> str:
+    """``capital`` / ``unmarked`` / ``(unknown)`` — the marking has one server.
+
+    ``capital_case`` is latched at ingest from supremecourt.gov's own
+    ``bCapitalCase`` payload field OR-ed with the ``*** CAPITAL CASE ***``
+    annotation the same channel appends to the docket number (either alone
+    under-reports), and no other channel serves either reading. So
+    ``last_live_polled`` — :func:`corpus.is_live_slice`'s marker — is the
+    column's coverage sentinel.
+
+    The rule is deliberately asymmetric, because the two answers need different
+    evidence. ``True`` is a positive observation and stands on its own: the
+    column max-latches, so only a writer that saw the signal can have raised it,
+    and a raised flag buckets ``capital`` whether or not this row also carries a
+    poll stamp. The **negative** is what needs coverage — a row no live poll
+    stamped reads ``False`` for want of a writer, so bucketing it as unmarked
+    would read a coverage gap as an absence of capital cases; it joins
+    ``(unknown)`` instead.
+
+    ``unmarked`` is the honest label for that negative even inside the slice:
+    the stamp records an attempted poll rather than an ingested payload, and
+    ``False`` means no channel that wrote the row read either signal — silence
+    rather than a denial. Contamination therefore runs one way, into
+    ``unmarked``, which can only shrink an observed gap between the buckets.
+    """
+    if row.capital_case:
+        return "capital"
+    return "unmarked" if row.last_live_polled is not None else _UNKNOWN_KEY
+
+
 def _fee_class(row: CorpusRow) -> FeeClass | None:
     """The docket serial's numbering stream, or ``None`` off the modern-cert form.
 
@@ -272,6 +302,7 @@ _KEY_FNS: dict[GroupBy, Callable[[CorpusRow], str | None]] = {
     GroupBy.relist_bucket: _relist_bucket_key,
     GroupBy.cvsg: _cvsg_key,
     GroupBy.fee_class: _fee_class_key,
+    GroupBy.capital_case: _capital_case_key,
     GroupBy.salience_band: _salience_band_key,
 }
 
@@ -598,6 +629,51 @@ _CERT_BY_CVSG_PAID = _SectionSpec(
     GroupBy.cvsg,
     row_filter=_is_scored_segment_row,
 )
+# The capital cuts name their coverage sentinel for the same reason the relist
+# cuts name their parse: `unmarked` is a negative only one channel can assert,
+# so a reader taking a rate off this cut has to know what the bucket means
+# before the numbers mean anything.
+_CAPITAL_MARKING_NOTE = (
+    "The capital flag is latched from supremecourt.gov's own `bCapitalCase` "
+    "payload field, OR-ed with the `*** CAPITAL CASE ***` annotation the same "
+    "channel appends to the docket number — either alone under-reports, and no "
+    "other channel serves either reading. So `last_live_polled` is the column's "
+    "coverage sentinel: a row no live poll stamped buckets as `(unknown)` "
+    "rather than as unmarked, and none appear here because this section is "
+    "already scoped to the live slice, which is that stamp. Inside the slice "
+    "the stamp records an attempted poll rather than an ingested payload, so "
+    "`unmarked` means no channel that wrote the row read either signal — "
+    "silence, not a denial. Read it as an upper bound: contamination runs one "
+    "way, into `unmarked`, so it can only shrink the gap between these buckets, "
+    "never widen it. The split is a marginal one — it describes what the two "
+    "populations are, not what the marking adds over the cuts beside it."
+)
+# The composition cut behind the capital re-partition: the marked petitions are
+# not a random slice of the paid scored segment, so its pooled rate and theirs
+# are different numbers, and a reader anchoring on the pooled one should know
+# by how much. Pack-wide, like the band board beside it, so the difference is
+# recomputed with every pack rather than quoted from a one-off query.
+_CERT_BY_CAPITAL_PAID = _SectionSpec(
+    "Cert petitions by capital-case marking (paid scored segment)",
+    "scotus",
+    True,
+    True,
+    True,
+    GroupBy.capital_case,
+    row_filter=_is_scored_segment_row,
+    scope_note=_CAPITAL_MARKING_NOTE,
+)
+# The pooled counterpart for the court-facing artifact, where describing the
+# whole cert docket — IFP petitions included — is the point.
+_CERT_BY_CAPITAL = _SectionSpec(
+    "Cert petitions by capital-case marking",
+    "scotus",
+    True,
+    True,
+    True,
+    GroupBy.capital_case,
+    scope_note=_CAPITAL_MARKING_NOTE,
+)
 _CERT_BY_SALIENCE_BAND = _SectionSpec(
     "Cert petitions by salience band",
     "scotus",
@@ -657,6 +733,7 @@ _STATPACK_SECTIONS: tuple[_SectionSpec, ...] = (
     _CERT_BY_CIRCUIT,
     _CERT_BY_RELIST_PAID,
     _CERT_BY_CVSG_PAID,
+    _CERT_BY_CAPITAL_PAID,
     _CERT_BY_SALIENCE_BAND,
     _PETITIONS_BY_ORIGINATING_COURT,
 )
@@ -673,6 +750,7 @@ _DOCKET_SECTIONS: tuple[_SectionSpec, ...] = (
     _CERT_BY_CIRCUIT,
     _CERT_BY_RELIST,
     _CERT_BY_CVSG,
+    _CERT_BY_CAPITAL,
     _PETITIONS_BY_ORIGINATING_COURT_WEIGHTED,
     _CERT_BY_FEE_CLASS,
 )

@@ -926,6 +926,15 @@ def check_evaluation_targets(data_root: Path) -> CorpusCheck:
     its ``predictor_id``; the prediction(s) it scores live at
     ``predictions/<predictor>/<run>/prediction.json`` under the same event. An
     evaluation with no matching prediction is an orphan scoring nothing.
+
+    A harness-stamped ``prediction_run_id`` is held to the same pointer
+    discipline as a prediction's named prose documents: a non-null value must
+    be a plain run-id segment (no path separator, never ``..``) and must
+    resolve to an existing ``prediction.json`` under the record's own
+    ``predictor_id`` — because every scoring surface resolves the named run
+    *first*, a dangling pointer would silently score a different prediction
+    than the record claims, which is the exact undetectable disagreement the
+    field exists to close.
     """
     problems: list[str] = []
     checked = 0
@@ -946,6 +955,25 @@ def check_evaluation_targets(data_root: Path) -> CorpusCheck:
         if not any(predictions.glob("*/prediction.json")):
             problems.append(
                 f"evaluation {path}: predictor {predictor_id!r} has no prediction for this event"
+            )
+            continue
+        run_id = data.get("prediction_run_id")
+        if run_id is None:
+            continue
+        if (
+            not isinstance(run_id, str)
+            or not run_id
+            or "/" in run_id
+            or "\\" in run_id
+            or run_id in (".", "..")
+        ):
+            problems.append(
+                f"evaluation {path}: prediction_run_id {run_id!r} is not a plain run-id segment"
+            )
+        elif not (predictions / run_id / "prediction.json").is_file():
+            problems.append(
+                f"evaluation {path}: prediction_run_id {run_id!r} names no committed "
+                f"prediction of {predictor_id!r} on this event"
             )
     return _check(CHECK_EVALUATION_TARGETS, problems, checked=checked)
 
@@ -1020,7 +1048,9 @@ def check_base_rate_version(data_root: Path) -> CorpusCheck:
             # stage comes back as the enum's value.
             if _evaluation_event_stage(path) != Stage.cert:
                 continue
-            context = _scored_prediction_context(path, data.get("predictor_id"))
+            context = _scored_prediction_context(
+                path, data.get("predictor_id"), data.get("prediction_run_id")
+            )
             if context is not None and context.band is not None:
                 problems.append(
                     f"evaluation {path}: base_rate_basis 'terminal' while the scored "
@@ -1045,23 +1075,36 @@ def _evaluation_event_stage(evaluation_path: Path) -> Stage | None:
 
 
 def _scored_prediction_context(
-    evaluation_path: Path, predictor_id: object
+    evaluation_path: Path, predictor_id: object, prediction_run_id: object
 ) -> PredictionContext | None:
     """The frozen context of the scored prediction for one evaluation file.
 
-    The scored prediction is the evaluation's predictor's **latest** for the
-    event by :func:`fedcourtsai.integrity.cell_clock` — the same join every
-    scoring surface uses. ``predictor_id`` is the evaluation record's own
-    field, never the directory name, because the stamp and every scoring
-    surface join on the field and an un-aliasing that moved the directory but
-    not the field (or vice versa) must not make the two enforcers of one rule
-    score different predictions. ``None`` where the field is not a string, no
-    prediction parses, or the latest carries no context; a file that fails to
-    parse is another check's problem, never reported as a join miss here.
+    The scored prediction is the run the evaluation's harness-stamped
+    ``prediction_run_id`` names, falling back to the predictor's **latest**
+    for the event by :func:`fedcourtsai.integrity.cell_clock` — the same
+    named-first join every scoring surface uses
+    (:func:`fedcourtsai.store.scored_prediction`), re-implemented here in
+    this module's tolerant raw-parse style. Both ids are the evaluation
+    record's own fields, never the directory name, because the stamp and
+    every scoring surface join on the fields and an un-aliasing that moved
+    the directory but not the field (or vice versa) must not make the two
+    enforcers of one rule score different predictions. ``None`` where the
+    predictor field is not a string, no prediction parses, or the resolved
+    prediction carries no context; a file that fails to parse is another
+    check's problem, never reported as a join miss here.
     """
     if not isinstance(predictor_id, str) or not predictor_id:
         return None
     event_dir = evaluation_path.parents[4]
+    if isinstance(prediction_run_id, str) and prediction_run_id:
+        named = event_dir / "predictions" / predictor_id / prediction_run_id / "prediction.json"
+        try:
+            return Prediction.model_validate_json(named.read_text()).context
+        except (OSError, ValidationError):
+            # An unresolvable named run is `check_evaluation_targets`'s
+            # problem; the basis check falls back to the latest, exactly as
+            # the scoring surfaces do.
+            pass
     predictions = []
     for path in sorted(event_dir.glob(f"predictions/{predictor_id}/*/prediction.json")):
         try:
@@ -1334,21 +1377,24 @@ def check_evaluation_correct_agrees(data_root: Path) -> CorpusCheck:
 
     ``correct`` is not a judgment: ``stamp-cell --role evaluator`` computes it
     through :func:`fedcourtsai.pipeline.evaluate.is_correct` from the
-    predictor's latest committed prediction and the committed outcome. Both
-    inputs are properties of the cell — the ``(case_id, event_id,
-    predictor_id)`` triple — and neither depends on *who* judged it, so two
+    prediction the record's stamped ``prediction_run_id`` names (the latest
+    committed prediction, for records stamped before the field) and the
+    committed outcome. Neither input depends on *who* judged the cell, so two
     graders reading one cell cannot land on different bits *from the same
     committed pair*. A disagreement means the group's stamps did not read one
     pair: an evaluator's own bit that predates correct-stamping (or a
     hand-edit) surviving, or two graders' stamps straddling a re-prediction so
-    each read a different "latest" prediction. Either way the accuracy column
+    each named a different run. Either way the accuracy column
     — the surface that averages this bit — would fold two answers to two
-    different questions into one mean, and the remedy is the same: re-stamp
-    the event's evaluations so every current grading reads the current pair.
+    different questions into one mean, and the remedy is the same: the
+    **ordinary** re-stamp of the event's evaluations, which re-resolves every
+    current grading to the current pair (``--regrade`` cannot converge a
+    straddle — it deliberately preserves each record's own stamped run).
 
     **Across runs it is not a defect, so the rule does not reach there.** The
-    bit is computed against the predictor's latest prediction *as at stamp
-    time*, so a re-predicted cell's older evaluation records what was true when
+    bit is computed against the prediction resolved *as at stamp time* (and
+    now named on the record), so a re-predicted cell's older evaluation
+    records what was true when
     it ran — history, exactly as an earlier judgment-less prediction is history
     to :func:`check_merits_predictions`. Nothing aggregates it either: every
     surface collapses re-runs of one grader on one cell first, newest winning.

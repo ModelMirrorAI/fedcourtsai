@@ -120,8 +120,10 @@ the cell onto the merits axis, where the predictor was never asked for a
 judgment and the cell scores 0 against a question it never received. The merits
 outcome builder is the field's only writer, so `validate`'s
 `judgment_only_on_merits_outcomes` holds that invariant on the artifact. And
-because `correct` is a function of two committed artifacts — the predictor's
-latest prediction *as at the stamp* and the outcome — rather than a judgment
+because `correct` is a function of two committed artifacts — the prediction the
+evaluation's harness-stamped `prediction_run_id` names (the predictor's latest
+*as at the stamp*, resolved once and preserved thereafter) and the outcome —
+rather than a judgment
 about them, `evaluation_correct_agrees` requires the **current** stamped
 gradings of one `(case_id, event_id, predictor_id)` cell to record the same bit
 across evaluators; where they differ, the stamps read different pairs (a
@@ -539,10 +541,12 @@ The weighting is not optional bookkeeping. The walk's legacy sampled rows keep
 one denial in ten (`sample_weight` reconstructs the rest; freshly walked rows
 carry weight 1), and relists correlate with non-denial, so a raw count runs high
 while legacy rows remain in the pool — measured at 26.2% unweighted against
-19.0% reweighted over the same rows. Worse,
-the frame is not uniform: OT2025 comes from the live poller at weight 1 while
-earlier Terms come from the walker, so a row-count pool silently mixes two
-sampling designs. `metrics/README.md` states the rule this paragraph is obeying.
+19.0% reweighted over the same rows. Worse, the frame is not uniform, and the
+axis it splits on is the **fee class** rather than the Term: every paid cell is
+walked row by row at weight 1, while the sampled design survives only in the IFP
+stream of the earlier Terms — so a row-count pool that spans fee classes
+silently mixes two sampling designs, and one that spans Terms within the paid
+stream does not. `metrics/README.md` states the rule this paragraph is obeying.
 
 **The floor priced none of it.** The control was to report a recent-window rate
 while the baseline pooled every prior Term, and the gap between the two windows

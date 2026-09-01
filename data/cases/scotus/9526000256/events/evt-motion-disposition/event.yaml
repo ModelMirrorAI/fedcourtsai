@@ -6,7 +6,7 @@ event_id: evt-motion-disposition
 kind: motion
 moment: arrival
 opened_at: null
-resolved: false
+resolved: true
 schema_version: '1.0'
 stage: interim
 title: Cassandra Perkins v. United States District Court for the Northern District

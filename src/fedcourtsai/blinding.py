@@ -35,7 +35,9 @@ any harness step reads them again.
 The stamp joins the evaluation to its prediction through
 ``predictions_dir.glob(f"{evaluation.predictor_id}/*/prediction.json")`` and
 returns ``None`` on no match. The stamp assigns whatever that join produced, so
-under an alias it *silently* writes no ``claim_scores`` block rather than
+under an alias it *silently* writes no ``claim_scores`` block — and a null
+``prediction_run_id``, leaving the record on the latest-prediction fallback —
+rather than
 failing (the ``base_rate_salience_version`` is loud only where the evaluation
 records a ``risk_set`` basis, whose null version fails the stamp). The
 self-check is ``validate data``'s ``check_evaluation_targets``, which resolves
@@ -588,15 +590,16 @@ def latest_prediction_dirs(event_paths: EventPaths) -> dict[str, Path]:
     once contributes its newest cell and no other. "Newest" is the **first**
     maximum of the harness clock (the process stamp, else ``created_at`` —
     :func:`fedcourtsai.integrity.cell_clock`) over the run directories in name
-    order — which is
-    exactly the stratified join's rule over path-sorted runs — the harness
-    clock — the rule every
-    downstream join already uses
-    (:func:`fedcourtsai.store.iter_stratified_evaluations`, and the stamp's
-    ``claim_scores`` and base-rate-version lookups). It has to be that rule down
-    to the tiebreak: if the grader read one run while the harness scored the
-    evaluation's claims against another, the two halves of a cell would describe
-    different predictions and nothing would say so.
+    order — exactly the rule the scored-prediction join falls back to for a
+    record with no stamped ``prediction_run_id``
+    (:func:`fedcourtsai.store.scored_prediction`), and the resolution the
+    stamp then *names* on the evaluation, which every downstream join reads
+    first. It has to be that rule down
+    to the tiebreak: the run staged here is the run the grader reads, so the
+    stamp's own latest-resolution naming the same run is what makes the
+    stamped identity the graded artifact's — if the two halves picked
+    different runs, a cell's grading and its claims would describe different
+    predictions and nothing would say so.
     """
     root = event_paths.predictions_dir
     if not root.is_dir():

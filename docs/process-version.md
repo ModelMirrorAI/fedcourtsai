@@ -264,11 +264,12 @@ field or a walk through `data/`'s history.
 
 ## Three states: shakedown → not-yet-frozen → frozen
 
-`FROZEN_PROCESS_DIGESTS` (in `fedcourtsai.process_version`) is the blessed set —
-the digests whose cells count toward the headline. Everything keys off it:
+`FROZEN_PROCESS_DIGESTS` (in `fedcourtsai.process_version`) is the blessed
+map — the digests whose cells count toward the headline, each carrying the
+instant it was blessed. Everything keys off it:
 
 - **Shakedown** — a cell written before the stamp existed carries no
-  `process_version`. It is never frozen (an absent stamp cannot be in the set),
+  `process_version`. It is never frozen (an absent stamp cannot be in the map),
   so the whole shakedown ledger drops out of the headline for free — no backfill,
   no deletion.
 - **Not-yet-frozen** — a stamped cell whose digest has not been blessed, or a
@@ -278,13 +279,53 @@ the digests whose cells count toward the headline. Everything keys off it:
   frozen-process evaluations yet" — which the leaderboard, the ops dashboard,
   and the weekly digest all say in as many words, rather than showing a bare
   `0` that reads as a regression.
-- **Frozen** — a stamped cell whose digest is in the blessed set **and** whose
+- **Frozen** — a stamped cell whose digest is in the blessed map **and** whose
   stamp is at or after `FROZEN_SINCE`, the freeze instant set in the same
-  commit that fills the set. The digest is a pure content hash — it says
+  commit that fills the map. The digest is a pure content hash — it says
   *which* process ran, never *when* — so without the instant, a shakedown run
   of the very bytes later blessed would read as frozen retroactively.
   Pre-registration means the commitment preceded the run; the time cutoff is
   what says so.
+
+### Two boundaries, two jobs
+
+The freeze commit sets two moments, and conflating them costs a claim in one
+direction or a false alarm in the other:
+
+- The **bless moment** — a digest's value in `FROZEN_PROCESS_DIGESTS` — is
+  when that process's bytes became immutable on `main`: the merge time of the
+  promotion that carried the freeze commit naming it
+  (`git log -1 --format=%cI <carrying merge>`), so any auditor can re-derive
+  every entry from git. It is the **retroactivity** boundary. A cell stamped
+  before it ran against a commitment that could still be edited, so the digest
+  was applied to it backwards — retroactive blessing, which nothing licenses,
+  and which the ledger tripwire in `tests/test_process_version.py` catches
+  over **predictions**. It is deliberately predictions-only: the digest half
+  of the claim lives there, an evaluation's digest is recorded and never
+  gated on, so the evaluation half's guard stays the freeze procedure's
+  instant rule and its by-hand gap check.
+  A digest carried forward byte-identical from an earlier label keeps that
+  label's bless moment: those bytes have been immutable since then.
+- The **counting instant**, `FROZEN_SINCE`, is when the headline starts
+  counting, and it is deliberately guessed *late* (step 2 below). Cells minted
+  in the window between the two — a live-channel cell queued before the
+  instant, say — land honestly in the ledger and are de-counted on timing
+  alone by `is_frozen`. That is shakedown, not retroactivity, and the trade is
+  one-sided on purpose: an instant guessed late costs a few uncounted cells,
+  while an instant guessed early blesses runs made while the constant was
+  still editable.
+
+So a stamp in `[bless, instant)` passes the tripwire and fails `is_frozen`,
+which is exactly the intended reading. The two moments are independent, not
+ordered: the held-instant evaluator re-bless below leaves the instant *before*
+the newly blessed entries' bless moment. That inversion opens a real gap
+rather than a harmless one — an evaluation stamped in `[held instant, new
+evaluator bless)` passes `graded_post_freeze`, which tests timing with no
+digest limb, and so counts under a rubric not yet immutable on `main`. What
+closes it is not a gate but step 0's grep plus the fact that cells are minted
+from `main`: nothing can carry the new evaluator bytes before the promotion
+lands them. Read the ordering as an audited convention, not an enforced
+invariant.
 
 ## What defaults to frozen, and what stays version-blind
 
@@ -321,48 +362,91 @@ The freeze centers on a deliberate, reviewable **two-constant commit**, made
 when the process is settled and the first frozen predictions are about to
 land; recording and tagging that commit complete the procedure:
 
-0. Confirm no stamped cell already carries a digest you are about to bless:
-   `git fetch origin main && git grep -l '"process_version": {' origin/main --
-   data/cases | wc -l` must be 0 — the object form, because a rewritten cell
-   can carry a `"process_version": null` key without a stamp, and `main`,
-   because data commits land there directly and never ride `staging`. Any
-   cell it finds must be listed in the freeze record as
-   pre-registration-excluded. The `FROZEN_SINCE` cutoff mechanically excludes
-   any such cell stamped *before* the instant; a cell stamped at or after it
-   is possible only if the carrying promotion slips past the instant, and is
-   caught by step 4's gap check. Either way this step keeps the freeze record
-   honest about their existence — and it must be **re-run at promotion
-   time**, since cells land continuously and the authoring-time check can go
-   stale.
+0. Confirm no stamped cell already carries a digest you are about to bless.
+   Grep `main` for each one — `git fetch origin main && git grep -l
+   '<digest>' origin/main -- data/cases | wc -l` must be 0 per digest —
+   because data commits land there directly and never ride `staging`. (The
+   unscoped form, `git grep -l '"process_version": {' origin/main --
+   data/cases`, counts every stamped cell in the ledger and is the wider
+   census the freeze record reports beside it; the object form, because a
+   rewritten cell can carry a `"process_version": null` key without a stamp.
+   Stamped cells under *retired* digests are the ordinary ledger, not a
+   finding.) A **prediction**
+   carrying a to-be-blessed digest is retroactive blessing by construction: it
+   ran under bytes that only this freeze makes immutable, so it necessarily
+   predates the digest's bless moment, the tripwire fires on it, and the
+   freeze commit cannot land green — which makes this step a precondition
+   rather than a note. An **evaluation** carrying one is the same fact with no
+   mechanical guard behind it (the tripwire is predictions-only), so it has to
+   be read here. Record what the grep found in the freeze record either way,
+   and **re-run it at promotion time**, since cells land continuously and the
+   authoring-time check can go stale.
 1. Read the current digests: `fedcourts process-digest --all` prints the label,
    role, id, and digest of every enabled predictor and evaluator.
 2. Paste the digest(s) to bless into `FROZEN_PROCESS_DIGESTS` in
    `src/fedcourtsai/process_version.py`, and set `FROZEN_SINCE` beside it —
-   a test pins that the two move together. The instant must be **at or after
-   the moment the commitment becomes immutable on `main`** (the promotion
-   merge that will carry this commit) and before the first run you intend to
-   count; between that merge and the instant nothing runs, so choosing it
-   generously late errs conservative, while an instant before the merge would
-   bless runs made while the constant was still editable. The promotion date
-   is a forecast at this step — guess late.
-3. Commit. Because the digest excludes `pipeline_sha`, the blessed set survives
+   a test pins that the two move together. Each digest's value is its **bless
+   moment**, which is not known yet at this step: it is the merge time of the
+   promotion that will carry this commit, so write a placeholder here and
+   correct it at step 4 against the merge that actually landed. **Guess this
+   one early** — this commit's own date is the safe floor, since the carrying
+   merge is necessarily at or after it — because the two forecasts want
+   opposite directions. A bless moment left forecast *late* fires the
+   tripwire on every honest cell minted between the real merge and the
+   correction, reddening `main`'s data PRs; forecast early it merely fails to
+   catch a retroactive cell that step 0 already proved does not exist. A
+   digest carried forward byte-identical from the prior `prereg/` tag keeps
+   that label's bless moment verbatim — copy it across rather than re-dating
+   it.
+
+   The instant is the other direction. It must be **at or after the moment the
+   commitment becomes immutable on `main`** (the promotion merge that will
+   carry this commit) and before the first run you intend to count. Choosing
+   it generously late errs conservative: whatever runs between that merge and
+   the instant lands in the ledger as shakedown, honestly stamped and simply
+   uncounted, while an instant before the merge would bless runs made while
+   the constant was still editable. The promotion date is a forecast here
+   too — for the instant, guess late.
+3. Commit. Because the digest excludes `pipeline_sha`, the blessed map survives
    unrelated pipeline commits — predict/evaluate can resume at a newer HEAD and
    still match.
-4. Once the promotion carrying the commit lands on `main`, **verify the
-   instant before minting anything immutable**: the literal in the file must
-   be at or after the promotion merge's date
-   (`git log -1 --format=%cI <promotion merge>`). If the guess came in early,
-   bump the constant in a follow-up promotion **before** tagging — the
-   `prereg/` namespace blocks update and deletion, so a tag minted over a bad
-   instant burns the label. (One label shape is audited differently: an
+4. Once the promotion carrying the commit lands on `main`, **record the bless
+   moment and verify the instant before minting anything immutable**. Read the
+   carrying merge's date once — `git log -1 --format=%cI <promotion merge>` —
+   and use it twice. First, write it as the value of every digest this commit
+   *newly* blesses in `FROZEN_PROCESS_DIGESTS`, replacing step 2's forecast
+   (carried-forward digests keep their earlier bless moment); the ledger
+   tripwire reads these, so a forecast left uncorrected either fires on honest
+   cells or lets a retroactive one through. Second, the instant: the literal
+   in the file must be at or after that same date.
+
+   The two corrections travel differently, because only one of them is a
+   pre-registered *choice*. **The instant is**, so an instant that came in
+   early must be bumped in a follow-up promotion landed **before** tagging —
+   the `prereg/` namespace blocks update and deletion, so a tag minted over a
+   bad instant burns the label. **The bless moment is not**: it is a fact
+   about git that the constant merely restates, and it cannot be in the tagged
+   tree at all when the tag sits on the freeze commit, since the merge that
+   establishes it has not yet happened. So what must be right before tagging
+   is the *record*: the freeze-record entry carries the git-verified bless
+   moment and the `git log` command that yields it, and the constant's
+   correction rides the ordinary next promotion. What the tag pre-registers is
+   the blessed digests and the instant. (One label shape is
+   audited differently: an
    evaluator-half re-bless that deliberately holds the instant — the second
    supersession note below — replaces this date comparison with the
    predictor-digest byte comparison, and its gap check covers only cells
-   stamped under the *newly blessed* digests, which step 0 proves are none.) On a slip, also confirm no stamped cell carries a
-   `stamped_at` in the gap between the instant and the carrying merge: such a
-   cell would read as frozen although it ran while the constant was still
-   editable, and the retroactive-blessing tripwire only catches the opposite
-   direction (blessed digest, pre-instant stamp) — bump past any it finds. Only then record the commit as the cutover in
+   stamped under the *newly blessed* digests, which step 0 proves are none.)
+   On a slip — an instant that fell *before* the carrying merge — a cell
+   stamped in the gap would read as frozen although it ran while the constant
+   was still editable. On the **prediction** half recording the true bless
+   moment catches that mechanically: such a cell predates its digest's bless
+   and the tripwire fires on it. The **evaluation** half is still a
+   maintainer's grep, because the tripwire is predictions-only and
+   `graded_post_freeze` tests timing with no digest test at all, so a gap
+   evaluation reads as counted and nothing in the suite sees it — confirm by
+   hand that no stamped evaluation carries a `stamped_at` in the gap. Bump
+   past anything either check finds. Only then record the commit as the cutover in
    [freeze-record.md](freeze-record.md) and tag it `prereg/<label>`
    (e.g. `prereg/proc-v1`): an annotated tag in the `prereg/` namespace the
    *Tags* section of [pipeline.md](pipeline.md) describes, protected against
@@ -384,7 +468,7 @@ never overwritten.
 
 **Re-freezing before the prior instant has any cells** is a supersession, not
 an extension: the new two-constant commit *replaces* the retired label's
-digests in `FROZEN_PROCESS_DIGESTS` (the set holds one blessed process per
+digests in `FROZEN_PROCESS_DIGESTS` (the map holds one blessed process per
 actor, and `is_frozen` is a membership filter, so keeping the old predictor
 digests would bless two processes at once). The procedure above runs in full
 for the new label — including step 0's grep, which is what proves the

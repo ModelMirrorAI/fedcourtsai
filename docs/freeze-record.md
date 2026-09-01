@@ -1126,8 +1126,13 @@ freeze commit is recorded here.
   vintage outside the weekly refresh set, so its figures simply pre-date this
   re-partition until someone regenerates it) — may not be pooled with, or
   read against, a post-refresh figure under the same labels. The refresh that
-  closes the boundary: <FILL: the metrics-refresh commit that regenerates the
-  boards after this promotion>.
+  closes the boundary: `5435f0a24` (`metrics: refresh statpack, scope`, run
+  `33406805287`, over blob `a9767436f34c`), merged to `main` in `cd6dcdd1a` at
+  `2026-08-31T15:20:38Z` — before the 2026-09-05 instant, with no predict
+  round in the promotion-to-refresh window. That refresh closes the statpack
+  half of the effect check; the docket pack regenerates on demand
+  (`fedcourts docket`), so its fee-class `(none)` bucket empties at its next
+  regeneration, not on the refresh schedule.
 
   **The entry is dated before the instant deliberately.** Landing it and
   refreshing metrics before `2026-09-05T00:00:00Z` means no counted number ever
@@ -1136,3 +1141,205 @@ freeze commit is recorded here.
   this change's runnable effect check: `fedcourts statpack`, then the diff
   showing the paid class counts risen by the per-Term additions above and the
   docket pack's fee-class `(none)` bucket emptied.
+
+- **The owed grid-denial weight repair is withdrawn; the raw `+0.146pp`
+  stands as the registered paid-segment delta, 2026-08-31** (no digest
+  moves, no committed number moves): the capital-marking entry above names,
+  as an owed writer-lane pass, a `sample_weight` repair for the 24 marked
+  grid-denial rows stored at weight 1 where its corrected rule gives 10, and
+  publishes the projection that under it the paid segment reads n = 13,458
+  weighted and grant-family **+0.089pp** rather than +0.146pp (the parent
+  phrases this "reweighted as stored"; 13,458 = 13,341 + 13 × 9 is
+  arithmetically the corrected-weights figure, the only coherent reading). Building that
+  pass falsified its premise, so the repair is withdrawn and the projection
+  with it: the raw figures (n = 13,341; **+0.146pp** raw and as-published
+  — every paid-segment row carries weight 1, so weighted equals raw and the
+  statpack always read it that way) are the registered
+  delta, and the committed boards — which never carried the projection — do
+  not move.
+
+  **Why the premise is false.** The derivation rule —
+  inline in `backfill_live_signals` (`pipeline/ingest.py`) — tests that a denial's serial is on the legacy walker's 1-in-10 grid at or
+  below its cursor — which proves the serial was *probed*, not that only one
+  in ten was *kept*. The two coincided only during the legacy IFP walk, and
+  every genuinely sampled row shows it: the corpus's 2,583 `sample_weight =
+  10` rows all sit in eight IFP OT2017–OT2024 (Term, stream) cells with
+  live-slice serial coverage 0.127–0.135, and none is capital. The 24 targets — 13 paid
+  OT2017–OT2024, 11 IFP OT2025 — sit in cells with live-slice coverage
+  0.994–1.000, and each has 7–8 of its 8 nearest live-slice serial
+  neighbours individually present at weight 1: their ranges are enumerated, so weight 1 is *correct*.
+  Reweighting them would have made one row stand for ten petitions, nine of
+  which are already present — 216 phantom weighted denials (117 inside the
+  paid scored segment; the projection's own arithmetic, 13,458 − 13,341 =
+  13 × 9, is exactly those phantoms), moving per-Term band base rates by up
+  to 6.3pp — largest at OT2020 `state`, 32.43% → 26.09% (weighted n 37 →
+  46); the largest move in the always-include `high` band is 5.4pp, OT2022
+  37.14% → 31.71% (n 105 → 123). Provenance confirms the class: `capital_case` latches from the
+  upstream boolean as well as the number parse, so the flag never attributed
+  a stored weight to a defeated parse, and the blob — read after the
+  normalization pass the parent entry named as owed converged the 462 marked
+  spellings into the latched flag — holds no word-marked asterisk spelling
+  at all (7 asterisk rows corpus-wide, every one a circuit-court row, none a
+  SCOTUS marking). The repo's standing invariants said so independently — the
+  budget's paid-census note, and the caption, salience-banding, and
+  distribution-census cuts, each of which raises on any scored-segment row
+  with `sample_weight != 1`. Evidence read
+  from the blob pulled 2026-08-31 (newest stored snapshot 2026-07-13).
+
+  **What this entry changes and what it leaves.** The withdrawal corrects a
+  *projection* the capital-marking entry published beside its registered
+  figures; the entry's registered raw deltas, its scored-segment
+  re-partition, and its pooling rule are untouched. No counted figure moves:
+  the stored weights were right all along, and every committed board already
+  read them. The rule's latent over-derivation — the probed-vs-kept gap,
+  which `backfill_live_signals`'s NULL-only predicate scoped correctly by
+  accident — was not small: run unguarded over the whole live slice
+  instead of NULL-only, the rule matches 1,567 on-grid stored-weight-1
+  denials, 1,224 of them paid scored-segment rows — 11,016 phantom
+  weighted denials, nearly doubling the 13,341 segment, against the 117
+  the withdrawn repair would have added. The code half of this correction
+  landed with it: the rule is extracted as a named function and guarded
+  on density — a denial whose eighteen neighbouring serials, nine either
+  side, hold seven or more stored live-slice rows is in an enumerated
+  range and stays at weight 1 (the walk did not record which side of a
+  kept serial its block fell, so the guard looks both ways). The guard
+  counts within that window, never cell-wide, and it counts rather than
+  testing presence, because the blob separates the two populations by
+  count alone: a sampled row's window holds at most six stored
+  neighbours — the walk's grant-family keeps, and 1,156 of the 2,583
+  genuinely sampled rows hold at least one (distribution 0: 1,427;
+  1: 813; 2: 263; 3: 65; 4: 10; 5: 3; 6: 2), so a presence test would
+  wrongly strip the sampling weight from 44.8% of them, 40.3% of the
+  legacy weight — an enumerated row's window holds ten or more, and the
+  range between is empty of both. The 24 targets' windows read 17–18,
+  the enumerated side (their eight nearest alone read 7–8, the neighbour
+  figures above), and guarded, the same whole-slice run matches 117
+  rows, not 1,567: the grid rows genuinely inside sampled ranges yet
+  latched at weight 1 — an under-count left open as its own repair, and,
+  though identically sized by coincidence, a different population from
+  the 117 phantoms the withdrawn repair would have added.
+
+- **The retroactive-blessing tripwire moves to the bless boundary,
+  2026-08-31** (no digest added or retired, no instant moved, no new process
+  version — the six new literals the constant gains are derived facts about
+  git, not pre-registered choices, per the tag paragraph below): the
+  enforcement correction the `proc-v5` entry above already traded for. `FROZEN_PROCESS_DIGESTS` now maps each blessed digest to the
+  instant it was blessed — the merge time of the promotion that carried its
+  freeze commit to `main` — and the ledger tripwire
+  (`tests/test_process_version.py`) asserts a committed prediction's
+  `stamped_at` is at or after **that** moment rather than at or after
+  `FROZEN_SINCE`. Nothing about counting changes: `is_frozen` and
+  `graded_post_freeze` still gate on the instant alone, and the map's
+  membership semantics are identical to the frozenset's.
+
+  **The `prereg/proc-v5` tag predates this shape, and correctly.** That tag
+  sits on freeze commit `0b019da58` (`2026-08-29T14:01:23Z`), whose tree holds
+  a bare `frozenset` with no bless moments — it could not have held them, since
+  its own carrying merge had not yet happened. The pre-registered baseline is
+  unaffected: the six blessed digests and the `2026-09-05T00:00:00Z` instant at
+  that tag are exactly the six and the instant in force now, and the bless
+  moments are facts about git recorded afterwards, not choices the tag could
+  have pre-registered. An auditor reads them here and from the constant on
+  `main`, and re-derives them with the two `git log` commands below.
+
+  **Why the instant was the wrong boundary for this test.** The two moments
+  answer two questions. A stamp before its digest's **bless moment** ran
+  against a commitment still editable on `main` — retroactive blessing, which
+  no declaration licenses. A stamp in the window between the bless moment and
+  the **counting instant** ran against an immutable commitment and is merely
+  uncounted, because the instant is guessed generously late by design. The
+  `proc-v5` entry registered exactly that trade in advance — "the live
+  channel's transition-queued cells before the instant merely land as
+  shakedown" — so a tripwire keyed on the instant contradicted the entry it
+  was meant to enforce, and would fail the build on the first honest cell of
+  the open `2026-08-29T16:26:24Z` → `2026-09-05T00:00:00Z` window. The licence
+  for this correction is that sentence, not a new registration.
+
+  **The bless moments, each verified from git.** The three **predictor**
+  digests (`sha256:eba87d4c…` claude-baseline, `sha256:b46b3c6d…`
+  codex-baseline, `sha256:8c401008…` gemini-baseline) are blessed at
+  **`2026-08-29T16:26:24Z`**: `git log -1 --format=%cI 39a3a9565`, the
+  `promotion/2026-08-29` merge this file's `proc-v5` entry already names as
+  their carrying promotion, whose tree carries all six literals
+  (`git show 39a3a9565:src/fedcourtsai/process_version.py`). The three
+  **evaluator** digests (`sha256:11a0afbc…` claude-judge, `sha256:9fb7b6f1…`
+  codex-judge, `sha256:b9f548f4…` gemini-judge) carried forward
+  byte-identical from `prereg/proc-v4`, so they keep proc-v4's bless moment,
+  **`2026-08-26T14:46:40Z`**: `git log -1 --format=%cI 6d92ed81b`, the
+  `promotion/2026-08-26` merge, on which `prereg/proc-v4` itself sits (the
+  merge-placed tag that entry records as its anomaly) and whose tree carries
+  those three literals verbatim. Immutable bytes do not need re-blessing, so
+  the carried digests keep the earlier moment rather than inheriting
+  proc-v5's.
+
+  **Zero committed cells are reclassified, and zero counted numbers move.**
+  Verified against the ledger on `origin/main`, not asserted — the ref step 0's
+  doctrine names, and identical to this branch's for the cells counted here
+  (`git diff --name-only origin/staging origin/main -- data/cases` touches
+  only `attempt.json` and `event.yaml`, no `prediction.json` or
+  `evaluation.json`). The
+  tripwire is predictions-only, and all **231** stamped committed predictions
+  carry the *retired* proc-v3/proc-v4 predictor digests (`sha256:06a854e7…`
+  76+1, `sha256:7ca86f57…` 75+2, `sha256:93dfaec3…` 75+2, the second figure of
+  each pair the proc-v4-labelled re-stamps) — **zero** carry any of the three
+  blessed proc-v5 predictor digests, so the tripwire's loop body executes zero
+  times under either boundary and cannot have reclassified anything. The
+  evaluation half is outside the test but checked anyway: the **6** committed
+  evaluations carrying blessed evaluator digests are two runs of three cells
+  each, stamped `2026-08-29T04:29:37Z` (`sha256:b9f548f4…`) and
+  `2026-08-29T04:33:12Z` (`sha256:11a0afbc…`) — `sha256:9fb7b6f1…` carries
+  none — both after their `2026-08-26T14:46:40Z` bless and before the instant,
+  the shakedown window read correctly by both boundaries. On the counted side, the only
+  digest-membership site in the tree is `is_frozen`, which was untouched and
+  still pairs membership with the timing test; the boards' provenance block
+  rebuilds byte-identical to the committed one (`frozen_process.digests`, the
+  same six sorted, `since` still `2026-09-05T00:00:00Z`), and
+  `metrics/leaderboard.json` and `metrics/claim-scores.json` both still read
+  `entries: []` under `process_scope: frozen`. What changes is which cell the
+  build refuses, so the runnable effect check is the pair that must both hold
+  once this is live and a predict round has landed in the window: `uv run
+  pytest tests/test_process_version.py::test_no_committed_cell_predates_the_bless_it_claims`
+  green over the ledger on `main`, and `uv run fedcourts leaderboard` still
+  reporting an empty frozen scope until `2026-09-05T00:00:00Z`.
+
+- **The evaluation-to-prediction join resolves the stamped graded run,
+  2026-08-31** (no digest added or retired, no instant moved, no committed
+  number moved): the input-selection rule beneath five harness-owned numbers
+  changes under unchanged digests, which is exactly the "who computes a
+  scored number sits outside the digest" class `docs/process-version.md`
+  routes through this record. An evaluation now carries a harness-stamped
+  `prediction_run_id` — resolved once by the ordinary stamp, preserved by
+  `--regrade`, never the evaluator's word — and every reader joins it
+  **named run first**: `correct`, `brier_score`, `segment_base_rate`,
+  `brier_skill_score`, and `claim_scores` at stamp time, the stratified
+  boards, the leaderboard's agreement views and realized-Term pairing, and
+  `validate`'s basis gate, all through one resolver, so a grading of a
+  de-counted prediction can no longer ride a frozen re-run of its cell into
+  the counted figures. The **forward/retrospective stratum boundary moves
+  with it**: the scored prediction's harness clock now decides the stratum,
+  not the latest prediction's — the graded artifact is the one whose timing
+  the claim describes — with the latest-prediction rule surviving only as
+  the fallback for records stamped before the field existed, where its
+  conservative reading (never present a possibly post-resolution prediction
+  as forward) is still the right default for an ambiguous join.
+
+  **No committed figure moves, verified rather than asserted.** All 150
+  committed evaluations predate the field (`prediction_run_id` null), so
+  every one takes the fallback and the build is byte-identical over the
+  ledger as committed; only 4 `(event, predictor)` cells in the whole ledger
+  hold more than one prediction run (all `evt-petition-disposition`, dockets
+  `73281059` / `73281063` / `73281345`), none of them carries any
+  evaluation, and every prediction in them is unstamped; the committed
+  boards read `entries: []` under `process_scope: frozen` before and after.
+  The newest committed evaluation stamp is `2026-08-29T04:33:12Z`, before
+  the `2026-09-05T00:00:00Z` instant, so **zero** legacy records are in
+  frozen scope and the fallback carries no counted cell today. The one open
+  edge is promotion order: an evaluate round stamped in the window between
+  the instant and the promotion that carries this change would mint
+  null-field records that *are* frozen-scope and read through the fallback,
+  with `graded_post_freeze` as their only belt — so this change should
+  promote before the first post-instant evaluate round, and the runnable
+  effect check is `uv run fedcourts validate data` green (the new
+  `check_evaluation_targets` pointer discipline holds over the ledger) with
+  `uv run fedcourts leaderboard` still reporting an empty frozen scope until
+  the instant.
