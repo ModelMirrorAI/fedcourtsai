@@ -16,6 +16,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,17 @@ GATE_SCRIPT = ROOT / "scripts" / "promotion-gate.sh"
 ENV_RESOLUTION = (
     "inputs.deploy-environment != 'auto' && inputs.deploy-environment "
     "|| (github.ref_name == 'main' && 'prod' || github.ref_name)"
+)
+
+# Whether a dispatch resolves its own case, pinned whole rather than by parts:
+# the conjunction is the contract. Drop the left half and a pinned dispatch
+# resolves anyway, overriding the very escape hatch the staging-corpus runbook
+# tells a maintainer to use; drop the right and a corpus that cannot answer
+# reddens the two scenarios that never read one.
+RESOLVE_GATE = (
+    'inputs.docket == \'\' && contains(fromJSON(\'["all", "all-offline", '
+    '"ranged-reads", "corpus-service", "stub-cascade", "engine-smoke"]\'), '
+    "inputs.scenario)"
 )
 
 # The two whole-suite scenarios, whose titles carry the bare scenario name
@@ -167,19 +179,21 @@ def test_every_title_component_is_a_closed_choice_input() -> None:
 
 
 def test_deploy_environment_resolution_is_identical_at_every_site() -> None:
-    # The run-name's environment suffix is what freshness matches, and the
-    # job's `environment:` is what the run actually binds; the same one
-    # expression must produce both, or a title could name an environment the
-    # job never deployed to.
+    # The run-name's environment suffix is what freshness matches, and a job's
+    # `environment:` is what the run actually binds; the same one expression
+    # must produce all three, or a title could name an environment a job never
+    # deployed to — and the plan job could resolve its case out of a different
+    # environment's corpus than the legs then read.
     workflow = _load(WORKFLOWS / "integration-test.yml")
     inputs = workflow[True]["workflow_dispatch"]["inputs"]
     assert inputs["deploy-environment"]["default"] == "auto"
-    assert workflow["jobs"]["scenario"]["environment"] == f"${{{{ {ENV_RESOLUTION} }}}}"
+    for job in ("plan", "scenario"):
+        assert workflow["jobs"][job]["environment"] == f"${{{{ {ENV_RESOLUTION} }}}}", job
     assert f"@ ${{{{ {ENV_RESOLUTION} }}}}" in workflow["run-name"]
-    # No third consumer: anywhere else reading the raw input would bypass the
+    # No fourth consumer: anywhere else reading the raw input would bypass the
     # resolution and see the literal string `auto`.
     body = (WORKFLOWS / "integration-test.yml").read_text()
-    assert body.count("inputs.deploy-environment") == 4  # 2 sites x 2 reads each
+    assert body.count("inputs.deploy-environment") == 6  # 3 sites x 2 reads each
 
 
 def _all_matrix_entries() -> list[dict[str, str]]:
@@ -284,6 +298,210 @@ def test_all_offline_is_dispatchable_and_titled_as_a_whole_suite() -> None:
     # dispatches differing only on the meaningless engine input supersede each
     # other instead of racing.
     assert WHOLE_SUITE in str(workflow["concurrency"]["group"])
+
+
+def _case_step(
+    tmp_path: Path,
+    *,
+    resolve: str,
+    docket: str = "",
+    court: str = "scotus",
+    stub: str = "exit 99",
+) -> tuple[subprocess.CompletedProcess[str], str, str, str | None]:
+    """Replay the plan job's case step, with `uv` stubbed, and read back its files.
+
+    Returns the completed process, the text of the step's ``$GITHUB_OUTPUT`` and
+    ``$GITHUB_STEP_SUMMARY``, and the argv the stubbed `uv` was called with —
+    ``None`` when it was never called at all. The default stub fails loudly, so
+    a test that does not expect the resolver to run proves it two ways: the
+    step still succeeds, and that argv is ``None``.
+    """
+    workflow = _load(WORKFLOWS / "integration-test.yml")
+    (step,) = [s for s in workflow["jobs"]["plan"]["steps"] if s.get("id") == "case"]
+    # A fresh subdir per call, so a caller can loop over cases without naming
+    # one — and so `uv-argv` below is this call's evidence alone.
+    work = Path(tempfile.mkdtemp(dir=tmp_path))
+    script = work / "case.sh"
+    script.write_text(str(step["run"]))
+    bin_dir = work / "bin"
+    bin_dir.mkdir()
+    argv = work / "uv-argv"
+    uv = bin_dir / "uv"
+    uv.write_text(f'#!/usr/bin/env bash\nprintf \'%s\\n\' "$*" > "{argv}"\n{stub}\n')
+    uv.chmod(0o755)
+    output = work / "output"
+    output.touch()
+    summary = work / "summary"
+    summary.touch()
+    result = subprocess.run(
+        ["bash", str(script)],
+        capture_output=True,
+        text=True,
+        check=False,  # the fail-loud paths are exactly what is under test
+        env={
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "RESOLVE_CASE": resolve,
+            "COURT": court,
+            "DOCKET": docket,
+            "RUNNER_TEMP": str(work),
+            "GITHUB_OUTPUT": str(output),
+            "GITHUB_STEP_SUMMARY": str(summary),
+        },
+    )
+    return (
+        result,
+        output.read_text(),
+        summary.read_text(),
+        argv.read_text() if argv.exists() else None,
+    )
+
+
+def test_a_pinned_dispatch_passes_through_without_resolving(tmp_path: Path) -> None:
+    # `docket` non-empty is the override — the escape hatch for the split mode,
+    # where the resolver refuses by design, and for pointing at one case. The
+    # command must not run at all (the stub would exit 99), and the pinned pair
+    # must reach the same two outputs the resolved path writes, so the legs
+    # below have exactly one place to read from.
+    result, output, _, argv = _case_step(tmp_path, resolve="false", docket="73274837")
+    assert result.returncode == 0, result.stderr
+    assert output.splitlines() == ["court=scotus", "docket=73274837"]
+    assert argv is None
+
+
+def test_a_resolving_dispatch_takes_the_pair_from_the_command(tmp_path: Path) -> None:
+    # The resolve path: the command's two stdout lines become the job outputs
+    # verbatim, and its stderr diagnostic reaches the summary so a run names
+    # the case it ran on whatever else happens.
+    stub = (
+        "printf 'court=scotus\\ndocket=71234567\\n'\n"
+        "printf 'resolved scotus/71234567 (candidate 1): live-polled ...\\n' >&2\n"
+    )
+    result, output, summary, argv = _case_step(tmp_path, resolve="true", stub=stub)
+    assert result.returncode == 0, result.stderr
+    assert output.splitlines() == ["court=scotus", "docket=71234567"]
+    assert "resolved scotus/71234567" in summary
+    # The court input narrows the search rather than naming the case, and the
+    # backend is pinned: the query service serves no unresolved-first census,
+    # and `ranged` is the one backend needing no pull.
+    assert argv is not None
+    assert argv.split() == [
+        "run",
+        "fedcourts",
+        "corpus-integration-case",
+        "--court",
+        "scotus",
+        "--corpus-backend",
+        "ranged",
+    ]
+
+
+def test_nothing_resolvable_fails_the_plan_with_the_resolver_message(tmp_path: Path) -> None:
+    # Fail loud, never fall back to a static case: the plan job carries the
+    # whole matrix, so a corpus that cannot answer costs seconds instead of the
+    # engine-smoke legs' tokens — and the reason (the command's per-reason
+    # tally) has to survive into the run, not just the exit code.
+    stub = "printf 'no case in scotus is shaped for the integration suite: ...\\n' >&2\nexit 2\n"
+    result, output, summary, _ = _case_step(tmp_path, resolve="true", stub=stub)
+    assert result.returncode == 2
+    assert output == ""
+    assert "no case in scotus is shaped" in summary
+    assert "no case in scotus is shaped" in result.stderr
+
+
+def test_a_resolution_that_is_not_a_court_docket_pair_is_refused(tmp_path: Path) -> None:
+    # The two lines are appended straight to $GITHUB_OUTPUT and their values
+    # come from corpus rows built out of upstream data, so the step pins their
+    # shape rather than trusting them: a third line, or a value that is not a
+    # court id and an integer docket, is a bug or a crafted row and neither
+    # reaches the outputs.
+    malformed = (
+        "court=scotus\\ndocket=71234567\\nmatrix=[]\\n",  # a smuggled third output
+        # The same, unterminated: a line count counts newlines, so this is the
+        # shape a "there are two lines" screen waves through.
+        "court=scotus\\ndocket=71234567\\nmatrix=[]",
+        "court=scotus\\ndocket=not-a-docket\\n",
+        "court=\\ndocket=71234567\\n",
+        "docket=71234567\\ncourt=scotus\\n",  # right lines, wrong order
+    )
+    for stdout in malformed:
+        result, output, _, _ = _case_step(tmp_path, resolve="true", stub=f"printf '{stdout}'\n")
+        assert result.returncode == 1, stdout
+        # Pin the reason, not just the refusal: any other exit-1 path would
+        # satisfy the code alone.
+        assert "did not emit a court/docket pair" in result.stdout, stdout
+        assert output == "", stdout
+
+
+def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
+    # The mcp-sidecar and qp-topic scenarios touch no corpus, and each is
+    # required freshness evidence in its own right — a corpus that cannot
+    # answer must not redden a dispatch of theirs. So the gate is both
+    # conditions: the sentinel AND a scenario some leg of which reads a case.
+    workflow = _load(WORKFLOWS / "integration-test.yml")
+    job = workflow["jobs"]["plan"]
+    # Pinned whole, not by parts: asserting the two halves separately leaves
+    # the *conjunction* free, and `||` in its place would resolve a case over
+    # the top of a pinned dispatch — the escape hatch, silently gone.
+    assert job["env"]["RESOLVE_CASE"] == f"${{{{ {RESOLVE_GATE} }}}}"
+    corpus_reading = {
+        "all",
+        "all-offline",
+        "ranged-reads",
+        "corpus-service",
+        "stub-cascade",
+        "engine-smoke",
+    }
+    for scenario in ("mcp-sidecar", "qp-topic"):
+        assert f'"{scenario}"' not in RESOLVE_GATE, scenario
+    # Every scenario the workflow offers is either in that set or deliberately
+    # out of it: a new one added to the input options and to nothing else would
+    # silently dispatch with an empty case.
+    options = set(workflow[True]["workflow_dispatch"]["inputs"]["scenario"]["options"])
+    assert options == corpus_reading | {"mcp-sidecar", "qp-topic", "collect"}
+    # The step itself is unconditional — it is the single producer of the two
+    # outputs, and gating it would hand every leg an empty pair on a pinned
+    # dispatch, which no leg would notice until its read failed.
+    (case_step,) = [step for step in job["steps"] if step.get("id") == "case"]
+    assert "if" not in case_step
+    # Its prerequisites do ride the gate, so a dispatch that resolves nothing
+    # assumes no role and builds no environment either.
+    gated = [
+        step
+        for step in job["steps"]
+        if step.get("uses", "").startswith(
+            (
+                "actions/checkout",
+                "./.github/actions/setup-python",
+                "aws-actions/configure-aws-credentials",
+            )
+        )
+    ]
+    assert len(gated) == 3
+    for step in gated:
+        assert step["if"] == "${{ env.RESOLVE_CASE == 'true' }}", step
+
+
+def test_every_leg_reads_the_one_settled_case() -> None:
+    # One canonical pair for the whole fan-out: a leg still reading the raw
+    # dispatch inputs would ignore the resolution and run on the empty
+    # sentinel. The plan job publishes the pair; the scenario job reads only
+    # the outputs.
+    workflow = _load(WORKFLOWS / "integration-test.yml")
+    outputs = workflow["jobs"]["plan"]["outputs"]
+    assert outputs["court"] == "${{ steps.case.outputs.court }}"
+    assert outputs["docket"] == "${{ steps.case.outputs.docket }}"
+    scenario = yaml.safe_dump(workflow["jobs"]["scenario"])
+    assert "inputs.court" not in scenario
+    assert "inputs.docket" not in scenario
+    # Four consuming legs, five steps: ranged-reads, corpus-service, the
+    # cascade's provisioning guard and its cell, and engine-smoke.
+    assert scenario.count("${{ needs.plan.outputs.court }}") == 5
+    assert scenario.count("${{ needs.plan.outputs.docket }}") == 5
+    # Every read passes through the environment, never into a shell.
+    for step in workflow["jobs"]["scenario"]["steps"]:
+        assert "needs.plan.outputs" not in str(step.get("run", ""))
+    # And the sentinel is what makes resolution the default.
+    assert workflow[True]["workflow_dispatch"]["inputs"]["docket"]["default"] == ""
 
 
 def test_scenario_steps_key_on_the_matrix_not_the_dispatch_inputs() -> None:

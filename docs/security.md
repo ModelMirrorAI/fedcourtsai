@@ -992,12 +992,15 @@ the repoint. Read step 5's two ordering notes before doing either.
      -f court=scotus -f docket=74112233
    ```
 
-   **Name a slice member explicitly.** The scenario's default case is a
-   production docket, and the slice is a lean cut that does not hold it — a
-   defaulted dispatch fails as a missing case, which reads as a regression
-   and is not one. The case must also meet the scenario's own input contract:
-   an open event, a snapshot in the content store, and — for the provisioning
-   guard — a genuinely undisposed posture. The apply run's per-case census
+   **Name a slice member explicitly.** A dispatch that leaves `docket` empty
+   resolves its case at run time, and the resolver's candidate window is
+   driven from the blob's snapshot index — which a slice seeded split-on does
+   not have, since its snapshots live in the content store. So the resolver
+   refuses on this pair (loudly, in the plan job, before any leg runs) and a
+   staging dispatch names its own case. The case must meet the same contract
+   the resolver would have enforced: an open event, a snapshot in the content
+   store, and — for the provisioning guard — a genuinely undisposed posture.
+   The apply run's per-case census
    lists the slice's cases with their row/event/snapshot/document counts, so
    it narrows the field to cases carrying events and snapshots; whether one
    is *open* and *undisposed* is a `fedcourts query` against the pair.
