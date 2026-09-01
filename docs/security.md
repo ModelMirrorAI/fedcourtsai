@@ -582,7 +582,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-evaluate` plan job on the schedule/dispatch path | read-only | derives the evaluate backlog — a scan over every resolved event, so it pulls the index rather than reading it in place |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull) |
-| `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store |
+| `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store; the text-coverage mode reads wider on the same terms — a document-manifest round trip per live-slice case plus each stored document's text body |
 | `run-analytics` — qp-topic-extract        | read-only     | the labeler's extract (full `corpus-pull`), handed to the labeling job as an artifact |
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
@@ -722,7 +722,14 @@ window: the `distribution-census` JSON, which republishes no document text —
 counts, band labels, and changed-case ids only — but whose id lists name
 ingested dockets by public docket number, membership conditioned on a parse
 delta (the case's DISTRIBUTED count reads differently under the candidate
-parse), re-derivable on a re-dispatch against the corpus sha it records. But it
+parse), re-derivable on a re-dispatch against the corpus sha it records. A
+fourth rides the same window on the same terms: the `text-coverage` report,
+which also republishes no document text — counts, kinds, and two untruncated
+case-id ledgers, the empty-text documents (fetch-conditioned membership whose
+extent tracks corpus growth) and the queued cases holding no petition row
+(membership conditioned on the salience gate's selection, the same
+grant-correlated cut argued above) — re-derivable on a re-dispatch over the
+blob its own vintage lines name. But it
 widens
 discovery, not reach: the role can already `GetObject` that content by key, and
 the no-republication posture is license/content-based (see

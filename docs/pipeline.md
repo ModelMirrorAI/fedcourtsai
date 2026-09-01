@@ -129,6 +129,20 @@ each as its own least-privilege job holding only the credentials its mode needs:
   step, so a sibling stats dispatch would otherwise take the artifact the mode
   exists to produce with it. Both jobs are read-only, so letting them overlap
   costs nothing.
+- **`text-coverage`** (dispatch) assumes the same read-only role and pull, then
+  runs `fedcourts corpus-info --text-coverage` — where the document text
+  actually lives and for which cases it is missing, the enumeration whose
+  store-side half only this job can produce (the content store is wired here
+  and not on a dev checkout; the report's own `text source:` line names which
+  side served it). The full report — the two untruncated case-id ledgers
+  included, since a repair is a per-case question and a count names no case —
+  is uploaded as a run artifact on the same **one-day** retention the census
+  rides, for the same compilation-extent reason; the step summary carries only
+  the part above the ledgers. Sized exactly like the census and for the same
+  reason (a store round trip per live-slice case): `role-duration-seconds:
+  8100`, a 110-minute step cap inside a 125-minute job, and its own
+  never-cancelled concurrency group so a sibling dispatch cannot take the
+  artifact with it.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
