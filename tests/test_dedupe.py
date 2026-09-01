@@ -14,6 +14,7 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus, dedupe
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths, EventPaths
+from fedcourtsai.pipeline.ingest import UNSAMPLED_WEIGHT
 from fedcourtsai.schemas import Disposition, EventKind, Outcome, PredictableEvent
 from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.supremecourt import live_docket_id
@@ -256,11 +257,41 @@ def test_the_survivor_takes_the_pair_minimum_weight(tmp_path: Path) -> None:
     assert kept.sample_weight == 1
 
 
-def test_a_missing_weight_reads_as_one(tmp_path: Path) -> None:
-    rows = _pair_rows(keep_sample_weight=10)  # the live twin asserts no weight
+def test_a_missing_weight_asserts_nothing_and_is_skipped(tmp_path: Path) -> None:
+    """A null is absence, not certainty, so it does not win the minimum.
+
+    Reading it as 1 would make this merge a silent re-weighting of the legacy
+    sampling frame: `pull` never writes the column at all, so the
+    CourtListener-keyed survivor's null is the common case, and a minimum taken
+    over it strips the live twin's sampled weight on the strength of a column
+    nobody wrote. The merge observed nothing about the block; it may not decide
+    the block's weight.
+    """
+    # A corpus per case: `_seeded` upserts, and the weight upsert min-latches a
+    # stored value, so a shared database would carry one case's 10 into the next
+    # and the fall-through would never be reached.
+    #
+    # The survivor's column was never written; the live twin carries the walk's
+    # sampled weight. The pair's only assertion is the 10, and it stands.
+    with _seeded(tmp_path / "twin", _pair_rows(drop_sample_weight=10)) as conn:
+        assert dedupe.find_live_duplicates(conn)[0].weight == 10
+    # Symmetrically on the other side.
+    with _seeded(tmp_path / "survivor", _pair_rows(keep_sample_weight=10)) as conn:
+        assert dedupe.find_live_duplicates(conn)[0].weight == 10
+    # Neither row weighted: the fall-through, and only then.
+    with _seeded(tmp_path / "neither", _pair_rows()) as conn:
+        assert dedupe.find_live_duplicates(conn)[0].weight == UNSAMPLED_WEIGHT
+
+
+def test_an_asserted_certainty_still_wins_the_minimum(tmp_path: Path) -> None:
+    """Skipping nulls narrows what the minimum reads, never what it means.
+
+    Where both rows weighted, the smaller still wins — the min-latch the missed
+    identity join kept from firing.
+    """
+    rows = _pair_rows(keep_sample_weight=10, drop_sample_weight=1)
     with _seeded(tmp_path, rows) as conn:
-        pairs = dedupe.find_live_duplicates(conn)
-    assert pairs[0].weight == 1
+        assert dedupe.find_live_duplicates(conn)[0].weight == 1
 
 
 def test_a_dry_run_writes_nothing(tmp_path: Path) -> None:

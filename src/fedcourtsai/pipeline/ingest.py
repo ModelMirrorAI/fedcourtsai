@@ -66,14 +66,18 @@ CORPUS_SCHEMA_VERSION: Final = "1.0"
 # every decided petition. Not a knob: it is a fact about rows already in the corpus,
 # and the only thing that can read a pre-capture denial's inclusion probability back
 # off its serial. Changing it would silently re-weight history. It stops mattering
-# once every Term has been re-walked — each re-served denial upserts at weight 1,
-# and `sample_weight`'s min-latch takes it.
+# once every Term has been re-walked — but a Term is re-walked by *enumerating* it,
+# not by re-serving one row in it: a re-served grid denial regresses to weight 1
+# only once the density guard below reads its block as stored row by row, and the
+# min-latch then takes that 1. Re-serving the kept serial alone observes none of
+# the nine petitions it stands for and leaves the weight where it is.
 LEGACY_DENIAL_SAMPLE_EVERY: Final = 10
 
 # The weight of a row the serial sample cannot show was kept by it: one petition
 # standing for itself. Named rather than written as a bare 1 because it is the
-# rule's fall-through in five separate branches, and reading it back off a stored
-# row is how a channel's assertion of certainty is recognized.
+# rule's fall-through in five separate branches, and because a channel that means
+# to assert certainty writes *this* — which is the flag `ingest_live_payload` reads
+# to re-derive the weight against the frame instead of taking the assertion.
 UNSAMPLED_WEIGHT: Final = 1
 
 # How far either side of a kept serial the block it stands for reaches. A sampled
@@ -1188,8 +1192,13 @@ def live_slice_serials(conn: sqlite3.Connection) -> dict[tuple[int, str], frozen
     """Every live-slice SCOTUS docket serial, grouped by its walk cell.
 
     The neighbourhood the sampling claim is checked against by
-    :func:`sampled_block_is_enumerated`. Built once and reused across a batch,
-    because it is one scan of the live slice and the check is a set membership.
+    :func:`sampled_block_is_enumerated`. Worth reusing across a batch where there
+    is a batch, because the check itself is a set membership — but the read is
+    an ordered walk of ``idx_cases_live_docket``, a covering partial index over
+    exactly this slice, so it is also cheap enough to pay per row. That is what
+    lets the live-ingest seam derive a weight inline; without the index the same
+    query visits every SCOTUS row and its full payload, and the rule stops being
+    something a writer can afford to consult.
     """
     serials: dict[tuple[int, str], set[int]] = {}
     for record in conn.execute(
@@ -1271,7 +1280,13 @@ def legacy_denial_sample_weight(
     :func:`sampled_block_is_enumerated` checks that claim against the
     neighbourhood itself. Pass ``serials`` (from :func:`live_slice_serials`) to
     reuse one reading across a batch; it is rebuilt per call otherwise, which is
-    a full scan of the live slice.
+    an index-served read of the live slice rather than a table scan.
+
+    Only a denial whose serial is on the grid at or below its cell's cursor gets
+    that far. Everything else — a grant, an application number, an unparseable
+    spelling, an off-grid serial, a cell the walk never reached — is decided on
+    the row's own columns and one cursor lookup, which is why a writer can call
+    this per row without reading the slice on most of them.
 
     The number is read through :func:`corpus.strip_docket_annotation` before it
     is parsed, here and in :func:`live_slice_serials`, and the second is the one
@@ -1347,12 +1362,23 @@ def backfill_live_signals(db_path: Path) -> tuple[int, int]:
       the row's inclusion probability back off its serial, against one reading
       of :func:`live_slice_serials` shared by the batch. Weights land
       exactly at ingest time going forward, so this fills only what no channel
-      ever asserted. A NULL is the predicate, and that is the whole safety
-      argument: a stored weight is a channel's assertion — the walker upserts
-      every decided petition at ``UNSAMPLED_WEIGHT`` because it keeps them all,
-      and the min-latch takes that over any larger stored value — so
-      overwriting one from this rule would raise a denial the walker kept with
-      **certainty** back to a sampled weight it no longer carries.
+      ever weighted. A NULL is the predicate, and that is the whole safety
+      argument, in both directions. Downward, a stored weight can be a
+      *certainty* the corpus cannot re-derive — a poller row inside a
+      walker-covered sampled range reads as sampled after the fact, because the
+      rule cannot tell the channels apart — so overwriting one from here would
+      raise a denial that was included with certainty back to a sampled weight it
+      does not carry. Upward, the stored value can equally be *wrong* the other
+      way: a weight this rule would derive at
+      :data:`LEGACY_DENIAL_SAMPLE_EVERY` but which some earlier write latched to
+      :data:`UNSAMPLED_WEIGHT` leaves its block's unobserved petitions
+      represented by nobody. Neither is this pass's to settle. Re-weighting a
+      stored row moves published figures, so it is a deliberate act on the
+      frame — a reviewed writer-lane pass whose dry-run ledger a maintainer
+      reads — never a convergence sweep that runs at every walk.
+      What this pass's guard *does* prevent is minting the error: a NULL row in
+      an enumerated block can never come out of here at
+      :data:`LEGACY_DENIAL_SAMPLE_EVERY`.
 
     Idempotent and self-limiting: both predicates match nothing at steady
     state. Returns ``(signal_rows, weight_rows)`` back-filled.

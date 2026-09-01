@@ -97,7 +97,7 @@ source.
 | `distribution_count`  | integer         | distinct conferences distributed for (relists = count − 1, floored at 0); null = never live-parsed, 0 = parsed, never distributed |
 | `cvsg_date`           | date            | when the Court called for the views of the Solicitor General (live-parsed) |
 | `originating_court_name` | text         | raw `LowerCourt` name — keeps state courts identifiable where `originating_court` is null |
-| `sample_weight`       | integer         | inverse inclusion probability (1 = kept with certainty, which is every row the walk now writes; 10 on a denial kept by the earlier sampled walk); null = no channel asserted a weight |
+| `sample_weight`       | integer         | inverse inclusion probability (1 where the corpus can show the row stands only for itself; 10 on a denial the earlier sampled walk kept whose block is still stored one row in ten); null = no channel weighted the row |
 | `has_opinion`         | integer (0/1)   | presence bit for a linked published opinion — kept in the index so the scope classifiers still work when the split moves the `opinion_text` body to the content store |
 | `salience_score`      | real            | the salience gate's deterministic score ([docs/salience.md](../docs/salience.md)); owned by the selection pass, never an ingestion channel |
 | `salience_version`    | text            | the frozen scorer version the score was written under; null = unscored row |
@@ -184,9 +184,11 @@ genuinely undated request. `sample_weight` is
 min-latched — an inclusion probability is only ever learned toward certainty —
 so a weighted aggregate can multiply by it and count a denial the earlier
 sampled walk kept at full strength; null means no channel asserted a weight. The
-walk now keeps every decided petition, so the weight it writes is always 1 and
-the column's remaining job is to keep those legacy rows honest until a re-walk
-re-serves them. The merits pair (`merits_judgment`, `merits_decided`) moves as
+walk keeps every decided petition, but what it writes is a reading of the corpus
+rather than its own certainty: `ingest_live_payload` re-derives an asserted
+weight of 1 through `legacy_denial_sample_weight`, so a legacy row regresses only
+once a re-walk has enumerated the block it stands for — re-serving the kept
+serial alone leaves the nine petitions behind it represented by nobody. The merits pair (`merits_judgment`, `merits_decided`) moves as
 a **pair**, written by two writers through one parser: the live poll latches it
 at ingest on a granted cert docket, and `backfill-merits-judgments` reconciles
 offline over stored snapshots. The upsert keys both columns on the incoming

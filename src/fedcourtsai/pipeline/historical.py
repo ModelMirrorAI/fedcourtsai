@@ -81,7 +81,7 @@ from ..matrix import event_has_predictions
 from ..schemas import Disposition
 from ..supremecourt import IFP_SERIAL_BASE, SupremeCourtClient, parse_scotus_docket_number
 from .cert_signals import match_disposition_signal
-from .ingest import backfill_live_signals
+from .ingest import UNSAMPLED_WEIGHT, backfill_live_signals
 from .live import _resolve_identity, ingest_live_payload, provision_documents
 
 # The walker's per-Term numbering streams. Same bases as the forward poller's,
@@ -353,12 +353,21 @@ class _Walk:
             payload,
             docket_id,
             today=self.today,
-            # The walk keeps every decided petition, so every row it writes is
-            # included with certainty. The column stays because the corpus still
-            # holds denials the earlier sampled walk kept at a higher weight, and
-            # a weighted estimate must keep honouring them until a re-walk
-            # re-serves each one — the min-latch then regresses it to 1.
-            sample_weight=1,
+            # The walk keeps every decided petition, so it includes every row it
+            # writes with certainty. What lands is `ingest_live_payload`'s reading
+            # rather than this assertion — but on *this* path the two always
+            # agree, and for a reason worth stating: the stream sets its cursor
+            # after each serial is served, so at ingest the stored cursor is
+            # `serial - 1` and the weight rule's cursor conjunct short-circuits
+            # before the density guard is consulted. A forward walk therefore
+            # writes 1 unconditionally, which is what lets a re-walk regress the
+            # legacy frame at all. The guard bites on the below-cursor re-serves
+            # instead — `refresh_dockets`, which touches no cursor, and the
+            # poller's rotations and sweep — where re-serving one kept serial
+            # observes nothing about the nine petitions behind it. The column
+            # stays because the corpus holds denials the earlier sampled walk kept
+            # at a higher weight, which a weighted estimate must keep honouring.
+            sample_weight=UNSAMPLED_WEIGHT,
         )
         if label in (Disposition.granted, Disposition.gvr):
             report.ingested_granted += 1
