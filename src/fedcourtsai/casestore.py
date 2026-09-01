@@ -556,6 +556,11 @@ def _put_document_leaf(
         "fetched_at": doc.fetched_at.isoformat(),
         "pages": doc.pages,
         "truncated": doc.truncated,
+        # The derivation marker travels with the entry, not the leaf: the leaf is
+        # content-addressed text, and this says how that text was arrived at. The
+        # store is the system of record under the corpus split, so a field written
+        # only to the model would read back at its default on the production path.
+        "ocr_derived": doc.ocr_derived,
         "text_key": leaf,
         "digest": digest,
         "bytes": len(text_bytes),
@@ -735,6 +740,11 @@ def read_documents(transport: ObjectTransport, case_id: str) -> list[CaseDocumen
                 fetched_at=date.fromisoformat(entry["fetched_at"]),
                 pages=entry["pages"],
                 truncated=entry["truncated"],
+                # Defaulted rather than indexed: every manifest written before the
+                # marker existed records an extraction, and the store is never
+                # rewritten in place, so absence means "not OCR" and must not fail
+                # the read.
+                ocr_derived=entry.get("ocr_derived", False),
                 text=leaf.decode("utf-8") if leaf is not None else "",
             )
         )

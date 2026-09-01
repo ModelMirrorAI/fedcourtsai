@@ -289,7 +289,9 @@ against a measured share, not a schedule.
 
 ### Contract for the recovery pass
 
-Decided and specified here; not yet built. What a pass must hold to:
+What a pass must hold to. The derivation marker it records and the extractor
+seam it walks pages through are in place; the pass itself, and the `run-repair`
+step that installs tesseract for it, are not built.
 
 - **Where it runs.** As a pass on `run-repair` — a `repair` selector value, not
   a workflow of its own. The writer jobs are the only place a production corpus
@@ -316,33 +318,49 @@ Decided and specified here; not yet built. What a pass must hold to:
   **only** where that page's own text extraction yields nothing — a guard rather
   than a filter, since the population is documents that yielded nothing at all,
   but it keeps a mostly-digital filing with a few scanned exhibit pages honest.
-  The same per-document text cap the fetching lane applies and the same
-  truncation flag bound the result, so a recovered petition is bounded exactly
-  like a fetched one. Additive by construction: text is written only
-  where extraction stored none, so the pass cannot overwrite an extraction. Nor
-  is a recovery overwritten later — the row keeps its URL, and both the poller
-  and the Term walker re-fetch a kind only when its link changes; a genuinely
-  superseding petition at a new URL is re-fetched and, if it too is a scan,
-  re-enters the class.
+  It is the extractor that walks them: `extract_pdf_text` takes the OCR call as
+  an injected `ocr_page` seam, defaulted to none, so the recovery pass will be
+  the only caller that supplies one and no fetching lane grows the dependency —
+  and the same per-document text cap the fetching lane applies and the same
+  truncation flag bound the result, because they are the same code. A recovered
+  petition is bounded exactly like a fetched one. Additive by construction: text
+  is written only where extraction stored none, so the pass cannot overwrite an
+  extraction. Nor is a recovery overwritten later — the row keeps its URL, and
+  both the poller and the Term walker re-fetch a kind only when its link
+  changes; a genuinely superseding petition at a new URL is re-fetched and, if
+  it too is a scan, re-enters the class.
 - **What it records.** OCR output is *derived* text, lossy in a way pypdf output
-  is not, so it must never read as a clean extraction — and the stored document
-  carries no derivation marker today. Adding one is three surfaces, not one:
-  the document model, an additive `documents` column with a constant default
-  and the migrator to back-fill it (the `cases` and `events` tables carry that
-  pattern; `documents` does not yet), and the content-store manifest writer and
-  reader, which serialize a document field by field — a field added to the model
-  alone reads back at its default on the offloaded path, which is the path
-  production reads. It regenerates `schemas/` like any model change.
-  Provisioning then carries the marker onto the cell manifest beside
-  `empty_text`, and the predict prompt gains the reading rule that pairs with
-  it, since a bare manifest key teaches an agent nothing; the coverage read can
-  then count what was repaired.
+  is not, so it must never read as a clean extraction. `CaseDocument.ocr_derived`
+  is that marker: one flag per stored document, true where **any** of its text
+  was read off a page image rather than out of the PDF's text layer. Per
+  document rather than per page, because that is the unit a reader is handed —
+  the flag tells a cell how to read the text it has, and a page-level ledger
+  would say where a misreading is possible without making it locatable in the
+  one string the cell holds. It rides three storage surfaces before
+  provisioning, because a document crosses that many boundaries: the model; the
+  `documents` column, with a constant default and `_migrate_documents` to
+  back-fill an older blob — one DDL map drives both that migration and the
+  writer's bound column list, so a column the writer binds cannot miss the
+  migration; and the content-store manifest writer *and* reader, which serialize
+  a document field by field — a field written on one side only reads back at its
+  default on the offloaded path, which is the path production reads. Both
+  readers tolerate what predates the marker rather than failing on it: a
+  manifest without the key reads as an extraction, and the row read selects
+  every column rather than naming this one, because the ranged backend serves a
+  remote blob as-is and cannot be migrated — naming a column the blob predates
+  would fail the whole document set rather than the one field. Provisioning then
+  carries the whole row minus its text onto the cell manifest, so the marker
+  lands beside `empty_text`. Still outstanding: the predict prompt's reading
+  rule, which pairs with the manifest key — a bare key teaches an agent nothing
+  — and moves the pre-registered prompt digest, so it rides a re-bless; and the
+  coverage read's count of what was repaired.
 - **What follows a recovery.** A recovered petition re-derives its
   questions-presented row through the existing deriver, since such a row is
   written only where the petition has text. On OCR text that derivation keeps
   the two outcomes it has now: no recognizable heading stores no row at all,
   and a heading whose capture the deriver will not vouch for stores the empty
-  row.
+  row. The derived row carries the petition's marker, on both the ingest and
+  the backfill path: text cut out of an OCR reading is an OCR reading.
 - **Terms.** Unchanged. These are the Court's own public records, and OCR text
   lands in the access-gated corpus under the same no-republication posture as
   every other extraction ([data-sources.md](data-sources.md)).

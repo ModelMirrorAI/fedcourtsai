@@ -22,7 +22,11 @@ check at implementation):
 
 Only :func:`fetch_case_documents` touches the network (through the polite
 :class:`~fedcourtsai.supremecourt.SupremeCourtClient`); selection, extraction,
-and the QP derivation are pure and tested offline. Because the derivation is
+and the QP derivation are pure and tested offline. Extraction is pure *at its
+default*: :func:`extract_pdf_text` takes an optional :data:`OcrPage` seam, and
+the one effectful implementation — a tesseract call over a rendered page — is
+injected by the recovery pass alone, so no other caller of this module carries
+that dependency. Because the derivation is
 pure, it can also be re-run over text already stored —
 :func:`backfill_questions_presented`, the convergence sweep that carries an
 extractor fix onto the rows an unchanged petition URL would otherwise freeze.
@@ -35,7 +39,7 @@ import logging
 import re
 import sqlite3
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -203,11 +207,23 @@ class DocumentRef:
 
 @dataclass(frozen=True)
 class ExtractedText:
-    """The text pypdf recovered from one PDF."""
+    """The text recovered from one PDF, and how it was arrived at."""
 
     text: str
     pages: int
     truncated: bool
+    ocr_derived: bool = False
+    """Whether any page's text came from OCR rather than the PDF's text layer."""
+
+
+# The OCR seam: a page index into the same PDF's `reader.pages` order (0-based)
+# -> the text OCR read off that page's rendered image, or "" where it read
+# nothing. Injected rather than imported so the extractor — which every fetching
+# lane calls — carries no OCR dependency; only the recovery pass, whose own step
+# installs tesseract, supplies one. An implementation should own its failures
+# and return "" rather than raise; the extractor enforces that either way, since
+# a raising renderer must cost its own page, never the digital pages beside it.
+OcrPage = Callable[[int], str]
 
 
 def _entry_link(entry: Mapping[str, Any], *, prefer: str | None) -> tuple[str, str] | None:
@@ -264,7 +280,9 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
     return [ref for ref in (petition, *bios) if ref is not None]
 
 
-def extract_pdf_text(data: bytes, *, char_cap: int) -> ExtractedText:
+def extract_pdf_text(
+    data: bytes, *, char_cap: int, ocr_page: OcrPage | None = None
+) -> ExtractedText:
     """Extract a PDF's text with pypdf, capped at ``char_cap`` characters.
 
     SCOTUS filings are born-digital under the 2017 e-filing mandate, so plain
@@ -272,14 +290,40 @@ def extract_pdf_text(data: bytes, *, char_cap: int) -> ExtractedText:
     yields little or nothing — recorded as empty text, never a crash. The cap
     bounds corpus growth (petitions run 30-300 pages); truncation is flagged so
     provisioning can say so to the reading agent.
+
+    With an ``ocr_page`` supplied — the recovery pass's lane, never a fetching
+    one — a page whose own extraction yields nothing is read off its image
+    instead. A guard rather than a filter: the recovery population is documents
+    that extracted to nothing at all, but running it per page is what keeps a
+    mostly-digital filing with a few scanned exhibit pages honest, since a page
+    that *did* extract is never overwritten by a lossier reading of it. The cap
+    and the truncation flag bound the result identically either way, so a
+    recovered document is bounded exactly like a fetched one, and
+    ``ocr_derived`` is set only where OCR actually contributed text. A raising
+    ``ocr_page`` costs its own page and no more.
     """
     try:
         reader = PdfReader(io.BytesIO(data))
         parts: list[str] = []
         total = 0
         truncated = False
-        for page in reader.pages:
+        ocr_derived = False
+        for index, page in enumerate(reader.pages):
             text = page.extract_text() or ""
+            if ocr_page is not None and not text.strip():
+                try:
+                    recovered = ocr_page(index)
+                except Exception:  # broad by design: see below
+                    # A renderer or OCR failure costs its own page and nothing
+                    # else. Outside this guard the same raise would exit through
+                    # the whole-document handler below, discarding every digital
+                    # page that did extract and storing `pages=0` — which the
+                    # recovery population reads as "a PDF that would not open",
+                    # ejecting the row from the class permanently.
+                    recovered = ""
+                if recovered.strip():
+                    text = recovered
+                    ocr_derived = True
             parts.append(text)
             total += len(text)
             if total >= char_cap:
@@ -289,7 +333,12 @@ def extract_pdf_text(data: bytes, *, char_cap: int) -> ExtractedText:
         if len(joined) > char_cap:
             joined = joined[:char_cap]
             truncated = True
-        return ExtractedText(text=joined, pages=len(reader.pages), truncated=truncated)
+        return ExtractedText(
+            text=joined,
+            pages=len(reader.pages),
+            truncated=truncated,
+            ocr_derived=ocr_derived,
+        )
     except (PyPdfError, ValueError, TypeError):
         return ExtractedText(text="", pages=0, truncated=False)
 
@@ -504,6 +553,7 @@ def _combine_bio_documents(
     blocks: list[str] = []
     pages = 0
     truncated = False
+    ocr_derived = False
     for ref in bio_refs:
         try:
             data = client.get_document(ref.url)
@@ -524,6 +574,9 @@ def _combine_bio_documents(
             blocks.append(f"=== {heading} ===\n{extracted.text}")
         pages += extracted.pages
         truncated = truncated or extracted.truncated
+        # Any OCR-derived brief marks the whole combined row: the reader holds one
+        # document, so the weaker provenance is the one that has to survive.
+        ocr_derived = ocr_derived or extracted.ocr_derived
     if not fetched_urls:
         # Every selected brief failed, so the case ends the pass with no
         # opposition row despite the docket listing one — recorded apart from
@@ -550,6 +603,7 @@ def _combine_bio_documents(
         fetched_at=today,
         pages=pages,
         truncated=truncated,
+        ocr_derived=ocr_derived,
         text=text,
     )
 
@@ -608,6 +662,7 @@ def fetch_case_documents(
             fetched_at=today,
             pages=extracted.pages,
             truncated=extracted.truncated,
+            ocr_derived=extracted.ocr_derived,
             text=extracted.text,
         )
         documents.append(document)
@@ -638,6 +693,9 @@ def _derived_questions_document(
     Its identity is the petition's — same case, same source URL, same docket
     entry — because that is what the text was read out of; ``pages`` is 0 and
     ``truncated`` false because nothing was paged or capped here.
+    ``ocr_derived`` is the petition's rather than false for the same reason the
+    identity is: text cut out of an OCR reading is an OCR reading, and the
+    questions presented are exactly where a misread character costs most.
     """
     return corpus.CaseDocument(
         case_id=petition.case_id,
@@ -647,6 +705,7 @@ def _derived_questions_document(
         fetched_at=fetched_at,
         pages=0,
         truncated=False,
+        ocr_derived=petition.ocr_derived,
         text=questions,
     )
 
@@ -835,7 +894,13 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
             )
             reason = "derived-anew"
         else:
-            updates.append(stored.model_copy(update={"text": derived}))
+            # `ocr_derived` travels with the text, not with the row: re-deriving
+            # from a petition whose text a recovery pass read off page images
+            # makes this an OCR reading too, and a stale marker would present it
+            # as an extraction.
+            updates.append(
+                stored.model_copy(update={"text": derived, "ocr_derived": petition.ocr_derived})
+            )
             if not derived and len(current) >= _QP_MIN_CHARS:
                 # Reaching here empty-over-floor means the fragment test
                 # lifted the refusal — the one heal that *empties* a
