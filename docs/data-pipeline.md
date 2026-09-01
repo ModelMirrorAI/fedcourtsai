@@ -1043,8 +1043,12 @@ pass's ledger to the run summary and writes nothing, the maintainer reads the
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
-before the write. `repair` defaults to `none`, which is refused outright: the
-form's initial state cannot start a corpus write.
+before the write. Two passes skip it, and for the same reason: the distribution
+re-derivation, whose plan *is* its write set, and the OCR recovery, whose apply
+ledger already states the class it found before writing. In both, the receipt
+would be bought with a second full-population read of the content store, which
+is the expensive thing either dispatch does. `repair` defaults to `none`, which
+is refused outright: the form's initial state cannot start a corpus write.
 
 **The five inputs.**
 
@@ -1094,7 +1098,12 @@ minutes, since each case costs a re-fetch and a page-by-page recognition, so a
 backlog is meant to clear across dispatches. The slice is self-advancing — a
 recovered petition leaves the class, so the next dispatch starts where this one
 ran out — with one exception the ledger names apart: a petition whose images OCR
-to nothing stays in the class and re-enters the next slice.
+to nothing stays in the class and re-enters the next slice. Its ledger also
+carries a denominator, the stored petitions the walk read at all, and the pass
+refuses on it: zero candidates out of zero petitions is a blob whose documents
+this process cannot read — a split-mode index with no content store configured
+serves every case an empty document list — not a converged class, and the two
+must not report the same way.
 The distribution re-derivation is the exception that proves it:
 its bound is fixed in code because the population's delta was measured before
 the surface existed, so moving it is a code change with the new basis stated
@@ -1224,12 +1233,13 @@ gh workflow run run-repair.yml --ref main \
   -f repair=normalize-docket-markings -f repair_mode=apply -f repair_bound=214
 
 # The OCR recovery's bound is a slice, so the number is what one dispatch
-# should spend rather than the class the dry run printed. Read its probe lines
-# first: they say what supremecourt.gov served the writer's own fetch path.
+# should spend rather than the class the dry run printed — around five, at the
+# five seconds a rendered page costs. Read its probe lines first: they say what
+# supremecourt.gov served the writer's own fetch path.
 gh workflow run run-repair.yml --ref main \
   -f repair=ocr-recovery -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
-  -f repair=ocr-recovery -f repair_mode=apply -f repair_bound=12
+  -f repair=ocr-recovery -f repair_mode=apply -f repair_bound=5
 
 # A pass with an option. `include-scored` demands the bound in BOTH modes, so
 # the dry run that decides the widening states it too.

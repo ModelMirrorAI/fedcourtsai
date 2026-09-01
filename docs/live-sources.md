@@ -289,13 +289,10 @@ against a measured share, not a schedule.
 
 ### Contract for the recovery pass
 
-What a pass holds to. Built: the derivation marker, the extractor seam, the pass
-itself (`fedcourts ocr-recover-petitions`) and the `run-repair` `ocr-recovery`
-selector value whose step installs the binaries for it. Two things the contract
-did not settle, decided in the building and recorded here: the page raster is
-poppler's `pdftoppm`, shelled to like tesseract and installed beside it, so the
-pass still adds no Python dependency; and a dry run does one thing more than
-enumerate, below.
+What the pass holds to. It is `fedcourts ocr-recover-petitions`, dispatched as
+`run-repair`'s `ocr-recovery` selector value, whose step installs its two
+binaries: tesseract, and poppler's `pdftoppm` for the page raster it reads —
+shelled to the same way, so the pass adds no Python dependency on either side.
 
 - **Where it runs.** As a pass on `run-repair` — a `repair` selector value, not
   a workflow of its own. The writer jobs are the only place a production corpus
@@ -348,7 +345,14 @@ enumerate, below.
   for either: the stored row keeps its empty text, stays in the class, and
   re-enters the next slice. That second case is the pass's one non-advancing
   outcome, which is why the ledger reports it apart from the candidates a slice
-  never reached.
+  never reached. Three bounds keep one filing from costing the rest: a stored
+  URL is refused unless it is HTTPS on the Court's own host (`DocumentUrl` is
+  upstream text, and this pass is the only thing that GETs one back), a body
+  past a size ceiling is refused as not-a-filing, and a document that outlives
+  its recognition budget is abandoned unread — each costing its own candidate,
+  which stays in the class. Each recovery is written as it is made rather than
+  batched at the end, so a step that hits its wall-clock cap has banked what it
+  recovered.
 - **What it records.** OCR output is *derived* text, lossy in a way pypdf output
   is not, so it must never read as a clean extraction. `CaseDocument.ocr_derived`
   is that marker: one flag per stored document, true where **any** of its text
@@ -383,7 +387,16 @@ enumerate, below.
   the two outcomes it has now: no recognizable heading stores no row at all,
   and a heading whose capture the deriver will not vouch for stores the empty
   row. The derived row carries the petition's marker, on both the ingest and
-  the backfill path: text cut out of an OCR reading is an OCR reading.
+  the backfill path: text cut out of an OCR reading is an OCR reading. One
+  refusal rides with it, the convergence sweep's: an empty derivation never
+  replaces a *stored* question. A full-length question beside a scanned petition
+  came from a superseded filing, and emptying it is as likely to be this pass
+  misjudging as a bad row. The recovered row's fetch date moves to the day it
+  was re-fetched, because a fetch happened, and that is visible in one place
+  downstream — provisioning places a document by its entry date and falls back
+  to the fetch date where there is none, so such a petition can fall outside a
+  replay cell's window it previously sat inside. A cell then sees less, never
+  more, which is why the honest date is the one kept.
 - **Terms.** Unchanged. These are the Court's own public records, and OCR text
   lands in the access-gated corpus under the same no-republication posture as
   every other extraction ([data-sources.md](data-sources.md)).

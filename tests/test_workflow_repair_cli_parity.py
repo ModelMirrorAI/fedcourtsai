@@ -76,7 +76,14 @@ REMOTE_COMMANDS = frozenset({"corpus-push", "corpus-pull"})
 #: the *fixture* corpus lacks rather than to anything about the argv. The
 #: fixture stores no petition text, so the questions-presented backfill refuses
 #: the blob outright — after parsing every flag it was handed.
-BENIGN_REFUSALS = {"backfill-questions-presented": "no stored petition text"}
+BENIGN_REFUSALS = {
+    "backfill-questions-presented": "no stored petition text",
+    # Same fixture, same reason from the other side: the OCR recovery reads the
+    # petition *rows*, and a corpus holding none is the wrong blob rather than a
+    # converged class — the refusal that tells a misconfigured content store
+    # apart from a corpus with nothing left to repair.
+    "ocr-recover-petitions": "no stored petitions",
+}
 
 
 def _workflow() -> dict[Any, Any]:

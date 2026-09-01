@@ -304,10 +304,13 @@ jobs:
       group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    # Headroom over the largest pass (30m) plus setup, the dedupe prerequisite
-    # (10m) and the trailing verdict. A hit here cancels the run, which no
-    # failure handling absorbs; kept well under the App token's 1h life so one
-    # token covers the whole run.
+    # Headroom over the longest chain of capped steps a dispatch can run, which
+    # is the OCR recovery's: the dedupe prerequisite (10m), its own binary
+    # install (5m) and the pass (30m), leaving the setup, the corpus pull and
+    # the trailing verdict inside the remainder. A hit here cancels the run,
+    # which no failure handling absorbs; kept under the App token's 1h life so
+    # one token covers the whole run, which is why the pass's cap is what gives
+    # when this arithmetic tightens.
     timeout-minutes: 55
     environment: prod
     # Corpus-split flags (see run-pull): dual-write off unless CASESTORE_URL is
@@ -865,9 +868,17 @@ jobs:
       # exact apt pin goes stale the week the runner image rolls and would fail
       # the pass for a reason that has nothing to do with the corpus; what a
       # recovered text was read by is then a fact the run records.
+      # It runs on a `dry-run` dispatch too, where no binary is used: two
+      # packages from the runner's own archive are seconds of work, and proving
+      # the install and recording its versions on the run a maintainer *reads*
+      # is worth more than the seconds, since the alternative is discovering a
+      # broken install on the run that was going to spend a slice.
       - name: Install the OCR binaries
         if: ${{ inputs.repair == 'ocr-recovery' }}
-        timeout-minutes: 10
+        # Two packages, no third-party repository: a minute is generous. Kept
+        # small deliberately — this step's cap is spent out of the same job
+        # budget the pass below needs (see the job's `timeout-minutes`).
+        timeout-minutes: 5
         run: |
           set -euo pipefail
           sudo apt-get update -qq
@@ -905,12 +916,12 @@ jobs:
       # class the apply's own ledger said it would leave behind.
       - name: Recover scanned petitions by OCR
         if: ${{ inputs.repair == 'ocr-recovery' && steps.dedupe-live-rows.outcome == 'success' }}
-        # Two full-population content-store walks — the ledger before and the
-        # witness after — plus the slice itself, which is the expensive half:
-        # rendering and recognizing a printed brief runs to a minute or two per
-        # petition. `repair_bound` is what sizes that half, so a slice around a
-        # dozen is what a dispatch fits here; the cap stays inside the job's so
-        # one App token still covers the whole run.
+        # Two full-population content-store walks on an apply — the pass's own,
+        # and the witness re-read — plus the slice, which is the expensive half:
+        # rendering and recognizing a page is around five seconds, so a 60-page
+        # petition is five minutes of it. `repair_bound` is what sizes that
+        # half, and a slice of about five is what a dispatch fits here. The cap
+        # stays inside the job's so one App token still covers the whole run.
         timeout-minutes: 30
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -938,33 +949,39 @@ jobs:
             echo "no corpus pointer yet; skipping the OCR recovery"; exit 0
           fi
           gh auth setup-git # persist-credentials is false on checkout
-          # A dry run's ledger carries a second reading beside the class count:
-          # a small sample of the population re-fetched through the writer's own
-          # fetch path, reporting what supremecourt.gov serves a writer — the
-          # question an apply would otherwise answer by spending a slice on it.
-          # On an apply this run is a receipt rather than a reading, so the
-          # sample is suppressed: it is about to fetch those URLs for real.
-          probe_args=()
-          if [ "${REPAIR_MODE}" = "apply" ]; then
-            probe_args+=(--probe=0)
-          fi
-          uv run fedcourts ocr-recover-petitions "${probe_args[@]}" 2>&1 \
-            | tee -a "$GITHUB_STEP_SUMMARY" | tee /tmp/ocr-plan.txt
+          # The dry run IS the reading, and on an apply there is nothing for a
+          # preceding one to add: this pass's own ledger states the class it
+          # found before it wrote, so the receipt the other passes get from a
+          # tee'd dry run is already inside the apply's output. Skipping it here
+          # is the distribution re-derivation's reasoning — a separate dry run
+          # would only repeat a full-population read of the content store — and
+          # it buys the slice back a walk's worth of the step's budget. The dry
+          # run also re-fetches a sample of the class through the writer's own
+          # fetch path and reports each status, which is what says whether
+          # supremecourt.gov serves a writer before a slice is spent finding out.
           if [ "${REPAIR_MODE}" != "apply" ]; then
+            uv run fedcourts ocr-recover-petitions 2>&1 \
+              | tee -a "$GITHUB_STEP_SUMMARY"
             echo "dry-run only; nothing written."
             exit 0
           fi
+          # Both runs below are read back as data, so their stdout goes to a
+          # file of its own rather than through `2>&1 | tee`: the ledger's last
+          # line is JSON, and a merged stream can interleave a log line into it
+          # once the untruncated recovery list runs past a pipe buffer. stderr
+          # still reaches the step log, and the file is tee'd into the summary
+          # after, so the reader loses nothing.
           uv run fedcourts ocr-recover-petitions --apply \
-            --max-cases "${REPAIR_BOUND}" 2>&1 \
-            | tee -a "$GITHUB_STEP_SUMMARY" | tee /tmp/ocr-apply.txt
+            --max-cases "${REPAIR_BOUND}" > /tmp/ocr-apply.txt
+          tee -a "$GITHUB_STEP_SUMMARY" < /tmp/ocr-apply.txt
           # The witness. The apply's ledger states the class it expects to leave
           # behind, and a re-read of the corpus must find exactly that: a
           # content-store write that failed would leave the recovered petitions
           # in the class, which nothing in the pointer commit below would ever
-          # notice. Counting only — the sample would re-fetch what was just
-          # fetched.
-          uv run fedcourts ocr-recover-petitions --probe=0 2>&1 \
-            | tee -a "$GITHUB_STEP_SUMMARY" | tee /tmp/ocr-verify.txt
+          # notice. `--probe=0` because this run counts — the sample would
+          # re-fetch what was just fetched.
+          uv run fedcourts ocr-recover-petitions --probe=0 > /tmp/ocr-verify.txt
+          tee -a "$GITHUB_STEP_SUMMARY" < /tmp/ocr-verify.txt
           # Read off the machine-readable ledger each run prints last, rather
           # than off the prose above it: the field name is passed as an argument
           # so nothing from a file is interpolated into the program.

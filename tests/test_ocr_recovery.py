@@ -30,8 +30,11 @@ from fedcourtsai.pipeline.documents import (
     OcrPage,
 )
 from fedcourtsai.pipeline.ocr_recovery import (
+    MAX_DOCUMENT_BYTES,
     OcrPageFactory,
     OcrToolsMissing,
+    ScannedPetition,
+    fetchable_document_url,
     missing_ocr_binaries,
     ocr_page_for_pdf,
     recover_scanned_petitions,
@@ -193,19 +196,23 @@ def test_the_population_is_empty_petitions_that_have_pages(tmp_path: Path) -> No
         ],
     )
     with corpus.connect(db) as conn:
-        found = scanned_petitions(conn)
-    assert [d.case_id for d in found] == ["scotus/1", "scotus/5"]
+        scan = scanned_petitions(conn)
+    assert [c.petition.case_id for c in scan.candidates] == ["scotus/1", "scotus/5"]
+    # The denominator counts every stored petition, in or out of the class: it
+    # is what separates a converged corpus from one whose documents cannot be
+    # read at all.
+    # Four of the six cases hold a petition row at all (scotus/4 holds only an
+    # opposition, scotus/6 only a derived section), and all four count toward
+    # the denominator whether or not they are in the class.
+    assert scan.petitions_seen == 4
 
 
 def test_the_population_is_ordered_so_a_slice_advances(tmp_path: Path) -> None:
     """`case_id` order, which is what makes successive dispatches disjoint."""
     db = _seed(tmp_path / "corpus", [_document(f"scotus/{n}") for n in (3, 1, 2)])
     with corpus.connect(db) as conn:
-        assert [d.case_id for d in scanned_petitions(conn)] == [
-            "scotus/1",
-            "scotus/2",
-            "scotus/3",
-        ]
+        found = scanned_petitions(conn).candidates
+    assert [c.petition.case_id for c in found] == ["scotus/1", "scotus/2", "scotus/3"]
 
 
 # --- dry run ---------------------------------------------------------------
@@ -501,6 +508,235 @@ def test_a_converged_population_needs_no_binaries(
     assert result.candidates == 0 and result.recovered == 0
 
 
+def test_a_stored_url_off_the_courts_host_is_refused_before_the_request(tmp_path: Path) -> None:
+    """A stored URL is upstream text, and this pass is the only thing that GETs one.
+
+    The ingest path takes `DocumentUrl` verbatim out of the docket JSON, so an
+    unconstrained re-fetch would make the ledger a readable probe of whatever the
+    writer job can reach — and a relative or `file:` URL would reach the client
+    as something other than an HTTP request. Refused before the request, under
+    its own reason, so it reads as a URL problem rather than an upstream one.
+    """
+    for url in (
+        "http://www.supremecourt.gov/x.pdf",  # not HTTPS
+        "https://evil.example/x.pdf",
+        "https://supremecourt.gov.evil.example/x.pdf",  # a suffix, not the host
+        "file:///etc/passwd",
+        "/DocketPDF/x.pdf",  # relative: not a request at all
+    ):
+        assert fetchable_document_url(url) is False, url
+    for url in (
+        "https://www.supremecourt.gov/DocketPDF/23/23-790/1/x.pdf",
+        "https://supremecourt.gov/x.pdf",
+    ):
+        assert fetchable_document_url(url) is True, url
+
+    petition = _document("scotus/1", url="https://evil.example/x.pdf")
+    db = _seed(tmp_path / "corpus", [petition])
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        return httpx.Response(200, content=_pdf_pages([""]))
+
+    inner = httpx.Client(transport=httpx.MockTransport(handler))
+    with (
+        SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None) as client,
+        corpus.connect(db) as conn,
+    ):
+        dry = recover_scanned_petitions(
+            conn, client=client, apply=False, char_cap=10_000, today=_TODAY
+        )
+        applied = recover_scanned_petitions(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            ocr_page_factory=_stub_ocr(),
+        )
+    assert requested == []  # neither mode asked for it
+    assert [entry.outcome for entry in dry.probes] == ["unfetchable-url"]
+    assert applied.failures == {"scotus/1": "unfetchable-url"}
+    assert _documents(db, "scotus/1")[KIND_PETITION].text == ""
+
+
+def test_an_oversized_body_is_refused_rather_than_rasterized(tmp_path: Path) -> None:
+    """A body past the ceiling is not a filing.
+
+    `get_document` reads a whole response into memory with no size bound, and
+    this pass then spills it to disk and rasterizes it, so the ceiling is where
+    an anomalous body stops costing anything but its own candidate.
+    """
+    petition = _document("scotus/1")
+    db = _seed(tmp_path / "corpus", [petition])
+    oversize = b"%PDF-1.4" + b"0" * (MAX_DOCUMENT_BYTES + 1)
+    with _client({petition.url: oversize}) as client, corpus.connect(db) as conn:
+        result = recover_scanned_petitions(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            ocr_page_factory=_stub_ocr(),
+        )
+    assert result.failures == {"scotus/1": "oversized"} and result.recovered == 0
+
+
+def test_a_transport_failure_costs_its_candidate_in_both_modes(tmp_path: Path) -> None:
+    """No response at all — the class the status-code branches cannot report."""
+    petition = _document("scotus/1")
+    db = _seed(tmp_path / "corpus", [petition])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("no route", request=request)
+
+    inner = httpx.Client(transport=httpx.MockTransport(handler))
+    with (
+        SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None) as client,
+        corpus.connect(db) as conn,
+    ):
+        dry = recover_scanned_petitions(
+            conn, client=client, apply=False, char_cap=10_000, today=_TODAY
+        )
+        applied = recover_scanned_petitions(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            ocr_page_factory=_stub_ocr(),
+        )
+    assert [(entry.outcome, entry.status) for entry in dry.probes] == [("transport-error", None)]
+    assert applied.failures == {"scotus/1": "transport-error"}
+
+
+def test_a_stored_question_is_never_emptied_by_a_recovery(tmp_path: Path) -> None:
+    """The convergence sweep's refusal, kept here.
+
+    A recovered petition whose OCR text carries a heading with nothing usable
+    under it derives the empty string, and a full-length question stored beside
+    a scanned petition came from a superseded filing — emptying it is as likely
+    to be this pass misjudging as a bad row. A case with no stored question
+    still gets the honest empty row, which is the ingest path's own rule.
+    """
+    heading_only = "QUESTIONS PRESENTED\nOPINIONS BELOW\nThe opinion is reported at 1 F.4th 1."
+    documents = [
+        _document("scotus/1"),
+        _document("scotus/1", kind=KIND_QUESTIONS_PRESENTED, pages=0, text="A real question."),
+        _document("scotus/2"),
+    ]
+    db = _seed(tmp_path / "corpus", documents)
+    served = {d.url: _pdf_pages([""]) for d in documents}
+    with _client(served) as client, corpus.connect(db) as conn:
+        result = recover_scanned_petitions(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            ocr_page_factory=_stub_ocr(heading_only),
+        )
+    assert result.recovered == 2
+    assert _documents(db, "scotus/1")[KIND_QUESTIONS_PRESENTED].text == "A real question."
+    assert _documents(db, "scotus/2")[KIND_QUESTIONS_PRESENTED].text == ""
+    assert result.questions_rederived == 1
+
+
+def test_ocr_text_with_no_heading_stores_no_questions_row(tmp_path: Path) -> None:
+    """No QUESTION(S) PRESENTED heading anywhere means nothing to derive."""
+    petition = _document("scotus/1")
+    db = _seed(tmp_path / "corpus", [petition])
+    with _client({petition.url: _pdf_pages([""])}) as client, corpus.connect(db) as conn:
+        result = recover_scanned_petitions(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            ocr_page_factory=_stub_ocr("Nothing here names a question."),
+        )
+    assert result.recovered == 1 and result.questions_rederived == 0
+    assert KIND_QUESTIONS_PRESENTED not in _documents(db, "scotus/1")
+
+
+def test_each_recovery_is_written_as_it_is_made(tmp_path: Path) -> None:
+    """A batched write would turn the step's wall-clock cap into a slice that
+    recovered a dozen filings and stored none, so each case is banked as it
+    lands."""
+    documents = [_document(f"scotus/{n}") for n in (1, 2)]
+    db = _seed(tmp_path / "corpus", documents)
+    served = {d.url: _pdf_pages([""]) for d in documents}
+    seen: list[str] = []
+
+    @contextmanager
+    def factory(_data: bytes) -> Iterator[OcrPage]:
+        # Abandon the run mid-slice, once the first case has been written.
+        if seen:
+            raise KeyboardInterrupt("the step's cap, near enough")
+        seen.append("first")
+        yield lambda _index: _OCR_TEXT
+
+    with (
+        _client(served) as client,
+        corpus.connect(db) as conn,
+        pytest.raises(KeyboardInterrupt),
+    ):
+        recover_scanned_petitions(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=2,
+            ocr_page_factory=factory,
+        )
+    assert _OCR_TEXT in _documents(db, "scotus/1")[KIND_PETITION].text
+    assert _documents(db, "scotus/2")[KIND_PETITION].text == ""
+
+
+def _class_of(db: Path) -> tuple[ScannedPetition, ...]:
+    with corpus.connect(db) as conn:
+        return scanned_petitions(conn).candidates
+
+
+def test_the_probe_sample_is_spread_across_the_class(tmp_path: Path) -> None:
+    """The head is the same three cases every dispatch; a spread sample reports
+    on the class rather than on its first three rows."""
+    documents = [_document(f"scotus/{n}") for n in range(10, 40)]
+    db = _seed(tmp_path / "corpus", documents)
+    with _client({d.url: b"%PDF" for d in documents}) as client, corpus.connect(db) as conn:
+        result = recover_scanned_petitions(
+            conn, client=client, apply=False, char_cap=10_000, today=_TODAY
+        )
+    sampled = [entry.case_id for entry in result.probes]
+    assert len(sampled) == 3 and len(set(sampled)) == 3
+    ordered = [candidate.petition.case_id for candidate in _class_of(db)]
+    assert [ordered.index(case_id) for case_id in sampled] == [0, 10, 20]
+
+
+def test_a_dry_run_reports_no_bound_even_when_handed_one(tmp_path: Path) -> None:
+    """A dry run writes nothing, so a bound it did not spend would read as a
+    slice that attempted none of it."""
+    db = _seed(tmp_path / "corpus", [_document("scotus/1")])
+    with _client({}) as client, corpus.connect(db) as conn:
+        result = recover_scanned_petitions(
+            conn,
+            client=client,
+            apply=False,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            probe_sample=0,
+        )
+    assert result.bound is None and result.attempted == 0
+
+
 # --- the subprocess wrapper ------------------------------------------------
 
 
@@ -548,6 +784,46 @@ def test_the_ocr_seam_owns_its_failures(tmp_path: Path, monkeypatch: pytest.Monk
     monkeypatch.setenv("PATH", f"{binaries}{os.pathsep}{os.environ['PATH']}")
     with ocr_page_for_pdf(b"%PDF-1.4") as ocr_page:
         assert ocr_page(0) == ""
+
+
+def test_a_wedged_binary_costs_its_page_and_is_killed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The timeout is what the module's central claim rests on.
+
+    A renderer that never returns must not hold the slice: `subprocess.run`'s
+    own timeout kills the child and raises, and that arm returns "" like every
+    other failure — the page costs itself.
+    """
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    _fake_binary(binaries, "pdftoppm", "sleep 30")
+    _fake_binary(binaries, "tesseract", "cat -")
+    monkeypatch.setenv("PATH", f"{binaries}{os.pathsep}{os.environ['PATH']}")
+    with ocr_page_for_pdf(b"%PDF-1.4", timeout=0.5) as ocr_page:
+        assert ocr_page(0) == ""
+
+
+def test_a_document_that_outlives_its_budget_is_abandoned(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The page timeout is not a document bound.
+
+    A scan whose pages OCR to nothing accumulates no characters, so the
+    extractor's cap never fires; without a document budget one filing can run
+    for the length of the step and take the slice's other petitions' writes with
+    it. Past the budget every remaining page reads as nothing, which is exactly
+    how the extractor treats a page OCR could not read.
+    """
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    _fake_binary(binaries, "pdftoppm", 'printf "IMAGE"')
+    _fake_binary(binaries, "tesseract", 'printf "read"')
+    monkeypatch.setenv("PATH", f"{binaries}{os.pathsep}{os.environ['PATH']}")
+    clock = iter([0.0, 1.0, 99.0, 99.0])
+    with ocr_page_for_pdf(b"%PDF-1.4", budget=10.0, monotonic=lambda: next(clock)) as ocr_page:
+        assert ocr_page(0) == "read"  # inside the budget
+        assert ocr_page(1) == ""  # past it: abandoned, not recognized
 
 
 def test_missing_binaries_are_named_in_a_fixed_order(

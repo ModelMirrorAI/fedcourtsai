@@ -1491,6 +1491,18 @@ def ocr_recover_petitions_cmd(
     except OcrToolsMissing as exc:
         typer.echo(f"ocr-recover-petitions: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+    if not result.petitions_seen:
+        # Zero candidates has two causes and they are not the same run: a
+        # converged class, and a blob whose documents this process cannot read —
+        # a split-mode index with no content store configured serves every case
+        # an empty document list, which would otherwise report as a clean pass
+        # over an empty class. The denominator is what tells them apart.
+        typer.echo(
+            f"ocr-recover-petitions: no stored petitions in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     verb = "recovered" if apply else "would attempt"
     # A dry run states the whole class, since it takes no slice; the number a
     # maintainer carries into `--max-cases` is that count, or as much of it as
@@ -1498,7 +1510,8 @@ def ocr_recover_petitions_cmd(
     counted = result.recovered if apply else result.candidates
     typer.echo(
         f"ocr-recover-petitions ({'applied' if apply else 'dry-run'}): "
-        f"{result.candidates} scanned petition(s) in the class — "
+        f"{result.candidates} scanned petition(s) in the class of "
+        f"{result.petitions_seen} stored petition(s) — "
         f"{verb} {counted}, {result.remaining} left for the next slice"
     )
     if apply:
