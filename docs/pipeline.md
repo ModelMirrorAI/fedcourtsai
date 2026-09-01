@@ -417,8 +417,10 @@ re-fetch a kind only when its link changes. It is the only pass that installs a
 binary dependency, in its own gated step (`tesseract` and poppler's `pdftoppm`,
 from the runner image's own archive), and the only one whose bound is a **slice
 size** rather than a refusal threshold: each case costs a re-fetch and a
-page-by-page recognition, runner minutes are the whole cost, and the slice is
-self-advancing because a recovered petition leaves the class. Its `dry-run`
+page-by-page recognition, and runner minutes are the whole cost. A recovered
+petition leaves the class, so successive dispatches drain it — but only the
+recovered ones leave, and what a slice could not recover stays at its head to be
+retried first, which the ledger names case by case. Its `dry-run`
 carries a second reading beside the class count — a small sample of the
 population re-fetched through the writer's own fetch path, reporting what
 supremecourt.gov serves a *writer* rather than what a cell's retrieval reported.

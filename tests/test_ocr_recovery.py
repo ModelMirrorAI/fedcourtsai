@@ -15,6 +15,7 @@ import stat
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import date
+from itertools import chain, repeat
 from pathlib import Path
 
 import httpx
@@ -27,11 +28,11 @@ from fedcourtsai.pipeline.documents import (
     KIND_BRIEF_IN_OPPOSITION,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
-    OcrPage,
 )
 from fedcourtsai.pipeline.ocr_recovery import (
     MAX_DOCUMENT_BYTES,
     OcrPageFactory,
+    OcrRun,
     OcrToolsMissing,
     ScannedPetition,
     fetchable_document_url,
@@ -157,12 +158,12 @@ def _client(
     return SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None)
 
 
-def _stub_ocr(text: str = _OCR_TEXT) -> OcrPageFactory:
-    """An OCR page factory that reads ``text`` off every image it is handed."""
+def _stub_ocr(text: str = _OCR_TEXT, *, budget_spent: bool = False) -> OcrPageFactory:
+    """An OCR run that reads ``text`` off every image it is handed."""
 
     @contextmanager
-    def factory(_data: bytes) -> Iterator[OcrPage]:
-        yield lambda _index: text
+    def factory(_data: bytes) -> Iterator[OcrRun]:
+        yield OcrRun(page=lambda _index: text, budget_spent=budget_spent)
 
     return factory
 
@@ -476,6 +477,33 @@ def test_a_scan_ocr_cannot_read_stays_in_the_class(tmp_path: Path) -> None:
     assert _documents(db, "scotus/1")[KIND_PETITION].ocr_derived is False
 
 
+def test_a_recognition_cut_short_is_discarded_rather_than_stored(tmp_path: Path) -> None:
+    """A partial reading must not be stored as the petition.
+
+    Nothing downstream would say it was partial — `truncated` is the character
+    cap's flag, not the budget's — so a filing cut off at page 90 would read as
+    the whole petition to every cell that gets it. The candidate keeps its empty
+    text and stays in the class, which is the honest state.
+    """
+    petition = _document("scotus/1")
+    db = _seed(tmp_path / "corpus", [petition])
+    with _client({petition.url: _pdf_pages([""])}) as client, corpus.connect(db) as conn:
+        result = recover_scanned_petitions(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            # Text came back — a partial reading is not an empty one.
+            ocr_page_factory=_stub_ocr(budget_spent=True),
+        )
+    assert result.recovered == 0 and result.remaining == 1
+    assert result.failures == {"scotus/1": "budget-exhausted"}
+    assert result.unfetched == {"budget-exhausted": 1}
+    assert _documents(db, "scotus/1")[KIND_PETITION].text == ""
+
+
 def test_an_apply_with_work_refuses_where_the_binaries_are_absent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -679,12 +707,12 @@ def test_each_recovery_is_written_as_it_is_made(tmp_path: Path) -> None:
     seen: list[str] = []
 
     @contextmanager
-    def factory(_data: bytes) -> Iterator[OcrPage]:
+    def factory(_data: bytes) -> Iterator[OcrRun]:
         # Abandon the run mid-slice, once the first case has been written.
         if seen:
             raise KeyboardInterrupt("the step's cap, near enough")
         seen.append("first")
-        yield lambda _index: _OCR_TEXT
+        yield OcrRun(page=lambda _index: _OCR_TEXT)
 
     with (
         _client(served) as client,
@@ -767,10 +795,11 @@ def test_the_ocr_seam_shells_out_to_the_binaries_on_path(
     _fake_binary(binaries, "tesseract", "cat -")
     monkeypatch.setenv("PATH", f"{binaries}{os.pathsep}{os.environ['PATH']}")
 
-    with ocr_page_for_pdf(b"%PDF-1.4 not really a pdf") as ocr_page:
+    with ocr_page_for_pdf(b"%PDF-1.4 not really a pdf") as run:
         # 0-based for the extractor, 1-based for the renderer.
-        assert ocr_page(0).strip() == "PAGE 1-1"
-        assert ocr_page(41).strip() == "PAGE 42-42"
+        assert run.page(0).strip() == "PAGE 1-1"
+        assert run.page(41).strip() == "PAGE 42-42"
+        assert run.budget_spent is False
 
 
 def test_the_ocr_seam_owns_its_failures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -786,8 +815,8 @@ def test_the_ocr_seam_owns_its_failures(tmp_path: Path, monkeypatch: pytest.Monk
     _fake_binary(binaries, "pdftoppm", "exit 3")
     _fake_binary(binaries, "tesseract", "cat -")
     monkeypatch.setenv("PATH", f"{binaries}{os.pathsep}{os.environ['PATH']}")
-    with ocr_page_for_pdf(b"%PDF-1.4") as ocr_page:
-        assert ocr_page(0) == ""
+    with ocr_page_for_pdf(b"%PDF-1.4") as run:
+        assert run.page(0) == "" and run.budget_spent is False
 
 
 def test_a_wedged_binary_costs_its_page_and_is_killed(
@@ -804,8 +833,8 @@ def test_a_wedged_binary_costs_its_page_and_is_killed(
     _fake_binary(binaries, "pdftoppm", "sleep 30")
     _fake_binary(binaries, "tesseract", "cat -")
     monkeypatch.setenv("PATH", f"{binaries}{os.pathsep}{os.environ['PATH']}")
-    with ocr_page_for_pdf(b"%PDF-1.4", timeout=0.5) as ocr_page:
-        assert ocr_page(0) == ""
+    with ocr_page_for_pdf(b"%PDF-1.4", timeout=0.5) as run:
+        assert run.page(0) == "" and run.budget_spent is False
 
 
 def test_a_document_that_outlives_its_budget_is_abandoned(
@@ -824,10 +853,16 @@ def test_a_document_that_outlives_its_budget_is_abandoned(
     _fake_binary(binaries, "pdftoppm", 'printf "IMAGE"')
     _fake_binary(binaries, "tesseract", 'printf "read"')
     monkeypatch.setenv("PATH", f"{binaries}{os.pathsep}{os.environ['PATH']}")
-    clock = iter([0.0, 1.0, 99.0, 99.0])
-    with ocr_page_for_pdf(b"%PDF-1.4", budget=10.0, monotonic=lambda: next(clock)) as ocr_page:
-        assert ocr_page(0) == "read"  # inside the budget
-        assert ocr_page(1) == ""  # past it: abandoned, not recognized
+    # Chained rather than a fixed list: an extra read must fail this test's
+    # assertion, not raise StopIteration out of the seam under test.
+    clock = chain([0.0, 1.0], repeat(99.0))
+    with ocr_page_for_pdf(b"%PDF-1.4", budget=10.0, monotonic=lambda: next(clock)) as run:
+        assert run.page(0) == "read"  # inside the budget
+        assert run.budget_spent is False
+        assert run.page(1) == ""  # past it: stopped, not recognized
+    # The run says it was cut short, which is what lets the pass tell a partial
+    # reading from a complete one — the extractor cannot: both are "".
+    assert run.budget_spent is True
 
 
 def test_missing_binaries_are_named_in_a_fixed_order(
@@ -894,6 +929,32 @@ def test_the_cli_fails_loud_without_a_corpus(tmp_path: Path) -> None:
     )
     assert result.exit_code == 1
     assert "corpus database is missing" in result.output
+
+
+def test_the_cli_refuses_a_corpus_whose_documents_it_cannot_read(tmp_path: Path) -> None:
+    """Zero candidates out of zero petitions is the wrong blob, not a converged one.
+
+    Under the corpus split the document text lives in the content store, and an
+    index served with no store configured hands back an empty document list for
+    every case — which without the denominator reads as a clean pass over an
+    empty class, the worst thing a repair bench can report.
+    """
+    root = tmp_path / "corpus"
+    with corpus.connect(corpus.corpus_db_path(root)) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-1",
+                    last_live_polled=date(2026, 6, 2),
+                )
+            ],
+        )
+    result = runner.invoke(app, ["ocr-recover-petitions"], env={"FEDCOURTS_CORPUS_ROOT": str(root)})
+    assert result.exit_code == 1
+    assert "no stored petitions" in result.output and "wrong blob" in result.output
 
 
 def test_the_cli_reports_missing_binaries_as_a_refusal(

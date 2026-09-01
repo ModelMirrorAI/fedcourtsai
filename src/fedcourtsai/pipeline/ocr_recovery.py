@@ -22,9 +22,11 @@ the pass that does, on the terms recorded in *Contract for the recovery pass*
   same character cap and sets the same truncation flag it applies to a fetched
   document, so a recovered petition is bounded exactly like a fetched one.
 - **Additive.** Text is written only where the stored row held none, so the
-  pass cannot overwrite an extraction, and every write carries the
-  ``ocr_derived`` marker: OCR output is derived text, lossy in a way a text
-  layer is not, and must never read as a clean extraction.
+  pass cannot overwrite an extraction, and a write carries the ``ocr_derived``
+  marker wherever OCR contributed any of its text: OCR output is derived text,
+  lossy in a way a text layer is not, and must never read as a clean
+  extraction. (A candidate whose re-fetch now serves a PDF with a text layer is
+  recovered without the marker, which is the honest reading of it.)
 - **What follows.** A recovered petition re-derives its ``questions-presented``
   row through the same deriver the ingest path uses, since such a row is written
   only where the petition has text; the derived row carries the petition's
@@ -95,8 +97,9 @@ PAGE_TIMEOUT_SECONDS = 120.0
 # no characters, so the extractor's cap never fires and a long one can run for
 # the length of the step, discarding the slice's other petitions with it. At the
 # ~5 s a rendered page costs, this admits a filing well past the longest
-# petition and abandons anything that is no longer reading pages but grinding
-# on them. An abandoned document reports as unreadable and stays in the class.
+# petition and cuts off anything that is no longer reading pages but grinding on
+# them. What it has read by then is a partial reading, so it is discarded rather
+# than stored, and the candidate stays in the class.
 DOCUMENT_BUDGET_SECONDS = 600.0
 
 # The hosts a stored document URL may be re-fetched from. The ingest path takes
@@ -210,6 +213,23 @@ def _ocr_png(png: bytes, *, timeout: float) -> str:
     return "" if out is None else out.decode("utf-8", "replace")
 
 
+@dataclass
+class OcrRun:
+    """One document's recognition: the page seam, and whether it ran out of time.
+
+    Two values rather than a bare callable, because the extractor cannot tell
+    the caller apart a page OCR read as blank from a page it never reached: both
+    reach it as ``""``. ``budget_spent`` is that distinction, and the pass needs
+    it — a document whose recognition was cut short has a *partial* reading, and
+    storing one as the petition's text would replace a filing that reads as
+    empty with a filing that reads as complete and is not. So it is discarded,
+    and the case stays in the class.
+    """
+
+    page: OcrPage
+    budget_spent: bool = False
+
+
 @contextmanager
 def ocr_page_for_pdf(
     data: bytes,
@@ -218,8 +238,8 @@ def ocr_page_for_pdf(
     timeout: float = PAGE_TIMEOUT_SECONDS,
     budget: float = DOCUMENT_BUDGET_SECONDS,
     monotonic: Callable[[], float] = time.monotonic,
-) -> Iterator[OcrPage]:
-    """An :data:`~fedcourtsai.pipeline.documents.OcrPage` over one PDF's bytes.
+) -> Iterator[OcrRun]:
+    """An :class:`OcrRun` over one PDF's bytes.
 
     The bytes are spilled to a temporary file once per document rather than per
     page, because the renderer takes a path and a petition runs to hundreds of
@@ -227,10 +247,10 @@ def ocr_page_for_pdf(
     the extraction completed.
 
     ``budget`` is the document's whole share of the run, spent from the first
-    page: once it is gone every remaining page reads as nothing, which the
-    extractor treats exactly as a page OCR could not read. Abandoning a document
-    is the cheap failure — it stays in the class and re-enters a later slice —
-    where letting one run on costs the slice's other petitions their writes.
+    page: once it is gone every remaining page reads as nothing and the run says
+    so. Cutting one document off is the cheap failure — it stays in the class and
+    re-enters a later slice — where letting it run on costs the slice's other
+    petitions their writes.
 
     The binary requirement is owned here, by the one implementation that has it:
     a caller supplying its own seam has no use for them, and the pass's
@@ -241,23 +261,26 @@ def ocr_page_for_pdf(
         pdf_path = Path(tmp) / "document.pdf"
         pdf_path.write_bytes(data)
         deadline = monotonic() + budget
+        run = OcrRun(page=lambda _index: "")
 
         def ocr_page(index: int) -> str:
             if monotonic() >= deadline:
-                logger.warning("ocr: document budget spent; abandoning at page %d", index + 1)
+                logger.warning("ocr: document budget spent; stopping at page %d", index + 1)
+                run.budget_spent = True
                 return ""
             png = _render_page(pdf_path, index, long_side=long_side, timeout=timeout)
             if png is None:
                 return ""
             return _ocr_png(png, timeout=timeout)
 
-        yield ocr_page
+        run.page = ocr_page
+        yield run
 
 
 # The factory the pass calls per document. Injected so the pass's own logic is
 # testable with no binaries present — the tests supply a stub — while the one
 # effectful implementation stays :func:`ocr_page_for_pdf`.
-OcrPageFactory = Callable[[bytes], AbstractContextManager[OcrPage]]
+OcrPageFactory = Callable[[bytes], AbstractContextManager[OcrRun]]
 
 
 class OcrFetchProbe(BaseModel):
@@ -588,15 +611,22 @@ def recover_scanned_petitions(
 
     Written per case rather than in one batch at the end, because the step that
     runs this has a wall-clock cap: a batched write turns a cap hit into a slice
-    that recovered a dozen filings and stored none of them, and the whole point
-    of a slice is that its work is banked when it ends.
+    that recovered a dozen filings and stored none of them. That banks the work
+    under the corpus split, where the per-case content-store write is itself the
+    durable one; against a self-contained blob the durable step is the pointer
+    push the workflow makes after the pass, and a cap hit loses the slice however
+    it was written.
 
     Additive on the petition. A candidate whose re-fetch fails, or whose pages
     OCR to nothing, is *counted and named* and nothing is written for it: the
     stored row keeps the empty text it had, stays in the class, and re-enters the
     next slice — which is also the pass's one non-advancing case, and why the
     ledger reports ``empty_after_ocr`` apart from the candidates the slice never
-    reached. The derived questions-presented row is additive under one more
+    reached — as does every candidate the re-fetch did not return, and every one
+    whose recognition ran out of time, which is why "self-advancing" means the
+    recovered ones leave rather than that the next dispatch starts further on:
+    what failed sits at the head of the class and is retried first.
+    The derived questions-presented row is additive under one more
     guard: the deriver stores the empty row where a heading has nothing usable
     under it, and a *stored* non-empty row is never replaced by that reading —
     the convergence sweep's refusal in a stricter form, at any length rather than
@@ -659,8 +689,15 @@ def recover_scanned_petitions(
         if data is None:
             lose(document.case_id, refused or "not-served")
             continue
-        with ocr_page_factory(data) as ocr_page:
-            extracted = extract_pdf_text(data, char_cap=char_cap, ocr_page=ocr_page)
+        with ocr_page_factory(data) as run:
+            extracted = extract_pdf_text(data, char_cap=char_cap, ocr_page=run.page)
+        if run.budget_spent:
+            # A partial reading, and nothing downstream would say so: `truncated`
+            # is the character cap's flag, not this one's, so a filing cut off
+            # at page 90 would read as the whole petition. The candidate keeps
+            # its empty text and stays in the class.
+            lose(document.case_id, "budget-exhausted")
+            continue
         if not extracted.text.strip():
             # Re-fetched and read, and the images yielded nothing: an unreadable
             # scan, not a fetch gap. Named apart so a slice that cleared its

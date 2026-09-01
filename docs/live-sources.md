@@ -299,9 +299,13 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   write can happen, and a pass whose dry run is a triage list a maintainer reads
   before an apply belongs on the bench by the standing rule (*Five writer jobs,
   one shared core* and *Maintenance passes* in
-  [data-pipeline.md](data-pipeline.md)): it re-derives stored text with no
-  upstream fetch, which is that lane's charter exactly. Tesseract is installed
-  by that step alone, so no scheduled lane grows the dependency. Dry run by
+  [data-pipeline.md](data-pipeline.md)): it writes the corpus, which only a
+  writer job may, and its dry run is exactly the triage list that bench exists
+  for. It is the one pass there that fetches, and the fetch is what keeps it in
+  that lane rather than the pullers': supremecourt.gov is free and
+  politeness-capped, so no budget is governed and no window's schedule is
+  implicated. Both binaries are installed by that step alone, so no scheduled
+  lane grows the dependency. Dry run by
   default, and bounded through `repair_bound` so a backlog clears in slices
   rather than in one long job; runner minutes are the whole cost.
 - **What it reads.** Stored **petitions** whose text is empty or
@@ -318,8 +322,10 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   queried, because under the corpus split the document text lives in the content
   store and the blob's `documents` table holds none of it — a SQL predicate over
   that table reports an empty class against the corpus production reads.
-- **What its dry run also reads.** A small sample of the population (three by
-  default) re-fetched through the writer's own fetch path — the same client,
+- **What its dry run also reads.** A sample of the population, three by default
+  and spread evenly across it rather than taken off the head, so successive dry
+  runs do not report the same three URLs — re-fetched through the writer's own
+  fetch path — the same client,
   headers and retry posture the fetching lanes use — with each GET's status
   reported and nothing kept. The apply's whole premise is that supremecourt.gov
   serves a writer, and a cell's report of a 403 is evidence about a cell's fetch
@@ -331,8 +337,8 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   than a filter, since the population is documents that yielded nothing at all,
   but it keeps a mostly-digital filing with a few scanned exhibit pages honest.
   It is the extractor that walks them: `extract_pdf_text` takes the OCR call as
-  an injected `ocr_page` seam, defaulted to none, so the recovery pass will be
-  the only caller that supplies one and no fetching lane grows the dependency —
+  an injected `ocr_page` seam, defaulted to none, so this pass is the only
+  caller that supplies one and no fetching lane grows the dependency —
   and the same per-document text cap the fetching lane applies and the same
   truncation flag bound the result, because they are the same code. A recovered
   petition is bounded exactly like a fetched one. Additive by construction: text
@@ -343,16 +349,22 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   it too is a scan, re-enters the class. A candidate whose re-fetch fails, and
   one whose pages OCR to nothing, are counted and named and nothing is written
   for either: the stored row keeps its empty text, stays in the class, and
-  re-enters the next slice. That second case is the pass's one non-advancing
-  outcome, which is why the ledger reports it apart from the candidates a slice
-  never reached. Three bounds keep one filing from costing the rest: a stored
+  re-enters the next slice. Neither is the pass going backwards, but neither
+  advances it either, and both sit at the *head* of the class in `case_id`
+  order, so the next dispatch retries them first: "self-advancing" means the
+  recovered ones leave, not that a later slice starts further along. The ledger
+  reports them apart from the candidates a slice never reached for exactly that
+  reason — a class whose head is permanently unreadable makes a small bound a
+  no-op, and the ledger is what shows it. Three bounds keep one filing from costing the rest: a stored
   URL is refused unless it is HTTPS on the Court's own host (`DocumentUrl` is
   upstream text, and this pass is the only thing that GETs one back), a body
   past a size ceiling is refused as not-a-filing, and a document that outlives
   its recognition budget is abandoned unread — each costing its own candidate,
   which stays in the class. Each recovery is written as it is made rather than
   batched at the end, so a step that hits its wall-clock cap has banked what it
-  recovered.
+  recovered — under the corpus split, where the content-store write is itself
+  the durable one; on a self-contained blob the pointer push at the end of the
+  step is, and a cap hit loses the slice however it was written.
 - **What it records.** OCR output is *derived* text, lossy in a way pypdf output
   is not, so it must never read as a clean extraction. `CaseDocument.ocr_derived`
   is that marker: one flag per stored document, true where **any** of its text
