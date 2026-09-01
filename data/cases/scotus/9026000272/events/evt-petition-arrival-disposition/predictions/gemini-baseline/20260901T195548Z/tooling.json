@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/9026000272",
+  "run_id": "20260901T195548Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "run_shell_command",
+    "read_file"
+  ],
+  "helpful": [
+    "The statpack.md file provides a clear, pre-calculated base rate for the federal caption class."
+  ],
+  "gaps": [],
+  "notes": "Used `grep` to quickly extract the relevant section from the statpack markdown."
+}

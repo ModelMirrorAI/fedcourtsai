@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000272",
+  "run_id": "20260901T195548Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned documents (petition.txt, questions-presented.txt)"
+  ],
+  "helpful": [
+    "The provisioned petition text was the decisive input: the procedural-history and reasons sections carried the Shilling stay, the panel lineup, and the mandate-stay posture, none of which the snapshot's single docket entry shows.",
+    "The band table's bracketed reached figures with matching salience_version made the arrival anchor unambiguous."
+  ],
+  "gaps": [
+    "fedcourts query has no free-text/caption search, and the citation column is nearly empty (159 of ~590k scotus rows), so there is no practical way to pull doctrinally similar priors for a subject-matter read; a caption or QP-text similarity filter would help.",
+    "Each citation query cost ~1300 ranged GETs / ~350MB to return zero rows; a coverage pre-check or cheaper index probe would save that.",
+    "No forward-hazard cut for relists (buckets are terminal counts), so the relist-increment number from a zero-distribution state is shape-reading rather than a lookup."
+  ],
+  "notes": "Arrival-moment federal-band cell; anchored on the pooled federal reached floor (~71%, 2017-2025) and adjusted up on petition-specific signals."
+}

@@ -1,0 +1,5 @@
+The Court will grant certiorari and set the case for plenary review. At this arrival moment the docket shows zero distributions. The petition will receive an initial distribution, and it is more likely to be resolved after that conference or one true relist than after a long sequence of relists.
+
+The Court will not call for the Solicitor General's views because the United States, represented by the Solicitor General, is the petitioner. If the Court grants review, it will take the question substantially as written while focusing the decision on application of the policy to current servicemembers, the portion of the injunction that the D.C. Circuit affirmed.
+
+Plenary review is more likely than a disposition in the certiorari order. The nationwide importance of military personnel policy and the competing rational-basis, animus, and military-deference analyses favor full briefing even though the Court's stay of the parallel injunction and its recent equal-protection precedents leave a meaningful chance of summary reversal. If certiorari is denied, no Justice is likely to issue a dissent or statement respecting denial.
