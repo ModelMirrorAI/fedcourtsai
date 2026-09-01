@@ -449,3 +449,59 @@ def test_set_event_resolved_re_mirrors_events(tmp_path: Any) -> None:
         assert _loads(t, "scotus/1/events.json")[0]["resolved"] is False
         corpus.set_event_resolved(conn, "scotus/1", "evt-petition-cert", resolved=True)
         assert _loads(t, "scotus/1/events.json")[0]["resolved"] is True
+
+
+# --- the existence probe ------------------------------------------------------
+
+
+class _CountingTransport(casestore.InMemoryObjectTransport):
+    """An in-memory transport that records every key read.
+
+    The probe's whole point is what it does *not* fetch, and a cost claim about
+    a network read is only checkable by counting the reads.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.gets: list[str] = []
+
+    def get(self, key: str) -> bytes | None:
+        self.gets.append(key)
+        return super().get(key)
+
+
+def test_the_document_existence_probe_reads_the_manifest_alone() -> None:
+    """`read_has_documents` answers from the manifest and never touches a text
+    leaf, while `read_documents` fetches every one of them. The predict backlog
+    asks this per candidate and holds an unprovisioned case without spending a cap
+    slot, so the probes are bounded by the candidate set rather than by the cap —
+    a probe that pulled document bodies would make that scan's cost a function of
+    the corpus's document volume."""
+    t = _CountingTransport()
+    casestore.write_documents(
+        t, "ca9/64512345", [_doc("petition", "p"), _doc("brief-in-opposition", "b")]
+    )
+
+    t.gets.clear()
+    assert casestore.read_has_documents(t, "ca9/64512345") is True
+    assert t.gets == [casestore.documents_manifest_key("ca9/64512345")]
+
+    t.gets.clear()
+    assert len(casestore.read_documents(t, "ca9/64512345")) == 2
+    assert len(t.gets) == 3, "the full read costs the manifest plus a leaf per document"
+
+
+def test_an_empty_manifest_is_not_provisioned() -> None:
+    """Key presence is not the fact. `write_documents` writes a manifest for
+    whatever set it is given, so a case mirrored while it held no documents has an
+    empty manifest at that key — and an existence check keyed on the object rather
+    than its entries would read it as provisioned."""
+    t = casestore.InMemoryObjectTransport()
+    casestore.write_documents(t, "ca9/64512345", [])
+
+    assert t.exists(casestore.documents_manifest_key("ca9/64512345")) is True
+    assert casestore.read_has_documents(t, "ca9/64512345") is False
+
+
+def test_an_unmirrored_case_is_not_provisioned() -> None:
+    assert casestore.read_has_documents(casestore.InMemoryObjectTransport(), "ca9/1") is False

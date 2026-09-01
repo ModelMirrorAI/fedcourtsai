@@ -46,6 +46,9 @@ class _InertReadSource:
     def documents_for_case(self, case_id: str) -> list[corpus.CaseDocument]:
         return []
 
+    def has_documents(self, case_id: str) -> bool:
+        return False
+
     def opinion_text(self, case_id: str) -> str | None:
         return None
 

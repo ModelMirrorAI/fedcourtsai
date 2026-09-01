@@ -59,7 +59,7 @@ import httpx
 
 from .. import corpus, ids
 from ..config import LiveConfig, PredictScope, SalienceConfig
-from ..matrix import cell_failure_count, event_has_predictions, predicted_case_ids
+from ..matrix import event_has_predictions, predicted_case_ids
 from ..registry import enabled_predictors
 from ..store import event_has_claimable_prediction, forecastable_events
 from ..supremecourt import (
@@ -83,7 +83,7 @@ from .outcome import (
     resolve_case,
     termination_signal,
 )
-from .pull import PullQueues, _in_predict_scope
+from .pull import PullQueues, _cell_capped, _in_predict_scope
 from .salience import apply_salience_selection
 
 # The two per-Term numbering streams discovery probes, each from its base.
@@ -742,30 +742,6 @@ def _route_result(
         )
 
 
-def _predict_cell_capped(
-    data_root: Path,
-    court: str,
-    docket: int,
-    event_id: str,
-    predictor_id: str,
-    max_attempts: int,
-) -> bool:
-    """Whether a predict cell has exhausted the per-cell attempt cap.
-
-    The predict-seam mirror of :func:`fedcourtsai.pipeline.pull._cell_capped`:
-    counts the committed ``attempt.json`` failure facts at the ``predict`` seam
-    (:func:`fedcourtsai.matrix.cell_failure_count`), keyed on cell identity — the
-    corpus-blind ``collect`` job records one per failed run, so a cell retried
-    across runs counts against the same cap rather than resetting it.
-    ``max_attempts <= 0`` disables the cap.
-    """
-    if max_attempts <= 0:
-        return False
-    return cell_failure_count(data_root, court, docket, event_id, predictor_id, "predict") >= (
-        max_attempts
-    )
-
-
 def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/clock) + the per-cell owed fallback branch + the dual-form addressing + the cohort narrowing's two arms
     client: SupremeCourtClient,
     corpus_db_path: Path,
@@ -946,8 +922,8 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
             # attempt-capped. This re-queues a case where some engines landed and
             # one quota-failed — the whole point of the per-cell grain.
             not event_has_predictions(data_root, "scotus", docket_id, event_id, predictor_id=pid)
-            and not _predict_cell_capped(
-                data_root, "scotus", docket_id, event_id, pid, max_attempts
+            and not _cell_capped(
+                data_root, "scotus", docket_id, event_id, pid, max_attempts, "predict"
             )
             for event_id in events
             for pid in predictor_ids

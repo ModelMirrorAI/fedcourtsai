@@ -280,6 +280,25 @@ def transport_is_built() -> bool:
     return "transport" in _ACTIVE
 
 
+def payload_store_unavailable() -> bool:
+    """Whether the corpus-split mode is on but no transport could be built.
+
+    The one state in which payload reads answer *empty* rather than *absent*:
+    with the split on, the blob holds no documents and no snapshots, so a
+    failed transport build turns every payload read into a silent "nothing
+    stored". :func:`active_transport` swallows the build failure by design — a
+    fat-fingered flag must never crash an ingestion write — which is right for
+    a writer and wrong for a reader whose whole answer is a census of what is
+    stored.
+
+    So a read that would report a *quantity* consults this first and refuses
+    rather than reporting zero. Off the split mode this is always ``False``:
+    SQLite is the system of record for payloads and its emptiness is real.
+    Builds the transport if it has not been built (that is the question).
+    """
+    return get_settings().corpus_split and active_transport() is None
+
+
 @contextmanager
 def transport_override(transport: ObjectTransport | None) -> Iterator[None]:
     """Run a block with the process transport forced to ``transport``.
@@ -741,6 +760,26 @@ def read_documents(transport: ObjectTransport, case_id: str) -> list[CaseDocumen
     return documents
 
 
+def read_has_documents(transport: ObjectTransport, case_id: str) -> bool:
+    """Whether the case's manifest lists any document — one read, no leaf bodies.
+
+    The existence probe behind :func:`fedcourtsai.corpus.has_documents_for_case`.
+    :func:`read_documents` costs the manifest plus one read per leaf plus a
+    UTF-8 decode of every body; a caller asking only whether a case is
+    provisioned pays the manifest alone.
+
+    Deliberately not ``transport.exists(documents_manifest_key(case_id))``,
+    which would be cheaper still and wrong: :func:`write_documents` writes a
+    manifest for whatever set it is given, so a case mirrored while it held no
+    documents has an *empty* manifest at that key, and key presence would read
+    it as provisioned. The entry list is the fact; the key is not.
+    """
+    body = transport.get(documents_manifest_key(case_id))
+    if body is None:
+        return False
+    return bool(json.loads(body).get("documents"))
+
+
 def read_events(transport: ObjectTransport, case_id: str) -> list[CorpusEvent]:
     """The case's predictable events, event_id-ordered (empty if none stored)."""
     body = transport.get(events_key(case_id))
@@ -794,6 +833,10 @@ class _CasestoreReadSource:
     def documents_for_case(self, case_id: str) -> list[CaseDocument]:
         transport = active_transport()
         return [] if transport is None else read_documents(transport, case_id)
+
+    def has_documents(self, case_id: str) -> bool:
+        transport = active_transport()
+        return False if transport is None else read_has_documents(transport, case_id)
 
     def opinion_text(self, case_id: str) -> str | None:
         # Broad by design, mirroring `_best_effort` on the write side. This read

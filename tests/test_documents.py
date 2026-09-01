@@ -751,6 +751,45 @@ def test_documents_roundtrip_latest_wins(tmp_path: Path) -> None:
     assert stored[0].text == "new" and stored[0].url == "https://example/bio2.pdf"
 
 
+def test_the_document_existence_probe_agrees_with_the_full_read(tmp_path: Path) -> None:
+    """`has_documents_for_case` answers the same question `documents_for_case`
+    answers by truth of an empty list, without materializing the text. Pinned as
+    agreement rather than in isolation, because a probe that drifted from the read
+    would silently change what the predict backlog treats as provisioned."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        assert corpus.has_documents_for_case(conn, "scotus/1") is False
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/1",
+                    kind=KIND_BRIEF_IN_OPPOSITION,
+                    url="https://example/bio.pdf",
+                    fetched_at=date(2026, 7, 9),
+                    text="stored",
+                )
+            ],
+        )
+        for case_id in ("scotus/1", "scotus/2"):
+            assert corpus.has_documents_for_case(conn, case_id) == bool(
+                corpus.documents_for_case(conn, case_id)
+            )
+        assert corpus.has_documents_for_case(conn, "scotus/1") is True
+
+
+def test_the_document_existence_probe_reads_a_documentless_blob_as_empty(tmp_path: Path) -> None:
+    """A remote blob packed before the documents table existed reads as "no
+    documents" rather than failing — the same degradation `documents_for_case`
+    gives, which a ranged cell depends on."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        conn.execute("DROP TABLE documents")
+        conn.commit()
+        assert corpus.has_documents_for_case(conn, "scotus/1") is False
+        assert corpus.documents_for_case(conn, "scotus/1") == []
+
+
 def test_provision_snapshot_materializes_documents(fixture_corpus: FixtureCorpus) -> None:
     db = corpus.corpus_db_path(fixture_corpus.corpus_root)
     with corpus.connect(db) as conn:
@@ -989,6 +1028,9 @@ class _DictReadSource:
         with self._lock:
             self.read_threads.setdefault(case_id, []).append(threading.get_ident())
         return self._documents.get(case_id, [])
+
+    def has_documents(self, case_id: str) -> bool:
+        return bool(self._documents.get(case_id))
 
     def opinion_text(self, case_id: str) -> str | None:
         return None

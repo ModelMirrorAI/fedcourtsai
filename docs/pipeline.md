@@ -987,7 +987,11 @@ hand until there is a reason to parameterize it.
 from depends on the round: from the issue body's ` ```json ``` ` case block for
 `run:predict` and for a labelled `run:evaluate`, and — for a scheduled or
 dispatched `run:evaluate`, which has no issue — from the evaluate backlog the
-matrix command derives itself. When prediction scope is gated
+matrix command derives itself. `predict-matrix` self-derives in the same shape
+when given no input, from the predict backlog
+(`pipeline.pull.derive_predict_backlog`, described in [cli.md](cli.md)); today
+`run-predict` always passes an issue body, so the capability exists ahead of a
+caller for it. When prediction scope is gated
 (`predict.scope=scotus_docket`) the builder reads each case's corpus row (only a
 SCOTUS docket is in scope, minus the shared exclusion reasons), so `plan` first
 pulls the corpus; with the gate on
