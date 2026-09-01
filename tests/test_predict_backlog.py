@@ -18,10 +18,10 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus
+from fedcourtsai import casestore, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline.pull import derive_predict_backlog
+from fedcourtsai.pipeline.pull import PredictBacklog, derive_predict_backlog
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Stage
 from fedcourtsai.serialize import write_json
@@ -112,6 +112,33 @@ def _provision(db: Path, case_id: str) -> None:
         )
 
 
+#: The register's second cert moment, for the fixtures that need a *second*
+#: forecastable event on one case (per-event narrowing, the cohort bounds).
+CVSG_EVENT = "evt-order-cvsg-disposition"
+
+
+def _backlog(
+    db: Path,
+    data_root: Path,
+    *,
+    cap: int = 25,
+    max_attempts: int = 0,
+    today: date = date(2026, 7, 20),
+    already_queued: set[str] | None = None,
+) -> PredictBacklog:
+    """One read-only derivation, whole."""
+    with corpus.connect_readonly(db) as conn:
+        return derive_predict_backlog(
+            conn,
+            data_root,
+            PREDICTORS,
+            cap=cap,
+            max_attempts=max_attempts,
+            already_queued=already_queued,
+            today=today,
+        )
+
+
 def _derive(
     db: Path,
     data_root: Path,
@@ -122,16 +149,14 @@ def _derive(
     already_queued: set[str] | None = None,
 ) -> tuple[str, ...]:
     """Case ids one read-only derivation returns."""
-    with corpus.connect_readonly(db) as conn:
-        return derive_predict_backlog(
-            conn,
-            data_root,
-            PREDICTORS,
-            cap=cap,
-            max_attempts=max_attempts,
-            already_queued=already_queued,
-            today=today,
-        ).case_ids
+    return _backlog(
+        db,
+        data_root,
+        cap=cap,
+        max_attempts=max_attempts,
+        today=today,
+        already_queued=already_queued,
+    ).case_ids
 
 
 def _entries(
@@ -196,6 +221,37 @@ def test_an_unprovisioned_case_is_held_and_admitted_once_provisioned(tmp_path: P
 
     _provision(db, "scotus/1")
     assert _derive(db, data) == ("scotus/1",), "provisioning admits it, one window later at most"
+
+
+def test_a_backlog_held_on_provisioning_is_counted_not_silently_empty(tmp_path: Path) -> None:
+    """The held cases are reported, because the provisioning predicate is the one
+    admission rule whose refusals are expected to clear on their own. Without the
+    count, a backlog every one of whose cases is waiting on run-pull is
+    indistinguishable from a drained queue — the same conflation the absent-corpus
+    refusal exists to prevent, one predicate over."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, provisioned=False)
+    _open_case(db, "scotus", 2, provisioned=False)
+
+    blocked = _backlog(db, data)
+    assert blocked.entries == ()
+    assert blocked.held_unprovisioned == 2
+
+    # Provision one: it derives, and only the still-unprovisioned case is held.
+    _provision(db, "scotus/1")
+    partial = _backlog(db, data)
+    assert partial.case_ids == ("scotus/1",)
+    assert partial.held_unprovisioned == 1
+
+    # A genuinely drained backlog is the other reading, and says so.
+    _provision(db, "scotus/2")
+    for docket in (1, 2):
+        for predictor in enabled_predictors(PREDICTORS):
+            seed_prediction(data, "scotus", docket, EVENT, predictor_id=predictor.id)
+    drained = _backlog(db, data)
+    assert drained.entries == ()
+    assert drained.held_unprovisioned == 0
 
 
 def test_the_provisioning_predicate_does_not_spend_a_cap_slot(tmp_path: Path) -> None:
@@ -399,6 +455,48 @@ def test_a_cell_at_the_cap_is_not_re_derived(tmp_path: Path) -> None:
     assert _derive(db, data, max_attempts=4) == ("scotus/1",)
 
 
+def test_a_fully_covered_sibling_event_is_dropped_and_the_owed_one_kept(tmp_path: Path) -> None:
+    """Per-event narrowing on a **funded** case, where no cohort bound applies. The
+    entry carries only the events some predictor still owes: an event every engine
+    has covered is dropped even though its sibling keeps the case in the backlog.
+    This changes no cell — the matrix's per-(predictor, event) skip would drop
+    those anyway — it keeps the fan-out from being handed an event that would
+    arrive empty."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1)
+    _open_case(db, "scotus", 1, event_id=CVSG_EVENT, stage=Stage.cert, kind=EventKind.order)
+    for predictor in enabled_predictors(PREDICTORS):
+        seed_prediction(data, "scotus", 1, EVENT, predictor_id=predictor.id)
+
+    assert _entries(db, data) == [{"court": "scotus", "docket": 1, "events": [CVSG_EVENT]}]
+
+
+def test_an_attempt_capped_sibling_event_is_dropped_stricter_than_the_sweep(
+    tmp_path: Path,
+) -> None:
+    """The second narrowing ground, and the one that is *not* a no-op. An event
+    whose every still-missing predictor is attempt-capped is dropped, while a
+    sibling under the cap keeps the case — a stricter reading than the live sweep,
+    whose owed check is per case and would queue both. Deliberate: an unattended
+    lane writes no debounce stamp, so a cell failing every attempt would otherwise
+    be re-derived every cycle forever."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1)
+    _open_case(db, "scotus", 1, event_id=CVSG_EVENT, stage=Stage.cert, kind=EventKind.order)
+    for predictor in enabled_predictors(PREDICTORS):
+        _fail_cell(data, "scotus", 1, predictor.id, EVENT, times=3)
+
+    assert _entries(db, data, max_attempts=3) == [
+        {"court": "scotus", "docket": 1, "events": [CVSG_EVENT]}
+    ]
+    # The cap is the only thing dropping it: raise the ceiling and both return.
+    assert _entries(db, data, max_attempts=4) == [
+        {"court": "scotus", "docket": 1, "events": [CVSG_EVENT, EVENT]}
+    ]
+
+
 def test_the_cap_is_per_cell_a_sibling_predictor_is_still_owed(tmp_path: Path) -> None:
     """Per-(predictor, event) granularity: one engine hitting the cap must not
     suppress a sibling still owed the same event — the reason the cap keys on cell
@@ -519,8 +617,15 @@ def _flat(output: str) -> str:
     return " ".join(plain.replace("│", " ").split())
 
 
-def _cli_env(tmp_path: Path, *dockets: int) -> dict[str, str]:
-    """A hermetic config + corpus holding one derivable predict candidate per docket."""
+def _cli_env(tmp_path: Path, *dockets: int, provisioned: bool = True) -> dict[str, str]:
+    """A hermetic config + corpus holding one predict candidate per docket.
+
+    Every path is under ``tmp_path`` and every setting the derivation reads is
+    named explicitly, so the run cannot fall through to an ambient corpus — a
+    backlog mode that reads the checkout's real corpus would scan production
+    state from inside the unit suite, and would pass or fail on whether the
+    machine happened to have pulled one.
+    """
     config_root = tmp_path / "config"
     config_root.mkdir(exist_ok=True)
     (config_root / "predictors.yaml").write_text((_REPO_CONFIG / "predictors.yaml").read_text())
@@ -528,7 +633,7 @@ def _cli_env(tmp_path: Path, *dockets: int) -> dict[str, str]:
     (config_root / "tracking.yaml").write_text("predict:\n  scope: scotus_docket\n")
     corpus_root = tmp_path / "corpus"
     for docket in dockets:
-        _open_case(corpus.corpus_db_path(corpus_root), "scotus", docket)
+        _open_case(corpus.corpus_db_path(corpus_root), "scotus", docket, provisioned=provisioned)
     return {
         "FEDCOURTS_CONFIG_ROOT": str(config_root),
         "FEDCOURTS_CORPUS_ROOT": str(corpus_root),
@@ -665,6 +770,81 @@ def test_the_backlog_mode_refuses_a_corpus_backend_with_no_query_surface(tmp_pat
 
     assert result.exit_code != 0
     assert "cannot be derived over" in _flat(result.output)
+
+
+def test_the_cli_reports_the_held_count_on_stderr(tmp_path: Path) -> None:
+    """The held cases reach the operator, on stderr — stdout carries only the
+    matrix JSON. An empty fan-out and one whose every case is waiting on
+    provisioning are different operational facts, and only the second says the
+    lane is blocked on run-pull rather than done."""
+    env = _cli_env(tmp_path, 24001, 24002, provisioned=False)
+
+    result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"], env=env)
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["include"] == []
+    assert "held 2 case(s) with no stored documents" in _flat(result.stderr)
+
+
+def test_the_cli_stays_quiet_when_nothing_is_held(tmp_path: Path) -> None:
+    """The complement, so the line means something: a fully provisioned backlog
+    reports no held cases at all rather than a zero."""
+    env = _cli_env(tmp_path, 24001)
+
+    result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"], env=env)
+
+    assert result.exit_code == 0, result.output
+    assert "no stored documents" not in _flat(result.stderr)
+
+
+def test_the_backlog_mode_refuses_an_unreachable_content_store(tmp_path: Path) -> None:
+    """Under the corpus-split mode the blob holds no documents, so an unbuilt
+    casestore transport answers every provisioning probe false — and the transport
+    build swallows its own failure by design, so nothing raises. The derivation
+    would hold every case and return empty, reading exactly like a drained queue.
+    Refused instead, on the same principle as the absent corpus."""
+    env = _cli_env(tmp_path, 24001)
+
+    with casestore.transport_override(None):
+        result = runner.invoke(
+            app,
+            ["predict-matrix", "--run-id", "RID"],
+            env={**env, "FEDCOURTS_CORPUS_SPLIT": "1"},
+        )
+
+    assert result.exit_code != 0
+    assert "no content store could be reached" in _flat(result.output)
+
+
+def test_a_reachable_content_store_serves_the_split_mode_derivation(tmp_path: Path) -> None:
+    """The refusal is about reachability, not about the split mode: with a store
+    that actually holds the case's documents the derivation runs, and the
+    provisioning predicate is answered from the store rather than the blob."""
+    env = _cli_env(tmp_path, 24001, provisioned=False)
+    transport = casestore.InMemoryObjectTransport()
+    casestore.write_documents(
+        transport,
+        "scotus/24001",
+        [
+            corpus.CaseDocument(
+                case_id="scotus/24001",
+                kind="petition",
+                url="https://example.invalid/p",
+                fetched_at=date(2026, 7, 1),
+                text="stored in the content store, not the blob",
+            )
+        ],
+    )
+
+    with casestore.transport_override(transport):
+        result = runner.invoke(
+            app,
+            ["predict-matrix", "--run-id", "RID"],
+            env={**env, "FEDCOURTS_CORPUS_SPLIT": "1"},
+        )
+
+    assert result.exit_code == 0, result.output
+    assert {c["docket"] for c in json.loads(result.stdout)["include"]} == {24001}
 
 
 def test_the_backlog_mode_refuses_an_absent_corpus(tmp_path: Path) -> None:

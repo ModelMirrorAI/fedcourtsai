@@ -8759,6 +8759,22 @@ def _predict_backlog_cases() -> list[CaseRequest]:
     range-request storm, and an absent corpus is refused because for an
     unattended lane "nothing is owed" and "no corpus" must not be the same
     output.
+
+    The **content store** is enforced on exactly that principle, and the
+    provisioning predicate is why it has to be. Under the corpus-split mode the
+    blob holds no documents at all, so an unbuilt casestore transport answers
+    every existence probe *false* — and ``active_transport`` swallows a build
+    failure by design, so nothing raises. The derivation would then hold every
+    candidate and return an empty backlog that reads exactly like a drained
+    queue: the same conflation the absent-corpus refusal exists to prevent, one
+    store over. So a split-mode run with no reachable store is refused here
+    (:func:`fedcourtsai.casestore.payload_store_unavailable`) rather than
+    fanning out over nothing.
+
+    What the derivation *did* hold is reported on stderr — stdout carries only
+    the matrix or plan JSON — because a legitimately empty fan-out and one whose
+    every case is waiting on provisioning are different operational facts, and
+    only the second says the lane is blocked on run-pull.
     """
     settings = get_settings()
     salience_cfg = load_salience_config(settings.config_root)
@@ -8778,6 +8794,13 @@ def _predict_backlog_cases() -> list[CaseRequest]:
             "`fedcourts corpus-pull` first. Refusing rather than planning an "
             "empty fan-out, which is indistinguishable from a drained backlog."
         )
+    if casestore.payload_store_unavailable():
+        raise typer.BadParameter(
+            "the corpus-split mode is on but no content store could be reached, "
+            "so every case reads as unprovisioned and the predict backlog would "
+            "derive empty — indistinguishable from a drained queue. Fix the "
+            "content-store configuration, or name the cases with --body-file."
+        )
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
         backlog = derive_predict_backlog(
             conn,
@@ -8785,6 +8808,13 @@ def _predict_backlog_cases() -> list[CaseRequest]:
             settings.config_root / "predictors.yaml",
             cap=salience_cfg.sweep_cases_per_cycle,
             max_attempts=predict_cfg.max_attempts_per_cell,
+        )
+    if backlog.held_unprovisioned:
+        typer.echo(
+            f"Predict backlog: held {backlog.held_unprovisioned} case(s) with no stored "
+            "documents (not yet provisioned). They are owed a forecast and become "
+            "derivable as run-pull provisions them, at its own per-window rate.",
+            err=True,
         )
     return [CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries]
 
@@ -8795,7 +8825,7 @@ def _requested_cases(
     docket: int | None,
     event: list[str] | None,
     *,
-    backlog: Literal["predict", "evaluate"] | None = None,
+    backlog: Literal["predict", "evaluate"],
     force: bool = False,
 ) -> list[CaseRequest]:
     """Cases to fan out over, from a batch body file, single-case flags, or the backlog.
@@ -8804,11 +8834,14 @@ def _requested_cases(
     them) is the multi-case path a trigger issue takes. The single-case
     ``--court``/``--docket``/``--event`` flags serve ad-hoc invocations.
 
-    ``backlog`` opens a third mode, and names which stage's deriver answers it:
-    given *no* input at all, the cases come from the corpus-level backlog —
+    ``backlog`` names which stage's deriver answers the third mode: given *no*
+    input at all, the cases come from the corpus-level backlog —
     :func:`_predict_backlog_cases` or :func:`_evaluate_backlog_cases` — rather
     than from a trigger, so a scheduled run needs no issue body to know what it
-    owes. Both derivations read committed state and write nothing.
+    owes. Both derivations read committed state and write nothing. It is
+    required rather than defaulted: both stages have a deriver, so there is no
+    caller for whom silence is simply an error, and a default would let a new
+    one be added without deciding which backlog it means.
 
     A *half*-named single case is refused in every mode. Silence is the backlog
     mode's trigger, so a dropped ``--docket`` would otherwise turn one intended
@@ -8827,20 +8860,18 @@ def _requested_cases(
         return [CaseRequest(court, docket, tuple(event or ()))]
     if court or docket is not None:
         raise typer.BadParameter("--court and --docket go together; provide both or neither.")
-    if backlog is not None:
-        if event:
-            raise typer.BadParameter(
-                "--event names events within a single case; pass it with --court and --docket. "
-                "The backlog derives its own events per case."
-            )
-        if force:
-            raise typer.BadParameter(
-                "--force re-grades cases you name; it cannot re-grade the backlog, which "
-                "excludes a fully-graded case before the already-graded gate --force "
-                "disables. Name the target with --body-file, or --court and --docket."
-            )
-        return _predict_backlog_cases() if backlog == "predict" else _evaluate_backlog_cases()
-    raise typer.BadParameter("provide --body-file, or both --court and --docket.")
+    if event:
+        raise typer.BadParameter(
+            "--event names events within a single case; pass it with --court and --docket. "
+            "The backlog derives its own events per case."
+        )
+    if force:
+        raise typer.BadParameter(
+            "--force re-grades cases you name; it cannot re-grade the backlog, which "
+            "excludes a fully-graded case before the already-graded gate --force "
+            "disables. Name the target with --body-file, or --court and --docket."
+        )
+    return _predict_backlog_cases() if backlog == "predict" else _evaluate_backlog_cases()
 
 
 def _spend_gate_or_empty(stage: str) -> SpendVerdict:

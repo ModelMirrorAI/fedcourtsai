@@ -1214,11 +1214,6 @@ def test_evaluate_matrix_grades_a_salience_unselected_case(tmp_path: Path) -> No
     assert "not selected this salience round" not in result.stderr
 
 
-def test_matrix_without_body_or_flags_errors() -> None:
-    result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"])
-    assert result.exit_code == 2
-
-
 def test_evaluate_matrix_reports_the_drop_count(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)

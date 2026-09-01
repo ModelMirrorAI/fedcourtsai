@@ -315,8 +315,10 @@ def _cell_capped(
     ``max_attempts <= 0`` disables the cap.
 
     ``actor_id`` is the evaluator at the evaluate seam and the predictor at the
-    predict seam; both derivers here consult it, so the seam is a parameter
-    rather than a second copy of the same four lines.
+    predict seam. Both backlog derivers here and the live channel's selection
+    sweep consult it, so the seam is a parameter rather than one copy of these
+    four lines per caller — three readings of one cap is three places for it to
+    drift.
     """
     if max_attempts <= 0:
         return False
@@ -559,10 +561,21 @@ class PredictBacklog:
 
     ``day`` is the date the derivation ran under, carried so a reader can say
     which day's debounce stamps it filtered on.
+
+    ``held_unprovisioned`` counts the candidates the scan reached and dropped
+    for want of stored documents. It is reported, not just discarded, because
+    the provisioning predicate is the one admission rule whose refusals are
+    *expected to clear on their own*: a held case is work the project intends
+    to do, waiting on a lane this one cannot drive. Without the count an empty
+    backlog reads the same whether the queue is drained or the whole of it is
+    waiting on provisioning. The count covers candidates examined before the
+    cap filled, which is what the scan actually saw — not a census of every
+    unprovisioned case in the corpus.
     """
 
     entries: tuple[BacklogEntry, ...]
     day: date
+    held_unprovisioned: int = 0
 
     @property
     def case_ids(self) -> tuple[str, ...]:
@@ -659,12 +672,19 @@ def derive_predict_backlog(
     6. :func:`_row_in_predict_scope` — the full scope gate the pull and live
        lanes apply at queue time, with ``cohort_completion`` set exactly when
        (5) admitted the row on the cohort ground alone.
-    7. **Provisioned documents** — ``corpus.documents_for_case`` is non-empty.
-       The pull lane provisions a case's filed-document text at queue time, and
-       a predict cell reads only what provisioning committed; this scan cannot
-       fetch, so a queued-but-unprovisioned case is **held**, not minted as a
-       cell with no petition text. run-pull stays the sole provisioner, and a
-       freshly-swept case becomes derivable one window later at most.
+    7. **Provisioned documents** — ``corpus.has_documents_for_case``, the
+       existence probe rather than a document read, since a held case spends no
+       cap slot and so this runs across the whole candidate set. The pull lane
+       provisions a case's filed-document text at queue time, and a predict cell
+       reads only what provisioning committed; this scan cannot fetch, so a
+       queued-but-unprovisioned case is **held**, not minted as a cell with no
+       petition text, and is counted on ``held_unprovisioned`` so a backlog
+       waiting on provisioning does not read as a drained one. run-pull stays
+       the sole provisioner, and the property that gives is a **throughput
+       bound, not a latency one**: this backlog can never outrun the live
+       sweep's provisioning rate, which is itself capped per window, so a held
+       set larger than that cap clears over as many windows as it takes rather
+       than by the next one.
     8. Some ``(predictor, event)`` cell of the case is both unpredicted and
        under the per-cell attempt cap.
 
@@ -674,10 +694,22 @@ def derive_predict_backlog(
     cap slot. ``cap`` bounds model spend and PR volume: each queued case fans
     out one cell per predictor still owed the event.
 
-    The queued event list is per-event, not per-case: an event every enabled
-    predictor has already covered is dropped from the entry even when a sibling
-    event is owed, which is what the predict matrix's per-``(predictor, event)``
-    skip would decide anyway. A **cohort-only** candidate is narrowed further,
+    The queued event list is per-event, not per-case, and it drops an event on
+    **two** grounds: every enabled predictor has already predicted it, or every
+    predictor still missing it has hit ``max_attempts``. The two are not
+    equally settled. The already-predicted arm changes nothing — the predict
+    matrix's per-``(predictor, event)`` skip would drop those cells anyway, so
+    narrowing here only spares the fan-out a case that would arrive empty. The
+    attempt-capped arm is **stricter than the live sweep**, deliberately: the
+    sweep's owed check is per case, so a case whose only gap is poison-pilled
+    is still queued and the matrix still mints those cells. Here the cap
+    decides admission, which is what ``predict.max_attempts_per_cell`` exists
+    to do — an unattended lane that re-derives a cell failing every attempt
+    would spend on it every cycle forever, and no stamp holds it back. The cost
+    of the stricter reading is that raising the ceiling, not a re-queue, is what
+    reopens such a cell.
+
+    A **cohort-only** candidate is narrowed further,
     to the events whose cohort a claimable board will count
     (:func:`fedcourtsai.store.event_has_claimable_prediction`) — the sweep's
     two bounds, unchanged: a case the funding gate declined earns its missing
@@ -722,14 +754,16 @@ def derive_predict_backlog(
     )
 
     entries: list[BacklogEntry] = []
+    held = 0
     for row, cohort_only in candidates:
         if len(entries) >= cap:
             break
         court, docket_str = row.case_id.split("/", 1)
         docket = int(docket_str)
-        if not corpus.documents_for_case(conn, row.case_id):
+        if not corpus.has_documents_for_case(conn, row.case_id):
             # Queued but not yet provisioned: held for a later cycle rather than
             # minted as a cell whose record/ would hold no filed-document text.
+            held += 1
             continue
         events = forecastable_event_ids(conn, court, docket, today=day)
         if cohort_only:
@@ -755,7 +789,7 @@ def derive_predict_backlog(
             BacklogEntry(case_id=row.case_id, court=court, docket=docket, events=tuple(owed))
         )
 
-    return PredictBacklog(entries=tuple(entries), day=day)
+    return PredictBacklog(entries=tuple(entries), day=day, held_unprovisioned=held)
 
 
 def pull_cases(

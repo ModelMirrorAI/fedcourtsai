@@ -1586,6 +1586,17 @@ class PayloadReadSource(Protocol):
 
     def documents_for_case(self, case_id: str) -> list[CaseDocument]: ...
 
+    def has_documents(self, case_id: str) -> bool:
+        """Whether the case has any stored document, without reading their text.
+
+        The existence probe :func:`has_documents_for_case` serves. Separate from
+        :meth:`documents_for_case` because a scan that only asks *whether* a case
+        is provisioned — the predict backlog's admission — would otherwise pull
+        every document body over the wire per candidate, unbounded by anything
+        the caller's cap controls.
+        """
+        ...
+
     def opinion_text(self, case_id: str) -> str | None: ...
 
 
@@ -4006,3 +4017,33 @@ def documents_for_case(conn: ReadConnection, case_id: str) -> list[CaseDocument]
         )
         for record in cur
     ]
+
+
+def has_documents_for_case(conn: ReadConnection, case_id: str) -> bool:
+    """Whether the case has any stored document — the existence probe alone.
+
+    The same question :func:`documents_for_case` answers by truth of an empty
+    list, asked without materializing the text. On SQLite that is a ``LIMIT 1``
+    instead of a full row read; under the corpus-split mode it is the content
+    store's own cheap probe (one manifest read rather than a read per document
+    body). The difference matters to a scan that asks it per candidate: the
+    predict backlog's provisioning predicate holds an unprovisioned case
+    *without* spending a cap slot, so the probes are bounded by the candidate
+    set rather than by the cap, and a probe that downloaded every body would
+    make the scan's cost a function of the corpus's document volume.
+
+    A store failure is **not** swallowed here. The split-mode read source
+    degrades an unreadable case to "no documents" only where a missing body may
+    silently degrade the answer (a query's opinion text); an admission
+    predicate that reads a transport error as "not provisioned" would hold the
+    whole backlog and report it as drained.
+    """
+    if (source := _payload_read_source()) is not None:
+        return source.has_documents(case_id)
+    try:
+        cur = conn.execute("SELECT 1 FROM documents WHERE case_id = ? LIMIT 1", (case_id,))
+    except Exception as exc:
+        if "no such table" in str(exc).lower():
+            return False
+        raise
+    return cur.fetchone() is not None
