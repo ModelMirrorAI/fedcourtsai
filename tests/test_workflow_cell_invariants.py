@@ -47,9 +47,11 @@ Each would regress silently: the cell still runs, the artifact still validates,
 the integration gate stays green. So the contracts get pinned here instead.
 """
 
+import io
 import json
 import re
 import textwrap
+from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +62,8 @@ from fedcourtsai.agent_feedback import (
     _GH_BACKOFF_SECONDS,
     _GH_TIMEOUT_SECONDS,
 )
+from fedcourtsai.cli import _echo_text_coverage
+from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest
 from fedcourtsai.schemas import UsageRole
 
@@ -1501,3 +1505,49 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
             f"{name}: @openai/codex npm pin(s) {sorted(pins)!r} differ from the "
             f"cell steps' codex-version {version!r}"
         )
+
+
+def test_the_text_coverage_summary_truncation_matches_the_cli_ledger_headers() -> None:
+    """The text-coverage job's step summary is truncated at the first ledger
+    header by an awk sentinel, because the summary is readable without login
+    while the artifact is not — the untruncated case-id ledgers must never
+    land on the page. The sentinel couples a workflow regex to the CLI's
+    ledger-header spellings, so this pins them together: renaming a header in
+    `_echo_text_coverage` without moving the awk pattern would silently dump
+    every case id onto the summary (the size guard bounds, but the sentinel
+    is the control)."""
+    wf = _load("run-analytics.yml")
+    steps = wf["jobs"]["text-coverage"]["steps"]
+    run = next(s["run"] for s in steps if "awk" in s.get("run", ""))
+    match = re.search(r"awk '/(.+?)/\{exit\}", run)
+    assert match, "the truncation sentinel awk pattern is gone from the summary step"
+    pattern = re.compile(match.group(1))
+
+    coverage = TextCoverage(
+        cases=3,
+        cases_read=2,
+        distributed=3,
+        distributed_without_petition=1,
+        queued=2,
+        queued_without_petition=1,
+        queued_application_forms=0,
+        unopened_petitions=0,
+        offloaded=True,
+        cuts=[TextCoverageCut(kind="petition", segment="scored", documents=2, empty=1)],
+        empty_documents={"scotus/1": ["petition"]},
+        queued_without_petition_cases=["scotus/2"],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        _echo_text_coverage(coverage)
+    lines = buffer.getvalue().splitlines()
+
+    matched = [i for i, line in enumerate(lines) if pattern.search(line)]
+    assert matched, (
+        "no line of the CLI report matches the workflow's truncation sentinel — "
+        + "a ledger header was renamed and the summary would carry every case id"
+    )
+    kept = lines[: matched[0]]
+    assert not any("scotus/1" in line or "scotus/2" in line for line in kept), (
+        "a ledger case id sits above the truncation sentinel — the summary would leak it"
+    )

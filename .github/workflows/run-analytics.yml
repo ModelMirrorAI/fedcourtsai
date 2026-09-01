@@ -16,6 +16,13 @@ name: run-analytics
 #                      as well as summarised, and it walks the whole live slice
 #                      one snapshot at a time — much the longest of the
 #                      read-only modes.
+#   - text-coverage:   enumerate document text coverage over the content store
+#                      (`fedcourts corpus-info --text-coverage`) — which stored
+#                      documents carry no text and which queued cases hold no
+#                      petition row at all, with the untruncated case-id
+#                      ledgers the OCR pass and the document backfill work
+#                      from. Read-only like the census and sized like it: the
+#                      walk is a store round trip per live-slice case.
 #   - metrics-refresh: regenerate the committed deterministic artifacts
 #                      (leaderboard / claim scores / backtest / statpack, plus
 #                      the scope manifest) and land any change as a **reviewed**
@@ -34,16 +41,17 @@ name: run-analytics
 #                      and produces the extract, `qp-topic-label` runs the agent
 #                      with no cloud credential in the job env at all.
 #
-# The read-only analysis modes (corpus-stats, census, tool-usage) write neither the
+# The read-only analysis modes (corpus-stats, census, text-coverage, tool-usage) write neither the
 # corpus, `data/`, the corpus remote, nor git, open no PR, and file no issue — every
 # result goes to the Actions step summary and the run log, and the census's machine
 # JSON additionally to a run artifact, because a review of record has to outlive the
-# summary page it is read beside. The two artifact modes write only under their own
+# summary page it is read beside — and text-coverage's ledgers to an artifact for
+# the same reason. The two committing modes write only under their own
 # paths — metrics-refresh under `metrics/` + `data/scope/`, qp-topic-label under
 # `data/qp-topics/` — and land the change as a reviewed PR to `main`.
 # GitHub scopes permissions and tokens per **job**, so each mode runs as its own
 # least-privilege job gated on `mode` and none is ever granted another's credential:
-# corpus-stats, distribution-census and qp-topic-extract hold only the read-only S3
+# corpus-stats, distribution-census, text-coverage and qp-topic-extract hold only the read-only S3
 # role; metrics-refresh holds that role *and* mints the dev App token (contents + PR
 # write) for its review PR; qp-topic-label mints the same token but assumes no role
 # at all, because it is the one job here that runs an agent; and tool-usage binds no
@@ -122,13 +130,12 @@ on:
 # Least privilege by default; each job widens only to what its mode needs.
 permissions: {}
 
-# Concurrency is per-job (not workflow-level): the corpus-reading analysis modes
-# share one group and cancel a superseded run of it, while a metrics refresh or a
-# labeling run must never be cancelled mid-PR (or mid-agent) by an unrelated
-# analysis dispatch. corpus-stats and the census share the group, so a second
-# analysis dispatch cancels the first outright — and a cancelled job runs no
-# upload step, so a superseded census loses the artifact it exists to produce.
-# Dispatch a census into a quiet window and leave it alone until it lands.
+# Concurrency is per-job (not workflow-level): corpus-stats cancels a superseded
+# run of itself, while a metrics refresh or a labeling run must never be
+# cancelled mid-PR (or mid-agent) by an unrelated analysis dispatch. The census
+# and text-coverage each take their own never-cancelled group: a cancelled job
+# runs no upload step, and the artifact is what those modes exist to produce.
+# All the analysis jobs are read-only, so overlap costs nothing.
 # The labeling mode's two jobs take separate groups: they are already sequenced
 # by `needs`, and a shared group would let a second dispatch's extract slip
 # between the first dispatch's extract and its labeler.
@@ -440,11 +447,22 @@ jobs:
           # census's does. The step summary gets only the part above the
           # ledgers, which on a large corpus would overflow the page.
           uv run fedcourts corpus-info --text-coverage > "$out"
+          summary="$RUNNER_TEMP/text-coverage-summary.txt"
+          awk '/^empty text \(|^no petition, queued \(/{exit} {print}' "$out" > "$summary"
+          # Fail closed on the page: the summary is readable without login,
+          # the artifact is not, so the ledgers must never land here. The
+          # header block is a few KB; anything larger means the truncation did
+          # not engage (a renamed ledger header), and the page gets a pointer
+          # instead of the ids. A test pins the header spellings against the
+          # CLI so the sentinel cannot silently drift.
+          if [ "$(wc -c < "$summary")" -gt 16384 ]; then
+            echo "(report too large for the page — read the text-coverage artifact)" > "$summary"
+          fi
           {
             echo "### Document text coverage"
             echo
             echo '```'
-            awk '/^empty text \(|^no petition, queued \(/{exit} {print}' "$out"
+            cat "$summary"
             echo '```'
             echo
             echo "The case-id ledgers are in the run's \`text-coverage\` artifact."
@@ -456,11 +474,14 @@ jobs:
           name: text-coverage
           path: ${{ runner.temp }}/text-coverage.txt
           if-no-files-found: error
-          # The worklists have to outlive the run page they are first read
-          # beside: the OCR pass and the backfill are dispatched later, from
-          # these ids, and the report's own `text source:` line says which
-          # store state it measured.
-          retention-days: 90
+          # The one-day window every analytics run artifact rides: this
+          # repository is public, so the artifact is downloadable by any
+          # logged-in user for as long as it exists, and the ledgers name
+          # queued dockets — the compilation-extent inventory in
+          # docs/security.md bounds them all the same way. Re-reading after
+          # the day is a re-dispatch: the report is deterministic over the
+          # blob its own `text source:` line names.
+          retention-days: 1
 
   metrics-refresh:
     # Runs on the weekly schedule, or on dispatch with mode=metrics-refresh —
