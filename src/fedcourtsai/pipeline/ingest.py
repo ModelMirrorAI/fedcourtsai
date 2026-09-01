@@ -1245,13 +1245,27 @@ def sampled_block_is_enumerated(
     about petitions and not about denials: a stored grant in the block is a
     petition the corpus observes, whatever the walk's reason for keeping it.
     """
+    return stored_block_neighbours(serials, cell, serial) >= _ENUMERATED_BLOCK_MIN_KEPT
+
+
+def stored_block_neighbours(
+    serials: Mapping[tuple[int, str], frozenset[int]], cell: tuple[int, str], serial: int
+) -> int:
+    """How many of a serial's ``2 * _SAMPLE_BLOCK_SPAN`` neighbours the live slice holds.
+
+    The occupancy :func:`sampled_block_is_enumerated` thresholds, named on its own
+    because a ledger wants the number where the verdict wants the boolean: a
+    repair that prints each row's occupancy shows how far from the threshold the
+    block sat, which ``False`` cannot. One definition of the window serves both,
+    so the ledger and the verdict can never disagree about which serials a block
+    reaches over.
+    """
     neighbourhood = serials.get(cell, frozenset())
-    kept = sum(
+    return sum(
         1
         for near in range(serial - _SAMPLE_BLOCK_SPAN, serial + _SAMPLE_BLOCK_SPAN + 1)
         if near != serial and near in neighbourhood
     )
-    return kept >= _ENUMERATED_BLOCK_MIN_KEPT
 
 
 def legacy_denial_sample_weight(

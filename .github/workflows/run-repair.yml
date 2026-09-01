@@ -61,6 +61,7 @@ on:
           - response-backfill
           - merits-phantom-removal
           - disposition-convergence
+          - sampled-frame-weight-repair
           - regrade-stale
       repair_mode:
         description: "dry-run prints the pass's ledger and writes nothing for the pass itself; apply writes and pushes; prerequisites apply either way — see docs/data-pipeline.md, Maintenance passes."
@@ -157,6 +158,8 @@ jobs:
             disposition-convergence)
               bound_flag="--max-relabels"; bound_required_on_apply=1
               accepted_options="include-scored" ;;
+            sampled-frame-weight-repair)
+              bound_flag="--max-repairs"; bound_required_on_apply=1 ;;
             regrade-stale)
               target_kind="cells" ;;
             *)
@@ -283,7 +286,7 @@ jobs:
     # pass reaches them only by being named here. A deny-list would hand every
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
-    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","merits-phantom-removal","disposition-convergence"]'), inputs.repair) }}
+    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) }}
     # Join the repo-wide corpus-writer lock: one writer at a time across
     # run-pull, run-seed and this bench. cancel-in-progress:false so a
     # dispatch queues behind a running window rather than cancelling it.
@@ -295,7 +298,7 @@ jobs:
     # run's own real pass — before ever being skipped. The condition is the
     # `if:` above, repeated because no context available here can hold it once.
     concurrency:
-      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","merits-phantom-removal","disposition-convergence"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     # Headroom over the largest pass (30m) plus setup, the dedupe prerequisite
@@ -1125,6 +1128,92 @@ jobs:
           git commit -m "repair: converge corpus (disposition labels)"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "disposition-label pointer"
+
+      # Restore the derived sampling weight on the legacy denial-sampling frame's
+      # latched-down rows: grid denials genuinely inside sampled ranges that a
+      # channel writing with certainty min-latched to 1, so the nine petitions
+      # each stands for are represented by nobody. The population and the
+      # magnitudes it moves are pre-registered in `docs/freeze-record.md`, which
+      # is what makes this a deliberate re-weighting of the frame rather than a
+      # convergence sweep: it moves published weighted figures, so the dry-run
+      # ledger is read by a maintainer against that entry before any write.
+      #
+      # The write is a direct UPDATE that bypasses the column's MIN latch — the
+      # stored weight only ever latches downward, an inclusion probability only
+      # ever learned toward certainty — so the same 1 -> 10 routed through the
+      # upsert path would report success having changed nothing. The guard that replaces the latch is the command's own
+      # and is narrower than it: a row whose block the corpus now stores row by
+      # row derives 1 and is never selected, so the pass cannot invent a petition
+      # the corpus already counts. Rows the rule reaches OUTSIDE the registered
+      # cells are reported and left alone — a different population needs its own
+      # entry — which is what makes a widened predicate visible in the ledger.
+      #
+      # Convergence is witnessed inside the command rather than by a grep here:
+      # the apply re-runs its own selection and exits non-zero if anything
+      # remains, so a write that reached fewer rows than the ledger named stops
+      # the job before the blob is pushed. Corpus-only, so a pointer-only commit
+      # and no fetch/ff-only — nothing here reads committed `data/`.
+      - name: Repair the sampled-frame weights
+        if: ${{ inputs.repair == 'sampled-frame-weight-repair' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Local, like the docket-marking convergence: an indexed read of the live
+        # slice and a bounded UPDATE against the pulled blob, plus the blob push.
+        # No content-store read at all — every column the rule reads is in the
+        # index. Sized for an apply, which selects three times: the dry-run
+        # ledger, the write's own selection, and the convergence witness after it.
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # Validate the bound before anything else, including the corpus
+          # guard: a dispatch that cannot legally apply should say so in
+          # seconds, not after a full scan. The command refuses an unbounded
+          # apply on its own too; this refusal is the one with the maintainer's
+          # procedure in it. `Validate the repair selector` duplicates it word
+          # for word so a bad dispatch dies before any credential is minted;
+          # this copy is the one of record, because the step has to be safe on
+          # whatever reaches it. The refusal names the pass through `${REPAIR}`
+          # rather than a literal so the two copies are identical as text, not
+          # merely equivalent once expanded.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to repair.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the sampled-frame weight repair"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Dry-run first, into the summary: the per-row ledger — each case's
+          # old and new weight, its walk cell and its block's occupancy, beside
+          # any row the rule reaches outside the registered cells — is what the
+          # apply is decided against, and it must outlive the step log. It is
+          # also the record of a re-weighting that moves published figures, so
+          # it is written down whichever mode ran. (On an apply this run is a
+          # receipt, not a reading: nobody reads it before the write.)
+          uv run fedcourts repair-sampled-frame-weights 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts repair-sampled-frame-weights --apply \
+            --max-repairs "${REPAIR_BOUND}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Sampled-frame weights already repaired; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: converge corpus (sampled-frame weights)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "sampled-frame-weight pointer"
 
       # Trailing, NON-BLOCKING data-validation, as on run-pull's and run-seed's
       # writer jobs: produce the correctness verdict on the now-current corpus

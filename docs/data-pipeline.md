@@ -1077,6 +1077,7 @@ population and apply against another.
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
+| `sampled-frame-weight-repair` | `repair-sampled-frame-weights` | `--max-repairs` | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
@@ -1121,6 +1122,30 @@ trade of failure history for a ledger with no dangling phantom paths. It does
 **not** inherit the every-mode bound rule, because it takes on no backlog — what
 it grows is the removal set, which the apply's own bound already sizes.
 
+**One pass re-weights the frame rather than converging it.**
+`sampled-frame-weight-repair` restores the derived sampling weight on grid
+denials a certainty-asserting channel min-latched to 1. Where the other passes
+move which bucket a row falls in, this one moves the **weights themselves**, so
+every weighted denominator that admits IFP rows moves with it — the statpack's
+and docket pack's weighted sections, the ops digest's always-deny floor, and one
+committed prose figure in [outcome-decomposition.md](outcome-decomposition.md).
+Its population, its direction and its expected magnitudes are therefore
+pre-registered in [freeze-record.md](freeze-record.md), and the dry-run ledger is
+read **against that entry** rather than on its own: the entry licenses
+magnitudes, never membership, so a row the command reports as outside the
+registered cells is a different population needing its own entry and the pass
+leaves it alone. The apply witnesses itself — it re-runs its own selection over
+the written corpus and exits non-zero if anything remains — because a direct
+`UPDATE` of a column no downstream artifact recomputes moves the blob whether or
+not it moved the right rows. Read the ledger, and dispatch the apply with the
+count read off it — then finish the job: the weekly metrics refresh regenerates
+the statpack, but `metrics/docket.{json,md}` is on demand (`fedcourts docket`)
+and the whole-slice IFP-inclusive figure in
+[outcome-decomposition.md](outcome-decomposition.md) is hand-written, so a stale
+copy of either looks exactly like a current one. No scored number moves, and
+that is a property of the population rather than a hope: every scored-segment
+cut is gated on a paid serial and these rows are IFP.
+
 **Prerequisites the bench brings along.** Every corpus pass is gated on a
 `dedupe-live-rows --apply` prerequisite that runs first and must succeed: any
 docket-number spelling that defeats the channels' identity join leaves a twin
@@ -1143,7 +1168,7 @@ failed prerequisite means the dispatched pass cannot be trusted to read the
 right rows, and a green run that quietly did nothing is the worst outcome a
 repair bench can produce.
 
-**Least privilege per pass.** The seven corpus passes run in a job holding the
+**Least privilege per pass.** The eight corpus passes run in a job holding the
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
