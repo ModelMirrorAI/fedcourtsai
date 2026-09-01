@@ -1,0 +1,107 @@
+{
+  "big_case_rationale": "Capital case resolving an entrenched 4-circuit split on AEDPA's successive-petition gatekeeping; consequential for habeas practice and death-row litigation, but procedurally technical and of moderate public salience.",
+  "big_case_score": 0.42,
+  "case_id": "scotus/73281043",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.87
+    }
+  ],
+  "confidence": 0.65,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cutoff": "2026-06-16",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-06-16",
+    "snapshot_provenance": "truncated",
+    "term": 2025
+  },
+  "created_at": "2026-09-01T02:47:00Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/73281043/record/snapshots/2026-06-16.json",
+  "judgment": "reversed",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.87,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:eba87d4c4f66e8d9270d72f5e2809de4cce384d2a16451f6ad1e24bf60115774",
+    "label": "proc-v5",
+    "pipeline_sha": "5aee44cdc02a75de18787858c515a91c46baba75",
+    "stamped_at": "2026-09-01T02:49:37.375540Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260901T014205Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority rests on the text of 28 U.S.C. \u00a7 2244(b)(2)(A): \"previously unavailable\" modifies the new rule of constitutional law itself, so availability is a legal question about whether the rule had been announced and could have been invoked in the earlier federal habeas petition \u2014 not whether a claim based on it would then have succeeded on the facts or under circuit precedent. It rejects the Fifth Circuit's In re Cathey \"some possibility of merit\" test as an atextual futility exception to AEDPA's gatekeeping bar, reasoning \u2014 in line with Jones v. Hendrix and Bousley v. United States \u2014 that unfavorable precedent or then-weak evidence does not render a legal rule unavailable, and holds that because Atkins v. Virginia predated Johnson's initial federal petition, his intellectual-disability claim does not rely on a previously unavailable new rule."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority announces a categorical rule rather than a fact-bound one: under \u00a7 2244(b)(2)(A) \u2014 and by its near-identical language \u00a7 2255(h)(2) \u2014 a new rule's prior availability is assessed purely as a matter of law (whether this Court had announced the rule before the earlier petition was filed), with no case-specific inquiry into the evidence then available, the claim's likelihood of success, or the futility of raising it; the holding governs all successive-petition gatekeeping, not merely Atkins claims or Johnson's circumstances."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

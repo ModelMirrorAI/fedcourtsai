@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000274",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "WebSearch", "WebFetch"],
+  "helpful": [
+    "statpack interim section published a strictly-prior pooled baseline that actually cleared the floor for an OT2026 application (31/296), so the cell had a real anchor",
+    "fedcourts query --include-applications surfaced a same-week granted substantive application (26A203) with ladder signals, a useful live comparable",
+    "frozen context's response_requested/referred_to_court/amicus_briefs made the increment claims unambiguous to state"
+  ],
+  "gaps": [
+    "supremecourt.gov returns 403 to WebFetch, so the filed response and application PDFs on the Court's own docket are unreadable; the government's position - the single most decisive fact for this cell - had to be inferred from trade press. A document-fetch path for supremecourt.gov DocketPDF links (or provisioning the application/response text under record/documents/ for interim cells) would materially improve interim predictions",
+    "no record/documents/ text was provisioned for this application docket, unlike cert cells"
+  ],
+  "notes": "CourtListener MCP was available but not needed: the application is a SCOTUS-only docket and web search resolved the underlying CA4 litigation faster."
+}

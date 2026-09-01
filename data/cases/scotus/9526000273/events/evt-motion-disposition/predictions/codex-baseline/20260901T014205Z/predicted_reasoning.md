@@ -1,0 +1,9 @@
+# Forecast
+
+The application will most likely be referred by Justice Thomas to the full Court and denied in a short order before the September 16 execution date. The probability that the disposing entry is an unqualified grant is 8%; the likeliest disposition is denial.
+
+The application presents irreparable harm in its strongest form, and the state trial court itself found one parole-board member conflicted because she had participated in Humphreys's prosecution. But four votes for certiorari and a majority for reversal remain unlikely. Georgia plans to proceed with four unconflicted members under an express quorum statute. The federal due-process theory asks the Court to extend the narrow constitutional floor recognized in *Ohio Adult Parole Authority v. Woodard* beyond denial of access or similarly arbitrary conduct. The State also has substantial vehicle arguments that the federal due-process and equal-protection theories were not presented below and that the judgment rests on state law.
+
+The record shows no formal request for a response to this stay application, no referral, and no amicus briefs at prediction time. Georgia nevertheless filed an unrequested response on August 31, so a later response request is almost unnecessary; the probability of that increment is 1%. Because this is a capital execution application with both sides' positions available, referral to the full Court is highly likely (94%) even though relief is not. The compressed schedule and case-specific procedural dispute make a first amicus filing possible but unlikely (8%).
+
+The Court is likely to dispose of the application after referral without further briefing or separate reasoning. Conditional on the unlikely grant of relief, the stay would preserve the status quo while the linked certiorari petition is considered rather than decide the validity of Georgia's clemency procedure itself.

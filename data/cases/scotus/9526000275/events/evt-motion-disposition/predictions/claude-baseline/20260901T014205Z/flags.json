@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9526000275",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "Forward cell; public pre-decision reporting (board 2-2 deadlock, signature counts, Michigan Supreme Court refusal, and the Sept 3/4 ballot deadlines) was decisive forward signal for the disposition and timing forecast — disclosed per the forward-mode hygiene note. No disposition of this application exists or was retrieved.",
+      "event_id": "evt-motion-disposition"
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "No record/documents/ text was provisioned for this application, and direct fetches of the supremecourt.gov application PDF and an Election Law Blog analysis both returned HTTP 403, so the application's own arguments were read only through the docket-entry title and news coverage.",
+      "event_id": "evt-motion-disposition"
+    }
+  ]
+}

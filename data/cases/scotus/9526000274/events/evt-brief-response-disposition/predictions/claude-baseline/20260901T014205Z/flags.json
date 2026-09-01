@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000274",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-brief-response-disposition",
+      "message": "Forward-mode retrieval hygiene note: pre-snapshot public information was decisive in this forecast - NRSC v. FEC (decided June 30, 2026) and press coverage reporting FCC/DOJ support for the applicants' stay effort. The US/FCC response PDF itself was unreadable (supremecourt.gov 403s the fetcher), so the government's position is inferred from secondary coverage, not read from the filing; reasoning.md states the discount if that inference is wrong. No outcome-revealing material for 26A274 was sought or surfaced (none exists - the requested response is due Sept 3)."
+    }
+  ]
+}

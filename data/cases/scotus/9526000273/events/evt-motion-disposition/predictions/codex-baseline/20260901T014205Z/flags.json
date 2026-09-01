@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000273",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The arrival event has opened_at=null and the frozen context has cutoff=null with snapshot_provenance=as-stored. The supplied snapshot therefore includes Georgia's August 31 response after the August 28 application rather than a clean arrival-moment information set. This prediction uses the frozen state actually supplied."
+    }
+  ]
+}

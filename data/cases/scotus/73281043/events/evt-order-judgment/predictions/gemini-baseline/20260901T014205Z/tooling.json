@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73281043",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "read_file", "list_directory"],
+  "helpful": ["statpack merits section", "CourtListener MCP search for docket overview"],
+  "gaps": ["Retrieval of unpublished opinions via docket numbers can sometimes be sparse on CourtListener."],
+  "notes": "The prompt contract and statpack were clear on baseline calculations."
+}

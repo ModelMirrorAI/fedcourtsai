@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281043",
+  "run_id": "20260901T014205Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed statpack",
+    "CourtListener MCP opinion search",
+    "CourtListener MCP document search"
+  ],
+  "helpful": [
+    "The provisioned petition, opposition, and questions presented supplied the complete pre-merits dispute.",
+    "The merits statpack provided the stage-correct strictly-prior anchor.",
+    "CourtListener document search made closely related AEDPA holdings and vote lineups available without retrieving this case."
+  ],
+  "gaps": [
+    "No merits briefs or argument materials existed at the grant-moment cutoff."
+  ],
+  "notes": "The local uv cache path was read-only, but redirecting uv's cache to /tmp restored the repository CLI for validation."
+}
