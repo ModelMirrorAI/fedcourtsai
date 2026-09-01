@@ -388,10 +388,12 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   and a heading whose capture the deriver will not vouch for stores the empty
   row. The derived row carries the petition's marker, on both the ingest and
   the backfill path: text cut out of an OCR reading is an OCR reading. One
-  refusal rides with it, the convergence sweep's: an empty derivation never
-  replaces a *stored* question. A full-length question beside a scanned petition
-  came from a superseded filing, and emptying it is as likely to be this pass
-  misjudging as a bad row. The recovered row's fetch date moves to the day it
+  refusal rides with it, the convergence sweep's in a stricter form: an empty
+  derivation never replaces a *stored* question, at any length rather than the
+  sweep's character floor. A question stored beside a scanned petition came from
+  a superseded filing, and emptying it is as likely to be this pass misjudging
+  as a bad row — and unlike the sweep, whose whole subject is the derived row,
+  this pass is here for the petition and has no business deciding that one. The recovered row's fetch date moves to the day it
   was re-fetched, because a fetch happened, and that is visible in one place
   downstream — provisioning places a document by its entry date and falls back
   to the fetch date where there is none, so such a petition can fall outside a

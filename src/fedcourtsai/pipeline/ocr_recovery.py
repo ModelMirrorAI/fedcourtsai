@@ -599,9 +599,11 @@ def recover_scanned_petitions(
     reached. The derived questions-presented row is additive under one more
     guard: the deriver stores the empty row where a heading has nothing usable
     under it, and a *stored* non-empty row is never replaced by that reading —
-    the same refusal the convergence sweep makes, because a full-length question
-    beside a scanned petition came from a superseded filing and emptying it is as
-    likely to be this pass misjudging as a bad row.
+    the convergence sweep's refusal in a stricter form, at any length rather than
+    that sweep's character floor. A question stored beside a scanned petition
+    came from a superseded filing, and emptying it is as likely to be this pass
+    misjudging as a bad row; the sweep's whole subject is the derived row, while
+    this pass is here for the petition and has no business deciding that one.
 
     The recovered row's ``fetched_at`` moves to ``today``, unlike the stored-text
     convergence sweeps, because a fetch and a re-read did happen. That is
