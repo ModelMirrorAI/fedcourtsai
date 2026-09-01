@@ -346,17 +346,19 @@ class BacklogEntry:
 
 @dataclass(frozen=True)
 class EvaluateBacklog:
-    """What one backlog derivation found, before anything is queued or stamped.
+    """What one backlog derivation found, before anything is queued.
 
-    Separating the derivation from its consumption is what lets the same scan
-    serve two callers with different authority over the corpus of record: the
-    pull seams queue *and* stamp, while the evaluate stage's own schedule only
-    reads. That schedule runs outside the writer jobs, so a stamp it wrote
-    could never be pushed — it would mutate the runner's pulled copy and die
-    with it — and it needs none (see :func:`derive_evaluate_backlog`).
+    Separating the derivation from its consumption keeps the scan itself on
+    the read seam regardless of who calls it: the pull seams queue what it
+    finds into the run-log count, while the evaluate stage's own schedule
+    fans out over it — and neither stamps. The schedule runs outside the
+    writer jobs, so a stamp it wrote could never be pushed — it would mutate
+    the runner's pulled copy and die with it — and it needs none (see
+    :func:`derive_evaluate_backlog`).
 
-    ``day`` is the date the derivation ran under, carried so a caller that does
-    stamp writes the same value the debounce filtered on.
+    ``day`` is the date the derivation ran under, carried so the debounce
+    comparison and any caller that does stamp (none standing) agree on the
+    value.
     """
 
     entries: tuple[BacklogEntry, ...]
@@ -392,12 +394,13 @@ def derive_evaluate_backlog(
     throttle. ``cap`` bounds model spend and PR volume, not request rate: each
     queued case fans out one cell per not-yet-graded evaluator. Candidates sort
     by ``evaluate_queued_at`` and a case already stamped with ``today`` is held
-    back, so a caller that stamps drains its backlog stalest-first and skips
-    what it queued this cycle. The debounce runs one way only: it holds a
-    scheduled derivation back from a case the pull lane stamped this morning,
-    while a stamp-free caller leaves nothing for the pull lane to skip on, and
-    orders on a key it never advances — the same head of the queue re-derives
-    each cycle until the ledger moves under it.
+    back — the correct semantics for any caller that stamps, though no standing
+    lane does: every production caller is stamp-free, so the column is a
+    historical rotation record, the hold is vacuous in practice, and the same
+    head of the queue re-derives each cycle until the ledger moves under it.
+    (A pull-lane stamp here would starve the scheduled lane: a pull window
+    precedes the evaluate slot daily, and the scheduled lane is the only actor
+    that grades what this scan finds.)
 
     The connection is a :class:`~fedcourtsai.corpus.ReadConnection`, which keeps
     this scan on the read seam: every read here — ``iter_resolved_events``,
@@ -405,8 +408,7 @@ def derive_evaluate_backlog(
     pass a ranged connection and no writer-only API (``commit``,
     ``stamp_evaluate_queued``) is reachable through the parameter. It is a
     one-method protocol, not a proof: what actually keeps the corpus of record
-    intact is that write credentials live only in the writer jobs. Stamping is
-    the caller's, on its own concrete connection (:func:`evaluate_backlog`).
+    intact is that write credentials live only in the writer jobs.
 
     ``max_attempts`` is the poison-pill backstop the daily debounce lacks (counted
     from the committed ``attempt.json`` failure facts, see
@@ -429,8 +431,8 @@ def derive_evaluate_backlog(
     ``already_queued`` is the case ids a caller's poll seams queued this cycle,
     so the deriver does not double-queue a case the fresh-resolution path just
     covered — case-granular, so a case queued this cycle for one event defers
-    its *other* owed events to the next cycle. That is fine: they are debounced
-    anyway, and re-derived stalest-first later. For SCOTUS, where
+    its *other* owed events to the next cycle. That is fine: the very next
+    derivation re-presents them. For SCOTUS, where
     ``evt-petition-disposition`` is typically the sole event, the case rarely
     has other owed events at all.
     """
@@ -511,16 +513,17 @@ def evaluate_backlog(
     already_queued: set[str] | None = None,
     today: date | None = None,
 ) -> None:
-    """Queue the owed gradings a pull cycle found, and stamp what it queued.
+    """Report the owed gradings a pull cycle found, without stamping them.
 
     The pull lane's consumption of :func:`derive_evaluate_backlog`: it appends
     to ``queues.evaluate`` (the same list the poll seams feed, so the workflow
-    consumes one queue), counts the additions in ``evaluate_from_backlog``, and
-    stamps ``evaluate_queued_at`` on the queued cases so the next cycle's
-    stalest-first ordering rotates past work already handed off. The stamp is a
-    corpus write, which is why it lives here rather than in the deriver: this
-    runs inside the pull writer job, the one place that holds corpus-write
-    credentials.
+    consumes one queue) and counts the additions in ``evaluate_from_backlog``.
+    The queue is a run-log count, nothing more — no trigger issue is filed and
+    no ``evaluate_queued_at`` stamp is written. Deliberately so: the scheduled
+    evaluate lane holds off a case stamped *today*, and it is the only actor
+    that grades, so a pull-lane stamp here would rotate owed gradings away
+    from the one lane that can clear them (a pull window precedes the evaluate
+    slot every day) while nothing acts on this queue in their place.
     """
     # Short-circuit a disabled deriver before opening anything: `corpus.connect`
     # creates the database and its schema, which a cap of 0 should not provoke.
@@ -540,10 +543,6 @@ def evaluate_backlog(
     for entry in derived.entries:
         queues.evaluate.append(entry.as_queue_entry())
         queues.evaluate_from_backlog += 1
-
-    if derived.case_ids:
-        with corpus.connect(corpus_db_path) as conn:
-            corpus.stamp_evaluate_queued(conn, derived.case_ids, derived.day)
 
 
 #: How stale a case's corpus row may be and still be minted from by

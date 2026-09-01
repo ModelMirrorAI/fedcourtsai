@@ -457,14 +457,14 @@ class CorpusRow(BaseModel):
     )
     evaluate_queued_at: date | None = Field(
         default=None,
-        description="The last date the evaluate backlog deriver routed this case "
-        "at the evaluate seam; None if never. The evaluate twin of "
-        "`predict_queued_at`, and owned the same way — the queue routing, never "
-        "an ingestion channel. Debounces the backlog re-derivation to daily. It "
-        "carries only scheduling; the queue itself is re-derivable from the git "
-        "ledger (resolved event + committed prediction + no evaluation), so "
-        "losing this stamp costs at most a duplicate trigger issue, never a "
-        "grading.",
+        description="The last date any caller stamped this case at the evaluate "
+        "seam; None if never — and no standing lane stamps it. The evaluate "
+        "twin of `predict_queued_at`, and owned the same way — the queue "
+        "routing, never an ingestion channel. The deriver's daily debounce "
+        "reads it. It carries only scheduling; the queue itself is "
+        "re-derivable from the git ledger (resolved event + committed "
+        "prediction + no evaluation), so losing it costs at most a duplicate "
+        "round, never a grading.",
     )
     merits_judgment: str | None = Field(
         default=None,
@@ -2763,12 +2763,15 @@ def set_distribution_count(conn: sqlite3.Connection, counts: Iterable[tuple[str,
 
 
 def stamp_evaluate_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
-    """Record that the backlog deriver routed each case at the evaluate seam on ``day``.
+    """Record that a caller routed each case at the evaluate seam on ``day``.
 
-    The evaluate twin of :func:`stamp_predict_queued` and its sole writer analogue.
-    Overwrites forward — "most recent evaluate-routing date", which the deriver's
-    daily-retry debounce compares against today so a case queued today is not
-    re-queued until tomorrow.
+    The evaluate twin of :func:`stamp_predict_queued`. Overwrites forward —
+    "most recent evaluate-routing date", which the deriver's daily debounce
+    compares against today. No standing lane stamps it: the scheduled evaluate
+    lane is read-only and the pull lane deliberately leaves it alone (a stamp
+    the day of the evaluate slot would hold the only grading lane off the
+    case). No caller today; kept as the column's writer for a future
+    maintenance pass, and tests pin the reader's semantics through it.
     """
     with conn:
         conn.executemany(

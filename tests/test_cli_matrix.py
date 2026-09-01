@@ -2616,9 +2616,9 @@ def test_the_backlog_mode_writes_no_debounce_stamp(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The mode must not write the corpus at all: it runs outside the writer jobs,
-    which are the only holders of corpus-write credentials. The pull lane's
-    `evaluate_queued_at` stamp is the write it would otherwise inherit from the
-    shared deriver, so its absence is asserted directly, and the stamp function is
+    which are the only holders of corpus-write credentials. The shared deriver's
+    `evaluate_queued_at` writer API is the write it would otherwise inherit,
+    so its absence is asserted directly, and the stamp function is
     made fatal to catch a call that somehow wrote nothing."""
     env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
     _resolve(env, "scotus/24001", "scotus/24002")

@@ -221,9 +221,10 @@ evaluate:
   # those gradings. Unlike the selection sweep this costs no network (git ledger +
   # corpus only), so the cap bounds model spend and PR volume, not request rate:
   # each queued case fans out one cell per not-yet-graded evaluator. It bounds
-  # both consumers of the deriver: the pull cycle, which drains stalest first
-  # under a daily evaluate_queued_at debounce it writes itself, and the evaluate
-  # stage's own trigger-free derivation, which writes no stamp and so re-presents
+  # both consumers of the deriver — the pull cycle's run-log reading and the
+  # evaluate stage's own trigger-free derivation. Neither writes the
+  # evaluate_queued_at stamp (a pull-window stamp would hold the grading lane
+  # off the owed cases), so each re-presents
   # the same head of the queue every run until the ledger moves under it. On that
   # second lane this cap and the caller's cadence are the only pacing there is.
   backlog_cases_per_cycle: 25

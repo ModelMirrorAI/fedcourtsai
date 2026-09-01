@@ -8771,18 +8771,19 @@ def _evaluate_backlog_cases() -> list[CaseRequest]:
     :func:`fedcourtsai.pipeline.pull.derive_evaluate_backlog`, whose caps this
     takes from ``tracking.yaml``'s ``evaluate`` section).
 
-    Stamp-free, deliberately. The pull lane's use of the same deriver writes
-    ``evaluate_queued_at`` to debounce itself, but that is a write to the corpus
-    of record, and those credentials live only in the writer jobs — a scheduled
-    evaluate run has none, so a stamp it made would die with the runner. It
-    needs none either: the fan-out's already-graded gate is the idempotency, and
-    it reads the same committed ledger the deriver does. Re-deriving an
+    Stamp-free, deliberately — and so is every other caller: the corpus-write
+    credentials live only in the writer jobs (a stamp made here would die with
+    the runner), and the pull lane's own use of the deriver stamps nothing
+    either, since a stamp the day of the evaluate slot would hold this lane —
+    the one that grades what the deriver finds — off exactly the owed cases.
+    No stamp is needed: the fan-out's already-graded gate is the idempotency,
+    and it reads the same committed ledger the deriver does. Re-deriving an
     unchanged backlog re-mints nothing once the gradings are committed, because
     a graded cell is dropped; a cell that has *not* been graded is work still
-    owed and should re-mint. Two consequences to hold in view. The debounce is
-    one-directional — this lane honours a stamp the pull lane wrote, but leaves
-    none of its own, so it cannot hold the pull lane off a case it just queued.
-    And the gate reads *committed* state, so it cannot see a run whose collect
+    owed and should re-mint. Two consequences to hold in view. The deriver's
+    debounce holds off only a case some caller stamped *today*, which no
+    standing lane does — the hold is vacuous in practice. And the gate reads
+    *committed* state, so it cannot see a run whose collect
     PR has not merged; what bounds a second derivation firing into that window
     is the workflow's concurrency group, not this gate.
 
