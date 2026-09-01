@@ -1055,14 +1055,22 @@ def test_run_seeds_early_validator_duplicates_every_late_refusal_verbatim() -> N
 # input refusals (the questions-presented backfill's convergence check). A new
 # pass that refuses a selector field belongs here; nothing enforces that but
 # this comment.
-REPAIR_PASS_STEPS = (
-    ("repair", "Re-derive the distribution counts"),
-    ("repair", "Converge stored docket markings"),
-    ("repair", "Backfill the dated response signals"),
-    ("repair", "Remove ungranted merits phantoms"),
-    ("repair", "Converge disposition labels"),
-    ("repair", "Repair the sampled-frame weights"),
-    ("regrade", "Re-grade named cells"),
+#
+# A step may fail at run time as well as refuse its input — the OCR recovery
+# verifies its own write — so each entry carries the substrings of its
+# **run-time** failures, which have no up-front copy by construction: nothing in
+# a credential-free validation job can know whether a content-store write
+# landed. They are named rather than pattern-matched, and each is asserted to
+# actually appear, so the exemption cannot outlive the check it exempts.
+REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("repair", "Re-derive the distribution counts", ()),
+    ("repair", "Converge stored docket markings", ()),
+    ("repair", "Backfill the dated response signals", ()),
+    ("repair", "Recover scanned petitions by OCR", ("apply did not converge",)),
+    ("repair", "Remove ungranted merits phantoms", ()),
+    ("repair", "Converge disposition labels", ()),
+    ("repair", "Repair the sampled-frame weights", ()),
+    ("regrade", "Re-grade named cells", ()),
 )
 
 
@@ -1078,6 +1086,10 @@ def test_run_repairs_selector_gate_duplicates_every_pass_refusal_verbatim() -> N
     same `::error::` text. Let one copy drift and the same mistake reports
     differently depending on where it was caught, which is worse than having
     caught it once.
+
+    A step's **run-time** failures are held apart (`REPAIR_PASS_STEPS`): they
+    report what a write did, which the up-front gate cannot know and must not
+    claim to.
     """
     (early,) = [
         s
@@ -1086,9 +1098,20 @@ def test_run_repairs_selector_gate_duplicates_every_pass_refusal_verbatim() -> N
     ]
     early_errors = _error_lines(str(early["run"]))
     assert early_errors, "the up-front selector gate refuses nothing"
-    for job, owner in REPAIR_PASS_STEPS:
+    for job, owner, runtime in REPAIR_PASS_STEPS:
         late_errors = _error_lines(str(_named_step("run-repair.yml", job, owner)["run"]))
         assert late_errors, f"{owner}: refuses nothing, so the pairing is vacuous"
+        for marker in runtime:
+            matched = {line for line in late_errors if marker in line}
+            assert matched, (
+                f"{owner}: no `::error::` line contains {marker!r} — the run-time "
+                "failure this entry exempts is gone, so the exemption is stale"
+            )
+            late_errors -= matched
+        assert late_errors, (
+            f"{owner}: every refusal it emits is exempted as a run-time failure, "
+            "so the pairing covers nothing"
+        )
         drifted = late_errors - early_errors
         assert not drifted, (
             f"{owner}: refusal text absent from `Validate the repair selector` — "

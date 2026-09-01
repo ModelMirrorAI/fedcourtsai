@@ -289,9 +289,13 @@ against a measured share, not a schedule.
 
 ### Contract for the recovery pass
 
-What a pass must hold to. The derivation marker it records and the extractor
-seam it walks pages through are in place; the pass itself, and the `run-repair`
-step that installs tesseract for it, are not built.
+What a pass holds to. Built: the derivation marker, the extractor seam, the pass
+itself (`fedcourts ocr-recover-petitions`) and the `run-repair` `ocr-recovery`
+selector value whose step installs the binaries for it. Two things the contract
+did not settle, decided in the building and recorded here: the page raster is
+poppler's `pdftoppm`, shelled to like tesseract and installed beside it, so the
+pass still adds no Python dependency; and a dry run does one thing more than
+enumerate, below.
 
 - **Where it runs.** As a pass on `run-repair` — a `repair` selector value, not
   a workflow of its own. The writer jobs are the only place a production corpus
@@ -313,7 +317,18 @@ step that installs tesseract for it, are not built.
   itself. The PDF is re-fetched by the row's stored
   URL, which for a petition is the single link that was fetched:
   supremecourt.gov, free and politeness-capped, so the pass spends none of the
-  CourtListener budget.
+  CourtListener budget. The population is walked case by case rather than
+  queried, because under the corpus split the document text lives in the content
+  store and the blob's `documents` table holds none of it — a SQL predicate over
+  that table reports an empty class against the corpus production reads.
+- **What its dry run also reads.** A small sample of the population (three by
+  default) re-fetched through the writer's own fetch path — the same client,
+  headers and retry posture the fetching lanes use — with each GET's status
+  reported and nothing kept. The apply's whole premise is that supremecourt.gov
+  serves a writer, and a cell's report of a 403 is evidence about a cell's fetch
+  path, not this one; making the dry run answer it is what keeps a slice from
+  being the experiment. Every status class is reported rather than raised, or
+  the question would be settled on one data point.
 - **What it does.** Walks the PDF's pages as the extractor does and OCRs a page
   **only** where that page's own text extraction yields nothing — a guard rather
   than a filter, since the population is documents that yielded nothing at all,
@@ -328,7 +343,12 @@ step that installs tesseract for it, are not built.
   extraction. Nor is a recovery overwritten later — the row keeps its URL, and
   both the poller and the Term walker re-fetch a kind only when its link
   changes; a genuinely superseding petition at a new URL is re-fetched and, if
-  it too is a scan, re-enters the class.
+  it too is a scan, re-enters the class. A candidate whose re-fetch fails, and
+  one whose pages OCR to nothing, are counted and named and nothing is written
+  for either: the stored row keeps its empty text, stays in the class, and
+  re-enters the next slice. That second case is the pass's one non-advancing
+  outcome, which is why the ledger reports it apart from the candidates a slice
+  never reached.
 - **What it records.** OCR output is *derived* text, lossy in a way pypdf output
   is not, so it must never read as a clean extraction. `CaseDocument.ocr_derived`
   is that marker: one flag per stored document, true where **any** of its text
@@ -355,7 +375,10 @@ step that installs tesseract for it, are not built.
   — and moves the pre-registered prompt digest, so it rides a re-bless; and the
   coverage read's count of what was repaired.
 - **What follows a recovery.** A recovered petition re-derives its
-  questions-presented row through the existing deriver, since such a row is
+  questions-presented row through the existing deriver, in the same write rather
+  than a second dispatch — the ingest path derives it inline for the same
+  reason, and a row left behind until someone remembers the backfill is a
+  petition whose questions read as absent — since such a row is
   written only where the petition has text. On OCR text that derivation keeps
   the two outcomes it has now: no recognizable heading stores no row at all,
   and a heading whose capture the deriver will not vouch for stores the empty

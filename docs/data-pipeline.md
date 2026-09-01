@@ -1075,6 +1075,7 @@ population and apply against another.
 | `rederive-distribution-parse` | `rederive-distribution-counts` | — (fixed in code) | parse label, **required in both modes** | — |
 | `normalize-docket-markings` | `normalize-docket-markings` | `--max-rewrites` | — | — |
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
+| `ocr-recovery` | `ocr-recover-petitions` | `--max-cases` (a slice, not a ceiling) | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
 | `sampled-frame-weight-repair` | `repair-sampled-frame-weights` | `--max-repairs` | — | — |
@@ -1085,7 +1086,16 @@ the scan runs unless it is a positive integer — blank, zero, negative, decimal
 and leading-zero alike. An unbounded apply would convert a widened predicate
 into a mass rewrite rather than a loud refusal, and each of these populations is
 finite, so a count above the one read means the predicate widened rather than a
-dirtier corpus. The distribution re-derivation is the exception that proves it:
+dirtier corpus. **The OCR recovery's bound is the one that means something
+else**: it is a *slice size*, and the pass takes the first that many candidates
+rather than refusing above them. What bounds the others is blast radius, which
+is why exceeding the read count is a refusal; what bounds this one is runner
+minutes, since each case costs a re-fetch and a page-by-page recognition, so a
+backlog is meant to clear across dispatches. The slice is self-advancing — a
+recovered petition leaves the class, so the next dispatch starts where this one
+ran out — with one exception the ledger names apart: a petition whose images OCR
+to nothing stays in the class and re-enters the next slice.
+The distribution re-derivation is the exception that proves it:
 its bound is fixed in code because the population's delta was measured before
 the surface existed, so moving it is a code change with the new basis stated
 beside it — which is why that pass *refuses* a `repair_bound` rather than
@@ -1168,7 +1178,20 @@ failed prerequisite means the dispatched pass cannot be trusted to read the
 right rows, and a green run that quietly did nothing is the worst outcome a
 repair bench can produce.
 
-**Least privilege per pass.** The eight corpus passes run in a job holding the
+
+**One pass brings a binary.** The OCR recovery renders a page with poppler's
+`pdftoppm` and reads it with `tesseract`, neither a Python dependency. They are
+installed by a step gated on that selector alone, from the runner image's own
+Ubuntu archive — no third-party repository and no added signing key — so the
+other dispatches never pay for them and no scheduled lane grows the dependency.
+That gating is the same reason the extractor takes its OCR call as an injected
+seam rather than importing one. The resolved versions are echoed into the run
+summary rather than pinned in the install: an exact apt pin goes stale the week
+the runner image rolls, and would fail the pass for a reason that has nothing to
+do with the corpus, so what a recovered text was read by is recorded by the run
+instead of promised by the workflow. An apply refuses where the binaries are
+absent, which is what keeps a failed install from reading as a converged class.
+**Least privilege per pass.** The nine corpus passes run in a job holding the
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
@@ -1199,6 +1222,14 @@ gh workflow run run-repair.yml --ref main \
   -f repair=normalize-docket-markings -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
   -f repair=normalize-docket-markings -f repair_mode=apply -f repair_bound=214
+
+# The OCR recovery's bound is a slice, so the number is what one dispatch
+# should spend rather than the class the dry run printed. Read its probe lines
+# first: they say what supremecourt.gov served the writer's own fetch path.
+gh workflow run run-repair.yml --ref main \
+  -f repair=ocr-recovery -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=ocr-recovery -f repair_mode=apply -f repair_bound=12
 
 # A pass with an option. `include-scored` demands the bound in BOTH modes, so
 # the dry run that decides the widening states it too.

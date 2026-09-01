@@ -59,6 +59,7 @@ on:
           - rederive-distribution-parse
           - normalize-docket-markings
           - response-backfill
+          - ocr-recovery
           - merits-phantom-removal
           - disposition-convergence
           - sampled-frame-weight-repair
@@ -152,6 +153,8 @@ jobs:
               bound_flag="--max-rewrites"; bound_required_on_apply=1 ;;
             response-backfill)
               bound_flag="--max-fills"; bound_required_on_apply=1 ;;
+            ocr-recovery)
+              bound_flag="--max-cases"; bound_required_on_apply=1 ;;
             merits-phantom-removal)
               bound_flag="--max-removals"; bound_required_on_apply=1
               accepted_options="include-failed-attempts" ;;
@@ -286,7 +289,7 @@ jobs:
     # pass reaches them only by being named here. A deny-list would hand every
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
-    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) }}
+    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) }}
     # Join the repo-wide corpus-writer lock: one writer at a time across
     # run-pull, run-seed and this bench. cancel-in-progress:false so a
     # dispatch queues behind a running window rather than cancelling it.
@@ -298,7 +301,7 @@ jobs:
     # run's own real pass — before ever being skipped. The condition is the
     # `if:` above, repeated because no context available here can hold it once.
     concurrency:
-      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     # Headroom over the largest pass (30m) plus setup, the dedupe prerequisite
@@ -309,9 +312,9 @@ jobs:
     environment: prod
     # Corpus-split flags (see run-pull): dual-write off unless CASESTORE_URL is
     # set; FEDCOURTS_CORPUS_SPLIT is the go-live switch (unset → '0' → off).
-    # The passes that read stored snapshots out of the content store — the
-    # questions-presented backfill, the distribution re-derivation and the
-    # response-signal backfill — depend on this pair.
+    # The passes that read stored snapshots or documents out of the content
+    # store — the questions-presented backfill, the distribution re-derivation,
+    # the response-signal backfill and the OCR recovery — depend on this pair.
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
@@ -848,6 +851,146 @@ jobs:
           git commit -m "repair: converge corpus (dated response signals)"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "response-signal pointer"
+
+      # The one binary dependency any pass here has, installed by the one pass
+      # that needs it and gated on its selector so the other seven dispatches
+      # never pay for it: the OCR recovery renders a page with `pdftoppm`
+      # (poppler-utils) and reads it with `tesseract`. Deliberately not in the
+      # devcontainer, the Python environment or a scheduled lane — the same
+      # reason the extractor takes its OCR call as an injected seam rather than
+      # importing one. From the runner image's own Ubuntu archive: no
+      # third-party repository, no added signing key, nothing this workflow
+      # trusts that it did not already trust. The resolved versions are echoed
+      # into the summary rather than pinned in the argument list, because an
+      # exact apt pin goes stale the week the runner image rolls and would fail
+      # the pass for a reason that has nothing to do with the corpus; what a
+      # recovered text was read by is then a fact the run records.
+      - name: Install the OCR binaries
+        if: ${{ inputs.repair == 'ocr-recovery' }}
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends tesseract-ocr poppler-utils
+          {
+            echo "OCR binaries:"
+            # Both write their version banner to stderr and neither guarantees a
+            # zero exit for it, so the reads are made total rather than left to
+            # fail a step whose real work has not started.
+            tesseract --version 2>&1 | head -n 1 || true
+            pdftoppm -v 2>&1 | head -n 1 || true
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Read the scanned petitions off their page images. A petition filed on
+      # paper reaches the corpus with no text layer, so the extractor stored
+      # nothing for it and every cell minted over that case reads an empty
+      # petition — for as long as the docket keeps serving the same URL, since
+      # the poller and the Term walker re-fetch a kind only when its link
+      # changes. No fetching lane repairs it. The population is stored petitions
+      # whose text is empty and whose page count is above zero (a zero-page row
+      # is a PDF that would not open, which is not OCR's to repair); each is
+      # re-fetched by its own stored URL on supremecourt.gov — free and
+      # politeness-capped, so the pass spends none of the CourtListener budget —
+      # and re-extracted with the OCR seam supplied, which reads a page off its
+      # image only where that page's own extraction yielded nothing. Additive:
+      # text is written only where the stored row held none, so the pass cannot
+      # overwrite an extraction, and every recovered row carries `ocr_derived`.
+      #
+      # The bound is a slice size rather than a refusal threshold — each case
+      # costs a fetch and a page-by-page recognition, and runner minutes are the
+      # whole cost — so a backlog clears across dispatches. It reads and writes
+      # documents, which under the corpus split live in the content store rather
+      # than the blob, so the pointer commit cannot witness the write: the
+      # post-apply re-read below is what does, and it must find exactly the
+      # class the apply's own ledger said it would leave behind.
+      - name: Recover scanned petitions by OCR
+        if: ${{ inputs.repair == 'ocr-recovery' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Two full-population content-store walks — the ledger before and the
+        # witness after — plus the slice itself, which is the expensive half:
+        # rendering and recognizing a printed brief runs to a minute or two per
+        # petition. `repair_bound` is what sizes that half, so a slice around a
+        # dozen is what a dispatch fits here; the cap stays inside the job's so
+        # one App token still covers the whole run.
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # Validate the bound before anything else, including the corpus guard:
+          # a dispatch that cannot legally apply should say so in seconds, not
+          # after a full-population read of the content store. `Validate the
+          # repair selector` duplicates it word for word so a bad dispatch dies
+          # before any credential is minted; this copy is the one of record,
+          # because the step has to be safe on whatever reaches it. The refusal
+          # names the pass through `${REPAIR}` rather than a literal so the two
+          # copies are identical as text, not merely equivalent once expanded.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to recover from.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the OCR recovery"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # A dry run's ledger carries a second reading beside the class count:
+          # a small sample of the population re-fetched through the writer's own
+          # fetch path, reporting what supremecourt.gov serves a writer — the
+          # question an apply would otherwise answer by spending a slice on it.
+          # On an apply this run is a receipt rather than a reading, so the
+          # sample is suppressed: it is about to fetch those URLs for real.
+          probe_args=()
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            probe_args+=(--probe=0)
+          fi
+          uv run fedcourts ocr-recover-petitions "${probe_args[@]}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY" | tee /tmp/ocr-plan.txt
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts ocr-recover-petitions --apply \
+            --max-cases "${REPAIR_BOUND}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY" | tee /tmp/ocr-apply.txt
+          # The witness. The apply's ledger states the class it expects to leave
+          # behind, and a re-read of the corpus must find exactly that: a
+          # content-store write that failed would leave the recovered petitions
+          # in the class, which nothing in the pointer commit below would ever
+          # notice. Counting only — the sample would re-fetch what was just
+          # fetched.
+          uv run fedcourts ocr-recover-petitions --probe=0 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY" | tee /tmp/ocr-verify.txt
+          # Read off the machine-readable ledger each run prints last, rather
+          # than off the prose above it: the field name is passed as an argument
+          # so nothing from a file is interpolated into the program.
+          ledger_field() {
+            grep -h '^{"applied"' "$1" | tail -n 1 \
+              | uv run python -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$2"
+          }
+          expected="$(ledger_field /tmp/ocr-apply.txt remaining)"
+          found="$(ledger_field /tmp/ocr-verify.txt candidates)"
+          if [ "${found}" != "${expected}" ]; then
+            echo "::error::apply did not converge — the re-read finds ${found} scanned petition(s) where the apply's ledger left ${expected} (a content-store write may have failed; see the warnings above)"
+            exit 1
+          fi
+          # Blob before pointer commit, as everywhere. Under the corpus split
+          # the recovered text lands in the content store and the blob may come
+          # back byte-identical, which is why the pointer is not the witness
+          # here and an unchanged one is reported rather than failed.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Recovered text is in the content store; the index pointer is unchanged."
+            exit 0
+          fi
+          git commit -m "repair: recover scanned petitions (OCR)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "OCR recovery pointer"
 
       # Drop open SCOTUS merits events whose docket carries no cert grant, in
       # both stores. A merits event is born from a grant — every mint path

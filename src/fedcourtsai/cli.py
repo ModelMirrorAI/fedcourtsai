@@ -186,6 +186,8 @@ from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.ingest import UNSAMPLED_WEIGHT
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
+from .pipeline.ocr_recovery import DEFAULT_PROBE_SAMPLE as DEFAULT_OCR_PROBE_SAMPLE
+from .pipeline.ocr_recovery import OcrToolsMissing, recover_scanned_petitions
 from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
 from .pipeline.opinion_enrichment import enrich_opinions
 from .pipeline.outcome import (
@@ -1371,6 +1373,154 @@ def backfill_questions_presented_cmd(
         )
     for case_id, reason in result.changes.items():
         typer.echo(f"  {case_id}: {reason}")
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(result.model_dump_json())
+
+
+@app.command("ocr-recover-petitions")
+def ocr_recover_petitions_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Re-fetch, OCR and write the recovered petitions; omit for a dry-run "
+            "that enumerates the class and probes the fetch path.",
+        ),
+    ] = False,
+    max_cases: Annotated[
+        int | None,
+        typer.Option(
+            "--max-cases",
+            help="Per-dispatch slice size, required with --apply: the number of "
+            "scanned petitions this run re-fetches and OCRs.",
+        ),
+    ] = None,
+    probe: Annotated[
+        int,
+        typer.Option(
+            "--probe",
+            help="Dry-run only: how many of the population's stored URLs to re-fetch "
+            "through the writer's own fetch path and report the status of. 0 fetches nothing.",
+        ),
+    ] = DEFAULT_OCR_PROBE_SAMPLE,
+) -> None:
+    """Read the scanned petitions off their page images and store what comes back.
+
+    A petition filed on paper reaches the corpus with no text layer, so the
+    extractor stored nothing for it and every cell minted over that case reads an
+    empty petition — for as long as the docket keeps serving the same URL, since
+    the poller and the Term walker re-fetch a kind only when its link changes.
+    This is the pass that repairs it, on the terms in *Contract for the recovery
+    pass* (`docs/live-sources.md`): the population is stored **petitions** whose
+    text is empty or whitespace-only and whose page count is above zero (a
+    zero-page row is a PDF the extractor could not open, which is not OCR's to
+    repair, and a case with no petition row at all is a fetch gap); each is
+    re-fetched by its own stored URL on supremecourt.gov, free and
+    politeness-capped, so the pass spends none of the CourtListener budget; and
+    its pages go through the extractor with the OCR seam supplied, which reads a
+    page off its rendered image only where that page's own extraction yielded
+    nothing. The same per-document character cap and truncation flag bound the
+    result, so a recovered petition is bounded exactly like a fetched one, and
+    every recovered row carries `ocr_derived`: OCR output is derived text, and
+    must never read as a clean extraction. Additive — text is written only where
+    the stored row held none — and a recovered petition re-derives its
+    `questions-presented` row through the ingest path's own deriver, which
+    carries the marker with it.
+
+    The two modes do different work. The **dry run** enumerates the class, OCRs
+    nothing and writes nothing, and re-fetches `--probe` of the population's
+    stored URLs through the same client, headers and retry posture the fetching
+    lanes use, reporting what each GET came back with — the reading that says
+    whether the writer's fetch path is served before an apply spends a slice
+    finding out. The **apply** takes the first `--max-cases` candidates in
+    `case_id` order: the bound is a *slice size* rather than a refusal
+    threshold, because each case costs a fetch and a page-by-page recognition
+    and runner minutes are the whole cost, so a backlog clears across dispatches
+    rather than in one long job. The slice is self-advancing — a recovered
+    petition leaves the class — with one exception the ledger names apart: a
+    petition whose images OCR to nothing stays in the class and re-enters the
+    next slice.
+
+    Local OCR only: `pdftoppm` renders a page and `tesseract` reads it, neither a
+    Python dependency and both installed by the `run-repair` OCR step alone, so
+    no scheduled lane grows them. An apply with work to do refuses where they are
+    absent. Its apply half is a writer-lane pass by construction — the
+    corpus-write credentials exist only there — and the lane invocation is
+    run-repair's `ocr-recovery` pass. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_cases is None:
+        typer.echo(
+            "ocr-recover-petitions: --apply requires an explicit --max-cases. "
+            "Read the dry run first and pass the slice you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the OCR recovery.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cfg = load_historical_config(settings.config_root)
+    if apply:
+        # The pointer the recovery is about to supersede — the corpus state the
+        # ledger below describes. Under the split mode the durable write is the
+        # content store's, so this names the index the store was consistent with
+        # rather than the place the replaced rows are recoverable from.
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    try:
+        with (
+            corpus.connect(db_path) as conn,
+            SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
+        ):
+            result = recover_scanned_petitions(
+                conn,
+                client=client,
+                apply=apply,
+                char_cap=cfg.document_text_cap,
+                today=date.today(),
+                max_cases=max_cases,
+                probe_sample=probe,
+            )
+    except OcrToolsMissing as exc:
+        typer.echo(f"ocr-recover-petitions: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    verb = "recovered" if apply else "would attempt"
+    # A dry run states the whole class, since it takes no slice; the number a
+    # maintainer carries into `--max-cases` is that count, or as much of it as
+    # one dispatch should spend.
+    counted = result.recovered if apply else result.candidates
+    typer.echo(
+        f"ocr-recover-petitions ({'applied' if apply else 'dry-run'}): "
+        f"{result.candidates} scanned petition(s) in the class — "
+        f"{verb} {counted}, {result.remaining} left for the next slice"
+    )
+    if apply:
+        typer.echo(
+            f"  attempted {result.attempted} (bound {result.bound}); "
+            f"{result.empty_after_ocr} still empty after OCR; "
+            f"{result.questions_rederived} questions-presented row(s) re-derived"
+        )
+        losses = ", ".join(f"{reason}: {count}" for reason, count in result.unfetched.items())
+        typer.echo(f"  unfetched: {losses or 'none'}")
+    for case_id, detail in result.recoveries.items():
+        typer.echo(f"  {case_id}: {detail}")
+    for case_id, reason in result.failures.items():
+        typer.echo(f"  {case_id}: NOT RECOVERED ({reason})")
+    for entry in result.probes:
+        # The dry run's second reading: what the writer's own fetch path gets
+        # back from supremecourt.gov, before a slice is spent finding out.
+        typer.echo(
+            f"  probe {entry.case_id}: {entry.outcome} "
+            f"(status {entry.status if entry.status is not None else 'none'}, "
+            f"{entry.bytes_fetched} bytes) {entry.url}"
+        )
     if apply:
         _ensure_corpus_layout(db_path)
     typer.echo(result.model_dump_json())
