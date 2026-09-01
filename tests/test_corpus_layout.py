@@ -231,6 +231,32 @@ def test_open_events_census_uses_partial_index(tmp_path: Path) -> None:
             _assert_index_served(plans, expect="idx_events_open")
 
 
+def test_snapshot_bearing_open_cases_is_driven_by_the_snapshot_index(tmp_path: Path) -> None:
+    """The integration resolver's candidate window has to stay bounded by the
+    snapshot set, not the court.
+
+    Snapshots cover a tiny fraction of the corpus, so driving the join from
+    them turns the window into a co-routine over ``idx_snapshots_case`` feeding
+    point seeks into ``idx_cases_priors_recency`` — candidates in the thousands.
+    Left to itself the planner drives from ``cases`` instead and walks every
+    unresolved row in the court to find the few that are snapshotted, which over
+    ranged reads is the blob rather than a page or two; ``CROSS JOIN`` is what
+    states the order. The sorter is over the survivors of that narrow set, so it
+    is bounded too — but it exists, which is why only a full scan is forbidden
+    here.
+    """
+    db = tmp_path / "corpus.db"
+    _populated(db)
+    with corpus.connect(db) as conn:
+        plans = _select_plans(
+            conn, partial(corpus.snapshot_bearing_open_cases, conn, court="ca9", limit=5)
+        )
+    _assert_index_served(plans, expect="idx_snapshots_case")
+    for stmt, detail in plans:
+        assert "SCAN cases" not in detail, f"the window must not drive from cases: {stmt}"
+        assert "idx_cases_priors_recency" in detail, f"case lookup not index-served: {stmt}"
+
+
 def test_latest_snapshot_is_index_served(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     _populated(db)
