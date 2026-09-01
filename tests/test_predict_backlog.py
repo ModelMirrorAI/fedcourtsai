@@ -21,7 +21,11 @@ from typer.testing import CliRunner
 from fedcourtsai import casestore, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline.pull import PredictBacklog, derive_predict_backlog
+from fedcourtsai.pipeline.pull import (
+    BACKLOG_MAX_POLL_AGE_DAYS,
+    PredictBacklog,
+    derive_predict_backlog,
+)
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Stage
 from fedcourtsai.serialize import write_json
@@ -35,6 +39,14 @@ _REPO_CONFIG = Path(__file__).resolve().parents[1] / "config"
 #: The case-baseline cert event every fixture case carries — the same id the
 #: predict matrix tests use, so forecastability is exercised on the real moment.
 EVENT = "evt-petition-cert"
+
+#: The day every derivation in this module runs under, and a poll stamp one day
+#: old. The freshness bound is an admission predicate now, so a fixture that
+#: left `last_live_polled` unset would be held as stale before reaching whatever
+#: it meant to exercise — the default says "the live rotation saw this
+#: yesterday", which is the shipped corpus's median.
+TODAY = date(2026, 7, 20)
+FRESH = date(2026, 7, 19)
 
 
 def _open_case(  # noqa: PLR0913 - one fixture knob per admission predicate under test
@@ -50,13 +62,16 @@ def _open_case(  # noqa: PLR0913 - one fixture knob per admission predicate unde
     stage: Stage | None = None,
     kind: EventKind = EventKind.petition,
     granted_on: date | None = None,
+    polled_on: date | None = FRESH,
+    queued_on: date | None = None,
 ) -> None:
     """Seed one predict candidate: a distributed SCOTUS row, an open event, documents.
 
     ``distribution_count`` is not decoration — the case-baseline moment *is* the
     first distribution, so an undistributed petition has no forecastable
     baseline at all (``store._premature_distribution_cell``) and would drop out
-    before any predicate this module tests.
+    before any predicate this module tests. ``polled_on`` is load-bearing for
+    the same reason: the record-freshness hold reads it.
     """
     case_id = f"{court}/{docket}"
     with corpus.connect(db) as conn:
@@ -72,9 +87,12 @@ def _open_case(  # noqa: PLR0913 - one fixture knob per admission predicate unde
                     salience_selected=selected,
                     date_cert_granted=granted_on,
                     disposition=Disposition.granted if granted_on else None,
+                    last_live_polled=polled_on,
                 )
             ],
         )
+        if queued_on is not None:
+            corpus.stamp_predict_queued(conn, [case_id], queued_on)
         if excluded:
             corpus.set_predict_excluded(conn, case_id, True)
         corpus.upsert_events(
@@ -123,7 +141,7 @@ def _backlog(
     *,
     cap: int = 25,
     max_attempts: int = 0,
-    today: date = date(2026, 7, 20),
+    today: date = TODAY,
     already_queued: set[str] | None = None,
 ) -> PredictBacklog:
     """One read-only derivation, whole."""
@@ -145,7 +163,7 @@ def _derive(
     *,
     cap: int = 25,
     max_attempts: int = 0,
-    today: date = date(2026, 7, 20),
+    today: date = TODAY,
     already_queued: set[str] | None = None,
 ) -> tuple[str, ...]:
     """Case ids one read-only derivation returns."""
@@ -169,7 +187,7 @@ def _entries(
             PREDICTORS,
             cap=cap,
             max_attempts=max_attempts,
-            today=today or date(2026, 7, 20),
+            today=today or TODAY,
         )
     return [entry.as_queue_entry() for entry in backlog.entries]
 
@@ -207,28 +225,41 @@ def test_only_the_missing_engines_keep_a_case_owed(tmp_path: Path) -> None:
     assert _entries(db, data) == [{"court": "scotus", "docket": 1, "events": [EVENT]}]
 
 
-def test_an_unprovisioned_case_is_held_and_admitted_once_provisioned(tmp_path: Path) -> None:
-    """The provisioning predicate. run-pull provisions a case's filed-document text
-    at queue time and this scan cannot fetch, so a queued-but-unprovisioned case is
-    **held** rather than minted as a cell whose record/ carries no petition text.
-    Held, not errored: the next pull window provisions it and it becomes
-    derivable."""
+def test_a_never_swept_case_is_held_and_admitted_once_provisioned(tmp_path: Path) -> None:
+    """The provisioning hold, on the one class it applies to: a case the pull lane
+    has never queued and that holds no documents, so provisioning has not been
+    *attempted*. Held rather than minted with an empty record/ — and held, not
+    excluded: the sweep reaches it, provisions it, and it derives."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _open_case(db, "scotus", 1, provisioned=False)
 
-    assert _derive(db, data) == (), "an unprovisioned case is not a forecast we can mint"
+    assert _derive(db, data) == (), "provisioning has not been attempted for it yet"
 
     _provision(db, "scotus/1")
-    assert _derive(db, data) == ("scotus/1",), "provisioning admits it, one window later at most"
+    assert _derive(db, data) == ("scotus/1",)
+
+
+def test_a_queued_case_is_admitted_even_with_nothing_stored(tmp_path: Path) -> None:
+    """The predicate is "provisioning was attempted", not "documents exist", and the
+    queue stamp is the pull lane's own record that it ran — the sweep provisions at
+    queue time. Reading document presence as the rule instead would conflate "not
+    yet provisioned" with "provisioned, found nothing" and permanently strand every
+    docket with no document route at all: `select_documents` has no application
+    branch, so the whole interim lane would be barred from this backlog forever
+    rather than held for a window."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, provisioned=False, queued_on=date(2026, 7, 10))
+
+    assert _derive(db, data) == ("scotus/1",)
 
 
 def test_a_backlog_held_on_provisioning_is_counted_not_silently_empty(tmp_path: Path) -> None:
-    """The held cases are reported, because the provisioning predicate is the one
-    admission rule whose refusals are expected to clear on their own. Without the
-    count, a backlog every one of whose cases is waiting on run-pull is
-    indistinguishable from a drained queue — the same conflation the absent-corpus
-    refusal exists to prevent, one predicate over."""
+    """The held cases are reported, because the hold is expected to clear on its
+    own. Without the count, a backlog every one of whose cases is waiting on
+    run-pull is indistinguishable from a drained queue — the same conflation the
+    absent-corpus refusal exists to prevent, one predicate over."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _open_case(db, "scotus", 1, provisioned=False)
@@ -236,13 +267,13 @@ def test_a_backlog_held_on_provisioning_is_counted_not_silently_empty(tmp_path: 
 
     blocked = _backlog(db, data)
     assert blocked.entries == ()
-    assert blocked.held_unprovisioned == 2
+    assert blocked.held_unswept == 2
 
-    # Provision one: it derives, and only the still-unprovisioned case is held.
+    # Provision one: it derives, and only the still-unswept case is held.
     _provision(db, "scotus/1")
     partial = _backlog(db, data)
     assert partial.case_ids == ("scotus/1",)
-    assert partial.held_unprovisioned == 1
+    assert partial.held_unswept == 1
 
     # A genuinely drained backlog is the other reading, and says so.
     _provision(db, "scotus/2")
@@ -251,7 +282,109 @@ def test_a_backlog_held_on_provisioning_is_counted_not_silently_empty(tmp_path: 
             seed_prediction(data, "scotus", docket, EVENT, predictor_id=predictor.id)
     drained = _backlog(db, data)
     assert drained.entries == ()
-    assert drained.held_unprovisioned == 0
+    assert drained.held_unswept == 0
+
+
+def test_a_held_case_that_is_not_owed_is_not_counted_as_held(tmp_path: Path) -> None:
+    """The counts are taken over the **owed** population alone. A case that is
+    unprovisioned *and* fully predicted is not work this lane owes, so counting it
+    would make "held, still owed a forecast" false of the figure — which is exactly
+    the reading the line invites. Only a case the holds are the sole obstacle for
+    is counted."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, provisioned=False)  # unprovisioned AND fully predicted
+    _open_case(db, "scotus", 2, provisioned=False, polled_on=date(2026, 1, 1))  # stale too
+    for docket in (1, 2):
+        for predictor in enabled_predictors(PREDICTORS):
+            seed_prediction(data, "scotus", docket, EVENT, predictor_id=predictor.id)
+
+    quiet = _backlog(db, data)
+    assert quiet.entries == ()
+    assert (quiet.held_unswept, quiet.held_stale) == (0, 0)
+
+
+def test_the_hold_counts_are_censored_by_the_cap_and_say_so(tmp_path: Path) -> None:
+    """The scan stops at the cap, so a candidate past the break is in neither hold
+    count. `cap_reached` is what keeps a reader from quoting a lower bound as a
+    total — the failure mode of an unqualified operational number."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    # Docket 1 derives and fills a cap of one; 2 would have been held, unexamined.
+    _open_case(db, "scotus", 1)
+    _open_case(db, "scotus", 2, provisioned=False)
+
+    capped = _backlog(db, data, cap=1)
+    assert capped.case_ids == ("scotus/1",)
+    assert capped.cap_reached is True
+    assert capped.held_unswept == 0, "the held case was never reached, so it is not counted"
+
+    # Room for both: the hold is examined, counted, and the censoring flag is off.
+    roomy = _backlog(db, data, cap=25)
+    assert roomy.case_ids == ("scotus/1",)
+    assert roomy.cap_reached is False
+    assert roomy.held_unswept == 1
+
+
+def test_a_stale_record_is_held_and_re_admitted_on_the_next_poll(tmp_path: Path) -> None:
+    """The freshness bound. The live sweep re-polls before it queues and diverts a
+    now-decided docket; this scan mints from committed state and cannot, so the
+    record's own age is its only guard against a forward cell on a case whose
+    answer is already public. Held, never excluded: the next poll re-admits it."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    stale = TODAY - timedelta(days=BACKLOG_MAX_POLL_AGE_DAYS + 1)
+    _open_case(db, "scotus", 1, polled_on=stale)
+
+    held = _backlog(db, data)
+    assert held.entries == ()
+    assert held.held_stale == 1
+
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET last_live_polled = ? WHERE case_id = ?",
+            (TODAY.isoformat(), "scotus/1"),
+        )
+        conn.commit()
+    assert _derive(db, data) == ("scotus/1",)
+
+
+def test_a_record_exactly_at_the_freshness_bound_is_still_admitted(tmp_path: Path) -> None:
+    """The bound is inclusive, pinned so a refactor cannot quietly shave a day off
+    a horizon whose whole job is to be a stated number."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, polled_on=TODAY - timedelta(days=BACKLOG_MAX_POLL_AGE_DAYS))
+
+    assert _derive(db, data) == ("scotus/1",)
+
+
+def test_a_case_neither_channel_has_ever_observed_is_held_stale(tmp_path: Path) -> None:
+    """No stamp from either channel is the limit of "stale", not an exemption from
+    it: nothing has ever confirmed the event is still open."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, polled_on=None)
+
+    held = _backlog(db, data)
+    assert held.entries == ()
+    assert held.held_stale == 1
+
+
+def test_the_rest_rotation_stamp_counts_as_an_observation(tmp_path: Path) -> None:
+    """Freshness is the age of the record, not of one channel's coverage, so the
+    freshest of the two rotation stamps answers it. A case the live poller has not
+    reached but the CourtListener rotation refreshed today is a fresh record."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, polled_on=TODAY - timedelta(days=30))
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET last_pulled = ? WHERE case_id = ?", (FRESH.isoformat(), "scotus/1")
+        )
+        conn.commit()
+
+    assert _derive(db, data) == ("scotus/1",)
 
 
 def test_the_provisioning_predicate_does_not_spend_a_cap_slot(tmp_path: Path) -> None:
@@ -633,7 +766,16 @@ def _cli_env(tmp_path: Path, *dockets: int, provisioned: bool = True) -> dict[st
     (config_root / "tracking.yaml").write_text("predict:\n  scope: scotus_docket\n")
     corpus_root = tmp_path / "corpus"
     for docket in dockets:
-        _open_case(corpus.corpus_db_path(corpus_root), "scotus", docket, provisioned=provisioned)
+        # Polled today, not on this module's fixed fixture date: a CLI run reads
+        # the wall clock, so a fixture stamp would age past the freshness bound
+        # and every case would be held stale for a reason no test meant to set.
+        _open_case(
+            corpus.corpus_db_path(corpus_root),
+            "scotus",
+            docket,
+            provisioned=provisioned,
+            polled_on=date.today(),
+        )
     return {
         "FEDCOURTS_CONFIG_ROOT": str(config_root),
         "FEDCOURTS_CORPUS_ROOT": str(corpus_root),
@@ -783,7 +925,7 @@ def test_the_cli_reports_the_held_count_on_stderr(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["include"] == []
-    assert "held 2 case(s) with no stored documents" in _flat(result.stderr)
+    assert "held 2 owed case(s) the pull lane has never queued" in _flat(result.stderr)
 
 
 def test_the_cli_stays_quiet_when_nothing_is_held(tmp_path: Path) -> None:
@@ -794,7 +936,11 @@ def test_the_cli_stays_quiet_when_nothing_is_held(tmp_path: Path) -> None:
     result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"], env=env)
 
     assert result.exit_code == 0, result.output
-    assert "no stored documents" not in _flat(result.stderr)
+    assert "held" not in _flat(result.stderr)
+    # The summary line still runs, and names which store answered the probe — a
+    # mis-set split flag is otherwise invisible in the plan output.
+    assert "1 case(s) owed a forecast" in _flat(result.stderr)
+    assert "resolve against the corpus blob" in _flat(result.stderr)
 
 
 def test_the_backlog_mode_refuses_an_unreachable_content_store(tmp_path: Path) -> None:
@@ -845,6 +991,9 @@ def test_a_reachable_content_store_serves_the_split_mode_derivation(tmp_path: Pa
 
     assert result.exit_code == 0, result.output
     assert {c["docket"] for c in json.loads(result.stdout)["include"]} == {24001}
+    # And the summary names the store that answered, so a mis-set split flag is
+    # visible in the plan output rather than an unexplained short fan-out.
+    assert "resolve against the content store" in _flat(result.stderr)
 
 
 def test_the_backlog_mode_refuses_an_absent_corpus(tmp_path: Path) -> None:

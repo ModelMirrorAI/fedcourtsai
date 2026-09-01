@@ -194,6 +194,8 @@ from .pipeline.outcome import (
     snapshot_shows_judgment,
 )
 from .pipeline.pull import (
+    BACKLOG_MAX_POLL_AGE_DAYS,
+    PredictBacklog,
     derive_evaluate_backlog,
     derive_predict_backlog,
     evaluate_backlog,
@@ -8731,8 +8733,9 @@ def _predict_backlog_cases() -> list[CaseRequest]:
     """The predict stage's own case set, derived from the corpus-level backlog.
 
     What a scheduled predict run fans out over when no trigger names its cases:
-    the forecasts committed state still owes — an in-scope, funded, **provisioned**
-    case with an open forecastable event some enabled predictor has not covered
+    the forecasts committed state still owes — an in-scope, funded case with an
+    open forecastable event some enabled predictor has not covered, whose record
+    is fresh enough to mint from and for which provisioning has been attempted
     (see :func:`fedcourtsai.pipeline.pull.derive_predict_backlog`, which spells
     the admission predicates out in order). Its cap is the live channel's own
     per-cycle sweep cap (``tracking.yaml``'s ``salience.sweep_cases_per_cycle``),
@@ -8752,6 +8755,13 @@ def _predict_backlog_cases() -> list[CaseRequest]:
     reads *committed* state, so what bounds a second derivation firing before a
     collect PR merges is the workflow's concurrency group, not this gate.
 
+    Writing no stamp has a **third** consequence, which belongs to whoever wires
+    a workflow to this and is not addressed here: the live channel's relist
+    suppression (``salience.relist_requeue_cooldown_days``) reads
+    ``predict_queued_at``, so a case this lane mints leaves that cooldown
+    unarmed and a relist landing days later is treated as a first queue rather
+    than administrative churn. The scheduled-lane workflow owns the fix.
+
     Requires a **pulled** corpus, and enforces it, for the reason the evaluate
     twin does: one pass over every open event plus a point query per candidate
     case is the opposite shape from the point lookups a trigger's named cases
@@ -8760,21 +8770,21 @@ def _predict_backlog_cases() -> list[CaseRequest]:
     unattended lane "nothing is owed" and "no corpus" must not be the same
     output.
 
-    The **content store** is enforced on exactly that principle, and the
-    provisioning predicate is why it has to be. Under the corpus-split mode the
-    blob holds no documents at all, so an unbuilt casestore transport answers
-    every existence probe *false* — and ``active_transport`` swallows a build
-    failure by design, so nothing raises. The derivation would then hold every
-    candidate and return an empty backlog that reads exactly like a drained
-    queue: the same conflation the absent-corpus refusal exists to prevent, one
-    store over. So a split-mode run with no reachable store is refused here
+    The **content store** is enforced on exactly that principle. Under the
+    corpus-split mode the blob holds no documents at all, so an unbuilt
+    casestore transport answers every existence probe *false* — and
+    ``active_transport`` swallows a build failure by design, so nothing raises.
+    The provisioning hold would then be unable to tell a never-provisioned case
+    from any other never-queued one, and would hold the whole of that class on a
+    fiction. So a split-mode run with no reachable store is refused here
     (:func:`fedcourtsai.casestore.payload_store_unavailable`) rather than
-    fanning out over nothing.
+    deriving against a store that is not answering.
 
-    What the derivation *did* hold is reported on stderr — stdout carries only
-    the matrix or plan JSON — because a legitimately empty fan-out and one whose
-    every case is waiting on provisioning are different operational facts, and
-    only the second says the lane is blocked on run-pull.
+    What the derivation found and what it held go to stderr —  stdout carries
+    only the matrix or plan JSON — including **which store answered the
+    provisioning probe**, so a mis-set split flag shows up in the plan output
+    rather than as an unexplained short fan-out. See
+    :func:`_report_predict_backlog`.
     """
     settings = get_settings()
     salience_cfg = load_salience_config(settings.config_root)
@@ -8797,8 +8807,8 @@ def _predict_backlog_cases() -> list[CaseRequest]:
     if casestore.payload_store_unavailable():
         raise typer.BadParameter(
             "the corpus-split mode is on but no content store could be reached, "
-            "so every case reads as unprovisioned and the predict backlog would "
-            "derive empty — indistinguishable from a drained queue. Fix the "
+            "so a never-queued case cannot be told from an unprovisioned one and "
+            "the predict backlog would hold every such case silently. Fix the "
             "content-store configuration, or name the cases with --body-file."
         )
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
@@ -8809,14 +8819,51 @@ def _predict_backlog_cases() -> list[CaseRequest]:
             cap=salience_cfg.sweep_cases_per_cycle,
             max_attempts=predict_cfg.max_attempts_per_cell,
         )
-    if backlog.held_unprovisioned:
+    _report_predict_backlog(backlog, cap=salience_cfg.sweep_cases_per_cycle)
+    return [CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries]
+
+
+def _report_predict_backlog(backlog: PredictBacklog, *, cap: int) -> None:
+    """Summarize one predict-backlog derivation on stderr (stdout stays JSON).
+
+    Three facts, and each earns its line. **What was owed** is the headline.
+    **Where document presence was read from** makes a mis-set corpus-split flag
+    visible in the plan output rather than as a mysteriously short fan-out — the
+    blob and the content store are different systems of record for the same
+    predicate, and nothing else in the output says which one answered. **What
+    was held**, with the reason, because a hold is work this lane owes and
+    cannot mint yet: reported as a drained queue it would look like nothing to
+    do. The censoring clause rides on the summary rather than the hold lines,
+    since it qualifies every count on the run at once.
+    """
+    source = "the content store" if corpus.payload_reads_offloaded() else "the corpus blob"
+    censored = (
+        f" Counts are censored: the scan stopped at the cycle cap of {cap}, so candidates "
+        "past that point were never examined."
+        if backlog.cap_reached
+        else ""
+    )
+    typer.echo(
+        f"Predict backlog: {len(backlog.entries)} case(s) owed a forecast; "
+        f"provisioning reads resolve against {source}.{censored}",
+        err=True,
+    )
+    if backlog.held_stale:
         typer.echo(
-            f"Predict backlog: held {backlog.held_unprovisioned} case(s) with no stored "
-            "documents (not yet provisioned). They are owed a forecast and become "
-            "derivable as run-pull provisions them, at its own per-window rate.",
+            f"Predict backlog: held {backlog.held_stale} owed case(s) whose corpus row was "
+            f"last observed more than {BACKLOG_MAX_POLL_AGE_DAYS} days ago — too stale to "
+            "mint a forward cell from, since the record may not show a disposition the "
+            "docket already carries. The hold clears at each case's next poll.",
             err=True,
         )
-    return [CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries]
+    if backlog.held_unswept:
+        typer.echo(
+            f"Predict backlog: held {backlog.held_unswept} owed case(s) the pull lane has "
+            "never queued and that hold no stored documents, so provisioning has not been "
+            "attempted for them. They become derivable as run-pull sweeps them, at its own "
+            "per-window rate.",
+            err=True,
+        )
 
 
 def _requested_cases(

@@ -196,6 +196,16 @@ predict:
   # (every unpredicted cell re-queues). A few attempts above the runner's
   # in-request retry, so a genuinely transient streak still gets several
   # cross-cycle retries before the cell is given up.
+  #
+  # Two readers, and they read it differently. For the sweep above, the cap
+  # suppresses a re-queue of the case. For the **predict backlog deriver**
+  # (`pipeline.pull.derive_predict_backlog`) it decides admission at the event
+  # grain: an event whose every still-missing predictor is capped is dropped
+  # from the derived entry, where the sweep's per-case owed check would still
+  # queue the case and let the matrix mint those cells. Stricter on purpose —
+  # that lane writes no debounce stamp, so a cell failing every attempt would
+  # otherwise be re-derived every cycle forever. The consequence to know:
+  # raising this ceiling, not a re-queue, is what reopens such a cell.
   max_attempts_per_cell: 5
   # Hard cap on concurrent predictor matrix jobs. The enforced value is the
   # `strategy.max-parallel` literal in run-predict/run-evaluate;
