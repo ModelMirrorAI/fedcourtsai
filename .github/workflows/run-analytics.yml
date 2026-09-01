@@ -63,6 +63,7 @@ on:
         options:
           - corpus-stats
           - census
+          - text-coverage
           - metrics-refresh
           - tool-usage
           - qp-topic-label
@@ -365,6 +366,101 @@ jobs:
           # Markdown to the step summary and to the run log. Writes nothing to
           # git: this is a read of the committed ledger, not an artifact.
           uv run fedcourts tool-usage --markdown-out "$GITHUB_STEP_SUMMARY"
+
+  text-coverage:
+    # Where the document text actually lives, and for which cases it is missing
+    # — the store-configured enumeration a dev checkout cannot perform. The two
+    # untruncated case-id ledgers (`empty text`; `no petition, queued`) are the
+    # per-case worklists the OCR recovery pass and the document backfill are
+    # designed from, and under the corpus-split mode the counts are honest only
+    # where the per-case content store is wired — which is this job's read
+    # path. Read-only on exactly corpus-stats's terms: the read-only role, no
+    # contents:write, no App token, nothing written to git or the corpus.
+    if: ${{ inputs.mode == 'text-coverage' }}
+    runs-on: ubuntu-latest
+    # The credential clock bounds this job the census's way: the walk reads the
+    # documents of every live-slice case — under the split a content-store
+    # manifest round trip per case plus a text body per stored document, on the
+    # CLI's own bounded reader pool — so the session must outlast the step cap
+    # and a too-long walk must fail at the step cap, legibly, inside the
+    # session, never mid-walk on ExpiredToken.
+    timeout-minutes: 125
+    environment: prod
+    # Its own group, never cancelled: a cancelled walk uploads no ledgers, and
+    # the ledgers are what the mode exists to produce. Read-only, so overlap
+    # with a sibling mode is harmless.
+    concurrency:
+      group: run-analytics-text-coverage
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The coverage counts stored documents, so the corpus must be on disk. No
+      # contents:write, no App token: this job cannot touch git or the corpus.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+          # Covers the walk's cap below plus everything before it — checkout,
+          # env sync, up to 120s of assume-role retry, and the composite's own
+          # uncapped corpus pull — the census's sizing, for the census's
+          # reason: the step cap, not the credential clock, is what a too-long
+          # walk hits.
+          role-duration-seconds: "8100"
+
+      - name: Enumerate document text coverage
+        timeout-minutes: 110
+        env:
+          # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the
+          # clean-slate cutover switch; unset variable -> '0' -> off) the
+          # pulled corpus.db is a payload-free index and every document read
+          # comes from the per-case content store instead. The pair is
+          # load-bearing here, not defensive: the report leads with a
+          # `text source:` line naming which side served it precisely because a
+          # split-blind read of a payload-free blob counts every document as
+          # absent — a coverage report that is silently wrong rather than one
+          # that fails.
+          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/text-coverage.txt"
+          # The report is line-oriented: the four self-limiting header lines
+          # and the kind x segment cuts, then the two untruncated case-id
+          # ledgers. The whole of it is the artifact — the ledgers are the
+          # worklists, and the artifact outlives the run page the way the
+          # census's does. The step summary gets only the part above the
+          # ledgers, which on a large corpus would overflow the page.
+          uv run fedcourts corpus-info --text-coverage > "$out"
+          {
+            echo "### Document text coverage"
+            echo
+            echo '```'
+            awk '/^empty text \(|^no petition, queued \(/{exit} {print}' "$out"
+            echo '```'
+            echo
+            echo "The case-id ledgers are in the run's \`text-coverage\` artifact."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the coverage report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: text-coverage
+          path: ${{ runner.temp }}/text-coverage.txt
+          if-no-files-found: error
+          # The worklists have to outlive the run page they are first read
+          # beside: the OCR pass and the backfill are dispatched later, from
+          # these ids, and the report's own `text source:` line says which
+          # store state it measured.
+          retention-days: 90
 
   metrics-refresh:
     # Runs on the weekly schedule, or on dispatch with mode=metrics-refresh —
