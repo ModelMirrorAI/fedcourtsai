@@ -616,6 +616,9 @@ class PredictBacklog:
       no stored documents, so provisioning has not been attempted for it.
       Clears when run-pull sweeps it.
 
+    The classes are first-match (staleness is tested first), so a case that is
+    both counts once, under ``held_stale``; the sum is the true held total.
+
     ``cap_reached`` says the scan stopped on ``cap`` rather than exhausting the
     candidates, so both counts are **censored**: candidates past the break were
     never examined and are in neither figure. A reader quoting a hold count
