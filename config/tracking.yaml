@@ -288,13 +288,17 @@ salience:
   #
   # Two readers, one number. Beside the sweep it also caps the **predict
   # backlog deriver** (`pipeline.pull.derive_predict_backlog`), which fetches
-  # nothing at all — there the cap bounds model spend and PR volume, not
+  # nothing upstream — there the cap bounds model spend and PR volume, not
   # request rate, since each derived case fans out one cell per predictor still
-  # owed the event. One knob rather than two on purpose: the deriver selects
-  # from the population the sweep provisions, so a separate ceiling could only
-  # let the scheduled lane promise cells the sweep's own rate cannot feed. Read
-  # it as the per-window ceiling on predict cases the project will take on,
-  # whichever lane takes them.
+  # owed the event (under the corpus-split mode the deriver's provisioning
+  # probes do read the content store, one manifest read per candidate, bounded
+  # by the candidate set rather than by this cap). One knob rather than two on
+  # purpose: the deriver selects from the population the sweep provisions, so
+  # a separate ceiling could only let the scheduled lane promise cells the
+  # sweep's own rate cannot feed. Each reader applies the value to its own
+  # lane — cases queued-and-provisioned per sweep cycle, cases fanned out per
+  # derivation — so it is the same per-lane ceiling in both readers, not one
+  # shared global budget.
   sweep_cases_per_cycle: 25
   # A relist inside this many days of a petition's last predict queue is
   # treated as administrative churn rather than re-tournamented; 1 suppresses
