@@ -523,6 +523,10 @@ def test_a_stored_url_off_the_courts_host_is_refused_before_the_request(tmp_path
         "https://supremecourt.gov.evil.example/x.pdf",  # a suffix, not the host
         "file:///etc/passwd",
         "/DocketPDF/x.pdf",  # relative: not a request at all
+        # Unparseable rather than merely wrong — `urlsplit` raises on a
+        # malformed IPv6 literal, and this is the only reader that would hand
+        # one to a client.
+        "https://[oops/x.pdf",
     ):
         assert fetchable_document_url(url) is False, url
     for url in (
