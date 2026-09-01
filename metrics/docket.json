@@ -1,55 +1,55 @@
 {
-  "corpus_rows": 2152649,
+  "corpus_rows": 2152668,
   "corpus_through": "2026-08-31",
   "coverage": {
-    "census_filings": 45425,
-    "live_slice_resolved": 21442,
-    "live_slice_rows": 22727
+    "census_filings": 45440,
+    "live_slice_resolved": 21447,
+    "live_slice_rows": 22746
   },
-  "open": 2100240,
+  "open": 2100254,
   "qp_topics": null,
-  "resolved": 52409,
+  "resolved": 52414,
   "schema_version": "1.0",
   "sections": [
     {
       "buckets": [
         {
-          "cases": 613817,
+          "cases": 613836,
           "dispositions": [
             {
-              "count": 40925,
+              "count": 40927,
               "disposition": "denied",
-              "share": 0.9097476936756697
+              "share": 0.9096910424538787
             },
             {
-              "count": 2305,
+              "count": 2308,
               "disposition": "granted",
-              "share": 0.05123930198955207
+              "share": 0.05130028895310069
             },
             {
               "count": 941,
               "disposition": "dismissed",
-              "share": 0.020918083805713014
+              "share": 0.02091575905756835
             },
             {
               "count": 577,
               "disposition": "gvr",
-              "share": 0.01282649772146271
+              "share": 0.012825072238275172
             },
             {
               "count": 232,
               "disposition": "other",
-              "share": 0.00515727464710459
+              "share": 0.005156701489219827
             },
             {
               "count": 5,
               "disposition": "withdrawn",
-              "share": 0.00011114816049794375
+              "share": 0.00011113580795732385
             }
           ],
           "key": "scotus",
-          "open": 568832,
-          "resolved": 44985
+          "open": 568846,
+          "resolved": 44990
         },
         {
           "cases": 247637,
@@ -422,7 +422,7 @@
     {
       "buckets": [
         {
-          "cases": 126778,
+          "cases": 126777,
           "dispositions": [
             {
               "count": 204,
@@ -446,7 +446,7 @@
             }
           ],
           "key": "(none)",
-          "open": 126511,
+          "open": 126510,
           "resolved": 267
         },
         {
@@ -522,37 +522,37 @@
           "resolved": 1
         },
         {
-          "cases": 46259,
+          "cases": 46279,
           "dispositions": [
             {
-              "count": 24322,
+              "count": 24324,
               "disposition": "denied",
-              "share": 0.8911442494412487
+              "share": 0.8910542896915525
             },
             {
-              "count": 2088,
+              "count": 2091,
               "disposition": "granted",
-              "share": 0.07650313267138094
+              "share": 0.07659901824309473
             },
             {
               "count": 552,
               "disposition": "dismissed",
-              "share": 0.020224966108525994
+              "share": 0.02022126163088871
             },
             {
               "count": 326,
               "disposition": "gvr",
-              "share": 0.011944454622064265
+              "share": 0.011942266832734999
             },
             {
               "count": 5,
               "disposition": "withdrawn",
-              "share": 0.00018319715678012676
+              "share": 0.0001831636017290644
             }
           ],
           "key": "2020s",
-          "open": 18966,
-          "resolved": 27293
+          "open": 18981,
+          "resolved": 27298
         },
         {
           "cases": 36385,
@@ -655,10 +655,10 @@
           "resolved": 40520
         },
         {
-          "cases": 1268,
+          "cases": 1283,
           "dispositions": [],
           "key": "(open)",
-          "open": 1268,
+          "open": 1283,
           "resolved": 0
         },
         {
@@ -712,7 +712,7 @@
     {
       "buckets": [
         {
-          "cases": 11446,
+          "cases": 11451,
           "dispositions": [
             {
               "count": 10691,
@@ -736,11 +736,11 @@
             }
           ],
           "key": "(none)",
-          "open": 368,
+          "open": 373,
           "resolved": 11078
         },
         {
-          "cases": 5581,
+          "cases": 5583,
           "dispositions": [
             {
               "count": 5148,
@@ -764,11 +764,11 @@
             }
           ],
           "key": "ca9",
-          "open": 152,
+          "open": 154,
           "resolved": 5429
         },
         {
-          "cases": 5284,
+          "cases": 5285,
           "dispositions": [
             {
               "count": 4856,
@@ -792,7 +792,7 @@
             }
           ],
           "key": "ca5",
-          "open": 147,
+          "open": 148,
           "resolved": 5137
         },
         {
@@ -852,7 +852,7 @@
           "resolved": 3334
         },
         {
-          "cases": 2943,
+          "cases": 2944,
           "dispositions": [
             {
               "count": 2723,
@@ -876,11 +876,11 @@
             }
           ],
           "key": "ca6",
-          "open": 91,
+          "open": 92,
           "resolved": 2852
         },
         {
-          "cases": 2074,
+          "cases": 2075,
           "dispositions": [
             {
               "count": 1928,
@@ -904,11 +904,11 @@
             }
           ],
           "key": "ca8",
-          "open": 49,
+          "open": 50,
           "resolved": 2025
         },
         {
-          "cases": 2044,
+          "cases": 2045,
           "dispositions": [
             {
               "count": 1823,
@@ -932,11 +932,11 @@
             }
           ],
           "key": "ca2",
-          "open": 71,
+          "open": 72,
           "resolved": 1973
         },
         {
-          "cases": 1940,
+          "cases": 1942,
           "dispositions": [
             {
               "count": 1798,
@@ -960,11 +960,11 @@
             }
           ],
           "key": "ca3",
-          "open": 44,
+          "open": 46,
           "resolved": 1896
         },
         {
-          "cases": 1607,
+          "cases": 1608,
           "dispositions": [
             {
               "count": 1496,
@@ -988,7 +988,7 @@
             }
           ],
           "key": "ca7",
-          "open": 34,
+          "open": 35,
           "resolved": 1573
         },
         {
@@ -1020,7 +1020,7 @@
           "resolved": 1375
         },
         {
-          "cases": 909,
+          "cases": 910,
           "dispositions": [
             {
               "count": 810,
@@ -1044,7 +1044,7 @@
             }
           ],
           "key": "cafc",
-          "open": 31,
+          "open": 32,
           "resolved": 878
         },
         {
@@ -1330,7 +1330,7 @@
     {
       "buckets": [
         {
-          "cases": 36121,
+          "cases": 36136,
           "dispositions": [
             {
               "count": 33807,
@@ -1354,7 +1354,7 @@
             }
           ],
           "key": "0",
-          "open": 1193,
+          "open": 1208,
           "resolved": 34928
         },
         {
@@ -1453,7 +1453,7 @@
     {
       "buckets": [
         {
-          "cases": 43741,
+          "cases": 43756,
           "dispositions": [
             {
               "count": 40419,
@@ -1477,7 +1477,7 @@
             }
           ],
           "key": "none",
-          "open": 1258,
+          "open": 1273,
           "resolved": 42483
         },
         {
@@ -1520,7 +1520,74 @@
     {
       "buckets": [
         {
-          "cases": 5581,
+          "cases": 43621,
+          "dispositions": [
+            {
+              "count": 40270,
+              "disposition": "denied",
+              "share": 0.9507058879078333
+            },
+            {
+              "count": 892,
+              "disposition": "dismissed",
+              "share": 0.02105859577883753
+            },
+            {
+              "count": 629,
+              "disposition": "granted",
+              "share": 0.014849615184852921
+            },
+            {
+              "count": 567,
+              "disposition": "gvr",
+              "share": 0.01338590112847632
+            }
+          ],
+          "key": "unmarked",
+          "open": 1263,
+          "resolved": 42358
+        },
+        {
+          "cases": 308,
+          "dispositions": [
+            {
+              "count": 250,
+              "disposition": "denied",
+              "share": 0.8680555555555556
+            },
+            {
+              "count": 26,
+              "disposition": "granted",
+              "share": 0.09027777777777778
+            },
+            {
+              "count": 10,
+              "disposition": "gvr",
+              "share": 0.034722222222222224
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.006944444444444444
+            }
+          ],
+          "key": "capital",
+          "open": 20,
+          "resolved": 288
+        }
+      ],
+      "cert_stage": true,
+      "court": "scotus",
+      "group_by": "capital_case",
+      "live_slice": true,
+      "scope_note": "The capital flag is latched from supremecourt.gov's own `bCapitalCase` payload field, OR-ed with the `*** CAPITAL CASE ***` annotation the same channel appends to the docket number \u2014 either alone under-reports, and no other channel serves either reading. So `last_live_polled` is the column's coverage sentinel: a row no live poll stamped buckets as `(unknown)` rather than as unmarked, and none appear here because this section is already scoped to the live slice, which is that stamp. Inside the slice the stamp records an attempted poll rather than an ingested payload, so `unmarked` means no channel that wrote the row read either signal \u2014 silence, not a denial. Read it as an upper bound: contamination runs one way, into `unmarked`, so it can only shrink the gap between these buckets, never widen it. The split is a marginal one \u2014 it describes what the two populations are, not what the marking adds over the cuts beside it.",
+      "title": "Cert petitions by capital-case marking",
+      "weighted": true
+    },
+    {
+      "buckets": [
+        {
+          "cases": 5583,
           "dispositions": [
             {
               "count": 5148,
@@ -1544,11 +1611,11 @@
             }
           ],
           "key": "ca9",
-          "open": 152,
+          "open": 154,
           "resolved": 5429
         },
         {
-          "cases": 5284,
+          "cases": 5285,
           "dispositions": [
             {
               "count": 4856,
@@ -1572,7 +1639,7 @@
             }
           ],
           "key": "ca5",
-          "open": 147,
+          "open": 148,
           "resolved": 5137
         },
         {
@@ -1632,7 +1699,7 @@
           "resolved": 3334
         },
         {
-          "cases": 2943,
+          "cases": 2944,
           "dispositions": [
             {
               "count": 2723,
@@ -1656,11 +1723,11 @@
             }
           ],
           "key": "ca6",
-          "open": 91,
+          "open": 92,
           "resolved": 2852
         },
         {
-          "cases": 2074,
+          "cases": 2075,
           "dispositions": [
             {
               "count": 1928,
@@ -1684,11 +1751,11 @@
             }
           ],
           "key": "ca8",
-          "open": 49,
+          "open": 50,
           "resolved": 2025
         },
         {
-          "cases": 2044,
+          "cases": 2045,
           "dispositions": [
             {
               "count": 1823,
@@ -1712,11 +1779,11 @@
             }
           ],
           "key": "ca2",
-          "open": 71,
+          "open": 72,
           "resolved": 1973
         },
         {
-          "cases": 1940,
+          "cases": 1942,
           "dispositions": [
             {
               "count": 1798,
@@ -1740,11 +1807,11 @@
             }
           ],
           "key": "ca3",
-          "open": 44,
+          "open": 46,
           "resolved": 1896
         },
         {
-          "cases": 1607,
+          "cases": 1608,
           "dispositions": [
             {
               "count": 1496,
@@ -1768,7 +1835,7 @@
             }
           ],
           "key": "ca7",
-          "open": 34,
+          "open": 35,
           "resolved": 1573
         },
         {
@@ -1818,7 +1885,7 @@
           "resolved": 1275
         },
         {
-          "cases": 909,
+          "cases": 910,
           "dispositions": [
             {
               "count": 810,
@@ -1842,7 +1909,7 @@
             }
           ],
           "key": "cafc",
-          "open": 31,
+          "open": 32,
           "resolved": 878
         },
         {
@@ -2022,7 +2089,7 @@
           "resolved": 238
         },
         {
-          "cases": 234,
+          "cases": 235,
           "dispositions": [
             {
               "count": 230,
@@ -2036,7 +2103,7 @@
             }
           ],
           "key": "Court of Appeals of Michigan",
-          "open": 1,
+          "open": 2,
           "resolved": 233
         },
         {
@@ -4079,20 +4146,7 @@
           "resolved": 20
         },
         {
-          "cases": 20,
-          "dispositions": [
-            {
-              "count": 20,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Superior Court of Rhode Island, Providence County",
-          "open": 0,
-          "resolved": 20
-        },
-        {
-          "cases": 20,
+          "cases": 21,
           "dispositions": [
             {
               "count": 19,
@@ -4106,6 +4160,19 @@
             }
           ],
           "key": "Supreme Court of Idaho",
+          "open": 1,
+          "resolved": 20
+        },
+        {
+          "cases": 20,
+          "dispositions": [
+            {
+              "count": 20,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Superior Court of Rhode Island, Providence County",
           "open": 0,
           "resolved": 20
         },
@@ -4425,6 +4492,24 @@
           "resolved": 13
         },
         {
+          "cases": 13,
+          "dispositions": [
+            {
+              "count": 9,
+              "disposition": "denied",
+              "share": 0.8181818181818182
+            },
+            {
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.18181818181818182
+            }
+          ],
+          "key": "Supreme Court of Pennsylvania, Eastern District",
+          "open": 2,
+          "resolved": 11
+        },
+        {
           "cases": 12,
           "dispositions": [
             {
@@ -4462,24 +4547,6 @@
           "key": "Intermediate Court of Appeals of Hawaii",
           "open": 0,
           "resolved": 12
-        },
-        {
-          "cases": 12,
-          "dispositions": [
-            {
-              "count": 9,
-              "disposition": "denied",
-              "share": 0.8181818181818182
-            },
-            {
-              "count": 2,
-              "disposition": "granted",
-              "share": 0.18181818181818182
-            }
-          ],
-          "key": "Supreme Court of Pennsylvania, Eastern District",
-          "open": 1,
-          "resolved": 11
         },
         {
           "cases": 11,
@@ -4861,6 +4928,19 @@
           "cases": 5,
           "dispositions": [
             {
+              "count": 3,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Guam",
+          "open": 2,
+          "resolved": 3
+        },
+        {
+          "cases": 5,
+          "dispositions": [
+            {
               "count": 5,
               "disposition": "denied",
               "share": 1.0
@@ -4975,19 +5055,6 @@
           "cases": 4,
           "dispositions": [
             {
-              "count": 3,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Supreme Court of Guam",
-          "open": 1,
-          "resolved": 3
-        },
-        {
-          "cases": 4,
-          "dispositions": [
-            {
               "count": 2,
               "disposition": "gvr",
               "share": 1.0
@@ -4995,6 +5062,19 @@
           ],
           "key": "United States District Court for the Northern District of Alabama",
           "open": 2,
+          "resolved": 2
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Ohio, Delaware County",
+          "open": 1,
           "resolved": 2
         },
         {
@@ -5108,19 +5188,6 @@
             }
           ],
           "key": "Court of Appeals of Missouri, Southern District",
-          "open": 0,
-          "resolved": 2
-        },
-        {
-          "cases": 2,
-          "dispositions": [
-            {
-              "count": 2,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Ohio, Delaware County",
           "open": 0,
           "resolved": 2
         },
@@ -6278,7 +6345,7 @@
     {
       "buckets": [
         {
-          "cases": 30072,
+          "cases": 30080,
           "dispositions": [
             {
               "count": 28217,
@@ -6302,11 +6369,11 @@
             }
           ],
           "key": "ifp",
-          "open": 767,
+          "open": 775,
           "resolved": 29305
         },
         {
-          "cases": 13842,
+          "cases": 13849,
           "dispositions": [
             {
               "count": 12303,
@@ -6330,7 +6397,7 @@
             }
           ],
           "key": "paid",
-          "open": 501,
+          "open": 508,
           "resolved": 13341
         }
       ],
@@ -6356,9 +6423,9 @@
       ],
       "est_grant_family_rate": 0.0,
       "est_grant_rate": 0.0,
-      "filings": 685,
+      "filings": 700,
       "grants": 0,
-      "ingested": 678,
+      "ingested": 693,
       "median_days_to_grant": null,
       "resolved": 5,
       "term": 2026,
