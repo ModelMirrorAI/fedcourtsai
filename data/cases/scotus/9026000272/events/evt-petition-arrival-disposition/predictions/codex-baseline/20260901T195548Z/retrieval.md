@@ -1,0 +1,2 @@
+- Consulted `metrics/statpack.md`: modern cert disposition and D.C. Circuit cuts; paid scored-segment relist and CVSG cuts; and the `sal-v4` Term-by-Term federal-band risk-set rates.
+- No `fedcourts query` or `open-events` lookup, CourtListener MCP lookup, or web search was used.

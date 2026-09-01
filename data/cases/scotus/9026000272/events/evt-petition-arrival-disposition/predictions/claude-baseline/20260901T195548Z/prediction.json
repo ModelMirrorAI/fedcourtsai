@@ -1,0 +1,68 @@
+{
+  "big_case_rationale": "Constitutionality of the military's exclusion of servicemembers with gender dysphoria, brought by the Solicitor General after a circuit held a signature executive-branch policy likely unconstitutional \u2014 nationally salient whatever the disposition.",
+  "big_case_score": 0.95,
+  "case_id": "scotus/9026000272",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.93
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.97
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.12
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.35
+    }
+  ],
+  "confidence": 0.85,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cutoff": "2026-09-02",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-02",
+    "snapshot_provenance": "truncated",
+    "term": 2026
+  },
+  "created_at": "2026-09-01T20:32:09Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-arrival-disposition",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/9026000272/record/snapshots/2026-09-02.json",
+  "judgment": null,
+  "model": "claude-fable-5",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.93,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:eba87d4c4f66e8d9270d72f5e2809de4cce384d2a16451f6ad1e24bf60115774",
+    "label": "proc-v5",
+    "pipeline_sha": "70dfa2c1c56818a455e54d7ee16e783d92a8a1bb",
+    "stamped_at": "2026-09-01T20:34:44.021979Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260901T195548Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
