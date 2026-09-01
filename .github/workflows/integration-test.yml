@@ -8,10 +8,11 @@ name: integration-test
 # `all-offline` title only for the narrowed set a skipped-smoke pre-flight
 # asks for — it tells the two apart, so the cheaper suite never satisfies the
 # fuller requirement. The
-# branch→environment resolution here is duplicated on the scenario job's
-# `environment:` key (YAML anchors do not work in workflows); keep the two
-# expressions identical, or the title stops naming the environment the job
-# actually bound.
+# branch→environment resolution here is duplicated on the `environment:` key
+# of both jobs that bind one — plan, which resolves the case out of that
+# environment's corpus, and scenario (YAML anchors do not work in workflows);
+# keep the three expressions identical, or the title stops naming the
+# environment the jobs actually bound.
 run-name: "integration-test: ${{ (inputs.scenario == 'all' || inputs.scenario == 'all-offline') && inputs.scenario || format('{0} / {1}', inputs.scenario, inputs.engine) }} @ ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}"
 
 # Live integration scenarios for the pieces a PR branch cannot exercise through
@@ -82,39 +83,54 @@ on:
           - qp-topic
           - all
           - all-offline
-      # The known-good case the scenarios target: it must exist in the corpus
-      # with at least one open (predictable) event and — for the snapshot and
-      # cascade reads — a snapshot in the per-case content store, which under
-      # the live corpus split only cases the post-cutover channels mutate
-      # (SCOTUS dockets) have. Pre-cutover index-only rows (circuit courts)
-      # can serve the query/open-events reads but never a snapshot. The
-      # stub-cascade provisioning-guard step adds one more precondition: the
-      # case (or the `event` the dispatch narrows to) must be genuinely
-      # undisposed, since the guard rightly refuses a snapshot that already
-      # shows the outcome. Swap the defaults if this case ever resolves out
-      # of shape.
+      # The case the corpus-reading scenarios target. With `docket` left
+      # empty, the `plan` job resolves one at run time out of whichever corpus
+      # this dispatch's environment actually serves
+      # (`fedcourts corpus-integration-case`): the first snapshot-bearing,
+      # in-scope, still-predictable case — exactly the shape the read set, the
+      # provisioning guard and the cascade cells need, asked of the same
+      # record gate the guard applies. Resolving is what naming cannot do:
+      # each deployment environment resolves its own corpus pair, so a case
+      # that exists in one is absent from another, and any one case drifts out
+      # of shape as its docket resolves. The resolution is echoed to the run
+      # summary, so a run always names its subject, and it happens before the
+      # matrix fans out, so a corpus with no usable case costs seconds rather
+      # than the engine-smoke legs' tokens.
       #
-      # The defaults name a case in the *production* corpus, which is what
-      # the overwhelmingly common dispatch reads. A dispatch against an
-      # environment pointed at the staging pair must name a case in that
-      # pair's seeded slice instead — the slice is a lean cut, so the default
-      # is absent from it and the run would fail as a missing case rather
-      # than a regression (see the staging-corpus runbook in
-      # docs/security.md).
+      # A non-empty `docket` pins one case instead and `court` is then its
+      # court half; the resolver is skipped entirely. Pin a case when the
+      # corpus cannot be resolved against, or when one particular case is the
+      # point of the dispatch. The first is not hypothetical: the candidate
+      # window is driven from the *blob's* snapshot index (which is what keeps
+      # it bounded), so a pair whose blob carries no snapshot rows cannot
+      # answer at all — a slice seeded split-on, the staging pair among them,
+      # is exactly that, and the resolver refuses rather than naming an absent
+      # case. A staging-ref dispatch therefore names a member of the seeded
+      # slice; see the staging-corpus runbook in docs/security.md. A
+      # pinned case must satisfy by hand what the resolver checks: it exists
+      # in the corpus, it (or the `event` the dispatch narrows to) is
+      # genuinely undisposed — the stub-cascade provisioning guard rightly
+      # refuses a snapshot that already shows the outcome — and it carries a
+      # stored snapshot, which under the live corpus split only cases the
+      # post-cutover channels mutate (SCOTUS dockets) have; pre-cutover
+      # index-only rows (circuit courts) serve the query/open-events reads but
+      # never a snapshot.
       court:
-        description: Court id of a known case with an open event and a snapshot.
+        description: Court to resolve a case in, or the court half of a pinned case.
         type: string
         default: scotus
       docket:
-        description: Docket id of the known case.
+        description: >-
+          Empty resolves a known-good case from the corpus this run reads; a
+          docket id pins that case instead.
         type: string
-        default: "73274837"
+        default: ""
       engine:
         description: >-
           engine-smoke only — which real engine drives the cell. SPENDS MODEL
-          TOKENS: one predict cell's worth against the default open-event
-          case; a resolved or multi-event case also replays evaluator cells,
-          so narrow with `event` when pointing elsewhere. Ignored by `all`,
+          TOKENS: one predict cell's worth against the run's open-event case;
+          a resolved or multi-event case also replays evaluator cells, so
+          narrow with `event` when pinning one. Ignored by `all`,
           which runs one smoke per engine, and by `all-offline`, which runs
           no smoke at all.
         type: choice
@@ -126,7 +142,8 @@ on:
       event:
         description: >-
           Optional event id to narrow the cascade scenarios to; empty runs
-          every event the case defines.
+          every event the case defines. An event id belongs to one case, so
+          pair it with a pinned `docket` rather than a resolved case.
         type: string
         default: ""
       deploy-environment:
@@ -176,12 +193,51 @@ jobs:
   # other scenario one leg carrying the inputs unchanged — so a
   # single-scenario dispatch runs exactly the steps, env, and environment
   # binding it always has.
+  #
+  # It also settles the *case* the corpus-reading legs run on, once for the
+  # whole fan-out: every such leg reads this job's `court`/`docket` outputs
+  # and nothing else, so a resolved run and a pinned one differ in one place
+  # instead of five. Resolving here rather than per leg is what makes an
+  # unusable corpus cheap — the whole matrix, engine smokes included, is
+  # downstream of this job, so it never starts.
   plan:
     if: ${{ inputs.scenario != 'collect' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 15, not 5: the resolve path checks out, builds the Python env, assumes
+    # the read-only role, and walks a bounded candidate window over the blob.
+    timeout-minutes: 15
+    # The resolve reads the corpus this dispatch's environment serves, so the
+    # job binds that environment exactly as the scenario job does — same
+    # expression, same deployment-branch gate, same fail-closed resolution for
+    # a branch that names no configured environment (the read then finds no
+    # role and no remote and the job fails, rather than resolving a case out
+    # of some other environment's corpus). Keep this expression identical to
+    # `run-name:`'s and the scenario job's; see the deploy-environment input.
+    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role for the ranged corpus read
+    env:
+      # The corpus pair, resolved exactly as the scenario job resolves it —
+      # the store URL, the split flag, and the out-of-band index pointer that
+      # keeps a staging-pointed environment reading staging's index. The
+      # resolver must see the same pair the legs will, or it would hand them a
+      # case out of a different corpus.
+      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+      FEDCOURTS_CORPUS_POINTER: ${{ vars.FEDCOURTS_CORPUS_POINTER }}
+      # Whether this dispatch resolves a case at all: only when the dispatcher
+      # left `docket` at the sentinel AND some leg of it actually reads one.
+      # The mcp-sidecar and qp-topic scenarios touch no corpus, so a corpus
+      # that cannot answer must not redden a dispatch of theirs — each is
+      # required freshness evidence in its own right.
+      RESOLVE_CASE: ${{ inputs.docket == '' && contains(fromJSON('["all", "all-offline", "ranged-reads", "corpus-service", "stub-cascade", "engine-smoke"]'), inputs.scenario) }}
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
+      # The one canonical pair the consuming legs read, whether it was
+      # resolved from the corpus or passed through from the dispatch.
+      court: ${{ steps.case.outputs.court }}
+      docket: ${{ steps.case.outputs.docket }}
     steps:
       - name: Compute the scenario matrix
         id: plan
@@ -228,6 +284,96 @@ jobs:
           esac
           printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
 
+      # The resolve path's three prerequisites, all skipped on a pinned or
+      # corpus-free dispatch: the ranged backend needs the ref file from the
+      # checkout, the CLI from the Python env, and credentials from the
+      # read-only role. Assumed directly rather than through the
+      # corpus-readonly composite for the ranged-reads leg's reason — the
+      # census is a ranged read of the blob in place, never a full pull.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ env.RESOLVE_CASE == 'true' }}
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        if: ${{ env.RESOLVE_CASE == 'true' }}
+
+      - name: Configure AWS credentials (read-only)
+        if: ${{ env.RESOLVE_CASE == 'true' }}
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          # Bound the assume-role wall clock, as the scenario job does; see
+          # the note there for what a failing assume-role then looks like.
+          action-timeout-s: 120
+
+      # Always runs, with or without a resolve: it is the single producer of
+      # the `court`/`docket` outputs, so the legs have one place to read from
+      # in both modes.
+      - name: Settle the case the scenarios run on
+        id: case
+        env:
+          # Inputs pass through the environment (never interpolated into the
+          # shell) so a maintainer-supplied value cannot inject commands.
+          COURT: ${{ inputs.court }}
+          DOCKET: ${{ inputs.docket }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          if [ "$RESOLVE_CASE" != true ]; then
+            # Pinned, or a scenario that reads no case at all (where both
+            # values are inert — no leg of such a dispatch reads them).
+            printf 'court=%s\ndocket=%s\n' "$COURT" "$DOCKET" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          out="$RUNNER_TEMP/integration-case.out"
+          err="$RUNNER_TEMP/integration-case.err"
+          status=0
+          uv run fedcourts corpus-integration-case \
+            --court "$COURT" --corpus-backend ranged >"$out" 2>"$err" || status=$?
+          # The command's own diagnostic — the resolved case with its
+          # live-poll stamp, snapshot date and open events, or the per-reason
+          # tally of what the candidate window rejected — is the whole value
+          # of failing here rather than six legs later, so it reaches the log
+          # and the summary on both paths. Deterministic CLI output, never a
+          # transcript, so rendering it is safe; fenced in the summary, and
+          # indented into the log as the sidecar replay below is — an
+          # unindented line opening `::<command>::` is parsed as a workflow
+          # command by the runner.
+          sed 's/^/  /' "$err" >&2
+          {
+            echo ""
+            echo "## Integration case"
+            echo ""
+            echo '```'
+            cat "$err"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::no case resolved — the suite has no subject to run on"
+            exit "$status"
+          fi
+          # Shape-pin before the append: these two lines become job outputs,
+          # and their values come from corpus rows built out of upstream data.
+          # The command emits a court id then an integer docket, nothing else;
+          # anything else is a bug or a crafted row, and neither belongs in
+          # $GITHUB_OUTPUT. (The pinned path above needs no such screen — its
+          # values are the dispatcher's own, and already reach the legs.)
+          #
+          # Stated positively — each line must be one of the two expected
+          # shapes, in order, and there must be exactly two. A screen written
+          # as "no line disagrees" would pass a third line the file never
+          # terminates, since a trailing newline is what a line count counts.
+          if ! awk '
+            NR == 1 && /^court=[a-z0-9][a-z0-9-]*$/ { court = 1 }
+            NR == 2 && /^docket=[0-9]+$/ { docket = 1 }
+            END { exit !(NR == 2 && court && docket) }' "$out"; then
+            echo "::error::the resolver did not emit a court/docket pair"
+            exit 1
+          fi
+          cat "$out" >> "$GITHUB_OUTPUT"
+
   scenario:
     # Every dispatch-selected scenario except `collect`, which runs on its own
     # environment-free job below: it needs no role variables, so binding it to
@@ -247,8 +393,9 @@ jobs:
     # real agent cell, which alone can run tens of minutes on a slow model day.
     timeout-minutes: 45
     # Branch-resolved with an explicit override; keep this expression
-    # identical to the one in `run-name:` above (YAML anchors do not work in
-    # workflows), and see the deploy-environment input for what resolves.
+    # identical to `run-name:`'s and the plan job's above (YAML anchors do not
+    # work in workflows), and see the deploy-environment input for what
+    # resolves.
     environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
     permissions:
       contents: read
@@ -324,10 +471,13 @@ jobs:
       - name: Run the fixed ranged read set
         if: ${{ matrix.scenario == 'ranged-reads' }}
         env:
-          # Inputs pass through the environment (never interpolated into the
-          # shell) so a maintainer-supplied value cannot inject commands.
-          COURT: ${{ inputs.court }}
-          DOCKET: ${{ inputs.docket }}
+          # The case the plan job settled — resolved from this environment's
+          # corpus, or the dispatcher's pinned pair. Every leg reads it from
+          # there and nowhere else, and it passes through the environment
+          # (never interpolated into the shell) so no supplied value can
+          # inject commands.
+          COURT: ${{ needs.plan.outputs.court }}
+          DOCKET: ${{ needs.plan.outputs.docket }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
@@ -373,8 +523,8 @@ jobs:
       - name: Run the service read set against the sidecar
         if: ${{ matrix.scenario == 'corpus-service' }}
         env:
-          COURT: ${{ inputs.court }}
-          DOCKET: ${{ inputs.docket }}
+          COURT: ${{ needs.plan.outputs.court }}
+          DOCKET: ${{ needs.plan.outputs.docket }}
         run: |
           set -euo pipefail
           uv run fedcourts corpus-integration-check \
@@ -387,22 +537,22 @@ jobs:
       # The production provisioning command, exercised end to end before the
       # cascade: run-predict's own step passes the same
       # `--mode forward --refuse-terminal` (plus a staleness bound this
-      # harness deliberately leaves off — a fixed known case's snapshot ages,
-      # and the bound would turn the leg red on calendar time alone) but is
+      # harness deliberately leaves off — a stored snapshot ages, and the
+      # bound would turn the leg red on calendar time alone) but is
       # continue-on-error there (a
       # refusal must not burn the whole fan-out), so the guard drifting to
       # always-refuse — or the flag silently dropping out — fails nothing at
       # runtime, while local-cascade provisions in-process and never runs this
       # CLI at all. Here the command must *succeed and write the record* for
-      # the known case: while that case is undisposed (part of the input
-      # contract on `court`/`docket` above), a refusal is by construction a
-      # guard regression. An isolated data root keeps its writes out of the
-      # cascade's tree.
+      # the settled case: that case is undisposed — the resolver asks this
+      # very gate, and a pinned one carries the same obligation on the input —
+      # so a refusal is by construction a guard regression. An isolated data
+      # root keeps its writes out of the cascade's tree.
       - name: Provision the forward record through the production guard
         if: ${{ matrix.scenario == 'stub-cascade' }}
         env:
-          COURT: ${{ inputs.court }}
-          DOCKET: ${{ inputs.docket }}
+          COURT: ${{ needs.plan.outputs.court }}
+          DOCKET: ${{ needs.plan.outputs.docket }}
           EVENT: ${{ inputs.event }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           FEDCOURTS_CORPUS_BACKEND: ranged
@@ -420,8 +570,8 @@ jobs:
       - name: Run one stub cascade cell over the ranged backend
         if: ${{ matrix.scenario == 'stub-cascade' }}
         env:
-          COURT: ${{ inputs.court }}
-          DOCKET: ${{ inputs.docket }}
+          COURT: ${{ needs.plan.outputs.court }}
+          DOCKET: ${{ needs.plan.outputs.docket }}
           EVENT: ${{ inputs.event }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           FEDCOURTS_CORPUS_BACKEND: ranged
@@ -700,7 +850,7 @@ jobs:
       # predictor ids map each engine to its baseline in
       # config/predictors.yaml (an id drift fails loudly, naming the enabled
       # ids). One predictor cell, so the spend is one cell's worth against
-      # the default open-event case (a resolved event would also replay
+      # the settled open-event case (a resolved event would also replay
       # evaluator cells — the input description says so). The engine keys
       # resolve from the deployment environment like every other secret, so a
       # dispatch naming an environment without the keys gets an empty key and
@@ -710,8 +860,8 @@ jobs:
         if: ${{ matrix.scenario == 'engine-smoke' }}
         env:
           ENGINE: ${{ matrix.engine }}
-          COURT: ${{ inputs.court }}
-          DOCKET: ${{ inputs.docket }}
+          COURT: ${{ needs.plan.outputs.court }}
+          DOCKET: ${{ needs.plan.outputs.docket }}
           EVENT: ${{ inputs.event }}
           AWS_ACCESS_KEY_ID: ${{ steps.corpus.outputs.aws-access-key-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.corpus.outputs.aws-secret-access-key }}

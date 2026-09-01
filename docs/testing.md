@@ -73,9 +73,33 @@ engine-smoke once per engine, so three cells' token spend; collect rides the
 run as its own environment-free job beside the matrix). `scenario=all-offline`
 is that suite minus the three engine-smoke legs; the jobs that remain are
 identical, environment binding included, and the run is token-free end to end.
+
+The corpus-reading scenarios all run on **one case, settled once** by the
+`plan` job before the matrix fans out. Left at its empty default, the `docket`
+input means *resolve one*: `fedcourts corpus-integration-case` reads whichever
+corpus this dispatch's environment serves and returns the first
+snapshot-bearing, in-scope, still-predictable case — the shape every leg needs,
+asked of the same record gate the provisioning guard applies. That is what a
+static default cannot be, since each deployment environment resolves its own
+corpus pair (a case in the production corpus is absent from the lean staging
+one) and any case drifts out of shape as its docket resolves. The resolution is
+echoed to the run summary, so a run always names its subject, and a corpus with
+no usable case fails the plan job — before the engine-smoke legs spend
+anything.
+
+A non-empty `docket` pins a case instead and skips the resolver. That is the
+escape hatch for a corpus the resolver cannot read a candidate window out of,
+and for aiming a dispatch at one case. The window is driven from the **blob's**
+snapshot index, which is what bounds it, so a pair whose blob carries no
+snapshot rows cannot answer: a slice seeded split-on is exactly that, the
+staging pair included, and a staging-ref dispatch therefore names a member of
+the seeded slice (the staging-corpus runbook in
+[security.md](security.md) says which). The refusal is immediate and says so —
+the plan job, before any leg runs.
+
 `ranged-reads` is the tested `fedcourts corpus-integration-check`
 read set — a point lookup, a priors retrieval, a snapshot provisioning —
-against the real remote blob for a known case, asserting every read comes back
+against the real remote blob for that case, asserting every read comes back
 non-empty, reporting per-read GET/byte counters to the run summary, and
 exiting non-zero on a blown wall-clock budget. `corpus-service` launches the
 same corpus sidecar composite the cell workflows use — with the same
@@ -83,12 +107,14 @@ corpus-split inputs, so under the split the sidecar hydrates from the content
 store exactly as the fleet's does — and probes it through the exact CLI
 surface a cell retrieves with. `stub-cascade` first runs the production
 `provision-snapshot --mode forward --refuse-terminal` command against the
-known case in an isolated data root, failing the leg on a refusal (the same
+settled case in an isolated data root, failing the leg on a refusal (the same
 command is `continue-on-error` in run-predict, so this is where a guard
-drifting to always-refuse surfaces; the dispatched case must be genuinely
+drifting to always-refuse surfaces; the case must be genuinely
 open — snapshot non-terminal, corpus event unresolved, row undecided, no
-committed outcome — since the guard now reads the record as well as the
-snapshot), then runs one offline stub `local-cascade` cell over the ranged
+committed outcome — since the guard reads the record as well as the snapshot,
+which is exactly the gate the resolver asks on the dispatcher's behalf, and the
+obligation a pinned case carries by hand), then runs one offline stub
+`local-cascade` cell over the ranged
 backend, covering provisioning end to end. `mcp-sidecar` launches the same
 CourtListener MCP sidecar composite the
 cell workflows use, deliberately without its optional token input, and runs
@@ -122,7 +148,7 @@ and the content-store path under the split, all over corpora built in
 `engine-smoke` is the one token-spending scenario: a single real-engine
 predictor cell (the `engine` input picks which — an `all` dispatch ignores it
 and runs one smoke per engine; one predict cell's spend
-against the default open-event case — a resolved event also replays
+against the run's open-event case — a resolved event also replays
 evaluator cells) driven through `local-cascade` with the agent's retrieval on the
 service sidecar and the cascade's own provisioning reads pinned to `ranged`
 via `--corpus-backend` — the full production cell posture, including each
