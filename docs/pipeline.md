@@ -1601,8 +1601,11 @@ command-level contract):
   graded is work still owed and should re-mint.
 - **Each `pull-all` / `live-poll` cycle**, whose `pipeline.pull.evaluate_backlog`
   appends the derived cases to the same evaluate queue the fresh-resolution path
-  feeds, stamps `evaluate_queued_at` on what it derived, and reports the queue's
-  size on the run log. It files no trigger issue.
+  feeds and reports the queue's size on the run log. It files no trigger issue
+  and writes no `evaluate_queued_at` stamp: the scheduled lane holds off a case
+  stamped today, and it is the only actor that grades, so a pull-window stamp
+  (every window precedes the evaluate slot) would rotate owed gradings away
+  from the one lane that can clear them.
 
 It mirrors the predict selection sweep, with one deliberate difference and one
 deliberate similarity:
@@ -1612,9 +1615,9 @@ deliberate similarity:
   request rate. On the scheduled lane that cap and the cron's cadence are the
   whole of the pacing.
 - **Same:** the `evaluate_queued_at` corpus column orders the drain stalest-first
-  and debounces to daily. It paces the **pull lane**, which writes it; the
-  debounce runs one way only, since the scheduled lane honours a stamp the pull
-  lane wrote this morning but leaves none of its own, so it orders on a key it
+  and debounces to daily. No standing lane writes it any longer — the scheduled
+  lane is read-only and the pull lane deliberately leaves it alone — so the
+  hold is vacuous in practice and the deriver orders on a historical key it
   never advances. That column is scheduling metadata — the backlog itself is
   re-derivable from git — so losing it costs at most a duplicate round, never a
   grading.

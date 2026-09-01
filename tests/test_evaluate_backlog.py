@@ -112,16 +112,20 @@ def test_a_resolved_event_with_no_prediction_is_not_owed(tmp_path: Path) -> None
 
 
 def test_the_daily_debounce_stops_a_same_day_re_queue(tmp_path: Path) -> None:
-    """A case queued today waits for tomorrow, so an in-flight or failed run PR is
-    not re-queued every cycle."""
+    """A case stamped today is held until tomorrow. No standing lane writes the
+    stamp any more — the pull lane's stamp starved the scheduled lane, the only
+    grader, off exactly the owed cases — but the semantics stay pinned for any
+    caller that does (a maintenance pass, a test fixture)."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _resolved_event(db, "scotus", 1)
     seed_prediction(data, "scotus", 1, "evt-petition-disposition")
 
     first = _derive(tmp_path, today=date(2026, 7, 20))
-    assert first.evaluate  # queued, and the stamp is written
+    assert first.evaluate  # queued; the caller wrote no stamp
 
+    with corpus.connect(db) as conn:
+        corpus.stamp_evaluate_queued(conn, ["scotus/1"], date(2026, 7, 20))
     same_day = _derive(tmp_path, today=date(2026, 7, 20))
     assert same_day.evaluate == [], "the daily debounce holds a same-day re-queue"
 
@@ -213,8 +217,11 @@ def test_the_cap_bounds_the_queue_and_drains_stalest_first(tmp_path: Path) -> No
     # Never-queued (None) sorts first, then the stalest stamp.
     assert dockets == [1, 2], "stalest first, capped at two"
 
-    # Next cycle picks up the one held back (3), plus 1 and 2 remain ungraded but
-    # are debounced to tomorrow — so only 3 is fresh this cycle.
+    # No lane stamps, so the same head re-derives until the ledger moves under
+    # it: grading the head is what advances the cap window to the one held back.
+    for docket in (1, 2):
+        for ev in enabled_evaluators(EVALUATORS):
+            seed_evaluation(data, "scotus", docket, event, evaluator_id=ev.id)
     second = _derive(tmp_path, cap=2, today=date(2026, 7, 20))
     assert [e["docket"] for e in second.evaluate] == [3]
 
@@ -307,10 +314,10 @@ def test_the_cap_is_per_cell_a_sibling_evaluator_is_still_owed(tmp_path: Path) -
 
 
 def test_a_backlog_larger_than_the_cap_fully_drains_over_cycles(tmp_path: Path) -> None:
-    """The deadlock question: with more owed cases than the cap, and the daily
-    debounce holding today's queued cases, does the backlog still drain? It does,
-    because a case queued today is stamped today and sorts last tomorrow, so the
-    cap advances through the whole set stalest-first — nothing is starved."""
+    """The deadlock question: with more owed cases than the cap, does the backlog
+    still drain? It does — not by stamp rotation (no lane stamps), but because a
+    graded case leaves the level: each cycle's head is graded and the cap window
+    advances to the next owed cases, so every case is reached as work lands."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     event = "evt-petition-disposition"
@@ -322,9 +329,14 @@ def test_a_backlog_larger_than_the_cap_fully_drains_over_cycles(tmp_path: Path) 
     day = date(2026, 7, 20)
     for _ in range(3):  # ceil(5 / cap=2) = 3 cycles
         queues = _derive(tmp_path, cap=2, today=day)
-        drained |= {e["docket"] for e in queues.evaluate}
+        cycle = {e["docket"] for e in queues.evaluate}
+        drained |= cycle
+        # The cycle's gradings land; the level drops and the window advances.
+        for docket in cycle:
+            for ev in enabled_evaluators(EVALUATORS):
+                seed_evaluation(data, "scotus", int(str(docket)), event, evaluator_id=ev.id)
         day += timedelta(days=1)
-    assert drained == {1, 2, 3, 4, 5}, "every owed case is reached within ceil(n/cap) cycles"
+    assert drained == {1, 2, 3, 4, 5}, "every owed case is reached as gradings land"
 
 
 def test_the_deriver_never_indexes_the_whole_court(
@@ -399,6 +411,28 @@ def test_the_deriver_reads_through_a_read_only_connection_and_stamps_nothing(
     assert row.evaluate_queued_at is None
 
 
+def test_the_pull_lane_caller_writes_no_debounce_stamp(tmp_path: Path) -> None:
+    """`evaluate_backlog` reports the owed set and stamps nothing. A pull-window
+    stamp would hold the scheduled evaluate lane — the only actor that grades —
+    off exactly the cases this scan found, every day, since a pull window
+    precedes the evaluate slot; the queue it fills is a run-log count only."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _resolved_event(db, "scotus", 1)
+    seed_prediction(data, "scotus", 1, "evt-petition-disposition")
+
+    queued = _derive(tmp_path, today=date(2026, 7, 20))
+    assert queued.evaluate_from_backlog == 1
+
+    with corpus.connect_readonly(db) as conn:
+        row = corpus.get_row(conn, "scotus/1")
+    assert row is not None
+    assert row.evaluate_queued_at is None, (
+        "the pull lane stamped the case it derived — that stamp starves the "
+        "scheduled lane off the owed grading for the rest of the day"
+    )
+
+
 def test_a_stamp_free_derivation_repeats_until_the_grading_lands(tmp_path: Path) -> None:
     """Without the debounce stamp the same backlog re-derives every cycle — and
     that is correct, not a leak. Idempotency comes from the ledger the scan reads:
@@ -450,18 +484,3 @@ def test_a_stamp_the_pull_lane_wrote_still_holds_the_scheduled_derivation_back(
     assert next_day.case_ids == ("scotus/1",)
 
 
-def test_the_pull_lane_still_stamps_what_it_queued(tmp_path: Path) -> None:
-    """The pull lane owns the debounce stamp: it writes `evaluate_queued_at` on
-    every case it queued, which is what rotates the next cycle's stalest-first
-    ordering past work already handed off."""
-    db = corpus.corpus_db_path(tmp_path / "corpus")
-    _resolved_event(db, "scotus", 1)
-    seed_prediction(tmp_path / "data", "scotus", 1, "evt-petition-disposition")
-
-    queues = _derive(tmp_path, max_attempts=5, today=date(2026, 7, 20))
-
-    assert queues.evaluate_from_backlog == 1
-    with corpus.connect_readonly(db) as conn:
-        row = corpus.get_row(conn, "scotus/1")
-    assert row is not None
-    assert row.evaluate_queued_at == date(2026, 7, 20)

@@ -2763,12 +2763,14 @@ def set_distribution_count(conn: sqlite3.Connection, counts: Iterable[tuple[str,
 
 
 def stamp_evaluate_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
-    """Record that the backlog deriver routed each case at the evaluate seam on ``day``.
+    """Record that a caller routed each case at the evaluate seam on ``day``.
 
-    The evaluate twin of :func:`stamp_predict_queued` and its sole writer analogue.
-    Overwrites forward — "most recent evaluate-routing date", which the deriver's
-    daily-retry debounce compares against today so a case queued today is not
-    re-queued until tomorrow.
+    The evaluate twin of :func:`stamp_predict_queued`. Overwrites forward —
+    "most recent evaluate-routing date", which the deriver's daily debounce
+    compares against today. No standing lane stamps it: the scheduled evaluate
+    lane is read-only and the pull lane deliberately leaves it alone (a stamp
+    the day of the evaluate slot would hold the only grading lane off the
+    case). The writer API remains for maintenance passes and tests.
     """
     with conn:
         conn.executemany(
