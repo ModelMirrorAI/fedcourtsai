@@ -129,6 +129,20 @@ each as its own least-privilege job holding only the credentials its mode needs:
   step, so a sibling stats dispatch would otherwise take the artifact the mode
   exists to produce with it. Both jobs are read-only, so letting them overlap
   costs nothing.
+- **`text-coverage`** (dispatch) assumes the same read-only role and pull, then
+  runs `fedcourts corpus-info --text-coverage` — where the document text
+  actually lives and for which cases it is missing, the enumeration whose
+  store-side half only this job can produce (the content store is wired here
+  and not on a dev checkout; the report's own `text source:` line names which
+  side served it). The full report — the two untruncated case-id ledgers
+  included, since a repair is a per-case question and a count names no case —
+  is uploaded as a run artifact on the same **one-day** retention the census
+  rides, for the same compilation-extent reason; the step summary carries only
+  the part above the ledgers. Sized exactly like the census and for the same
+  reason (a store round trip per live-slice case): `role-duration-seconds:
+  8100`, a 110-minute step cap inside a 125-minute job, and its own
+  never-cancelled concurrency group so a sibling dispatch cannot take the
+  artifact with it.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
@@ -514,7 +528,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  │  disposition is machine-readable (git ledger);
                                  │  else queue an unrecorded outcome, surfaced
                                  │  per-case on the pipeline-runs dashboard
-                                 ├─ derive + stamp the evaluate backlog (owed gradings,
+                                 ├─ derive the evaluate backlog (owed gradings,
                                  │  beside this cycle's fresh resolutions; the pair is
                                  │  reported as a count — no issue is filed for it)
                                  └─ create issues  ← APP TOKEN
@@ -533,7 +547,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  │  → write outcome.json (git ledger); else queue an
                                  │    unrecorded outcome, surfaced per-case on the
                                  │    pipeline-runs dashboard
-                                 ├─ derive + stamp the evaluate backlog (as above)
+                                 ├─ derive the evaluate backlog (as above)
                                  └─ create run:predict issues  ← APP TOKEN
                                     (held by PREDICT_HANDOFF_ENABLED)
        run:predict → plan (build matrix, post the plan report)
@@ -987,7 +1001,11 @@ hand until there is a reason to parameterize it.
 from depends on the round: from the issue body's ` ```json ``` ` case block for
 `run:predict` and for a labelled `run:evaluate`, and — for a scheduled or
 dispatched `run:evaluate`, which has no issue — from the evaluate backlog the
-matrix command derives itself. When prediction scope is gated
+matrix command derives itself. `predict-matrix` self-derives in the same shape
+when given no input, from the predict backlog
+(`pipeline.pull.derive_predict_backlog`, described in [cli.md](cli.md)); today
+`run-predict` always passes an issue body, so the capability exists ahead of a
+caller for it. When prediction scope is gated
 (`predict.scope=scotus_docket`) the builder reads each case's corpus row (only a
 SCOTUS docket is in scope, minus the shared exclusion reasons), so `plan` first
 pulls the corpus; with the gate on
@@ -1583,8 +1601,11 @@ command-level contract):
   graded is work still owed and should re-mint.
 - **Each `pull-all` / `live-poll` cycle**, whose `pipeline.pull.evaluate_backlog`
   appends the derived cases to the same evaluate queue the fresh-resolution path
-  feeds, stamps `evaluate_queued_at` on what it derived, and reports the queue's
-  size on the run log. It files no trigger issue.
+  feeds and reports the queue's size on the run log. It files no trigger issue
+  and writes no `evaluate_queued_at` stamp: the scheduled lane holds off a case
+  stamped today, and it is the only actor that grades what this scan finds, so
+  a pull-window stamp (five of the eight daily windows precede the evaluate
+  slot) would rotate owed gradings away from the one lane that can clear them.
 
 It mirrors the predict selection sweep, with one deliberate difference and one
 deliberate similarity:
@@ -1593,11 +1614,16 @@ deliberate similarity:
   `evaluate.backlog_cases_per_cycle` cap bounds model spend and PR volume, not
   request rate. On the scheduled lane that cap and the cron's cadence are the
   whole of the pacing.
-- **Same:** the `evaluate_queued_at` corpus column orders the drain stalest-first
-  and debounces to daily. It paces the **pull lane**, which writes it; the
-  debounce runs one way only, since the scheduled lane honours a stamp the pull
-  lane wrote this morning but leaves none of its own, so it orders on a key it
-  never advances. That column is scheduling metadata — the backlog itself is
+- **Same:** the `evaluate_queued_at` corpus column keeps the sweep's ordering
+  semantics — stalest stamp first, a case stamped today held to tomorrow. No
+  standing lane writes it: the scheduled lane is read-only and the pull lane
+  deliberately leaves it alone, so the hold is vacuous in practice and the
+  deriver orders on a key it never advances (rows never stamped sort by case
+  id). The trade is deliberate: above the per-cycle cap the ordering no longer
+  rotates, so a stuck head — planned but never graded, recording no failure
+  fact — is cleared only by a grading landing or the per-cell attempt cap,
+  where the retired stamp would have rotated past it (and, worse, past every
+  owed case daily). That column is scheduling metadata — the backlog itself is
   re-derivable from git — so losing it costs at most a duplicate round, never a
   grading.
 
@@ -1606,9 +1632,9 @@ has not merged. What keeps a second derivation out of that window is
 `run-evaluate`'s concurrency group, which serializes every round of the workflow
 regardless of trigger — not the gate.
 
-The daily debounce paces re-queuing but has no ceiling, so a cell that fails
-*every* attempt (a persistent quota wall, a malformed record) would re-queue
-forever. The **ledger-derived failure facts** are the backstop: the corpus-blind
+The cron's cadence and `backlog_cases_per_cycle` pace re-queuing but have no
+ceiling, so a cell that fails *every* attempt (a persistent quota wall, a
+malformed record) would re-queue forever. The **ledger-derived failure facts** are the backstop: the corpus-blind
 `collect` job writes one committed `attempt.json` per failed cell into the git
 ledger, and the deriver counts them (`matrix.cell_failure_count`). Once a cell
 reaches the `evaluate.max_attempts_per_cell` cap the deriver stops re-deriving it.

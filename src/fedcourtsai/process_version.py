@@ -132,11 +132,13 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
 # at or after every bless moment in the map above and a cell minted in the
 # window between them lands as shakedown rather than as a counted cell. One
 # shape inverts that order — the held-instant evaluator re-bless noted below,
-# where the instant precedes the newly blessed entries' bless moment. Nothing
-# gates that gap shut: `graded_post_freeze` tests timing with no digest limb,
-# so an evaluation stamped inside it would count. What holds is the cutover's
-# step 0 plus the fact that cells are minted from `main`, which is an audited
-# convention rather than an invariant. The literal must be at or
+# where the instant precedes the newly blessed entries' bless moment. While
+# that window is open nothing mechanical gates it (`graded_post_freeze` has
+# no digest limb, and the tripwire cannot see a digest the map does not yet
+# hold); the gap stays empty because cells are minted from `main` — an
+# audited convention, not an invariant. From the bless moment on, the
+# evaluation-ledger tripwire detects any cell stamped inside the gap, so a
+# violation is caught at the re-bless. The literal must be at or
 # after the date of the promotion merge that carried this commit to `main`
 # (verified against `promotion/<YYYY-MM-DD>` before the `prereg/` tag is
 # minted) and before the first run intended to count — see the cutover in
@@ -301,7 +303,8 @@ def graded_post_freeze(process_version: ProcessVersion | None) -> bool:
     """Whether an evaluation's own harness stamp is at or after the freeze.
 
     The time half only: the evaluator's digest is recorded but deliberately
-    not enforced (the competitor being ranked is the predictor). Keyed on the
+    not enforced for counting (the competitor being ranked is the predictor;
+    its retroactivity is the evaluation-ledger tripwire's job). Keyed on the
     evaluation's **harness-written** stamp, never its agent-written
     ``created_at`` — the pre-registration boundary must not rest on a clock
     the agent controls. While unfrozen this is a no-op; after the freeze an

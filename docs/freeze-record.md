@@ -1343,3 +1343,175 @@ freeze commit is recorded here.
   `check_evaluation_targets` pointer discipline holds over the ledger) with
   `uv run fedcourts leaderboard` still reporting an empty frozen scope until
   the instant.
+
+- **The bless-boundary tripwire arms its evaluation half, 2026-09-01** (no
+  digest added or retired, no instant moved, no committed number moved): the
+  ledger tripwire that walks committed stamps against their digests' bless
+  moments now runs over both halves —
+  `test_no_committed_cell_predates_the_bless_it_claims` over predictions and
+  `test_no_committed_evaluation_predates_the_bless_it_claims` over
+  evaluations — superseding the 2026-08-31 entry's "the tripwire is
+  predictions-only" scope and mechanizing the freeze procedure's by-hand
+  evaluation gap check (step 4). Enforcement scope, stated precisely: the
+  tripwire sees a cell only from its digest's bless moment on; the
+  `[held instant, new evaluator bless)` window of a held-instant re-bless
+  stays governed by the minted-from-`main` convention while open, with the
+  tripwire detecting any violation at the re-bless. Verified at arming, over
+  the ledger as committed: 150 evaluations, 138 stamped, **6** under
+  currently blessed digests (3 under `sha256:11a0afbc…` stamped
+  `2026-08-29T04:33:12Z`, 3 under `sha256:b9f548f4…` stamped
+  `2026-08-29T04:29:37Z`, both against the carried-forward
+  `2026-08-26T14:46:40Z` bless), zero retroactive; the prediction half
+  executes over 19 of 660; `metrics/leaderboard.json` and
+  `metrics/claim-scores.json` still read `entries: []` under
+  `process_scope: frozen`. The runnable effect check is the pair:
+  `uv run pytest tests/test_process_version.py -k predates` green over the
+  ledger on `main`, and the boards still empty until the
+  `2026-09-05T00:00:00Z` instant.
+
+- **The sampled-frame weight repair is registered, and its durability half
+  lands, 2026-09-01** (no digest added or retired, no instant moved; no
+  committed number moves *on this change* — the apply half moves the weighted
+  statpack and docket-pack cuts and the ops digest's always-deny floor, and is
+  registered here in advance of it): a
+  deliberate re-weighting of the legacy denial-sampling frame, split into a
+  code half that lands now and a writer-lane data half that does not.
+
+  **The population.** **117** live-slice SCOTUS rows that the guarded rule
+  `legacy_denial_sample_weight` derives at weight 10 and that are **stored at
+  1** — grid denials genuinely inside sampled ranges, min-latched to certainty
+  by a channel that asserted it. Every figure below is re-derived at
+  registration from the blob pulled `2026-09-01` (newest stored snapshot
+  `2026-07-13`) by running the shipped rule, density guard included, over all
+  22,748 live-slice SCOTUS rows, and is a fact about *that* vintage.
+  Every one is IFP, in the eight `historical-ifp` OT2017–OT2024 cells, and the
+  per-Term split is OT2017 27, OT2018 26, OT2019 16, OT2020 13, OT2021 15,
+  OT2022 5, OT2023 8, OT2024 7. Those cells' live-slice serial coverage is
+  **0.127–0.135** — the sampled regime's own signature — and they are exactly
+  the eight cells the corpus's 2,583 stored weight-10 rows sit in. None is
+  capital. Each row's eighteen-serial neighbourhood holds 0–3 stored rows
+  (0: 60, 1: 38, 2: 17, 3: 2), well inside the sampled regime's observed 0–6
+  and far below the enumerated regime's 10-or-more.
+
+  **The provenance is checked, not assumed**, because the guard's own registered
+  residual has this exact shape: a poller-resolved denial inside a
+  walker-covered sampled range reads as sampled though the poller included it
+  with certainty, and coverage and occupancy alone cannot tell that apart from a
+  genuine 1-in-10 draw. What tells them apart is the grid. In these eight cells,
+  of the serials at or below the walk's cursor, **97.5–99.5% of grid serials are
+  stored against 3.0–4.0% of off-grid serials** — a 25–33× ratio, so grid
+  membership *is* the legacy walk's systematic keep and not an arrival any
+  channel could produce by chance; a poller would land on and off the grid
+  alike. All 117 are on the grid (117/117), they sit uniformly across each
+  cell's walked range (per-cell mean position 0.40–0.57, spanning 0.00–0.99)
+  rather than clustering where one channel worked, and they share the 2,583
+  weight-10 rows' poll window exactly (`2026-07-13`–`2026-07-20` on both). They
+  are the same draw, differing only in what was later written over them.
+
+  **Explicitly a different population from the 24 the capital-marking repair
+  withdrew**, and disjoint from it by the same guard that separates them: those
+  24 sat in cells of live-slice coverage 0.994–1.000 with neighbourhoods
+  reading 17–18, so weight 1 was correct and reweighting them would have
+  fabricated petitions the corpus already held. These 117 are the inverse —
+  blocks the corpus does *not* hold, whose nine petitions each are represented
+  by nobody. The two populations cannot overlap: one is what the density guard
+  reads as enumerated, the other what it reads as sampled. The withdrawn repair
+  would have added 216 phantom weighted denials, 117 of them inside the paid
+  scored segment; that its scored-segment share equals this population's size is
+  a coincidence, noted so the two are not later read as one number.
+
+  **The durability half, landing with this entry.** Every live-channel SCOTUS
+  write — frontier discovery, the cert and application rotations, the selection
+  sweep, and the historical walker's ingest — reaches the corpus through
+  `pipeline.live.ingest_live_payload`, and each of them asserted weight 1. The
+  min-latch keeps the smaller of stored and incoming, so any such write erases a
+  repaired 10; applying the data half without this would leave a repair the next
+  walk undoes. That seam now **derives** an asserted certainty through
+  `legacy_denial_sample_weight` rather than taking it, so a grid denial whose
+  block is still stored one row in ten keeps its sampling weight however often
+  the walk re-serves it alone, and regresses to 1 only once the block around it
+  is actually enumerated. A caller asserting any weight other than 1 is claiming
+  knowledge the corpus cannot reproduce and is written as given. The invariant
+  is that no writer writes weight 1 for a row whose block the guard reads as
+  sampled, so a later repair's 10 survives every re-serve; seven tests pin it,
+  the repair-then-re-walk case included. One writer reaches the column outside
+  that seam and is closed with it: the live-duplicate merge took the pair
+  minimum reading a NULL as certainty, so a survivor whose weight the
+  CourtListener channel never wrote would have stripped its live twin's sampled
+  weight; a NULL now asserts nothing and is skipped.
+
+  **The durability half is much larger than the repair it protects, and that is
+  registered here so a later reader attributes a moved number to the right
+  half.** The guard does not only keep the 117 repaired; it keeps the **2,583**
+  rows already stored at 10 from being latched down as the walk re-serves them.
+  At nine weighted petitions each that is up to **23,247** weighted denials the
+  code half alone preserves, against the apply half's +1,053. No number moves on
+  this change — nothing is re-weighted by it — but the counterfactual it
+  forecloses is twenty-two times the repair's size.
+
+  **The apply half is not in this change.** Re-weighting 117 stored rows is a
+  direct `UPDATE` — a narrower-to-wider weight routed through the upsert path is
+  a silent no-op under the min-latch — so it is a pass on `run-repair`, in the
+  writer lane, with its dry-run ledger read by a maintainer before any write.
+  Nothing about the corpus moves until that runs.
+
+  **Expected effect, direction registered now and magnitudes owed to the
+  dry-run.** Each repaired row gains nine weighted petitions, so on the
+  `2026-09-01` blob the apply adds **+1,053** weighted denials, taking the eight
+  affected cells' weighted denials from **25,950 to 27,003 — +4.06%**, the ~4%
+  IFP denial under-count the shortfall was filed as (per cell: +1.70% OT2022 to
+  +5.83% OT2017). Every weighted denominator that admits IFP rows therefore
+  moves **up**, every denied share **up**, and every grant, grant-family, GVR
+  and dismissed share **down**: the statpack's cert-by-disposition and
+  cert-by-circuit sections and its per-Term `base_rates` /
+  `est_grant_family_rate`, `fee_class=ifp` classes and weighted `timing`; the
+  docket pack's weighted sections and its per-Term `weighted_resolved`,
+  `dispositions`, `est_grant_rate` and `est_grant_family_rate`; and one
+  committed prose figure, the whole-slice IFP-inclusive denial rate in
+  `docs/outcome-decomposition.md` (19%, est. n ≈ 43,300 — the rate falls, the n
+  rises), whose paid hazards beside it do not move. The direction is uniform;
+  the *magnitude* is not, because the 117's distribution across relist, circuit
+  and capital buckets differs from the 2,583's — so no single percentage may be
+  carried across buckets. The capital cut moves on one side only: none of the
+  117 is capital, so the marked bucket holds and the marked-versus-unmarked gap
+  widens. As arithmetic on the committed statpack's weighted denied count of
+  40,520, the pack-wide denial total rises about 2.6% — indicative only, since
+  the committed pack and the repair-time blob are different vintages. **Exact
+  deltas are read from the repair dry-run ledger before apply, not from this
+  entry.**
+
+  **What the ledger may not be used to license, registered now so the apply
+  cannot be read as post-hoc.** The hedge above is about magnitudes, never
+  membership. The pass touches only rows that are, at apply time, IFP, on the
+  sampling grid, inside the eight `historical-ifp` OT2017–OT2024 cells, at or
+  below their cell's cursor, and read as sampled by the density guard. That
+  predicate is the registration; the count is whatever it selects on the blob
+  the pass runs against, and may differ from 117 as the corpus moves. **A row
+  the ledger proposes that falls outside the predicate is a different
+  population and needs its own entry** — it is not covered by this one.
+
+  **No scored number moves, and that is a property of the population rather
+  than a hope.** All 117 are IFP, and every scored-segment cut is gated on
+  `caption._scored_segment` / `analytics._is_scored_segment_row`, which require
+  a paid serial below `IFP_SERIAL_BASE`. So the caption census, the
+  distribution-parse band cut, the salience census and `salience-replay`, the
+  cert back-test, the leaderboard's realized-band skill, the claim-score
+  baselines and `evaluate.segment_base_rate` — all paid-only — cannot see these
+  rows, and the three census cuts' refusal to run over a `sample_weight != 1`
+  frame is not tripped by the repair. `metrics/leaderboard.json` and
+  `metrics/claim-scores.json` do not move, and the withdrawn repair's registered
+  paid-segment figures (n = 13,341, +0.146pp) survive untouched.
+
+  **One published number outside the boards does move, and it is a
+  calibration anchor.** The ops digest's always-deny floor (`ops._deny_base_rate`)
+  matches the statpack's cert-stage disposition section *by shape*, and that is
+  the IFP-inclusive weighted section — so `deny_base_rate` rises by about
+  0.12pp (0.9501 → 0.9513 on the committed pack) over a larger `base_rate_cases`,
+  and `lift_over_always_deny` falls by the same ~0.0012 for any accuracy. The
+  ops report is committed, so this re-bases a published comparison, by a bound
+  under 0.002. It is named here rather than left to be discovered in a diff.
+
+  The runnable effect check, for the promotion carrying the code half:
+  `uv run pytest tests/test_legacy_denial_weight.py` green, and — where the
+  corpus is pulled — the population reproduced by the shipped rule under the
+  membership predicate above before the writer-lane pass, and empty after it.

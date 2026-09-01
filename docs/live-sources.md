@@ -289,7 +289,9 @@ against a measured share, not a schedule.
 
 ### Contract for the recovery pass
 
-Decided and specified here; not yet built. What a pass must hold to:
+What a pass must hold to. The derivation marker it records and the extractor
+seam it walks pages through are in place; the pass itself, and the `run-repair`
+step that installs tesseract for it, are not built.
 
 - **Where it runs.** As a pass on `run-repair` — a `repair` selector value, not
   a workflow of its own. The writer jobs are the only place a production corpus
@@ -316,33 +318,49 @@ Decided and specified here; not yet built. What a pass must hold to:
   **only** where that page's own text extraction yields nothing — a guard rather
   than a filter, since the population is documents that yielded nothing at all,
   but it keeps a mostly-digital filing with a few scanned exhibit pages honest.
-  The same per-document text cap the fetching lane applies and the same
-  truncation flag bound the result, so a recovered petition is bounded exactly
-  like a fetched one. Additive by construction: text is written only
-  where extraction stored none, so the pass cannot overwrite an extraction. Nor
-  is a recovery overwritten later — the row keeps its URL, and both the poller
-  and the Term walker re-fetch a kind only when its link changes; a genuinely
-  superseding petition at a new URL is re-fetched and, if it too is a scan,
-  re-enters the class.
+  It is the extractor that walks them: `extract_pdf_text` takes the OCR call as
+  an injected `ocr_page` seam, defaulted to none, so the recovery pass will be
+  the only caller that supplies one and no fetching lane grows the dependency —
+  and the same per-document text cap the fetching lane applies and the same
+  truncation flag bound the result, because they are the same code. A recovered
+  petition is bounded exactly like a fetched one. Additive by construction: text
+  is written only where extraction stored none, so the pass cannot overwrite an
+  extraction. Nor is a recovery overwritten later — the row keeps its URL, and
+  both the poller and the Term walker re-fetch a kind only when its link
+  changes; a genuinely superseding petition at a new URL is re-fetched and, if
+  it too is a scan, re-enters the class.
 - **What it records.** OCR output is *derived* text, lossy in a way pypdf output
-  is not, so it must never read as a clean extraction — and the stored document
-  carries no derivation marker today. Adding one is three surfaces, not one:
-  the document model, an additive `documents` column with a constant default
-  and the migrator to back-fill it (the `cases` and `events` tables carry that
-  pattern; `documents` does not yet), and the content-store manifest writer and
-  reader, which serialize a document field by field — a field added to the model
-  alone reads back at its default on the offloaded path, which is the path
-  production reads. It regenerates `schemas/` like any model change.
-  Provisioning then carries the marker onto the cell manifest beside
-  `empty_text`, and the predict prompt gains the reading rule that pairs with
-  it, since a bare manifest key teaches an agent nothing; the coverage read can
-  then count what was repaired.
+  is not, so it must never read as a clean extraction. `CaseDocument.ocr_derived`
+  is that marker: one flag per stored document, true where **any** of its text
+  was read off a page image rather than out of the PDF's text layer. Per
+  document rather than per page, because that is the unit a reader is handed —
+  the flag tells a cell how to read the text it has, and a page-level ledger
+  would say where a misreading is possible without making it locatable in the
+  one string the cell holds. It rides three storage surfaces before
+  provisioning, because a document crosses that many boundaries: the model; the
+  `documents` column, with a constant default and `_migrate_documents` to
+  back-fill an older blob — one DDL map drives both that migration and the
+  writer's bound column list, so a column the writer binds cannot miss the
+  migration; and the content-store manifest writer *and* reader, which serialize
+  a document field by field — a field written on one side only reads back at its
+  default on the offloaded path, which is the path production reads. Both
+  readers tolerate what predates the marker rather than failing on it: a
+  manifest without the key reads as an extraction, and the row read selects
+  every column rather than naming this one, because the ranged backend serves a
+  remote blob as-is and cannot be migrated — naming a column the blob predates
+  would fail the whole document set rather than the one field. Provisioning then
+  carries the whole row minus its text onto the cell manifest, so the marker
+  lands beside `empty_text`. Still outstanding: the predict prompt's reading
+  rule, which pairs with the manifest key — a bare key teaches an agent nothing
+  — and moves the pre-registered prompt digest, so it rides a re-bless; and the
+  coverage read's count of what was repaired.
 - **What follows a recovery.** A recovered petition re-derives its
   questions-presented row through the existing deriver, since such a row is
   written only where the petition has text. On OCR text that derivation keeps
   the two outcomes it has now: no recognizable heading stores no row at all,
   and a heading whose capture the deriver will not vouch for stores the empty
-  row.
+  row. The derived row carries the petition's marker, on both the ingest and
+  the backfill path: text cut out of an OCR reading is an OCR reading.
 - **Terms.** Unchanged. These are the Court's own public records, and OCR text
   lands in the access-gated corpus under the same no-republication posture as
   every other extraction ([data-sources.md](data-sources.md)).
@@ -360,18 +378,37 @@ never collide) and **ingests every decided petition**, denials included. The
 walk has already fetched the payload by the time it can read the disposition, so
 declining to store one saves no request; it only drops a row the corpus can then
 recover solely by re-walking the whole Term. Every row records its **inverse
-inclusion probability** as `sample_weight` (1 for anything kept with certainty,
-which is now everything the walk writes), min-latched so a weight can only ever
-be learned toward certainty. The column stays because the corpus still holds
-denials an earlier sampled walk kept at weight 10: a weighted aggregate
-multiplies by it so that legacy frame cannot bias a base rate, and each such row
-regresses to 1 as a re-walk re-serves it — correctly only where the re-walk
-enumerates the whole block, so that the nine petitions the weight stood for
-arrive with it. A row regressed while its neighbours did not arrive leaves them
-represented by nobody, which under-counts that block's denials rather than
-over-counting them.
-Weights land exactly at ingest time; the backfill for pre-capture rows
-recovers them by rule (`legacy_denial_sample_weight`: denied + serial on the
+inclusion probability** as `sample_weight` — 1 where the corpus can show the row
+stands only for itself, min-latched so a weight can only ever be learned toward
+certainty. The column stays because the corpus still holds denials an earlier
+sampled walk kept at weight 10: a weighted aggregate multiplies by it so that
+legacy frame cannot bias a base rate, and each such row regresses to 1 once a
+re-walk has **enumerated its block**, so that the nine petitions the weight stood
+for arrive with it. Regressing it on the re-serve of the kept serial alone would
+leave those nine represented by nobody, which under-counts that block's denials
+rather than over-counting them.
+
+**So a channel does not get to assert the certainty; it is checked.** Every
+live-channel write that lands a SCOTUS payload — frontier discovery, the cert
+and application rotations, the selection sweep, and the walker's own ingest —
+reaches the corpus through `ingest_live_payload`, and a caller asserting weight
+1 there has that assertion re-derived through `legacy_denial_sample_weight`
+(density guard included) before it is written. (The rotations also write bare
+poll stamps directly, but each re-upserts the row it read, so it echoes the
+stored weight and can never lower one.) Touching a row is not observing the
+block it stands for: a grid denial whose neighbours are still stored one in ten
+keeps its sampling weight however many times the walk re-serves it alone. That
+is what makes a re-weighting of the legacy frame durable — the min-latch keeps
+the smaller of stored and incoming, so a repaired 10 would otherwise be erased
+by the next re-serve's 1. A caller asserting any weight *other* than 1 is
+claiming knowledge the corpus cannot reproduce, and that value is written as
+given. The derivation is affordable per row because the density guard's read of
+the live slice is served by `idx_cases_live_docket`, a covering partial index
+over exactly that slice; every other outcome is settled on the row's own columns
+and one cursor lookup.
+
+Weights land exactly at ingest time; the backfill for pre-capture rows recovers
+them by the same rule (`legacy_denial_sample_weight`: denied + serial on the
 sample grid + walker cursor covers the serial + the block it would stand for is
 not already stored row by row). The last conjunct is what the first three cannot
 supply: landing on the grid below the cursor proves the serial was *probed*, not

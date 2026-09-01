@@ -45,10 +45,10 @@ artifacts land as auto-merge-gated pull requests.
 | `run:backtest` | `run-backtest`  | Maintainer-triggered cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR. A second dispatch mode replays the **deterministic salience gate** over past Terms instead — offline, token-free, into `metrics/salience-replay.json` | Claude Code + Codex + Gemini (replay); salience-gate replay is script-only |
 
 Plus `run-ops` (a read-only daily dashboard with a weekly digest) and
-`run-analytics` — five dispatch modes: corpus statistics, the
-distribution-parse census, the tool-usage roll-up, the metrics refresh, and the
-qp-topic labeler (the only one that runs an agent) — both schedule/dispatch
-only. The cascade runs pull/live → corpus → `run:predict` (fired on an
+`run-analytics` — six dispatch modes: corpus statistics, the
+distribution-parse census, the document text-coverage enumeration, the
+tool-usage roll-up, the metrics refresh, and the qp-topic labeler (the only
+one that runs an agent) — both schedule/dispatch only. The cascade runs pull/live → corpus → `run:predict` (fired on an
 arrival-cohort pick, a conference distribution, or a changed open case).
 `run:evaluate` is not chained off it: run-evaluate runs on its own daily
 schedule and derives its own backlog — the gradings committed state still owes —

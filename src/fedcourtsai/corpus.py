@@ -371,11 +371,13 @@ class CorpusRow(BaseModel):
     sample_weight: int | None = Field(
         default=None,
         description="Inverse inclusion probability of this row under the corpus's "
-        "construction: 1 for every row its channel includes with certainty, "
+        "construction: 1 where the corpus can show the row stands only for itself, "
         "the legacy sampling interval for a denial the earlier historical walker kept by its "
-        "systematic serial sample — so a weighted aggregate can multiply by it "
-        "and count sampled denials at full strength. None means no channel "
-        "asserted a weight: permanent on rows the live channel never wrote, "
+        "systematic serial sample whose block is still stored one row in ten — so a "
+        "weighted aggregate can multiply by it and count sampled denials at full "
+        "strength. A writing channel asserts certainty but does not decide the value: "
+        "the live-ingest seam re-derives it against the block. None means no channel "
+        "weighted the row: permanent on rows the live channel never wrote, "
         "pre-capture within the live slice (backfilled by rule).",
     )
     predict_eligible: bool = Field(
@@ -455,14 +457,14 @@ class CorpusRow(BaseModel):
     )
     evaluate_queued_at: date | None = Field(
         default=None,
-        description="The last date the evaluate backlog deriver routed this case "
-        "at the evaluate seam; None if never. The evaluate twin of "
-        "`predict_queued_at`, and owned the same way — the queue routing, never "
-        "an ingestion channel. Debounces the backlog re-derivation to daily. It "
-        "carries only scheduling; the queue itself is re-derivable from the git "
-        "ledger (resolved event + committed prediction + no evaluation), so "
-        "losing this stamp costs at most a duplicate trigger issue, never a "
-        "grading.",
+        description="The last date any caller stamped this case at the evaluate "
+        "seam; None if never — and no standing lane stamps it. The evaluate "
+        "twin of `predict_queued_at`, and owned the same way — the queue "
+        "routing, never an ingestion channel. The deriver's daily debounce "
+        "reads it. It carries only scheduling; the queue itself is "
+        "re-derivable from the git ledger (resolved event + committed "
+        "prediction + no evaluation), so losing it costs at most a duplicate "
+        "round, never a grading.",
     )
     merits_judgment: str | None = Field(
         default=None,
@@ -628,6 +630,15 @@ class CaseDocument(BaseModel):
     pages: int = Field(default=0, description="PDF page count (0 for a derived section)")
     truncated: bool = Field(
         default=False, description="Extracted text hit the storage cap and was cut"
+    )
+    ocr_derived: bool = Field(
+        default=False,
+        description="Some or all of this text was read off the page image by OCR rather "
+        "than extracted from the PDF's text layer. OCR output is a lossy derivation of a "
+        "scanned image — misread characters, lost layout, dropped marginalia — not the "
+        "filed text itself, so a reader must not quote it as the document's exact words. "
+        "False on a fetched extraction, and on a questions-presented row derived from one "
+        "— a row derived from an OCR reading is an OCR reading, and says so.",
     )
     text: str = Field(description="Extracted text (capped at ingest; may be empty for a scan)")
 
@@ -806,6 +817,10 @@ CREATE TABLE IF NOT EXISTS documents (
     pages       INTEGER NOT NULL DEFAULT 0,
     truncated   INTEGER NOT NULL DEFAULT 0,
     text        TEXT NOT NULL,
+    -- Whether the text was read off the page image by OCR rather than out of
+    -- the PDF's text layer: a lossy derivation, which the cell manifest and
+    -- every reader downstream must be able to tell from a clean extraction.
+    ocr_derived INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (case_id, kind)
 );
 
@@ -912,6 +927,24 @@ def _migrate_cases(conn: sqlite3.Connection) -> None:
         "ELSE date_decided END) DESC, "
         "case_id)"
     )
+    # The sampling-weight rule reads every live-slice SCOTUS docket number to
+    # decide whether one grid denial's block is stored row by row
+    # (`pipeline.ingest.live_slice_serials`). The live slice is a small,
+    # slowly-growing minority of the SCOTUS rows, which are themselves a minority
+    # of the table — but the predicate is a NULL test on a column no index
+    # covered, so serving it meant visiting every SCOTUS row and pulling its full
+    # payload (opinion text included) to read one field. Holding exactly the live
+    # slice, in (court, docket_number) order, makes the read an ordered walk of a
+    # small covering index instead: the query never touches the table, which is
+    # the difference between tens of milliseconds and tens of seconds — and the
+    # rule runs per row at the live-ingest seam, not only in the back-fill's
+    # once-per-batch reading. Created here rather than in the base schema for the
+    # same reason as the index above: its partial predicate names a migrated
+    # column, which a legacy table gains only in the loop above.
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cases_live_docket ON cases(court, docket_number) "
+        "WHERE last_live_polled IS NOT NULL"
+    )
 
 
 def _migrate_live_cursors(conn: sqlite3.Connection) -> None:
@@ -966,6 +999,44 @@ def _migrate_events(conn: sqlite3.Connection) -> None:
     for column, ddl in _EVENTS_COLUMN_DDL.items():
         if column not in existing:
             conn.execute(f"ALTER TABLE events ADD COLUMN {column} {ddl}")
+
+
+# Per-column DDL for `documents`, in storage order — mirrors the `documents`
+# definition in `_SCHEMA` and drives both the writers' bound column list
+# (`_DOCUMENT_COLUMNS`) and the migration below, the same one-object
+# construction `cases` and `events` use: a column added here cannot be bound
+# without also being migrated. The base NOT-NULL-no-DEFAULT columns are
+# unreachable by ALTER and never need to be — every table ever created carries
+# them from its CREATE TABLE.
+_DOCUMENTS_COLUMN_DDL: dict[str, str] = {
+    "case_id": "TEXT NOT NULL",
+    "kind": "TEXT NOT NULL",
+    "url": "TEXT NOT NULL",
+    "entry_date": "TEXT",
+    "fetched_at": "TEXT NOT NULL",
+    "pages": "INTEGER NOT NULL DEFAULT 0",
+    "truncated": "INTEGER NOT NULL DEFAULT 0",
+    "text": "TEXT NOT NULL",
+    "ocr_derived": "INTEGER NOT NULL DEFAULT 0",
+}
+
+_DOCUMENT_COLUMNS = tuple(_DOCUMENTS_COLUMN_DDL)
+
+
+def _migrate_documents(conn: sqlite3.Connection) -> None:
+    """Back-fill `documents` columns added after table creation.
+
+    The documents table's counterpart of :func:`_migrate_cases`, driven by the
+    same DDL map the writers' bound column list is built from. A back-filled
+    column starts at its constant DEFAULT, which is the right reading for the
+    derivation marker: every row written before the marker existed came off
+    pypdf's text layer, so `ocr_derived = 0` states a fact rather than a
+    guess. Idempotent on a current-schema table.
+    """
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(documents)")}
+    for column, ddl in _DOCUMENTS_COLUMN_DDL.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE documents ADD COLUMN {column} {ddl}")
 
 
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
@@ -1088,6 +1159,7 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
         _migrate_cases(conn)
         _migrate_live_cursors(conn)
         _migrate_events(conn)
+        _migrate_documents(conn)
         yield conn
     finally:
         conn.close()
@@ -1585,6 +1657,17 @@ class PayloadReadSource(Protocol):
     def latest_live_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None: ...
 
     def documents_for_case(self, case_id: str) -> list[CaseDocument]: ...
+
+    def has_documents(self, case_id: str) -> bool:
+        """Whether the case has any stored document, without reading their text.
+
+        The existence probe :func:`has_documents_for_case` serves. Separate from
+        :meth:`documents_for_case` because a scan that only asks *whether* a case
+        is provisioned — the predict backlog's admission — would otherwise pull
+        every document body over the wire per candidate, unbounded by anything
+        the caller's cap controls.
+        """
+        ...
 
     def opinion_text(self, case_id: str) -> str | None: ...
 
@@ -2680,12 +2763,15 @@ def set_distribution_count(conn: sqlite3.Connection, counts: Iterable[tuple[str,
 
 
 def stamp_evaluate_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
-    """Record that the backlog deriver routed each case at the evaluate seam on ``day``.
+    """Record that a caller routed each case at the evaluate seam on ``day``.
 
-    The evaluate twin of :func:`stamp_predict_queued` and its sole writer analogue.
-    Overwrites forward — "most recent evaluate-routing date", which the deriver's
-    daily-retry debounce compares against today so a case queued today is not
-    re-queued until tomorrow.
+    The evaluate twin of :func:`stamp_predict_queued`. Overwrites forward —
+    "most recent evaluate-routing date", which the deriver's daily debounce
+    compares against today. No standing lane stamps it: the scheduled evaluate
+    lane is read-only and the pull lane deliberately leaves it alone (a stamp
+    the day of the evaluate slot would hold the only grading lane off the
+    case). No caller today; kept as the column's writer for a future
+    maintenance pass, and tests pin the reader's semantics through it.
     """
     with conn:
         conn.executemany(
@@ -3316,6 +3402,71 @@ def conference_watchlist(conn: ReadConnection, *, term_floor_year: int = 2017) -
     ]
 
 
+# The resolution-date expression `idx_cases_priors_recency` is built over (see
+# `_migrate_cases`), spelled against a qualified `cases` so it can sit in a join.
+# `IS NULL` over it is the SQL form of "``resolution_date`` has not happened yet":
+# on SCOTUS the cert grant/denial date, elsewhere the docket decision date.
+_UNRESOLVED_SQL = (
+    "(CASE WHEN cases.court = 'scotus' "
+    "THEN coalesce(cases.date_cert_granted, cases.date_cert_denied, cases.date_decided) "
+    "ELSE cases.date_decided END) IS NULL"
+)
+
+
+def snapshot_bearing_open_cases(conn: ReadConnection, *, court: str, limit: int) -> list[CorpusRow]:
+    """Up to ``limit`` still-predictable cases the blob stores a snapshot for.
+
+    The bounded candidate window a caller needing *some* case it can actually
+    provision reads — the integration suite's run-time case resolver
+    (:func:`fedcourtsai.integration_check.resolve_integration_case`).
+
+    A row qualifies when the blob holds a snapshot for it, it carries no
+    ``disposition`` and no resolution date (:func:`resolution_date` — the cert
+    grant/denial date on SCOTUS, so a granted petition awaiting its merits
+    judgment is *not* still-predictable at the case baseline, which is the shape
+    a forward provisioning gate refuses), it carries no predict-scope exclusion
+    latch, and it has at least one unresolved event. Ordered by
+    ``last_live_polled`` **descending** — most recently polled first, never-polled
+    rows at the tail — with ``case_id`` breaking ties, so the same corpus always
+    yields the same window. The live poll is the freshness signal that matters
+    here and ``last_pulled`` is not: the pull governor rotates over the whole
+    active set including the historical bulk import, so its newest stamps are
+    ancient dockets a repair sweep happened to touch, while the live channel
+    stamps exactly the modern petitions the suite wants.
+
+    **The snapshot set is what makes this bounded**, and it is why the join is
+    written to drive from ``snapshots``: that table covers a tiny fraction of the
+    corpus, so a co-routine over ``idx_snapshots_case`` feeding point seeks into
+    ``idx_cases_priors_recency`` visits candidates in the thousands rather than
+    walking the court's whole slice — the difference between a page or two of
+    ranged reads and the blob. ``CROSS JOIN`` states that order rather than
+    leaving it to the planner, which otherwise drives from ``cases`` and walks
+    every undisposed row in the court to find the few that are snapshotted.
+
+    Empty under the **corpus-split** mode, where the blob carries no snapshot
+    rows at all (the content store holds them); callers must handle that, since
+    an empty window there means "cannot tell from the index", not "no such case"
+    — :func:`payload_reads_offloaded` is the seam that distinguishes them. The
+    remaining screen stays with the caller, which holds the connection: the full
+    scope reason (:func:`out_of_scope_reason_full`, whose snapshot-aware rules
+    the ``predict_excluded`` latch cannot carry on its own).
+    """
+    if limit <= 0:
+        return []
+    sql = (
+        "SELECT cases.* FROM (SELECT DISTINCT case_id FROM snapshots) AS snap "
+        "CROSS JOIN cases ON cases.case_id = snap.case_id "
+        "WHERE cases.court = ? "
+        f"AND {_UNRESOLVED_SQL} "
+        "AND cases.disposition IS NULL "
+        "AND cases.predict_excluded = 0 "
+        "AND EXISTS (SELECT 1 FROM events "
+        "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
+        "ORDER BY cases.last_live_polled DESC, cases.case_id ASC LIMIT ?"
+    )
+    return [_from_record(record) for record in conn.execute(sql, (court, limit))]
+
+
 # --- predictable event definitions (raw facts) ---------------------------------
 
 # The writers' bound column list IS the migration's DDL map (see
@@ -3928,6 +4079,45 @@ def latest_pull_date(conn: ReadConnection) -> date | None:
 # --- per-case filed-document text (raw facts) ------------------------------
 
 
+def _document_to_record(document: CaseDocument) -> dict[str, object]:
+    """One document's stored column values, keyed by column name.
+
+    A `KeyError` in :func:`upsert_documents` is the intended failure when a
+    column joins `_DOCUMENTS_COLUMN_DDL` without a value here — loud at the
+    first write rather than silently binding a default.
+    """
+    return {
+        "case_id": document.case_id,
+        "kind": document.kind,
+        "url": document.url,
+        "entry_date": document.entry_date,
+        "fetched_at": document.fetched_at.isoformat(),
+        "pages": document.pages,
+        "truncated": int(document.truncated),
+        "text": document.text,
+        "ocr_derived": int(document.ocr_derived),
+    }
+
+
+def _document_upsert_sql() -> str:
+    """The one documents upsert statement, latest-wins on ``(case_id, kind)``.
+
+    Built from the DDL map the migration is driven by, so a column the writer
+    binds cannot miss the migration and a pre-migration blob's first document
+    write cannot fail on an unknown column.
+    """
+    placeholders = ", ".join("?" for _ in _DOCUMENT_COLUMNS)
+    updates = ", ".join(
+        f"{column} = excluded.{column}"
+        for column in _DOCUMENT_COLUMNS
+        if column not in ("case_id", "kind")
+    )
+    return (
+        f"INSERT INTO documents ({', '.join(_DOCUMENT_COLUMNS)}) VALUES ({placeholders}) "
+        f"ON CONFLICT(case_id, kind) DO UPDATE SET {updates}"
+    )
+
+
 def upsert_documents(conn: sqlite3.Connection, documents: list[CaseDocument]) -> int:
     """Insert or replace documents by ``(case_id, kind)``; returns rows written.
 
@@ -3938,22 +4128,9 @@ def upsert_documents(conn: sqlite3.Connection, documents: list[CaseDocument]) ->
     if not split:
         with conn:
             conn.executemany(
-                "INSERT INTO documents (case_id, kind, url, entry_date, fetched_at, pages, "
-                "truncated, text) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
-                "ON CONFLICT(case_id, kind) DO UPDATE SET url = excluded.url, "
-                "entry_date = excluded.entry_date, fetched_at = excluded.fetched_at, "
-                "pages = excluded.pages, truncated = excluded.truncated, text = excluded.text",
+                _document_upsert_sql(),
                 [
-                    (
-                        d.case_id,
-                        d.kind,
-                        d.url,
-                        d.entry_date,
-                        d.fetched_at.isoformat(),
-                        d.pages,
-                        int(d.truncated),
-                        d.text,
-                    )
+                    tuple(_document_to_record(d)[column] for column in _DOCUMENT_COLUMNS)
                     for d in documents
                 ],
             )
@@ -3984,9 +4161,12 @@ def documents_for_case(conn: ReadConnection, case_id: str) -> list[CaseDocument]
     if (source := _payload_read_source()) is not None:
         return source.documents_for_case(case_id)
     try:
+        # `SELECT *`, not the bound column list: local reads see every column
+        # (`connect` migrates on open), but the ranged backend serves the remote
+        # blob as-is, and naming a column the blob predates fails the whole read
+        # rather than the one field (see :func:`_optional_date`).
         cur = conn.execute(
-            "SELECT case_id, kind, url, entry_date, fetched_at, pages, truncated, text "
-            "FROM documents WHERE case_id = ? ORDER BY kind",
+            "SELECT * FROM documents WHERE case_id = ? ORDER BY kind",
             (case_id,),
         )
     except Exception as exc:
@@ -4002,7 +4182,41 @@ def documents_for_case(conn: ReadConnection, case_id: str) -> list[CaseDocument]
             fetched_at=date.fromisoformat(record["fetched_at"]),
             pages=int(record["pages"]),
             truncated=bool(record["truncated"]),
+            # A blob packed before the marker existed holds only extractions, so
+            # its absence reads as "not OCR" — the migrator's DEFAULT by another
+            # route, for the one backend that cannot be migrated.
+            ocr_derived=bool(_optional_bool(record, "ocr_derived")),
             text=record["text"],
         )
         for record in cur
     ]
+
+
+def has_documents_for_case(conn: ReadConnection, case_id: str) -> bool:
+    """Whether the case has any stored document — the existence probe alone.
+
+    The same question :func:`documents_for_case` answers by truth of an empty
+    list, asked without materializing the text. On SQLite that is a ``LIMIT 1``
+    instead of a full row read; under the corpus-split mode it is the content
+    store's own cheap probe (one manifest read rather than a read per document
+    body). The difference matters to a scan that asks it per candidate: the
+    predict backlog's provisioning predicate holds an unprovisioned case
+    *without* spending a cap slot, so the probes are bounded by the candidate
+    set rather than by the cap, and a probe that downloaded every body would
+    make the scan's cost a function of the corpus's document volume.
+
+    A store failure is **not** swallowed here. The split-mode read source
+    degrades an unreadable case to "no documents" only where a missing body may
+    silently degrade the answer (a query's opinion text); an admission
+    predicate that reads a transport error as "not provisioned" would hold the
+    whole backlog and report it as drained.
+    """
+    if (source := _payload_read_source()) is not None:
+        return source.has_documents(case_id)
+    try:
+        cur = conn.execute("SELECT 1 FROM documents WHERE case_id = ? LIMIT 1", (case_id,))
+    except Exception as exc:
+        if "no such table" in str(exc).lower():
+            return False
+        raise
+    return cur.fetchone() is not None

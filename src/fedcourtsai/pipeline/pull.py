@@ -23,15 +23,21 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from typing import Literal
 
 import httpx
 
 from .. import corpus, ids
 from ..config import PredictScope
 from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_transient
-from ..matrix import cell_failure_count, event_has_evaluations, event_has_predictions
-from ..registry import enabled_evaluators
-from ..store import forecastable_events
+from ..matrix import (
+    cell_failure_count,
+    event_has_evaluations,
+    event_has_predictions,
+    predicted_case_ids,
+)
+from ..registry import enabled_evaluators, enabled_predictors
+from ..store import event_has_claimable_prediction, forecastable_event_ids, forecastable_events
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
 from .outcome import (
@@ -228,20 +234,34 @@ def _in_predict_scope(
     """
     with corpus.connect(corpus_db_path) as conn:
         row = corpus.get_row(conn, case_id)
-        return bool(
-            row
-            and row.court == "scotus"
-            and corpus.out_of_scope_reason_full(conn, row) is None
-            # The salience gate is a CERT-stage funding decision. A case whose
-            # merits proceeding is open was selected by the Court itself, and
-            # the question the gate answers — which of ~1,500 petitions is worth
-            # a forecast — has no bearing on a population of ~65 grants a Term.
-            and (
-                not corpus.is_salience_deferred(row)
-                or corpus.has_open_merits_event(conn, case_id)
-                or cohort_completion
-            )
+        return row is not None and _row_in_predict_scope(
+            conn, row, cohort_completion=cohort_completion
         )
+
+
+def _row_in_predict_scope(
+    conn: corpus.ReadConnection, row: corpus.CorpusRow, *, cohort_completion: bool = False
+) -> bool:
+    """:func:`_in_predict_scope` over a row the caller already holds.
+
+    The predicate itself, split from the connection handling so a read-only scan
+    that has already fetched the row (:func:`derive_predict_backlog`) asks the
+    same question without a second lookup — and so the two callers cannot drift
+    into two subtly different scope gates.
+    """
+    return (
+        row.court == "scotus"
+        and corpus.out_of_scope_reason_full(conn, row) is None
+        # The salience gate is a CERT-stage funding decision. A case whose
+        # merits proceeding is open was selected by the Court itself, and
+        # the question the gate answers — which of ~1,500 petitions is worth
+        # a forecast — has no bearing on a population of ~65 grants a Term.
+        and (
+            not corpus.is_salience_deferred(row)
+            or corpus.has_open_merits_event(conn, row.case_id)
+            or cohort_completion
+        )
+    )
 
 
 def _queue_predict(
@@ -282,27 +302,37 @@ def _cell_capped(
     court: str,
     docket: int,
     event_id: str,
-    evaluator_id: str,
+    actor_id: str,
     max_attempts: int,
+    seam: Literal["predict", "evaluate"] = "evaluate",
 ) -> bool:
-    """Whether an evaluate cell has exhausted the per-cell attempt cap.
+    """Whether a cell has exhausted the per-cell attempt cap at ``seam``.
 
-    Counts the committed ``attempt.json`` failure facts at the ``evaluate`` seam
+    Counts the committed ``attempt.json`` failure facts at that seam
     (:func:`fedcourtsai.matrix.cell_failure_count`), keyed on cell identity — the
     corpus-blind ``collect`` job records one per failed run, so a cell retried
     across runs counts against the same cap rather than resetting it.
     ``max_attempts <= 0`` disables the cap.
+
+    ``actor_id`` is the evaluator at the evaluate seam and the predictor at the
+    predict seam. Both backlog derivers here and the live channel's selection
+    sweep consult it, so the seam is a parameter rather than one copy of these
+    four lines per caller — three readings of one cap is three places for it to
+    drift.
     """
     if max_attempts <= 0:
         return False
-    return cell_failure_count(data_root, court, docket, event_id, evaluator_id, "evaluate") >= (
-        max_attempts
-    )
+    return cell_failure_count(data_root, court, docket, event_id, actor_id, seam) >= max_attempts
 
 
 @dataclass(frozen=True)
 class BacklogEntry:
-    """One case the evaluate backlog owes gradings on, and the events it owes."""
+    """One case a backlog derivation owes cells on, and the events it owes them for.
+
+    Shared by both derivers: the evaluate backlog's owed gradings and the
+    predict backlog's owed forecasts have the same shape, because both name a
+    case and the subset of its events some enabled actor has not covered.
+    """
 
     case_id: str
     court: str
@@ -310,23 +340,25 @@ class BacklogEntry:
     events: tuple[str, ...]
 
     def as_queue_entry(self) -> dict[str, object]:
-        """The mapping shape ``PullQueues.evaluate`` carries to the workflow."""
+        """The mapping shape a ``PullQueues`` list carries to the workflow."""
         return {"court": self.court, "docket": self.docket, "events": list(self.events)}
 
 
 @dataclass(frozen=True)
 class EvaluateBacklog:
-    """What one backlog derivation found, before anything is queued or stamped.
+    """What one backlog derivation found, before anything is queued.
 
-    Separating the derivation from its consumption is what lets the same scan
-    serve two callers with different authority over the corpus of record: the
-    pull seams queue *and* stamp, while the evaluate stage's own schedule only
-    reads. That schedule runs outside the writer jobs, so a stamp it wrote
-    could never be pushed — it would mutate the runner's pulled copy and die
-    with it — and it needs none (see :func:`derive_evaluate_backlog`).
+    Separating the derivation from its consumption keeps the scan itself on
+    the read seam regardless of who calls it: the pull seams queue what it
+    finds into the run-log count, while the evaluate stage's own schedule
+    fans out over it — and neither stamps. The schedule runs outside the
+    writer jobs, so a stamp it wrote could never be pushed — it would mutate
+    the runner's pulled copy and die with it — and it needs none (see
+    :func:`derive_evaluate_backlog`).
 
-    ``day`` is the date the derivation ran under, carried so a caller that does
-    stamp writes the same value the debounce filtered on.
+    ``day`` is the date the derivation ran under, carried so the debounce
+    comparison and any caller that does stamp (none standing) agree on the
+    value.
     """
 
     entries: tuple[BacklogEntry, ...]
@@ -362,12 +394,13 @@ def derive_evaluate_backlog(
     throttle. ``cap`` bounds model spend and PR volume, not request rate: each
     queued case fans out one cell per not-yet-graded evaluator. Candidates sort
     by ``evaluate_queued_at`` and a case already stamped with ``today`` is held
-    back, so a caller that stamps drains its backlog stalest-first and skips
-    what it queued this cycle. The debounce runs one way only: it holds a
-    scheduled derivation back from a case the pull lane stamped this morning,
-    while a stamp-free caller leaves nothing for the pull lane to skip on, and
-    orders on a key it never advances — the same head of the queue re-derives
-    each cycle until the ledger moves under it.
+    back — the correct semantics for any caller that stamps, though no standing
+    lane does: every production caller is stamp-free, so the column is a
+    historical rotation record, the hold is vacuous in practice, and the same
+    head of the queue re-derives each cycle until the ledger moves under it.
+    (A pull-lane stamp here would starve the scheduled lane: a pull window
+    precedes the evaluate slot daily, and the scheduled lane is the only actor
+    that grades what this scan finds.)
 
     The connection is a :class:`~fedcourtsai.corpus.ReadConnection`, which keeps
     this scan on the read seam: every read here — ``iter_resolved_events``,
@@ -375,8 +408,7 @@ def derive_evaluate_backlog(
     pass a ranged connection and no writer-only API (``commit``,
     ``stamp_evaluate_queued``) is reachable through the parameter. It is a
     one-method protocol, not a proof: what actually keeps the corpus of record
-    intact is that write credentials live only in the writer jobs. Stamping is
-    the caller's, on its own concrete connection (:func:`evaluate_backlog`).
+    intact is that write credentials live only in the writer jobs.
 
     ``max_attempts`` is the poison-pill backstop the daily debounce lacks (counted
     from the committed ``attempt.json`` failure facts, see
@@ -399,8 +431,8 @@ def derive_evaluate_backlog(
     ``already_queued`` is the case ids a caller's poll seams queued this cycle,
     so the deriver does not double-queue a case the fresh-resolution path just
     covered — case-granular, so a case queued this cycle for one event defers
-    its *other* owed events to the next cycle. That is fine: they are debounced
-    anyway, and re-derived stalest-first later. For SCOTUS, where
+    its *other* owed events to the next cycle. That is fine: the very next
+    derivation re-presents them. For SCOTUS, where
     ``evt-petition-disposition`` is typically the sole event, the case rarely
     has other owed events at all.
     """
@@ -481,16 +513,17 @@ def evaluate_backlog(
     already_queued: set[str] | None = None,
     today: date | None = None,
 ) -> None:
-    """Queue the owed gradings a pull cycle found, and stamp what it queued.
+    """Report the owed gradings a pull cycle found, without stamping them.
 
     The pull lane's consumption of :func:`derive_evaluate_backlog`: it appends
     to ``queues.evaluate`` (the same list the poll seams feed, so the workflow
-    consumes one queue), counts the additions in ``evaluate_from_backlog``, and
-    stamps ``evaluate_queued_at`` on the queued cases so the next cycle's
-    stalest-first ordering rotates past work already handed off. The stamp is a
-    corpus write, which is why it lives here rather than in the deriver: this
-    runs inside the pull writer job, the one place that holds corpus-write
-    credentials.
+    consumes one queue) and counts the additions in ``evaluate_from_backlog``.
+    The queue is a run-log count, nothing more — no trigger issue is filed and
+    no ``evaluate_queued_at`` stamp is written. Deliberately so: the scheduled
+    evaluate lane holds off a case stamped *today*, and it is the only actor
+    that grades, so a pull-lane stamp here would rotate owed gradings away
+    from the one lane that can clear them (a pull window precedes the evaluate
+    slot every day) while nothing acts on this queue in their place.
     """
     # Short-circuit a disabled deriver before opening anything: `corpus.connect`
     # creates the database and its schema, which a cap of 0 should not provoke.
@@ -511,9 +544,387 @@ def evaluate_backlog(
         queues.evaluate.append(entry.as_queue_entry())
         queues.evaluate_from_backlog += 1
 
-    if derived.case_ids:
-        with corpus.connect(corpus_db_path) as conn:
-            corpus.stamp_evaluate_queued(conn, derived.case_ids, derived.day)
+
+#: How stale a case's corpus row may be and still be minted from by
+#: :func:`derive_predict_backlog`.
+#:
+#: The live channel's selection sweep re-polls every case *before* it queues
+#: one, and acts on what comes back: a docket that now looks decided is
+#: diverted to ``predict_skipped_decided`` instead of queued. That re-poll is
+#: the backstop against forecasting a case whose answer is already public, and
+#: a scan over committed state has no equivalent — it can only mint from what
+#: the record last saw. So the record's own age becomes the bound. An open
+#: event on a row nobody has polled in a fortnight is exactly as likely to be
+#: resolved-but-unrecorded as still pending, and a forward cell on that case is
+#: a mislabeled backtest.
+#:
+#: Seven days: the live windows poll four times a day on a stalest-first
+#: rotation, so a case this lane cares about is normally seen within a day or
+#: two (median 1 on the shipped corpus) and a week is several rotations of
+#: slack rather than a tight bound. The hold is never terminal — it clears the
+#: moment the rotation reaches the case — so the cost of it being slightly too
+#: tight is a cycle's delay, while the cost of it being too loose is a cell
+#: minted on a stale record.
+BACKLOG_MAX_POLL_AGE_DAYS = 7
+
+
+def _last_observed(row: corpus.CorpusRow) -> date | None:
+    """When either ingestion channel last saw this case, or ``None`` if neither has.
+
+    The freshest of the two rotation stamps. They are written by different
+    channels and neither is complete: ``last_live_polled`` is the
+    supremecourt.gov poller's and covers essentially every case the predict
+    backlog considers, while ``last_pulled`` is the CourtListener rotation's and
+    covers a small overlap. Taking the maximum asks the question that actually
+    matters — *how old is this record* — rather than privileging one channel's
+    coverage.
+    """
+    seen = [stamp for stamp in (row.last_live_polled, row.last_pulled) if stamp is not None]
+    return max(seen) if seen else None
+
+
+@dataclass(frozen=True)
+class PredictBacklog:
+    """What one predict-backlog derivation found, having written nothing.
+
+    The predict mirror of :class:`EvaluateBacklog`, with one asymmetry that is
+    the whole point of the class: it has no queueing/stamping consumer beside
+    it. The live channel's selection sweep still owns the pull lane's predict
+    queue and its ``predict_queued_at`` stamp, because the sweep re-polls each
+    candidate before queueing it and the stamp is a corpus write. This scan is
+    for the caller with no corpus-write credentials at all — the predict
+    stage's own schedule, which reads the committed record and derives its fan-out
+    from it.
+
+    ``day`` is the date the derivation ran under, carried so a reader can say
+    which day's debounce stamps it filtered on.
+
+    The two **hold** counts are the derivation's other output, and they are
+    counted over the *owed* population alone — a candidate is only counted as
+    held if, but for the hold, it would have produced an entry. That is what
+    makes them mean something: "work this lane owes and cannot mint yet",
+    rather than "candidates that fell out somewhere", which the ordinary
+    admission rules already drop by the hundred. Both holds clear on their own
+    as another lane advances, which is why they are reported at all — an empty
+    backlog otherwise reads the same whether the queue is drained or every owed
+    case is waiting on a lane this one cannot drive.
+
+    - ``held_stale`` — the case's corpus row is older than
+      :data:`BACKLOG_MAX_POLL_AGE_DAYS`. Clears at the case's next live poll.
+    - ``held_unswept`` — the pull lane has never queued the case *and* it has
+      no stored documents, so provisioning has not been attempted for it.
+      Clears when run-pull sweeps it.
+
+    The classes are first-match (staleness is tested first), so a case that is
+    both counts once, under ``held_stale``; the sum is the true held total.
+
+    ``cap_reached`` says the scan stopped on ``cap`` rather than exhausting the
+    candidates, so both counts are **censored**: candidates past the break were
+    never examined and are in neither figure. A reader quoting a hold count
+    without it would be quoting a lower bound as a total.
+
+    ``day`` is the date the derivation ran under, carried so a reader can say
+    which day's debounce stamps and which staleness horizon it filtered on.
+    """
+
+    entries: tuple[BacklogEntry, ...]
+    day: date
+    held_stale: int = 0
+    held_unswept: int = 0
+    cap_reached: bool = False
+
+    @property
+    def case_ids(self) -> tuple[str, ...]:
+        return tuple(entry.case_id for entry in self.entries)
+
+
+def _predict_backlog_candidates(
+    conn: corpus.ReadConnection,
+    *,
+    seen: set[str],
+    predicted: frozenset[str],
+    merits_open: set[str],
+    day: date,
+) -> list[tuple[corpus.CorpusRow, bool]]:
+    """The rows :func:`derive_predict_backlog` may spend a cap slot on, stalest first.
+
+    Steps 1 through 6 of that function's admission list — everything decidable
+    from the row and the two bulk reads, before any per-case ledger or document
+    work. Each row is paired with the ``cohort_only`` flag saying it was admitted
+    on the cohort-completion ground alone, which is what narrows its events.
+
+    Driven from the open-event set, which on a SCOTUS corpus is very nearly
+    every case: this is a whole-court walk, and calling it anything else would
+    overstate it. What it avoids is **hydrating a row per case** — the walk
+    materializes case *ids* and then fetches only the rows that survive the
+    cheap set membership tests, so peak memory is a list of ids rather than a
+    list of :class:`~fedcourtsai.corpus.CorpusRow` models. The bound the drive
+    does give is a real one, just narrower than "only the work": a case with no
+    open event cannot be owed a forecast and never becomes a candidate.
+
+    Ordering is the live sweep's own rotation key with the queue stamp in
+    front: stalest ``predict_queued_at`` first (never-queued sorts first), then
+    least-recently-observed, then ``case_id``. The middle key matters because
+    the first is ``None`` for most of the set — without it a never-queued
+    candidate would be ordered by the lexical accident of its docket number.
+    """
+    open_case_ids: list[str] = []
+    for event in corpus.iter_open_events(conn, court="scotus"):
+        if not open_case_ids or open_case_ids[-1] != event.case_id:
+            # The iterator is `(case_id, event_id)`-ordered, so a case's events
+            # arrive contiguously and the last id seen is the whole dedupe.
+            open_case_ids.append(event.case_id)
+
+    candidates: list[tuple[corpus.CorpusRow, bool]] = []
+    for case_id in open_case_ids:
+        if case_id in seen:
+            continue
+        row = corpus.get_row(conn, case_id)
+        if row is None or row.predict_queued_at == day or row.predict_excluded:
+            continue
+        # The sweep's candidate filter, verbatim, so admission and narrowing
+        # cannot disagree: a row neither selection nor the merits bypass admits
+        # is here on the cohort ground alone, and only such a row is narrowed.
+        cohort_only = not row.salience_selected and case_id not in merits_open
+        if cohort_only and case_id not in predicted:
+            continue
+        if not _row_in_predict_scope(conn, row, cohort_completion=cohort_only):
+            continue
+        candidates.append((row, cohort_only))
+
+    # Stalest first, so the backlog drains fairly under the cap; a never-queued
+    # case (predict_queued_at is None) sorts first, and among those the
+    # least-recently-observed leads — the same rotation order the live sweep
+    # drains in, so the two lanes never disagree about which case is next.
+    candidates.sort(
+        key=lambda pair: (
+            pair[0].predict_queued_at or date.min,
+            _last_observed(pair[0]) or date.min,
+            pair[0].case_id,
+        )
+    )
+    return candidates
+
+
+def derive_predict_backlog(
+    conn: corpus.ReadConnection,
+    data_root: Path,
+    predictors_path: Path,
+    *,
+    cap: int,
+    max_attempts: int,
+    already_queued: set[str] | None = None,
+    today: date | None = None,
+) -> PredictBacklog:
+    """Find the forecasts the committed record still owes, reading only.
+
+    What makes predict level-triggered, the way :func:`derive_evaluate_backlog`
+    does for grading. A case is owed a forecast when it is in predict scope,
+    funded, and some enabled predictor is missing a prediction for some open
+    forecastable event of it — a condition on committed state, so it survives a
+    run dropped on the floor, a paused lane, or a handoff that never fired. Two
+    further conditions gate *minting* rather than owing, and the difference is
+    load-bearing: a case can be owed and still held.
+
+    This is **not** an extraction of :func:`fedcourtsai.pipeline.live.salience_sweep`
+    and must not become one. The sweep's body interleaves network fetches,
+    ingest writes, document provisioning, and the queue stamp — every one of
+    which this scan is defined by *not* doing — so what the two share is the
+    predicate set, applied here read-only over an already-open connection.
+
+    **The admission predicates, in the order they run:**
+
+    1. ``already_queued`` — case ids a caller has already covered this cycle.
+    2. The case has a row (an open event whose case row is absent cannot be
+       scope-checked, so it is skipped rather than crashed).
+    3. ``row.predict_queued_at != day`` — the one-way debounce. This lane writes
+       no stamp, so it honours the one the pull/live lane wrote (a case handed
+       off this morning is not re-derived tonight) and leaves none of its own.
+    4. ``not row.predict_excluded`` — the cheap row-level scope latch, the
+       sweep's own pre-filter.
+    5. Funding: selected by salience, **or** carrying an open merits event (the
+       Court's own selection outranks the cert-stage funding question), **or**
+       already holding a committed prediction somewhere (cohort completion,
+       admission only — see the narrowing below).
+    6. :func:`_row_in_predict_scope` — the full scope gate the pull and live
+       lanes apply at queue time, with ``cohort_completion`` set exactly when
+       (5) admitted the row on the cohort ground alone.
+    7. **Owed** — some ``(predictor, event)`` cell of the case is both
+       unpredicted and under the per-cell attempt cap, over the event list the
+       cohort narrowing below leaves.
+
+    Then two **timing holds**, which run only on a case step 7 found owed, so
+    every held case is one this lane genuinely owes and cannot mint yet:
+
+    8. **Record freshness** — the case was observed by either ingestion channel
+       within :data:`BACKLOG_MAX_POLL_AGE_DAYS` (:func:`_last_observed`).
+       Counted on ``held_stale``. The sweep re-polls before it queues and can
+       divert a now-decided docket; this scan cannot, so the record's age is
+       the only guard it has against a forward cell on a case whose answer is
+       already public.
+    9. **Provisioning attempted** — the case has stored documents *or* carries
+       a ``predict_queued_at`` stamp. Counted on ``held_unswept``. The stamp is
+       the pull lane's own record that it queued the case, and the sweep
+       provisions at queue time, so a stamp is proof provisioning **ran** —
+       whatever it found. Only the never-queued-and-unstored class is held, and
+       that class is genuinely timing-only: the sweep reaches it, provisions
+       it, and stamps it. Reading document presence as the predicate instead
+       would conflate "not yet provisioned" with "provisioned, found nothing"
+       and permanently bar every docket with no document route at all, the
+       application form among them — the interim lane would never be admitted.
+       An admitted case whose store is empty mints a cell with a thin
+       ``record/``; that is the queued-without-petition coverage metric's
+       problem to report, not this predicate's to exclude.
+
+    Steps 1 through 6 filter, then candidates sort **stalest first** (see
+    :func:`_predict_backlog_candidates`) and steps 7 through 9 run inside the
+    ``cap`` — a held case costs no cap slot, but the loop still stops at the
+    cap, so both hold counts are censored by it and ``cap_reached`` says
+    whether they were. Ordering the owed check ahead of the holds is also what
+    keeps the document probe cheap under the corpus split: step 9 reads the
+    store only for an owed, fresh, never-queued case, which is a small fraction
+    of the candidate set rather than all of it. ``cap`` bounds model spend and
+    PR volume: each queued case fans out one cell per predictor still owed the
+    event.
+
+    run-pull stays the sole provisioner, and the property that gives is a
+    **throughput bound, not a latency one**: this backlog can never outrun
+    run-pull's provisioning rate — the sweep's per-window cap plus the other
+    provisioning paths' own bounds — so a held set larger than that rate clears
+    over as many windows as it takes rather than by the next one.
+
+    The queued event list is per-event, not per-case, and it drops an event on
+    **two** grounds: every enabled predictor has already predicted it, or every
+    predictor still missing it has hit ``max_attempts``. The two are not
+    equally settled. The already-predicted arm changes nothing — the predict
+    matrix's per-``(predictor, event)`` skip would drop those cells anyway, so
+    narrowing here only spares the fan-out a case that would arrive empty. The
+    attempt-capped arm is **stricter than the live sweep**, deliberately: the
+    sweep's owed check is per case, so a case whose only gap is poison-pilled
+    is still queued and the matrix still mints those cells. Here the cap
+    decides admission, which is what ``predict.max_attempts_per_cell`` exists
+    to do — an unattended lane that re-derives a cell failing every attempt
+    would spend on it every cycle forever, and no stamp holds it back. The cost
+    of the stricter reading is that raising the ceiling, not a re-queue, is what
+    reopens such a cell.
+
+    A **cohort-only** candidate is narrowed further,
+    to the events whose cohort a claimable board will count
+    (:func:`fedcourtsai.store.event_has_claimable_prediction`) — the sweep's
+    two bounds, unchanged: a case the funding gate declined earns its missing
+    engines on an event already paid for, never new cells on its other events,
+    and never a one-engine comparison on an event whose whole cohort sits
+    outside the frozen process scope.
+
+    Like the evaluate deriver, the scan is driven from the **open-event set**
+    (``corpus.iter_open_events``) with a point query per candidate case. On a
+    SCOTUS corpus that set covers very nearly every row, so this is a
+    whole-court walk and the bound it gives is narrower than "only the work":
+    what it avoids is hydrating a :class:`~fedcourtsai.corpus.CorpusRow` per
+    case. The walk materializes case **ids**, and only the ids surviving the
+    cheap membership tests are ever read as rows — so peak memory scales with
+    the id list, not with the model-shaped corpus, on a SCOTUS slice of
+    hundreds of thousands of rows that only grows. Either way the access
+    pattern is the wrong shape for a fetch-by-range backend, which is why a
+    scheduled caller pulls the corpus and reads it locally.
+
+    The connection is a :class:`~fedcourtsai.corpus.ReadConnection`: every read
+    here is typed to it, so no writer-only API (``commit``,
+    ``stamp_predict_queued``) is reachable through the parameter. That is a
+    one-method protocol, not a proof — what keeps the corpus of record intact
+    is that write credentials live only in the writer jobs.
+
+    ``max_attempts`` is the poison-pill backstop, counted from the committed
+    ``attempt.json`` failure facts at the predict seam: a ``(predictor, event)``
+    cell recorded failed that many times is not re-derived, so a cell that fails
+    every attempt cannot re-derive forever. Because the cap is per cell it never
+    lets one exhausted engine suppress a sibling predictor still owed the same
+    event; ``max_attempts == 0`` disables it.
+    """
+    day = today or date.today()
+    if cap <= 0:
+        return PredictBacklog(entries=(), day=day)
+    seen = already_queued or set()
+    predictor_ids = [p.id for p in enabled_predictors(predictors_path)]
+    # Two bulk reads rather than a probe per row, exactly as the sweep takes
+    # them: one ledger glob for the cohort-completion admission ground, and one
+    # small ordered slice of the partial open-events index for the merits bypass.
+    predicted = predicted_case_ids(data_root)
+    merits_open = corpus.merits_open_case_ids(conn)
+    candidates = _predict_backlog_candidates(
+        conn, seen=seen, predicted=predicted, merits_open=merits_open, day=day
+    )
+
+    entries: list[BacklogEntry] = []
+    held_stale = 0
+    held_unswept = 0
+    cap_reached = False
+    for row, cohort_only in candidates:
+        if len(entries) >= cap:
+            cap_reached = True
+            break
+        court, docket_str = row.case_id.split("/", 1)
+        docket = int(docket_str)
+        events = forecastable_event_ids(conn, court, docket, today=day)
+        if cohort_only:
+            events = [
+                event_id
+                for event_id in events
+                if event_has_claimable_prediction(data_root, court, docket, event_id)
+            ]
+        owed = [
+            event_id
+            for event_id in events
+            if any(
+                not event_has_predictions(data_root, court, docket, event_id, predictor_id=pid)
+                and not _cell_capped(
+                    data_root, court, docket, event_id, pid, max_attempts, "predict"
+                )
+                for pid in predictor_ids
+            )
+        ]
+        # The owed check runs FIRST, and the two timing holds after it, so a
+        # hold is only counted where it is the sole thing between the case and
+        # an entry. Counted the other way round the figures would be dominated
+        # by cases the owed check drops anyway, and "held, still owed a
+        # forecast" would be false of almost every one of them.
+        if not owed:
+            continue
+        observed = _last_observed(row)
+        if observed is None or (day - observed).days > BACKLOG_MAX_POLL_AGE_DAYS:
+            # Too stale to mint a forward cell from: the sweep would have
+            # re-polled and could have diverted this case as decided, and this
+            # scan cannot. Clears at the case's next poll.
+            held_stale += 1
+            continue
+        provisioning_attempted = row.predict_queued_at is not None or (
+            corpus.has_documents_for_case(conn, row.case_id)
+        )
+        if not provisioning_attempted:
+            # Provisioning has never been *attempted* for this case: the pull
+            # lane has never queued it (its stamp is the lane's own record that
+            # it ran) and nothing is stored. That is the one genuinely
+            # timing-only state — the sweep reaches, provisions and stamps such
+            # a case — so it is held rather than minted with an empty record/.
+            # A queued case is admitted on the lane's word even where its store
+            # came up empty: provisioning ran and found nothing, which is a
+            # coverage fact for the queued-without-petition metric, not a
+            # reason to strand the case forever. Reading it as an exclusion
+            # would permanently bar every structurally unprovisionable docket —
+            # an application form has no document route at all.
+            held_unswept += 1
+            continue
+        entries.append(
+            BacklogEntry(case_id=row.case_id, court=court, docket=docket, events=tuple(owed))
+        )
+
+    return PredictBacklog(
+        entries=tuple(entries),
+        day=day,
+        held_stale=held_stale,
+        held_unswept=held_unswept,
+        cap_reached=cap_reached,
+    )
 
 
 def pull_cases(

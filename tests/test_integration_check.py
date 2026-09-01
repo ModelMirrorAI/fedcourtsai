@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import threading
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from datetime import date
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -25,19 +26,22 @@ import pytest
 from moto import mock_aws
 from typer.testing import CliRunner
 
-from fedcourtsai import casestore, corpus, corpus_ranged, corpus_service
+from fedcourtsai import casestore, corpus, corpus_ranged, corpus_service, ids, store
 from fedcourtsai.cli import app
 from fedcourtsai.fixture import build_fixture_corpus
 from fedcourtsai.integration_check import (
+    CaseResolutionError,
     IntegrationReport,
     McpProbeError,
+    ResolvedCase,
     render_markdown,
+    resolve_integration_case,
     run_integration_check,
     run_mcp_check,
     run_service_check,
 )
 from fedcourtsai.registry import load_mcp_servers
-from fedcourtsai.schemas import Disposition
+from fedcourtsai.schemas import Disposition, EventKind
 
 REMOTE_URL = "s3://test-bucket/store"
 
@@ -523,3 +527,370 @@ def test_mcp_cli_fails_when_the_server_has_drifted_from_the_manifest(tmp_path: P
     drift = next(s for s in report["steps"] if s["name"] == "manifest tools")
     assert not drift["ok"]
     assert "recorded but not advertised" in drift["detail"]
+
+
+# --- the run-time case resolver ---------------------------------------------
+
+
+def _plain(text: str) -> str:
+    """CLI output with ANSI styling stripped and runs of whitespace collapsed.
+
+    CI runs with ``FORCE_COLOR=1``, and Typer wraps its error panels to a
+    terminal width no test can pin, so neither the escapes nor the line breaks
+    can appear in an assertion.
+    """
+    return " ".join(re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text).replace("│", " ").split())
+
+
+def _open_row(
+    docket: int,
+    *,
+    docket_number: str = "24-100",
+    last_live_polled: date | None = None,
+    predict_excluded: bool = False,
+    date_cert_granted: date | None = None,
+) -> corpus.CorpusRow:
+    """An unresolved SCOTUS cert row — the shape the resolver is looking for."""
+    return corpus.CorpusRow(
+        case_id=ids.case_id("scotus", docket),
+        court="scotus",
+        docket_number=docket_number,
+        case_name=f"Petitioner {docket} v. Respondent",
+        date_filed=date(2025, 1, 5),
+        predict_eligible=True,
+        predict_excluded=predict_excluded,
+        last_live_polled=last_live_polled,
+        date_cert_granted=date_cert_granted,
+    )
+
+
+def _seed(
+    db: Path,
+    rows: Sequence[corpus.CorpusRow],
+    *,
+    snapshotless: Sequence[str] = (),
+    disposed_events: Sequence[str] = (),
+) -> None:
+    """Write each row with its cert-petition event and a stored snapshot.
+
+    ``snapshotless`` names the case ids to leave without one, ``disposed_events``
+    those whose event is already resolved — the two shapes that must not be
+    handed to the suite.
+    """
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, list(rows))
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=ids.event_id("petition", "disposition"),
+                    case_id=row.case_id,
+                    court=row.court,
+                    kind=EventKind.petition,
+                    title=row.case_name,
+                    resolved=row.case_id in disposed_events,
+                )
+                for row in rows
+            ],
+        )
+        for row in rows:
+            if row.case_id not in snapshotless:
+                corpus.upsert_snapshot(
+                    conn,
+                    row.case_id,
+                    date(2026, 8, 1),
+                    {"id": 1, "docket_entries": []},
+                )
+
+
+def _resolve(db: Path, tmp_path: Path, **kwargs: object) -> ResolvedCase:
+    """Resolve against ``db`` with an empty ledger, so the record gate sees no
+    committed outcome and judges the corpus row alone."""
+    return resolve_integration_case(
+        corpus_db_path=db,
+        data_root=tmp_path / "empty-ledger",
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+def test_resolver_picks_the_fixture_open_case(corpus_db: Path, tmp_path: Path) -> None:
+    """The fixture's one unresolved, in-scope, snapshot-bearing SCOTUS docket."""
+    resolved = _resolve(corpus_db, tmp_path)
+
+    assert (resolved.court, resolved.docket) == ("scotus", 305)
+    assert resolved.case_id == "scotus/305"
+    assert resolved.open_event_ids == ("evt-petition-disposition",)
+    assert resolved.snapshot_date == date(2025, 3, 3)
+    assert resolved.scanned == 1
+
+
+def test_resolver_prefers_the_freshest_live_poll(tmp_path: Path) -> None:
+    """The ordering is the contract: most recently live-polled first (the live
+    channel stamps exactly the modern petitions the suite wants), never-polled
+    last, so the same corpus always resolves the same case."""
+    db = corpus.corpus_db_path(tmp_path / "ordered")
+    _seed(
+        db,
+        [
+            _open_row(701, last_live_polled=date(2026, 8, 1)),
+            _open_row(702, last_live_polled=date(2026, 8, 20)),
+            _open_row(703, last_live_polled=None),
+        ],
+    )
+
+    assert _resolve(db, tmp_path).case_id == "scotus/702"
+
+
+def test_resolver_ignores_the_pull_stamp(tmp_path: Path) -> None:
+    """`last_pulled` must not decide the pick. The pull governor rotates over
+    the whole active set including the historical bulk import, so its freshest
+    stamps are ancient dockets a repair sweep happened to touch — ordering on it
+    puts those at the head and the live petitions at the tail."""
+    db = corpus.corpus_db_path(tmp_path / "pull-stamp")
+    stale_but_live = _open_row(761, last_live_polled=date(2026, 8, 31))
+    fresh_pull_never_polled = _open_row(762, last_live_polled=None).model_copy(
+        update={"last_pulled": date(2026, 8, 31)}
+    )
+    _seed(db, [stale_but_live, fresh_pull_never_polled])
+
+    assert _resolve(db, tmp_path).case_id == "scotus/761"
+
+
+def test_resolver_skips_a_case_whose_event_is_resolved(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "disposed")
+    _seed(
+        db,
+        [
+            # Fresher, but its event is already resolved: nothing left to forecast.
+            _open_row(711, last_live_polled=date(2026, 8, 20)),
+            _open_row(712, last_live_polled=date(2026, 8, 1)),
+        ],
+        disposed_events=["scotus/711"],
+    )
+
+    assert _resolve(db, tmp_path).case_id == "scotus/712"
+
+
+def test_resolver_skips_a_granted_petition_awaiting_judgment(tmp_path: Path) -> None:
+    """The shape a naive "undisposed" filter admits and the consumer refuses: a
+    cert-granted petition whose merits judgment has not landed carries no
+    disposition and no decision date, but `resolution_date` is its cert-grant
+    date, so `provision-snapshot --refuse-terminal` records the case decided.
+    Handing it to the suite would fail the cascade leg, which requires that
+    command to succeed."""
+    db = corpus.corpus_db_path(tmp_path / "granted")
+    granted = _open_row(
+        771, last_live_polled=date(2026, 8, 31), date_cert_granted=date(2026, 6, 30)
+    )
+    pending = _open_row(772, last_live_polled=date(2026, 8, 1))
+    _seed(db, [granted, pending])
+
+    resolved = _resolve(db, tmp_path)
+
+    assert resolved.case_id == "scotus/772"
+    # Rejected by the window itself, so it never spends a candidate slot.
+    assert resolved.scanned == 1
+    assert (
+        store.forward_refusal_reason_from_parts(
+            tmp_path / "empty-ledger", "scotus", 771, "", [], granted
+        )
+        == "the corpus records the case decided"
+    )
+
+
+def test_resolver_skips_a_case_the_predict_scope_excludes(tmp_path: Path) -> None:
+    """Both halves of the scope screen: the latched row and the row an
+    exclusion predicate catches unlatched (an IFP serial, ``24-6001``)."""
+    db = corpus.corpus_db_path(tmp_path / "scope")
+    _seed(
+        db,
+        [
+            _open_row(721, last_live_polled=date(2026, 8, 20), predict_excluded=True),
+            _open_row(722, docket_number="24-6001", last_live_polled=date(2026, 8, 15)),
+            _open_row(723, last_live_polled=date(2026, 8, 1)),
+        ],
+    )
+
+    resolved = _resolve(db, tmp_path)
+
+    assert resolved.case_id == "scotus/723"
+    # The latched row never reaches the window at all; the unlatched IFP row
+    # does, and is rejected by the reason evaluator.
+    assert resolved.scanned == 2
+
+
+def test_resolver_skips_a_snapshotless_case(tmp_path: Path) -> None:
+    """The property `provision-snapshot` needs: a case with an open event but
+    nothing stored to provision from. It is the window's own driver, so a
+    snapshotless case is never even a candidate."""
+    db = corpus.corpus_db_path(tmp_path / "snapshotless")
+    _seed(
+        db,
+        [
+            _open_row(731, last_live_polled=date(2026, 8, 20)),
+            _open_row(732, last_live_polled=date(2026, 8, 1)),
+        ],
+        snapshotless=["scotus/731"],
+    )
+
+    resolved = _resolve(db, tmp_path)
+
+    assert resolved.case_id == "scotus/732"
+    assert resolved.scanned == 1
+
+
+def test_resolver_refuses_when_nothing_qualifies(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "barren")
+    _seed(
+        db,
+        [_open_row(741, docket_number="24-6001", last_live_polled=date(2026, 8, 1))],
+    )
+
+    with pytest.raises(CaseResolutionError) as excinfo:
+        _resolve(db, tmp_path)
+
+    message = str(excinfo.value)
+    assert "1 candidate(s)" in message
+    assert "in-forma-pauperis" in message
+
+
+def test_resolver_says_so_under_the_corpus_split(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The candidate window reads the blob's `snapshots` table, which the split
+    empties — so an empty window there means "the index cannot answer", not "no
+    such case". Reporting it as an absent case would send a maintainer hunting
+    for a corpus problem that is a mode."""
+    db = corpus.corpus_db_path(tmp_path / "split")
+    _seed(db, [_open_row(781, last_live_polled=date(2026, 8, 1))], snapshotless=["scotus/781"])
+    monkeypatch.setattr(corpus, "payload_reads_offloaded", lambda: True)
+
+    with pytest.raises(CaseResolutionError) as excinfo:
+        _resolve(db, tmp_path)
+
+    assert "corpus-split" in str(excinfo.value)
+
+
+def test_resolver_bounds_the_candidate_scan(tmp_path: Path) -> None:
+    """``scan_limit`` bounds the SQL window, not just the Python loop. With the
+    window cut to the one unusable head candidate, the qualifying row below it
+    is out of reach and the resolver refuses."""
+    db = corpus.corpus_db_path(tmp_path / "bounded")
+    _seed(
+        db,
+        [
+            _open_row(751, docket_number="24-6001", last_live_polled=date(2026, 8, 20)),
+            _open_row(752, last_live_polled=date(2026, 8, 1)),
+        ],
+    )
+
+    assert _resolve(db, tmp_path, scan_limit=2).case_id == "scotus/752"
+    with pytest.raises(CaseResolutionError):
+        _resolve(db, tmp_path, scan_limit=1)
+
+
+def test_resolver_hands_over_a_case_the_forward_gate_accepts(
+    corpus_db: Path, tmp_path: Path
+) -> None:
+    """The claim the whole command exists to make, asserted end to end: the case
+    it resolves is one the suite's own provisioning guard will not refuse."""
+    resolved = _resolve(corpus_db, tmp_path)
+
+    assert (
+        store.forward_refusal_reason(
+            corpus_db,
+            tmp_path / "empty-ledger",
+            resolved.court,
+            resolved.docket,
+            "",
+        )
+        is None
+    )
+
+
+@mock_aws
+def test_resolver_runs_on_the_ranged_backend(
+    corpus_db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The backend the suite actually resolves on: the integration legs never
+    pull, so the resolver must work with no local corpus file at all."""
+    _stage_ranged_remote(corpus_db, monkeypatch)
+
+    resolved = _resolve(corpus_db, tmp_path)
+
+    assert resolved.case_id == "scotus/305"
+    assert not corpus_db.exists(), "the ranged resolution must not create a local corpus file"
+
+
+def test_case_cli_prints_the_resolved_case_as_key_values(corpus_db: Path) -> None:
+    """The output contract the workflow parses: stdout is exactly the two
+    ``key=value`` lines a step appends to ``$GITHUB_OUTPUT``, and the human line
+    naming the case stays on stderr."""
+    result = CliRunner().invoke(
+        app,
+        ["corpus-integration-case"],
+        env={"FEDCOURTS_CORPUS_ROOT": str(corpus_db.parent)},
+    )
+
+    assert result.exit_code == 0, result.output
+    assert _plain(result.stdout) == "court=scotus docket=305"
+    assert "resolved scotus/305" in _plain(result.stderr)
+    assert "evt-petition-disposition" in _plain(result.stderr)
+
+
+def test_case_cli_output_is_a_github_output_fragment(corpus_db: Path) -> None:
+    """What the workflow step does with stdout: append it verbatim to
+    `$GITHUB_OUTPUT`. Every line must therefore parse as `key=value` with a key
+    the step can name, and nothing else may reach stdout."""
+    result = CliRunner().invoke(
+        app,
+        ["corpus-integration-case"],
+        env={"FEDCOURTS_CORPUS_ROOT": str(corpus_db.parent)},
+    )
+
+    assert result.exit_code == 0, result.output
+    parsed = dict(line.split("=", 1) for line in result.stdout.splitlines() if line)
+    assert parsed == {"court": "scotus", "docket": "305"}
+
+
+def test_case_cli_exits_2_when_no_case_qualifies(corpus_db: Path) -> None:
+    result = CliRunner().invoke(
+        app,
+        ["corpus-integration-case", "--court", "ca1"],
+        env={"FEDCOURTS_CORPUS_ROOT": str(corpus_db.parent)},
+    )
+
+    assert result.exit_code == 2
+    assert not result.stdout.strip(), "a refusal must emit no key=value line"
+    assert "no case in ca1 is shaped for the integration suite" in _plain(result.stderr)
+
+
+def test_case_cli_refuses_the_service_backend_from_the_setting(corpus_db: Path) -> None:
+    """The corpus-service leg exports the service backend into the environment,
+    and that sidecar serves no unresolved-first census — so the ambient setting
+    has to be refused as clearly as an explicit flag."""
+    env = {
+        "FEDCOURTS_CORPUS_ROOT": str(corpus_db.parent),
+        "FEDCOURTS_CORPUS_BACKEND": "service",
+    }
+
+    ambient = CliRunner().invoke(app, ["corpus-integration-case"], env=env)
+    assert ambient.exit_code == 2
+    assert "cannot resolve a case" in _plain(ambient.stderr)
+
+    explicit = CliRunner().invoke(
+        app, ["corpus-integration-case", "--corpus-backend", "service"], env=env
+    )
+    assert explicit.exit_code == 2
+    assert "choose local, ranged" in _plain(explicit.stderr)
+
+
+def test_case_cli_exits_1_without_a_pulled_corpus(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app,
+        ["corpus-integration-case"],
+        env={"FEDCOURTS_CORPUS_ROOT": str(tmp_path / "absent")},
+    )
+
+    assert result.exit_code == 1
+    assert "corpus-pull" in _plain(result.stderr)

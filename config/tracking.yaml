@@ -196,6 +196,16 @@ predict:
   # (every unpredicted cell re-queues). A few attempts above the runner's
   # in-request retry, so a genuinely transient streak still gets several
   # cross-cycle retries before the cell is given up.
+  #
+  # Two readers, and they read it differently. For the sweep above, the cap
+  # suppresses a re-queue of the case. For the **predict backlog deriver**
+  # (`pipeline.pull.derive_predict_backlog`) it decides admission at the event
+  # grain: an event whose every still-missing predictor is capped is dropped
+  # from the derived entry, where the sweep's per-case owed check would still
+  # queue the case and let the matrix mint those cells. Stricter on purpose —
+  # that lane writes no debounce stamp, so a cell failing every attempt would
+  # otherwise be re-derived every cycle forever. The consequence to know:
+  # raising this ceiling, not a re-queue, is what reopens such a cell.
   max_attempts_per_cell: 5
   # Hard cap on concurrent predictor matrix jobs. The enforced value is the
   # `strategy.max-parallel` literal in run-predict/run-evaluate;
@@ -211,9 +221,10 @@ evaluate:
   # those gradings. Unlike the selection sweep this costs no network (git ledger +
   # corpus only), so the cap bounds model spend and PR volume, not request rate:
   # each queued case fans out one cell per not-yet-graded evaluator. It bounds
-  # both consumers of the deriver: the pull cycle, which drains stalest first
-  # under a daily evaluate_queued_at debounce it writes itself, and the evaluate
-  # stage's own trigger-free derivation, which writes no stamp and so re-presents
+  # both consumers of the deriver — the pull cycle's run-log reading and the
+  # evaluate stage's own trigger-free derivation. Neither writes the
+  # evaluate_queued_at stamp (a pull-window stamp would hold the grading lane
+  # off the owed cases), so each re-presents
   # the same head of the queue every run until the ledger moves under it. On that
   # second lane this cap and the caller's cadence are the only pacing there is.
   backlog_cases_per_cycle: 25
@@ -285,6 +296,20 @@ salience:
   # events already holding a board-countable cohort). Each swept case costs one docket fetch plus document
   # provisioning at the polite ~1 req/s, so the cap keeps the sweep a small
   # tail on the cycle; the backlog drains across cycles under the sticky latch.
+  #
+  # Two readers, one number. Beside the sweep it also caps the **predict
+  # backlog deriver** (`pipeline.pull.derive_predict_backlog`), which fetches
+  # nothing upstream — there the cap bounds model spend and PR volume, not
+  # request rate, since each derived case fans out one cell per predictor still
+  # owed the event (under the corpus-split mode the deriver's provisioning
+  # probes do read the content store, one manifest read per candidate, bounded
+  # by the candidate set rather than by this cap). One knob rather than two on
+  # purpose: the deriver selects from the population the sweep provisions, so
+  # a separate ceiling could only let the scheduled lane promise cells the
+  # sweep's own rate cannot feed. Each reader applies the value to its own
+  # lane — cases queued-and-provisioned per sweep cycle, cases fanned out per
+  # derivation — so it is the same per-lane ceiling in both readers, not one
+  # shared global budget.
   sweep_cases_per_cycle: 25
   # A relist inside this many days of a petition's last predict queue is
   # treated as administrative churn rather than re-tournamented; 1 suppresses

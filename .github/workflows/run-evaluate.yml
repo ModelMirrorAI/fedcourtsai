@@ -39,6 +39,12 @@ on:
     # serializing group below means a round still holding the review hold would
     # queue the next one behind it — so a faster cadence buys drain rate only
     # while a human is releasing holds at the same rate.
+    #
+    # GitHub delivers `schedule` events best-effort: a slot can be delayed or
+    # dropped with no record, and a newly registered cron sometimes never
+    # indexes until the file changes again on the default branch. A missed slot
+    # costs a day's drain, nothing else (the backlog is level-triggered); the
+    # input-less dispatch below is the manual twin that drains it on demand.
     - cron: "39 15 * * *"
   # The same derivation, on demand — for a backlog that should drain now rather
   # than at the next window. Deliberately input-less: a run that wants to name its

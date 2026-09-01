@@ -59,7 +59,7 @@ import httpx
 
 from .. import corpus, ids
 from ..config import LiveConfig, PredictScope, SalienceConfig
-from ..matrix import cell_failure_count, event_has_predictions, predicted_case_ids
+from ..matrix import event_has_predictions, predicted_case_ids
 from ..registry import enabled_predictors
 from ..store import event_has_claimable_prediction, forecastable_events
 from ..supremecourt import (
@@ -74,7 +74,13 @@ from ..supremecourt import (
 )
 from .documents import fetch_case_documents
 from .events import extract_events
-from .ingest import from_live_record, map_live_docket, upsert_to_corpus
+from .ingest import (
+    UNSAMPLED_WEIGHT,
+    from_live_record,
+    legacy_denial_sample_weight,
+    map_live_docket,
+    upsert_to_corpus,
+)
 from .interim_signals import ApplicationKind
 from .outcome import (
     disposition_basis,
@@ -83,7 +89,7 @@ from .outcome import (
     resolve_case,
     termination_signal,
 )
-from .pull import PullQueues, _in_predict_scope
+from .pull import PullQueues, _cell_capped, _in_predict_scope
 from .salience import apply_salience_selection
 
 # The two per-Term numbering streams discovery probes, each from its base.
@@ -165,7 +171,7 @@ def ingest_live_payload(
     docket_id: int,
     *,
     today: date,
-    sample_weight: int = 1,
+    sample_weight: int = UNSAMPLED_WEIGHT,
     form: Literal["cert", "application"] = "cert",
 ) -> LiveResult:
     """Land one fetched docket JSON in the corpus; detect change and resolution.
@@ -176,10 +182,46 @@ def ingest_live_payload(
     events, then re-extract predictable events from the mapped record so a
     filing that appeared since onboarding becomes trackable.
 
-    ``sample_weight`` records how the calling channel came to include this row.
-    The poller's paths include every row they touch — the default 1 — while the
-    historical walker passed the legacy sampling interval for a denial its serial
-    sample kept. The upsert min-latches it, so a weight-1 row never regresses.
+    ``sample_weight`` is what the *calling channel* asserts about how it came to
+    include this row. Every channel through here includes every row it touches,
+    so every caller asserts :data:`~.ingest.UNSAMPLED_WEIGHT`; the parameter
+    stays a parameter because the assertion is the caller's to make.
+
+    **What lands in the column is not that assertion but a reading of the
+    corpus**, and this is the seam that makes the reading unskippable: every
+    live-channel write that lands a SCOTUS *payload* — frontier discovery, the
+    cert and application rotations, the selection sweep, and the historical
+    walker's ingest — reaches ``upsert_to_corpus`` through this one call. (The
+    rotations' bare poll stamps write rows directly, but they re-upsert the row
+    they read, so they echo its stored weight and can never lower one.) Touching
+    a row is not the same as enumerating the block it stands for: a pre-capture
+    denial on the legacy walk's sampling grid, inside a range that is still
+    stored one row in ten, represents nine petitions the corpus does not hold,
+    and re-serving that one row observes none of them. So an asserted certainty
+    is *derived* instead — :func:`~.ingest.legacy_denial_sample_weight`, density
+    guard included — and an unenumerated grid denial keeps the sampling weight
+    the min-latch would otherwise strip.
+
+    The derivation ratifies the caller's assertion on almost everything, and
+    cheaply: an application number, a grant, an unparseable spelling, an
+    off-grid serial and a serial above the walk's cursor are each settled on the
+    row's own columns plus one cursor lookup. Only a denial on the grid at or
+    below its cell's cursor reaches the density guard, which reads the live
+    slice — an ordered walk of ``idx_cases_live_docket``, the partial index that
+    exists so this is affordable per row rather than only per batch.
+
+    A caller asserting a weight other than ``UNSAMPLED_WEIGHT`` is claiming
+    knowledge this function cannot re-derive, so that value is written as
+    given. The upsert min-latches whatever lands, so a weight only ever falls.
+
+    One residual is newly reachable and is the rule's registered fabricating
+    default rather than anything this seam adds: a docket the corpus has never
+    held, onboarded below a walker cursor (``historical.refresh_dockets``, which
+    touches no cursor) as a denial on the grid inside a sparse block, now lands
+    at :data:`~.ingest.LEGACY_DENIAL_SAMPLE_EVERY` where it would previously have
+    landed at 1. There is no stored weight for the min-latch to defend, so the
+    derivation stands — which is the same reading the back-fill would have given
+    the row on its next pass, arriving at write time instead.
     """
     case_id = ids.case_id("scotus", docket_id)
     with corpus.connect(corpus_db_path) as conn:
@@ -189,7 +231,23 @@ def ingest_live_payload(
 
     record = map_live_docket(payload, docket_id, form=form)
     row = from_live_record(record)
-    upsert_to_corpus(corpus_db_path, [row], last_live_polled=today, sample_weight=sample_weight)
+    weight = sample_weight
+    if weight == UNSAMPLED_WEIGHT:
+        # Derived against the corpus as it stands *before* this row lands. The
+        # guard counts neighbours and excludes the serial itself, so the row's
+        # own arrival could not change the verdict — and reading first keeps a
+        # re-walk's verdict a fact about the block rather than about this write.
+        with corpus.connect(corpus_db_path) as conn:
+            # `str` rather than `.value`: the ingestion model is built with
+            # `use_enum_values`, so the label is already the stored string, and
+            # `Disposition` is a `StrEnum` either way. The back-fill reads it the
+            # same way, which is what keeps the two derivations one rule.
+            weight = legacy_denial_sample_weight(
+                conn,
+                row.docket_number,
+                None if row.disposition is None else str(row.disposition),
+            )
+    upsert_to_corpus(corpus_db_path, [row], last_live_polled=today, sample_weight=weight)
 
     # Resolution before re-extraction, exactly as in pull_case: `default_event`
     # marks a decided case's baseline resolved, so resolution must see the event
@@ -742,30 +800,6 @@ def _route_result(
         )
 
 
-def _predict_cell_capped(
-    data_root: Path,
-    court: str,
-    docket: int,
-    event_id: str,
-    predictor_id: str,
-    max_attempts: int,
-) -> bool:
-    """Whether a predict cell has exhausted the per-cell attempt cap.
-
-    The predict-seam mirror of :func:`fedcourtsai.pipeline.pull._cell_capped`:
-    counts the committed ``attempt.json`` failure facts at the ``predict`` seam
-    (:func:`fedcourtsai.matrix.cell_failure_count`), keyed on cell identity — the
-    corpus-blind ``collect`` job records one per failed run, so a cell retried
-    across runs counts against the same cap rather than resetting it.
-    ``max_attempts <= 0`` disables the cap.
-    """
-    if max_attempts <= 0:
-        return False
-    return cell_failure_count(data_root, court, docket, event_id, predictor_id, "predict") >= (
-        max_attempts
-    )
-
-
 def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/clock) + the per-cell owed fallback branch + the dual-form addressing + the cohort narrowing's two arms
     client: SupremeCourtClient,
     corpus_db_path: Path,
@@ -946,8 +980,8 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
             # attempt-capped. This re-queues a case where some engines landed and
             # one quota-failed — the whole point of the per-cell grain.
             not event_has_predictions(data_root, "scotus", docket_id, event_id, predictor_id=pid)
-            and not _predict_cell_capped(
-                data_root, "scotus", docket_id, event_id, pid, max_attempts
+            and not _cell_capped(
+                data_root, "scotus", docket_id, event_id, pid, max_attempts, "predict"
             )
             for event_id in events
             for pid in predictor_ids

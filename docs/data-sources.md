@@ -158,11 +158,11 @@ reasoning text that explains them — and the two qp-topic artifacts
 (`docs/qp-topic.md`), the hand-labeled reference set and a labeling run's
 per-case labels: subject-matter judgments keyed by case id and public-record
 docket number, republishing no source text. There is also a **non-git** public
-channel that carries corpus-derived text: `run-analytics`' three one-day
+channel that carries corpus-derived text: `run-analytics`' four one-day
 GitHub Actions artifacts, which on a public repository any logged-in user can
 download for their retention window. What each one
 discloses is inventoried once, in *S3 / the private stores* in
-[security.md](security.md), and not re-enumerated here; two of the three
+[security.md](security.md), and not re-enumerated here; two of the four
 carry stored questions-presented text and are argued in `docs/qp-topic.md`.
 That text is derived from petition PDFs fetched from supremecourt.gov — public
 records, outside the CC BY-ND term above — and that channel is accepted for the

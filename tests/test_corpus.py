@@ -69,6 +69,108 @@ def test_schema_and_migration_ddl_agree(tmp_path: Path) -> None:
     assert cols == set(corpus._COLUMNS) == set(corpus._CASES_COLUMN_DDL)
 
 
+def test_documents_schema_and_migration_ddl_agree(tmp_path: Path) -> None:
+    """A fresh `documents` table has exactly the columns the migration map declares."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(documents)")}
+    assert cols == set(corpus._DOCUMENT_COLUMNS) == set(corpus._DOCUMENTS_COLUMN_DDL)
+
+
+def test_connect_migrates_legacy_documents_table(tmp_path: Path) -> None:
+    """A blob written before the derivation marker gains the column on open.
+
+    `CREATE TABLE IF NOT EXISTS` leaves the old table alone, so without the
+    migration the first write of a marker-bearing document fails on an unknown
+    column — and the pre-existing rows, every one of them a pypdf extraction,
+    must read back as not OCR-derived.
+    """
+    db = tmp_path / "corpus.db"
+    legacy = sqlite3.connect(db)
+    legacy.executescript(
+        """
+        CREATE TABLE documents (
+            case_id     TEXT NOT NULL,
+            kind        TEXT NOT NULL,
+            url         TEXT NOT NULL,
+            entry_date  TEXT,
+            fetched_at  TEXT NOT NULL,
+            pages       INTEGER NOT NULL DEFAULT 0,
+            truncated   INTEGER NOT NULL DEFAULT 0,
+            text        TEXT NOT NULL,
+            PRIMARY KEY (case_id, kind)
+        );
+        INSERT INTO documents (case_id, kind, url, fetched_at, pages, text)
+        VALUES ('scotus/1', 'petition', 'https://sc.gov/p.pdf', '2026-05-01', 9, 'extracted');
+        """
+    )
+    legacy.commit()
+    legacy.close()
+
+    with corpus.connect(db) as conn:
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(documents)")}
+        assert cols == set(corpus._DOCUMENT_COLUMNS)
+        stored = corpus.documents_for_case(conn, "scotus/1")
+        assert [(d.kind, d.text, d.ocr_derived) for d in stored] == [
+            ("petition", "extracted", False)
+        ]
+        # And the marker is now writable, and round-trips.
+        assert (
+            corpus.upsert_documents(
+                conn,
+                [
+                    corpus.CaseDocument(
+                        case_id="scotus/1",
+                        kind="petition",
+                        url="https://sc.gov/p.pdf",
+                        fetched_at=date(2026, 5, 2),
+                        pages=9,
+                        ocr_derived=True,
+                        text="recovered by OCR",
+                    )
+                ],
+            )
+            == 1
+        )
+        recovered = corpus.documents_for_case(conn, "scotus/1")[0]
+        assert recovered.text == "recovered by OCR" and recovered.ocr_derived is True
+
+
+def test_documents_read_tolerates_an_unmigrated_remote_blob(tmp_path: Path) -> None:
+    """The ranged backend cannot migrate: a blob predating the marker still reads.
+
+    It serves the remote file as-is, so a read that named the column would fail
+    the whole document set rather than the one field.
+    """
+    db = tmp_path / "corpus.db"
+    legacy = sqlite3.connect(db)
+    legacy.executescript(
+        """
+        CREATE TABLE documents (
+            case_id     TEXT NOT NULL,
+            kind        TEXT NOT NULL,
+            url         TEXT NOT NULL,
+            entry_date  TEXT,
+            fetched_at  TEXT NOT NULL,
+            pages       INTEGER NOT NULL DEFAULT 0,
+            truncated   INTEGER NOT NULL DEFAULT 0,
+            text        TEXT NOT NULL,
+            PRIMARY KEY (case_id, kind)
+        );
+        INSERT INTO documents (case_id, kind, url, fetched_at, pages, text)
+        VALUES ('scotus/1', 'petition', 'https://sc.gov/p.pdf', '2026-05-01', 9, 'extracted');
+        """
+    )
+    legacy.commit()
+    legacy.row_factory = sqlite3.Row
+    try:
+        # Read through the raw connection: no `connect`, so no migration ran.
+        stored = corpus.documents_for_case(legacy, "scotus/1")
+    finally:
+        legacy.close()
+    assert [(d.kind, d.text, d.ocr_derived) for d in stored] == [("petition", "extracted", False)]
+
+
 def test_connect_migrates_legacy_cases_table(tmp_path: Path) -> None:
     """A corpus written before the enriched columns is migrated on open, not broken."""
     db = tmp_path / "corpus.db"

@@ -129,6 +129,72 @@ def test_write_documents_content_addressed_leaf_and_manifest() -> None:
     assert entry["digest"] == refs[0].digest
 
 
+def test_ocr_derivation_marker_survives_the_store_round_trip() -> None:
+    """Both sides of the manifest, which is the production read path.
+
+    The manifest serializes a document field by field, so a marker written on
+    one side only reads back at its default — and under the corpus split the
+    store, not the blob, is what provisioning reads.
+    """
+    t = casestore.InMemoryObjectTransport()
+    recovered = _doc("petition", "text read off the page image").model_copy(
+        update={"ocr_derived": True}
+    )
+    casestore.write_documents(t, "ca9/64512345", [recovered, _doc("brief-in-opposition", "clean")])
+
+    manifest = _loads(t, casestore.documents_manifest_key("ca9/64512345"))
+    written = {entry["kind"]: entry["ocr_derived"] for entry in manifest["documents"]}
+    assert written == {"petition": True, "brief-in-opposition": False}
+
+    read_back = {doc.kind: doc.ocr_derived for doc in casestore.read_documents(t, "ca9/64512345")}
+    assert read_back == {"petition": True, "brief-in-opposition": False}
+
+
+def test_manifest_entry_carries_every_document_field() -> None:
+    """The manifest's counterpart of the corpus column-DDL drift test.
+
+    `_put_document_leaf` builds its entry by hand, so a field added to
+    `CaseDocument` and not to it reads back at its default on the offloaded
+    path — which is the path production provisions from. `case_id` is the key
+    the manifest hangs under and `text` lives in the leaf, so neither is an
+    entry field; everything else must be.
+    """
+    t = casestore.InMemoryObjectTransport()
+    casestore.write_documents(t, "ca9/64512345", [_doc("petition", "the petition text")])
+    entry = _loads(t, casestore.documents_manifest_key("ca9/64512345"))["documents"][0]
+    assert set(entry) >= set(corpus.CaseDocument.model_fields) - {"case_id", "text"}
+
+
+def test_merge_documents_carries_the_marker_too() -> None:
+    """The split-mode accumulator shares the leaf writer, and must keep sharing it."""
+    t = casestore.InMemoryObjectTransport()
+    casestore.write_documents(t, "ca9/64512345", [_doc("brief-in-opposition", "clean")])
+    recovered = _doc("petition", "read off the image").model_copy(update={"ocr_derived": True})
+    casestore.merge_documents(t, "ca9/64512345", [recovered])
+    read_back = {doc.kind: doc.ocr_derived for doc in casestore.read_documents(t, "ca9/64512345")}
+    assert read_back == {"petition": True, "brief-in-opposition": False}
+
+
+def test_manifest_written_before_the_marker_reads_back_as_an_extraction() -> None:
+    """A stored manifest predating the marker must read, not raise.
+
+    Every document written before the marker existed came off pypdf's text
+    layer, and the store is never rewritten in place, so the missing key means
+    "not OCR" — indexing it instead would fail every read of a live manifest.
+    """
+    t = casestore.InMemoryObjectTransport()
+    casestore.write_documents(t, "ca9/64512345", [_doc("petition", "the petition text")])
+    key = casestore.documents_manifest_key("ca9/64512345")
+    manifest = _loads(t, key)
+    del manifest["documents"][0]["ocr_derived"]
+    t.put(key, json.dumps(manifest).encode())
+
+    documents = casestore.read_documents(t, "ca9/64512345")
+    assert [(d.kind, d.text, d.ocr_derived) for d in documents] == [
+        ("petition", "the petition text", False)
+    ]
+
+
 def test_superseding_document_lands_at_new_leaf_never_overwrites() -> None:
     t = casestore.InMemoryObjectTransport()
     casestore.write_documents(t, "ca9/64512345", [_doc("brief-in-opposition", "first BIO")])
@@ -449,3 +515,59 @@ def test_set_event_resolved_re_mirrors_events(tmp_path: Any) -> None:
         assert _loads(t, "scotus/1/events.json")[0]["resolved"] is False
         corpus.set_event_resolved(conn, "scotus/1", "evt-petition-cert", resolved=True)
         assert _loads(t, "scotus/1/events.json")[0]["resolved"] is True
+
+
+# --- the existence probe ------------------------------------------------------
+
+
+class _CountingTransport(casestore.InMemoryObjectTransport):
+    """An in-memory transport that records every key read.
+
+    The probe's whole point is what it does *not* fetch, and a cost claim about
+    a network read is only checkable by counting the reads.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.gets: list[str] = []
+
+    def get(self, key: str) -> bytes | None:
+        self.gets.append(key)
+        return super().get(key)
+
+
+def test_the_document_existence_probe_reads_the_manifest_alone() -> None:
+    """`read_has_documents` answers from the manifest and never touches a text
+    leaf, while `read_documents` fetches every one of them. The predict backlog
+    asks this per candidate and holds an unprovisioned case without spending a cap
+    slot, so the probes are bounded by the candidate set rather than by the cap —
+    a probe that pulled document bodies would make that scan's cost a function of
+    the corpus's document volume."""
+    t = _CountingTransport()
+    casestore.write_documents(
+        t, "ca9/64512345", [_doc("petition", "p"), _doc("brief-in-opposition", "b")]
+    )
+
+    t.gets.clear()
+    assert casestore.read_has_documents(t, "ca9/64512345") is True
+    assert t.gets == [casestore.documents_manifest_key("ca9/64512345")]
+
+    t.gets.clear()
+    assert len(casestore.read_documents(t, "ca9/64512345")) == 2
+    assert len(t.gets) == 3, "the full read costs the manifest plus a leaf per document"
+
+
+def test_an_empty_manifest_is_not_provisioned() -> None:
+    """Key presence is not the fact. `write_documents` writes a manifest for
+    whatever set it is given, so a case mirrored while it held no documents has an
+    empty manifest at that key — and an existence check keyed on the object rather
+    than its entries would read it as provisioned."""
+    t = casestore.InMemoryObjectTransport()
+    casestore.write_documents(t, "ca9/64512345", [])
+
+    assert t.exists(casestore.documents_manifest_key("ca9/64512345")) is True
+    assert casestore.read_has_documents(t, "ca9/64512345") is False
+
+
+def test_an_unmirrored_case_is_not_provisioned() -> None:
+    assert casestore.read_has_documents(casestore.InMemoryObjectTransport(), "ca9/1") is False

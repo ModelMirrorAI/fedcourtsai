@@ -571,7 +571,7 @@ class EvaluateConfig(BaseModel):
     # limit like the selection sweep's — the deriver reads the git ledger and the
     # corpus, no network — but a spend/PR-volume cap: each queued case fans out
     # one cell per not-yet-graded evaluator. The backlog drains across cycles,
-    # stalest first, under the daily `evaluate_queued_at` debounce.
+    # stalest-stamped first, as gradings land and cases leave the level.
     backlog_cases_per_cycle: int = Field(default=25, ge=0)
     # The poison-pill backstop the `evaluate_queued_at` debounce lacks: once a
     # cell (evaluator, event) has been recorded failed this many times in the

@@ -10,7 +10,8 @@ digest, never the label.
 
 They also hold the two boundaries apart. A digest's **bless moment** is when
 its bytes became immutable on `main`, so a stamp before it is retroactive
-blessing and the ledger tripwire fires; `FROZEN_SINCE` is when the headline
+blessing and the ledger tripwires fire — prediction and evaluation halves
+alike; `FROZEN_SINCE` is when the headline
 starts **counting**, guessed late, so a cell minted in the window between them
 lands honestly and is de-counted on timing alone.
 """
@@ -206,14 +207,15 @@ def test_no_committed_cell_predates_the_bless_it_claims() -> None:
     de-counts on timing — shakedown, not retroactivity — and a tripwire keyed
     on the instant would call them a broken pre-registration.
 
-    Predictions only, deliberately: the digest half of the claim lives there,
-    and the evaluation side's guard is the freeze procedure's instant rule,
-    not this test.
+    Predictions half; the evaluation twin below walks the evaluation ledger
+    against the evaluator bless moments with the same rule.
     """
     if not process_version.FROZEN_PROCESS_DIGESTS:
         pytest.skip("no digests blessed yet — the tripwire arms at the freeze commit")
     ledger = Path(__file__).resolve().parents[1] / "data" / "cases"
-    for path in sorted(ledger.glob("*/*/events/*/predictions/*/*/prediction.json")):
+    paths = sorted(ledger.glob("*/*/events/*/predictions/*/*/prediction.json"))
+    assert paths, "glob matched no prediction.json — the ledger path shape moved"
+    for path in paths:
         payload = json.loads(path.read_text())
         stamp = payload.get("process_version")
         if not stamp or stamp["digest"] not in process_version.FROZEN_PROCESS_DIGESTS:
@@ -228,6 +230,39 @@ def test_no_committed_cell_predates_the_bless_it_claims() -> None:
             f"{process_version.blessed_at(stamp['digest'])} — that is retroactive "
             "blessing, not shakedown; the digest was applied to a run made while the "
             "commitment was still editable, so either the bless moment in "
+            "FROZEN_PROCESS_DIGESTS is wrong or the claim does not hold"
+        )
+
+
+def test_no_committed_evaluation_predates_the_bless_it_claims() -> None:
+    """The retroactive-blessing tripwire's evaluation twin, on the real ledger.
+
+    An evaluation's stamp carries the same pre-registration claim a
+    prediction's does — this grading ran under a commitment already made — so
+    a stamp before its digest's bless moment is the same broken claim on the
+    other half of the ledger. The extra path segment is the evaluator/
+    predictor pair: ``evaluations/<evaluator_id>/<predictor_id>/<run_id>/``.
+    """
+    if not process_version.FROZEN_PROCESS_DIGESTS:
+        pytest.skip("no digests blessed yet — the tripwire arms at the freeze commit")
+    ledger = Path(__file__).resolve().parents[1] / "data" / "cases"
+    paths = sorted(ledger.glob("*/*/events/*/evaluations/*/*/*/evaluation.json"))
+    assert paths, "glob matched no evaluation.json — the ledger path shape moved"
+    for path in paths:
+        payload = json.loads(path.read_text())
+        stamp = payload.get("process_version")
+        if not stamp or stamp["digest"] not in process_version.FROZEN_PROCESS_DIGESTS:
+            continue
+        cell = ProcessVersion(
+            label=stamp["label"],
+            digest=stamp["digest"],
+            stamped_at=datetime.fromisoformat(stamp["stamped_at"]),
+        )
+        assert process_version.at_or_after_bless(cell), (
+            f"{path}: stamped {stamp['stamped_at']} under a digest not blessed until "
+            f"{process_version.blessed_at(stamp['digest'])} — that is retroactive "
+            "blessing, not shakedown; the digest was applied to a grading made while "
+            "the commitment was still editable, so either the bless moment in "
             "FROZEN_PROCESS_DIGESTS is wrong or the claim does not hold"
         )
 
