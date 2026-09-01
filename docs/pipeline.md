@@ -528,7 +528,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  │  disposition is machine-readable (git ledger);
                                  │  else queue an unrecorded outcome, surfaced
                                  │  per-case on the pipeline-runs dashboard
-                                 ├─ derive + stamp the evaluate backlog (owed gradings,
+                                 ├─ derive the evaluate backlog (owed gradings,
                                  │  beside this cycle's fresh resolutions; the pair is
                                  │  reported as a count — no issue is filed for it)
                                  └─ create issues  ← APP TOKEN
@@ -547,7 +547,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  │  → write outcome.json (git ledger); else queue an
                                  │    unrecorded outcome, surfaced per-case on the
                                  │    pipeline-runs dashboard
-                                 ├─ derive + stamp the evaluate backlog (as above)
+                                 ├─ derive the evaluate backlog (as above)
                                  └─ create run:predict issues  ← APP TOKEN
                                     (held by PREDICT_HANDOFF_ENABLED)
        run:predict → plan (build matrix, post the plan report)
@@ -1603,9 +1603,9 @@ command-level contract):
   appends the derived cases to the same evaluate queue the fresh-resolution path
   feeds and reports the queue's size on the run log. It files no trigger issue
   and writes no `evaluate_queued_at` stamp: the scheduled lane holds off a case
-  stamped today, and it is the only actor that grades, so a pull-window stamp
-  (every window precedes the evaluate slot) would rotate owed gradings away
-  from the one lane that can clear them.
+  stamped today, and it is the only actor that grades what this scan finds, so
+  a pull-window stamp (five of the eight daily windows precede the evaluate
+  slot) would rotate owed gradings away from the one lane that can clear them.
 
 It mirrors the predict selection sweep, with one deliberate difference and one
 deliberate similarity:
@@ -1614,11 +1614,16 @@ deliberate similarity:
   `evaluate.backlog_cases_per_cycle` cap bounds model spend and PR volume, not
   request rate. On the scheduled lane that cap and the cron's cadence are the
   whole of the pacing.
-- **Same:** the `evaluate_queued_at` corpus column orders the drain stalest-first
-  and debounces to daily. No standing lane writes it any longer — the scheduled
-  lane is read-only and the pull lane deliberately leaves it alone — so the
-  hold is vacuous in practice and the deriver orders on a historical key it
-  never advances. That column is scheduling metadata — the backlog itself is
+- **Same:** the `evaluate_queued_at` corpus column keeps the sweep's ordering
+  semantics — stalest stamp first, a case stamped today held to tomorrow. No
+  standing lane writes it: the scheduled lane is read-only and the pull lane
+  deliberately leaves it alone, so the hold is vacuous in practice and the
+  deriver orders on a key it never advances (rows never stamped sort by case
+  id). The trade is deliberate: above the per-cycle cap the ordering no longer
+  rotates, so a stuck head — planned but never graded, recording no failure
+  fact — is cleared only by a grading landing or the per-cell attempt cap,
+  where the retired stamp would have rotated past it (and, worse, past every
+  owed case daily). That column is scheduling metadata — the backlog itself is
   re-derivable from git — so losing it costs at most a duplicate round, never a
   grading.
 
@@ -1627,9 +1632,9 @@ has not merged. What keeps a second derivation out of that window is
 `run-evaluate`'s concurrency group, which serializes every round of the workflow
 regardless of trigger — not the gate.
 
-The daily debounce paces re-queuing but has no ceiling, so a cell that fails
-*every* attempt (a persistent quota wall, a malformed record) would re-queue
-forever. The **ledger-derived failure facts** are the backstop: the corpus-blind
+The cron's cadence and `backlog_cases_per_cycle` pace re-queuing but have no
+ceiling, so a cell that fails *every* attempt (a persistent quota wall, a
+malformed record) would re-queue forever. The **ledger-derived failure facts** are the backstop: the corpus-blind
 `collect` job writes one committed `attempt.json` per failed cell into the git
 ledger, and the deriver counts them (`matrix.cell_failure_count`). Once a cell
 reaches the `evaluate.max_attempts_per_cell` cap the deriver stops re-deriving it.

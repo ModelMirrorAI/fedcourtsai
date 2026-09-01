@@ -346,17 +346,19 @@ class BacklogEntry:
 
 @dataclass(frozen=True)
 class EvaluateBacklog:
-    """What one backlog derivation found, before anything is queued or stamped.
+    """What one backlog derivation found, before anything is queued.
 
-    Separating the derivation from its consumption is what lets the same scan
-    serve two callers with different authority over the corpus of record: the
-    pull seams queue *and* stamp, while the evaluate stage's own schedule only
-    reads. That schedule runs outside the writer jobs, so a stamp it wrote
-    could never be pushed — it would mutate the runner's pulled copy and die
-    with it — and it needs none (see :func:`derive_evaluate_backlog`).
+    Separating the derivation from its consumption keeps the scan itself on
+    the read seam regardless of who calls it: the pull seams queue what it
+    finds into the run-log count, while the evaluate stage's own schedule
+    fans out over it — and neither stamps. The schedule runs outside the
+    writer jobs, so a stamp it wrote could never be pushed — it would mutate
+    the runner's pulled copy and die with it — and it needs none (see
+    :func:`derive_evaluate_backlog`).
 
-    ``day`` is the date the derivation ran under, carried so a caller that does
-    stamp writes the same value the debounce filtered on.
+    ``day`` is the date the derivation ran under, carried so the debounce
+    comparison and any caller that does stamp (none standing) agree on the
+    value.
     """
 
     entries: tuple[BacklogEntry, ...]
@@ -429,8 +431,8 @@ def derive_evaluate_backlog(
     ``already_queued`` is the case ids a caller's poll seams queued this cycle,
     so the deriver does not double-queue a case the fresh-resolution path just
     covered — case-granular, so a case queued this cycle for one event defers
-    its *other* owed events to the next cycle. That is fine: they are debounced
-    anyway, and re-derived stalest-first later. For SCOTUS, where
+    its *other* owed events to the next cycle. That is fine: the very next
+    derivation re-presents them. For SCOTUS, where
     ``evt-petition-disposition`` is typically the sole event, the case rarely
     has other owed events at all.
     """

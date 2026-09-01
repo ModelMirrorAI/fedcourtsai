@@ -233,6 +233,20 @@ def test_cap_zero_is_a_no_op(tmp_path: Path) -> None:
     seed_prediction(data, "scotus", 1, "evt-petition-disposition")
     assert _derive(tmp_path, cap=0).evaluate == []
 
+    # The short-circuit precedes any connect: a cap of 0 against a corpus that
+    # does not exist yet must not create the database as a side effect.
+    fresh = tmp_path / "elsewhere"
+    queues = PullQueues()
+    evaluate_backlog(
+        corpus.corpus_db_path(fresh / "corpus"),
+        fresh / "data",
+        EVALUATORS,
+        queues,
+        cap=0,
+        max_attempts=0,
+    )
+    assert not corpus.corpus_db_path(fresh / "corpus").exists()
+
 
 def _fail_cell(
     data_root: Path, court: str, docket: int, evaluator_id: str, event_id: str, times: int
@@ -329,12 +343,12 @@ def test_a_backlog_larger_than_the_cap_fully_drains_over_cycles(tmp_path: Path) 
     day = date(2026, 7, 20)
     for _ in range(3):  # ceil(5 / cap=2) = 3 cycles
         queues = _derive(tmp_path, cap=2, today=day)
-        cycle = {e["docket"] for e in queues.evaluate}
+        cycle = {int(str(e["docket"])) for e in queues.evaluate}
         drained |= cycle
         # The cycle's gradings land; the level drops and the window advances.
         for docket in cycle:
             for ev in enabled_evaluators(EVALUATORS):
-                seed_evaluation(data, "scotus", int(str(docket)), event, evaluator_id=ev.id)
+                seed_evaluation(data, "scotus", docket, event, evaluator_id=ev.id)
         day += timedelta(days=1)
     assert drained == {1, 2, 3, 4, 5}, "every owed case is reached as gradings land"
 
@@ -458,12 +472,13 @@ def test_a_stamp_free_derivation_repeats_until_the_grading_lands(tmp_path: Path)
     assert _derive_readonly(date(2026, 7, 20)) == ()
 
 
-def test_a_stamp_the_pull_lane_wrote_still_holds_the_scheduled_derivation_back(
+def test_a_stamp_any_caller_wrote_still_holds_the_derivation_back(
     tmp_path: Path,
 ) -> None:
-    """The two lanes debounce against each other in the one direction that is
-    possible: the scheduled scan writes no stamp, but it honours the one the pull
-    lane wrote, so a case handed off this morning is not queued again tonight."""
+    """The reader half of the debounce, writer-agnostic: the scan writes no
+    stamp of its own but honours one some caller wrote today — the semantics a
+    maintenance pass or fixture relies on, complementing the no-stamp tripwire
+    that pins the writer half."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     event = "evt-petition-disposition"
@@ -482,5 +497,3 @@ def test_a_stamp_the_pull_lane_wrote_still_holds_the_scheduled_derivation_back(
 
     assert same_day.case_ids == ()
     assert next_day.case_ids == ("scotus/1",)
-
-

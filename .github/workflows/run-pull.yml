@@ -389,8 +389,9 @@ jobs:
           set -euo pipefail
           predict=$(jq 'length' predict-queue.json)
           # The evaluate row is a backlog reading, not a handoff: this window's
-          # deriver counted the gradings committed state owes and stamped them,
-          # and run-evaluate's own schedule is what fans them out. Reported here
+          # deriver counted the gradings committed state owes (stamping none —
+          # a stamp would hold run-evaluate's own derivation off exactly these
+          # cases), and run-evaluate's own schedule is what fans them out. Reported here
           # because this window is where the number moves.
           evaluate=$(jq 'length' evaluate-queue.json)
           unrecorded=$(jq 'length' unrecorded-queue.json)

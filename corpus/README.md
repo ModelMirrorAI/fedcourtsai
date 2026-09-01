@@ -103,7 +103,7 @@ source.
 | `salience_version`    | text            | the frozen scorer version the score was written under; null = unscored row |
 | `salience_selected`   | integer (0/1)   | the one-way selection latch — a selected petition is never de-selected |
 | `predict_queued_at`   | date            | the last date the live channel queued predict for this case (routing or selection sweep); the sweep's daily-retry debounce reads it |
-| `evaluate_queued_at`  | date            | the last date the evaluate backlog deriver queued evaluate; its daily-retry debounce reads it the same way |
+| `evaluate_queued_at`  | date            | the last date any caller stamped the case at the evaluate seam; the deriver's daily debounce reads it — no standing lane writes it |
 | `application_kind`    | text            | what an interim application asks for (`extension` / `substantive` / `unknown`); null = never application-parsed |
 | `response_requested`  | integer (0/1)   | the Court requested a response to an interim application (the interim CVSG-analogue); null = never application-parsed |
 | `referred_to_court`   | integer (0/1)   | the application was referred to the full Court rather than a Circuit Justice alone; null = never application-parsed |
