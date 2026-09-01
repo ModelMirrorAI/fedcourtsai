@@ -129,6 +129,72 @@ def test_write_documents_content_addressed_leaf_and_manifest() -> None:
     assert entry["digest"] == refs[0].digest
 
 
+def test_ocr_derivation_marker_survives_the_store_round_trip() -> None:
+    """Both sides of the manifest, which is the production read path.
+
+    The manifest serializes a document field by field, so a marker written on
+    one side only reads back at its default — and under the corpus split the
+    store, not the blob, is what provisioning reads.
+    """
+    t = casestore.InMemoryObjectTransport()
+    recovered = _doc("petition", "text read off the page image").model_copy(
+        update={"ocr_derived": True}
+    )
+    casestore.write_documents(t, "ca9/64512345", [recovered, _doc("brief-in-opposition", "clean")])
+
+    manifest = _loads(t, casestore.documents_manifest_key("ca9/64512345"))
+    written = {entry["kind"]: entry["ocr_derived"] for entry in manifest["documents"]}
+    assert written == {"petition": True, "brief-in-opposition": False}
+
+    read_back = {doc.kind: doc.ocr_derived for doc in casestore.read_documents(t, "ca9/64512345")}
+    assert read_back == {"petition": True, "brief-in-opposition": False}
+
+
+def test_manifest_entry_carries_every_document_field() -> None:
+    """The manifest's counterpart of the corpus column-DDL drift test.
+
+    `_put_document_leaf` builds its entry by hand, so a field added to
+    `CaseDocument` and not to it reads back at its default on the offloaded
+    path — which is the path production provisions from. `case_id` is the key
+    the manifest hangs under and `text` lives in the leaf, so neither is an
+    entry field; everything else must be.
+    """
+    t = casestore.InMemoryObjectTransport()
+    casestore.write_documents(t, "ca9/64512345", [_doc("petition", "the petition text")])
+    entry = _loads(t, casestore.documents_manifest_key("ca9/64512345"))["documents"][0]
+    assert set(entry) >= set(corpus.CaseDocument.model_fields) - {"case_id", "text"}
+
+
+def test_merge_documents_carries_the_marker_too() -> None:
+    """The split-mode accumulator shares the leaf writer, and must keep sharing it."""
+    t = casestore.InMemoryObjectTransport()
+    casestore.write_documents(t, "ca9/64512345", [_doc("brief-in-opposition", "clean")])
+    recovered = _doc("petition", "read off the image").model_copy(update={"ocr_derived": True})
+    casestore.merge_documents(t, "ca9/64512345", [recovered])
+    read_back = {doc.kind: doc.ocr_derived for doc in casestore.read_documents(t, "ca9/64512345")}
+    assert read_back == {"petition": True, "brief-in-opposition": False}
+
+
+def test_manifest_written_before_the_marker_reads_back_as_an_extraction() -> None:
+    """A stored manifest predating the marker must read, not raise.
+
+    Every document written before the marker existed came off pypdf's text
+    layer, and the store is never rewritten in place, so the missing key means
+    "not OCR" — indexing it instead would fail every read of a live manifest.
+    """
+    t = casestore.InMemoryObjectTransport()
+    casestore.write_documents(t, "ca9/64512345", [_doc("petition", "the petition text")])
+    key = casestore.documents_manifest_key("ca9/64512345")
+    manifest = _loads(t, key)
+    del manifest["documents"][0]["ocr_derived"]
+    t.put(key, json.dumps(manifest).encode())
+
+    documents = casestore.read_documents(t, "ca9/64512345")
+    assert [(d.kind, d.text, d.ocr_derived) for d in documents] == [
+        ("petition", "the petition text", False)
+    ]
+
+
 def test_superseding_document_lands_at_new_leaf_never_overwrites() -> None:
     t = casestore.InMemoryObjectTransport()
     casestore.write_documents(t, "ca9/64512345", [_doc("brief-in-opposition", "first BIO")])

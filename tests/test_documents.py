@@ -41,17 +41,36 @@ runner = CliRunner()
 
 def _pdf(text: str) -> bytes:
     """A minimal one-page PDF whose content stream draws ``text`` (no parens)."""
-    stream = f"BT /F1 12 Tf 50 700 Td ({text}) Tj ET".encode()
+    return _pdf_pages([text])
+
+
+def _pdf_pages(texts: list[str]) -> bytes:
+    """A minimal PDF whose i-th page draws ``texts[i]`` (no parens).
+
+    An empty string gives that page an empty content stream — a page pypdf
+    extracts nothing from, which is what a scanned page looks like to the
+    extractor and what the per-page OCR guard is exercised against.
+    """
+    font = 3 + 2 * len(texts)
+    kids = " ".join(f"{3 + 2 * page} 0 R" for page in range(len(texts)))
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        # One object, joined explicitly (not adjacent literals — in a list a
-        # missing comma would silently merge two PDF objects).
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
-        + b"/Resources << /Font << /F1 5 0 R >> >> >>",
-        b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream",
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        f"<< /Type /Pages /Kids [{kids}] /Count {len(texts)} >>".encode(),
     ]
+    for page, text in enumerate(texts):
+        stream = f"BT /F1 12 Tf 50 700 Td ({text}) Tj ET".encode() if text else b""
+        # One object per append rather than a list of them: the page dict and its
+        # content stream are appended separately, so no missing comma can merge
+        # two PDF objects into one. The `+` inside the dict joins its two halves.
+        objects.append(
+            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            f"/Contents {4 + 2 * page} 0 R ".encode()
+            + f"/Resources << /Font << /F1 {font} 0 R >> >> >>".encode()
+        )
+        objects.append(
+            b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream"
+        )
+    objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
     out = bytearray(b"%PDF-1.4\n")
     offsets = []
     for index, body in enumerate(objects, start=1):
@@ -316,6 +335,70 @@ def test_extract_pdf_text_reads_and_caps() -> None:
 def test_extract_pdf_text_garbage_degrades_to_empty() -> None:
     extracted = extract_pdf_text(b"not a pdf at all", char_cap=1000)
     assert extracted.text == "" and extracted.pages == 0
+    assert extracted.ocr_derived is False
+
+
+def test_extract_pdf_text_is_never_ocr_derived_without_the_seam() -> None:
+    """The fetching lanes pass no ``ocr_page``, so nothing they store claims OCR."""
+    scanned = extract_pdf_text(_pdf_pages(["", ""]), char_cap=1000)
+    assert scanned.text.strip() == "" and scanned.pages == 2
+    assert scanned.ocr_derived is False
+
+
+def test_extract_pdf_text_ocrs_only_the_pages_that_extracted_nothing() -> None:
+    """The guard: an OCR reading never displaces a page's own extracted text."""
+    ocred: list[int] = []
+
+    def ocr(page: int) -> str:
+        ocred.append(page)
+        return f"OCR of page {page}"
+
+    extracted = extract_pdf_text(
+        _pdf_pages(["Digital first page", "", "Digital third page"]),
+        char_cap=1000,
+        ocr_page=ocr,
+    )
+    assert ocred == [1]  # only the page pypdf read nothing from
+    assert "Digital first page" in extracted.text
+    assert "OCR of page 1" in extracted.text
+    assert "OCR of page 0" not in extracted.text
+    assert extracted.pages == 3
+    assert extracted.ocr_derived is True
+
+
+def test_extract_pdf_text_ocr_failure_costs_its_own_page_only() -> None:
+    """A raising renderer must not discard the pages that did extract.
+
+    Unguarded it would exit through the whole-document handler, storing empty
+    text with `pages=0` — which the recovery population reads as a PDF that
+    would not open, ejecting the row from the class for good.
+    """
+
+    def ocr(page: int) -> str:
+        raise ValueError(f"cannot render page {page}")
+
+    extracted = extract_pdf_text(
+        _pdf_pages(["Digital first page", ""]), char_cap=1000, ocr_page=ocr
+    )
+    assert "Digital first page" in extracted.text
+    assert extracted.pages == 2  # not the could-not-open sentinel
+    assert extracted.ocr_derived is False
+
+
+def test_extract_pdf_text_ocr_that_reads_nothing_claims_no_derivation() -> None:
+    """A page OCR also fails on stays the empty extraction it already was."""
+    extracted = extract_pdf_text(_pdf_pages([""]), char_cap=1000, ocr_page=lambda _page: "")
+    assert extracted.text.strip() == ""
+    assert extracted.ocr_derived is False
+
+
+def test_extract_pdf_text_ocr_obeys_the_same_cap_and_truncation_flag() -> None:
+    """A recovered document is bounded exactly like a fetched one."""
+    extracted = extract_pdf_text(
+        _pdf_pages(["", ""]), char_cap=50, ocr_page=lambda _page: "y" * 200
+    )
+    assert len(extracted.text) == 50 and extracted.truncated is True
+    assert extracted.ocr_derived is True
 
 
 def test_extract_questions_presented_section() -> None:
@@ -843,6 +926,46 @@ def test_provision_snapshot_flags_a_blank_extraction(fixture_corpus: FixtureCorp
     assert entry["empty_text"] is True and entry["pages"] == 10
 
 
+def test_provision_snapshot_carries_the_ocr_derivation_marker(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # Text a recovery pass read off the page images is a lossy derivation of the
+    # filing, not the filed words; a manifest that dropped the marker would
+    # present it to the cell as a clean extraction.
+    db = corpus.corpus_db_path(fixture_corpus.corpus_root)
+    with corpus.connect(db) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind=KIND_PETITION,
+                    url="https://example/scanned.pdf",
+                    fetched_at=date(2026, 7, 10),
+                    pages=10,
+                    ocr_derived=True,
+                    text="QUESTIONS PRESENTED\nWhether the scan was readable.",
+                ),
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind=KIND_BRIEF_IN_OPPOSITION,
+                    url="https://example/bio.pdf",
+                    fetched_at=date(2026, 7, 10),
+                    pages=8,
+                    text="The petition should be denied.",
+                ),
+            ],
+        )
+    result = runner.invoke(app, ["provision-snapshot", "--court", "scotus", "--docket", "305"])
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    manifest = json.loads(paths.documents_manifest.read_text())
+    marked = {entry["kind"]: entry["ocr_derived"] for entry in manifest}
+    assert marked[KIND_PETITION] is True
+    # Per document, not per cell: the untouched brief still reads as extracted.
+    assert marked[KIND_BRIEF_IN_OPPOSITION] is False
+
+
 def test_redact_snapshot_strips_qplink() -> None:
     # The /qp/ page is generated at grant time; the key's presence leaks the outcome.
     assert "QPLink" not in redact_snapshot({"QPLink": "../qp/x.pdf", "CaseNumber": "25-1 "})
@@ -1034,6 +1157,45 @@ class _DictReadSource:
 
     def opinion_text(self, case_id: str) -> str | None:
         return None
+
+
+def test_backfill_marks_a_qp_derived_from_recovered_petition_text(tmp_path: Path) -> None:
+    """A QP row cut out of an OCR reading is an OCR reading.
+
+    The follow-on a text recovery owes: the petition carries the derivation
+    marker, so the row derived from it must too — on the derived-anew branch (no
+    stored QP, the shape a recovered petition leaves, since a QP row is written
+    only where the petition had text) and on the re-derive branch alike.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    recovered = [
+        _petition_document(f"scotus/{n}", _HONEST_PETITION).model_copy(update={"ocr_derived": True})
+        for n in (1, 2)
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=f"scotus/{n}",
+                    court="scotus",
+                    docket_number=f"25-{n}",
+                    last_live_polled=date(2026, 6, 2),
+                )
+                for n in (1, 2)
+            ],
+        )
+        # scotus/1 holds no QP row; scotus/2 holds a stale one to re-derive over.
+        corpus.upsert_documents(conn, [*recovered, _stored_qp("scotus/2", "a stale capture")])
+        result = backfill_questions_presented(conn, apply=True)
+    assert result.updated == 2
+    with corpus.connect(db) as conn:
+        for case_id in ("scotus/1", "scotus/2"):
+            derived = {d.kind: d for d in corpus.documents_for_case(conn, case_id)}[
+                KIND_QUESTIONS_PRESENTED
+            ]
+            assert derived.text  # something was derived at all
+            assert derived.ocr_derived is True
 
 
 def test_backfill_reads_the_content_store_concurrently_and_identically(

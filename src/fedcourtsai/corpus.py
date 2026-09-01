@@ -629,6 +629,15 @@ class CaseDocument(BaseModel):
     truncated: bool = Field(
         default=False, description="Extracted text hit the storage cap and was cut"
     )
+    ocr_derived: bool = Field(
+        default=False,
+        description="Some or all of this text was read off the page image by OCR rather "
+        "than extracted from the PDF's text layer. OCR output is a lossy derivation of a "
+        "scanned image — misread characters, lost layout, dropped marginalia — not the "
+        "filed text itself, so a reader must not quote it as the document's exact words. "
+        "False on a fetched extraction, and on a questions-presented row derived from one "
+        "— a row derived from an OCR reading is an OCR reading, and says so.",
+    )
     text: str = Field(description="Extracted text (capped at ingest; may be empty for a scan)")
 
 
@@ -806,6 +815,10 @@ CREATE TABLE IF NOT EXISTS documents (
     pages       INTEGER NOT NULL DEFAULT 0,
     truncated   INTEGER NOT NULL DEFAULT 0,
     text        TEXT NOT NULL,
+    -- Whether the text was read off the page image by OCR rather than out of
+    -- the PDF's text layer: a lossy derivation, which the cell manifest and
+    -- every reader downstream must be able to tell from a clean extraction.
+    ocr_derived INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (case_id, kind)
 );
 
@@ -968,6 +981,44 @@ def _migrate_events(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE events ADD COLUMN {column} {ddl}")
 
 
+# Per-column DDL for `documents`, in storage order — mirrors the `documents`
+# definition in `_SCHEMA` and drives both the writers' bound column list
+# (`_DOCUMENT_COLUMNS`) and the migration below, the same one-object
+# construction `cases` and `events` use: a column added here cannot be bound
+# without also being migrated. The base NOT-NULL-no-DEFAULT columns are
+# unreachable by ALTER and never need to be — every table ever created carries
+# them from its CREATE TABLE.
+_DOCUMENTS_COLUMN_DDL: dict[str, str] = {
+    "case_id": "TEXT NOT NULL",
+    "kind": "TEXT NOT NULL",
+    "url": "TEXT NOT NULL",
+    "entry_date": "TEXT",
+    "fetched_at": "TEXT NOT NULL",
+    "pages": "INTEGER NOT NULL DEFAULT 0",
+    "truncated": "INTEGER NOT NULL DEFAULT 0",
+    "text": "TEXT NOT NULL",
+    "ocr_derived": "INTEGER NOT NULL DEFAULT 0",
+}
+
+_DOCUMENT_COLUMNS = tuple(_DOCUMENTS_COLUMN_DDL)
+
+
+def _migrate_documents(conn: sqlite3.Connection) -> None:
+    """Back-fill `documents` columns added after table creation.
+
+    The documents table's counterpart of :func:`_migrate_cases`, driven by the
+    same DDL map the writers' bound column list is built from. A back-filled
+    column starts at its constant DEFAULT, which is the right reading for the
+    derivation marker: every row written before the marker existed came off
+    pypdf's text layer, so `ocr_derived = 0` states a fact rather than a
+    guess. Idempotent on a current-schema table.
+    """
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(documents)")}
+    for column, ddl in _DOCUMENTS_COLUMN_DDL.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE documents ADD COLUMN {column} {ddl}")
+
+
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
 _DN_WHITESPACE = re.compile(r"\s+")
 # A display annotation the Court appends to some docket numbers, most often
@@ -1088,6 +1139,7 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
         _migrate_cases(conn)
         _migrate_live_cursors(conn)
         _migrate_events(conn)
+        _migrate_documents(conn)
         yield conn
     finally:
         conn.close()
@@ -4004,6 +4056,45 @@ def latest_pull_date(conn: ReadConnection) -> date | None:
 # --- per-case filed-document text (raw facts) ------------------------------
 
 
+def _document_to_record(document: CaseDocument) -> dict[str, object]:
+    """One document's stored column values, keyed by column name.
+
+    A `KeyError` in :func:`upsert_documents` is the intended failure when a
+    column joins `_DOCUMENTS_COLUMN_DDL` without a value here — loud at the
+    first write rather than silently binding a default.
+    """
+    return {
+        "case_id": document.case_id,
+        "kind": document.kind,
+        "url": document.url,
+        "entry_date": document.entry_date,
+        "fetched_at": document.fetched_at.isoformat(),
+        "pages": document.pages,
+        "truncated": int(document.truncated),
+        "text": document.text,
+        "ocr_derived": int(document.ocr_derived),
+    }
+
+
+def _document_upsert_sql() -> str:
+    """The one documents upsert statement, latest-wins on ``(case_id, kind)``.
+
+    Built from the DDL map the migration is driven by, so a column the writer
+    binds cannot miss the migration and a pre-migration blob's first document
+    write cannot fail on an unknown column.
+    """
+    placeholders = ", ".join("?" for _ in _DOCUMENT_COLUMNS)
+    updates = ", ".join(
+        f"{column} = excluded.{column}"
+        for column in _DOCUMENT_COLUMNS
+        if column not in ("case_id", "kind")
+    )
+    return (
+        f"INSERT INTO documents ({', '.join(_DOCUMENT_COLUMNS)}) VALUES ({placeholders}) "
+        f"ON CONFLICT(case_id, kind) DO UPDATE SET {updates}"
+    )
+
+
 def upsert_documents(conn: sqlite3.Connection, documents: list[CaseDocument]) -> int:
     """Insert or replace documents by ``(case_id, kind)``; returns rows written.
 
@@ -4014,22 +4105,9 @@ def upsert_documents(conn: sqlite3.Connection, documents: list[CaseDocument]) ->
     if not split:
         with conn:
             conn.executemany(
-                "INSERT INTO documents (case_id, kind, url, entry_date, fetched_at, pages, "
-                "truncated, text) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
-                "ON CONFLICT(case_id, kind) DO UPDATE SET url = excluded.url, "
-                "entry_date = excluded.entry_date, fetched_at = excluded.fetched_at, "
-                "pages = excluded.pages, truncated = excluded.truncated, text = excluded.text",
+                _document_upsert_sql(),
                 [
-                    (
-                        d.case_id,
-                        d.kind,
-                        d.url,
-                        d.entry_date,
-                        d.fetched_at.isoformat(),
-                        d.pages,
-                        int(d.truncated),
-                        d.text,
-                    )
+                    tuple(_document_to_record(d)[column] for column in _DOCUMENT_COLUMNS)
                     for d in documents
                 ],
             )
@@ -4060,9 +4138,12 @@ def documents_for_case(conn: ReadConnection, case_id: str) -> list[CaseDocument]
     if (source := _payload_read_source()) is not None:
         return source.documents_for_case(case_id)
     try:
+        # `SELECT *`, not the bound column list: local reads see every column
+        # (`connect` migrates on open), but the ranged backend serves the remote
+        # blob as-is, and naming a column the blob predates fails the whole read
+        # rather than the one field (see :func:`_optional_date`).
         cur = conn.execute(
-            "SELECT case_id, kind, url, entry_date, fetched_at, pages, truncated, text "
-            "FROM documents WHERE case_id = ? ORDER BY kind",
+            "SELECT * FROM documents WHERE case_id = ? ORDER BY kind",
             (case_id,),
         )
     except Exception as exc:
@@ -4078,6 +4159,10 @@ def documents_for_case(conn: ReadConnection, case_id: str) -> list[CaseDocument]
             fetched_at=date.fromisoformat(record["fetched_at"]),
             pages=int(record["pages"]),
             truncated=bool(record["truncated"]),
+            # A blob packed before the marker existed holds only extractions, so
+            # its absence reads as "not OCR" — the migrator's DEFAULT by another
+            # route, for the one backend that cannot be migrated.
+            ocr_derived=bool(_optional_bool(record, "ocr_derived")),
             text=record["text"],
         )
         for record in cur

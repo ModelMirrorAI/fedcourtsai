@@ -7220,6 +7220,11 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             paths.documents_manifest,
             [
                 {
+                    # Every stored field but the text itself, so the row's own
+                    # `ocr_derived` marker reaches the cell: text a recovery pass
+                    # read off a page image is a lossy derivation of the filing,
+                    # and a manifest that dropped the marker would present it as a
+                    # clean extraction.
                     **doc.model_dump(mode="json", exclude={"text"}),
                     # A present document whose extracted text is blank/whitespace
                     # (a scanned PDF with no text layer) would read as usable from
