@@ -214,7 +214,18 @@ an empty derived questions-presented row is as likely to be a capture the
 deriver would not vouch for. And the command reports the **absent** petition
 beside the empty one, because that is the larger failure and a different
 repair: a document never fetched has nothing to re-extract, so an empty-text
-share read on its own would size the smaller of the two problems.
+share read on its own would size the smaller of the two problems. That absent
+population is enumerated over the queued rows, not only counted: a petition can
+be missing by several routes — a case that reached the queue without its
+documents ever being provisioned, a fetch that failed, a link upstream no
+longer serves — and only the case ids let a given case be assigned to one. The
+interim application dockets are held out of the count and reported beside it,
+since an application is not a cert petition: no petition is ever selected for
+one, so its absence is the docket form rather than a gap. On the fetch side the
+routes are recorded as they happen — `documents.document_fetch_losses` counts
+every dropped document by reason (a transport failure, a link the upstream did
+not serve, an opposition whose every brief failed) and each one is warned into
+the run log — so those causes stop leaving the same trace, which is none.
 **The questions presented
 are derived from the petition PDF, never from `QPLink`:** the `/qp/` page is
 generated when certiorari is *granted* and opens with the grant order, so the
@@ -244,9 +255,12 @@ written only where the petition has text.
 
 The larger gap on the queued population is a different one: 29 of those 242
 cases hold no stored petition at all — itself the recoverable-now cut of a much
-wider stock of distributed rows nothing was ever fetched for. No extraction fix
-reaches any of them; that is a fetch question, repaired in the fetch path or
-not at all.
+wider stock of distributed rows nothing was ever fetched for. That 29 is
+undifferentiated: it pools the provisioning gap with the interim application
+dockets, which hold no petition by their form. The report counts those apart
+and enumerates the rest, so a read of the same population prints a smaller gap
+and names the cases in it. No extraction fix reaches any of them; that is a
+fetch question, repaired in the fetch path or not at all.
 
 So the scanned-petition class is small on every population, and on this blob it
 is a bounded 270 documents, each named in the report's case-id ledger alongside
@@ -291,9 +305,10 @@ Decided and specified here; not yet built. What a pass must hold to:
   whitespace-only and whose page count is above zero. A zero-page row is either
   a PDF the extractor could not open or a derived section — `pages` carries
   both — and neither is OCR's to repair; a case holding no petition row is a
-  fetch gap. Both stay out of the population. The coverage report's case-id
-  ledger names the kinds that read back empty but not their page counts, so the
-  pass re-derives that filter itself. The PDF is re-fetched by the row's stored
+  fetch gap, or on an application docket no gap at all. Both stay out of the
+  population. The coverage report's case-id ledger names the kinds that read
+  back empty but not their page counts, so the pass re-derives that filter
+  itself. The PDF is re-fetched by the row's stored
   URL, which for a petition is the single link that was fetched:
   supremecourt.gov, free and politeness-capped, so the pass spends none of the
   CourtListener budget.
@@ -350,11 +365,40 @@ which is now everything the walk writes), min-latched so a weight can only ever
 be learned toward certainty. The column stays because the corpus still holds
 denials an earlier sampled walk kept at weight 10: a weighted aggregate
 multiplies by it so that legacy frame cannot bias a base rate, and each such row
-regresses to 1 as a re-walk re-serves it.
+regresses to 1 as a re-walk re-serves it — correctly only where the re-walk
+enumerates the whole block, so that the nine petitions the weight stood for
+arrive with it. A row regressed while its neighbours did not arrive leaves them
+represented by nobody, which under-counts that block's denials rather than
+over-counting them.
 Weights land exactly at ingest time; the backfill for pre-capture rows
-recovers them by rule (denied + serial on the sample grid + walker cursor
-covers the serial), whose one residual — a pre-capture poller-resolved denial
-inside a walker-covered range reads as sampled — is bounded and conservative.
+recovers them by rule (`legacy_denial_sample_weight`: denied + serial on the
+sample grid + walker cursor covers the serial + the block it would stand for is
+not already stored row by row). The last conjunct is what the first three cannot
+supply: landing on the grid below the cursor proves the serial was *probed*, not
+that only one in ten was *kept*, and those coincided during the legacy sampled
+walk and not after it — so without it a denial from a fully-walked range would
+stand for ten petitions, nine of which the corpus is separately counting at 1.
+A weight of 10 is a checkable claim about nine specific neighbouring serials, so
+`sampled_block_is_enumerated` checks it: it counts how many of the serials within
+nine either side are stored in the live slice, and a count in the enumerated
+range means those petitions are observed rather than passed over. The read is **per row**, not per
+Term, because the enumerating walk resumes from the sampled walk's persisted
+cursor — one Term can carry a sampled prefix and an enumerated tail, and a
+whole-Term verdict would hand one regime's answer to the other's rows.
+
+The criterion between the two error directions is that over-weighting fabricates
+an observation while under-weighting only forgoes a correction. The enumeration
+check is a **deny-list**, so the rule's default is the sampled weight — the
+fabricating side — and both known residuals land there: a pre-capture
+poller-resolved denial inside a *sampled* range reads as sampled, and a block
+only partly stored (the walk's grant-family keeps, or a neighbourhood straddling
+the resume boundary) stays sampled until enough of it is present. What bounds
+them is where the threshold sits rather than the shape of the rule: measured
+across the corpus's grid denials a sampled block holds at most six stored
+neighbours and an enumerated one at least ten, and the cut is placed at the low
+edge of that empty band so the slack goes to catching enumeration. Only the
+reverse misclassification — a genuinely sampled block read as enumerated — fails
+safe.
 When a stream's end is observed (consecutive 404s), the walk persists
 `frontier_serial` beside the cursor — `frontier_serial = last_serial` is the
 per-Term **walk complete** signal, and the cursors alone give an exact filings
