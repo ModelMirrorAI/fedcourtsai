@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.58,
+    "notes": "A nationally framed dispute involving federal control of White House construction, granted interim relief, and seven amici has meaningful public stakes, but this record establishes only an interim disposition rather than durable doctrinal impact."
+  },
+  "brier_score": 0.10239999999999996,
+  "brier_skill_score": 0.8722409626201495,
+  "case_id": "scotus/9526000203",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.68,
+        "score": 0.6991088568298028
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.88,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.6991088568298028,
+    "total": 0.6991088568298028
+  },
+  "correct": 1,
+  "created_at": "2026-09-02T19:14:59Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The prediction preceded the August 31 resolution. Its case-specific retrieval was confined to lower-court material filed by August 15, and its reasoning expressly avoided the Supreme Court application's disposition and subsequent history.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-5.6-sol",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260820T181919Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9fb7b6f1683a7bcb363cb19ae2084dfec734a9e1251b7b9fcc41dd2564aaff78",
+    "label": "proc-v5",
+    "pipeline_sha": "45d32a37b94c5cb7f36348c6045f152c33049bfc",
+    "stamped_at": "2026-09-02T19:16:34.876539Z"
+  },
+  "reasoning_quality": 0.96,
+  "run_id": "20260902T185700Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000256",
+  "run_id": "20260902T185700Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (interim section)",
+    "blinded retrieval_log.json (result_capture markers)",
+    "fedcourts query --help (no query executed)"
+  ],
+  "helpful": [
+    "statpack interim per-Term table",
+    "result_capture markers on the staged logs — decisive for grading the all-unobserved candidate",
+    "committed 2026-08-31 snapshot, which exposed the mis-provisioned forward cell"
+  ],
+  "gaps": [
+    "No access to superseded snapshots: two candidates were provisioned record/snapshots/2026-08-29.json, which the later pull replaced, and the corpus query surface exposes case rows rather than snapshot history — so whether their input already disclosed the Aug 28 denial could not be verified for leakage grading"
+  ],
+  "notes": "Interim cell, so the baseline/skill/claims machinery was the harness's; the evaluator-side work was leakage grading and reasoning quality, and the capture markers plus the committed snapshot carried most of it."
+}

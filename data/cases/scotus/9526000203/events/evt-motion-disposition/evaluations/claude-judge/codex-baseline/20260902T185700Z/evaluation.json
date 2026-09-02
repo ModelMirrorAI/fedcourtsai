@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.8,
+    "notes": "SG emergency application to stay an injunction against White House ballroom construction: separation-of-powers stakes over presidential control of the Executive Residence vs congressional control of federal property, 7 amicus briefs on an application, full-Court referral, national press attention. Very high profile for the interim docket, though not a merits-doctrine landmark."
+  },
+  "brier_score": 0.10239999999999996,
+  "brier_skill_score": 0.8722409626201495,
+  "case_id": "scotus/9526000203",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.68,
+        "score": 0.6991088568298028
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.88,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.6991088568298028,
+    "total": 0.6991088568298028
+  },
+  "correct": 1,
+  "created_at": "2026-09-02T19:15:43Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell, prediction created 2026-08-20, resolution 2026-08-31 \u2014 no outcome existed to retrieve. The candidate nonetheless self-bounded every CourtListener query to filed_before 2026-08-15; retrieval targeted the D.C. Circuit opinion and dockets below, never this application's disposition. Redaction markers in the log ([redacted:fernet-token]/[redacted:opaque] on the final call) are the harness's credential scrub at capture, read as removed text per the contract, not outcome material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260820T181919Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:11a0afbcba271935c8ead785b5c13fc2b1e43a4e18e9450a04fa41df9658a0f2",
+    "label": "proc-v5",
+    "pipeline_sha": "45d32a37b94c5cb7f36348c6045f152c33049bfc",
+    "stamped_at": "2026-09-02T19:18:23.372389Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20260902T185700Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
