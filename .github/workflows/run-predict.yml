@@ -271,11 +271,13 @@ jobs:
             if [ -s stranded-note.md ]; then
               # The note file is written only when the stranded-run guard
               # withheld EVERY cell, so its presence is the marker that this
-              # empty matrix is not a drained backlog. The guard writes its own
-              # summary section (above) with the run ids and the rerun command;
-              # this line only keeps the count from being read as "nothing
-              # owed", which is the opposite of what happened.
-              echo "This matrix is empty because the stranded-run guard withheld every cell, not because the backlog is drained — see the guard's section above for the uncollected run(s) to recover. Those events stay owed until their predictions are committed, so a recovered collect, not another round, is what clears them." >> "$GITHUB_STEP_SUMMARY"
+              # empty matrix is not a drained backlog — and its body is the
+              # guard's own account (the run ids and the remedy), so it is
+              # rendered rather than paraphrased: the annotations name what
+              # the census skipped, but only the note carries the whole story.
+              echo "This matrix is empty because the stranded-run guard withheld every cell, not because the backlog is drained. Those events stay owed until their predictions are committed, so a recovered collect, not another round, is what clears them." >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              cat stranded-note.md >> "$GITHUB_STEP_SUMMARY"
             else
               echo "The predict backlog is drained: no in-scope, funded, provisioned case with an open forecastable event is missing an enabled predictor's forecast (within this cycle's cap). Nothing to run; no spend — the run ends cleanly here. Anything held rather than owed is counted in this step's log, and re-derived next cycle." >> "$GITHUB_STEP_SUMMARY"
             fi

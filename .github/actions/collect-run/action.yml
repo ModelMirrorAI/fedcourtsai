@@ -267,7 +267,7 @@ runs:
         # omitting cells. Each names its own remedy, and both withhold the issue
         # close as a fully-absent engine already does:
         #   --missing-file  the artifact failed to transfer   -> re-run collect
-        #   --matrix-file   the cell uploaded nothing at all  -> needs a re-queue
+        #   --matrix-file   the cell uploaded nothing at all  -> the next scheduled round re-derives it
         matrix_args=()
         if [ -n "${PLAN_MATRIX:-}" ]; then
           printf '%s' "$PLAN_MATRIX" > plan-matrix.json
@@ -324,7 +324,7 @@ runs:
         # no PR to carry the note and the cells would vanish from the log too.
         jq -r '.uncovered_cells[]
           | "::warning::no cell output at all for \(.actor) on \(.court)/\(.docket) \(.event_id);"
-          + " re-running collect will not recover it — it needs a re-queue"' <<<"$plan"
+          + " re-running collect will not recover it — the next scheduled round re-derives and re-mints it"' <<<"$plan"
         if [ "$(jq -r '.stalled' <<<"$plan")" = "true" ]; then
           # Artifacts arrived but no cell produced output and no agent finished
           # cleanly (the tested `stalled` signal) — same stall, same comment.
