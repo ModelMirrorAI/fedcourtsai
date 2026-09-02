@@ -7,19 +7,17 @@ name: run-evaluate
 # an artifact and the `collect` job aggregates the whole run into one auto-merged
 # PR (plus a draft PR for any partial output). Mirrors run-predict.yml.
 #
-# Two ways in, differing only in where the case list comes from:
+# One way in, and it names no cases: the **schedule** (and its on-demand
+# `workflow_dispatch` twin) derives its own fan-out from the corpus-level
+# evaluate backlog — the gradings committed state still owes. Level-triggered by
+# construction: the scan reads committed ledger state, so a round that failed,
+# was declined, or never ran is simply re-derived next cycle, and no trigger has
+# to be re-filed for it.
 #
-# - The **schedule** (and its on-demand `workflow_dispatch` twin) derives its own
-#   cases from the corpus-level evaluate backlog — the gradings committed state
-#   still owes. Level-triggered by construction: the scan reads committed ledger
-#   state, so a round that failed, was declined, or never ran is simply re-derived
-#   next cycle. This is the lane that normally runs.
-# - A `run:evaluate` **label** names its cases in the trigger issue body, for a
-#   deliberate one-off over cases someone picked.
-#
-# The trigger decides only that. The spend gate is the same either way: every run
-# renders its plan report and waits on the `review` environment's required
-# reviewers before a cell spends a token.
+# The trigger decides only *when* a round derives; it never names its cases. What
+# decides whether it spends is the `review` hold: every run renders its plan
+# report and waits on that environment's required reviewers before a cell spends
+# a token.
 on:
   schedule:
     # Daily at 15:39 UTC. The backlog only moves when a pull window resolves
@@ -47,18 +45,16 @@ on:
     # input-less dispatch below is the manual twin that drains it on demand.
     - cron: "39 15 * * *"
   # The same derivation, on demand — for a backlog that should drain now rather
-  # than at the next window. Deliberately input-less: a run that wants to name its
-  # own cases takes the label path, which already has an issue body to name them
-  # in, and the matrix command reads a half-named case as a typo and refuses.
+  # than at the next window. Deliberately input-less: the backlog is the only
+  # case list this workflow has, and a run that wants to spend on hand-picked
+  # cases is an `evaluate-plan` reading plus a maintainer's judgement, not a
+  # trigger input that would reintroduce an unauthenticated case list.
   workflow_dispatch:
-  issues:
-    types: [labeled]
 
 permissions: {}
 
-# One evaluate round at a time, across every trigger — the group must not key on
-# the issue number, which is empty on a schedule and would put every scheduled
-# round in one nameless group with the label runs anyway.
+# One evaluate round at a time, across both triggers — a per-workflow group,
+# because neither a schedule nor a dispatch carries anything to key on.
 #
 # Serializing is load-bearing, not tidiness: two concurrent rounds would derive
 # overlapping backlogs. The already-graded gate that makes the fan-out idempotent
@@ -66,138 +62,66 @@ permissions: {}
 # merged yet, and this group — not that gate — is what keeps a second derivation
 # out of that window.
 #
-# Concurrency is evaluated before the job `if:`, and every `issues: labeled` event
-# on the repo spawns a to-be-skipped run of this workflow, so only a run this
-# workflow will actually perform joins the real group; everything else gets a
-# throwaway group (the run-pull pattern), or an unrelated label could supersede a
-# queued evaluate round.
-#
 # `cancel-in-progress: false` protects the *running* round, not the queue behind
 # it: GitHub holds at most one pending run per group, and a third arrival
 # supersedes the one that was waiting. Read that against the review hold, which
-# can park a round for days — a scheduled round is level-triggered and loses
-# nothing when its successor replaces it in the queue, but a hand-picked label
-# round can be superseded by the next cron tick before its plan job ever runs,
-# leaving its trigger issue open and uncommented. Release or reject a held round
-# before filing a label one-off behind it.
+# can park a round for days — every round here is level-triggered and loses
+# nothing when its successor replaces it in the queue, since the backlog it
+# would have drained is re-derived by whichever round does run.
 concurrency:
-  group: ${{ (github.event_name != 'issues' || github.event.label.name == 'run:evaluate') && 'run-evaluate' || format('run-evaluate-skip-{0}', github.run_id) }}
+  group: run-evaluate
   cancel-in-progress: false
 
 jobs:
   plan:
-    # Every trigger this workflow declares, and nothing else: the `issues` event
-    # fires on every label applied anywhere in the repo, so a label run must name
-    # this workflow's own label to get past here.
-    if: >-
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issues' && github.event.label.name == 'run:evaluate')
     runs-on: ubuntu-latest
-    # The scheduled path pulls the whole corpus and scans every resolved event,
-    # unattended, and holds the serializing group while it does — so a hung pull
-    # would otherwise burn the six-hour job default *and* block the label path
-    # behind it. 30 minutes is well clear of a pull plus the scan (seconds once
-    # local) and inside the read-only role's default one-hour credential, so the
-    # cap trips before the credential expires and the failure names the right
-    # cause.
+    # The job pulls the whole corpus and scans every resolved event, unattended,
+    # and holds the serializing group while it does — so a hung pull would
+    # otherwise burn the six-hour job default *and* block the next round behind
+    # it. 30 minutes is well clear of a pull plus the scan (seconds once local)
+    # and inside the read-only role's default one-hour credential, so the cap
+    # trips before the credential expires and the failure names the right cause.
     timeout-minutes: 30
     environment: prod
     # Corpus-split read side for the matrix scope backstop: the bare-opinion-
     # import exclusion fetches the case's latest snapshot, which under
-    # FEDCOURTS_CORPUS_SPLIT=1 lives only in the per-case content store (neither
-    # the ranged-read index nor the pulled one carries snapshots), so this is the
-    # job's contract on both corpus paths below. Unset variable -> '0' -> off.
+    # FEDCOURTS_CORPUS_SPLIT=1 lives only in the per-case content store (the
+    # pulled index carries no snapshots). Unset variable -> '0' -> off.
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
     permissions:
       contents: read
-      id-token: write # assume the AWS role for the corpus read (ranged lookups or a full pull)
-      issues: write # post the plan report; close the trigger issue when the matrix is empty
+      id-token: write # assume the AWS role for the corpus pull (read-only)
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
     steps:
-      # An issue *form* applies its declared labels on creation regardless of the
-      # submitter's permissions, so on a public repo anyone could fire this agent
-      # run by filing a form that declares `run:evaluate`. Require the trigger to
-      # come from the pipeline App or a maintainer with write access; deny
-      # everyone else. Fail closed otherwise.
-      # claude-code-action re-checks the actor before it spends model tokens, but
-      # this pre-flight step refuses *before* the downstream `evaluate` job (which
-      # `needs: plan`) mints any token, assumes the S3 role, or reads the corpus —
-      # matching the deterministic writer (run-pull).
-      # (The label name is already checked in the job `if:`.)
+      # No authorization gate here, and none is missing: this workflow carries no
+      # trigger an outside actor can reach. A `schedule` fires only from the
+      # DEFAULT branch, so it can run only what a maintainer-merged promotion put
+      # on `main`; a `workflow_dispatch` is gated by GitHub on repository write;
+      # and this job binds `prod`, whose deployment branches are restricted to
+      # `main`, so a dispatch from any other ref is refused before a step runs.
+      # The `review` hold still stands between this plan and any spend, on both
+      # triggers alike. (SECURITY.md -> *Trigger surface* carries the same
+      # reasoning for every lane.)
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python-env
 
-      # Only a maintainer-installed App can apply a `run:*` label that triggers a
-      # workflow (events from the default GITHUB_TOKEN do not), so a Bot sender
-      # matching the pinned data-App login is the trusted App handoff (any
-      # other Bot is refused); any other actor must hold write access. The
-      # decision (and its fail-closed default) lives in the tested `authorize-trigger`
-      # command. It refuses *before* the downstream `evaluate` job (which `needs: plan`)
-      # mints any token, assumes the S3 role, or reads the corpus. (The label name is
-      # already checked in the job `if:`.)
-      #
-      # The label path only. The other two triggers are not label events, and each
-      # is already gated by the platform at least as tightly as this command would
-      # gate it: a `schedule` fires only from the DEFAULT branch, so it can run
-      # only what a maintainer-merged promotion put on `main`; a
-      # `workflow_dispatch` is gated by GitHub on repository write, the same bar
-      # this command's non-Bot branch enforces; and this job binds `prod`, whose
-      # deployment branches are restricted to `main`, so a dispatch from any other
-      # ref is refused before a step runs. Running the gate on them would judge an
-      # actor who did not trigger the run — on a schedule `github.actor` is
-      # whoever last touched the workflow on the default branch, not a requester.
-      # The `review` hold still stands between this plan and any spend, on every
-      # trigger alike. (SECURITY.md -> *Label triggers* carries the same carve-out.)
-      - name: Authorize the trigger (label from the pipeline App or a maintainer)
-        if: github.event_name == 'issues'
-        # One retried permission lookup, worth up to 105s against a degraded
-        # API; the plan job declares no cap, so bound the retries here rather
-        # than leaving them to the six-hour default.
-        timeout-minutes: 3
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          ACTOR: ${{ github.actor }}
-          SENDER_TYPE: ${{ github.event.sender.type }}
-        run: |
-          uv run fedcourts authorize-trigger \
-            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO" \
-            --bot-actor "fedcourtsai-data[bot]"
-
-      # The two case-list modes want opposite corpus backends, so the plan job
-      # picks one here. Exactly one of these steps runs; both assume the same
-      # read-only role, and neither can write the corpus.
-      #
-      # Label path: the scope gate (predict.scope=scotus_docket) reads each case's
-      # corpus row (court + exclusion reasons) for the *specific* cases the trigger
-      # issue names -- point lookups, not a scan -- so it reads the committed
-      # corpus pointer in place over the ranged backend (KBs) instead of
-      # pulling the whole index. The cell jobs below use the same backend.
-      - uses: ./.github/actions/corpus-ranged
-        if: github.event_name == 'issues'
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
-          aws-region: ${{ vars.AWS_REGION }}
-          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
-
-      # Schedule/dispatch path: the backlog derivation is the opposite read shape
-      # — one pass over every resolved event plus a row per candidate case, tens
-      # of thousands of them — which a pulled corpus serves in seconds and a
-      # read-in-place backend would serve as a range-request storm. So pull the
-      # whole index instead. The default role duration is right: this job reads
-      # the pulled file locally, so nothing outlives the credential except the
-      # pull itself. `evaluate-matrix` refuses a non-local backend for this scan
-      # rather than performing it slowly, so getting this step wrong fails the
-      # plan loudly instead of quietly costing an hour.
+      # The backlog derivation is a whole-court read shape — one pass over every
+      # resolved event plus a row per candidate case, tens of thousands of them —
+      # which a pulled corpus serves in seconds and a read-in-place backend would
+      # serve as a range-request storm. So pull the whole index. The default role
+      # duration is right: this job reads the pulled file locally, so nothing
+      # outlives the credential except the pull itself. `evaluate-matrix` refuses
+      # a non-local backend for this scan rather than performing it slowly, so
+      # getting this step wrong fails the plan loudly instead of quietly costing
+      # an hour. (The cell jobs below read ranged, through their own sidecar:
+      # point lookups for one case are the opposite shape.)
       - uses: ./.github/actions/corpus-readonly
-        if: github.event_name != 'issues'
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -205,30 +129,15 @@ jobs:
 
       - name: Build evaluator x case x event matrix
         id: plan
-        env:
-          ISSUE_BODY: ${{ github.event.issue.body }}
-          IS_LABEL_RUN: ${{ github.event_name == 'issues' }}
         run: |
           set -euo pipefail
-          # The two case-list modes, one code path. A label run writes the trigger
-          # issue's body out and names it with --body-file; a scheduled or
-          # dispatched run passes no --body-file at all, which is exactly how
-          # `evaluate-matrix` is told to derive the cases from the backlog itself.
-          # Omitting the flag and passing an *empty* body file are different
-          # requests: an empty file carries no ```json block, which `parse_cases`
-          # refuses outright, so blanking the flag would fail the round rather
-          # than derive it. The argument is built up, never blanked. Note the
-          # zero-case list is a third thing again — a body whose block holds `[]`,
-          # which parses to an empty fan-out. The report step below rebuilds it
-          # from the same `IS_LABEL_RUN` condition: both invocations must select
-          # the same cases, or the plan a maintainer approves is not the fan-out.
-          matrix_args=()
-          if [ "$IS_LABEL_RUN" = "true" ]; then
-            python -c "import os, pathlib; pathlib.Path('issue-body.md').write_text(os.environ.get('ISSUE_BODY', ''))"
-            matrix_args+=(--body-file issue-body.md)
-          fi
           run_id=$(date -u +%Y%m%dT%H%M%SZ)
-          matrix=$(uv run fedcourts evaluate-matrix "${matrix_args[@]}" --run-id "$run_id")
+          # No case list is passed, and that is the request: given no --body-file
+          # and no --court/--docket, `evaluate-matrix` derives the cases from the
+          # corpus-level evaluate backlog itself. The report step below passes
+          # none either — both invocations must select the same cases, or the plan
+          # a maintainer approves is not the fan-out.
+          matrix=$(uv run fedcourts evaluate-matrix --run-id "$run_id")
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           # The report step re-derives the plan under this same id: the run id
           # is the join key between the approval record and the committed
@@ -242,42 +151,16 @@ jobs:
           fi
           # Ops analytics: record the planned fan-out in the Actions UI.
           echo "## run-evaluate — queued ${count} evaluation job(s)" >> "$GITHUB_STEP_SUMMARY"
-          # On the scheduled lane the step summary is the whole record — there is
-          # no trigger issue to close with a note — so say what an empty matrix
-          # means rather than leaving a bare zero. It is the ordinary resting
-          # state of a drained backlog, not a fault.
-          if [ "$count" -eq 0 ] && [ "$IS_LABEL_RUN" != "true" ]; then
+          # The step summary is the whole record — there is no trigger issue to
+          # close with a note — so say what an empty matrix means rather than
+          # leaving a bare zero. A drained backlog is the ordinary resting state
+          # of a healthy lane, not a fault, and the run ends cleanly on it: the
+          # `evaluate` and `collect` jobs are skipped (`needs` + `has_jobs`) and
+          # nothing spends.
+          if [ "$count" -eq 0 ]; then
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "The evaluate backlog is drained: no resolved event with a committed prediction is missing an enabled evaluator's grading (within this cycle's cap). Nothing to run; no spend." >> "$GITHUB_STEP_SUMMARY"
+            echo "The evaluate backlog is drained: no resolved event with a committed prediction is missing an enabled evaluator's grading (within this cycle's cap). Nothing to run; no spend — the run ends cleanly here." >> "$GITHUB_STEP_SUMMARY"
           fi
-
-      # An empty matrix means every queued case was out of scope (or has no scorable
-      # outcome): the `evaluate`/`collect` jobs are skipped, so nothing would close the
-      # trigger issue. Close it here with a note rather than leave it orphaned open.
-      # Uses the ambient GITHUB_TOKEN (closing triggers nothing) — least privilege.
-      # The issue-number clause is what makes this the label path's step: a
-      # scheduled round has no issue, so there is nothing to strand and nothing to
-      # close, and the step summary above already carries the drained-backlog note.
-      - name: Close the trigger issue when nothing is in scope
-        if: ${{ steps.plan.outputs.has_jobs == 'false' && github.event.issue.number }}
-        # One retried close, worth up to 105s against a degraded API; the job
-        # itself declares no cap, so bound the retries here rather than leaving
-        # them to the six-hour default.
-        timeout-minutes: 3
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          ISSUE: ${{ github.event.issue.number }}
-        run: |
-          set -euo pipefail
-          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
-          # One atomic call: close with the explanatory comment (no commented-but-open state).
-          # Retried because an issue left open by a blip is what run-ops reads
-          # as a stalled fan-out — a false alarm over a run that finished. Three
-          # attempts, and exhaustion still fails the step: a close that never
-          # lands is a real stall, and should look like one.
-          gh_retry gh issue close "$ISSUE" --repo "$REPO" --comment \
-            "No evaluations in scope this run — every queued case was dropped by the scope gate (out of scope, nothing scorable, or already evaluated). Closing; nothing to evaluate."
 
       # The plan report the approval below is judged on: the tested plan
       # command re-derives the same fan-out the matrix step just minted (same
@@ -285,45 +168,31 @@ jobs:
       # cell list, and the spend estimate — whose basis the report itself
       # caveats, the evaluate side being a scaled pre-freeze anchor until an
       # evaluate fan-out under the currently blessed grading digests measures
-      # the cert stage. Posted to the
-      # trigger issue and the step summary BEFORE the hold, so the record of
-      # what was approved exists whether or not the release ever comes.
-      # Unlike predict's twin there is no stranded-run census to attach — the
-      # evaluate plan carries no stranded guard — so the call is the bare
-      # report form.
+      # the cert stage. Written to the step summary BEFORE the hold, so the
+      # record of what was approved exists whether or not the release ever
+      # comes — the pending deployment review links this run, so the summary is
+      # the page an approver lands on. Unlike predict's twin there is no
+      # stranded-run census to attach — the evaluate plan carries no stranded
+      # guard — so the call is the bare report form.
       #
-      # This step runs on EVERY round that queued jobs, issue or no issue. The
-      # report is what the review hold is judged on, so a scheduled round that
-      # skipped it would ask a maintainer to release a spend with nothing to read.
-      # What the trigger changes is only where the report lands: the step summary
-      # always (the deployment-review UI links the run), plus a comment on the
-      # trigger issue when there is one.
-      - name: Post the plan report for approval
+      # This step runs on EVERY round that queued jobs. The report is what the
+      # review hold is judged on, so a round that skipped it would ask a
+      # maintainer to release a spend with nothing to read.
+      - name: Report the plan for approval
         if: ${{ steps.plan.outputs.has_jobs == 'true' }}
-        # Two retried gh calls inside the marker-deduped issue-comment
-        # command (the marker read, then the comment), each worth up to 105s
-        # against a degraded API, on top of the plan render; the plan job
-        # declares no cap, so bound the step rather than leaving it to the
-        # six-hour default.
+        # A second full walk of the backlog on top of the render, so bound the
+        # step rather than leaving it to the six-hour default; the job cap above
+        # is what stops a genuinely slow round.
         timeout-minutes: 10
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          ISSUE: ${{ github.event.issue.number }}
-          IS_LABEL_RUN: ${{ github.event_name == 'issues' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PLAN_RUN_ID: ${{ steps.plan.outputs.run_id }}
         run: |
           set -euo pipefail
-          # The same argument the matrix step built, rebuilt from the same
-          # condition: the plan must re-derive the fan-out that was actually
-          # minted, so a label run re-reads the issue body and a scheduled run
-          # re-derives the backlog. Read-only in both modes.
-          plan_args=()
-          if [ "$IS_LABEL_RUN" = "true" ]; then
-            plan_args+=(--body-file issue-body.md)
-          fi
-          uv run fedcourts evaluate-plan "${plan_args[@]}" \
+          # No case list, exactly as the matrix step above passed none: the plan
+          # must re-derive the fan-out that was actually minted, or the plan a
+          # maintainer approves is not the run. Read-only either way.
+          uv run fedcourts evaluate-plan \
             --run-id "$PLAN_RUN_ID" \
             --approval-report plan-report.md \
             --approval-report-run-url "$RUN_URL" >plan.json 2>plan-stderr.txt \
@@ -339,17 +208,6 @@ jobs:
             echo ''
             echo '</details>'
           } >> "$GITHUB_STEP_SUMMARY"
-          # The report must exist where the approver reads before the hold
-          # releases: the marker-deduped comment command posts exactly once
-          # per run and makes a plan-job re-run safe, and a sustained API
-          # fault fails the plan job loudly, so nothing spends unreported.
-          # Only where there is an issue to post to — a scheduled round has none,
-          # and its record is the step summary written just above, which is the
-          # page the pending deployment review links to.
-          if [ -n "$ISSUE" ]; then
-            uv run fedcourts post-issue-comment --issue "$ISSUE" --repo "$REPO" \
-              --marker "<!-- evaluate-plan: ${PLAN_RUN_ID} -->" --body-file plan-report.md
-          fi
 
   # The hold. This job carries no code, no token, and no permissions — its one
   # purpose is the deployment environment: the `review` environment's required
@@ -370,62 +228,44 @@ jobs:
       - name: Release the held fan-out
         run: echo "the review hold released — the matrix may spend."
 
-  # Any hold that did not release must not strand the trigger issue open:
-  # record the outcome where the request lives, pointing at the plan report
-  # the decision was made on. `!= 'success'` covers the whole class — the
-  # Reject button (a failed deployment), a cancelled or expired wait, and a
-  # plan job that died after minting the matrix (approval then skipped).
-  # Best-effort during a run cancellation, like any always() job: an expired
-  # hold whose runner was torn down may still need a manual close. Ambient
-  # token; closing triggers nothing.
+  # A hold that did not release still has to leave a durable record of what was
+  # declined, and the record is this job's step summary — rendered onto the same
+  # run page as the plan report the decision was made on, so the two read
+  # together. `!= 'success'` covers the whole class: the Reject button (a failed
+  # deployment), a cancelled or expired wait, and a plan job that died after
+  # minting the matrix (approval then skipped). No token and no permissions,
+  # because a step summary needs neither — which also means no API call to
+  # retry and nothing that can half-succeed. Best-effort during a run
+  # cancellation, like any always() job.
   #
-  # The issue-number clause makes this whole job the label path's. A declined
-  # scheduled round strands nothing — there is no issue to leave open, the
-  # plan report is already in its step summary, and the backlog it declined to
-  # grade is re-derived on the next cycle by construction — so the job skips
-  # rather than needing an issue-less branch.
+  # A decline strands nothing: no request is left open anywhere, the plan report
+  # is already on this run, and the backlog this round declined to grade is
+  # re-derived on the next cycle by construction — so a decline costs a cycle
+  # and nothing else.
   rejected:
     needs: [plan, approval]
-    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result != 'success' && github.event.issue.number }}
+    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result != 'success' }}
     runs-on: ubuntu-latest
-    # One retried close, worth up to 105s against a degraded API — the cap
-    # admits it with room for the runner's own setup.
+    # Nothing here but the summary write; the cap is the runner's own setup
+    # with room.
     timeout-minutes: 5
-    permissions:
-      issues: write
+    permissions: {}
     steps:
-      - name: Close the trigger issue when the hold did not release
+      - name: Record that the hold did not release
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          ISSUE: ${{ github.event.issue.number }}
+          RESULT: ${{ needs.approval.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          # Inline copy of scripts/gh_retry.sh's gh_retry — this job exists only
-          # to keep a declined request from stranding its issue open, so it
-          # takes no checkout to source the file from: adding one would add the
-          # very failure mode the job is here to remove. The workflow-invariants
-          # test pins the copies identical; contract and rationale live in that
-          # script's header.
-          gh_retry() {
-            local attempt out what
-            what="${1:-} ${2:-} ${3:-}"
-            for attempt in 1 2 3; do
-              if out=$(timeout 30 "$@"); then
-                printf '%s\n' "$out"
-                return 0
-              fi
-              if [ "$attempt" -lt 3 ]; then
-                echo "::warning::${what} failed (attempt ${attempt}/3) — retrying" >&2
-                sleep $((attempt * 5))
-              fi
-            done
-            echo "::error::${what} failed after 3 attempts" >&2
-            return 1
-          }
-          gh_retry gh issue close "$ISSUE" --repo "$REPO" --comment \
-            "The review hold did not release — rejected, cancelled, expired, or the plan failed — so no cell ran and nothing was spent. The plan report above is the record of what was declined; if no report appears above, the plan failed before posting one: ${RUN_URL}. Re-label to re-queue with a fresh plan."
+          {
+            echo "## run-evaluate — the review hold did not release"
+            echo ""
+            echo "The \`review\` hold ended as \`${RESULT}\` — rejected, cancelled, expired, or the plan failed before the hold — so no cell ran and nothing was spent."
+            echo ""
+            echo "The plan report on the \`plan\` job of this run is the record of what was declined; if no report appears there, the plan failed before rendering one: ${RUN_URL}"
+            echo ""
+            echo "Nothing has to be re-filed: the gradings this round would have produced are still missing from committed state, so the next scheduled round derives them again. A \`workflow_dispatch\` runs one now."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   evaluate:
     needs: [plan, approval]
@@ -449,10 +289,13 @@ jobs:
         # Gemini's CLI strips non-allowlisted env vars from agent shells in CI): don't
         # mint a live credential in cells that cannot use it.
         if: matrix.engine == 'claude-code'
-        # Least-privilege token the agent itself uses to comment on the triggering
-        # issue/PR. No contents:write — the agent only writes files locally, which
-        # ride to the collect job as an artifact; that job (its own token) does the
-        # commit/PR, so a prompt injection in docket text cannot push code here.
+        # The least-privilege credential claude-code-action requires. No round
+        # here has a triggering issue or PR to comment on, so the issue and
+        # pull-request scopes buy the agent nothing it can reach; what matters is
+        # the absence of contents:write — the agent only writes files locally,
+        # which ride to the collect job as an artifact, and that job (its own
+        # token) does the commit/PR, so a prompt injection in docket text cannot
+        # push code here.
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           client-id: ${{ vars.DEV_APP_CLIENT_ID }}
@@ -689,14 +532,13 @@ jobs:
           # surface, no cloud credential in this shell.
           FEDCOURTS_CORPUS_BACKEND: service
         with:
-          # A label round filed by the pipeline App (`fedcourtsai-data[bot]`) is
-          # already approved by the plan job's authorize-trigger gate, but
-          # claude-code-action refuses a bot actor by default — so allow exactly
-          # that one login (never `*`), or an App-filed round dies here after the
-          # gate already vouched for it. The schedule/dispatch lanes do not depend
-          # on this setting either way — run-analytics' scheduled labeler job runs
-          # claude-code-action with no `allowed_bots` at all — so the allowance
-          # stays scoped to the one login the label path needs.
+          # claude-code-action runs its own actor check and refuses a bot by
+          # default. This workflow's rounds are unattended, so their actor is not
+          # a requester at all — it is whatever GitHub attributes the cron to,
+          # which on a repo whose deterministic writers push to the default
+          # branch can be the pipeline App's own login. Allow exactly that one
+          # login (never `*`) so a round cannot die on an attribution it does not
+          # control; what gates the spend is the `review` hold, not this setting.
           allowed_bots: "fedcourtsai-data[bot]"
           # Auth is the Anthropic API key (pay-per-token): automated pipeline
           # inference is API-metered by design (see docs/budget.md), and per
@@ -777,9 +619,9 @@ jobs:
           # Pin the session log to a known dir so the usage-capture step can read it.
           CODEX_HOME: ${{ github.workspace }}/.codex
         with:
-          # As with the Claude step: let an App-filed label round
-          # (`fedcourtsai-data[bot]`, already authorized by the plan job) past
-          # codex-action's write-access check, which a bot installation fails.
+          # As with the Claude step: let a round GitHub attributes to the
+          # pipeline App's login (`fedcourtsai-data[bot]`) past codex-action's
+          # write-access check, which a bot installation fails.
           allow-bot-users: "fedcourtsai-data[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           # The same kickoff prompt as the Claude and Gemini steps (identifiers
@@ -1224,9 +1066,14 @@ jobs:
         # ambient GITHUB_TOKEN: commenting triggers nothing, so the contents-write
         # App token stays out of it. Runs even if the aggregate step failed; the
         # file is absent whenever the run produced output.
-        # A scheduled round has no issue to orphan, but the stall itself still has
-        # to be visible, so the report falls back to the step summary rather than
-        # being skipped — a silent stall is exactly what this step exists to stop.
+        # A round with no trigger issue has nothing to orphan, but the stall
+        # itself still has to be visible, so the report falls back to the step
+        # summary rather than being skipped — a silent stall is exactly what this
+        # step exists to stop. Every round takes that branch: no lane in this
+        # repository has an issue trigger, so the issue number is always empty.
+        # The issue arm is kept because `collect-run`'s contract still admits an
+        # issue number and this job is held structurally identical to
+        # run-predict's — not because a round here can supply one.
         if: ${{ always() }}
         # Two retried gh calls inside the deduped issue-comment command,
         # each worth up to 105s against a degraded API — bounded per step so a
@@ -1242,14 +1089,12 @@ jobs:
           set -euo pipefail
           [ -s stall-comment.md ] || exit 0
           if [ -z "$ISSUE" ]; then
-            # The rendered comment is addressed to a trigger issue, so its closing
-            # retry line does not apply to a round that has none. Say what does
-            # before replaying it, rather than leaving the contradiction to be
-            # untangled during an incident.
+            # No issue to comment on, so the run's own summary is the report.
+            # The rendered comment reads correctly there: it addresses the round
+            # rather than a request, and its retry line is the lane's next
+            # derivation, which needs nothing filed.
             {
               echo '## stalled run'
-              echo ''
-              echo 'This round had no trigger issue, so the retry advice below does not apply: there is nothing to re-label and nothing left open. The cells it failed to produce are still owed, so the next scheduled derivation picks them up; `workflow_dispatch` runs one now.'
               echo ''
               cat stall-comment.md
             } >> "$GITHUB_STEP_SUMMARY"

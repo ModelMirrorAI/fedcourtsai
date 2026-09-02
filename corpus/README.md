@@ -271,8 +271,8 @@ from 1, IFP from 5001) without ingesting every serial.
 Each ingestion channel stores the full point-in-time docket payload it fetched
 (the REST docket + entries, or the supremecourt.gov docket JSON) — the raw fact
 a normalized `cases` row cannot fully capture. `pull` diffs the latest stored
-snapshot against the fresh fetch to decide whether a case *changed* (the
-`run:predict` trigger), and provisioning materializes a snapshot for the agent
+snapshot against the fresh fetch to decide whether a case *changed* (what routes
+it onto the predict queue), and provisioning materializes a snapshot for the agent
 to predict from (`fedcourts provision-snapshot`) — **which** snapshot being the
 moment's question, not the table's: a forward cell is placed at the information
 set the event it forecasts declares, so it reads the payload the docket served

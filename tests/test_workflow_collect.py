@@ -332,32 +332,21 @@ def test_the_run_pr_loop_is_safe_to_repeat() -> None:
 def test_the_trigger_issue_reports_are_marker_deduped() -> None:
     """Every trigger-issue report is posted by a step that reruns with its
     job, so a plain comment would stack one copy per recovery attempt."""
-    # run-evaluate carries a third marker-deduped poster: the plan-and-hold
-    # approval report on its label lane, keyed on the fan-out's own run id and
-    # naming its own stage, or two holds on one issue would dedupe against each
-    # other. run-predict has none — every round of it derives its own backlog,
-    # so there is no trigger issue to report to and its plan report goes to the
-    # step summary the pending deployment review links.
-    approval_markers = {
-        "run-predict.yml": None,
-        "run-evaluate.yml": "<!-- evaluate-plan: ${PLAN_RUN_ID} -->",
-    }
+    # Exactly two per fan-out — the stall report and the secret-scan report,
+    # both inside the collect job. Neither lane has an approval-report poster:
+    # every round derives its own backlog from committed state, so there is no
+    # trigger issue to report to and the plan report goes to the step summary
+    # the pending deployment review links.
     for workflow in FAN_OUTS:
         body = (WORKFLOWS / workflow).read_text()
-        marker = approval_markers[workflow]
-        # The two collect reports always, plus the approval report where a
-        # trigger issue can exist to carry it.
-        assert body.count("post-issue-comment") == (3 if marker else 2), (
+        assert body.count("post-issue-comment") == 2, (
             f"{workflow}: every trigger-issue report posts through the deduped command"
         )
         assert "<!-- collect-stall: ${GITHUB_RUN_ID} -->" in body
         assert "<!-- collect-secret-scan: ${GITHUB_RUN_ID}-${digest} -->" in body
-        if marker:
-            assert marker in body
-        else:
-            assert "plan-report.md" in body and "GITHUB_STEP_SUMMARY" in body, (
-                f"{workflow}: the plan report must still reach the approver somewhere"
-            )
+        assert "plan-report.md" in body and "GITHUB_STEP_SUMMARY" in body, (
+            f"{workflow}: the plan report must still reach the approver somewhere"
+        )
         # The old unconditional form must not come back.
         assert "gh issue comment" not in body
 

@@ -77,7 +77,6 @@ jobs:
     permissions:
       contents: read # checkout + ancestry check; this workflow never writes
       actions: read # fan-out + integration-test run state for the gates
-      issues: read # open run:* trigger issues mean a matrix in flight
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

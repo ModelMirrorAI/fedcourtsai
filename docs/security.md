@@ -7,11 +7,13 @@ maintainer can reproduce or audit the setup.
 
 ## The two GitHub Apps
 
-Cross-workflow handoffs and PRs are made with a **GitHub App installation token**
-(`actions/create-github-app-token`), never the default `GITHUB_TOKEN`: events
-created with `GITHUB_TOKEN` do not trigger other workflows (GitHub's
-loop-prevention), so a `run-pull` issue would never start `run-predict`, and an
-agent PR would never start CI.
+Commits and PRs that must start something downstream are made with a **GitHub
+App installation token** (`actions/create-github-app-token`), never the default
+`GITHUB_TOKEN`: events created with `GITHUB_TOKEN` do not trigger other
+workflows (GitHub's loop-prevention), so an agent PR opened with it would never
+start CI. The inverse is the rule for every issue write in this repository —
+dashboards, run logs, flag latching — which must trigger nothing and so rides
+the ambient token instead.
 
 The token comes from one of **two Apps, split by trust** — mirroring the two S3
 roles. The split is what makes "data writes land directly, everything agentic
@@ -37,7 +39,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
-| `run-pull` | data | contents, issues | commit facts to `main`; open handoff issues; publish the verdict/frontier JSONs to `ops-metrics` |
+| `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its issue writes — the pipeline-runs dashboard row and the failure-only run-log issue — must trigger nothing and so ride the ambient token, never this one |
 | `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
 | `run-repair` | data | contents (both writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the validation job holds no credential |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
@@ -49,12 +51,13 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 **Repository permissions each App must grant** (App settings → Permissions), at
 the App level the union of what its workflows mint:
 
-- **data App**: Contents and Issues — *read and write*. (No workflow mints a
-  Pull-requests scope from it any more; dropping that grant at the App level is
-  a safe tightening.)
+- **data App**: Contents — *read and write*. (No workflow mints an Issues or a
+  Pull-requests scope from it: the deterministic writers' issue writes must
+  trigger nothing and so ride the ambient `GITHUB_TOKEN`. Dropping both grants
+  at the App level is a safe tightening.)
 - **dev App**: Contents, Issues, and Pull requests — all *read and write*. (No
-  workflow mints a Workflows scope from it any more; dropping that grant at the
-  App level is a safe tightening.)
+  workflow mints a Workflows scope from it; dropping that grant at the App level
+  is a safe tightening.)
 
 After changing an App permission, **re-approve the installation** on the repo — a
 new permission stays pending until an owner accepts it, and the minted token is
@@ -121,8 +124,8 @@ pre-registration record's commit ids.
     (failure downgrades the PR to a draft) and a secret scan (`fedcourts
     scan-diff-for-secrets`) over the run's changed files and its PR prose — a hit
     **withholds the branch** (nothing pushed, no PR; a redacted file/rule/line
-    report goes to the trigger issue) because pushing would itself publish the
-    secret. Earlier still, capture-time redaction rewrites credential-shaped
+    report lands on the run's Actions summary) because pushing would itself
+    publish the secret. Earlier still, capture-time redaction rewrites credential-shaped
     runs in the harness-captured tool-call transcript (`retrieval_log.json`) to
     a `[redacted:…]` marker rather than withholding the run over them: that
     text is whatever a tool call carried, not something the agent chose to
@@ -220,15 +223,17 @@ The predict/evaluate `collect` job latches each run's rolled-up agent flags onto
 one long-lived `agent-feedback` tracking issue — the durable, centralized home for
 a note that must survive even a fully-failed run that opens no PR. It posts that
 comment with the job's **ambient `GITHUB_TOKEN`** (job-scoped **`issues: write`**),
-*not* the dev App token: latching needs no cross-workflow trigger (`agent-feedback`
-is a non-triggering label), which is the only reason a workflow here ever reaches
-for the App token — so issue-write deliberately stays **off** the App token that
+*not* the dev App token: latching needs no cross-workflow trigger (no workflow
+in this repository keys on `issues: labeled` at all, so labeling triggers
+nothing), which is the only reason a workflow here ever reaches for the App
+token — so issue-write deliberately stays **off** the App token that
 carries `contents: write` and opens the auto-merging PR. This mirrors `run-ops`,
 which posts its `ops-dashboard` / `data-validation` issues with `GITHUB_TOKEN` the
 same way, and `run-pull`, whose pipeline-runs dashboard row and failure-only
 run-log issues ride the ambient token for the same reason (its App token is
-reserved for the writes that must trigger downstream: the corpus commits and
-the `run:predict` handoff issues). The capability is therefore on the lower-trust, non-bypass token, scoped
+reserved for the writes that must reach `main` through the
+deterministic-writer bypass: the corpus commits and the published verdict).
+The capability is therefore on the lower-trust, non-bypass token, scoped
 to issue comments/creation only; and the agent never touches it (the per-cell agent
 token stays comment-only and writes `flags.json` locally — the trusted `collect`
 job does the surfacing). So docket text the agent ingests cannot reach it, and the
@@ -240,11 +245,11 @@ whole run's output). The grant is repo-wide read, as Actions scopes cannot be ru
 is acceptable here because `collect` runs no agent code and nothing
 agent-controlled steers which API it calls.
 
-The predict/evaluate `plan` job carries the same **ambient `GITHUB_TOKEN`
-`issues: write`** for the same reason: when the scope gate empties the matrix it
-closes the trigger issue (with a note) so the run doesn't orphan it, and closing an
-issue triggers no workflow — so this stays on the lower-trust ambient token, never
-the App token. Predict's `plan` also holds **`actions: read`**, on the same
+The predict/evaluate `plan` job needs **no issue write at all**: a round derives
+its own backlog and holds no request open anywhere, so a matrix the scope gate
+empties strands nothing to close — the plan report on the run is the whole
+record. Its token is `contents: read` plus the `id-token: write` the read-only
+corpus role needs. Predict's `plan` also holds **`actions: read`**, on the same
 ambient token and the same reasoning as `collect`: its stranded-run guard lists
 recent runs and their artifact *names* (it downloads nothing) to avoid re-minting
 cells that already ran, the grant is repo-wide because Actions scopes cannot be
@@ -278,16 +283,17 @@ rather than each minting its own. It must be
 created **with required reviewers configured before the gate promotes**:
 GitHub auto-creates a referenced environment unprotected, and an unprotected
 `review` environment is no gate at all. Leave **prevent self-review off**: the run's actor is the
-maintainer whenever the trigger label was applied by hand, and in a
+maintainer on every `workflow_dispatch`, and in a
 single-maintainer org blocking self-approval would strand exactly those runs
 in *Waiting* until the thirty-day expiry — the hold is a deliberateness gate
 here, not two-person control, a call to revisit if a second maintainer
 joins. `staging-corpus-refresh` declares **`staging`** — the same environment
 the integration scenarios bind, because the staging read-write role's trust
 deliberately names it (see *The staging corpus* below). And among the fan-out
-workflows, the `rejected` closers declare no environment at all, holding only
-the ambient token and `issues: write`: closing a trigger issue needs no
-secret, and the step must work even when nothing else did.
+workflows, the `rejected` reporters declare no environment at all and run under
+`permissions: {}`: writing "the hold did not release" to the run's Actions
+summary needs no secret and no token, and the step must work even when nothing
+else did.
 
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
 sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer
@@ -321,8 +327,12 @@ workflow added in a PR cannot exfiltrate secrets on its own PR run; the change
 reaches the privileged context only after it is merged to `main`, which required
 review.
 
-Every `prod` job already runs from a `main` ref for its trigger — `schedule`,
-`workflow_dispatch`, and `issues` — so the restriction breaks nothing.
+Every `prod` job already runs from a `main` ref for its trigger — a `schedule`
+fires only from the default branch, and a production `workflow_dispatch` is
+made against `main` — so the restriction breaks nothing. The two triggers
+divide the trust between them: a schedule can start only what a
+maintainer-merged promotion put on `main`, and GitHub gates a dispatch on
+repository write.
 
 **The integration-test workflow selects its environment by input**
 (`deploy-environment`, a closed choice of `auto`/`prod`/`staging` defaulting to
@@ -619,8 +629,7 @@ Access mirrors each workflow's role in the pipeline:
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
 | `run-pull` (pull + live + enrich jobs), `run-seed`, `run-repair` (corpus job only) | read-write | corpus writers (`corpus-push` + content-store mirror) |
-| `run-predict` plan job; `run-evaluate` plan job on the label path | read-only | scope gating over the named cases — ranged point lookups, no pull |
-| `run-evaluate` plan job on the schedule/dispatch path | read-only | derives the evaluate backlog — a scan over every resolved event, so it pulls the index rather than reading it in place |
+| `run-predict`, `run-evaluate` — plan jobs  | read-only     | each derives its own backlog — a scan over every open (resolved) event, so it pulls the index rather than reading it in place |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull) |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store; the text-coverage mode reads wider on the same terms — a document-manifest round trip per live-slice case plus each stored document's text body |
@@ -632,10 +641,10 @@ Access mirrors each workflow's role in the pipeline:
 | `run-ops`                                 | none          | dashboard reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
 
-The split is deliberate: a plan job gates only the cases its trigger names and
-a cell touches KBs of one case's data, so both read the immutable index in
-place and move no full blob; only the whole-corpus scanners (`run-analytics`
-and `run-backtest`) keep the full pull.
+The split is deliberate: a cell touches KBs of one case's data, so it reads the
+immutable index in place through its own sidecar and moves no full blob; the
+backlog derivations and the whole-corpus scanners (`run-analytics` and
+`run-backtest`) are scans across every case, so they take the full pull.
 
 Developer access is separate from the workflow roles: the maintainer uses IAM
 Identity Center SSO, and a contributor gets an on-demand IAM user scoped

@@ -460,7 +460,9 @@ def test_render_stall_comment_names_the_role_and_retry_path() -> None:
     comment = render_stall_comment(FinalizeRole.predict, "https://github.com/o/r/actions/runs/1")
     assert "produced no output" in comment
     assert "https://github.com/o/r/actions/runs/1" in comment
-    assert "`run:predict`" in comment  # the re-fire instruction names the label
+    # The retry path is the lane's own next round, never a re-filed request.
+    assert "the next scheduled predict round derives them again" in comment
+    assert "run:predict" not in comment
 
 
 def test_the_plan_carries_the_judgment_noun_for_each_role() -> None:

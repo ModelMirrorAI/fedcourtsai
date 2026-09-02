@@ -890,24 +890,25 @@ def render_feedback_comment(role: FinalizeRole, run_id: str, flags_markdown: str
 
 
 def render_stall_comment(role: FinalizeRole, run_url: str) -> str:
-    """The trigger-issue comment for a run that produced **no** output at all.
+    """The stall report for a run that produced **no** output at all.
 
     A wholesale failure — every cell dying before its agent ran, or every cell
-    finishing without an artifact — opens no PR, so the trigger issue would
-    otherwise sit silently orphaned open, invisible unless someone reads the
-    Actions history. This comment makes the stall loud on the issue itself and
-    says how to retry. Posted with the ambient ``GITHUB_TOKEN`` (a
-    non-triggering write) by the collect job's stall step.
+    finishing without an artifact — opens no PR, so without this the run would
+    be invisible unless someone read the Actions history. The collect job's
+    stall step writes it to the run's step summary (and, given an issue number,
+    comments it there with the ambient ``GITHUB_TOKEN``, a non-triggering
+    write).
     """
     return (
-        f"⚠️ The {role.value} run for this issue **produced no output** — no cell "
+        f"⚠️ This {role.value} run **produced no output** — no cell "
         f"delivered an artifact, so nothing was committed and no PR opened. This "
         f"usually means the cells failed before their agents ran (job-setup or "
         f"infrastructure errors) rather than the agents declining the work.\n\n"
         f"Run log: {run_url}\n\n"
-        f"The issue stays open. To retry once the cause is fixed, remove and "
-        f"re-apply the `run:{role.value}` label — the plan re-checks scope, and an "
-        f"empty matrix closes this issue with a note."
+        f"Nothing has to be re-filed. The cells this round failed to produce are "
+        f"still missing from committed state, so the next scheduled "
+        f"{role.value} round derives them again once the cause is fixed; a "
+        f"`workflow_dispatch` runs one sooner."
     )
 
 
@@ -1173,8 +1174,9 @@ def _facts_only_plan(
         f"`attempt.json` per failed cell so the per-cell attempt cap advances "
         f"even for a run that never opens a normal PR.\n\n"
         f"{table}\n\n"
-        f"The trigger issue stays open — the run genuinely failed and still needs "
-        f"a successful retry or a human."
+        f"The cells are still owed: none of them landed a {_JUDGMENT_NOUN[role]}, so "
+        f"the next scheduled round derives them again — this PR only records that "
+        f"they were attempted."
     )
     for note in notes:
         if note:

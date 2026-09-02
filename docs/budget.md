@@ -67,7 +67,7 @@ out end to end.
 The flat **Claude Max** subscription cannot absorb automated volume — it is
 metered for interactive use, and per Anthropic's policy the subscription token
 is meant for Claude Code / claude.ai, not CI/CD. So it covers interactive
-development, while every automated stage (`run:predict`, `run:evaluate`)
+development, while every automated stage (`run-predict`, `run-evaluate`)
 authenticates to Claude via the Anthropic **API key**.
 
 ## What there is to predict: measured volumes
@@ -921,14 +921,14 @@ predictors over decided petitions with the outcome hidden — iteration signal,
 never claimable performance ([metrics/README.md](../metrics/README.md)). Its
 cost model is the predict half alone: ~one cert-stage predict cell per
 predictor per replayed petition, scored mechanically against the hidden
-outcome, so no evaluate cells at all. A default label-triggered campaign
+outcome, so no evaluate cells at all. A default campaign
 replays 25 petitions × 3 predictors ≈ 75 cells — **≈$140–170** at the measured
 cert per-event rates ($5.57 pre-freeze to $6.66–6.68 on the post-freeze
 anchors) — and model spend scales linearly with the dispatch's `--limit`, which
-is the campaign's only size cap. The dispatch path defaults to the free
-offline `stub` engine, so an accidental dispatch spends nothing; applying the
-label is the real-engine spend decision. The salience-gate replay is
-deterministic and token-free.
+is the campaign's only size cap. `workflow_dispatch` is the only way in, and it
+defaults to the free offline `stub` engine, so an accidental dispatch spends
+nothing; choosing `auto` is the real-engine spend decision. The salience-gate
+replay is deterministic and token-free.
 
 **Accounting.** Campaign cells run under a runner-scratch working tree and are
 discarded — only the metrics report lands, via a reviewed PR — so backtest
@@ -972,7 +972,7 @@ is live only once those variables match the held tier.
 ### 3. GitHub Actions & Codespaces
 
 The repo is public, so standard 2-core GitHub-hosted runners — where every
-`run:*` stage and its agent execute — are **free and unlimited**
+pipeline stage and its agent execute — are **free and unlimited**
 ([Actions pricing](https://docs.github.com/en/billing/reference/actions-runner-pricing)).
 Actions turns non-zero only if a job is pinned to a **larger runner** (4-core+
 bills per-minute even on a public repo) or the repo is flipped back to private.

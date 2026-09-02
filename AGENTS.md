@@ -6,13 +6,13 @@ this repository. `CLAUDE.md` points here. Read this fully before doing anything.
 ## What this project is
 
 fedcourtsai predicts events in US federal courts — currently SCOTUS dockets
-only (cert grant/deny, votes, reasoning) — as a label-driven pipeline of GitHub
+only (cert grant/deny, votes, reasoning) — as a scheduled pipeline of GitHub
 Actions; see `docs/pipeline.md`. There are two very different kinds of work,
 and you are doing exactly one of them in any given run: **pipeline
 development** (change the Python package, workflows, docs, schemas, or prompts
 — in an interactive session on the branch-and-PR flow below, like any
-contributor; do **not** touch `data/`) or **data production** (`run:pull` /
-`run:predict` / `run:evaluate` / `run:backtest`, and the dispatched
+contributor; do **not** touch `data/`) or **data production** (a `run-pull`,
+`run-predict`, `run-evaluate` or `run-backtest` round, and the dispatched
 `qp-topic-label` labeling run — produce or update the corpus
 and/or the derived artifacts under `data/`; do **not** change pipeline code to
 make your task easier, and never weaken validation, CI, lint, type, or
@@ -20,22 +20,23 @@ security checks).
 
 ## Where you run: headless in CI
 
-Every `run:*` task runs inside a GitHub Actions runner — a fresh, **ephemeral,
+Every data-production task runs inside a GitHub Actions runner — a fresh, **ephemeral,
 non-interactive** container. Two consequences shape everything you do:
 
 - **No interactive input.** You cannot ask a question and wait for an answer.
   If you are blocked or under-specified, **leave it in writing where a
   maintainer will see it**: a structured **`flags.json`** note alongside your
-  output in `run:predict` / `run:evaluate` (the durable channel — the `collect`
-  job rolls every cell's flags into the run PR and the Actions summary, so the
-  note survives the trigger issue's closure), with `reasoning.md` /
-  `evaluation.md` for the detail; a trigger-issue comment is lost when the
-  issue closes. In an interactive development session, the PR description is
+  output in a predict / evaluate cell (the durable channel — the `collect`
+  job rolls every cell's flags into the run PR and the Actions summary, and
+  latches it onto the long-lived agent-feedback issue, so the note outlives the
+  run), with `reasoning.md` /
+  `evaluation.md` for the detail; a note left only in a run log expires with
+  it. In an interactive development session, the PR description is
   the channel. Then make the most conservative reasonable choice and finish —
   never stall waiting for a reply that cannot come.
 - **The runner is thrown away.** Work survives **only if it is pushed off the
   runner** before you finish. Code, docs, config, and schemas go to GitHub via
-  a branch + PR (in `run:predict` / `run:evaluate` you only *write files* — the
+  a branch + PR (in a predict / evaluate cell you only *write files* — the
   workflow commits, pushes, and opens the PR; do **not** push yourself).
   Corpus / bulk data goes to the remote stores (the corpus remote and the per-case
   content store; the run-pull, run-seed and run-repair writer jobs own this) — a data file never pushed
@@ -64,7 +65,7 @@ non-interactive** container. Two consequences shape everything you do:
   the pre-registration record: code and config reach it only in a reviewed
   staging→main promotion batch (*Promotion* in `docs/pipeline.md`), while data
   commits — the deterministic writers and the data-run collect PRs — land on
-  `main` directly and never ride staging. (For `run:predict`/`run:evaluate`
+  `main` directly and never ride staging. (For a predict / evaluate cell
   the *workflow* commits and opens the PR — you only write files; the task
   prompt says which mode you are in.)
 - **You may merge to `staging`; only the maintainer merges to `main`.** The two
@@ -310,10 +311,11 @@ same PR.
   reason — but see the merge rule above: the reference does not fire from a
   `staging` merge, so close the issue by hand once the PR lands. PR
   descriptions and commit messages are the only places an issue number belongs.
-- **`run:*` labels are triggers, not categories.** Applying one immediately
-  starts the matching workflow and its agent. Apply one only when you intend to
-  start that job *now*; an issue filed for later pickup, or one you plan to fix
-  in your own PR, gets no `run:*` label.
+- **Labels are categories, not triggers.** No workflow keys on `issues:
+  labeled`, so a label starts nothing and an issue is a description of work
+  rather than a request for a run. The lanes wake on their own schedules and
+  derive what they owe from committed state; starting one early is a
+  `workflow_dispatch`, which is the maintainer's (see the next bullet).
 - **You cannot dispatch a workflow.** The repo-scoped token an interactive
   session holds is refused (403) on `workflow_dispatch`, even where it can read
   the run history and push branches. So `gh workflow run …` is never your step:
@@ -375,7 +377,7 @@ task-specific instructions: the prompt file named in your run
 | Question | Doc |
 | --- | --- |
 | What may I claim from a number? What do the strata mean? (strata, floors, and reading rules all registered; the committed leaderboard and claim-score boards still render their empty state) | `metrics/README.md` |
-| What does a label trigger, and how do I operate/recover a run? | `docs/pipeline.md` |
+| What starts each lane, and how do I operate/recover a run? | `docs/pipeline.md` |
 | How does the corpus get filled, stored, and versioned? | `docs/data-pipeline.md`, `corpus/README.md` |
 | On what terms may we use and republish upstream data? | `docs/data-sources.md` |
 | How does the SCOTUS live channel work? | `docs/live-sources.md` |

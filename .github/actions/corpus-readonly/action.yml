@@ -5,8 +5,7 @@ description: >-
   environment, checksum-verified against the committed pointer — no remote
   config file is written). The shared first half of every corpus *consumer*
   job — analytics, the metrics refresh, and the predict/evaluate plan jobs,
-  whose backlog scans need the pulled index (run-evaluate takes it on its
-  schedule/dispatch path only; its label path reads ranged instead).
+  whose backlog scans need the pulled index on every round.
   Corpus *writers* (run-pull's jobs) assume the read-write role and
   keep their own wiring. The calling job must run setup-python-env BEFORE this
   composite (corpus-pull runs from the synced environment), grant

@@ -27,37 +27,41 @@ of each justice, and the court's reasoning.
 
 ## How it works
 
-The project runs as a **label-driven pipeline of GitHub Actions**: work is
-represented as GitHub issues, applying a `run:*` label triggers the matching
-workflow, and where one stage hands off to the next it does so by opening (or
-labeling) an issue — the predict channel; the evaluate stage instead derives its
-own work on a schedule and needs no issue. The judgment-heavy stages delegate
-to **multiple competing coding agents** (Claude Code, Codex, and Gemini), whose
-artifacts land as auto-merge-gated pull requests.
+The project runs as a **backlog-driven pipeline of GitHub Actions**: every
+stage wakes on its own schedule, derives its own work from committed state and
+the corpus, and hands nothing to the stage after it — a maintainer's
+`workflow_dispatch` opens the same run early, and names no cases either. The
+judgment-heavy stages delegate to **multiple competing coding agents** (Claude
+Code, Codex, and Gemini), whose artifacts land as auto-merge-gated pull
+requests.
 
-| Label          | Workflow        | Does                                                                 | Engine |
+| Trigger        | Workflow        | Does                                                                 | Engine |
 |----------------|-----------------|----------------------------------------------------------------------|--------|
-| `run:pull`     | `run-pull`      | Two scheduled forward writer jobs: targeted CourtListener enrichment, and the **supremecourt.gov live poll** (discovers pending petitions, tracks conference distribution, records outcomes, provisions filed-document text) — plus a third, **dispatch-only** job that enriches cert-granted cases with their opinion text | Script |
-| _(none)_       | `run-seed`      | The **historical Term walker** (supremecourt.gov, budget-free) backfilling past Terms for base rates and back-testing — four dead-zone windows a day, sharing the corpus-write lock. Its trailing sweeps converge the corpus toward what a window can reach on its own; each is idempotent and non-blocking | Script |
-| _(none)_       | `run-repair`    | The **corpus-maintenance bench**: nine dispatch-gated passes that rewrite stored corpus fields, remove ledger records, or re-grade committed cells — one pass per dispatch, dry-run by default, and an apply only once a maintainer has read that dry run's ledger. Never scheduled; shares the corpus-write lock | Script |
-| `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex + Gemini |
-| `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes — fan-out is one cell per evaluator, and each judge grades **every** predictor for its event | Claude Code + Codex + Gemini |
-| `run:backtest` | `run-backtest`  | Maintainer-triggered cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR. A second dispatch mode replays the **deterministic salience gate** over past Terms instead — offline, token-free, into `metrics/salience-replay.json` | Claude Code + Codex + Gemini (replay); salience-gate replay is script-only |
+| Schedule + dispatch (`mode`) | `run-pull`      | Two scheduled forward writer jobs: targeted CourtListener enrichment, and the **supremecourt.gov live poll** (discovers pending petitions, tracks conference distribution, records outcomes, provisions filed-document text) — plus a third, **dispatch-only** job that enriches cert-granted cases with their opinion text | Script |
+| Schedule       | `run-seed`      | The **historical Term walker** (supremecourt.gov, budget-free) backfilling past Terms for base rates and back-testing — four dead-zone windows a day, sharing the corpus-write lock. Its trailing sweeps converge the corpus toward what a window can reach on its own; each is idempotent and non-blocking | Script |
+| Dispatch only  | `run-repair`    | The **corpus-maintenance bench**: nine dispatch-gated passes that rewrite stored corpus fields, remove ledger records, or re-grade committed cells — one pass per dispatch, dry-run by default, and an apply only once a maintainer has read that dry run's ledger. Never scheduled; shares the corpus-write lock | Script |
+| Schedule ×2 + dispatch | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out), over the cases the predict backlog still owes a forecast | Claude Code + Codex + Gemini |
+| Schedule + dispatch | `run-evaluate`  | Score past predictions against realized outcomes, over the gradings the evaluate backlog still owes — fan-out is one cell per evaluator, and each judge grades **every** predictor for its event | Claude Code + Codex + Gemini |
+| Dispatch only  | `run-backtest`  | Maintainer-triggered cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR. A second dispatch mode replays the **deterministic salience gate** over past Terms instead — offline, token-free, into `metrics/salience-replay.json` | Claude Code + Codex + Gemini (replay); salience-gate replay is script-only |
 
 Plus `run-ops` (a read-only daily dashboard with a weekly digest) and
 `run-analytics` — six dispatch modes: corpus statistics, the
 distribution-parse census, the document text-coverage enumeration, the
 tool-usage roll-up, the metrics refresh, and the qp-topic labeler (the only
-one that runs an agent) — both schedule/dispatch only. The cascade runs pull/live → corpus → `run:predict` (fired on an
-arrival-cohort pick, a conference distribution, or a changed open case).
-`run:evaluate` is not chained off it: run-evaluate runs on its own daily
+one that runs an agent) — both schedule/dispatch only. The cascade runs
+pull/live → corpus → `run-predict`, which on each scheduled wake derives its own
+fan-out from the predict backlog — the arrival-cohort picks, conference
+distributions, and changed open cases the committed record does not yet
+forecast. `run-evaluate` is not chained off it: it wakes on its own daily
 schedule and derives its own backlog — the gradings committed state still owes —
 so an outcome landing on a predicted event is picked up by the next cycle rather
-than handed off. Full label/workflow mechanics and the
-cascade diagram: [`docs/pipeline.md`](docs/pipeline.md).
+than handed off. Every lane is level-triggered by construction: a round that
+failed, was declined, or never fired is simply re-derived next cycle. Full
+workflow mechanics and the cascade diagram:
+[`docs/pipeline.md`](docs/pipeline.md).
 
-**Both agent stages park before they spend.** In `run:predict` and
-`run:evaluate` the fan-out waits on the **review hold** — a no-op `approval`
+**Both agent stages park before they spend.** In `run-predict` and
+`run-evaluate` the fan-out waits on the **review hold** — a no-op `approval`
 job bound to the `review` deployment environment, whose required reviewers gate
 it. No cell runs and no tokens are spent until a reviewer releases the
 deployment: an explicit, audit-logged step on every run that has cells to
@@ -354,14 +358,14 @@ metrics/            scored outputs — leaderboard, statpack, backtests — and 
 schemas/            JSON Schema exported from the pydantic models
 scripts/            the gate, the promotion gate, and the corpus-access helpers
 docs/               design & operations references (see Documentation below)
-.github/workflows/  the label-driven pipeline + CI + workflow linting
+.github/workflows/  the scheduled pipeline + CI + workflow linting
 .github/prompts/    engine-agnostic prompts shared by the three engines
 ```
 
 ## Documentation
 
 - [Data pipeline](docs/data-pipeline.md) (the corpus & ingestion) · [Live sources](docs/live-sources.md) (the pending-case track's design) · [Data sources, terms & PII](docs/data-sources.md) (the same sources' terms posture, not their design) · [Corpus store & row schema](corpus/README.md)
-- [Pipeline & labels](docs/pipeline.md) · [CLI reference](docs/cli.md)
+- [Pipeline & triggers](docs/pipeline.md) · [CLI reference](docs/cli.md)
 - [Predicted artifacts](docs/predicted-artifacts.md) (what one prediction consists of, with examples)
 - [Metrics & what may be claimed](metrics/README.md) · [Salience gate](docs/salience.md) · [Process version](docs/process-version.md) · [Freeze record](docs/freeze-record.md)
 - [Outcome decomposition](docs/outcome-decomposition.md) (claim scoring: the declared mechanical cert, interim, and merits sets, and the pre-registered rest)

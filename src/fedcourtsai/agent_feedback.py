@@ -27,7 +27,7 @@ import sys
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 
-# The non-triggering label (no ``run:*`` workflow keys on it) the single long-lived
+# The non-triggering label (no workflow keys on ``issues: labeled``) the single long-lived
 # issue carries, with the appearance used when this job first creates it.
 LABEL = "agent-feedback"
 _LABEL_COLOR = "fbca04"
