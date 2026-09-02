@@ -20,12 +20,16 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
+import yaml
 
 from fedcourtsai import process_version
+from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE, codex_mcp_config
 from fedcourtsai.process_version import _config_canonical
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors, load_predictors
 from fedcourtsai.schemas import ProcessVersion
@@ -104,17 +108,47 @@ def test_a_capability_change_moves_the_digest(monkeypatch: pytest.MonkeyPatch) -
     assert before != after
 
 
+def _codex_action_step(workflow: Path) -> dict[str, Any]:
+    """The one codex-action step in a cell workflow, parsed."""
+    document = yaml.safe_load(workflow.read_text())
+    steps = [
+        step
+        for job in document["jobs"].values()
+        for step in job.get("steps", []) or []
+        if str(step.get("uses") or "").startswith("openai/codex-action@")
+    ]
+    assert len(steps) == 1, f"{workflow.name}: expected one codex-action step, found {len(steps)}"
+    assert isinstance(steps[0], dict)
+    return steps[0]
+
+
 def test_the_live_codex_cells_declare_the_surface_they_run_with() -> None:
     """The tournament's cells are configured by the workflows, not the runner
-    seam, so the declared surface is pinned to the args those steps pass."""
+    seam, so the declared surface is pinned to what those steps select.
+
+    The two halves reach the cell by different routes. Web search is a config
+    override the step passes inline; the subprocess-network grant is a setting
+    of the permission profile the step *names*, because codex-action refuses a
+    sandbox override in `codex-args` — so this reads the emitted profile for
+    that half rather than the workflow text.
+    """
     workflows = Path(".github") / "workflows"
     declared = process_version.ENGINE_RETRIEVAL["codex"]
+    profiles = tomllib.loads(codex_mcp_config([]))["permissions"]
+    profile = profiles.get(CODEX_CELL_PERMISSION_PROFILE)
+    assert profile is not None, (
+        f"the emitted codex config declares {sorted(profiles)!r} and not "
+        f"{CODEX_CELL_PERMISSION_PROFILE!r}, so the cells select a profile that "
+        f"does not exist and the declared surface cannot be read at all"
+    )
+    grants_network = profile.get("network", {}).get("enabled") is True
     for name in ("run-predict.yml", "run-evaluate.yml"):
-        text = (workflows / name).read_text()
-        assert ("web" in declared) == ("web_search=live" in text), name
-        assert ("subprocess-network" in declared) == (
-            "sandbox_workspace_write.network_access=true" in text
-        ), name
+        step = _codex_action_step(workflows / name)
+        assert ("web" in declared) == ("web_search=live" in str(step["with"]["codex-args"])), name
+        # The step's parsed input, never the file's text: a comment naming the
+        # profile reads identically to a step selecting it.
+        selects = step["with"].get("permission-profile") == CODEX_CELL_PERMISSION_PROFILE
+        assert ("subprocess-network" in declared) == (selects and grants_network), name
 
 
 def test_an_unknown_actor_fails_loudly() -> None:

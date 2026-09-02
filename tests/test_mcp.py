@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 from fedcourtsai.cli import app
 from fedcourtsai.mcp import (
     _COURTLISTENER_MCP_HTTP_SHIM_TEMPLATE,
+    CODEX_CELL_PERMISSION_PROFILE,
     claude_mcp_config,
     codex_mcp_config,
     gemini_mcp_settings,
@@ -106,6 +107,52 @@ def test_codex_config_is_valid_toml_tables(monkeypatch: pytest.MonkeyPatch) -> N
         "courtlistener-mcp",
     ]
     assert table["env"] == {"COURTLISTENER_API_TOKEN": "tok-agent"}
+
+
+def test_codex_config_declares_the_cell_permission_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # `$CODEX_HOME/config.toml` is codex's only trusted configuration layer —
+    # codex-action rejects a `permissions` or `sandbox_workspace_write`
+    # override arriving through `codex-args` — so the cell's filesystem and
+    # network policy has to be declared here or nowhere.
+    monkeypatch.delenv("COURTLISTENER_API_TOKEN", raising=False)
+    # Rendered WITH a server, because the placement is what carries the meaning:
+    # a bare key emitted after a table header belongs to that table, so
+    # `default_permissions` appended below `[mcp_servers.*]` would parse fine
+    # and select nothing — which is the startup refusal it exists to avoid.
+    doc = tomllib.loads(codex_mcp_config([_SERVER]))
+    # A config that declares profiles and selects none refuses to start unless
+    # the invocation names a legacy sandbox mode, so the file selects its own.
+    assert doc["default_permissions"] == CODEX_CELL_PERMISSION_PROFILE
+    profile = doc["permissions"][CODEX_CELL_PERMISSION_PROFILE]
+    # Workspace filesystem inherited verbatim; only the network half is added.
+    assert profile["extends"] == ":workspace"
+    # The grant that keeps codex's spawned commands able to reach the localhost
+    # corpus and MCP sidecars the other engines reach unsandboxed.
+    assert profile["network"] == {"enabled": True}
+    # No proxy keys: codex's `network_proxy` feature layers domain/mode
+    # restrictions on top, which would score codex on a smaller information set
+    # than claude and gemini.
+    assert set(profile["network"]) == {"enabled"}
+
+
+def test_codex_config_carries_the_profile_even_with_no_servers() -> None:
+    # An actor with an empty manifest still needs its permission policy: the
+    # cell writes outputs into the checkout either way.
+    assert CODEX_CELL_PERMISSION_PROFILE in tomllib.loads(codex_mcp_config([]))["permissions"]
+
+
+def test_codex_config_holds_no_key_beyond_retrieval_and_permissions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # This emitter owns the whole trusted config document, which makes it the
+    # natural place to add one more key — and the docstring's own invariant
+    # (never `shell_environment_policy`, whose default strips credential-shaped
+    # names from every command the agent spawns) had nothing enforcing it.
+    monkeypatch.delenv("COURTLISTENER_API_TOKEN", raising=False)
+    doc = tomllib.loads(codex_mcp_config([_SERVER]))
+    assert set(doc) == {"default_permissions", "permissions", "mcp_servers"}
 
 
 def test_gemini_settings_merge_preserves_telemetry(monkeypatch: pytest.MonkeyPatch) -> None:

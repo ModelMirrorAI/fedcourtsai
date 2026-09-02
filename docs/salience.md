@@ -1838,7 +1838,12 @@ would delete the relist history the band is made of, and it reads the latest
 snapshot. The stage's `cvsg` and `arrival` moments are placed like any other —
 an arrival cell is banded on a docket with no distribution yet recorded, which
 is what `arrival` declares — as is the interim application baseline, whose
-declared moment *is* arrival. `context.cutoff` separates the two conditionings:
+declared moment *is* arrival, dated from the docket's own
+`Application (…) … submitted` entry
+(`interim_signals.application_arrival_date`) and falling back to the docketing
+date only where no submission entry can be dated, since docketing runs late on
+an application and the stamp is where the cut falls.
+`context.cutoff` separates the two conditionings:
 non-null where a moment placed the cell, null where nothing did.
 
 For those two cert moments the placement moves the **base rate**, not just the

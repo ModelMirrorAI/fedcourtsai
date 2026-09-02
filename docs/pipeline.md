@@ -560,10 +560,15 @@ re-fetch a kind only when its link changes. It is the only pass that installs a
 binary dependency, in its own gated step (`tesseract` and poppler's `pdftoppm`,
 from the runner image's own archive), and the only one whose bound is a **slice
 size** rather than a refusal threshold: each case costs a re-fetch and a
-page-by-page recognition, and runner minutes are the whole cost. A recovered
+page-by-page recognition, and runner minutes are the whole cost. That makes the
+bound a *spend* cap, so the step hands the pass a wall-clock deadline as well —
+sized under the step's own cap by everything that must still fit there once the
+pass stops taking work — and the pass stops taking new candidates once what is
+left will not hold the next one's estimated cost, which it reads off the stored
+page count. A recovered
 petition leaves the class, so successive dispatches drain it — but only the
-recovered ones leave, and what a slice could not recover stays at its head to be
-retried first, which the ledger names case by case. Its `dry-run`
+recovered ones leave, and what a slice could not recover, or never started,
+stays at its head to be retried first, which the ledger names case by case. Its `dry-run`
 carries a second reading beside the class count — a small sample of the
 population re-fetched through the writer's own fetch path, reporting what
 supremecourt.gov serves a *writer* rather than what a cell's retrieval reported.
