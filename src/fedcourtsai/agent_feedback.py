@@ -242,7 +242,7 @@ def post_once(
     secret-scan reports. Those are posted by a step that reruns whenever the
     collect job does — and rerunning collect is the documented recovery for a
     transfer failure, so without this every recovery attempt would add another
-    copy of the same warning to the trigger issue, burying the signal it exists
+    copy of the same warning to the issue, burying the signal it exists
     to raise.
 
     The marker is prepended rather than embedded by the renderers: the

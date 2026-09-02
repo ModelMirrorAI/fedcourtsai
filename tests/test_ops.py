@@ -826,7 +826,7 @@ def test_render_markdown_includes_agent_flags_section() -> None:
     assert OpsReport.model_validate(report.model_dump()) == report
 
 
-# --- open trigger issues (stale fan-out labels) ---------------------------------
+# --- stale fan-out labels -------------------------------------------------------
 
 
 def test_summarize_trigger_issues_filters_and_orders_oldest_first() -> None:

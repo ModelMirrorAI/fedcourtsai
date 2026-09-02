@@ -148,7 +148,7 @@ def test_pull_all_queues_and_outcome_cascade(tmp_path: Path) -> None:
     due = cases_due_for_pull(db, limit=50)
     assert due == [("ca9", 1), ("ca9", 2), ("ca9", 3)]  # rotation feeds pull the onboarded set
 
-    # The evaluate handoff requires something to score: seed the prediction a
+    # The evaluate queue requires something to score: seed the prediction a
     # predict run would have committed for the case that is about to resolve.
     seed_prediction(data_root, "ca9", 1, _EVENT_ID)
 
@@ -173,7 +173,7 @@ def test_pull_all_queues_and_outcome_cascade(tmp_path: Path) -> None:
     assert "not machine-readable" in cast(str, recon["reason"])
     assert not CasePaths(data_root, "ca9", 2).event(_EVENT_ID).outcome.exists()
 
-    # ca9/3: changed + open event → predict handoff.
+    # ca9/3: changed + open event → predict queue.
     assert ("ca9", 3) in {(e["court"], e["docket"]) for e in queues.predict}
 
     # The corpus learned the dispositions this pull resolved (the row is now labeled).

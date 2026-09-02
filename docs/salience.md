@@ -1115,7 +1115,7 @@ sweep — when it is latched, or when cohort completion admits it.
 **The relist requeue cooldown.** A **relist** — a distribution transition on a
 petition already distributed before, as opposed to its first distribution — inside
 `salience.relist_requeue_cooldown_days` (default 1) of the case's last
-`predict_queued_at` stamp is treated as administrative churn rather than a
+prediction is treated as administrative churn rather than a
 materially different posture, and is not requeued: the divert is surfaced on
 `predict_skipped_relist_cooldown` for triage, never silently dropped, and it
 re-stamps `predict_queued_at` (anchoring the next cooldown check and keeping
@@ -1124,6 +1124,17 @@ default suppresses only a same-day repeat — a petition re-tournamented hours
 after its first prediction, the observed failure mode — while a relist the
 next day or later queues normally. Only applies under the gated scope with a
 salience config in force (capacity actually enforced); `0` disables it.
+
+**Last prediction** is read over both minting lanes, because neither record
+sees all of them. The pull/live lane stamps `predict_queued_at` when it queues
+a case; the scheduled predict backlog writes no stamp at all — the corpus of
+record is writable only from the writer jobs — and leaves its mark only as the
+prediction it eventually commits. So the anchor is the **later** of that stamp
+and the newest committed prediction run for the case
+(`matrix.last_predicted_dates`, dated off the run id). On the stamp alone, a
+backlog-minted case would leave the cooldown unarmed and its next relist would
+read as a first queue days after the tokens were spent; on the ledger alone, a
+case queued but not yet collected would.
 
 ## Replaying the gate
 

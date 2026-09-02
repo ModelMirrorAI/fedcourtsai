@@ -9,7 +9,7 @@ predictionless event mints no cells, and neither does an already-graded one —
 that second gate is what keeps a re-queue from spending tokens on gradings the
 ledger already holds).
 
-A single trigger can carry **many** cases: the issue body holds either one
+A named case list can carry **many** cases: the body holds either one
 ``{court, docket, events}`` object or a JSON array of them. ``parse_cases``
 normalizes both forms into ``CaseRequest`` entries, and the matrix is the product
 of the registry x every requested case x that case's events (narrowed per case
@@ -31,12 +31,13 @@ import json
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 from .collect import parse_cell_artifact_name
 from .finalize import FinalizeRole
-from .ids import case_id
+from .ids import case_id, parse_run_id
 from .paths import CasePaths
 from .pricing import DEFAULT_MODELS
 from .registry import enabled_evaluators, enabled_predictors
@@ -69,8 +70,8 @@ class CaseRequest:
     predictors: tuple[str, ...] = ()
 
 
-def parse_cases(issue_body: str) -> list[CaseRequest]:
-    """Parse the ```json fenced block of an issue body into case requests.
+def parse_cases(body: str) -> list[CaseRequest]:
+    """Parse the ```json fenced block of a case-list body into case requests.
 
     Accepts either a single ``{court, docket, events}`` object (single-case,
     back-compat) or a JSON array of such objects (batch). ``events`` is optional
@@ -80,9 +81,9 @@ def parse_cases(issue_body: str) -> list[CaseRequest]:
     ``ValueError`` if no block is present or an entry is missing
     ``court``/``docket``.
     """
-    match = _JSON_BLOCK.search(issue_body)
+    match = _JSON_BLOCK.search(body)
     if not match:
-        raise ValueError("No ```json {court,docket,events} block found in the issue body.")
+        raise ValueError("No ```json {court,docket,events} block found in the body.")
     data = json.loads(match.group(1))
     entries = data if isinstance(data, list) else [data]
     cases: list[CaseRequest] = []
@@ -492,6 +493,45 @@ def predicted_case_ids(data_root: Path) -> frozenset[str]:
         case_id(path.parents[6].name, int(path.parents[5].name))
         for path in cases_root.glob("*/*/events/*/predictions/*/*/prediction.json")
     )
+
+
+def last_predicted_dates(data_root: Path) -> dict[str, date]:
+    """Per case, the UTC date of the newest run that committed a prediction for it.
+
+    The **ledger's own answer to "when was this case last minted for
+    prediction"**, for the callers that cannot get it from
+    ``predict_queued_at``. That column is a corpus write, so only the writer
+    jobs set it; a case minted by a schedule-driven backlog derivation carries
+    no stamp however many predictions it lands, and anything keyed on the stamp
+    alone reads such a case as never predicted. The committed run directory is
+    the fact that survives both lanes: it exists exactly when a prediction was
+    landed, whoever derived the cell.
+
+    The date comes from the run-id directory name, which is a UTC timestamp
+    (:func:`fedcourtsai.ids.run_id`), so a run whose id is not in that form is
+    skipped rather than crashing the read — an unparseable directory is a
+    stray, and a caller comparing dates must not be taken down by one.
+
+    Same glob and same anchoring as :func:`predicted_case_ids`, one ledger walk
+    for the whole tree, so a caller wanting both the membership and the date
+    should take this and read its keys. An absent ``data_root`` yields an empty
+    mapping, which dates nothing. A malformed *docket* segment is still fatal
+    in both functions, deliberately: that layout is written only through
+    :class:`~fedcourtsai.paths.CasePaths`, so a non-numeric docket directory is
+    a corrupted ledger rather than a stray, and the two must fail together.
+    """
+    latest: dict[str, date] = {}
+    cases_root = data_root / "cases"
+    for path in cases_root.glob("*/*/events/*/predictions/*/*/prediction.json"):
+        try:
+            minted = parse_run_id(path.parents[0].name).date()
+        except ValueError:
+            continue
+        case = case_id(path.parents[6].name, int(path.parents[5].name))
+        current = latest.get(case)
+        if current is None or minted > current:
+            latest[case] = minted
+    return latest
 
 
 def event_has_evaluations(

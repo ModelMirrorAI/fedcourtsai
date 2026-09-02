@@ -499,9 +499,9 @@ def test_stub_scheduled_evaluate_round_smoke(
 ) -> None:
     """A whole scheduled evaluate round, offline: backlog → cells → validate.
 
-    The other smokes drive evaluate the way a *labelled* run does — the cases
-    come from a trigger issue, and ``run_cascade`` grades whatever it just
-    predicted in the same breath. The scheduled lane works the other way round:
+    The other smokes drive evaluate the way a *named* run does — the cases
+    come from an explicit case list, and ``run_cascade`` grades whatever it
+    just predicted in the same breath. The scheduled lane works the other way round:
     it runs over a ledger some earlier round committed, and derives its own work
     from committed state (resolved event + prediction + no evaluation). That
     derivation is the only thing standing between a dropped evaluate run and a

@@ -881,7 +881,7 @@ def test_live_poll_all_predicts_on_distribution_and_evaluates_on_resolution(
 
     # Cycle 2: 25-1 gains its denial order -> outcome + evaluate, no predict; a
     # BIO lands on 25-2 (docket changed, still undistributed) -> no predict.
-    # The evaluate handoff requires a committed prediction (nothing to score
+    # The evaluate queue requires a committed prediction (nothing to score
     # otherwise), so seed one for 25-1 as a predict run would have.
     seed_prediction(data_root, "scotus", 9_025_000_001, "evt-petition-disposition")
     served["25-1"] = _payload(
@@ -2689,7 +2689,7 @@ def test_selected_case_transition_queues_exactly_once(tmp_path: Path) -> None:
 
 
 def _relist_fixture(
-    tmp_path: Path, *, predict_queued_at: date
+    tmp_path: Path, *, predict_queued_at: date | None
 ) -> tuple[Path, Path, int, dict[str, Any]]:
     """A selected, already-predicted petition, freshly relisted to a new conference.
 
@@ -2711,7 +2711,8 @@ def _relist_fixture(
         discover_live(client, db, data_root, 25, max_new=1, today=date(2026, 7, 9))
     with corpus.connect(db) as conn:
         corpus.latch_salience_selected(conn, ["scotus/9025000001"])
-        corpus.stamp_predict_queued(conn, ["scotus/9025000001"], predict_queued_at)
+        if predict_queued_at is not None:
+            corpus.stamp_predict_queued(conn, ["scotus/9025000001"], predict_queued_at)
     relisted = _payload(
         "25-1",
         proceedings=[
@@ -2748,11 +2749,100 @@ def test_relist_inside_cooldown_is_suppressed_not_requeued(tmp_path: Path) -> No
 
 
 def test_relist_after_cooldown_elapses_requeues_normally(tmp_path: Path) -> None:
-    # One full day has elapsed since the last predict queue: the default 1-day
+    # One full day has elapsed since the last prediction: the default 1-day
     # cooldown no longer applies, so the relist queues exactly like before.
     db, data_root, docket_id, served = _relist_fixture(
         tmp_path, predict_queued_at=date(2026, 7, 10)
     )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(),
+            today=date(2026, 7, 11),
+        )
+    assert [q["docket"] for q in queues.predict] == [docket_id]
+    assert queues.predict_skipped_relist_cooldown == []
+
+
+def test_relist_cooldown_arms_on_a_stamp_free_mint_read_from_the_ledger(tmp_path: Path) -> None:
+    """A case predicted with no `predict_queued_at` still arms the cooldown.
+
+    Only the pull/live lane stamps that column; a schedule-driven backlog
+    derivation writes no stamp — the corpus of record is writable only from the
+    writer jobs — and leaves its mint recorded solely as the committed
+    prediction. On the stamp alone this relist would read as a first queue and
+    be re-tournamented hours after the tokens were spent, which is exactly the
+    churn the cooldown exists to suppress.
+    """
+    db, data_root, docket_id, served = _relist_fixture(tmp_path, predict_queued_at=None)
+    # The run directory dates the mint: this round ran today, stamping nothing.
+    seed_prediction(
+        data_root,
+        "scotus",
+        docket_id,
+        "evt-petition-disposition",
+        run_id="20260711T140000Z",
+    )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(),
+            today=date(2026, 7, 11),
+        )
+    assert queues.predict == []
+    assert [q["docket"] for q in queues.predict_skipped_relist_cooldown] == [docket_id]
+
+
+def test_relist_cooldown_reads_the_later_of_the_stamp_and_the_ledger(tmp_path: Path) -> None:
+    """Neither record alone is the answer: the anchor is whichever is later.
+
+    Here the stamp is two days stale and the ledger's mint is today, so the
+    max-of-the-two anchor suppresses where the stamp alone would have queued.
+    The mirror case — a stamp newer than the ledger — is the ordinary stamped
+    path the other cooldown tests cover.
+    """
+    db, data_root, docket_id, served = _relist_fixture(tmp_path, predict_queued_at=date(2026, 7, 9))
+    seed_prediction(
+        data_root,
+        "scotus",
+        docket_id,
+        "evt-petition-disposition",
+        run_id="20260711T140000Z",
+    )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(),
+            today=date(2026, 7, 11),
+        )
+    assert queues.predict == []
+    assert [q["docket"] for q in queues.predict_skipped_relist_cooldown] == [docket_id]
+
+
+def test_relist_cooldown_ignores_an_old_committed_prediction(tmp_path: Path) -> None:
+    """The ledger widens the anchor, it does not make it permanent.
+
+    A case predicted long ago and never stamped must still queue on a relist:
+    an anchor that read mere *membership* in the ledger rather than its date
+    would suppress every relist on every previously-predicted case forever.
+    """
+    db, data_root, docket_id, served = _relist_fixture(tmp_path, predict_queued_at=None)
+    seed_prediction(data_root, "scotus", docket_id, "evt-petition-disposition")
     with _frontier_client(served) as client:
         queues, _ = live_poll_all(
             client,

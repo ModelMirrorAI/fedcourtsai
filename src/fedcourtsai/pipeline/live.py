@@ -36,7 +36,7 @@ existing ``case_id``; only a genuinely unseen one mints the deterministic
 reserved-range live id. Raw JSON is stored as the dated snapshot — the same
 store, change detection, and provisioning surface as every other channel.
 
-Queue handoffs reuse pull's shapes (:class:`~fedcourtsai.pipeline.pull.PullQueues`):
+Queues reuse pull's shapes (:class:`~fedcourtsai.pipeline.pull.PullQueues`):
 an in-scope petition queues ``predict`` on a **distribution transition** —
 newly distributed for a conference, or relisted to a new one — the cert-calendar
 analogue of ``predict_on_change_only``; a newly resolved case queues
@@ -59,7 +59,7 @@ import httpx
 
 from .. import corpus, ids
 from ..config import LiveConfig, PredictScope, SalienceConfig
-from ..matrix import event_has_predictions, predicted_case_ids
+from ..matrix import event_has_predictions, last_predicted_dates, predicted_case_ids
 from ..registry import enabled_predictors
 from ..store import event_has_claimable_prediction, forecastable_events
 from ..supremecourt import (
@@ -419,6 +419,37 @@ def discover_live(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     return result
 
 
+def _last_predict_mint(row: corpus.CorpusRow, minted: date | None) -> date | None:
+    """When this case was last minted for prediction, over both lanes' records.
+
+    The relist cooldown's anchor. Two lanes mint predict cells and only one of
+    them leaves a corpus stamp: this lane writes ``predict_queued_at`` at queue
+    time, while a schedule-driven backlog derivation writes none — those
+    credentials live in the writer jobs alone — and records its mint only as the
+    committed prediction it eventually lands. So the later of the two is the
+    honest answer, and either alone under-reports: the stamp misses every
+    backlog-minted case, and the ledger misses a case queued but not yet
+    collected.
+
+    The union is not complete either, and the residue is one case: a
+    backlog-minted cell whose collect PR has not merged yet — that lane wrote
+    no stamp, and the ledger read is of the checkout. Accepted rather than
+    closed, because the window is a collect auto-merge and the cooldown it
+    would arm is a day; the cost of missing it is one re-tournament, which is
+    the behaviour that stood before this anchor existed.
+
+    ``None`` means neither record has anything, which is a case never minted for
+    prediction at all — the first-distribution class the cooldown must never
+    touch.
+    """
+    stamped = row.predict_queued_at
+    if stamped is None:
+        return minted
+    if minted is None:
+        return stamped
+    return max(stamped, minted)
+
+
 def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock over the cycle args
     client: SupremeCourtClient,
     corpus_db_path: Path,
@@ -432,11 +463,11 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
     deadline: float | None = None,
     time_fn: Callable[[], float] = time.monotonic,
 ) -> PullQueues:
-    """Refresh each due pending petition and sort it into the handoff queues.
+    """Refresh each due pending petition and sort it into the pull queues.
 
-    The predict handoff fires on a **distribution transition** — the petition is
-    newly distributed for a conference, or a relist moved its date — the live
-    analogue of ``pull.predict_on_change_only`` tuned to the cert calendar:
+    The predict queue entry is written on a **distribution transition** — the
+    petition is newly distributed for a conference, or a relist moved its date —
+    the live analogue of ``pull.predict_on_change_only`` tuned to the cert calendar:
     distribution is the signal that resolution is imminent and the
     record is complete enough to predict. Ground-truth *recording* is ungated;
     the ``evaluate`` queue requires a committed prediction to score (drops are
@@ -451,13 +482,30 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
 
     ``salience_config`` (when the scope is gated) additionally suppresses a
     **relist** transition — as opposed to a petition's first distribution —
-    inside ``relist_requeue_cooldown_days`` of the case's last predict queue:
+    inside ``relist_requeue_cooldown_days`` of the case's last prediction:
     administrative churn, not a materially different posture, while capacity
     is enforced. ``None`` (or an ungated scope) leaves every relist queueing
     unconditionally.
+
+    "Last prediction" is read from **two** sources, because no single one sees
+    every mint (:func:`_last_predict_mint`): this lane's own
+    ``predict_queued_at`` stamp, and the committed ledger's newest prediction
+    run for the case. A schedule-driven backlog derivation writes no stamp — the
+    corpus of record is writable only from the writer jobs — so a case it minted
+    would leave the cooldown unarmed on the stamp alone, and the next relist
+    would read as a first queue days after the tokens were spent. The ledger walk
+    is one glob, taken once per cycle and only where the cooldown can apply.
     """
     queues = PullQueues()
     gated = scope == PredictScope.scotus_docket
+    # Only the relist cooldown reads this, so it is walked only where the
+    # cooldown can fire at all — an ungated scope, no salience config, or the
+    # documented `0` disable each queue every relist unconditionally and need
+    # no dates.
+    cooldown_armed = (
+        gated and salience_config is not None and salience_config.relist_requeue_cooldown_days > 0
+    )
+    minted = last_predicted_dates(data_root) if cooldown_armed else {}
     for row in due:
         if deadline is not None and time_fn() >= deadline:
             # Soft wall-clock budget reached: stop cleanly with the polls done so
@@ -533,16 +581,18 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
         # A relist is a transition where `row` (the pre-poll state) already
         # carried a distribution — as opposed to a petition's first ever
         # distribution — so the cooldown never touches a case's first
-        # prediction, only a repeat. `row.predict_queued_at` is the pre-poll
-        # stamp: the elapsed days since the case's last predict queue.
+        # prediction, only a repeat. The anchor is the pre-poll state on both
+        # sides: `row.predict_queued_at` is the stamp as of before this poll,
+        # and `minted` was read before the loop.
         relisted = transitioned and row.distributed_for_conference is not None
+        last_mint = _last_predict_mint(row, minted.get(result.case_id))
         relist_suppressed = (
             queue_predict
             and relisted
             and gated
             and salience_config is not None
-            and row.predict_queued_at is not None
-            and (today - row.predict_queued_at).days < salience_config.relist_requeue_cooldown_days
+            and last_mint is not None
+            and (today - last_mint).days < salience_config.relist_requeue_cooldown_days
         )
         if queue_predict and not relist_suppressed:
             # Predict is about to be queued for this petition — provision its
@@ -590,7 +640,7 @@ def poll_applications(
     stage-keyed interim target).
 
     An application has no distribution calendar, so there is no transition to
-    key the predict handoff on. The interim trigger is instead **any observed
+    key the predict queue entry on. The signal is instead **any observed
     docket change while the application is still unresolved**, on a
     **substantive** application in predict scope — every filing on a live stay
     application moves its posture, so change is the honest analogue of the cert
@@ -735,10 +785,10 @@ def _route_result(
     today: date,
     relist_suppressed: bool = False,
 ) -> None:
-    """Sort one poll result into the handoff queues (pull's routing, verbatim).
+    """Sort one poll result into the pull queues (pull's routing, verbatim).
 
     ``queue_predict`` is the caller's distribution-transition verdict — it
-    gates only the predict handoff. The evaluate handoff requires a committed
+    gates only the predict queue. The evaluate queue requires a committed
     prediction (an unscoreable resolution lands on ``evaluate_skipped``);
     unrecorded outcomes always route. A predict queue entry stamps
     ``predict_queued_at`` (the selection sweep's daily-retry debounce).
@@ -762,7 +812,7 @@ def _route_result(
                     "court": "scotus",
                     "docket": docket_id,
                     "events": events,
-                    "reason": "relisted inside the requeue cooldown of its last predict queue",
+                    "reason": "relisted inside the requeue cooldown of its last prediction",
                 }
             )
         else:

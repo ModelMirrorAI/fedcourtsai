@@ -51,7 +51,7 @@ def render_cleanup_pr(
     Keeps the branch name and the markdown — the per-case table and the optional
     ``Closes #<issue>`` line — in tested code rather than assembled with ``jq`` and a
     heredoc in the workflow (mirroring how ``collect_plan`` renders the run PR). The
-    workflow passes its run id for a unique branch and the trigger issue (if any).
+    workflow passes its run id for a unique branch and an issue to close (if any).
     """
     count = len(prunable)
     plural = "" if count == 1 else "s"

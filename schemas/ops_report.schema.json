@@ -2,7 +2,7 @@
   "$defs": {
     "AgentFlag": {
       "additionalProperties": false,
-      "description": "One structured note a headless agent surfaces for maintainer triage.\n\nA typed alternative to burying a remark in ``reasoning.md`` or a trigger-issue\ncomment: a ``category`` and ``severity`` so the roll-up can sort and filter, and\na free-text ``message``. ``event_id`` narrows the flag to a single event when\nthe cell spans more than one; left null it applies to the cell as a whole.",
+      "description": "One structured note a headless agent surfaces for maintainer triage.\n\nA typed alternative to burying a remark in ``reasoning.md`` or a run log:\na ``category`` and ``severity`` so the roll-up can sort and filter, and\na free-text ``message``. ``event_id`` narrows the flag to a single event when\nthe cell spans more than one; left null it applies to the cell as a whole.",
       "properties": {
         "category": {
           "$ref": "#/$defs/FlagCategory"
@@ -41,7 +41,7 @@
     },
     "AgentFlags": {
       "additionalProperties": false,
-      "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate cell writes this *only when it has something to\nsurface* \u2014 a data-quality problem, a scope question, an ambiguous event, or the\nreason it was blocked. It rides the cell's artifact to the ``collect`` job, which\nrolls every cell's flags into the run PR body (and the Actions summary), so a\nnote survives the trigger issue's closure and a maintainer sees it without\nreading every ``reasoning.md``. The agent token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job does the surfacing.",
+      "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate cell writes this *only when it has something to\nsurface* \u2014 a data-quality problem, a scope question, an ambiguous event, or the\nreason it was blocked. It rides the cell's artifact to the ``collect`` job, which\nrolls every cell's flags into the run PR body (and the Actions summary), so a\nnote outlives the run that raised it and a maintainer sees it without\nreading every ``reasoning.md``. The agent token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job does the surfacing.",
       "properties": {
         "actor_id": {
           "description": "The predictor_id (predict) or evaluator_id (evaluate)",

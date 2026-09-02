@@ -1631,8 +1631,8 @@ class ModelUsage(_Strict):
 class AgentFlag(_Strict):
     """One structured note a headless agent surfaces for maintainer triage.
 
-    A typed alternative to burying a remark in ``reasoning.md`` or a trigger-issue
-    comment: a ``category`` and ``severity`` so the roll-up can sort and filter, and
+    A typed alternative to burying a remark in ``reasoning.md`` or a run log:
+    a ``category`` and ``severity`` so the roll-up can sort and filter, and
     a free-text ``message``. ``event_id`` narrows the flag to a single event when
     the cell spans more than one; left null it applies to the cell as a whole.
     """
@@ -1654,7 +1654,7 @@ class AgentFlags(_Strict):
     surface* — a data-quality problem, a scope question, an ambiguous event, or the
     reason it was blocked. It rides the cell's artifact to the ``collect`` job, which
     rolls every cell's flags into the run PR body (and the Actions summary), so a
-    note survives the trigger issue's closure and a maintainer sees it without
+    note outlives the run that raised it and a maintainer sees it without
     reading every ``reasoning.md``. The agent token stays comment-only: the file is
     written locally and the trusted ``collect`` job does the surfacing.
     """
