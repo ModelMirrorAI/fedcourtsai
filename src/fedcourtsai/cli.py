@@ -11,13 +11,14 @@ import json
 import logging
 import os
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import textwrap
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast, get_args
@@ -155,9 +156,15 @@ from .merits_event_migration import (
 from .ops import (
     DAILY_DIGEST_LABEL,
     DAILY_DIGEST_MARKER_LINES,
+    WEEKLY_DIGEST_LABEL,
+    WEEKLY_DIGEST_MARKER_LINES,
+    Vintaged,
+    WeeklyAnalytics,
+    WeeklyProduction,
     build_ops_report,
     daily_digest_day_marker,
     daily_digest_title,
+    parse_iso,
     render_daily_digest,
     render_data_health,
     render_markdown,
@@ -165,6 +172,8 @@ from .ops import (
     select_daily_digest_event,
     summarize_substance,
     summarize_trigger_issues,
+    weekly_digest_title_for_week,
+    weekly_digest_week,
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import cell_context, historical, liveprobe, moments, qp_topics, semantic
@@ -241,8 +250,11 @@ from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
     AgentToolingFeedback,
+    Backtest,
     CellFailure,
+    CertBacktest,
     ClaimScoreBlock,
+    ClaimScoreBoard,
     ConferenceBucket,
     CorpusValidation,
     DataHealth,
@@ -273,11 +285,12 @@ from .schemas import (
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
 from .slug_migration import converge_event_slugs
-from .spend import SpendVerdict, check_spend
+from .spend import SpendVerdict, check_spend, spend_over, verdict_over
 from .store import (
     ExcludedCell,
     StratifiedRun,
     cases_due_for_pull,
+    cell_census,
     event_has_claimable_prediction,
     forecastable_events,
     forward_refusal_reason,
@@ -5456,6 +5469,113 @@ def _read_best_effort[T: BaseModel](path: Path | None, model: type[T]) -> T | No
         return None
 
 
+def _git(*args: str) -> str | None:
+    """One bounded, best-effort ``git`` read, or ``None`` when it cannot be made.
+
+    Best-effort in the same spirit as
+    :func:`fedcourtsai.usage.resolve_pipeline_sha`: a missing git, a non-repo cwd,
+    or a non-zero exit yields ``None`` rather than failing the caller.
+    """
+    try:
+        out = subprocess.run(["git", *args], capture_output=True, text=True, check=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout.strip() or None
+
+
+def _artifact_vintage(path: Path) -> str | None:
+    """The date the committed artifact at ``path`` last changed, or ``None``.
+
+    None of the metrics boards stamps itself — each is a byte-stable function of
+    its inputs, deliberately — so the only honest vintage is the commit that last
+    wrote the file.
+
+    **A shallow checkout yields ``None``, and must.** In a depth-1 clone the one
+    fetched commit is grafted parentless, so a pathspec'd ``git log`` matches it
+    for *every* tracked path and answers with the tip's date — stamping a
+    months-old board as today's. That is the precise misreading the vintage
+    exists to prevent, and it is worse than no vintage at all, so shallowness is
+    checked before the history is read rather than trusted to the caller's
+    checkout. A missing git or an untracked path yields ``None`` the same way,
+    and the renderer then says the vintage is unknown.
+    """
+    if not path.exists() or _git("rev-parse", "--is-shallow-repository") != "false":
+        return None
+    return _git("log", "-1", "--format=%cs", "--", str(path))
+
+
+def _vintaged[T: BaseModel](path: Path, model: type[T]) -> Vintaged[T]:
+    """A committed metrics artifact read best-effort, with its commit vintage."""
+    return Vintaged(value=_read_best_effort(path, model), vintage=_artifact_vintage(path))
+
+
+def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
+    """The committed boards the weekly digest reports, each with its own vintage."""
+    return WeeklyAnalytics(
+        leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
+        claim_scores=_vintaged(metrics_root / "claim-scores.json", ClaimScoreBoard),
+        statpack=_vintaged(metrics_root / "statpack.json", StatPack),
+        backtest=_vintaged(metrics_root / "backtest.json", Backtest),
+        salience_replay=_vintaged(metrics_root / "salience-replay.json", SalienceReplay),
+        # Never produced by the scheduled refresh — a real-engine replay spends
+        # tokens — so the absent case is the standing one, and the digest reports
+        # it as an absence rather than omitting the line.
+        cert_backtest=_vintaged(metrics_root / "cert-backtest.json", CertBacktest),
+        salience_version_in_force=SALIENCE_VERSION,
+    )
+
+
+#: The `weekly-digest` label's appearance when the first run creates it. Purple,
+#: so a reading queue is distinguishable at a glance from the daily one beside it.
+_WEEKLY_DIGEST_LABEL_COLOR = "5319e7"
+_WEEKLY_DIGEST_LABEL_DESCRIPTION = (
+    "Weekly performance digest (run-ops); close one once you have read it"
+)
+
+
+def _parse_when(stamp: str) -> datetime:
+    """A report's ``generated_at`` as an aware datetime.
+
+    The window the production census and the spend figures are taken over has to
+    be anchored somewhere, and the report's own stamp is the anchor that keeps a
+    re-render of the same report reproducible. Refused rather than defaulted: a
+    silent fall back to the clock would anchor the window on now while the
+    digest's ISO-week marker still carried the unparseable string, so one report
+    would pair a clock-anchored week with a marker naming no week at all — and
+    the once-a-week idempotency would be gone for that run.
+    """
+    parsed = parse_iso(stamp)
+    if parsed is None:
+        raise typer.BadParameter(f"--generated-at {stamp!r} is not an ISO-8601 timestamp")
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
+#: The window the weekly digest's production census and its spend figure share.
+#: A week, because that is the period the digest covers; the spend *backstop*
+#: keeps its own, longer window, which is why the two are reported separately
+#: rather than one being derived from the other.
+_WEEKLY_WINDOW_DAYS = 7
+
+
+def _weekly_production(data_root: Path, config_root: Path, when: datetime) -> WeeklyProduction:
+    """The week's cells and cost, plus the spend backstop's own verdict.
+
+    One walk of the ledger for all three figures: the census, the week's spend,
+    and the backstop's own longer window read the same records, so they cannot
+    disagree about what they cover and the growing tree is scanned once.
+    """
+    usage = iter_usage(data_root)
+    census = cell_census(usage, window_days=_WEEKLY_WINDOW_DAYS, now=when)
+    spent, _cells = spend_over(usage, window_days=_WEEKLY_WINDOW_DAYS, now=when)
+    return WeeklyProduction(
+        census=census,
+        spend_usd=spent,
+        backstop=verdict_over(usage, load_spend_config(config_root), now=when),
+        window_start=(when - timedelta(days=_WEEKLY_WINDOW_DAYS)).date(),
+        window_end=when.date(),
+    )
+
+
 @app.command("ops-report")
 def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     *,
@@ -5502,8 +5622,8 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     digest_out: Annotated[
         Path | None,
         typer.Option(
-            help="Write the weekly maintainer digest Markdown here (the short "
-            "interrogative comment the run-ops weekly schedule posts)."
+            help="Write the weekly performance digest Markdown here (the body the "
+            "run-ops weekly schedule opens as its own `weekly-digest` issue)."
         ),
     ] = None,
     trigger_issues: Annotated[
@@ -5536,7 +5656,15 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     itself and folds in the latest corpus verdict from ``--corpus-validation``
     (produced where the corpus is already pulled). Prints the dashboard Markdown
     to stdout (the run-ops issue body / step summary); ``--json`` writes the
-    structured ``OpsReport`` and ``--digest-out`` the weekly maintainer digest.
+    structured ``OpsReport``.
+
+    ``--digest-out`` renders the **weekly performance digest** — the health
+    questions, the committed boards' state with each empty one saying why it is
+    empty, the week's cells and measured spend, and the back-test results,
+    every metrics-derived figure carrying the vintage of the artifact it came
+    from. ``--digest-post-repo`` additionally opens it as a `weekly-digest`
+    issue, once per ISO week.
+
     Unlike the leaderboard/back-test roll-ups it is a point-in-time snapshot, so
     it is surfaced, not committed.
     """
@@ -5612,8 +5740,16 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         data_health_out.parent.mkdir(parents=True, exist_ok=True)
         data_health_out.write_text(render_data_health(data_health))
     if digest_out is not None:
-        digest_out.parent.mkdir(parents=True, exist_ok=True)
-        digest_out.write_text(render_weekly_digest(report))
+        write_text(
+            digest_out,
+            render_weekly_digest(
+                report,
+                analytics=_weekly_analytics(settings.metrics_root),
+                production=_weekly_production(
+                    settings.data_root, settings.config_root, _parse_when(when)
+                ),
+            ),
+        )
     typer.echo(render_markdown(report), nl=False)
 
 
@@ -12074,6 +12210,52 @@ def post_issue_comment_cmd(
         typer.echo("nothing to post")
         return
     typer.echo(post_once(repo=repo, issue=issue, marker=marker, body=body))
+
+
+@app.command("post-weekly-digest")
+def post_weekly_digest_cmd(
+    body_file: Annotated[
+        Path, typer.Option(help="The rendered digest (`ops-report --digest-out`).")
+    ],
+    repo: Annotated[str, typer.Option(help="owner/name of the repository to post into.")],
+) -> None:
+    """Open a rendered weekly digest as its own `weekly-digest` issue, once a week.
+
+    A poster, not a renderer: it takes the body ``ops-report --digest-out``
+    already wrote and opens it, so the ops run's own reporting — the dashboard,
+    the snapshot, the data-validation escalation — has all completed before this
+    non-idempotent network write is attempted. A blip here therefore costs the
+    week's digest and nothing else.
+
+    The body's first line is its ISO-week marker, and both the idempotency key
+    and the issue's title come from it, so a re-dispatch of the Monday tick adds
+    no second issue and the title can never disagree with the body. A file whose
+    first line is not a weekly-digest marker is refused rather than opened under
+    a guessed title. ``weekly-digest`` is a non-triggering label, created
+    idempotently here; the find-or-create and the bounded gh retry are tested in
+    ``agent_feedback.py``, so this command is the thin gh-invoking wrapper.
+    """
+    body = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
+    if not body.strip():
+        typer.echo("nothing to post")
+        return
+    marker = body.splitlines()[0]
+    week = weekly_digest_week(marker)
+    if week is None:
+        typer.echo(f"{body_file} does not open with a weekly-digest marker.", err=True)
+        raise typer.Exit(2)
+    typer.echo(
+        open_issue_once(
+            repo=repo,
+            label=WEEKLY_DIGEST_LABEL,
+            label_color=_WEEKLY_DIGEST_LABEL_COLOR,
+            label_description=_WEEKLY_DIGEST_LABEL_DESCRIPTION,
+            title=weekly_digest_title_for_week(week),
+            body=body,
+            marker=marker,
+            marker_lines=WEEKLY_DIGEST_MARKER_LINES,
+        )
+    )
 
 
 @app.command("post-agent-feedback")

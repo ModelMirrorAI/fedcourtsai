@@ -63,7 +63,7 @@ from fedcourtsai.agent_feedback import (
     _GH_TIMEOUT_SECONDS,
 )
 from fedcourtsai.cli import _echo_text_coverage
-from fedcourtsai.ops import DAILY_DIGEST_LABEL
+from fedcourtsai.ops import DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL
 from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest
 from fedcourtsai.schemas import UsageRole
@@ -885,7 +885,6 @@ SOURCING_OPS_STEPS = (
     "Collect recent workflow runs",
     "Collect open trigger issues",
     "Post or update the ops dashboard issue",
-    "Post the weekly digest comment",
     "Escalate a failing data-validation verdict",
 )
 BACKTEST_REPORT_STEP = (
@@ -1390,7 +1389,7 @@ def test_the_handoff_writes_stay_fatal_on_exhaustion() -> None:
 
 
 def test_the_list_of_retried_ops_steps_is_complete() -> None:
-    """The scope above is a name list, so a *sixth* `gh`-calling step is the hole.
+    """The scope above is a name list, so a *fifth* `gh`-calling step is the hole.
 
     Adding one to `run-ops` with an unwrapped `gh issue create` in it would pass
     every assertion above simply by not being listed. Invert the question — any
@@ -1833,13 +1832,41 @@ def test_no_workflow_triggers_on_a_digest_label() -> None:
         workflow = _load(path.name)
         # `on` parses to the truthy bool key in YAML; tolerate either spelling.
         triggers = workflow.get("on") or workflow.get(True) or {}
-        assert DAILY_DIGEST_LABEL not in yaml.safe_dump(triggers), (
-            f"{path.name} triggers on the non-triggering {DAILY_DIGEST_LABEL} label"
+        for label in (DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL):
+            assert label not in yaml.safe_dump(triggers), (
+                f"{path.name} triggers on the non-triggering {label} label"
+            )
+            for name, job in (workflow.get("jobs") or {}).items():
+                conditions = [str(job.get("if", ""))]
+                conditions += [str(step.get("if", "")) for step in job.get("steps", [])]
+                for condition in conditions:
+                    assert label not in condition, (
+                        f"{path.name}:{name} gates on the non-triggering {label} label"
+                    )
+
+
+def test_every_schedule_gate_names_a_cron_run_ops_declares() -> None:
+    """A cron literal in a gate must be one the workflow actually declares.
+
+    Change the schedule and forget the gate, and the weekly digest silently stops
+    posting — fail-closed, but silently, on a surface whose whole point is being
+    read once a week, so "silently" costs weeks. Scoped by *what a gate compares
+    against* rather than by the step's name, because a gate can live in an `if:`
+    or in an `env:` value the shell then tests, and keying on the name would stop
+    covering the gate the moment it moved.
+    """
+    workflow = _load("run-ops.yml")
+    triggers = workflow.get("on") or workflow.get(True) or {}
+    declared = {str(entry["cron"]) for entry in triggers["schedule"]}
+    gates = [
+        expression
+        for job in workflow["jobs"].values()
+        for step in job.get("steps", [])
+        for expression in [str(step.get("if", "")), *map(str, (step.get("env") or {}).values())]
+        if "github.event.schedule" in expression
+    ]
+    assert gates, "run-ops gates nothing on its schedule"
+    for gate in gates:
+        assert any(cron in gate for cron in declared), (
+            f"the gate {gate!r} names no cron run-ops declares: {sorted(declared)}"
         )
-        for name, job in (workflow.get("jobs") or {}).items():
-            conditions = [str(job.get("if", ""))]
-            conditions += [str(step.get("if", "")) for step in job.get("steps", [])]
-            for condition in conditions:
-                assert DAILY_DIGEST_LABEL not in condition, (
-                    f"{path.name}:{name} gates on the non-triggering {DAILY_DIGEST_LABEL} label"
-                )
