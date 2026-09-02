@@ -495,8 +495,13 @@ def test_the_collect_scenario_is_partitioned_from_the_environment_bound_job() ->
     workflow = _load(INTEGRATION_TEST)
     # Both the matrix planner and the scenario job it feeds sit behind the
     # same partition, so a collect dispatch never plans or runs a matrix leg.
+    # The schedule arm is named affirmatively: a cron event carries no inputs,
+    # and the canary must run on the partitioned side rather than lean on
+    # null-coercion making the inequality true by accident.
     for job_id in ("plan", "scenario"):
-        assert workflow["jobs"][job_id]["if"] == "${{ inputs.scenario != 'collect' }}"
+        assert workflow["jobs"][job_id]["if"] == (
+            "${{ github.event_name == 'schedule' || inputs.scenario != 'collect' }}"
+        )
     assert workflow["jobs"]["scenario"]["needs"] in ("plan", ["plan"])
     # Its own dispatch, plus either whole-suite run — collect is part of the
     # promotion freshness suite under both, riding the run as its own
