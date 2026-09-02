@@ -9,8 +9,9 @@ case set and the event state are read from the packed corpus; the git tree under
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from datetime import date
+from collections import Counter
+from collections.abc import Iterable, Sequence
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import NamedTuple
 
@@ -1164,6 +1165,78 @@ def load_predicted_event(data_root: Path, case_id: str, event_id: str) -> Predic
         event=read_model(event_file, PredictableEvent) if event_file.is_file() else None,
         event_path=event_paths.base.as_posix(),
         cells=cells,
+    )
+
+
+class CellCensusRow(NamedTuple):
+    """How many cells one ``(role, stage)`` pair produced inside a window."""
+
+    role: str
+    stage: str
+    cells: int
+
+
+class RecentCells(NamedTuple):
+    """What the ledger recorded inside a trailing window: cells, and their spread.
+
+    ``rows`` is the ``(role, stage)`` breakdown in a stable order, ``cells`` the
+    total, ``events`` the distinct events those cells covered. The census is over
+    the recorded ``usage.json`` ledger, so it counts cells that *ran*, whatever
+    their output — which is the right denominator for "what did the machine
+    produce this week" and a different question from the scored-cell funnel.
+    """
+
+    rows: list[CellCensusRow]
+    cells: int
+    events: int
+    window_days: int
+
+
+#: The stage label a census row carries when the moment register declares none
+#: for the event — a legacy id, or an entry-pinned event the extractor minted.
+#: Named rather than dropped: a bucket that vanished would make the rows stop
+#: summing to the total.
+UNDECLARED_STAGE = "undeclared"
+
+
+def recent_cell_census(
+    data_root: Path, *, window_days: int, now: datetime | None = None
+) -> RecentCells:
+    """The ledger's cells inside the trailing window, by role and stage."""
+    return cell_census(iter_usage(data_root), window_days=window_days, now=now)
+
+
+def cell_census(
+    usage: Iterable[ModelUsage], *, window_days: int, now: datetime | None = None
+) -> RecentCells:
+    """The cells among ``usage`` inside the trailing window, by role and stage.
+
+    Applies the same cutoff rule :func:`fedcourtsai.spend.spend_over` applies to
+    the very same records (a naive ``created_at`` reads as UTC), so the count and
+    the cost a digest reports describe exactly the same set of cells. The stage
+    comes off the moment register
+    (:func:`fedcourtsai.pipeline.moments.spec_for`) rather than the ledger, since
+    a usage record names its event but not the standard governing it.
+    """
+    cutoff = (now or datetime.now(UTC)) - timedelta(days=window_days)
+    counts: Counter[tuple[str, str]] = Counter()
+    events: set[tuple[str, str]] = set()
+    for record in usage:
+        created = record.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=UTC)
+        if created < cutoff:
+            continue
+        spec = moments.spec_for(record.event_id)
+        stage = str(spec.stage) if spec is not None else UNDECLARED_STAGE
+        counts[(str(record.role), stage)] += 1
+        events.add((record.case_id, record.event_id))
+    rows = [
+        CellCensusRow(role=role, stage=stage, cells=cells)
+        for (role, stage), cells in sorted(counts.items())
+    ]
+    return RecentCells(
+        rows=rows, cells=sum(counts.values()), events=len(events), window_days=window_days
     )
 
 

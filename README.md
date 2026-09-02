@@ -44,9 +44,10 @@ artifacts land as auto-merge-gated pull requests.
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes — fan-out is one cell per evaluator, and each judge grades **every** predictor for its event | Claude Code + Codex + Gemini |
 | `run:backtest` | `run-backtest`  | Maintainer-triggered cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR. A second dispatch mode replays the **deterministic salience gate** over past Terms instead — offline, token-free, into `metrics/salience-replay.json` | Claude Code + Codex + Gemini (replay); salience-gate replay is script-only |
 
-Plus `run-ops` (a read-only daily dashboard, a weekly digest, and a daily
-prediction-reading digest issue — one predicted event with every predictor side
-by side, closed once read) and
+Plus `run-ops` (a read-only daily dashboard, plus two issues the maintainer
+closes once read: a daily prediction-reading digest — one predicted event with
+every predictor side by side — and a Monday performance digest carrying the
+week's cells, spend, board state, and back-test results) and
 `run-analytics` — six dispatch modes: corpus statistics, the
 distribution-parse census, the document text-coverage enumeration, the
 tool-usage roll-up, the metrics refresh, and the qp-topic labeler (the only
