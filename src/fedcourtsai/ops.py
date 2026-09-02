@@ -813,11 +813,11 @@ def _base_rate_lines(vintaged: Vintaged[StatPack]) -> list[str]:
         f"{pack.coverage.live_slice_resolved:,} resolved of "
         f"{pack.coverage.live_slice_rows:,} live-slice rows.",
         "  _Neither figure anchors a scored cell. A forward cert cell is scored "
-        "against its own band's strictly-prior-Term risk-set rate; the pooled band "
-        "rate is a fit diagnostic for the ranking constant, not a scoring baseline "
-        "(`docs/salience.md`), and the always-deny rate is taken over a different, "
-        "much wider population than the one the gate predicts — an orientation "
-        "rather than an effect size._",
+        + "against its own band's strictly-prior-Term risk-set rate; the pooled band "
+        + "rate is a fit diagnostic for the ranking constant, not a scoring baseline "
+        + "(`docs/salience.md`), and the always-deny rate is taken over a different, "
+        + "much wider population than the one the gate predicts — an orientation "
+        + "rather than an effect size._",
     ]
 
 
@@ -863,7 +863,7 @@ def _render_production(production: WeeklyProduction) -> list[str]:
         lines += [
             "",
             "_Spend backstop: **no ceiling configured**, so nothing is measured "
-            "against one and nothing would be deferred._",
+            + "against one and nothing would be deferred._",
         ]
     else:
         share = backstop.spent_usd / backstop.ceiling_usd if backstop.ceiling_usd else 0.0
@@ -959,9 +959,9 @@ def _backtest_lines(vintaged: Vintaged[Backtest]) -> list[str]:
     lines += [
         "",
         "Read a lift only against its own court's floor. The pooled row mixes outcome "
-        "vocabularies — `granted` is cert on a SCOTUS row and a motion granted on a "
-        "court-of-appeals docket — and mixes an ~80% floor with near-zero ones, so a "
-        "pooled lift can be produced entirely by a court this pipeline does not predict.",
+        + "vocabularies — `granted` is cert on a SCOTUS row and a motion granted on a "
+        + "court-of-appeals docket — and mixes an ~80% floor with near-zero ones, so a "
+        + "pooled lift can be produced entirely by a court this pipeline does not predict.",
     ]
     return lines
 
@@ -996,9 +996,9 @@ def _cert_backtest_lines(vintaged: Vintaged[CertBacktest]) -> list[str]:
     if report is None:
         return [
             "- **Cert back-test**: **no report has landed yet.** "
-            "`metrics/cert-backtest.json` is off the scheduled refresh because a "
-            "real-engine replay spends tokens, so it exists only after a maintainer "
-            "dispatches `run-backtest` — there is no number here to be stale."
+            + "`metrics/cert-backtest.json` is off the scheduled refresh because a "
+            + "real-engine replay spends tokens, so it exists only after a maintainer "
+            + "dispatches `run-backtest` — there is no number here to be stale."
         ]
     return [
         f"- **Cert back-test** ({_sourced('cert-backtest.json', vintaged)}): "
