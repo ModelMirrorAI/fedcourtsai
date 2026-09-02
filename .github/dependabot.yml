@@ -12,14 +12,16 @@ updates:
     target-branch: staging
     groups:
       actions:
+        # A grouped bump moves every pin of one action together, so the
+        # cell-workflow tests that hold those pins in lockstep stay green
+        # across a release that changes what the action does with the inputs
+        # the cells send — an engine action's refusals fire in its own
+        # validation layer, which no required check traverses. Dispatch
+        # `integration-test` `engine-actions-smoke` before promoting a bump to
+        # `openai/codex-action` or `anthropics/claude-code-action`; see
+        # docs/testing.md.
         patterns:
           - "*"
-    ignore:
-      # v1.12 rejects the legacy sandbox network override the codex cells
-      # pass; the pin is held (with the reason at both use sites) until the
-      # cells adopt the action's profile-based network configuration, so a
-      # group bump must not re-move it in the meantime.
-      - dependency-name: openai/codex-action
 
   # Python dependencies, resolved from pyproject.toml + uv.lock.
   - package-ecosystem: uv
