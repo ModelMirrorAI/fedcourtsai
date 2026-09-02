@@ -1,15 +1,18 @@
 """The trusted pipeline-App bot must reach the agent step.
 
-`run-pull` files the `run:predict` handoff issues as the data App
-(`fedcourtsai-data[bot]`), and the plan job's
-`authorize-trigger` gate approves that Bot sender. `run-evaluate` carries the
-same allowance for its label path — its own rounds arrive on a schedule with a
-human actor, so nothing files it a Bot-sent label today, and the grant is held
-in reserve pinned to that one login. But claude-code-action and
-codex-action each run their *own* actor check and refuse a bot by default, so the
-automated handoff silently dies at the agent step unless the bot is allowlisted
-there too. These tests lock that allowlist in — a regression here breaks the whole
-automated pipeline while every other check stays green, so it needs its own guard.
+claude-code-action and codex-action each run their *own* actor check and refuse
+a bot by default, so a round whose actor GitHub resolves to the data App
+(`fedcourtsai-data[bot]`) dies silently at the agent step unless that one login
+is allowlisted there. Two paths can present it. On `run-evaluate`'s label lane a
+Bot-sent label is an actual sender, which the plan job's `authorize-trigger`
+gate approves before the cells run. On an unattended round — every `run-predict`
+round, and run-evaluate's scheduled ones — there is no requester at all, and the
+actor is whatever GitHub attributes the cron to, which on a repo whose
+deterministic writers push to the default branch can be that same login. Either
+way the allowance stays pinned to it and is never `*`; the spend gate is the
+`review` hold, not this setting. These tests lock the allowlist in — a
+regression here breaks the whole automated pipeline while every other check
+stays green, so it needs its own guard.
 """
 
 from pathlib import Path
