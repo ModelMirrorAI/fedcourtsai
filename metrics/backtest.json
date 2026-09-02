@@ -1,8 +1,8 @@
 {
   "entries": [
     {
-      "accuracy": 0.638178042169735,
-      "always_denied_accuracy": 0.6373684395790067,
+      "accuracy": 0.6377739473036198,
+      "always_denied_accuracy": 0.636964857353924,
       "courts": [
         {
           "accuracy": 0.36585365853658536,
@@ -113,25 +113,25 @@
           "mean_brier_score": 0.26436781609195403
         },
         {
-          "accuracy": 0.8219050718237181,
-          "always_denied_accuracy": 0.8219050718237181,
+          "accuracy": 0.8212178921454782,
+          "always_denied_accuracy": 0.8212178921454782,
           "court": "scotus",
-          "events_scored": 21511,
-          "granted_accuracy": 0.8659290595509275,
+          "events_scored": 21529,
+          "granted_accuracy": 0.8652050722281573,
           "lift_over_always_denied": 0.0,
-          "mean_brier_score": 0.11844913314256375
+          "mean_brier_score": 0.11901788721123152
         }
       ],
-      "events_scored": 28409,
-      "granted_accuracy": 0.8897180470977507,
-      "lift_over_always_denied": 0.0008096025907282645,
-      "mean_brier_score": 0.0984561633344393,
+      "events_scored": 28427,
+      "granted_accuracy": 0.8891546768916875,
+      "lift_over_always_denied": 0.0008090899496957515,
+      "mean_brier_score": 0.09889956502300834,
       "predictor_id": "prior-vote",
       "rank": 1
     },
     {
-      "accuracy": 0.6373684395790067,
-      "always_denied_accuracy": 0.6373684395790067,
+      "accuracy": 0.636964857353924,
+      "always_denied_accuracy": 0.636964857353924,
       "courts": [
         {
           "accuracy": 0.36585365853658536,
@@ -242,24 +242,24 @@
           "mean_brier_score": 0.26436781609195403
         },
         {
-          "accuracy": 0.8219050718237181,
-          "always_denied_accuracy": 0.8219050718237181,
+          "accuracy": 0.8212178921454782,
+          "always_denied_accuracy": 0.8212178921454782,
           "court": "scotus",
-          "events_scored": 21511,
-          "granted_accuracy": 0.8658825717074985,
+          "events_scored": 21529,
+          "granted_accuracy": 0.8651586232523573,
           "lift_over_always_denied": 0.0,
-          "mean_brier_score": 0.1341174282925015
+          "mean_brier_score": 0.1348413767476427
         }
       ],
-      "events_scored": 28409,
-      "granted_accuracy": 0.8897532472103911,
+      "events_scored": 28427,
+      "granted_accuracy": 0.8891898547155873,
       "lift_over_always_denied": 0.0,
-      "mean_brier_score": 0.11024675278960892,
+      "mean_brier_score": 0.1108101452844127,
       "predictor_id": "constant-denied",
       "rank": 2
     }
   ],
-  "events_scored": 28409,
+  "events_scored": 28427,
   "predictors_evaluated": 2,
   "schema_version": "1.0",
   "stratum": "retrospective"
