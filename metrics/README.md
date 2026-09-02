@@ -873,7 +873,13 @@ vacaturs — so the section also applies the label-independent guard
 (`pipeline.judgment.judgment_rode_the_grant_order`): a parsed judgment dated
 on or before its own grant rode the cert order and is excluded from the
 cohort entirely, whatever its label says, with the removed rows published as
-the section's `cert_order_excluded`. When that count is a number, the pooled
+the section's `cert_order_excluded`. Read those counts as two populations, not
+three nested ones: a removed row is counted there *instead of* in `granted`, so
+`cert_order_excluded` is disjoint from `granted` — per Term, their sum is that
+Term's pre-guard population of merits-opening grants — while only `parsed` nests
+inside `granted` and never exceeds it. A Term whose `parsed` + `cert_order_excluded` runs past
+its `granted` is adding across the two populations, and says nothing is wrong.
+When that count is a number, the pooled
 **rate** is clean of every cert-order vacatur whose judgment parsed with a
 date; when it is `null`, the pack predates the guard, and the section's
 figures carry whatever contamination the guard would have removed — quote
@@ -1234,7 +1240,9 @@ the rendered table) and
   certiorari was granted in — a grant-date-keyed axis that does **not** align
   with the cert tables' docket-number Terms, since a petition docketed in Term
   T is routinely granted in T+1; Terms with no parsed judgment are omitted
-  from the rendered table): the granted-cohort count, the parsed count
+  from the rendered table): the granted-cohort count, the `cert_order_excluded`
+  count — the rows the pool guard removed, which are *not* part of that
+  cohort — and the parsed count
   beside it (the backfill's own coverage — read `granted − parsed` as an upper
   bound blending still-pending cases, genuine parse gaps, and the proceedings
   that ended with no disposition to parse, so a recent
@@ -1251,9 +1259,11 @@ the rendered table) and
   count as disturbed judgments in cases no one forecast at the merits stage.
   The exclusion reads the row's cert disposition label and, where the label
   cannot be trusted, the grant→judgment gap: a parsed judgment dated on or
-  before its own grant — or carrying no date the gap could be tested on —
-  is excluded label-independently, so every parsed judgment in the cohort
-  provably postdates its grant.
+  before its own grant is excluded label-independently and counted in
+  `cert_order_excluded` instead of the cohort. A parsed judgment carrying **no**
+  date cannot be gap-tested at all, so that row stays in the cohort as a
+  coverage gap and only its judgment leaves the parsed slice. Either way every
+  parsed judgment in the cohort provably postdates its grant.
   **What may be
   claimed from it:** the counts are *descriptive* facts about the parsed
   cohort, and the per-Term **`disturbed_rate`** rows are the committed feed of
