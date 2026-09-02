@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.88,
+    "notes": "Emergency application by the Solicitor General to stay an injunction against construction at the White House itself, with the President a defendant; separation-of-powers / NHPA-APA reviewability stakes, 2-1 D.C. Circuit affirmance below, seven amicus briefs at the application stage, and heavy national press attention. Among the most-watched applications of the moment, though an interim order rather than a merits landmark."
+  },
+  "brier_score": 0.10239999999999996,
+  "brier_skill_score": 0.8722409626201495,
+  "case_id": "scotus/9526000203",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.68,
+        "score": 0.6991088568298028
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.82,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.6991088568298028,
+    "total": 0.6991088568298028
+  },
+  "correct": 1,
+  "created_at": "2026-09-02T19:15:32Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction made 2026-08-20, application resolved 2026-08-31, so no outcome existed to leak. The log shows CourtListener retrieval self-bounded to filings on or before 2026-08-14/15 (explicit filed_before/lte filters in the queries), newest legible retrieved_doc_date 2026-08-07 on this dispute. Many MCP rows are unobserved (capture coverage 0.71) so they are graded on their queries, which are all lower-court record reads. Nothing in the log or prose shows this case's disposition as already decided.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260820T181919Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:11a0afbcba271935c8ead785b5c13fc2b1e43a4e18e9450a04fa41df9658a0f2",
+    "label": "proc-v5",
+    "pipeline_sha": "45d32a37b94c5cb7f36348c6045f152c33049bfc",
+    "stamped_at": "2026-09-02T19:17:49.581822Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20260902T185700Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
