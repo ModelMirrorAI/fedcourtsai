@@ -1,4 +1,5 @@
 import json
+import re
 from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -2462,7 +2463,11 @@ def test_daily_digest_cli_refuses_an_unreadable_prior_issues_file(tmp_path: Path
     )
 
     assert result.exit_code == 2
-    assert "--prior-issues" in result.output
+    # Under FORCE_COLOR the usage error renders in a wrapped rich panel, so the
+    # flag name can be split across styled lines: strip the escapes and the
+    # panel frame, collapse whitespace, then look for it.
+    plain = re.sub(r"\x1b\[[0-9;]*m|[│╭╰─╮╯]|\s+", "", result.output)
+    assert "--prior-issues" in plain
 
 
 # --- the weekly performance digest's three substantive sections -------------------
@@ -3044,4 +3049,8 @@ def test_ops_report_refuses_an_unparseable_generated_at(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 2
-    assert "--generated-at" in result.output
+    # Under FORCE_COLOR the usage error renders in a wrapped rich panel, so the
+    # flag name can be split across styled lines: strip the escapes and the
+    # panel frame, collapse whitespace, then look for it.
+    plain = re.sub(r"\x1b\[[0-9;]*m|[│╭╰─╮╯]|\s+", "", result.output)
+    assert "--generated-at" in plain
