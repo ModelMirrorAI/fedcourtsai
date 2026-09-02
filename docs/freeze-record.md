@@ -1632,3 +1632,38 @@ freeze commit is recorded here.
   non-null `cutoff` equal to the day after the case's own
   `Application (…) … submitted` entry, with that entry the last one surviving
   in the provisioned snapshot.
+
+- **An amendment debt for the merits pool-guard prompt wording, 2026-09-02**
+  (no digest added or retired, no instant moved; a debt recorded, on the
+  pattern of the arrival-stamp entry above). The statpack's merits section now
+  states that `cert_order_excluded` sits **outside** `granted` — the two
+  columns partition the pre-guard population — and corrects the guard's
+  description everywhere it was wrong: the guard removes a row whose parsed
+  judgment is dated **on or before** its own grant (`merits_decided <=
+  date_cert_granted`), and an **undated** parse is *not* removed — it stays in
+  `granted` as a coverage gap. Two frozen surfaces still carry the old,
+  incorrect description and cannot be corrected here, because their bytes are
+  process-digest inputs and the edit would move all six enabled actors'
+  digests:
+
+  - `.github/prompts/predict.md`, the merits-section paragraph: claims the
+    guard excludes a row with "no date the gap could be tested on". False —
+    the undated row goes to `granted`.
+  - `.github/prompts/evaluate.md`, the same paragraph shape: the same undated
+    arm, plus a parenthetical that mislabels an untestable row as a cert-order
+    rider.
+  - Neither prompt carries the reading rule that `excluded` sits outside
+    `granted` — the omission that produced the misreading this entry's change
+    corrects, and the one a cell agent is most likely to reproduce in its own
+    prose.
+
+  All three corrections are owed to the next re-bless, together with the
+  arrival-stamp entry's debt above; until paid, a cell reads a slightly wrong
+  account of the pool guard while every non-frozen surface states the correct
+  one.
+
+  The runnable effect check, for the promotion carrying the relabel: after the
+  next `metrics-refresh`, `rg -n "excluded \(not in granted\)"
+  metrics/statpack.md` matches, and the OT2024 row renders `| 2024 | 75 | 34 |
+  73 |` under the qualified header — until that refresh the committed statpack
+  keeps the old header, which is the regeneration lag and not a defect.
