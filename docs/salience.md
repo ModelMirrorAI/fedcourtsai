@@ -1816,7 +1816,8 @@ none can be tuned to a result.
 The deterministic salience features and the predictor's big-case score both rest on
 **pre-conference / pre-decision** material only. Allowed predictor signals: the
 docket facts (relists, CVSG, circuit, fee class, questions presented, the petition
-and brief in opposition). Forbidden on the predictor side: the post-hoc press proxy
+and brief in opposition, and on an interim docket the application itself).
+Forbidden on the predictor side: the post-hoc press proxy
 and anything dated after the event — the same signals the evaluator *may* use as a
 judge. This makes both scores' timing contract identical to the grant/deny
 prediction's, so they slot into the existing forward/replay frame with no new

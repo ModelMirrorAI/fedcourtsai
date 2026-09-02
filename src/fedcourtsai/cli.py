@@ -5918,32 +5918,44 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
     petitions, empty = coverage.kind_totals(KIND_PETITION)
     share = f"{100 * empty / petitions:.2f}%" if petitions else "-"
     scanned = empty - coverage.unopened_petitions
+    # The kind spans a family, and the caveat has to travel with the figure: a
+    # line quoted out of the report otherwise reads `petition` as the ordinary
+    # cert petition, which is a narrower population than the one counted.
     typer.echo(
         f"text coverage: {empty} of {petitions} stored petition(s) carry no text "
         f"({share}) — {scanned} with pages but no text layer, "
-        f"{coverage.unopened_petitions} a PDF the extractor could not open at all"
+        f"{coverage.unopened_petitions} a PDF the extractor could not open at all. "
+        "`petition` is the case-opening filing on any cert-form docket — "
+        "certiorari, certiorari before judgment, mandamus, habeas corpus, or a "
+        "direct appeal's jurisdictional statement"
     )
     # The other failure mode, printed beside the first because it is the larger
     # one and nothing re-extracts what was never stored. Two denominators: the
     # stock of distributed rows (many predating the document channel, so never
     # fetched for), and the rows actually queued for prediction, which is the
     # population a missing petition costs a cell on.
+    # Each gap prints against the population it is a gap over, not against the
+    # whole queue: a number that drains is unreadable without its denominator,
+    # and the two forms' denominators partition `queued`.
     typer.echo(
         f"missing documents: {coverage.distributed_without_petition} of "
         f"{coverage.distributed} distributed case(s) hold no petition row at all, "
-        f"and {coverage.queued_without_petition} of {coverage.queued} queued for "
-        "prediction; an extraction fix reaches none of them. The wide count is an "
-        "unfiltered stock — a row distributed before the document channel existed "
-        "was never fetched for — so read the queued one for what is recoverable now."
+        f"and {coverage.queued_without_petition} of {coverage.queued_cert_forms} "
+        "queued cert-form case(s); an extraction fix reaches none of them. The "
+        "wide count is an unfiltered stock — a row distributed before the "
+        "document channel existed was never fetched for — so read the queued one "
+        "for what is recoverable now."
     )
-    # The queued count's own exclusion, printed rather than left implicit: held
-    # out of the number above, it would otherwise be an absence a reader can only
-    # notice by knowing the docket forms.
+    # The other form's own gap, printed rather than left implicit: measured
+    # against a different document, it would otherwise be an absence a reader
+    # can only notice by knowing the docket forms.
     typer.echo(
-        f"  ({coverage.queued_application_forms} further queued case(s) hold no "
-        "petition because they are interim application dockets — structurally "
-        "petitionless, not a provisioning gap, so they are out of the count "
-        "above but still inside its denominator)"
+        f"  ({coverage.queued_without_application} of "
+        f"{coverage.queued_application_forms} queued interim application "
+        "docket(s) hold no application document — measured against their own "
+        "primary filing, not the petition an application docket never has. The "
+        "two form counts partition the "
+        f"{coverage.queued} queued case(s).)"
     )
     typer.echo(
         f"text frame: the pass read documents for {coverage.cases_read} of the "
@@ -5969,7 +5981,11 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
     typer.echo(
         "  (a questions-presented row exists only where the petition has text, so "
         "its empty count is structurally unable to carry a scan; the segments are "
-        "the salience gate's scored cut, in practice paid against IFP)"
+        "the salience gate's scored cut, in practice paid against IFP — on the "
+        "petition-family kinds. An application-form docket is never modern-cert, "
+        "so an `application` row sits in `rest` unless the application was filed "
+        "into a paid cert docket, and that row's segment says nothing about fee "
+        "class)"
     )
     # The triage list an extraction fix works from, untruncated for the reason
     # the questions-presented backfill prints its whole ledger: the count says
@@ -5985,6 +6001,14 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
     if coverage.queued_without_petition_cases:
         typer.echo(f"no petition, queued ({len(coverage.queued_without_petition_cases)} case(s)):")
         for case_id in coverage.queued_without_petition_cases:
+            typer.echo(f"  {case_id}")
+    # The same ledger for the other docket form, kept apart rather than merged:
+    # the two are missing different documents, and a repair works one at a time.
+    if coverage.queued_without_application_cases:
+        typer.echo(
+            f"no application, queued ({len(coverage.queued_without_application_cases)} case(s)):"
+        )
+        for case_id in coverage.queued_without_application_cases:
             typer.echo(f"  {case_id}")
 
 

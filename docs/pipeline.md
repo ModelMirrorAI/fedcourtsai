@@ -134,7 +134,7 @@ each as its own least-privilege job holding only the credentials its mode needs:
   actually lives and for which cases it is missing, the enumeration whose
   store-side half only this job can produce (the content store is wired here
   and not on a dev checkout; the report's own `text source:` line names which
-  side served it). The full report — the two untruncated case-id ledgers
+  side served it). The full report — the three untruncated case-id ledgers
   included, since a repair is a per-case question and a count names no case —
   is uploaded as a run artifact on the same **one-day** retention the census
   rides, for the same compilation-extent reason; the step summary carries only

@@ -1,8 +1,13 @@
-"""Petition-document selection and text extraction for predict inputs.
+"""Filed-document selection and text extraction for predict inputs.
 
 The input-richness half of the live-sources design: the docket JSON links every
 filed PDF, and the questions presented plus the petition/BIO are the signals
-cert prediction actually turns on. Everything here is **pipeline-side** —
+cert prediction actually turns on. What is selected is keyed on the **filing**,
+not on the docket form: the case-opening filing of a cert-form docket (a
+petition for certiorari, certiorari before judgment, mandamus or habeas corpus,
+or a direct appeal's statement as to jurisdiction — one ``petition`` kind, one
+role), the ``application`` an interim docket is opened by, and every
+non-amicus brief in opposition. Everything here is **pipeline-side** —
 documents are fetched and text-extracted at ingest time (the live poller, on
 the same distribution transition that queues prediction), stored in the
 access-gated corpus, and materialized into the cell's gitignored ``record/``
@@ -58,20 +63,109 @@ from ..supremecourt import SupremeCourtClient
 # import direction is safe — `caption` reaches only `corpus`, `schemas`, and
 # `supremecourt`, so nothing here closes a cycle.
 from .caption import _scored_segment
+
+# The interim lane's own reading of what an application asks for. Imported
+# rather than restated so the selector fetches exactly the class the predict
+# queue admits (:func:`interim_signals.is_predictable_application`), and so a
+# change to either moves both. The import direction is safe — `interim_signals`
+# reaches only `schemas` and `cert_signals`, neither of which reaches here.
+from .interim_signals import ApplicationKind, application_kind
 from .prefetch import prefetch_by_case
 
 logger = logging.getLogger(__name__)
 
 # Document kinds, in provisioning order. `questions_presented` is derived from
 # the petition text rather than fetched (see the module docstring).
+#
+# `petition` is the **case-opening filing on a cert-form docket**, not only a
+# petition for a writ of certiorari: the Court opens a cert-form docket on any
+# of the family :data:`_CASE_OPENING_ENTRY_RE` matches, and all of them are the
+# same document to every reader here — the one that asks the Court to take the
+# case, fronting the questions presented under the same rules (Rule 14.1(a) for
+# certiorari, Rule 20.2 for an extraordinary writ, Rule 18.3 for a direct
+# appeal's jurisdictional statement). A kind per writ would fracture
+# :data:`TEXT_COVERAGE_KINDS`, the questions-presented derivation, and the cell
+# manifest across seven names for one role.
+#
+# `application` is the separate kind, because an application is a different ask
+# on a different docket form: it seeks interim relief rather than review, it
+# carries no questions-presented section, and keying it apart is what lets the
+# coverage report's application-form count read as a gap that drains rather
+# than a floor that cannot.
 KIND_PETITION = "petition"
+KIND_APPLICATION = "application"
 KIND_BRIEF_IN_OPPOSITION = "brief-in-opposition"
 KIND_QUESTIONS_PRESENTED = "questions-presented"
 
-# The proceedings entry whose link carries the petition PDF. The BIO entry is
-# matched by :func:`_is_bio_entry` below (its phrasing varies more).
-_PETITION_ENTRY_RE = re.compile(
-    r"petition for a writ of certiorari(?: and motion\b[^.]*)? filed", re.IGNORECASE
+# The proceedings entry whose link carries the case-opening filing on a
+# cert-form docket, in the Court's own words. Seven entry shapes open one:
+#
+#   "Petition for a writ of certiorari filed."
+#   "Petition for a writ of certiorari before judgment filed."
+#   "Petition for a writ of mandamus filed."
+#   "Petition for a writ of mandamus and/or prohibition filed."
+#   "Petition for a writ of prohibition filed."
+#   "Petition for writ of habeas corpus filed."   <- no "a", the Clerk's spelling
+#   "Statement as to jurisdiction filed."         <- a direct appeal
+#
+# The article is optional because the habeas form omits it; the writ vocabulary
+# is closed rather than `\w+` because "petition for a writ of ... filed" also
+# spells the front of an amicus entry supporting one, and a closed list keeps
+# the widening to the shapes actually read off the docket. The `and motion`
+# clause is the in-forma-pauperis pairing ("Petition for a writ of certiorari
+# and motion for leave to proceed in forma pauperis filed."), which rides on
+# every writ.
+#
+# Anchored at the entry's start, because the phrase also appears mid-sentence in
+# a filing *about* the petition: "Motion of petitioner to dismiss the petition
+# for a writ of mandamus filed." Docket order usually saves an unanchored
+# reading — the real opening entry comes first — but not on the one docket shape
+# this arm exists for, a Rule 34.6 filing whose opening entry carries no link,
+# where the motion's PDF would then be stored as the petition. The cross-petition
+# alternative keeps its own opening entry matchable for the same reason.
+_CASE_OPENING_ENTRY_RE = re.compile(
+    r"^\s*(?:conditional cross-)?petition for (?:a )?writ of"
+    r" (?:certiorari(?: before judgment)?|mandamus(?: and/or prohibition)?"
+    r"|prohibition|habeas corpus)"
+    r"(?: and motion\b[^.]*)? filed"
+    r"|^\s*statement as to jurisdiction filed",
+    re.IGNORECASE,
+)
+# The link labels a case-opening entry carries, most specific first: every writ
+# form posts its PDF as `Petition`, while a direct appeal's
+# jurisdictional statement posts as `Jurisdictional Statement`. Both are named
+# rather than left to the any-link fallback, so an entry that also carries an
+# appendix or a motion link still yields the filing itself.
+_CASE_OPENING_LINK_LABELS = ("petition", "jurisdictional statement")
+# The application's own submission entry, on an application-form docket or on a
+# cert docket an interim application was filed into:
+#
+#   "Application (26A203) for a stay of the mandate, submitted to Justice Kagan."
+#
+# Anchored the way `interim_signals.application_arrival_date` anchors: the
+# number in its parentheses, then the filing verb within a bounded span. The
+# verb is what keeps a *disposing* order out — "Applications for stays (23A349,
+# 23A350) granted by the Court." names no submission — and the number is what
+# keeps the ask clause readable for the extension test below.
+#
+# One thing this anchors that the arrival rule does not, and it has to: the
+# entry's own **opening**, in `_RESPONSE_FILED_RE`'s idiom. The arrival rule is
+# reading dates off entries it has already decided are the application's; a
+# selector reads every entry on the docket, where "Response to application
+# (26A203) … submitted" recites the number and carries the verb while linking
+# the *respondent's* PDF. Requiring the entry to begin with an application
+# number is what keeps a recital from being stored as the application.
+# The plural disposing form is excluded twice over by it: "Applications for
+# stays (23A349…" puts an `s` where the parenthesis has to be.
+#
+# Any A-number rather than the docket's own, which is the other place this
+# differs from the arrival rule: that rule is dating *this* docket's stage and
+# must not borrow a companion's entry, while a selector is asked only whether
+# the entry it is looking at is an application being submitted. A cert docket
+# carrying an interim application under its own separate A-number is exactly the
+# case a docket-number anchor would miss.
+_APPLICATION_ENTRY_RE = re.compile(
+    r"^\s*application\s*\(\s*\d{2}A\d+\s*\).{0,200}?\bsubmitted\b", re.IGNORECASE
 )
 # A respondent's brief opposing the petition, as it reads on the docket. Two
 # phrasings appear: the explicit "... in opposition ...", and — once the Court
@@ -226,15 +320,33 @@ class ExtractedText:
 OcrPage = Callable[[int], str]
 
 
-def _entry_link(entry: Mapping[str, Any], *, prefer: str | None) -> tuple[str, str] | None:
-    """(url, description) of the preferred link on a proceedings entry, or first."""
+def _entry_link(
+    entry: Mapping[str, Any], *, prefer: tuple[str, ...], fallback: bool = True
+) -> tuple[str, str] | None:
+    """(url, description) of the first preferred link on an entry, else its first.
+
+    ``prefer`` is a label list in preference order, matched case-insensitively
+    against the link's ``Description``, because one entry family can post its
+    filing under more than one label — a cert petition as ``Petition``, a direct
+    appeal's opening filing as ``Jurisdictional Statement``. The any-link
+    fallback keeps an unforeseen label fetchable rather than dropping the entry,
+    which is why the list is a preference and not a filter.
+
+    ``fallback=False`` makes it a filter, for the one caller whose entries carry
+    links that are reliably *not* the filing: an application entry posts
+    ``Written Request`` and ``Proof of Service`` beside (or instead of) its
+    ``Main Document``, and taking the first link there stores a covering letter
+    as the application's text.
+    """
     links = [link for link in entry.get("Links") or [] if isinstance(link, Mapping)]
-    if prefer is not None:
+    for label in prefer:
         for link in links:
-            if str(link.get("Description", "")).strip().lower() == prefer:
+            if str(link.get("Description", "")).strip().lower() == label:
                 url = str(link.get("DocumentUrl") or "").strip()
                 if url:
                     return url, str(link.get("Description", ""))
+    if not fallback:
+        return None
     for link in links:
         url = str(link.get("DocumentUrl") or "").strip()
         if url:
@@ -242,20 +354,83 @@ def _entry_link(entry: Mapping[str, Any], *, prefer: str | None) -> tuple[str, s
     return None
 
 
+def _is_application_entry(text: str) -> bool:
+    """Whether an entry is an application's own submission, seeking relief.
+
+    Two conditions, and the second is a **positive** test rather than an
+    exclusion list. The entry must be a submission
+    (:data:`_APPLICATION_ENTRY_RE`), and its ask must read *substantive* to
+    :func:`~fedcourtsai.pipeline.interim_signals.application_kind` — the same
+    predicate :func:`~fedcourtsai.pipeline.interim_signals.is_predictable_application`
+    gates the interim predict queue on, so the selector fetches exactly the
+    class that mints cells and nothing else.
+
+    The alternative — "any submission that is not an extension of time" — is
+    what the docket defeats. The Clerk writes renewals as "Application (24A797)
+    **to extend further the time** from June 11 to July 11, submitted to Justice
+    Kavanaugh", which no plain extension phrase catches, and the administrative
+    family is wider than extensions anyway: leave to file a brief "in excess of
+    the word limit" is the same kind of covering request. Each one selected is a
+    wasted fetch, a lawyer's letter in the cell's ``record/documents/``, and a
+    row on a coverage report whose kind then means two things. Reading the ask
+    positively bounds the arm by what the interim stage can actually forecast.
+
+    An ask the classifier cannot read (``unknown``) is not selected. That is the
+    conservative direction and it costs no cell: the same reading keeps the
+    docket out of the predict queue, so nothing is ever minted that would have
+    wanted the document.
+
+    The Clerk's **renewal** form falls out of the same rule rather than needing
+    its own exclusion, which is where this differs from the arrival-date rule
+    (``interim_signals._APPLICATION_RENEWAL_RE`` names it explicitly).
+    "Application (26A118) refiled and submitted to Justice Alito." states no
+    ask, so it reads ``unknown`` and is not selected on its own; a renewal that
+    *does* restate the ask is, and on a docket carrying both, docket order takes
+    the head entry first anyway. The arrival rule has to name the form because
+    it is dating a stage and a renewal postdates the application's own first
+    denial; a selector that already refuses an unreadable ask inherits the
+    protection.
+    """
+    return (
+        _APPLICATION_ENTRY_RE.search(text) is not None
+        and application_kind([text]) is ApplicationKind.substantive
+    )
+
+
 def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
     """The fetchable predict-input documents on one docket JSON (pure).
 
-    The petition (its own link on the filing entry) and **every** non-amicus
-    brief in opposition — a petition with multiple respondents draws a BIO from
-    each, and taking only the last silently dropped the lead respondent's (the
-    most predictive one) whenever a secondary respondent filed later. All
-    distinct-URL BIOs are returned, in docket order; :func:`fetch_case_documents`
-    combines them into the single ``brief-in-opposition`` document. ``QPLink``
-    is deliberately never selected: it is generated at grant time and leaks the
-    outcome; the questions presented are derived from the petition text instead
-    (:func:`extract_questions_presented`).
+    Three arms, all entry-keyed rather than form-keyed — the payload says which
+    filings it carries, and nothing here needs to be told the docket's form.
+
+    - The **case-opening filing** (:data:`_CASE_OPENING_ENTRY_RE`), stored as
+      ``petition``: the ordinary cert petition, a petition for certiorari
+      before judgment, for mandamus, for prohibition, or for habeas corpus, and
+      a direct appeal's statement as to jurisdiction. One per docket, the first
+      in docket order, taken from the entry's own ``Petition`` or
+      ``Jurisdictional Statement`` link.
+    - The **application** (:func:`_is_application_entry`), stored as
+      ``application``: the entry submitting an application for **substantive**
+      interim relief to a Justice, taken from its ``Main Document`` link and
+      from no other. One per docket, the first in
+      docket order — an application docket has one application, and a
+      later entry naming the number is reciting it. Selected on a cert docket
+      too where an interim application was filed into one, which is the right
+      reading: the filing is real and the cell should read it. An
+      administrative application — more time, more pages — is not selected.
+    - **Every** non-amicus brief in opposition — a petition with multiple
+      respondents draws a BIO from each, and taking only the last silently
+      dropped the lead respondent's (the most predictive one) whenever a
+      secondary respondent filed later. All distinct-URL BIOs are returned, in
+      docket order; :func:`fetch_case_documents` combines them into the single
+      ``brief-in-opposition`` document.
+
+    ``QPLink`` is deliberately never selected: it is generated at grant time and
+    leaks the outcome; the questions presented are derived from the petition
+    text instead (:func:`extract_questions_presented`).
     """
     petition: DocumentRef | None = None
+    application: DocumentRef | None = None
     bios: list[DocumentRef] = []
     seen_bio_urls: set[str] = set()
     for entry in payload.get("ProceedingsandOrder") or []:
@@ -263,12 +438,22 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
             continue
         text = str(entry.get("Text") or "")
         entry_date = str(entry.get("Date") or "") or None
-        if petition is None and _PETITION_ENTRY_RE.search(text):
-            found = _entry_link(entry, prefer="petition")
+        if petition is None and _CASE_OPENING_ENTRY_RE.search(text):
+            found = _entry_link(entry, prefer=_CASE_OPENING_LINK_LABELS)
             if found is not None:
                 petition = DocumentRef(KIND_PETITION, found[0], entry_date, found[1])
+        elif application is None and _is_application_entry(text):
+            # No any-link fallback here: an application entry's other links are
+            # the covering `Written Request` and `Proof of Service`, which are
+            # not the filing (:func:`_entry_link`).
+            found = _entry_link(entry, prefer=("main document",), fallback=False)
+            if found is not None:
+                # The entry text, not the generic "Main Document" label: it
+                # names the ask and the Justice it went to, which is what a
+                # reader of the manifest needs to know the document is.
+                application = DocumentRef(KIND_APPLICATION, found[0], entry_date, text.strip())
         elif _is_bio_entry(text):
-            found = _entry_link(entry, prefer="main document")
+            found = _entry_link(entry, prefer=("main document",))
             if found is not None and found[0] not in seen_bio_urls:
                 seen_bio_urls.add(found[0])
                 # Carry the docket entry text (it names the respondent) as the
@@ -277,7 +462,7 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
                 bios.append(
                     DocumentRef(KIND_BRIEF_IN_OPPOSITION, found[0], entry_date, text.strip())
                 )
-    return [ref for ref in (petition, *bios) if ref is not None]
+    return [ref for ref in (petition, application, *bios) if ref is not None]
 
 
 def extract_pdf_text(
@@ -443,6 +628,18 @@ def extract_questions_presented(petition_text: str) -> str | None:
 FETCH_LOSS_HTTP_ERROR = "http-error"
 FETCH_LOSS_UNAVAILABLE = "unavailable"
 FETCH_LOSS_BIO_EMPTY = "bio-empty"
+# The fourth reason is one step earlier than the three above, and it is the one
+# loss they cannot see: they are raised inside the loops over
+# `select_documents`' output, so a docket the pass was *asked* to fetch for and
+# selected nothing on leaves no trace among them — and a case that reaches
+# prediction with no document then looks exactly like a case that was never
+# provisioned. Recorded per case, at the one place that knows selection came
+# back empty.
+FETCH_LOSS_NOT_SELECTED = "not-selected"
+# What `not-selected` names in the log line's kind slot. Not a stored kind:
+# selection produced no kind at all, so the line names the role the case ends
+# without rather than a document that was chosen and then lost.
+_NOT_SELECTED_KIND = "the primary document"
 
 
 @dataclass(frozen=True)
@@ -453,26 +650,37 @@ class DocumentFetchLosses:
     ``unavailable`` an upstream 404 (:meth:`SupremeCourtClient.get_document`
     returns ``None``) — the rolling-window miss; ``bio_empty`` a case whose
     opposition briefs were all selected and none fetched, so the combined
-    ``brief-in-opposition`` row was never built. The last counts *cases*, not
-    briefs, and does not partition the two above it: the per-brief failures that
-    emptied the group are counted there as well.
+    ``brief-in-opposition`` row was never built. Those three are post-selection.
+    ``not_selected`` is the pre-selection one: a case whose docket JSON
+    nominated no document at all, so nothing was ever attempted for it — the
+    class an upstream that posts no PDF (a Rule 34.6 paper filing) and a
+    selector with no arm for the filing type both land in, and the reason the
+    other three cannot see either. The last two count *cases*, not documents,
+    and ``bio_empty`` does not partition the two above it: the per-brief
+    failures that emptied the group are counted there as well. ``not_selected``
+    is disjoint from all three by construction — nothing was selected, so
+    nothing could fail. Both case counts are per *attempt*, not per distinct
+    case: a docket the poller reaches twice in one process counts twice, which
+    is the reading a pass-level record wants and the one the run log shows.
     """
 
     http_error: int = 0
     unavailable: int = 0
     bio_empty: int = 0
+    not_selected: int = 0
 
     @property
     def records(self) -> int:
         """How many losses were recorded — a record count, not a document count.
 
         Named for what it sums, because the fields do not share a unit: the two
-        fetch reasons count documents and ``bio_empty`` counts cases, so a
-        "total documents lost" reading of it would double-count every case
-        whose whole opposition failed. What it is good for is the only question
-        that needs one number: whether this pass lost anything at all.
+        fetch reasons count documents while ``bio_empty`` and ``not_selected``
+        count cases, so a "total documents lost" reading of it would
+        double-count every case whose whole opposition failed and over-count
+        every case that selected nothing. What it is good for is the only
+        question that needs one number: whether this pass lost anything at all.
         """
-        return self.http_error + self.unavailable + self.bio_empty
+        return self.http_error + self.unavailable + self.bio_empty + self.not_selected
 
 
 # Process-wide and monotonic within a run, read through `document_fetch_losses`.
@@ -508,6 +716,7 @@ def document_fetch_losses() -> DocumentFetchLosses:
         http_error=_fetch_losses[FETCH_LOSS_HTTP_ERROR],
         unavailable=_fetch_losses[FETCH_LOSS_UNAVAILABLE],
         bio_empty=_fetch_losses[FETCH_LOSS_BIO_EMPTY],
+        not_selected=_fetch_losses[FETCH_LOSS_NOT_SELECTED],
     )
 
 
@@ -633,7 +842,20 @@ def fetch_case_documents(
     **derived** from the petition text — never the outcome-bearing ``QPLink`` —
     whenever the petition itself was (re)fetched; a petition whose QP heading
     yields nothing usable stores the empty-text row the extractor's degraded
-    result names, never a fragment. A missing or unextractable
+    result names, never a fragment.
+
+    **Never from an ``application``.** The derivation is keyed on
+    :data:`KIND_PETITION` alone, and deliberately: the questions-presented
+    section is a *petition* convention (Rule 14.1(a), and Rule 20.2 for the
+    extraordinary writs the same kind covers), while an application for interim
+    relief fronts no such heading. A QP row derived from one would either be
+    empty — an empty-text row indistinguishable in the coverage report from a
+    scanned petition — or a false positive cut from a heading the application
+    happens to quote, and it would enter the labeling extract as a question this
+    case presents. An application docket therefore stores its ``application``
+    text and no derived questions.
+
+    A missing or unextractable
     document degrades to a skip / an empty-text row; an upstream error skips
     just that document, never the poll. Every such skip is recorded
     (:func:`document_fetch_losses`) and warned into the run log, because the
@@ -641,6 +863,18 @@ def fetch_case_documents(
     count unattributable otherwise.
     """
     refs = select_documents(payload)
+    if not refs:
+        # Selection came back empty on a docket the caller asked about, which is
+        # the one loss the three post-selection reasons cannot see. Recorded
+        # once per case, before any fetch: there is no kind and no URL to
+        # attribute it to, and the count is of cases left with nothing.
+        _record_fetch_loss(
+            FETCH_LOSS_NOT_SELECTED,
+            case_id,
+            _NOT_SELECTED_KIND,
+            "no case-opening, application, or opposition entry carried a document link",
+        )
+        return []
     bio_refs = [ref for ref in refs if ref.kind == KIND_BRIEF_IN_OPPOSITION]
     documents: list[corpus.CaseDocument] = []
     petition: corpus.CaseDocument | None = None
@@ -945,14 +1179,24 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
 
 # The kinds a text-coverage measurement counts, fetched before derived — every
 # text a cell reads directly. The order matters to how the report reads, because
-# an empty row does not mean the same thing across it. The two fetched PDFs are
-# the scanned-filing reading: nothing extracted means no text layer. The derived
+# an empty row does not mean the same thing across it. The three fetched PDFs are
+# the scanned-filing reading: nothing extracted means no text layer — with one
+# asymmetry the table itself cannot show, since `ocr-recover-petitions`' own
+# population is stored *petitions*, so an empty `application` is measured with no
+# repair path behind it. The derived
 # questions-presented row has a second cause — :func:`extract_questions_presented`
 # returns the empty string where the heading is present but no capture under it
 # is vouchable — so its column mixes scans with extraction refusals over
 # petitions that do carry text, and an OCR decision reads the fetched rows.
+#
+# ``application`` is counted for the same reason the other fetched kinds are: it
+# is text a cell reads directly, an application filed on paper stores empty
+# exactly as a paper petition does, and leaving it out would make an
+# application docket that holds only its application read as a case the pass
+# never reached (``cases_read`` counts *these* kinds, not any document).
 TEXT_COVERAGE_KINDS: tuple[str, ...] = (
     KIND_PETITION,
+    KIND_APPLICATION,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_QUESTIONS_PRESENTED,
 )
@@ -1012,30 +1256,47 @@ class TextCoverage(BaseModel):
         ge=0,
         description="Of those, the ones holding no petition row at all. The other "
         "failure mode, and the one an extraction fix does not reach: there is "
-        "nothing stored to re-extract. Unfiltered, matching the stock it is taken "
-        "over — the application-form exclusion applies to the queued count alone",
+        "nothing stored to re-extract. Petition-keyed and unfiltered, matching "
+        "the stock it is taken over, so an application-form row counts here "
+        "however complete it is — the queued counts are the form-keyed ones",
     )
     queued: int = Field(
         ge=0,
         description="Live-slice rows the pipeline queued for prediction — the "
-        "decision-relevant denominator, since a missing petition costs a cell "
-        "only where a cell is minted",
+        "decision-relevant denominator, since a missing primary document costs a "
+        "cell only where a cell is minted",
     )
-    queued_without_petition: int = Field(
+    queued_cert_forms: int = Field(
         ge=0,
-        description="Of the queued rows, the ones holding no petition row: what a "
-        "text-extraction fix cannot recover on the population that is predicted. "
-        "Application-form dockets are excluded (`queued_application_forms` counts "
-        "them), so this is the provisioning gap and not a structural floor plus "
-        "one; `queued_without_petition_cases` names every case in it",
+        description="Of the queued rows, the cert-form dockets — the denominator "
+        "`queued_without_petition` is a gap over, since a gap that drains is "
+        "unreadable without the population it drains from",
     )
     queued_application_forms: int = Field(
         ge=0,
-        description="Of the queued rows holding no petition, the interim "
-        "application dockets — structurally petitionless, since an application is "
-        "not a cert petition and the petition pattern has nothing to match. "
-        "Counted apart rather than dropped, so the excluded floor stays visible "
-        "and the undifferentiated total is recoverable as the sum of the two",
+        description="Of the queued rows, the interim application dockets — the "
+        "denominator `queued_without_application` is a gap over. The two form "
+        "counts partition `queued`",
+    )
+    queued_without_petition: int = Field(
+        ge=0,
+        description="Of the queued **cert-form** rows, the ones holding no "
+        "petition row: what a text-extraction fix cannot recover on the "
+        "population that is predicted. Application-form dockets are measured "
+        "against their own primary document instead "
+        "(`queued_without_application`), since a petition is not the filing that "
+        "opens one; `queued_without_petition_cases` names every case in it",
+    )
+    queued_without_application: int = Field(
+        ge=0,
+        description="Of the queued **application-form** rows, the ones holding no "
+        "`application` document. Their own primary kind, not the petition they "
+        "structurally never have: an application docket is complete when it holds "
+        "its application, so this is a provisioning gap that drains as the "
+        "documents store, not a floor. Counted apart from "
+        "`queued_without_petition` rather than pooled into it, because the two "
+        "populations are keyed on different documents; "
+        "`queued_without_application_cases` names every case in it",
     )
     unopened_petitions: int = Field(
         ge=0,
@@ -1062,6 +1323,12 @@ class TextCoverage(BaseModel):
         description="The `queued_without_petition` cases themselves, in case_id "
         "order: the triage list a provisioning fix works from, since the route a "
         "missing petition took is a per-case question and a count names no case",
+    )
+    queued_without_application_cases: list[str] = Field(
+        default_factory=list,
+        description="The `queued_without_application` cases themselves, in case_id "
+        "order, enumerated for the reason the cert-form ledger beside it is: the "
+        "gap is repaired case by case and a count names no case",
     )
 
     def kind_totals(self, kind: str) -> tuple[int, int]:
@@ -1116,18 +1383,25 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
     petition actually costs a cell on. Reading the empty share without these
     beside it is how a decision gets made about the smaller of the two modes.
 
-    On the queued count — the one a repair is planned against — the **interim
-    application dockets are held out** (``queued_application_forms``, on
-    :func:`corpus.is_scotus_application_form`): an application is not a cert
-    petition, so :func:`select_documents`' petition pattern has nothing to
-    match and no fetch was ever attempted or missed. Pooled in, they are a
-    structural floor reported as a provisioning gap, which is a repair aimed at
-    cases that cannot be repaired. The wide ``distributed`` count keeps them,
-    matching what it is: an unfiltered stock. And because the route a real gap
-    took is a per-case question — a case whose documents were never provisioned
-    reads exactly like one whose fetch was attempted and served nothing — the
-    queued class is enumerated (``queued_without_petition_cases``) and not only
-    counted.
+    On the queued count — the one a repair is planned against — the gap is
+    **keyed on the docket form's own primary document**, on
+    :func:`corpus.is_scotus_application_form`: a cert-form row is measured
+    against its ``petition`` (``queued_without_petition``), an application-form
+    row against its ``application`` (``queued_without_application``). Two
+    populations rather than one, because the two forms are opened by different
+    filings and pooling them would report a docket as missing a document the
+    Court never expected it to hold. Neither is a floor: an application docket
+    that holds its application is as complete as a cert docket that holds its
+    petition, and the count drains as the documents store — which is why each
+    carries its own denominator (``queued_cert_forms``,
+    ``queued_application_forms``, partitioning ``queued``), since a gap that
+    drains is unreadable against a population it is not a gap over. The wide
+    ``distributed`` stock stays petition-keyed and unfiltered, matching what it
+    is. And because the route a real gap took is a per-case question — a case
+    whose documents were never provisioned reads exactly like one whose fetch
+    was attempted and served nothing — both classes are enumerated
+    (``queued_without_petition_cases``, ``queued_without_application_cases``)
+    and not only counted.
 
     Split-aware by construction: every read goes through
     :func:`corpus.documents_for_case`, which the registered payload source
@@ -1155,8 +1429,9 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
     }
     empty_documents: dict[str, list[str]] = {}
     queued_without_petition_cases: list[str] = []
+    queued_without_application_cases: list[str] = []
     cases_read = unopened_petitions = 0
-    distributed_without_petition = queued_without_petition = queued_application_forms = 0
+    distributed_without_petition = queued_without_petition = queued_without_application = 0
     # Materialized before the fetch: `iter_rows` rides `conn`, which under the
     # offloaded schedule must not be walked while readers are in flight.
     rows = [row for row in corpus.iter_rows(conn, court="scotus") if corpus.is_live_slice(row)]
@@ -1172,8 +1447,9 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
     # The narrow denominator beside it: a missing petition costs a prediction
     # only where one was minted.
     queued = {row.case_id for row in rows if row.predict_queued_at is not None}
-    # The rows for which "no petition row" is the docket form, not a gap. The
-    # frame is already SCOTUS-only, which is the gate the predicate's callers owe.
+    # The rows whose primary document is an `application` rather than a
+    # `petition`. The frame is already SCOTUS-only, which is the gate the
+    # predicate's callers owe.
     application_forms = {
         row.case_id for row in rows if corpus.is_scotus_application_form(row.docket_number)
     }
@@ -1186,13 +1462,14 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
         for case_id, documents in fetched:
             segment = segments[case_id]
             counted = 0
-            has_petition = False
+            has_petition = has_application = False
             for document in documents:
                 tally = tallies.get((document.kind, segment))
                 if tally is None:  # a kind this measurement does not count
                     continue
                 counted += 1
                 has_petition = has_petition or document.kind == KIND_PETITION
+                has_application = has_application or document.kind == KIND_APPLICATION
                 tally[0] += 1
                 if not document.text.strip():
                     tally[1] += 1
@@ -1205,23 +1482,34 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
             # population the cuts are computed over as new kinds are stored.
             if counted:
                 cases_read += 1
-            if not has_petition:
-                if case_id in distributed:
-                    distributed_without_petition += 1
-                if case_id in queued:
-                    if case_id in application_forms:
-                        queued_application_forms += 1
-                    else:
-                        queued_without_petition += 1
-                        queued_without_petition_cases.append(case_id)
+            # The wide stock stays petition-keyed and unfiltered, which is what
+            # its field description says it is.
+            if not has_petition and case_id in distributed:
+                distributed_without_petition += 1
+            # The queued gap is form-keyed: each docket form is measured against
+            # the document that opens it, so neither count reports a docket as
+            # missing a filing the Court never expected it to hold.
+            if case_id in queued:
+                if case_id in application_forms:
+                    if not has_application:
+                        queued_without_application += 1
+                        queued_without_application_cases.append(case_id)
+                elif not has_petition:
+                    queued_without_petition += 1
+                    queued_without_petition_cases.append(case_id)
     return TextCoverage(
         cases=len(case_ids),
         cases_read=cases_read,
         distributed=len(distributed),
         distributed_without_petition=distributed_without_petition,
         queued=len(queued),
+        # The two form denominators partition `queued`, so each gap prints
+        # against the population it drains from rather than against every
+        # queued row of either form.
+        queued_cert_forms=len(queued - application_forms),
+        queued_application_forms=len(queued & application_forms),
         queued_without_petition=queued_without_petition,
-        queued_application_forms=queued_application_forms,
+        queued_without_application=queued_without_application,
         unopened_petitions=unopened_petitions,
         offloaded=corpus.payload_reads_offloaded(),
         # Zero-filled and ordered by construction (kind within segment), so the
@@ -1235,6 +1523,7 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
         # deterministic on either schedule, without a re-sort.
         empty_documents=empty_documents,
         queued_without_petition_cases=queued_without_petition_cases,
+        queued_without_application_cases=queued_without_application_cases,
     )
 
 
