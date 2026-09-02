@@ -5359,10 +5359,14 @@ class StatPackMerits(_StatPackMeritsCounts):
     ``terms`` array is a scoring input as well as a description. The population
     is the grants that open a merits proceeding — the same rule that mints the
     event a merits forecast is made on — minus, label-independently, any row
-    whose parsed judgment carries its grant's own date or no date at all
+    whose parsed judgment is dated on or before its own grant
     (``docs/decision-model.md``'s pool guard), so a GVR, whose vacatur rides
     in the cert order itself, never contributes a near-certain disturbance to
     a rate that scores forecasts about argued cases, whatever its label says.
+    Those removed rows are counted in ``cert_order_excluded`` *instead of* in
+    ``granted``, so the two partition the merits-opening population and only
+    ``parsed`` nests inside ``granted``; a parsed judgment carrying no date
+    cannot be gap-tested at all and stays in ``granted`` as a coverage gap.
     """
 
     terms: list[StatPackMeritsTerm] = Field(

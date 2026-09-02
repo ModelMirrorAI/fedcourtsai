@@ -1108,10 +1108,12 @@ def _judgment_rode_its_grant_order(row: CorpusRow) -> bool:
     so the row is that same decides-in-the-cert-order class whatever its
     disposition label says — the labels lag on exactly this class, most
     recently on IFP GVRs — and it is excluded from the cohort entirely,
-    exactly as a labeled GVR is, not merely from the parsed slice. Only a
-    dated parse can fail the test: an undated parse's membership is unknown,
-    so :class:`_MeritsAcc` keeps it in ``granted`` as a visible coverage gap
-    while its judgment stays out of the parsed slice and the rate.
+    exactly as a labeled GVR is, not merely from the parsed slice: a row that
+    fails this test is counted in ``cert_order_excluded`` *instead of* in
+    ``granted``, never in both. Only a dated parse can fail the test. An
+    **undated** parse is the other case entirely: its membership is untestable,
+    so :class:`_MeritsAcc` counts that row in ``granted`` as a visible coverage
+    gap while its judgment stays out of the parsed slice and the rate.
     """
     value = row.merits_judgment
     if value is None or value not in _JUDGMENT_VALUES:
@@ -1171,7 +1173,13 @@ class _MeritsAcc:
             self.disturbed += 1
 
     def exclude(self) -> None:
-        """Record a row the pool guard removed (outside granted and the rate)."""
+        """Record a row the pool guard removed, *instead of* counting it granted.
+
+        The counterpart of :meth:`add`, never a supplement to it: exactly one of
+        the two runs per merits-opening row, so ``granted`` and
+        ``cert_order_excluded`` partition that population and only ``parsed`` is
+        nested inside ``granted``.
+        """
         self.cert_order_excluded += 1
 
     def merge(self, other: _MeritsAcc) -> None:
@@ -1997,6 +2005,15 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
     holds a parsed merits judgment. Raw counts with the parsed-only rate
     discipline the schema states; the caption carries the interpretation
     contract so a quoted figure cannot shed it.
+
+    The count columns are two populations, not three nested ones, and the
+    rendering says so in every place a reader meets them: ``parsed`` is a
+    subset of ``granted``, but the pool guard removes an excluded row *before*
+    the cohort, so ``excluded`` is disjoint from ``granted`` and, per Term,
+    ``granted + excluded`` is that Term's pre-guard population. Read as nested, the two
+    populations' counts sum past ``granted`` and the table looks
+    self-contradictory — so the column header carries the disjointness too,
+    since a published figure travels without its caption.
     """
     lines = [
         "",
@@ -2010,7 +2027,14 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
             + "label says, and sits outside this cohort in the excluded count its "
             + "slice publishes — so every judgment in the parsed slice provably "
             + "postdates its grant, while a parsed judgment with no date to test "
-            + "stays in `granted` as a visible coverage gap — split "
+            + "stays in `granted` as a visible coverage gap. "
+            + "**The count columns are two populations, not three nested ones:** the "
+            + "guard removes an excluded row before the cohort, so `excluded` sits "
+            + "outside `granted` — per Term, `granted` + `excluded` is that Term's "
+            + "pre-guard population of merits-opening grants — while `parsed` is a "
+            + "subset of `granted` and never exceeds it. `parsed` + `excluded` "
+            + "running past `granted` is addition across the two populations, not an "
+            + "inconsistency. Split "
             + "by the October Term "
             + "certiorari was granted in: a grant-date-keyed axis that does **not** align "
             + "with the cert tables' docket-number Terms (a petition docketed in Term T is "
@@ -2038,9 +2062,7 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
             + "preceding your clock._"
         ),
         "",
-        f"**{merits.granted}** granted case(s): {merits.parsed} with a parsed, dated "
-        f"judgment; {_count_or_dash(merits.cert_order_excluded)} excluded by the pool "
-        f"guard (judgment dated on or before its own grant).",
+        _merits_cohort_line(merits),
         "",
         f"**Parsed slice:** {merits.affirmed} affirmed, {merits.reversed} reversed, "
         f"{merits.vacated} vacated, {merits.affirmed_in_part} affirmed in part, "
@@ -2048,13 +2070,41 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
         f"disturbed rate {_merits_rate(merits)}.",
         "",
         (
-            "| Term | granted | excluded | parsed | affirmed | reversed | vacated "
-            + "| in part | DIG | equally divided | disturbed | disturbed rate |"
+            "| Term | granted | excluded (not in granted) | parsed | affirmed | reversed "
+            + "| vacated | in part | DIG | equally divided | disturbed | disturbed rate |"
         ),
         "| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --- |",
     ]
     lines += [_merits_term_row(entry) for entry in merits.terms]
     return lines
+
+
+def _merits_cohort_line(merits: StatPackMerits) -> str:
+    """The pack-level cohort sentence, in the guarded and pre-guard readings.
+
+    The guarded reading states the removed grants as a *further* population, so
+    the count cannot be read as a share of the cohort it sits beside. The
+    pre-guard reading cannot say that and must not pretend to: a ``None`` count
+    marks a build the guard never ran on, where the cert-order riders are still
+    inside ``granted`` — the one case where the two counts really would nest —
+    and ``metrics/README.md`` rules that section unquotable.
+    """
+    head = (
+        f"**{merits.granted}** granted case(s) in the cohort, "
+        f"{merits.parsed} of them with a parsed, dated judgment."
+    )
+    if merits.cert_order_excluded is None:
+        return (
+            f"{head} The pool guard never ran on this build, so these "
+            f"{merits.granted} may still contain grants whose judgment rode "
+            "the cert order — quote nothing from this section."
+        )
+    return (
+        f"{head} A further {merits.cert_order_excluded} grant(s) the pool guard "
+        "removed before the cohort (judgment dated on or before its own grant) "
+        f"are **not** among those {merits.granted} — counted across every grant "
+        "Term, including any the table omits for want of a parsed judgment."
+    )
 
 
 def _merits_rate(entry: StatPackMerits | StatPackMeritsTerm) -> str:

@@ -9,15 +9,17 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import textwrap
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast, get_args
@@ -61,7 +63,7 @@ from . import (
     secretscan,
     tool_usage,
 )
-from .agent_feedback import post_agent_feedback, post_once
+from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
 from .application_migration import (
     MOTION_BASELINE_EVENT_ID,
     relabel_application_baseline_events,
@@ -154,12 +156,26 @@ from .merits_event_migration import (
     backfill_merits_events,
 )
 from .ops import (
+    DAILY_DIGEST_LABEL,
+    DAILY_DIGEST_MARKER_LINES,
+    WEEKLY_DIGEST_LABEL,
+    WEEKLY_DIGEST_MARKER_LINES,
+    Vintaged,
+    WeeklyAnalytics,
+    WeeklyProduction,
     build_ops_report,
+    daily_digest_day_marker,
+    daily_digest_title,
+    parse_iso,
+    render_daily_digest,
     render_data_health,
     render_markdown,
     render_weekly_digest,
+    select_daily_digest_event,
     summarize_substance,
     summarize_trigger_issues,
+    weekly_digest_title_for_week,
+    weekly_digest_week,
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import cell_context, historical, liveprobe, moments, qp_topics, semantic
@@ -236,8 +252,11 @@ from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
     AgentToolingFeedback,
+    Backtest,
     CellFailure,
+    CertBacktest,
     ClaimScoreBlock,
+    ClaimScoreBoard,
     ConferenceBucket,
     CorpusValidation,
     DataHealth,
@@ -269,19 +288,22 @@ from .schemas import (
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
 from .slug_migration import converge_event_slugs
-from .spend import SpendVerdict, check_spend
+from .spend import SpendVerdict, check_spend, spend_over, verdict_over
 from .store import (
     StratifiedRun,
     cases_due_for_pull,
+    cell_census,
     event_has_claimable_prediction,
     forecastable_events,
     forward_refusal_reason,
     forward_refusal_reason_from_parts,
     iter_evaluations,
     iter_flags,
+    iter_predicted_events,
     iter_tooling,
     iter_usage,
     ledger_cell_counts,
+    load_predicted_event,
     open_events,
     resolved_events,
     scored_prediction,
@@ -1379,6 +1401,48 @@ def backfill_questions_presented_cmd(
     typer.echo(result.model_dump_json())
 
 
+def _ocr_slice_deadline(started: float, seconds: float | None) -> float | None:
+    """The monotonic instant an OCR slice may no longer start new work at.
+
+    Zero is a legitimate budget — it starts nothing and reports the whole slice
+    unreached, which is the honest reading of a caller with no time left — but a
+    negative one is a typo, and reading it as "already spent" would turn a
+    mistyped dispatch into a silent no-op slice that looks like a clean run.
+    The same refusal covers what is not a number at all: `nan` compares false
+    against every estimate and `inf` never runs out, so either would *disable*
+    the deadline while reading as one that was set.
+    """
+    if seconds is None:
+        return None
+    if seconds < 0 or not math.isfinite(seconds):
+        typer.echo(
+            "ocr-recover-petitions: --deadline-seconds must be a finite, "
+            f"non-negative number of seconds (got {seconds}); 0 is the budget "
+            "that starts nothing.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    return started + seconds
+
+
+def _echo_ocr_unreached(unreached: Sequence[str]) -> None:
+    """Name the candidates the slice deadline declined to start, if any.
+
+    Apart from the failures, because they are a different fact: nothing was
+    fetched, recognized or written for these, so they are what the next dispatch
+    starts on rather than a reason the head of the class is stuck. Naming every
+    one costs a handful of lines — the list is bounded by `--max-cases`.
+    """
+    if not unreached:
+        return
+    typer.echo(
+        f"  slice deadline: {len(unreached)} candidate(s) not started "
+        "(unreached, not failed — they head the next slice)"
+    )
+    for case_id in unreached:
+        typer.echo(f"  {case_id}: NOT STARTED (slice deadline)")
+
+
 @app.command("ocr-recover-petitions")
 def ocr_recover_petitions_cmd(
     apply: Annotated[
@@ -1405,6 +1469,18 @@ def ocr_recover_petitions_cmd(
             "through the writer's own fetch path and report the status of. 0 fetches nothing.",
         ),
     ] = DEFAULT_OCR_PROBE_SAMPLE,
+    deadline_seconds: Annotated[
+        float | None,
+        typer.Option(
+            "--deadline-seconds",
+            help="Wall-clock budget for this run, measured from the moment the command "
+            "starts. Before each candidate the pass estimates its cost from the stored "
+            "page count and stops taking new ones once the budget will not hold it; "
+            "those are reported unreached and head the next slice. Size it under the "
+            "caller's own cap by whatever must still fit there once the pass stops "
+            "taking work. Ignored on a dry run, which OCRs nothing. Omit for no deadline.",
+        ),
+    ] = None,
 ) -> None:
     """Read the scanned petitions off their page images and store what comes back.
 
@@ -1443,6 +1519,25 @@ def ocr_recover_petitions_cmd(
     petition whose images OCR to nothing stays in the class and re-enters the
     next slice.
 
+    `--deadline-seconds` is what keeps an apply inside its caller's wall-clock
+    cap, and the bound is a spend cap rather than the safety mechanism because of
+    it: page counts across the class vary several-fold, so no fixed number of
+    cases is both safe against a step timeout and worth dispatching. The budget
+    runs from the moment the command starts, so the population walk is charged to
+    it; before each candidate the pass estimates that candidate's cost from the
+    page count the stored row already carries and, where what is left will not
+    hold it, stops taking new ones and reports the rest of the slice
+    **unreached** — untouched, unwritten, and at the head of the next slice.
+    A candidate already started is finished rather than killed, so the pass can
+    return a little after its deadline — the page a document's own budget
+    interrupted still finishes, and a re-fetch can retry — which is why a caller
+    sizes the deadline under its own cap by everything that must still fit there
+    once the pass stops taking work, not merely by what runs after it returns.
+    A budget already spent starts nothing and reports the whole slice unreached:
+    a clean zero-work run, not an error. One that is negative, or not a finite
+    number, is a typo and is refused. A dry run OCRs nothing, so it ignores the
+    budget it was handed.
+
     Local OCR only: `pdftoppm` renders a page and `tesseract` reads it, neither a
     Python dependency and both installed by the `run-repair` OCR step alone, so
     no scheduled lane grows them. An apply with work to do refuses where they are
@@ -1450,6 +1545,10 @@ def ocr_recover_petitions_cmd(
     corpus-write credentials exist only there — and the lane invocation is
     run-repair's `ocr-recovery` pass. Fails loud if the corpus is absent.
     """
+    # Taken before any other work, so the population walk this command opens with
+    # is charged to the budget the caller sized: it happens inside the caller's
+    # cap whether or not a candidate is ever started.
+    started = time.monotonic()
     settings = get_settings()
     if apply and max_cases is None:
         typer.echo(
@@ -1458,6 +1557,7 @@ def ocr_recover_petitions_cmd(
             err=True,
         )
         raise typer.Exit(code=2)
+    deadline = _ocr_slice_deadline(started, deadline_seconds)
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
         typer.echo(
@@ -1488,6 +1588,7 @@ def ocr_recover_petitions_cmd(
                 today=date.today(),
                 max_cases=max_cases,
                 probe_sample=probe,
+                deadline=deadline,
             )
     except OcrToolsMissing as exc:
         typer.echo(f"ocr-recover-petitions: {exc}", err=True)
@@ -1527,6 +1628,7 @@ def ocr_recover_petitions_cmd(
         typer.echo(f"  {case_id}: {detail}")
     for case_id, reason in result.failures.items():
         typer.echo(f"  {case_id}: NOT RECOVERED ({reason})")
+    _echo_ocr_unreached(result.unreached)
     for entry in result.probes:
         # The dry run's second reading: what the writer's own fetch path gets
         # back from supremecourt.gov, before a slice is spent finding out.
@@ -5470,6 +5572,113 @@ def _read_best_effort[T: BaseModel](path: Path | None, model: type[T]) -> T | No
         return None
 
 
+def _git(*args: str) -> str | None:
+    """One bounded, best-effort ``git`` read, or ``None`` when it cannot be made.
+
+    Best-effort in the same spirit as
+    :func:`fedcourtsai.usage.resolve_pipeline_sha`: a missing git, a non-repo cwd,
+    or a non-zero exit yields ``None`` rather than failing the caller.
+    """
+    try:
+        out = subprocess.run(["git", *args], capture_output=True, text=True, check=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout.strip() or None
+
+
+def _artifact_vintage(path: Path) -> str | None:
+    """The date the committed artifact at ``path`` last changed, or ``None``.
+
+    None of the metrics boards stamps itself — each is a byte-stable function of
+    its inputs, deliberately — so the only honest vintage is the commit that last
+    wrote the file.
+
+    **A shallow checkout yields ``None``, and must.** In a depth-1 clone the one
+    fetched commit is grafted parentless, so a pathspec'd ``git log`` matches it
+    for *every* tracked path and answers with the tip's date — stamping a
+    months-old board as today's. That is the precise misreading the vintage
+    exists to prevent, and it is worse than no vintage at all, so shallowness is
+    checked before the history is read rather than trusted to the caller's
+    checkout. A missing git or an untracked path yields ``None`` the same way,
+    and the renderer then says the vintage is unknown.
+    """
+    if not path.exists() or _git("rev-parse", "--is-shallow-repository") != "false":
+        return None
+    return _git("log", "-1", "--format=%cs", "--", str(path))
+
+
+def _vintaged[T: BaseModel](path: Path, model: type[T]) -> Vintaged[T]:
+    """A committed metrics artifact read best-effort, with its commit vintage."""
+    return Vintaged(value=_read_best_effort(path, model), vintage=_artifact_vintage(path))
+
+
+def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
+    """The committed boards the weekly digest reports, each with its own vintage."""
+    return WeeklyAnalytics(
+        leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
+        claim_scores=_vintaged(metrics_root / "claim-scores.json", ClaimScoreBoard),
+        statpack=_vintaged(metrics_root / "statpack.json", StatPack),
+        backtest=_vintaged(metrics_root / "backtest.json", Backtest),
+        salience_replay=_vintaged(metrics_root / "salience-replay.json", SalienceReplay),
+        # Never produced by the scheduled refresh — a real-engine replay spends
+        # tokens — so the absent case is the standing one, and the digest reports
+        # it as an absence rather than omitting the line.
+        cert_backtest=_vintaged(metrics_root / "cert-backtest.json", CertBacktest),
+        salience_version_in_force=SALIENCE_VERSION,
+    )
+
+
+#: The `weekly-digest` label's appearance when the first run creates it. Purple,
+#: so a reading queue is distinguishable at a glance from the daily one beside it.
+_WEEKLY_DIGEST_LABEL_COLOR = "5319e7"
+_WEEKLY_DIGEST_LABEL_DESCRIPTION = (
+    "Weekly performance digest (run-ops); close one once you have read it"
+)
+
+
+def _parse_when(stamp: str) -> datetime:
+    """A report's ``generated_at`` as an aware datetime.
+
+    The window the production census and the spend figures are taken over has to
+    be anchored somewhere, and the report's own stamp is the anchor that keeps a
+    re-render of the same report reproducible. Refused rather than defaulted: a
+    silent fall back to the clock would anchor the window on now while the
+    digest's ISO-week marker still carried the unparseable string, so one report
+    would pair a clock-anchored week with a marker naming no week at all — and
+    the once-a-week idempotency would be gone for that run.
+    """
+    parsed = parse_iso(stamp)
+    if parsed is None:
+        raise typer.BadParameter(f"--generated-at {stamp!r} is not an ISO-8601 timestamp")
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
+#: The window the weekly digest's production census and its spend figure share.
+#: A week, because that is the period the digest covers; the spend *backstop*
+#: keeps its own, longer window, which is why the two are reported separately
+#: rather than one being derived from the other.
+_WEEKLY_WINDOW_DAYS = 7
+
+
+def _weekly_production(data_root: Path, config_root: Path, when: datetime) -> WeeklyProduction:
+    """The week's cells and cost, plus the spend backstop's own verdict.
+
+    One walk of the ledger for all three figures: the census, the week's spend,
+    and the backstop's own longer window read the same records, so they cannot
+    disagree about what they cover and the growing tree is scanned once.
+    """
+    usage = iter_usage(data_root)
+    census = cell_census(usage, window_days=_WEEKLY_WINDOW_DAYS, now=when)
+    spent, _cells = spend_over(usage, window_days=_WEEKLY_WINDOW_DAYS, now=when)
+    return WeeklyProduction(
+        census=census,
+        spend_usd=spent,
+        backstop=verdict_over(usage, load_spend_config(config_root), now=when),
+        window_start=(when - timedelta(days=_WEEKLY_WINDOW_DAYS)).date(),
+        window_end=when.date(),
+    )
+
+
 @app.command("ops-report")
 def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     *,
@@ -5516,8 +5725,8 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     digest_out: Annotated[
         Path | None,
         typer.Option(
-            help="Write the weekly maintainer digest Markdown here (the short "
-            "interrogative comment the run-ops weekly schedule posts)."
+            help="Write the weekly performance digest Markdown here (the body the "
+            "run-ops weekly schedule opens as its own `weekly-digest` issue)."
         ),
     ] = None,
     trigger_issues: Annotated[
@@ -5550,7 +5759,15 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     itself and folds in the latest corpus verdict from ``--corpus-validation``
     (produced where the corpus is already pulled). Prints the dashboard Markdown
     to stdout (the run-ops issue body / step summary); ``--json`` writes the
-    structured ``OpsReport`` and ``--digest-out`` the weekly maintainer digest.
+    structured ``OpsReport``.
+
+    ``--digest-out`` renders the **weekly performance digest** — the health
+    questions, the committed boards' state with each empty one saying why it is
+    empty, the week's cells and measured spend, and the back-test results,
+    every metrics-derived figure carrying the vintage of the artifact it came
+    from. ``--digest-post-repo`` additionally opens it as a `weekly-digest`
+    issue, once per ISO week.
+
     Unlike the leaderboard/back-test roll-ups it is a point-in-time snapshot, so
     it is surfaced, not committed.
     """
@@ -5627,9 +5844,171 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         data_health_out.parent.mkdir(parents=True, exist_ok=True)
         data_health_out.write_text(render_data_health(data_health))
     if digest_out is not None:
-        digest_out.parent.mkdir(parents=True, exist_ok=True)
-        digest_out.write_text(render_weekly_digest(report))
+        write_text(
+            digest_out,
+            render_weekly_digest(
+                report,
+                analytics=_weekly_analytics(settings.metrics_root),
+                production=_weekly_production(
+                    settings.data_root, settings.config_root, _parse_when(when)
+                ),
+            ),
+        )
     typer.echo(render_markdown(report), nl=False)
+
+
+#: The `daily-digest` label's appearance when the first run creates it. Blue,
+#: distinct from the red `data-validation` escalation and the green
+#: `ops-dashboard` reference view: this one is a reading queue, not an alarm.
+_DAILY_DIGEST_LABEL_COLOR = "1d76db"
+_DAILY_DIGEST_LABEL_DESCRIPTION = (
+    "Daily prediction-reading digest (run-ops); close one once you have read it"
+)
+
+
+def _prior_digest_bodies(path: Path) -> list[str]:
+    """Prior digest issue bodies from a JSON file, newest first.
+
+    Accepts either ``gh issue list --json body`` output (a list of objects) or a
+    bare list of body strings, so a test fixture does not have to imitate gh's
+    envelope to exercise the selection rule.
+    """
+    try:
+        raw = json.loads(path.read_text())
+    except (OSError, ValueError) as error:
+        # A usage error, not a traceback: the selection would otherwise proceed
+        # as if nothing had ever been featured and re-feature the newest event.
+        raise typer.BadParameter(f"--prior-issues {path}: {error}") from error
+    if not isinstance(raw, list):
+        return []
+    return [str(item.get("body", "")) if isinstance(item, dict) else str(item) for item in raw]
+
+
+@app.command("daily-digest")
+def daily_digest(
+    *,
+    repo: Annotated[
+        str,
+        typer.Option(
+            help="owner/name — turns committed paths into links, and is the "
+            "repository the prior-digest lookup and --post write against."
+        ),
+    ] = "",
+    prior_issues: Annotated[
+        Path | None,
+        typer.Option(
+            help="JSON file of prior digest issue bodies, newest first "
+            "(`gh issue list --label daily-digest --json body`, or a bare list of "
+            "strings). Takes precedence over the gh lookup."
+        ),
+    ] = None,
+    fetch_prior: Annotated[
+        bool,
+        typer.Option(
+            "--fetch-prior",
+            help="Read the prior digests from GitHub with `gh` instead of a file "
+            "(implied by --post, which must not duplicate a featured event).",
+        ),
+    ] = False,
+    post: Annotated[
+        bool,
+        typer.Option("--post", help="Open the digest as a `daily-digest` issue on --repo."),
+    ] = False,
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Write the rendered body here instead of stdout."),
+    ] = None,
+    title_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the issue title here, for a caller that opens the issue "
+            "itself rather than with --post."
+        ),
+    ] = None,
+    ref: Annotated[
+        str, typer.Option(help="Git ref the repo links point at (the branch the data is on).")
+    ] = "main",
+    generated_at: Annotated[
+        str, typer.Option(help="ISO timestamp stamped on the digest; defaults to now (UTC).")
+    ] = "",
+) -> None:
+    """Render one predicted event, every predictor side by side, for a daily read.
+
+    The reading habit's renderer: it selects the newest predicted event no prior
+    digest has featured (rotating to the least-recently-featured one when nothing
+    new has landed), reads that event's committed cells out of ``data/`` — no
+    corpus, no model call — and renders a bounded Markdown body carrying the
+    idempotency marker future runs read back. Which events have been featured is
+    derived from the prior digest issues alone, so there is no featured-events
+    store to keep in sync.
+
+    ``--post`` opens the body as a fresh ``daily-digest`` issue (a non-triggering
+    label, created idempotently), which is the whole run-ops step; without it the
+    command is a dry run that prints what the next digest would say. With nothing
+    to feature it writes nothing and exits 0.
+    """
+    # Refuse before any work or any write: an unusable request must not leave a
+    # rendered body behind and then fail.
+    if post and not repo:
+        typer.echo("--post needs --repo owner/name.", err=True)
+        raise typer.Exit(2)
+    settings = get_settings()
+    candidates = iter_predicted_events(settings.data_root)
+    if prior_issues is not None:
+        bodies = _prior_digest_bodies(prior_issues)
+    elif (fetch_prior or post) and repo:
+        bodies = issue_bodies(repo, DAILY_DIGEST_LABEL)
+    else:
+        bodies = []
+    chosen = select_daily_digest_event(candidates, bodies)
+    if chosen is None:
+        typer.echo("No predicted events in the ledger — nothing to feature.", err=True)
+        return
+    event = load_predicted_event(settings.data_root, chosen.case_id, chosen.event_id)
+    if event is None:  # pragma: no cover - the index is built from the same tree
+        typer.echo(f"{chosen.case_id} {chosen.event_id} has no readable cells.", err=True)
+        raise typer.Exit(1)
+    when = generated_at or datetime.now(UTC).isoformat()
+    body = render_daily_digest(event, generated_at=when, repo=repo, ref=ref)
+    title = daily_digest_title(event)
+    typer.echo(
+        f"Featured {chosen.case_id} {chosen.event_id} "
+        f"({len(event.cells)} cell(s), {len(body):,} chars) from {len(candidates)} "
+        f"predicted event(s), {len(bodies)} prior digest(s) read.",
+        err=True,
+    )
+    published = True
+    if post:
+        status = open_issue_once(
+            repo=repo,
+            label=DAILY_DIGEST_LABEL,
+            label_color=_DAILY_DIGEST_LABEL_COLOR,
+            label_description=_DAILY_DIGEST_LABEL_DESCRIPTION,
+            title=title,
+            body=body,
+            # The DAY marker, not the event's: the create is idempotent per day,
+            # so a re-dispatch posts nothing while a rotation back to an
+            # already-read event still opens today's issue. Guarding on the event
+            # marker would refuse every rotated re-read.
+            marker=daily_digest_day_marker(when),
+            # And searched only in each prior body's marker block, since the rest
+            # of a digest body is text the harness did not write.
+            marker_lines=DAILY_DIGEST_MARKER_LINES,
+        )
+        published = status.startswith("opened")
+        typer.echo(status, err=True)
+    # The written files are what was *published*, which is why they are written
+    # last: selection runs before the day guard, so a second run of a day already
+    # digested renders the next event and then posts nothing. Writing that body
+    # anyway would put an unpublished digest in the caller's step summary.
+    if not published:
+        return
+    if title_out is not None:
+        write_text(title_out, title)
+    if out is not None:
+        write_text(out, body)
+    else:
+        typer.echo(body, nl=False)
 
 
 @app.command("export-schemas")
@@ -11952,6 +12331,52 @@ def post_issue_comment_cmd(
         typer.echo("nothing to post")
         return
     typer.echo(post_once(repo=repo, issue=issue, marker=marker, body=body))
+
+
+@app.command("post-weekly-digest")
+def post_weekly_digest_cmd(
+    body_file: Annotated[
+        Path, typer.Option(help="The rendered digest (`ops-report --digest-out`).")
+    ],
+    repo: Annotated[str, typer.Option(help="owner/name of the repository to post into.")],
+) -> None:
+    """Open a rendered weekly digest as its own `weekly-digest` issue, once a week.
+
+    A poster, not a renderer: it takes the body ``ops-report --digest-out``
+    already wrote and opens it, so the ops run's own reporting — the dashboard,
+    the snapshot, the data-validation escalation — has all completed before this
+    non-idempotent network write is attempted. A blip here therefore costs the
+    week's digest and nothing else.
+
+    The body's first line is its ISO-week marker, and both the idempotency key
+    and the issue's title come from it, so a re-dispatch of the Monday tick adds
+    no second issue and the title can never disagree with the body. A file whose
+    first line is not a weekly-digest marker is refused rather than opened under
+    a guessed title. ``weekly-digest`` is a non-triggering label, created
+    idempotently here; the find-or-create and the bounded gh retry are tested in
+    ``agent_feedback.py``, so this command is the thin gh-invoking wrapper.
+    """
+    body = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
+    if not body.strip():
+        typer.echo("nothing to post")
+        return
+    marker = body.splitlines()[0]
+    week = weekly_digest_week(marker)
+    if week is None:
+        typer.echo(f"{body_file} does not open with a weekly-digest marker.", err=True)
+        raise typer.Exit(2)
+    typer.echo(
+        open_issue_once(
+            repo=repo,
+            label=WEEKLY_DIGEST_LABEL,
+            label_color=_WEEKLY_DIGEST_LABEL_COLOR,
+            label_description=_WEEKLY_DIGEST_LABEL_DESCRIPTION,
+            title=weekly_digest_title_for_week(week),
+            body=body,
+            marker=marker,
+            marker_lines=WEEKLY_DIGEST_MARKER_LINES,
+        )
+    )
 
 
 @app.command("post-agent-feedback")
