@@ -17,6 +17,7 @@ from fedcourtsai.schemas import (
     FlagCategory,
     Judgment,
     MeritsTermination,
+    ModelUsage,
     Moment,
     Outcome,
     Prediction,
@@ -26,6 +27,8 @@ from fedcourtsai.schemas import (
 )
 from fedcourtsai.serialize import write_json
 from fedcourtsai.store import (
+    UNDECLARED_STAGE,
+    CellCensusRow,
     cases_due_for_pull,
     event_has_claimable_prediction,
     event_recorded_closed,
@@ -35,7 +38,9 @@ from fedcourtsai.store import (
     iter_tooling,
     iter_tracked_cases,
     ledger_cell_counts,
+    normalized_stage,
     open_events,
+    recent_cell_census,
     resolved_events,
     unforecastable_listed_events,
 )
@@ -1624,3 +1629,129 @@ def test_a_window_prediction_is_ledgered_but_not_claimable(tmp_path: Path) -> No
     )
     assert process_version.at_or_after_bless(stamp)
     assert not event_has_claimable_prediction(data_root, "scotus", 1, "evt-a")
+
+
+def _usage_record(
+    case: str, event: str, role: UsageRole, actor: str, created_at: datetime
+) -> ModelUsage:
+    return ModelUsage(
+        case_id=case,
+        event_id=event,
+        run_id="20260901T000000Z",
+        role=role,
+        actor_id=actor,
+        engine="claude-code",
+        model="claude-fable-5",
+        created_at=created_at,
+        input_tokens=10,
+        output_tokens=1,
+        estimated_cost_usd=0.5,
+    )
+
+
+def _write_usage(data_root: Path, record: ModelUsage, *, run: str = "20260901T000000Z") -> None:
+    court, _, docket = record.case_id.partition("/")
+    event = CasePaths(data_root, court, int(docket)).event(record.event_id)
+    path = (
+        event.prediction_usage(record.actor_id, run)
+        if record.role is UsageRole.predictor
+        else event.evaluation_usage(record.actor_id, run)
+    )
+    write_json(path, record)
+
+
+def test_recent_cell_census_groups_by_role_and_stage(tmp_path: Path) -> None:
+    """The week's production, split the way a reader asks about it.
+
+    A usage record names its event but not the standard governing it, so the
+    stage comes off the moment register — the same table the fan-out mints
+    from — rather than being guessed from the id.
+    """
+    data_root = tmp_path / "data"
+    now = datetime(2026, 9, 8, tzinfo=UTC)
+    inside = now - timedelta(days=2)
+    outside = now - timedelta(days=30)
+    _write_usage(
+        data_root,
+        _usage_record("scotus/1", "evt-petition-disposition", UsageRole.predictor, "a", inside),
+    )
+    _write_usage(
+        data_root,
+        _usage_record("scotus/2", "evt-petition-disposition", UsageRole.predictor, "a", inside),
+    )
+    _write_usage(
+        data_root,
+        _usage_record("scotus/1", "evt-petition-disposition", UsageRole.evaluator, "j", inside),
+    )
+    _write_usage(
+        data_root,
+        _usage_record("scotus/3", "evt-petition-disposition", UsageRole.predictor, "a", outside),
+    )
+
+    census = recent_cell_census(data_root, window_days=7, now=now)
+
+    assert census.window_days == 7
+    assert census.cells == 3  # the 30-day-old cell is out of the window
+    assert census.events == 2
+    assert census.rows == [
+        CellCensusRow(role="evaluator", stage="cert", cells=1),
+        CellCensusRow(role="predictor", stage="cert", cells=2),
+    ]
+
+
+def test_recent_cell_census_names_an_undeclared_stage_rather_than_dropping_it(
+    tmp_path: Path,
+) -> None:
+    """A bucket that vanished would make the rows stop summing to the total."""
+    data_root = tmp_path / "data"
+    now = datetime(2026, 9, 8, tzinfo=UTC)
+    _write_usage(
+        data_root,
+        _usage_record(
+            "scotus/1", "evt-motion-something-nobody-declared", UsageRole.predictor, "a", now
+        ),
+    )
+
+    census = recent_cell_census(data_root, window_days=7, now=now)
+
+    assert census.rows == [CellCensusRow(role="predictor", stage=UNDECLARED_STAGE, cells=1)]
+    assert sum(row.cells for row in census.rows) == census.cells
+
+
+def test_recent_cell_census_reads_a_naive_stamp_as_utc(tmp_path: Path) -> None:
+    """A schema-valid naive `created_at` must not crash the comparison — the
+    same tolerance `trailing_spend` applies to the very same records, so the
+    count and the cost describe one set of cells."""
+    data_root = tmp_path / "data"
+    now = datetime(2026, 9, 8, tzinfo=UTC)
+    _write_usage(
+        data_root,
+        _usage_record(
+            "scotus/1",
+            "evt-petition-disposition",
+            UsageRole.predictor,
+            "a",
+            datetime(2026, 9, 7),  # naive
+        ),
+    )
+
+    assert recent_cell_census(data_root, window_days=7, now=now).cells == 1
+
+
+def test_recent_cell_census_on_an_empty_ledger_is_empty(tmp_path: Path) -> None:
+    census = recent_cell_census(tmp_path / "data", window_days=7)
+    assert census.cells == 0
+    assert census.events == 0
+    assert census.rows == []
+
+
+def test_normalized_stage_reads_a_null_petition_stage_as_cert() -> None:
+    """One rule in one place: the boards and every surface that captions a
+    number by its stage have to agree about what a null means, or the same cell
+    reads as two different populations."""
+    assert normalized_stage(EventKind.petition, None) is Stage.cert
+    assert normalized_stage(EventKind.appeal, None) is Stage.cert
+    # Nothing says which rule would govern a motion, so none is invented.
+    assert normalized_stage(EventKind.motion, None) is None
+    # A recorded stage is never overridden.
+    assert normalized_stage(EventKind.petition, Stage.merits) is Stage.merits

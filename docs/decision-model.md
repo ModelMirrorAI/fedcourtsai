@@ -404,7 +404,11 @@ accumulator's admission): a row whose parsed judgment is dated on or before
 its own grant is excluded from the cohort entirely, exactly as a labeled GVR
 is, and counted in the section's published `cert_order_excluded` — a guard
 that stops firing and a guard with nothing to fire on must not render the
-same artifact. A pack parsed from a build the guard never ran on publishes
+same artifact. Counted there *instead of* in `granted`, so the two are
+disjoint: per Term their sum is that Term's pre-guard population, only
+`parsed` nests inside `granted`, and a Term whose `parsed` +
+`cert_order_excluded` runs past its `granted` is adding across the two.
+A pack parsed from a build the guard never ran on publishes
 `null` there, never a zero, for the same reason. A parsed judgment carrying
 **no** date cannot be gap-tested:
 its membership is unknown, so it stays in `granted` as a visible coverage

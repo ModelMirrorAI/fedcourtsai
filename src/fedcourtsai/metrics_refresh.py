@@ -119,6 +119,9 @@ def _leaderboard_headline(path: Path, roster: Sequence[str] | None = None) -> st
 
     The audit figures append only where they have something to say, because
     the refresh PR body is the surface a maintainer actually reads: a
+    leakage-exclusion count means cells were dropped from every figure above it
+    (with the assessed denominator beside it, since a null bit is "not
+    assessed" rather than "clean"), a
     supersession count means a standing may have moved on a re-grade, and
     unequal coverage means two entries were compared over different event sets.
     Neither is recoverable from the counts above them, and a build-time warning
@@ -142,6 +145,12 @@ def _leaderboard_headline(path: Path, roster: Sequence[str] | None = None) -> st
     """
     board = read_model(path, Leaderboard)
     notes = ""
+    if board.leakage_exclusion is not None and board.leakage_exclusion.excluded:
+        notes += (
+            f"; {board.leakage_exclusion.excluded} of "
+            f"{board.leakage_exclusion.assessed} assessed cell(s) excluded as "
+            "leakage-suspected"
+        )
     if board.superseded_gradings:
         notes += f"; {board.superseded_gradings} superseded grading(s) collapsed away"
     populations = [("cert board", board.events_scored, board.entries)] + [

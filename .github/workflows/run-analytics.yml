@@ -19,7 +19,8 @@ name: run-analytics
 #   - text-coverage:   enumerate document text coverage over the content store
 #                      (`fedcourts corpus-info --text-coverage`) — which stored
 #                      documents carry no text and which queued cases hold no
-#                      petition row at all, with the untruncated case-id
+#                      primary document for their docket form, with the
+#                      untruncated case-id
 #                      ledgers the OCR pass and the document backfill work
 #                      from. Read-only like the census and sized like it: the
 #                      walk is a store round trip per live-slice case.
@@ -441,14 +442,19 @@ jobs:
           set -euo pipefail
           out="$RUNNER_TEMP/text-coverage.txt"
           # The report is line-oriented: the four self-limiting header lines
-          # and the kind x segment cuts, then the two untruncated case-id
+          # and the kind x segment cuts, then the three untruncated case-id
           # ledgers. The whole of it is the artifact — the ledgers are the
           # worklists, and the artifact outlives the run page the way the
           # census's does. The step summary gets only the part above the
           # ledgers, which on a large corpus would overflow the page.
+          #
+          # EVERY ledger header belongs in the sentinel, not just the first: a
+          # ledger prints only when it is non-empty, so a run whose earlier
+          # ledgers have drained would carry a later one onto the page if its
+          # header were missing here.
           uv run fedcourts corpus-info --text-coverage > "$out"
           summary="$RUNNER_TEMP/text-coverage-summary.txt"
-          awk '/^empty text \(|^no petition, queued \(/{exit} {print}' "$out" > "$summary"
+          awk '/^empty text \(|^no petition, queued \(|^no application, queued \(/{exit} {print}' "$out" > "$summary"
           # Fail closed on the page: the summary is readable without login,
           # the artifact is not, so the ledgers must never land here. The
           # header block is a few KB; anything larger means the truncation did

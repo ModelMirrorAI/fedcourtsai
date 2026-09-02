@@ -1717,9 +1717,14 @@ def test_render_statpack_markdown_merits_section(tmp_path: Path) -> None:
     assert "excluded by its disposition label" in merits_section
     assert "strictly before" in merits_section
     assert "undisturbed" in merits_section
+    # The excluded grants are stated as a population beside the cohort, never as
+    # a slice of it: the guard removed them before `granted` was counted.
     assert (
-        "**8** granted case(s): 6 with a parsed, dated judgment; 1 excluded by the "
-        "pool guard (judgment dated on or before its own grant)." in merits_section
+        "**8** granted case(s) in the cohort, 6 of them with a parsed, dated "
+        "judgment. A further 1 grant(s) the pool guard removed before the cohort "
+        "(judgment dated on or before its own grant) are **not** among those 8 — "
+        "counted across every grant Term, including any the table omits for want "
+        "of a parsed judgment." in merits_section
     )
     # Rates print raw-count denominators beside them; per-Term rows carry the
     # coverage pair, the six-way distribution, and the disturbed rate.
@@ -1728,6 +1733,95 @@ def test_render_statpack_markdown_merits_section(tmp_path: Path) -> None:
     # stale-labeled cert-order vacatur the guard removed and counted.
     assert "| 2024 | 3 | 0 | 2 | 0 | 0 | 0 | 1 | 0 | 1 | 1 | 50.0% (n=2) |" in merits_section
     assert "| 2023 | 5 | 1 | 4 | 1 | 1 | 1 | 0 | 1 | 0 | 2 | 50.0% (n=4) |" in merits_section
+
+
+def _seed_cert_order_heavy_term(db_path: Path) -> None:
+    """One grant Term whose guarded rows outnumber what stays in the cohort.
+
+    Two merits-bound grants (parsed, dated after their grants) beside three
+    stale-labeled cert-order riders — plain `granted` rows whose vacatur
+    carries the grant's own date, so the label-independent guard removes each
+    one. The shape the published pack reaches on a Term with a healthy parse
+    and a run of mislabeled IFP GVRs, where `parsed` + `excluded` runs past
+    `granted` because they count two different populations.
+    """
+    ot23 = date(2024, 1, 12)
+    rows = [
+        corpus.CorpusRow(
+            case_id=f"scotus/93000000{n}",
+            court="scotus",
+            docket_number=f"23-40{n}",
+            disposition=Disposition.granted,
+            date_cert_granted=ot23,
+            merits_judgment=judgment,
+            merits_decided=decided,
+        )
+        for n, judgment, decided in (
+            (1, "reversed", date(2024, 6, 27)),
+            (2, "affirmed", date(2024, 6, 20)),
+            # Rode the cert order: judgment dated on the grant itself.
+            (3, "vacated", ot23),
+            (4, "vacated", ot23),
+            (5, "vacated", ot23),
+        )
+    ]
+    with corpus.connect(db_path) as conn:
+        corpus.upsert_rows(conn, rows)
+
+
+def test_merits_excluded_partitions_the_cohort_rather_than_nesting_in_it(
+    tmp_path: Path,
+) -> None:
+    """`granted` and `cert_order_excluded` are disjoint; only `parsed` nests.
+
+    The guard runs *instead of* the cohort's own counter, so a merits-opening
+    row lands in exactly one of the two. Pinning the partition on the same
+    per-Term accumulator that publishes it keeps a later reader — or a later
+    edit — from re-deriving `excluded` as a slice of `granted`, the reading
+    under which the table's own arithmetic looks self-contradictory.
+    """
+    db = tmp_path / "corpus.db"
+    _seed_cert_order_heavy_term(db)
+    merits = analytics.build_statpack(corpus_db_path=db).merits
+    assert merits is not None
+    (term,) = merits.terms
+    assert term.term == 2023
+    assert (term.granted, term.cert_order_excluded, term.parsed) == (2, 3, 2)
+    # The invariant that does hold, per Term and pack-wide: the parsed slice is
+    # inside the cohort.
+    assert term.parsed <= term.granted
+    assert merits.parsed <= merits.granted
+    # The invariant a reader would wrongly expect does not, and must not be
+    # "fixed" by re-keying: the five merits-opening rows split across two
+    # populations, so their counts sum past the cohort by construction.
+    assert term.parsed + (term.cert_order_excluded or 0) > term.granted
+    assert term.granted + (term.cert_order_excluded or 0) == 5
+    # Nothing the guard removed reaches the scored slice or its rate.
+    assert (term.vacated, term.disturbed) == (0, 1)
+
+
+def test_merits_table_states_the_excluded_column_is_outside_granted(
+    tmp_path: Path,
+) -> None:
+    """The rendered table cannot be read as `excluded` nested in `granted`.
+
+    A published figure travels without its caption, so the disjointness is on
+    the column header itself as well as in the prose: a reader meeting
+    `2 | 3 | 2` has the header and the summary sentence saying which counts
+    partition and which nests, and cannot derive a contradiction from the row.
+    """
+    db = tmp_path / "corpus.db"
+    _seed_cert_order_heavy_term(db)
+    md = analytics.render_statpack_markdown(analytics.build_statpack(corpus_db_path=db))
+    merits_section = md.split("## The merits docket (granted cases)")[1]
+    assert "| Term | granted | excluded (not in granted) | parsed |" in merits_section
+    assert "| 2023 | 2 | 3 | 2 | 1 | 1 | 0 | 0 | 0 | 0 | 1 | 50.0% (n=2) |" in merits_section
+    # The caption carries the reading rule the header abbreviates.
+    assert "The count columns are two populations, not three nested ones:" in merits_section
+    assert "`parsed` is a subset of `granted` and never exceeds it" in merits_section
+    # The summary sentence states the excluded grants as a further population,
+    # never as a share of the cohort it names.
+    assert "are **not** among those 2 —" in merits_section
 
 
 def _seed_merits_and_gvr_cohort(db_path: Path) -> None:
@@ -1948,5 +2042,28 @@ def test_a_clean_guarded_build_publishes_zero_not_null(tmp_path: Path) -> None:
     assert pack.merits.cert_order_excluded == 0
     assert pack.merits.terms[0].cert_order_excluded == 0
     markdown = analytics.render_statpack_markdown(pack)
-    assert "0 excluded by the pool guard" in markdown
-    assert "— excluded by the pool guard" not in markdown
+    assert "A further 0 grant(s) the pool guard removed before the cohort" in markdown
+    assert "The pool guard never ran on this build" not in markdown
+
+
+def test_pre_guard_pack_does_not_claim_the_riders_are_outside_the_cohort(
+    tmp_path: Path,
+) -> None:
+    """A null count is the one case where the two counts really do nest.
+
+    The guarded sentence states the removed grants as a population beside the
+    cohort; asserting that of a pre-guard pack would be false, since a build the
+    guard never ran on still carries its cert-order riders inside `granted`. The
+    null branch says so and points at the quotability rule instead.
+    """
+    db = tmp_path / "corpus.db"
+    _seed_granted_cohort(db)
+    pack = analytics.build_statpack(corpus_db_path=db)
+    assert pack.merits is not None
+    pre_guard = pack.model_copy(
+        update={"merits": pack.merits.model_copy(update={"cert_order_excluded": None})}
+    )
+    markdown = analytics.render_statpack_markdown(pre_guard)
+    assert "The pool guard never ran on this build" in markdown
+    assert "quote nothing from this section" in markdown
+    assert "are **not** among those" not in markdown

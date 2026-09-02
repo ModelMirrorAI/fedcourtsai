@@ -12,10 +12,12 @@ from fedcourtsai import process_version
 from fedcourtsai.cli import app
 from fedcourtsai.integrity import (
     FORWARD,
+    LEAKAGE_EXCLUSION_REASON,
     PROCEDURAL,
     RETROSPECTIVE,
     classify_stratum,
     forward_claim_record,
+    leakage_record,
 )
 from fedcourtsai.leaderboard import (
     NO_STAGE_KEY,
@@ -37,6 +39,7 @@ from fedcourtsai.schemas import (
     BigCaseLeaderboard,
     ClaimScore,
     ClaimScoreBlock,
+    ClaimScoreBoard,
     Disposition,
     Engine,
     Evaluation,
@@ -1024,6 +1027,7 @@ def _write_big_case_cell(
     *,
     pred_score: float | None,
     eval_scores: list[float],
+    leakage_suspected: bool | None = None,
 ) -> None:
     court, _, docket = case_id.partition("/")
     event = CasePaths(data_root, court, int(docket)).event("evt-petition-disposition")
@@ -1056,6 +1060,7 @@ def _write_big_case_cell(
                 created_at=datetime(2026, 6, 24, tzinfo=UTC),
                 correct=1,
                 big_case=BigCaseAssessment(evaluator_score=score),
+                leakage_suspected=leakage_suspected,
             ),
         )
     write_json(
@@ -1086,6 +1091,29 @@ def test_big_case_agreement_correlates_predictor_and_panel_orderings(tmp_path: P
     assert result["agree"].rank_agreement == 1.0
     assert result["agree"].cases == 3
     assert result["invert"].rank_agreement == -1.0
+
+
+def test_the_agreement_views_keep_a_leakage_suspected_cell(tmp_path: Path) -> None:
+    # The carve-out, pinned: both agreement views read the ledger by their own
+    # path and apply neither the forward-claim nor the leakage exclusion,
+    # because a stakes read is neither scored nor ranked. Routing them through
+    # `store.stratify` would silently narrow a published population, and this
+    # is the test that would notice.
+    data_root = tmp_path / "data"
+    _write_big_case_cell(
+        data_root, "agree", "scotus/1", pred_score=0.9, eval_scores=[0.8], leakage_suspected=True
+    )
+    _write_big_case_cell(
+        data_root, "agree", "scotus/2", pred_score=0.5, eval_scores=[0.55], leakage_suspected=True
+    )
+    _write_big_case_cell(
+        data_root, "agree", "scotus/3", pred_score=0.1, eval_scores=[0.2], leakage_suspected=True
+    )
+
+    # Every cell is flagged, so the stratified join keeps none of them...
+    assert stratify(data_root, frozen_only=False).cells == []
+    # ...while the agreement view still reads all three.
+    assert big_case_agreement(data_root, frozen_only=False)["agree"].cases == 3
 
 
 def test_big_case_agreement_averages_the_evaluator_panel(tmp_path: Path) -> None:
@@ -1564,6 +1592,263 @@ def test_the_board_publishes_the_forward_claim_record(tmp_path: Path) -> None:
     assert board.forward_claim is not None
     assert board.forward_claim.policy == "exclude"
     assert board.forward_claim.excluded == 1
+
+
+def test_a_leaked_cell_the_clock_places_forward_is_excluded_by_the_bit(tmp_path: Path) -> None:
+    # The hole the leakage exclusion closes, in its exact shape: an outcome
+    # that resolves AFTER the prediction's harness clock, so the timing rule
+    # classifies the cell `forward` and would publish it as claimable
+    # forecasting performance. Nothing about the clock can see the leak.
+    assert classify_stratum(datetime(2026, 6, 20, tzinfo=UTC), date(2026, 6, 23)) == FORWARD, (
+        "the timing rule is unchanged — this cell is forward on the clock alone"
+    )
+
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a", leakage_suspected=True),
+        predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+
+    run = stratify(data_root, frozen_only=False)
+
+    assert run.cells == []
+    assert len(run.leaked) == 1
+    # The one string every surface names the exclusion by — the stderr line,
+    # the ledger and the tests all read it from here.
+    assert run.leaked[0].reason == LEAKAGE_EXCLUSION_REASON
+    # An independent rule: nothing here breached a forward claim.
+    assert run.excluded == []
+
+
+def test_the_same_cell_without_the_bit_is_scored_forward(tmp_path: Path) -> None:
+    # The control for the test above — the exclusion turns on the bit and
+    # nothing else, so the stratum rule must still place this cell forward.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a"),
+        predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+
+    run = stratify(data_root, frozen_only=False)
+
+    assert [stratum for _, stratum, _, _ in run.cells] == [FORWARD]
+    assert run.leaked == []
+
+
+def test_a_null_leakage_bit_is_not_a_suspicion(tmp_path: Path) -> None:
+    # Null is "not assessed" — most of the ledger — and must be scored, or the
+    # board empties. The denominator is what says nothing was checked.
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+
+    run = stratify(data_root, frozen_only=False)
+
+    assert len(run.cells) == 1
+    assert run.leaked == []
+    assert run.leakage_assessed == 0
+
+
+def test_an_assessed_clean_cell_is_scored_and_counted_in_the_denominator(
+    tmp_path: Path,
+) -> None:
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a", leakage_suspected=False))
+
+    run = stratify(data_root, frozen_only=False)
+
+    assert len(run.cells) == 1
+    assert run.leaked == []
+    assert run.leakage_assessed == 1
+
+
+def test_a_leaked_cell_leaves_the_retrospective_rank_key(tmp_path: Path) -> None:
+    # The standing the issue names: the retrospective pair is a rank key, so a
+    # near-perfect leaked cell would order a predictor above an honest one that
+    # has no forward cells either. After the exclusion `alpha` has no scored
+    # cell at all and cannot outrank `beta`.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation(
+            "alpha", event_id="evt-a", correct=1, brier_score=0.0001, leakage_suspected=True
+        ),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+    _write_cell(
+        data_root,
+        _evaluation("beta", event_id="evt-b", correct=0, brier_score=0.5),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+
+    run = stratify(data_root, frozen_only=False)
+    board = build_leaderboard(run.cells, process_scope="all")
+
+    assert [entry.predictor_id for entry in board.entries] == ["beta"]
+    assert board.retrospective_evaluations == 1
+    assert board.events_scored == 1
+
+
+def test_the_board_publishes_the_leakage_exclusion_record(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a", leakage_suspected=True),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+    _write_cell(
+        data_root,
+        _evaluation("beta", event_id="evt-b", leakage_suspected=False),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+    run = stratify(data_root, frozen_only=False)
+
+    board = build_leaderboard(
+        run.cells,
+        process_scope="all",
+        leakage_exclusion=leakage_record(
+            [(cell.evaluation.predictor_id, cell.reason) for cell in run.leaked],
+            run.leakage_assessed,
+        ),
+    )
+
+    assert board.leakage_exclusion is not None
+    assert board.leakage_exclusion.excluded == 1
+    assert board.leakage_exclusion.assessed == 2
+    assert board.leakage_exclusion.by_predictor == {"alpha": 1}
+
+
+def test_an_unexcluded_ledger_publishes_the_honest_zero(tmp_path: Path) -> None:
+    # The empty state is a published zero beside a denominator, never an absent
+    # block: "nothing leaked" and "nothing was checked" have to stay readable
+    # apart.
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a", leakage_suspected=False))
+    run = stratify(data_root, frozen_only=False)
+
+    record = leakage_record(
+        [(cell.evaluation.predictor_id, cell.reason) for cell in run.leaked],
+        run.leakage_assessed,
+    )
+
+    assert record.excluded == 0
+    assert record.assessed == 1
+    assert record.by_predictor == {}
+
+
+def test_a_cell_both_rules_catch_rides_both_exclusion_ledgers(tmp_path: Path) -> None:
+    # Two independent questions over one population, so the counts are
+    # published side by side and never netted against each other.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a", leakage_suspected=True),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+        context=_frozen_context(),
+    )
+
+    run = stratify(data_root, frozen_only=False)
+
+    assert run.cells == []
+    assert len(run.excluded) == 1
+    assert len(run.leaked) == 1
+    # Both ledgers and both denominators are filled before either rule drops
+    # the cell, which is the ordering this asserts: move the leakage check
+    # above the breach check and this count goes to zero.
+    assert run.leakage_assessed == 1
+    assert run.claimed_forward == 1
+
+
+def test_the_cli_publishes_the_leakage_block_and_names_each_dropped_cell(
+    tmp_path: Path,
+) -> None:
+    # The registered effect check, executed: the stderr ledger and the
+    # published block are what make the exclusion non-silent, and both are CLI
+    # wiring that no unit test reaches.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a", leakage_suspected=True),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+    _write_cell(
+        data_root,
+        _evaluation("beta", event_id="evt-b", leakage_suspected=False),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+    out = tmp_path / "leaderboard.json"
+
+    result = runner.invoke(
+        app,
+        ["leaderboard", "--out", str(out), "--all-versions"],
+        env={"FEDCOURTS_DATA_ROOT": str(data_root)},
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "::warning::leakage exclusion: ca9/123 evt-a alpha" in result.output
+    # The denominator rides with the count: a bare number cannot be read,
+    # because a null bit is "not assessed" rather than "clean".
+    assert "(1 of 2 assessed cell(s) excluded as leakage-suspected)" in result.output
+    board = read_model(out, Leaderboard)
+    assert board.leakage_exclusion is not None
+    assert board.leakage_exclusion.excluded == 1
+    assert board.leakage_exclusion.assessed == 2
+    assert board.leakage_exclusion.by_predictor == {"alpha": 1}
+    assert [entry.predictor_id for entry in board.entries] == ["beta"]
+
+
+def test_the_claim_scores_cli_publishes_the_same_block(tmp_path: Path) -> None:
+    # The second surface built from the same pass: both boards have to state
+    # the population they were built over, or they cannot be read together.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a", leakage_suspected=True),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+    out = tmp_path / "claim-scores.json"
+
+    result = runner.invoke(
+        app,
+        ["claim-scores", "--out", str(out), "--all-versions"],
+        env={"FEDCOURTS_DATA_ROOT": str(data_root)},
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "::warning::leakage exclusion: ca9/123 evt-a alpha" in result.output
+    board = read_model(out, ClaimScoreBoard)
+    assert board.leakage_exclusion is not None
+    assert board.leakage_exclusion.excluded == 1
+    assert board.evaluations_total == 0
+
+
+def test_the_leakage_exclusion_outranks_the_retrospective_policy(tmp_path: Path) -> None:
+    # The forward-claim policy is flippable; the leakage bit is not. Under
+    # `retrospective` a breaching cell is counted — unless it also leaked.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a", leakage_suspected=True),
+        predicted_at=datetime(2026, 6, 25, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+        context=_frozen_context(),
+    )
+
+    run = stratify(data_root, frozen_only=False, policy="retrospective")
+
+    assert run.cells == []
+    assert len(run.leaked) == 1
 
 
 def test_a_breaching_mootness_cell_stays_procedural_under_the_retrospective_policy(
