@@ -1080,7 +1080,7 @@ population and apply against another.
 | `rederive-distribution-parse` | `rederive-distribution-counts` | — (fixed in code) | parse label, **required in both modes** | — |
 | `normalize-docket-markings` | `normalize-docket-markings` | `--max-rewrites` | — | — |
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
-| `ocr-recovery` | `ocr-recover-petitions` | `--max-cases` (a slice, not a ceiling) | — | — |
+| `ocr-recovery` | `ocr-recover-petitions` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`) | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
 | `sampled-frame-weight-repair` | `repair-sampled-frame-weights` | `--max-repairs` | — | — |
@@ -1102,7 +1102,19 @@ the slice reached and could not recover (a refused URL, a failed fetch, an
 unreadable scan, a recognition cut short) stays, and stays at the *head* in
 `case_id` order, so the next dispatch retries it first; the ledger names each
 apart, because a class whose head is permanently unreadable turns a small bound
-into a no-op and nothing else would show it. Its ledger also
+into a no-op and nothing else would show it. The bound is therefore the *spend*
+cap and not the pass's safety mechanism: what keeps a heavy slice inside the
+step's 30-minute cap is the **slice deadline** the step passes
+(`--deadline-seconds`, sized in a comment beside the invocation from everything
+that must still fit inside that cap once the pass stops taking work — the
+witness re-read, the blob push, the pointer commit, and the work a started
+candidate can run past the deadline). Before each candidate the pass estimates that candidate's cost
+from the page count the stored row already carries and, where what is left will
+not hold it, takes no more; a candidate already started is finished rather than
+killed. Those it declines are reported **unreached** — untouched, unwritten, and
+at the head of the next slice — which is a different fact from a failure and is
+named as one, because page counts across the class vary several-fold and no
+fixed bound is both safe against the cap and worth dispatching. Its ledger also
 carries a denominator, the stored petitions the walk read at all, and the pass
 refuses on it: zero candidates out of zero petitions is a blob whose documents
 this process cannot read — a split-mode index with no content store configured
@@ -1236,14 +1248,17 @@ gh workflow run run-repair.yml --ref main \
 gh workflow run run-repair.yml --ref main \
   -f repair=normalize-docket-markings -f repair_mode=apply -f repair_bound=214
 
-# The OCR recovery's bound is a slice, so the number is what one dispatch
-# should spend rather than the class the dry run printed — around five, at the
-# five seconds a rendered page costs. Read its probe lines first: they say what
-# supremecourt.gov served the writer's own fetch path.
+# The OCR recovery's bound is a slice, so the number is how many candidates one
+# dispatch may look at rather than the class the dry run printed. It is the
+# spend cap only: the step's own slice deadline decides how many of them are
+# actually started, so a bound above what a dispatch can fit costs nothing and
+# the ledger reports what was attempted and what went unreached. Read the dry
+# run's probe lines first: they say what supremecourt.gov served the writer's
+# own fetch path.
 gh workflow run run-repair.yml --ref main \
   -f repair=ocr-recovery -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
-  -f repair=ocr-recovery -f repair_mode=apply -f repair_bound=5
+  -f repair=ocr-recovery -f repair_mode=apply -f repair_bound=15
 
 # A pass with an option. `include-scored` demands the bound in BOTH modes, so
 # the dry run that decides the widening states it too.
