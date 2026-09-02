@@ -152,9 +152,9 @@ standing sweep on the walker instead.
 
 | Axis      | historical (Term walker, run-seed)      | pull (enrichment, run-pull)       | live (forward poll, run-pull)   | enrich (opinions, run-pull) | repair (maintenance bench, run-repair) |
 |-----------|-----------------------------------------|-----------------------------------|---------------------------------|-----------------------------|----------------------------------------|
-| Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           | REST API (opinion clusters) | the stored corpus itself — no upstream fetch |
+| Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           | REST API (opinion clusters) | the stored corpus itself, and for the OCR recovery alone the filings it names (supremecourt.gov PDFs) |
 | Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions & applications, granted dockets to judgment: discovery, watchlist, outcomes | granted dockets → published opinion: reporter citations and opinion body | repair what no channel corrects: re-derive, relabel, normalize, remove |
-| Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        | shares the CourtListener budget, bounded per dispatch | ~0 API; each apply bounded by a blast-radius count |
+| Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        | shares the CourtListener budget, bounded per dispatch | ~0 API; each apply bounded by a blast-radius count, or by a slice where the cost is runner minutes |
 | Cadence   | **daily** (4 dead-zone windows)         | **daily** (4 windows)             | **daily** (4 windows)           | **dispatch only** (never scheduled) | **dispatch only** (never scheduled) |
 | Handoffs  | none — lands already-resolved history   | predict issues                    | predict issues                  | none — enriches rows already ingested | none |
 
@@ -1043,8 +1043,13 @@ pass's ledger to the run summary and writes nothing, the maintainer reads the
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
-before the write. `repair` defaults to `none`, which is refused outright: the
-form's initial state cannot start a corpus write.
+before the write. Two passes skip it, and for the same reason: the distribution
+re-derivation, whose plan *is* its write set, and the OCR recovery, whose apply
+ledger already states the class it found before writing. In both, the receipt
+would be bought with a whole extra full-population read of the content store —
+the third, on an OCR apply, which already re-reads the class as its own write
+witness. `repair` defaults to `none`, which
+is refused outright: the form's initial state cannot start a corpus write.
 
 **The five inputs.**
 
@@ -1075,8 +1080,10 @@ population and apply against another.
 | `rederive-distribution-parse` | `rederive-distribution-counts` | — (fixed in code) | parse label, **required in both modes** | — |
 | `normalize-docket-markings` | `normalize-docket-markings` | `--max-rewrites` | — | — |
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
+| `ocr-recovery` | `ocr-recover-petitions` | `--max-cases` (a slice, not a ceiling) | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
+| `sampled-frame-weight-repair` | `repair-sampled-frame-weights` | `--max-repairs` | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
@@ -1084,7 +1091,24 @@ the scan runs unless it is a positive integer — blank, zero, negative, decimal
 and leading-zero alike. An unbounded apply would convert a widened predicate
 into a mass rewrite rather than a loud refusal, and each of these populations is
 finite, so a count above the one read means the predicate widened rather than a
-dirtier corpus. The distribution re-derivation is the exception that proves it:
+dirtier corpus. **The OCR recovery's bound is the one that means something
+else**: it is a *slice size*, and the pass takes the first that many candidates
+rather than refusing above them. What bounds the others is blast radius, which
+is why exceeding the read count is a refusal; what bounds this one is runner
+minutes, since each case costs a re-fetch and a page-by-page recognition, so a
+backlog is meant to clear across dispatches. The slice is self-advancing — a
+recovered petition leaves the class — but only the recovered ones do. Anything
+the slice reached and could not recover (a refused URL, a failed fetch, an
+unreadable scan, a recognition cut short) stays, and stays at the *head* in
+`case_id` order, so the next dispatch retries it first; the ledger names each
+apart, because a class whose head is permanently unreadable turns a small bound
+into a no-op and nothing else would show it. Its ledger also
+carries a denominator, the stored petitions the walk read at all, and the pass
+refuses on it: zero candidates out of zero petitions is a blob whose documents
+this process cannot read — a split-mode index with no content store configured
+serves every case an empty document list — not a converged class, and the two
+must not report the same way.
+The distribution re-derivation is the exception that proves it:
 its bound is fixed in code because the population's delta was measured before
 the surface existed, so moving it is a code change with the new basis stated
 beside it — which is why that pass *refuses* a `repair_bound` rather than
@@ -1121,6 +1145,30 @@ trade of failure history for a ledger with no dangling phantom paths. It does
 **not** inherit the every-mode bound rule, because it takes on no backlog — what
 it grows is the removal set, which the apply's own bound already sizes.
 
+**One pass re-weights the frame rather than converging it.**
+`sampled-frame-weight-repair` restores the derived sampling weight on grid
+denials a certainty-asserting channel min-latched to 1. Where the other passes
+move which bucket a row falls in, this one moves the **weights themselves**, so
+every weighted denominator that admits IFP rows moves with it — the statpack's
+and docket pack's weighted sections, the ops digest's always-deny floor, and one
+committed prose figure in [outcome-decomposition.md](outcome-decomposition.md).
+Its population, its direction and its expected magnitudes are therefore
+pre-registered in [freeze-record.md](freeze-record.md), and the dry-run ledger is
+read **against that entry** rather than on its own: the entry licenses
+magnitudes, never membership, so a row the command reports as outside the
+registered cells is a different population needing its own entry and the pass
+leaves it alone. The apply witnesses itself — it re-runs its own selection over
+the written corpus and exits non-zero if anything remains — because a direct
+`UPDATE` of a column no downstream artifact recomputes moves the blob whether or
+not it moved the right rows. Read the ledger, and dispatch the apply with the
+count read off it — then finish the job: the weekly metrics refresh regenerates
+the statpack, but `metrics/docket.{json,md}` is on demand (`fedcourts docket`)
+and the whole-slice IFP-inclusive figure in
+[outcome-decomposition.md](outcome-decomposition.md) is hand-written, so a stale
+copy of either looks exactly like a current one. No scored number moves, and
+that is a property of the population rather than a hope: every scored-segment
+cut is gated on a paid serial and these rows are IFP.
+
 **Prerequisites the bench brings along.** Every corpus pass is gated on a
 `dedupe-live-rows --apply` prerequisite that runs first and must succeed: any
 docket-number spelling that defeats the channels' identity join leaves a twin
@@ -1143,7 +1191,20 @@ failed prerequisite means the dispatched pass cannot be trusted to read the
 right rows, and a green run that quietly did nothing is the worst outcome a
 repair bench can produce.
 
-**Least privilege per pass.** The seven corpus passes run in a job holding the
+
+**One pass brings a binary.** The OCR recovery renders a page with poppler's
+`pdftoppm` and reads it with `tesseract`, neither a Python dependency. They are
+installed by a step gated on that selector alone, from the runner image's own
+Ubuntu archive — no third-party repository and no added signing key — so the
+other dispatches never pay for them and no scheduled lane grows the dependency.
+That gating is the same reason the extractor takes its OCR call as an injected
+seam rather than importing one. The resolved versions are echoed into the run
+summary rather than pinned in the install: an exact apt pin goes stale the week
+the runner image rolls, and would fail the pass for a reason that has nothing to
+do with the corpus, so what a recovered text was read by is recorded by the run
+instead of promised by the workflow. An apply refuses where the binaries are
+absent, which is what keeps a failed install from reading as a converged class.
+**Least privilege per pass.** The nine corpus passes run in a job holding the
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
@@ -1174,6 +1235,15 @@ gh workflow run run-repair.yml --ref main \
   -f repair=normalize-docket-markings -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
   -f repair=normalize-docket-markings -f repair_mode=apply -f repair_bound=214
+
+# The OCR recovery's bound is a slice, so the number is what one dispatch
+# should spend rather than the class the dry run printed — around five, at the
+# five seconds a rendered page costs. Read its probe lines first: they say what
+# supremecourt.gov served the writer's own fetch path.
+gh workflow run run-repair.yml --ref main \
+  -f repair=ocr-recovery -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=ocr-recovery -f repair_mode=apply -f repair_bound=5
 
 # A pass with an option. `include-scored` demands the bound in BOTH modes, so
 # the dry run that decides the widening states it too.

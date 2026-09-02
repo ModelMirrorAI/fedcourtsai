@@ -289,18 +289,23 @@ against a measured share, not a schedule.
 
 ### Contract for the recovery pass
 
-What a pass must hold to. The derivation marker it records and the extractor
-seam it walks pages through are in place; the pass itself, and the `run-repair`
-step that installs tesseract for it, are not built.
+What the pass holds to. It is `fedcourts ocr-recover-petitions`, dispatched as
+`run-repair`'s `ocr-recovery` selector value, whose step installs its two
+binaries: tesseract, and poppler's `pdftoppm` for the page raster it reads —
+shelled to the same way, so the pass adds no Python dependency on either side.
 
 - **Where it runs.** As a pass on `run-repair` — a `repair` selector value, not
   a workflow of its own. The writer jobs are the only place a production corpus
   write can happen, and a pass whose dry run is a triage list a maintainer reads
   before an apply belongs on the bench by the standing rule (*Five writer jobs,
   one shared core* and *Maintenance passes* in
-  [data-pipeline.md](data-pipeline.md)): it re-derives stored text with no
-  upstream fetch, which is that lane's charter exactly. Tesseract is installed
-  by that step alone, so no scheduled lane grows the dependency. Dry run by
+  [data-pipeline.md](data-pipeline.md)): it writes the corpus, which only a
+  writer job may, and its dry run is exactly the triage list that bench exists
+  for. It is the one pass there that fetches, and the fetch is what keeps it in
+  that lane rather than the pullers': supremecourt.gov is free and
+  politeness-capped, so no budget is governed and no window's schedule is
+  implicated. Both binaries are installed by that step alone, so no scheduled
+  lane grows the dependency. Dry run by
   default, and bounded through `repair_bound` so a backlog clears in slices
   rather than in one long job; runner minutes are the whole cost.
 - **What it reads.** Stored **petitions** whose text is empty or
@@ -313,14 +318,27 @@ step that installs tesseract for it, are not built.
   itself. The PDF is re-fetched by the row's stored
   URL, which for a petition is the single link that was fetched:
   supremecourt.gov, free and politeness-capped, so the pass spends none of the
-  CourtListener budget.
+  CourtListener budget. The population is walked case by case rather than
+  queried, because under the corpus split the document text lives in the content
+  store and the blob's `documents` table holds none of it — a SQL predicate over
+  that table reports an empty class against the corpus production reads.
+- **What its dry run also reads.** A sample of the population, three by default
+  and spread evenly across it rather than taken off the head, so successive dry
+  runs do not report the same three URLs — re-fetched through the writer's own
+  fetch path — the same client,
+  headers and retry posture the fetching lanes use — with each GET's status
+  reported and nothing kept. The apply's whole premise is that supremecourt.gov
+  serves a writer, and a cell's report of a 403 is evidence about a cell's fetch
+  path, not this one; making the dry run answer it is what keeps a slice from
+  being the experiment. Every status class is reported rather than raised, or
+  the question would be settled on one data point.
 - **What it does.** Walks the PDF's pages as the extractor does and OCRs a page
   **only** where that page's own text extraction yields nothing — a guard rather
   than a filter, since the population is documents that yielded nothing at all,
   but it keeps a mostly-digital filing with a few scanned exhibit pages honest.
   It is the extractor that walks them: `extract_pdf_text` takes the OCR call as
-  an injected `ocr_page` seam, defaulted to none, so the recovery pass will be
-  the only caller that supplies one and no fetching lane grows the dependency —
+  an injected `ocr_page` seam, defaulted to none, so this pass is the only
+  caller that supplies one and no fetching lane grows the dependency —
   and the same per-document text cap the fetching lane applies and the same
   truncation flag bound the result, because they are the same code. A recovered
   petition is bounded exactly like a fetched one. Additive by construction: text
@@ -328,7 +346,25 @@ step that installs tesseract for it, are not built.
   extraction. Nor is a recovery overwritten later — the row keeps its URL, and
   both the poller and the Term walker re-fetch a kind only when its link
   changes; a genuinely superseding petition at a new URL is re-fetched and, if
-  it too is a scan, re-enters the class.
+  it too is a scan, re-enters the class. A candidate whose re-fetch fails, and
+  one whose pages OCR to nothing, are counted and named and nothing is written
+  for either: the stored row keeps its empty text, stays in the class, and
+  re-enters the next slice. Neither is the pass going backwards, but neither
+  advances it either, and both sit at the *head* of the class in `case_id`
+  order, so the next dispatch retries them first: "self-advancing" means the
+  recovered ones leave, not that a later slice starts further along. The ledger
+  reports them apart from the candidates a slice never reached for exactly that
+  reason — a class whose head is permanently unreadable makes a small bound a
+  no-op, and the ledger is what shows it. Three bounds keep one filing from costing the rest: a stored
+  URL is refused unless it is HTTPS on the Court's own host (`DocumentUrl` is
+  upstream text, and this pass is the only thing that GETs one back), a body
+  past a size ceiling is refused as not-a-filing, and a document that outlives
+  its recognition budget is abandoned unread — each costing its own candidate,
+  which stays in the class. Each recovery is written as it is made rather than
+  batched at the end, so a step that hits its wall-clock cap has banked what it
+  recovered — under the corpus split, where the content-store write is itself
+  the durable one; on a self-contained blob the pointer push at the end of the
+  step is, and a cap hit loses the slice however it was written.
 - **What it records.** OCR output is *derived* text, lossy in a way pypdf output
   is not, so it must never read as a clean extraction. `CaseDocument.ocr_derived`
   is that marker: one flag per stored document, true where **any** of its text
@@ -355,12 +391,26 @@ step that installs tesseract for it, are not built.
   — and moves the pre-registered prompt digest, so it rides a re-bless; and the
   coverage read's count of what was repaired.
 - **What follows a recovery.** A recovered petition re-derives its
-  questions-presented row through the existing deriver, since such a row is
+  questions-presented row through the existing deriver, in the same write rather
+  than a second dispatch — the ingest path derives it inline for the same
+  reason, and a row left behind until someone remembers the backfill is a
+  petition whose questions read as absent — since such a row is
   written only where the petition has text. On OCR text that derivation keeps
   the two outcomes it has now: no recognizable heading stores no row at all,
   and a heading whose capture the deriver will not vouch for stores the empty
   row. The derived row carries the petition's marker, on both the ingest and
-  the backfill path: text cut out of an OCR reading is an OCR reading.
+  the backfill path: text cut out of an OCR reading is an OCR reading. One
+  refusal rides with it, the convergence sweep's in a stricter form: an empty
+  derivation never replaces a *stored* question, at any length rather than the
+  sweep's character floor. A question stored beside a scanned petition came from
+  a superseded filing, and emptying it is as likely to be this pass misjudging
+  as a bad row — and unlike the sweep, whose whole subject is the derived row,
+  this pass is here for the petition and has no business deciding that one. The recovered row's fetch date moves to the day it
+  was re-fetched, because a fetch happened, and that is visible in one place
+  downstream — provisioning places a document by its entry date and falls back
+  to the fetch date where there is none, so such a petition can fall outside a
+  replay cell's window it previously sat inside. A cell then sees less, never
+  more, which is why the honest date is the one kept.
 - **Terms.** Unchanged. These are the Court's own public records, and OCR text
   lands in the access-gated corpus under the same no-republication posture as
   every other extraction ([data-sources.md](data-sources.md)).

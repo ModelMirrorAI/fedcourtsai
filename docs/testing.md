@@ -66,16 +66,53 @@ manual workflow dispatch, never on every iteration.
 
 That infrastructure has a dedicated path:
 [`integration-test.yml`](../.github/workflows/integration-test.yml) (manual
-dispatch, read-only role — the collect scenario none at all — strictly
+dispatch plus one daily canary, read-only role — the collect scenario none at
+all — strictly
 side-effect free) runs one scenario per dispatch, or — `scenario=all` — the
 promotion gate's whole required suite as one run (every required scenario, with
-engine-smoke once per engine, so three cells' token spend; collect rides the
+engine-smoke and engine-actions-smoke once per engine each, so three cells'
+token spend plus three boot probes; collect rides the
 run as its own environment-free job beside the matrix). `scenario=all-offline`
-is that suite minus the three engine-smoke legs; the jobs that remain are
+is that suite minus the six token-spending engine legs; the jobs that remain are
 identical, environment binding included, and the run is token-free end to end.
+
+The **canary** is the workflow's one scheduled arm (11:53 UTC daily): the three
+`engine-actions-smoke` legs and nothing else, so a provider-side or action-side
+flip between promotions is found by a cron rather than by the next paid round.
+It runs from `main` and binds `prod`, and its run title carries no
+`<scenario> / <engine>` pair — three independent reasons it can never satisfy
+the promotion gate's freshness match for legs a promotion has not paid for.
+GitHub cron is best-effort and drops runs under load, so a missed day is
+tolerable by design: the canary shortens the window between a flip and its
+discovery, and the gate, not the canary, is what stands between a broken
+invocation and `main`.
+
+The corpus-reading scenarios all run on **one case, settled once** by the
+`plan` job before the matrix fans out. Left at its empty default, the `docket`
+input means *resolve one*: `fedcourts corpus-integration-case` reads whichever
+corpus this dispatch's environment serves and returns the first
+snapshot-bearing, in-scope, still-predictable case — the shape every leg needs,
+asked of the same record gate the provisioning guard applies. That is what a
+static default cannot be, since each deployment environment resolves its own
+corpus pair (a case in the production corpus is absent from the lean staging
+one) and any case drifts out of shape as its docket resolves. The resolution is
+echoed to the run summary, so a run always names its subject, and a corpus with
+no usable case fails the plan job — before the engine-smoke legs spend
+anything.
+
+A non-empty `docket` pins a case instead and skips the resolver. That is the
+escape hatch for a corpus the resolver cannot read a candidate window out of,
+and for aiming a dispatch at one case. The window is driven from the **blob's**
+snapshot index, which is what bounds it, so a pair whose blob carries no
+snapshot rows cannot answer: a slice seeded split-on is exactly that, the
+staging pair included, and a staging-ref dispatch therefore names a member of
+the seeded slice (the staging-corpus runbook in
+[security.md](security.md) says which). The refusal is immediate and says so —
+the plan job, before any leg runs.
+
 `ranged-reads` is the tested `fedcourts corpus-integration-check`
 read set — a point lookup, a priors retrieval, a snapshot provisioning —
-against the real remote blob for a known case, asserting every read comes back
+against the real remote blob for that case, asserting every read comes back
 non-empty, reporting per-read GET/byte counters to the run summary, and
 exiting non-zero on a blown wall-clock budget. `corpus-service` launches the
 same corpus sidecar composite the cell workflows use — with the same
@@ -83,12 +120,14 @@ corpus-split inputs, so under the split the sidecar hydrates from the content
 store exactly as the fleet's does — and probes it through the exact CLI
 surface a cell retrieves with. `stub-cascade` first runs the production
 `provision-snapshot --mode forward --refuse-terminal` command against the
-known case in an isolated data root, failing the leg on a refusal (the same
+settled case in an isolated data root, failing the leg on a refusal (the same
 command is `continue-on-error` in run-predict, so this is where a guard
-drifting to always-refuse surfaces; the dispatched case must be genuinely
+drifting to always-refuse surfaces; the case must be genuinely
 open — snapshot non-terminal, corpus event unresolved, row undecided, no
-committed outcome — since the guard now reads the record as well as the
-snapshot), then runs one offline stub `local-cascade` cell over the ranged
+committed outcome — since the guard reads the record as well as the snapshot,
+which is exactly the gate the resolver asks on the dispatcher's behalf, and the
+obligation a pinned case carries by hand), then runs one offline stub
+`local-cascade` cell over the ranged
 backend, covering provisioning end to end. `mcp-sidecar` launches the same
 CourtListener MCP sidecar composite the
 cell workflows use, deliberately without its optional token input, and runs
@@ -119,10 +158,10 @@ Token-free and credential-free; the extract and the model call stay uncovered
 the unit suite instead (scope, the `--all` measurement form, the row ceiling,
 and the content-store path under the split, all over corpora built in
 `tmp_path`), and the model call is exactly what `run-analytics` pays for.
-`engine-smoke` is the one token-spending scenario: a single real-engine
+`engine-smoke` is one of the two token-spending scenarios: a single real-engine
 predictor cell (the `engine` input picks which — an `all` dispatch ignores it
 and runs one smoke per engine; one predict cell's spend
-against the default open-event case — a resolved event also replays
+against the run's open-event case — a resolved event also replays
 evaluator cells) driven through `local-cascade` with the agent's retrieval on the
 service sidecar and the cascade's own provisioning reads pinned to `ranged`
 via `--corpus-backend` — the full production cell posture, including each
@@ -150,10 +189,36 @@ manifest calls are lifted from the freeform call's source, not from an
 MCP-shaped item, which code mode never emits. No requests at all is the engine
 never reaching the sidecar — a decline, or a sidecar that never came up, since
 health is warn-only on this leg. Observation, not a gate — the leg's verdict is
-still the cell's. Dispatch a scenario around the changes it guards: **before and after any
+still the cell's.
+
+`engine-actions-smoke` is the other, and it answers the question the engine
+smoke cannot. That leg drives the bare CLI through the tested runner seam,
+while a production cell reaches its engine through an **invocation block** —
+`claude-code-action` and `codex-action` at pinned shas, and for gemini the CLI
+step `run-predict` writes out (that engine has no pinned action: the upstream
+one `uses:` unpinned actions the org's SHA-pinning policy rejects). A refusal
+raised in an action's own validation layer fires *before any model call*, so
+the runner-driven smoke passes it unseen and it surfaces first in a paid
+production cell. An action version bump is the live case: it changes what the
+action does with inputs the cells have always sent, and nothing else in the
+gate executes an action. A static comparison of the invocation surfaces cannot
+see that class either — a bump moves every pin consistently, and only running
+the action shows what it does with them. So this
+scenario sends each engine the cell's own block on a prompt that asks for a
+single word and asserts **acceptance** — that the invocation was taken and a
+turn completed — never output quality. One boot probe per engine, per leg
+(the recurring cost is a line in [budget.md](budget.md)); the fidelity of the
+blocks is the whole claim, so the codex one is held in lockstep with both cell
+workflows' by a test, and the two deliberate deviations — the kickoff prompt,
+and handing claude the job's read-capped token instead of minting the cells'
+App token — are marked in the workflow where they are made.
+
+Dispatch a scenario around the changes it guards: **before and after any
 change to corpus access** (the read seams, `corpus_ranged`, the sidecar
 composites, the blob's physical layout) **or to a corpus-consuming workflow**,
-**engine-smoke around any engine CLI version bump or sandbox/config change**,
+**engine-smoke around any engine CLI version bump or sandbox/config change,
+and engine-actions-smoke around any bump to an engine action or to a cell's
+`with:` block**,
 **collect around any change to the `collect-run` composite or the collect
 jobs that call it**, **qp-topic around any change to the `qp-topic-measure`
 composite, the labeling job, or the `qp_topics` module — and before any paid
@@ -200,20 +265,27 @@ out-of-band pointer override names the staging one (*Developer access* in
 supplies no override — so provisioning it, and the repointing that remains,
 are the staging corpus runbook in [security.md](security.md). Changed seams are therefore validated after the
 merge to `staging` rather than on the PR branch; nothing broken reaches `main`
-regardless: the gate needs the nine required integration runs — all seven real
-scenarios, with engine-smoke counted once per engine, or one green
-`scenario=all` run, which covers all nine because it succeeds only when each of
-its eight matrix legs and its collect job does — green at exactly that staging
-head, and `promotion-gate` is a required check on `main`, so it is
+regardless: the gate needs the twelve required integration runs — all eight
+real scenarios, with engine-smoke and engine-actions-smoke counted once per
+engine each, or one green
+`scenario=all` run, which covers all twelve because it succeeds only when each
+of its eleven matrix legs and its collect job does — green at exactly that
+staging head, and `promotion-gate` is a required check on `main`, so it is
 branch-protection-enforced rather than advisory. A `promote` dispatch carrying
 `skip_engine_smoke` narrows what *that pre-flight* asks for to the six
 token-free scenarios, taking a green `scenario=all-offline` run as their
-whole-suite evidence — never by default. It decides nothing about the merge:
-waiving the smokes at the required check is a second, separate act, the
+whole-suite evidence — never by default. Both engine families leave together,
+and must: the whole-suite acceptance the skip unlocks is decided before the
+required set is read, so keeping one family required while accepting an
+`all-offline` run — which ran neither — would satisfy that requirement without
+exercising it. Unsound, not stricter. It decides
+nothing about the merge:
+waiving them at the required check is a second, separate act, the
 `promote:skip-engine-smoke` label on the promotion PR, and the batch that
-carries it merges with no real-engine evidence at its head sha (*Promotion:
+carries it merges with no evidence at its head sha that a real cell runs or
+that its invocation block is still accepted (*Promotion:
 staging → main* in [pipeline.md](pipeline.md) carries the trade). Unlabelled —
-the default — the nine stand between a batch and `main`.
+the default — the twelve stand between a batch and `main`.
 
 > **Status.** The deterministic core and the gate above, the engine seam (with the
 > offline `stub` and `replay` backends), the fixture corpus, the stub cascade that
@@ -324,7 +396,7 @@ run close with the recovery note) — so deleting a load-bearing line fails a
 named test instead of passing every linter. Two of the family go further and
 *run* what the YAML embeds, because a workflow string is matched against the CLI
 for the first time when the job runs: `test_workflow_repair_cli_parity` reads
-each of `run-repair`'s eight dispatch-only maintenance passes back out of the
+each of `run-repair`'s nine dispatch-only maintenance passes back out of the
 workflow — argv, conditional flag arrays and all, via the shared reader
 `tests/workflow_argv.py` — and executes it against the fixture corpus, so a
 renamed flag fails here rather than as a usage error mid-dispatch (its qp

@@ -1055,13 +1055,22 @@ def test_run_seeds_early_validator_duplicates_every_late_refusal_verbatim() -> N
 # input refusals (the questions-presented backfill's convergence check). A new
 # pass that refuses a selector field belongs here; nothing enforces that but
 # this comment.
-REPAIR_PASS_STEPS = (
-    ("repair", "Re-derive the distribution counts"),
-    ("repair", "Converge stored docket markings"),
-    ("repair", "Backfill the dated response signals"),
-    ("repair", "Remove ungranted merits phantoms"),
-    ("repair", "Converge disposition labels"),
-    ("regrade", "Re-grade named cells"),
+#
+# A step may fail at run time as well as refuse its input — the OCR recovery
+# verifies its own write — so each entry carries the substrings of its
+# **run-time** failures, which have no up-front copy by construction: nothing in
+# a credential-free validation job can know whether a content-store write
+# landed. They are named rather than pattern-matched, and each is asserted to
+# actually appear, so the exemption cannot outlive the check it exempts.
+REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("repair", "Re-derive the distribution counts", ()),
+    ("repair", "Converge stored docket markings", ()),
+    ("repair", "Backfill the dated response signals", ()),
+    ("repair", "Recover scanned petitions by OCR", ("apply did not converge",)),
+    ("repair", "Remove ungranted merits phantoms", ()),
+    ("repair", "Converge disposition labels", ()),
+    ("repair", "Repair the sampled-frame weights", ()),
+    ("regrade", "Re-grade named cells", ()),
 )
 
 
@@ -1077,6 +1086,10 @@ def test_run_repairs_selector_gate_duplicates_every_pass_refusal_verbatim() -> N
     same `::error::` text. Let one copy drift and the same mistake reports
     differently depending on where it was caught, which is worse than having
     caught it once.
+
+    A step's **run-time** failures are held apart (`REPAIR_PASS_STEPS`): they
+    report what a write did, which the up-front gate cannot know and must not
+    claim to.
     """
     (early,) = [
         s
@@ -1085,9 +1098,20 @@ def test_run_repairs_selector_gate_duplicates_every_pass_refusal_verbatim() -> N
     ]
     early_errors = _error_lines(str(early["run"]))
     assert early_errors, "the up-front selector gate refuses nothing"
-    for job, owner in REPAIR_PASS_STEPS:
+    for job, owner, runtime in REPAIR_PASS_STEPS:
         late_errors = _error_lines(str(_named_step("run-repair.yml", job, owner)["run"]))
         assert late_errors, f"{owner}: refuses nothing, so the pairing is vacuous"
+        for marker in runtime:
+            matched = {line for line in late_errors if marker in line}
+            assert matched, (
+                f"{owner}: no `::error::` line contains {marker!r} — the run-time "
+                "failure this entry exempts is gone, so the exemption is stale"
+            )
+            late_errors -= matched
+        assert late_errors, (
+            f"{owner}: every refusal it emits is exempted as a run-time failure, "
+            "so the pairing covers nothing"
+        )
         drifted = late_errors - early_errors
         assert not drifted, (
             f"{owner}: refusal text absent from `Validate the repair selector` — "
@@ -1414,10 +1438,13 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
     assert "pr_url=$(gh_retry gh pr list" in report
 
 
-# The codex invocation surface, described in four places that certify each
+# The codex invocation surface, described in five places that certify each
 # other only while they agree: the codex-action steps of the two cell
 # workflows (the action pin and its `codex-version` / `codex-args` / `sandbox`
-# inputs), the npm pins of the same CLI in run-backtest and the engine smoke,
+# inputs), the codex-action step of the `engine-actions-smoke` scenario —
+# whose entire claim is that the cells' input block is still *accepted*, which
+# is worth nothing if the block it sends is not the cells' — the npm pins of
+# the same CLI in run-backtest and the engine smoke,
 # and `CodexRunner.build_command`'s mirrored `-c` overrides. Each carries a
 # "keep in lockstep" comment and nothing else held them together: a member
 # that drifts runs codex under sandbox or web-search semantics nothing else
@@ -1425,7 +1452,20 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
 # is scored against — and the cell still runs, still validates, and stays
 # green.
 CODEX_ACTION_CELL_WORKFLOWS = ("run-predict.yml", "run-evaluate.yml")
+CODEX_ACTION_SMOKE_WORKFLOW = "integration-test.yml"
 CODEX_NPM_PIN_WORKFLOWS = ("run-backtest.yml", "integration-test.yml")
+# The inputs that make the invocation what it is. The prompt and the model
+# deliberately differ on the smoke leg (a boot probe against a resolved
+# default, not a cell against a case); everything that decides how codex runs
+# does not.
+CODEX_LOCKSTEP_INPUTS = (
+    "codex-version",
+    "codex-args",
+    "sandbox",
+    "safety-strategy",
+    "effort",
+    "allow-bot-users",
+)
 # Ends on a word character, never a dot: prose comments in the run blocks can
 # put a sentence-ending period right after a pin.
 _CODEX_NPM_PIN = re.compile(r"@openai/codex@([\w-]+(?:\.[\w-]+)*)")
@@ -1448,26 +1488,43 @@ def _config_overrides(argv: list[str]) -> list[str]:
 
 
 def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> None:
-    """One codex invocation, four surfaces: both cell steps share the action
-    pin and its inputs; the runner mirrors the config overrides and sandbox;
-    the npm installs pin the CLI version the action pins."""
+    """One codex invocation, five surfaces: both cell steps and the
+    action-path smoke share the action pin and its inputs; the runner mirrors
+    the config overrides and sandbox; the npm installs pin the CLI version the
+    action pins."""
     predict, evaluate = (_codex_action_step(name) for name in CODEX_ACTION_CELL_WORKFLOWS)
+    smoke = _codex_action_step(CODEX_ACTION_SMOKE_WORKFLOW)
     assert predict["uses"] == evaluate["uses"], (
         f"the codex-action pin differs between the cell workflows: "
         f"{predict['uses']!r} vs {evaluate['uses']!r} — the v1.11 hold and its "
         f"rationale (the network-access override refusal) apply to both or neither"
     )
-    for key in ("codex-version", "codex-args", "sandbox", "safety-strategy", "effort"):
+    assert smoke["uses"] == predict["uses"], (
+        f"the action-path smoke pins {smoke['uses']!r} but the cells run "
+        f"{predict['uses']!r} — the smoke would certify a version nothing else "
+        f"uses, which is the exact failure it exists to catch"
+    )
+    for key in CODEX_LOCKSTEP_INPUTS:
         # Presence first: a `.get()` comparison would pass vacuously when an
-        # input vanishes from both cells at once, and `safety-strategy` has no
-        # other anchor in the repo.
-        assert key in predict["with"] and key in evaluate["with"], (
-            f"codex-action input {key!r} missing from a cell step — it is part "
-            f"of the lockstep invocation surface"
-        )
+        # input vanishes from every surface at once, and `safety-strategy` has
+        # no other anchor in the repo.
+        for name, step in (
+            ("run-predict.yml", predict),
+            ("run-evaluate.yml", evaluate),
+            (CODEX_ACTION_SMOKE_WORKFLOW, smoke),
+        ):
+            assert key in step["with"], (
+                f"{name}: codex-action input {key!r} is missing — it is part "
+                f"of the lockstep invocation surface"
+            )
         assert predict["with"][key] == evaluate["with"][key], (
             f"codex-action input {key!r} differs between the cell workflows: "
             f"{predict['with'][key]!r} vs {evaluate['with'][key]!r}"
+        )
+        assert predict["with"][key] == smoke["with"][key], (
+            f"codex-action input {key!r} differs between the cells and the "
+            f"action-path smoke: {predict['with'][key]!r} vs {smoke['with'][key]!r} "
+            f"— the smoke's acceptance claim is only about the block it sends"
         )
 
     # The runner's argv is the same invocation for back-tests and the stub
@@ -1505,6 +1562,196 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
             f"{name}: @openai/codex npm pin(s) {sorted(pins)!r} differ from the "
             f"cell steps' codex-version {version!r}"
         )
+
+
+# The one condition every engine-actions-smoke step is gated on. A leg whose
+# steps are gated on something subtly different runs nothing and reports
+# green, which is the vacuous pass the scenario exists to replace.
+ACTIONS_SMOKE_IF = "${{ matrix.scenario == 'engine-actions-smoke' }}"
+ACTIONS_SMOKE_ENGINES = ("claude-code", "codex", "gemini")
+
+
+_GEMINI_SETTINGS = re.compile(r"(\{\"context\":\{\"fileFiltering\".*?\}\}\})")
+
+
+def _gemini_settings_literal(name: str) -> str:
+    """The one `.gemini/settings.json` literal a workflow writes."""
+    found = {
+        match.group(1)
+        for block in _joined_run_blocks(name)
+        for match in _GEMINI_SETTINGS.finditer(block)
+    }
+    assert len(found) == 1, f"{name}: expected one gemini settings literal, found {len(found)}"
+    return found.pop()
+
+
+def _actions_smoke_steps() -> list[dict[str, Any]]:
+    job = _load("integration-test.yml")["jobs"]["scenario"]
+    return [
+        step
+        for step in job["steps"]
+        if "engine-actions-smoke" in str(step.get("if") or "")
+        and "engine-smoke'" not in str(step.get("if") or "")
+    ]
+
+
+def test_the_action_path_smoke_invokes_each_engine_the_way_the_cells_do() -> None:
+    """The `engine-actions-smoke` legs run the cells' own invocation surfaces.
+
+    The scenario claims only that each engine still *accepts* the block a cell
+    sends it — the layer the engine smoke never traverses, since that leg
+    drives the bare CLI through the runner. The claim is worth exactly the
+    fidelity of the blocks, so the pins live here: the two actions at the same
+    shas the cells use (the codex `with:` inputs are compared value by value
+    above), gemini through the same CLI call `run-predict` makes, and every
+    step gated on one spelling of one condition so a leg cannot go green
+    having invoked nothing.
+    """
+    steps = _actions_smoke_steps()
+    assert steps, "the engine-actions-smoke scenario has no steps at all"
+    for step in steps:
+        condition = str(step["if"])
+        engine_clause = [
+            f" && matrix.engine == '{engine}' }}}}" for engine in ACTIONS_SMOKE_ENGINES
+        ]
+        assert condition == ACTIONS_SMOKE_IF or any(
+            condition == ACTIONS_SMOKE_IF.removesuffix(" }}") + clause for clause in engine_clause
+        ), f"unexpected engine-actions-smoke condition: {condition!r}"
+
+    by_id = {step.get("id"): step for step in steps}
+
+    # Claude: the cells' action at the cells' sha, with the inputs that decide
+    # how it runs. `github_token` is the one deliberate deviation — the cells
+    # mint an App token for the agent's issue comment, and a probe must not —
+    # so it is pinned to the job token rather than left free.
+    claude = by_id["actions_smoke_claude"]
+    cell_claude = next(
+        step
+        for step in _load("run-predict.yml")["jobs"]["predict"]["steps"]
+        if str(step.get("uses") or "").startswith("anthropics/claude-code-action@")
+    )
+    assert claude["uses"] == cell_claude["uses"], (
+        "the action-path smoke pins a different claude-code-action than the cells"
+    )
+    assert claude["with"]["allowed_bots"] == cell_claude["with"]["allowed_bots"]
+    assert claude["with"]["anthropic_api_key"] == cell_claude["with"]["anthropic_api_key"]
+    assert claude["with"]["settings"] == cell_claude["with"]["settings"]
+    assert claude["with"]["github_token"] == "${{ github.token }}", (
+        "the smoke must hand claude-code-action the job's read-capped token: "
+        "omitting it triggers the action's OIDC fallback, which mints an "
+        "installation token defaulting to contents/issues/pull-requests write"
+    )
+    # The args the cells pass, minus the model (resolved per engine below).
+    cell_args = {
+        line.strip()
+        for line in str(cell_claude["with"]["claude_args"]).splitlines()
+        if line.strip() and not line.strip().startswith("--model")
+    }
+    smoke_args = {
+        line.strip()
+        for line in str(claude["with"]["claude_args"]).splitlines()
+        if line.strip() and not line.strip().startswith("--model")
+    }
+    assert smoke_args == cell_args, (
+        f"claude_args drifted between the cell and the smoke: {sorted(smoke_args ^ cell_args)}"
+    )
+
+    # Gemini has no pinned action (the upstream one `uses:` unpinned actions),
+    # so its production invocation is the CLI call in run-predict's own step —
+    # which is what this leg must reproduce, flag for flag.
+    gemini = by_id["actions_smoke_gemini"]
+    cell_gemini = next(
+        step
+        for step in _load("run-predict.yml")["jobs"]["predict"]["steps"]
+        if str(step.get("name") or "") == "Predict with Gemini"
+    )
+    invocation = 'gemini --yolo --model "$MODEL_ID" --prompt "$PROMPT" --output-format json'
+    assert invocation in " ".join(str(cell_gemini["run"]).split()), (
+        "the cell's gemini invocation moved; this test's expectation is stale"
+    )
+    assert invocation in " ".join(str(gemini["run"]).split()), (
+        "the smoke's gemini invocation differs from the cell step's"
+    )
+    # The settings file is part of what gemini is invoked *with* — the CLI
+    # reads it at startup and `mcp-config --base-settings` merges over it — and
+    # its schema has twice produced a silent no-op from a wrong namespace, so a
+    # probe sending a trimmed one would certify a configuration the cells do
+    # not run. One literal, compared whole, across the cell step and the
+    # workflow step both engine legs share.
+    settings = _gemini_settings_literal("integration-test.yml")
+    assert settings == _gemini_settings_literal("run-predict.yml"), (
+        "the gemini settings literal drifted between the cell step and the "
+        "integration workflow's — that file is part of the invocation surface"
+    )
+    assert (
+        gemini["env"]["GEMINI_CLI_TRUST_WORKSPACE"]
+        == (cell_gemini["env"]["GEMINI_CLI_TRUST_WORKSPACE"])
+    )
+    assert gemini["env"]["GEMINI_API_KEY"] == cell_gemini["env"]["GEMINI_API_KEY"]
+
+    # Each engine's key reaches only its own leg: the step conditions above
+    # already partition them, and no leg may carry a second engine's secret.
+    for engine, step in (
+        ("claude-code", claude),
+        ("codex", by_id["actions_smoke_codex"]),
+        ("gemini", gemini),
+    ):
+        rendered = yaml.safe_dump(step)
+        for other, secret in (
+            ("claude-code", "ANTHROPIC_API_KEY"),
+            ("codex", "OPENAI_API_KEY"),
+            ("gemini", "GEMINI_API_KEY"),
+        ):
+            if other == engine:
+                continue
+            assert secret not in rendered, f"the {engine} leg carries {other}'s key"
+
+
+def test_the_action_path_smoke_probes_the_model_a_cell_would_run() -> None:
+    """The probe resolves its model from the package, and that is the model a
+    cell resolves too.
+
+    A literal here would drift the day an engine's default moves, leaving the
+    smoke certifying an invocation production no longer makes. So the step
+    reads `DEFAULT_MODELS`, and this holds the other half of that equivalence:
+    the baseline predictors pin no override, so `DEFAULT_MODELS` *is* what the
+    predict matrix resolves into their cells. If one ever takes an override,
+    the smoke has to follow it rather than this assertion being deleted.
+    """
+    predictors = yaml.safe_load((REPO_ROOT / "config" / "predictors.yaml").read_text())
+    baselines = {
+        entry["engine"]: entry
+        for entry in predictors["predictors"]
+        if entry["id"] in {"claude-baseline", "codex-baseline", "gemini-baseline"}
+    }
+    assert set(baselines) == set(ACTIONS_SMOKE_ENGINES)
+    for engine, entry in baselines.items():
+        assert entry.get("model") is None, (
+            f"{entry['id']} pins model {entry['model']!r}, so a cell of this engine no "
+            f"longer runs DEFAULT_MODELS[{engine!r}] — the action-path smoke's model "
+            f"resolution must follow the registry override instead"
+        )
+
+    (resolve,) = [step for step in _actions_smoke_steps() if step.get("id") == "cell"]
+    run = " ".join(str(resolve["run"]).split())
+    assert "from fedcourtsai.pricing import DEFAULT_MODELS" in run
+    for engine in ACTIONS_SMOKE_ENGINES:
+        assert f"{engine})" in run, f"the resolve step names no cell identity for {engine}"
+    # The resolved value rides into an action's `with:` block, so it is
+    # shape-screened before it becomes a step output.
+    assert "*[!a-zA-Z0-9.-]*" in run
+    # And every engine's invocation reads it, rather than one of them keeping
+    # a literal that the resolve step's existence would then hide.
+    readers = {
+        str(step.get("id"))
+        for step in _actions_smoke_steps()
+        if "steps.cell.outputs.model" in yaml.safe_dump(step)
+    }
+    assert readers >= {
+        "actions_smoke_claude",
+        "actions_smoke_codex",
+        "actions_smoke_gemini",
+    }, f"an invocation does not read the resolved model: {sorted(readers)}"
 
 
 def test_the_text_coverage_summary_truncation_matches_the_cli_ledger_headers() -> None:

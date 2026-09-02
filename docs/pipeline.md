@@ -22,7 +22,7 @@ against the pinned login before suspecting the gate.
 | `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
-| _(none)_        | `integration-test` | manual dispatch                 | script; the engine-smoke scenario runs one real agent cell |
+| _(none)_        | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary) |
 | _(none)_        | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | _(none)_        | `promote`        | manual dispatch                     | script (no agent)    |
 | _(none)_        | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
@@ -209,8 +209,10 @@ each as its own least-privilege job holding only the credentials its mode needs:
 ## `integration-test` — the infrastructure preflight
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
-a manual-dispatch, strictly side-effect-free scenario runner over the **corpus
-read backends, the two sidecars, cascade cells, the collect writer, and the
+a strictly side-effect-free scenario runner — manual dispatch, plus one
+scheduled canary — over the **corpus
+read backends, the two sidecars, cascade cells, the engines' own invocation
+blocks, the collect writer, and the
 qp-topic measure path**,
 against the real corpus remote for every scenario but collect and qp-topic —
 the tested `fedcourts corpus-integration-check` read set, a
@@ -220,9 +222,11 @@ sidecar under the tested `mcp-integration-check` client, a stub
 artifacts (corpus-free and environment-free; every write surface stubbed or
 diverted on the runner), the `qp-topic-measure` composite over canned labels
 built from the committed reference set (token-free and credential-free), or
-(the one token-spending scenario) a single real-engine cell over the service
-sidecar — dispatched around changes to corpus access, the sidecars, engine
-CLIs, the collect contract, or the corpus-consuming workflows and before
+(the two token-spending scenarios) a single real-engine cell over the service
+sidecar and a boot probe of each engine's own invocation block
+— dispatched around changes to corpus access, the sidecars, engine
+CLIs or engine actions, the collect contract, or the corpus-consuming
+workflows and before
 releases — from main, or via the `staging` deployment environment (collect
 binds none; qp-topic binds one it never reads) from the `staging` branch, which
 is the only branch that environment accepts (those runs are the promotion
@@ -231,11 +235,31 @@ the dispatching branch by default — `main` gets `prod`, `staging` gets
 `staging`, any other branch an empty environment holding no role variables
 and no keys — and a `scenario=all` dispatch
 fans the gate's whole required suite (every real scenario — collect rides the
-run as its own environment-free job — with engine-smoke once per engine, so
-three cells' token spend) out of one run. `scenario=all-offline` is that same
-suite with the three engine-smoke legs dropped: token-free end to end, and
-whole-suite evidence only for a pre-flight that skipped them (*The
+run as its own environment-free job — with engine-smoke and
+engine-actions-smoke once per engine each, so
+three cells' token spend plus three boot probes) out of one run.
+`scenario=all-offline` is that same
+suite with all six token-spending engine legs dropped: token-free end to end,
+and whole-suite evidence only for a pre-flight that skipped them (*The
 engine-smoke skip* under *Promotion: staging → main* below).
+
+The **daily canary** is the schedule: the three `engine-actions-smoke` legs
+alone, at 11:53 UTC, catching a provider-side or action-side flip between
+promotions rather than waiting for the next paid round. It runs from `main`,
+binds `prod`, and titles itself so that it satisfies no freshness match — a
+canary must never stand in for evidence a promotion has not paid for. GitHub
+cron is best-effort, so a missed day is expected and tolerable; the gate, not
+the canary, is the thing that blocks.
+
+**How a red canary reaches anyone.** Through GitHub's own scheduled-workflow
+failure notification and the workflow's run history — nothing else. It opens no
+issue and posts no comment, because the workflow's side-effect-free invariant
+is what lets it dispatch and run unattended at all, and an alarm that writes is
+a write. So the canary is a *shortened discovery window*, not an alerting
+system: what it guarantees is that the breakage is already in the run history
+when someone next looks, rather than being discovered by a paid round. Check it
+alongside the ops digest, and read a red one the way the run summary states it —
+the leg names which engine's invocation was refused.
 See *Infra-bound integration* in [testing.md](testing.md).
 
 ## `staging-corpus-refresh` — the staging corpus
@@ -409,6 +433,26 @@ not the `candidates` denominator beside them, which rises with every new cert
 grant that has not yet drawn a respondent brief — so a rise there is the
 ordinary docket rather than a widened predicate.
 
+`ocr-recovery` reads the scanned petitions off their page images. A petition
+filed on paper reaches the corpus with no text layer, so nothing was extracted
+for it and every cell minted over that case reads an empty petition — for as
+long as the docket serves the same URL, since the poller and the Term walker
+re-fetch a kind only when its link changes. It is the only pass that installs a
+binary dependency, in its own gated step (`tesseract` and poppler's `pdftoppm`,
+from the runner image's own archive), and the only one whose bound is a **slice
+size** rather than a refusal threshold: each case costs a re-fetch and a
+page-by-page recognition, and runner minutes are the whole cost. A recovered
+petition leaves the class, so successive dispatches drain it — but only the
+recovered ones leave, and what a slice could not recover stays at its head to be
+retried first, which the ledger names case by case. Its `dry-run`
+carries a second reading beside the class count — a small sample of the
+population re-fetched through the writer's own fetch path, reporting what
+supremecourt.gov serves a *writer* rather than what a cell's retrieval reported.
+The apply writes documents, which under the corpus split live in the content
+store rather than the blob, so the pointer cannot witness it: the step re-reads
+the class afterwards and requires exactly what the apply's ledger said it would
+leave behind.
+
 `merits-phantom-removal` drops open merits events whose docket carries no cert
 grant — the shape a live re-poll leaves when it stops reading a grant out of the
 proceedings and overwrites the stored date with NULL. Nothing re-mints one and
@@ -453,6 +497,38 @@ an `apply` is checked against is the widened dry-run's own relabel count, which
 spans the scored and unscored confirmations together. On `apply` the step still
 runs the dry-run into the step summary first, as a receipt of what the rewrite
 acted on.
+
+`sampled-frame-weight-repair` restores the derived sampling weight on the legacy
+denial-sampling frame's latched-down rows: grid denials genuinely inside sampled
+ranges that a channel writing with certainty min-latched to 1, leaving the nine
+petitions each stands for represented by nobody. Where the other passes move
+which bucket a row falls in, this one moves the weights themselves, so every
+weighted denominator that admits IFP rows moves with it — the statpack's and
+docket pack's weighted sections, the ops digest's always-deny floor, and one
+committed prose figure in
+[outcome-decomposition.md](outcome-decomposition.md). Its population, direction
+and expected magnitudes are therefore pre-registered in
+[freeze-record.md](freeze-record.md), and its dry-run ledger is read against that
+entry. Every conjunct of the membership predicate is the guard's own rule — the
+grid test, the walker's cursor, and the density guard's neighbourhood reading —
+so the pass and the ingest seam that has to keep its result cannot drift apart;
+the scope is the entry's, narrower than the rule, and a row the rule reaches
+outside the registered cells is reported in the ledger and left alone rather than
+repaired. The write is a direct `UPDATE` bypassing the column's **min** latch:
+the stored weight only ever latches downward, an inclusion probability only ever
+learned toward certainty, so the same value through the upsert path would be
+discarded silently. Convergence is witnessed inside the command rather than by a
+grep in the step: the apply re-runs its own selection and exits non-zero if
+anything remains, which stops the job before the blob is pushed. No ledger
+surface, so a pointer-only commit. **No scored number moves**: every
+scored-segment cut is gated on a paid serial and this population is IFP, so
+`metrics/leaderboard.json`, `metrics/claim-scores.json` and the back-tests are
+unchanged. **The apply is not finished when the blob is pushed.** The weekly
+metrics refresh regenerates the statpack; `metrics/docket.{json,md}` is on
+demand (`fedcourts docket`) and the whole-slice IFP-inclusive figure in
+[outcome-decomposition.md](outcome-decomposition.md) is hand-written, so neither
+heals on a schedule and a stale copy of either carries no marker saying so. The
+apply's own output names them.
 
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an
@@ -841,20 +917,29 @@ The mechanics:
   flight — no open trigger issue, no unfinished run) and *freshness* (every
   required integration scenario green at exactly the staging head being
   promoted — one green `scenario=all` run, which succeeds only when every
-  matrix leg and its collect job does, satisfies all nine required runs at
-  once, engine-smoke counted once per engine). The `promote` dispatch runs
+  matrix leg and its collect job does, satisfies all twelve required runs at
+  once, engine-smoke and engine-actions-smoke counted once per engine each).
+  The `promote` dispatch runs
   it as pre-flight; ci.yml's `promotion-gate` job runs it as a required
   check on the promotion PR.
   Re-run that check right before merging — quiescence is point-in-time.
-- **The engine-smoke skip, and how far it reaches.** Waiving the three
-  engine-smoke runs costs the only evidence that real engine cells still run
-  in the production posture at the sha being promoted. Whether that evidence
+- **The engine-smoke skip, and how far it reaches.** Waiving the six
+  token-spending engine runs costs every piece of evidence that real engines
+  still run at the sha being promoted: that a cell completes in the production
+  posture (engine-smoke), and that each engine's own invocation block is still
+  accepted by the surface receiving it (engine-actions-smoke) — the second
+  being the class an action version bump breaks, silently, on the very
+  promotion that carries the bump. Both families leave together, and must: the
+  whole-suite acceptance the skip unlocks is decided before the required set is
+  read, so keeping one family required while accepting an `all-offline` run —
+  which ran neither — would satisfy that requirement without exercising it.
+  Unsound, not stricter. Whether that evidence
   is worth its tokens for a given batch is the maintainer's risk call; the
   default at every surface is the full suite, and a batch that cannot affect a
   cell — docs, analytics, non-cell code — is the clear case for waiving.
   It takes **two separate acts**, because a pre-flight and a merge are
   different decisions:
-  - `promote`'s **`skip_engine_smoke` input** drops the smokes from that
+  - `promote`'s **`skip_engine_smoke` input** drops all six from that
     dispatch's freshness check and accepts a token-free `scenario=all-offline`
     run as whole-suite evidence. It buys a cheap answer to *is anything else
     missing* before paying for them, and decides nothing about the merge.
@@ -894,9 +979,15 @@ The full path of a change, operator's view:
 3. Dispatch the required integration scenarios at staging's post-sync head —
    one `scenario=all` dispatch covers the whole suite, or per-scenario runs
    add up to it (the summary prints both forms) — then re-dispatch `promote`.
+   Name the case: a staging dispatch adds `-f court=scotus -f
+   docket=<seeded-slice member>`, because the run-time case resolver reads a
+   candidate window out of the blob's snapshot index and the seeded staging
+   slice, written split-on, carries none — so a dispatch that leaves `docket`
+   empty refuses in the plan job. The staging-corpus runbook in
+   [security.md](security.md) says which cases the slice holds.
    On a cell-inert batch, `promote -f skip_engine_smoke=true` first: it prints
    the `all-offline` form and tells you whether anything *else* is missing
-   before you pay for the smokes, which step 4 still needs.
+   before you pay for the engine legs, which step 4 still needs.
 4. Green promote hands you the `gh pr create` for the staging→main PR; its
    `promotion-gate` check re-verifies quiescence + freshness. Add the batch's
    **stated effect check** to that PR body — what should be true once it is

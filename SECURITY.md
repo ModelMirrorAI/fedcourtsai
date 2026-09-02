@@ -18,6 +18,13 @@ runbook, [docs/security.md](docs/security.md).
   bumps it. The packages `uvx` resolves at run time are *not* in that lock and
   are pinned by version alone: the CourtListener MCP server named in
   `config/predictors.yaml` / `config/evaluators.yaml`, and the workflow linters.
+  A third class is pinned by neither: the OS packages two steps install with
+  `apt-get` — the labeler's sandbox on `run-analytics`, and the OCR recovery's
+  two binaries on `run-repair`. They come from the runner image's own Ubuntu
+  archive, with no third-party repository and no added signing key, so the trust
+  is the runner's rather than ours; an exact version pin would only add a
+  failure the week the image rolls, so the OCR step echoes the versions it
+  resolved into its run summary instead.
 - **Least-privilege permissions.** Every workflow sets top-level `permissions: {}`
   and grants only what each job needs.
 - **No static key in the runner's process env where untrusted code runs.** The
@@ -35,8 +42,10 @@ runbook, [docs/security.md](docs/security.md).
   **MCP sidecar composite's launch step**,
   whose background `fedcourts mcp-serve` process inherits it and serves the
   CourtListener MCP tools over localhost HTTP — the cells launch it, and so
-  does `integration-test`'s engine-smoke **codex** leg, which exists to
-  exercise that very wiring — and the collect job's
+  does `integration-test` — its engine-smoke **codex** leg, which exists to
+  exercise that very wiring, and its engine-actions-smoke legs, whose
+  invocation blocks name the client config that sidecar serves — and the
+  collect job's
   **aggregate step**, where the secret scan (below) needs the live value to
   search the run's output for it — a step that parses agent bytes with
   jq/git/tested Python but never executes them. (Pull's ingestion holds the

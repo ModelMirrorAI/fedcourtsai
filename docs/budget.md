@@ -1026,7 +1026,66 @@ dispatch (driver #1) rides inside the buffer too. A deliberate buffer over the
 actual items; its defining property is that it **does not scale** with events,
 corpus size, or predictor count.
 
-> **Line item: $350/mo flat** (a fixed floor, not a variable).
+The one recurring *inference* item carried here rather than in driver #1: the
+**daily boot canary** — the `engine-actions-smoke` legs of `integration-test`,
+one per engine, on a cron. Each leg sends the engine its production invocation
+block on a prompt that asks for a single word, so what it buys is an acceptance
+check on the invocation path and what it costs is a boot probe: whatever fixed
+preamble that CLI loads before the first token of the prompt, plus a short
+reply. It belongs in this bucket because it moves with none of the dials driver
+#1 does — not `N`, not the corpus, not the number of *predictors* — with one
+caveat this bucket's other items do not carry: it is one leg **per engine**, so
+it is linear in registry *breadth*. Adding a predictor on an existing engine
+costs nothing here; adding an engine adds a probe.
+
+| Engine | Model | ≈ tokens / probe | Rate (in / out per Mtok) | ≈ $/day |
+| --- | --- | --- | --- | --- |
+| Claude Code | `claude-fable-5` | ~20K in (billed as a cache *write*, 1.25×), ~10 out | $10 / $50 | $0.25 |
+| Codex | `gpt-5.6-sol` | ~15K in, ~500 out (`effort: high`) | $5 / $30 | $0.09 |
+| Gemini | `gemini-3.1-pro-preview` | ~12K in, ~10 out | $2 / $12 | $0.02 |
+
+That sums to ≈$0.36/day — **≈$0.12/engine/day, so at most ≈$11/mo and ≈$135/yr
+at three engines**, "at most" because GitHub drops crons under load and a
+skipped window costs nothing. The claude row carries the cache-*creation*
+premium and no read discount on purpose: the leg passes the cells'
+`ENABLE_PROMPT_CACHING_1H`, and a *daily* cadence against a one-hour TTL never
+finds a warm cache, so every probe writes one it will never read.
+
+Treat that as **a bounded tier, not a measurement**, the same way the qp-topic
+labeler's line is treated above. Three things it rests on, each of which can
+move it:
+
+- **The token counts are estimates.** The canary writes no `usage.json` (there
+  is no cell to write one beside), so nothing in the ledger measures it and the
+  figure is re-derived from the provider consoles. The preamble's composition
+  differs per engine — Claude Code loads `CLAUDE.md` and the `AGENTS.md` it
+  imports, codex reads `AGENTS.md` directly, gemini reads neither (no
+  `GEMINI.md`, no `contextFileName`) — so `AGENTS.md` growing moves two rows of
+  three, and each CLI's own system prompt and tool definitions move all three.
+- **The output estimate assumes the probe behaves.** The codex row is the
+  softest: reasoning tokens bill at the output rate, and `effort: high` on a
+  trivial question is not obviously bounded at 500 — at 2K it is $0.14 rather
+  than $0.09. Each leg also runs with the
+  cells' own permissions (`bypassPermissions`, `--yolo`, codex's
+  workspace-write sandbox with network and live search), so "a short reply" is
+  the model obeying *use no tools*. The only hard bound is the per-leg
+  `timeout-minutes: 10` — and a probe that starts spending it is the same event
+  the canary exists to report, so the cost model's assumption fails in the
+  instant the canary fires. Read a red canary as a spend signal too.
+- **It is outside the spend backstop.** The `$2,500 / 30-day` ceiling above
+  reads *measured* cost from the committed `usage.json` ledger, which this line
+  never enters — and unlike the other ledger-invisible inference line, which is
+  bounded by being manual-dispatch-only, this one spends unattended, up to
+  365×/yr. What bounds it is the cron cadence, the three legs the schedule can
+  select, and the 10-minute timeout; not `spend.ceiling_usd`.
+
+The same three legs also ride every `scenario=all` dispatch, adding ≈$0.36 to a
+promotion suite that already spends three engine-smoke cells' worth — on the
+order of $10–20/yr at a plausible 30–50 whole-suite dispatches. Both sit inside
+the buffer below, so the floor is unchanged; state them, do not imply them.
+
+> **Line item: $350/mo flat** (a fixed floor, not a variable), the ≈$11/mo
+> boot canary inside it.
 
 ## Scaling plan: the order of growth
 

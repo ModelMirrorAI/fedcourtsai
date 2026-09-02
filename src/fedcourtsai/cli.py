@@ -183,8 +183,11 @@ from .pipeline.documents import (
     questions_presented_extract,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
+from .pipeline.ingest import UNSAMPLED_WEIGHT
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
+from .pipeline.ocr_recovery import DEFAULT_PROBE_SAMPLE as DEFAULT_OCR_PROBE_SAMPLE
+from .pipeline.ocr_recovery import OcrToolsMissing, recover_scanned_petitions
 from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
 from .pipeline.opinion_enrichment import enrich_opinions
 from .pipeline.outcome import (
@@ -211,6 +214,10 @@ from .pipeline.salience import (
     reconcile_salience_selection,
     registered_versions,
     unlatch_overselected,
+)
+from .pipeline.sampled_frame_repair import (
+    SampledFrameWeightRepair,
+    repair_sampled_frame_weights,
 )
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
@@ -1371,6 +1378,167 @@ def backfill_questions_presented_cmd(
     typer.echo(result.model_dump_json())
 
 
+@app.command("ocr-recover-petitions")
+def ocr_recover_petitions_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Re-fetch, OCR and write the recovered petitions; omit for a dry-run "
+            "that enumerates the class and probes the fetch path.",
+        ),
+    ] = False,
+    max_cases: Annotated[
+        int | None,
+        typer.Option(
+            "--max-cases",
+            help="Per-dispatch slice size, required with --apply: the number of "
+            "scanned petitions this run re-fetches and OCRs.",
+        ),
+    ] = None,
+    probe: Annotated[
+        int,
+        typer.Option(
+            "--probe",
+            help="Dry-run only: how many of the population's stored URLs to re-fetch "
+            "through the writer's own fetch path and report the status of. 0 fetches nothing.",
+        ),
+    ] = DEFAULT_OCR_PROBE_SAMPLE,
+) -> None:
+    """Read the scanned petitions off their page images and store what comes back.
+
+    A petition filed on paper reaches the corpus with no text layer, so the
+    extractor stored nothing for it and every cell minted over that case reads an
+    empty petition — for as long as the docket keeps serving the same URL, since
+    the poller and the Term walker re-fetch a kind only when its link changes.
+    This is the pass that repairs it, on the terms in *Contract for the recovery
+    pass* (`docs/live-sources.md`): the population is stored **petitions** whose
+    text is empty or whitespace-only and whose page count is above zero (a
+    zero-page row is a PDF the extractor could not open, which is not OCR's to
+    repair, and a case with no petition row at all is a fetch gap); each is
+    re-fetched by its own stored URL on supremecourt.gov, free and
+    politeness-capped, so the pass spends none of the CourtListener budget; and
+    its pages go through the extractor with the OCR seam supplied, which reads a
+    page off its rendered image only where that page's own extraction yielded
+    nothing. The same per-document character cap and truncation flag bound the
+    result, so a recovered petition is bounded exactly like a fetched one, and
+    every recovered row carries `ocr_derived`: OCR output is derived text, and
+    must never read as a clean extraction. Additive — text is written only where
+    the stored row held none — and a recovered petition re-derives its
+    `questions-presented` row through the ingest path's own deriver, which
+    carries the marker with it.
+
+    The two modes do different work. The **dry run** enumerates the class, OCRs
+    nothing and writes nothing, and re-fetches `--probe` of the population's
+    stored URLs through the same client, headers and retry posture the fetching
+    lanes use, reporting what each GET came back with — the reading that says
+    whether the writer's fetch path is served before an apply spends a slice
+    finding out. The **apply** takes the first `--max-cases` candidates in
+    `case_id` order: the bound is a *slice size* rather than a refusal
+    threshold, because each case costs a fetch and a page-by-page recognition
+    and runner minutes are the whole cost, so a backlog clears across dispatches
+    rather than in one long job. The slice is self-advancing — a recovered
+    petition leaves the class — with one exception the ledger names apart: a
+    petition whose images OCR to nothing stays in the class and re-enters the
+    next slice.
+
+    Local OCR only: `pdftoppm` renders a page and `tesseract` reads it, neither a
+    Python dependency and both installed by the `run-repair` OCR step alone, so
+    no scheduled lane grows them. An apply with work to do refuses where they are
+    absent. Its apply half is a writer-lane pass by construction — the
+    corpus-write credentials exist only there — and the lane invocation is
+    run-repair's `ocr-recovery` pass. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_cases is None:
+        typer.echo(
+            "ocr-recover-petitions: --apply requires an explicit --max-cases. "
+            "Read the dry run first and pass the slice you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the OCR recovery.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cfg = load_historical_config(settings.config_root)
+    if apply:
+        # The pointer the recovery is about to supersede — the corpus state the
+        # ledger below describes. Under the split mode the durable write is the
+        # content store's, so this names the index the store was consistent with
+        # rather than the place the replaced rows are recoverable from.
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    try:
+        with (
+            corpus.connect(db_path) as conn,
+            SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
+        ):
+            result = recover_scanned_petitions(
+                conn,
+                client=client,
+                apply=apply,
+                char_cap=cfg.document_text_cap,
+                today=date.today(),
+                max_cases=max_cases,
+                probe_sample=probe,
+            )
+    except OcrToolsMissing as exc:
+        typer.echo(f"ocr-recover-petitions: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    if not result.petitions_seen:
+        # Zero candidates has two causes and they are not the same run: a
+        # converged class, and a blob whose documents this process cannot read —
+        # a split-mode index with no content store configured serves every case
+        # an empty document list, which would otherwise report as a clean pass
+        # over an empty class. The denominator is what tells them apart.
+        typer.echo(
+            f"ocr-recover-petitions: no stored petitions in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "recovered" if apply else "would attempt"
+    # A dry run states the whole class, since it takes no slice; the number a
+    # maintainer carries into `--max-cases` is that count, or as much of it as
+    # one dispatch should spend.
+    counted = result.recovered if apply else result.candidates
+    typer.echo(
+        f"ocr-recover-petitions ({'applied' if apply else 'dry-run'}): "
+        f"{result.candidates} scanned petition(s) in the class of "
+        f"{result.petitions_seen} stored petition(s) — "
+        f"{verb} {counted}, {result.remaining} left for the next slice"
+    )
+    if apply:
+        typer.echo(
+            f"  attempted {result.attempted} (bound {result.bound}); "
+            f"{result.empty_after_ocr} still empty after OCR; "
+            f"{result.questions_rederived} questions-presented row(s) re-derived"
+        )
+        losses = ", ".join(f"{reason}: {count}" for reason, count in result.unfetched.items())
+        typer.echo(f"  unfetched: {losses or 'none'}")
+    for case_id, detail in result.recoveries.items():
+        typer.echo(f"  {case_id}: {detail}")
+    for case_id, reason in result.failures.items():
+        typer.echo(f"  {case_id}: NOT RECOVERED ({reason})")
+    for entry in result.probes:
+        # The dry run's second reading: what the writer's own fetch path gets
+        # back from supremecourt.gov, before a slice is spent finding out.
+        typer.echo(
+            f"  probe {entry.case_id}: {entry.outcome} "
+            f"(status {entry.status if entry.status is not None else 'none'}, "
+            f"{entry.bytes_fetched} bytes) {entry.url}"
+        )
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(result.model_dump_json())
+
+
 @app.command("enrich-opinions")
 def enrich_opinions_cmd(
     apply: Annotated[
@@ -2241,6 +2409,167 @@ def normalize_docket_markings_cmd(
         # key here and is still left alone there.
         note = " [shares a normalized identity with another row]" if entry.shares_identity else ""
         typer.echo(f"  {verb} {entry.case_id}: {entry.was!r} -> {entry.now!r}{note}")
+
+
+def _repair_cell_label(entry: SampledFrameWeightRepair) -> str:
+    """One repair's walk cell, as the ledger names it.
+
+    The Term is rendered from the corpus's own century pivot rather than a local
+    ``20{term}``: the ledger's out-of-scope lines are where a maintainer
+    adjudicates a population the freeze record does not cover, and a pre-2000
+    docket misnamed there is a misread of exactly the row that most needs
+    reading. Falls back to the two-digit term where the pivot declines the
+    number, rather than guessing a century.
+    """
+    term, stream = entry.cell
+    named = f"OT{entry.term_year}" if entry.term_year is not None else f"term {term:02d}"
+    return f"{named}/{stream}"
+
+
+@app.command("repair-sampled-frame-weights")
+def repair_sampled_frame_weights_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the derived weights; omit for a dry-run ledger."),
+    ] = False,
+    max_repairs: Annotated[
+        int | None,
+        typer.Option(
+            "--max-repairs",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
+        ),
+    ] = None,
+) -> None:
+    """Restore the derived sampling weight on the registered latched-down rows.
+
+    The registered repair of the legacy denial-sampling frame
+    (``docs/freeze-record.md``): live-slice SCOTUS rows the guarded rule
+    ``legacy_denial_sample_weight`` derives at the sampled weight and that are
+    **stored at 1** — grid denials genuinely inside sampled ranges, min-latched
+    to certainty by a channel that asserted it, so the nine petitions each stands
+    for are represented by nobody.
+
+    Every conjunct of the membership predicate is the guard's own rule rather
+    than a restatement of it — the grid, the walker's cursor, the density guard's
+    neighbourhood reading — so the pass and the writer that has to keep its
+    result cannot drift apart. The *scope* is the freeze record's and is narrower
+    than the rule: only rows inside the eight ``historical-ifp`` OT2017-OT2024
+    cells are repaired. A row the rule derives at the sampled weight outside them
+    is a different population needing its own entry, so it is reported and left
+    alone.
+
+    The write is a direct ``UPDATE`` that deliberately bypasses the upsert path's
+    **min latch**: the stored weight only ever latches downward, an inclusion
+    probability only ever learned toward certainty, so the same 1 → 10 routed
+    through ``upsert_rows`` would report success having changed nothing. What
+    replaces the latch is the guard, which is narrower than it — a row whose
+    block the corpus now stores row by row derives 1 and is never selected — so
+    the pass cannot invent a petition the corpus already counts. It moves the
+    weights themselves rather than which bucket a row falls in, so every weighted
+    denominator that admits IFP rows moves with it, which is why it is a
+    registered decision on the frame rather than a convergence sweep.
+
+    The apply witnesses itself: the selection is re-run over the written corpus
+    and must come back empty, and this exits non-zero if it does not. That is the
+    check the pointer cannot be, a direct ``UPDATE`` of a column no downstream
+    artifact recomputes moving the blob whether or not it moved the right rows.
+
+    Run where the corpus is pulled — a dev checkout dry-runs it, and the apply
+    half belongs in run-repair's ``sampled-frame-weight-repair`` pass, which holds
+    the corpus-write credentials. ``--apply`` refuses above ``--max-repairs``:
+    read the dry-run ledger and pass the count you are approving. Fails loud if
+    the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_repairs is None:
+        typer.echo(
+            "repair-sampled-frame-weights: --apply requires an explicit --max-repairs. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the repair.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = repair_sampled_frame_weights(conn, apply=apply, max_repairs=max_repairs)
+    # A refused apply is labelled as one rather than as a dry run: nothing was
+    # written either way, but the ledger's own header is what a reader attributes
+    # it to, and "dry-run" on a dispatch that asked to write is the wrong
+    # provenance.
+    if result.refused:
+        mode, verb = "refused", "refused to repair"
+    elif result.applied:
+        mode, verb = "applied", "repaired"
+    else:
+        mode, verb = "dry-run", "would repair"
+    typer.echo(
+        f"repair-sampled-frame-weights ({mode}): "
+        f"{verb} {len(result.repairs)} row(s) of {result.scanned} live-slice SCOTUS "
+        f"denial(s) stored at weight {UNSAMPLED_WEIGHT}; "
+        f"{len(result.out_of_registration)} outside the registered cells, untouched"
+    )
+    for entry in result.repairs:
+        typer.echo(
+            f"  {verb} {entry.case_id} ({entry.docket_number}): {entry.was} -> {entry.now} "
+            f"[cell {_repair_cell_label(entry)}, serial {entry.serial}, "
+            f"{entry.block_neighbours} stored neighbour(s) in its block]"
+        )
+    for entry in result.out_of_registration:
+        # Named, not counted away: the freeze-record entry's predicate is the
+        # pass's scope law, and a row the rule reaches outside it is the shape a
+        # widening would take. A maintainer reading only the repairs would never
+        # see it.
+        typer.echo(
+            f"  outside the registered cells, untouched: {entry.case_id} "
+            f"({entry.docket_number}) would be {entry.was} -> {entry.now} "
+            f"[cell {_repair_cell_label(entry)}] — a different population, and one that "
+            "needs its own freeze-record entry before any pass touches it",
+            err=True,
+        )
+    if result.refused:
+        typer.echo(
+            f"repair-sampled-frame-weights: refusing to apply {len(result.repairs)} repair(s) "
+            f"(--max-repairs {max_repairs}). Nothing was written. The population is fixed by "
+            "the registered predicate, so a count above the one read off the dry run means "
+            "the predicate reached rows the freeze record does not cover — triage the ledger "
+            "above before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if result.applied and result.remaining:
+        # The apply's own witness. A direct UPDATE of a column nothing downstream
+        # recomputes moves the blob whether or not it moved the right rows, so a
+        # re-derivation that still selects rows is a failed apply reported as one
+        # — before the workflow pushes the blob.
+        typer.echo(
+            f"repair-sampled-frame-weights: the apply did not converge — the re-derivation "
+            f"still selects {result.remaining} row(s). The write reached fewer rows than the "
+            "ledger named; do not push this blob without triaging it.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if result.applied and result.repairs:
+        # The follow-through, printed where the apply's own record is rather than
+        # left in a doc: the corpus now disagrees with every committed weighted
+        # artifact, and only some of them heal on a schedule. Named individually
+        # because the on-demand ones carry no marker distinguishing a stale pack
+        # from a current one.
+        typer.echo(
+            "repair-sampled-frame-weights: the weighted artifacts are now stale against the "
+            "corpus. The scheduled metrics refresh regenerates the statpack; "
+            "metrics/docket.{json,md} is on demand (fedcourts docket) and the IFP-inclusive "
+            "whole-slice relist figure in docs/outcome-decomposition.md is hand-written — "
+            "neither heals on its own. The ops digest's always-deny floor re-bases here too. "
+            "No scored number moves: every scored-segment cut is gated on a paid serial and "
+            "this population is IFP.",
+            err=True,
+        )
 
 
 @app.command("backfill-response-fields")

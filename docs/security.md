@@ -257,8 +257,9 @@ Every secret and the two production S3 role ARNs live on the `prod`
 environment — the App
 credentials, the Anthropic API key, the Codex/OpenAI key, the Gemini API key,
 the CourtListener API token (used by pull's ingestion; by the MCP
-sidecar composite's launch step — the cells', and `integration-test`'s
-engine-smoke **codex** leg, which wires the same sidecar to exercise it —
+sidecar composite's launch step — the cells', `integration-test`'s
+engine-smoke **codex** leg, and its engine-actions-smoke legs, all of which
+wire the same sidecar to exercise it —
 whose background `mcp-serve` process serves agent
 retrieval over localhost, the cells having no REST fallback, so no agent step
 carries the token and no client config file does either; unset degrades the
@@ -418,6 +419,21 @@ untrusted docket text — the engine-smoke legs — could otherwise mint the
 write role's credentials, so the scrub is now load-bearing for the staging
 pair's write integrity too.
 
+The scrub reaches only agents the **runner seam** spawns, and the workflow has
+agent legs that go around it: `engine-actions-smoke` drives each engine through
+its own invocation surface (two actions and a direct CLI call), so those agent
+processes inherit the job environment — the OIDC request token among it — in a
+job that holds `id-token: write` and can bind `staging`. What stands in the
+scrub's place there is the **input**, and only the input: those legs hand the
+model a fixed one-word probe and nothing else — no docket text, no corpus, no
+snapshot, no retrieved document (the case resolver is deliberately not run for
+them). That is the invariant, and it is the one anyone giving those legs a real
+prompt would break: a probe that reads untrusted text would need the scrub the
+runner seam provides, which its invocation path cannot give it. Against `prod`
+the property is not new — the production claude and codex cells have exactly
+the same shape against a read-only role — but against `staging` it is what
+keeps an agent leg away from the only write-capable role outside production.
+
 What corrupting it *costs* depends on a coupling worth stating rather than
 discovering. While the `staging` environment still names the production pair,
 nothing committed depends on the staging corpus — the scenarios read
@@ -472,13 +488,16 @@ nothing for such a dispatch to reach. Its only
 real credential is the ambient read-only token that lists and fetches the
 run's own synthetic cell artifacts.
 
-The workflow's engine-smoke scenario additionally — beyond the role
-variables — reads one model-provider
-secret — the selected engine's API key, chosen by expression ternary so the
-other engines' keys never enter the job. An `all` dispatch fans one smoke per
+The workflow's two engine scenarios additionally — beyond the role
+variables — read one model-provider
+secret — the running engine's API key, chosen by expression ternary (or, on
+the engine-actions-smoke legs, by the per-engine step conditions the legs are
+partitioned on) so the
+other engines' keys never enter the job. An `all` dispatch fans one of each per
 engine, so a single run reads all three keys — each confined to its own job —
-and spends three cells; `all-offline`, the same suite without the smoke legs,
-reads no engine key and spends nothing. The keys live on the `prod`
+and spends three cells plus three boot probes; `all-offline`, the same suite
+without either family, reads no engine key and spends nothing. The keys live on
+the `prod`
 environment and, as **separate per-environment secrets**, on `staging` — a
 smoke dispatched at the staging head spends against staging's own keys
 (independently revocable, isolated from tournament spend), so a promotion's
@@ -486,10 +505,32 @@ freshness runs cannot touch the tournament's budget. Spend is gated the same way
 the read-only role is: by who may dispatch, and from which branch. A dispatch
 naming an environment without the keys gets an
 empty key and fails closed right alongside the role variables, independent of
-step ordering. A codex smoke reads one secret more — the CourtListener token,
+step ordering.
+
+The **scheduled canary** is the one exception to "by who may dispatch": it runs
+unattended. It is also the one engine spend that lands on `prod`'s keys without
+a human act, because a schedule runs from the default branch and the branch
+resolution then binds `prod`. That is bounded rather than open-ended — three
+boot probes a day, sized and stated in [budget.md](budget.md) — and it is
+bounded by construction rather than by trust: the canary's legs come from the
+same suite literal the promotion gate requires, it can start no other scenario,
+and a schedule reaches no branch but `main`, so changing what it spends is a
+promotion, reviewed like any other. A codex smoke reads one secret more — the CourtListener token,
 which reaches only the MCP sidecar composite's launch step env, exactly as a
 live cell's does, so the agent step and the generated client config carry a
-localhost URL and no token. That leg exists to exercise the MCP wiring itself:
+localhost URL and no token. Every engine-actions-smoke leg reads that same one,
+for the same reason and by the same route: each drives the cell's invocation
+block, which names the client config the composite's sidecar serves. Two
+further notes on those legs. They hand `claude-code-action` the job's own
+token rather than minting the cells' App token — the job's permissions cap it
+at `contents: read`, and omitting it entirely is worse, since the action then
+falls back to an OIDC exchange that mints an installation token defaulting to
+write. And their codex leg is the one place in this workflow where the codex
+sandbox runs the cells' `drop-sudo` safety strategy, so its userns prerequisite
+is the live cells' prerequisite exactly, not the runner seam's relaxation
+described below. The agent in these legs sees no docket text at all: its prompt
+is a fixed one-word probe. The codex-smoke leg exists to exercise the MCP
+wiring itself:
 it is the one engine whose transcript shapes no committed retrieval log has
 ever exhibited, and the leg distills its rollout to item types and key names
 (never a value) as an uploaded artifact — written to the runner temp dir
@@ -999,12 +1040,15 @@ the repoint. Read step 5's two ordering notes before doing either.
      -f court=scotus -f docket=74112233
    ```
 
-   **Name a slice member explicitly.** The scenario's default case is a
-   production docket, and the slice is a lean cut that does not hold it — a
-   defaulted dispatch fails as a missing case, which reads as a regression
-   and is not one. The case must also meet the scenario's own input contract:
-   an open event, a snapshot in the content store, and — for the provisioning
-   guard — a genuinely undisposed posture. The apply run's per-case census
+   **Name a slice member explicitly.** A dispatch that leaves `docket` empty
+   resolves its case at run time, and the resolver's candidate window is
+   driven from the blob's snapshot index — which a slice seeded split-on does
+   not have, since its snapshots live in the content store. So the resolver
+   refuses on this pair (loudly, in the plan job, before any leg runs) and a
+   staging dispatch names its own case. The case must meet the same contract
+   the resolver would have enforced: an open event, a snapshot in the content
+   store, and — for the provisioning guard — a genuinely undisposed posture.
+   The apply run's per-case census
    lists the slice's cases with their row/event/snapshot/document counts, so
    it narrows the field to cases carrying events and snapshots; whether one
    is *open* and *undisposed* is a `fedcourts query` against the pair.

@@ -596,8 +596,12 @@ def _combine_bio_documents(
         case_id=case_id,
         kind=KIND_BRIEF_IN_OPPOSITION,
         # The canonical join of the briefs actually FETCHED — the idempotency
-        # key (see above), not a single fetchable URL. Nothing GETs a stored
-        # CaseDocument.url; the individual DocumentRef.url values are what fetch.
+        # key (see above), not a single fetchable URL — the individual
+        # DocumentRef.url values are what fetch here. One reader does GET a
+        # stored `CaseDocument.url` back, the OCR recovery pass, and it is sound
+        # only because its population is petitions, whose stored URL is the one
+        # link that was fetched. Widening that population to this kind would
+        # hand it a pipe-joined set key as a URL.
         url="|".join(sorted(fetched_urls)),
         entry_date=bio_refs[-1].entry_date,  # the latest filing's date
         fetched_at=today,
