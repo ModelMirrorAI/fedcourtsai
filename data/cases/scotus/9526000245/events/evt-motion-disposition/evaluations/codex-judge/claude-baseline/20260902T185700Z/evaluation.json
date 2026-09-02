@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "A short-lived, fact-bound pro se pretrial bond dispute with no response request, referral, amici, or apparent broader doctrinal significance."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9908828303850156,
+  "case_id": "scotus/9526000245",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.010868316289262235
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.010868316289262235,
+    "total": 0.010868316289262235
+  },
+  "correct": 1,
+  "created_at": "2026-09-02T19:23:01Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The fully captured case-specific retrieval returned documents dated no later than August 25, 2026, before the August 27 resolution. No query or rationale surfaced the disposing order or treated the application as already decided.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-5.6-sol",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260825T231742Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9fb7b6f1683a7bcb363cb19ae2084dfec734a9e1251b7b9fcc41dd2564aaff78",
+    "label": "proc-v5",
+    "pipeline_sha": "45d32a37b94c5cb7f36348c6045f152c33049bfc",
+    "stamped_at": "2026-09-02T19:25:15.209779Z"
+  },
+  "reasoning_quality": 0.91,
+  "run_id": "20260902T185700Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

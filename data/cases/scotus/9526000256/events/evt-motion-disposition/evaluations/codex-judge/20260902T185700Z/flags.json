@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000256",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "All three blinded predictions are marked forward but were created after the outcome's 2026-08-28 resolution date. gemini-baseline then queried the exact SCOTUS docket with all results unobserved, producing a possible-influence leakage grade; candidates a and c did not show the outcome in the staged evidence.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260902T185700Z",
+  "schema_version": "1.0"
+}

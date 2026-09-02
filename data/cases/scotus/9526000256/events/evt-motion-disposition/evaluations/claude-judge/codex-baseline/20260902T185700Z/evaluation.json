@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Pro se application to enjoin the district court presiding over the applicant's own ADA employment suits; denied by the Circuit Justice in one line with no response requested, no referral, no amicus, and no visible public reaction. Minimal stakes beyond the applicant."
+  },
+  "brier_score": 0.000225,
+  "brier_skill_score": 0.9794863683662851,
+  "case_id": "scotus/9526000256",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": 0.010743316289262235
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.010743316289262235,
+    "total": 0.010743316289262235
+  },
+  "correct": 1,
+  "created_at": "2026-09-02T19:18:44Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "possible",
+    "mode": "forward",
+    "notes": "The event resolved 2026-08-28; this forward cell ran 2026-08-31 and its provisioned snapshot (2026-08-31.json) itself contains the disposition entry 'Aug 28 2026 \u2014 Application (26A256) denied by Justice Thomas.' The captured log shows the snapshot was read in full, so outcome-revealing material about this case was in the material the cell read. Nothing indicates deliberate use: the reasoning inventories the docket as though the Aug 11 submission were its last entry, the forecast places the disposition in September 2026 (inconsistent with knowing it had already happened), and the stated P(grant) of 0.015 is less extreme than the blind 08-29 candidates' 0.01 \u2014 the denial entry appears to have been overlooked. But with the outcome literally inside the input the cell read, influence cannot be excluded, so the grade is possible rather than none.",
+    "retrieved_outcome_material": true
+  },
+  "leakage_suspected": true,
+  "model": "claude-fable-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260831T165743Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:11a0afbcba271935c8ead785b5c13fc2b1e43a4e18e9450a04fa41df9658a0f2",
+    "label": "proc-v5",
+    "pipeline_sha": "45d32a37b94c5cb7f36348c6045f152c33049bfc",
+    "stamped_at": "2026-09-02T19:21:04.555920Z"
+  },
+  "reasoning_quality": 0.68,
+  "run_id": "20260902T185700Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
