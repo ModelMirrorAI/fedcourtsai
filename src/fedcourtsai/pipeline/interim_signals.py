@@ -254,6 +254,53 @@ def response_filed_date(entries: list[tuple[str, str | None]]) -> date | None:
     return _first_dated(entries, _RESPONSE_FILED_RE)
 
 
+def application_arrival_date(
+    docket_number: str, entries: list[tuple[str, str | None]]
+) -> date | None:
+    """When the application itself reached the docket, or ``None``.
+
+    The interim stage's arrival moment, read where the docket itself records
+    it. The application form's docketing date is not always there to take, and
+    on a row that carries none the submission entry is the only record of when
+    the application arrived — without it the baseline declares an arrival
+    moment whose date the corpus never held, and provisioning cannot place a
+    cell at a moment it cannot date. It is also the better reading even where
+    both exist: the cut a declared moment takes must keep the entry that states
+    the application, and only this date is that entry's own.
+
+    Anchored on the docket's **own** number in the parenthesized form the Clerk
+    writes it in ("Application (26A11) for a stay, submitted to ..."), so a
+    recital of a companion matter's application cannot supply the date. The
+    anchor is the number **alone** in its parentheses, which means the
+    consolidated form :func:`match_interim_disposition` reads ("applications
+    for stays (23A349, 23A350) …") is not matched here: a docket whose only
+    naming entries are consolidated yields ``None`` and keeps its docketing
+    date, which is the safe direction — an arrival read off a companion's
+    filing would place the cell at a moment this docket never had.
+
+    The **earliest** dated match wins, where :func:`_first_dated` takes the
+    first match in docket order. The two rules differ because the readings do:
+    a response entry names a distinct filing whose first occurrence is the
+    moment, while every match here is the *same* application, so the earliest
+    is simply the one fact being read and no ordering assumption is needed to
+    get it.
+
+    ``None`` where the number is unusable or no entry naming it carries a
+    readable date. Undated entries are skipped rather than guessed at, the same
+    discipline :func:`_first_dated` applies and for the same reason: this date
+    opens an event and fixes the moment a forecast is taken from.
+    """
+    number = docket_number.strip()
+    if not number:
+        return None
+    anchor = re.compile(r"\(\s*" + re.escape(number) + r"\s*\)", re.I)
+    filed: list[date] = []
+    for text, raw in entries:
+        if anchor.search(text) and (when := entry_date(raw)) is not None:
+            filed.append(when)
+    return min(filed) if filed else None
+
+
 def _first_dated(entries: list[tuple[str, str | None]], pattern: re.Pattern[str]) -> date | None:
     """The earliest fully-dated entry matching ``pattern``, in docket order.
 
