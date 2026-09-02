@@ -433,6 +433,26 @@ not the `candidates` denominator beside them, which rises with every new cert
 grant that has not yet drawn a respondent brief — so a rise there is the
 ordinary docket rather than a widened predicate.
 
+`ocr-recovery` reads the scanned petitions off their page images. A petition
+filed on paper reaches the corpus with no text layer, so nothing was extracted
+for it and every cell minted over that case reads an empty petition — for as
+long as the docket serves the same URL, since the poller and the Term walker
+re-fetch a kind only when its link changes. It is the only pass that installs a
+binary dependency, in its own gated step (`tesseract` and poppler's `pdftoppm`,
+from the runner image's own archive), and the only one whose bound is a **slice
+size** rather than a refusal threshold: each case costs a re-fetch and a
+page-by-page recognition, and runner minutes are the whole cost. A recovered
+petition leaves the class, so successive dispatches drain it — but only the
+recovered ones leave, and what a slice could not recover stays at its head to be
+retried first, which the ledger names case by case. Its `dry-run`
+carries a second reading beside the class count — a small sample of the
+population re-fetched through the writer's own fetch path, reporting what
+supremecourt.gov serves a *writer* rather than what a cell's retrieval reported.
+The apply writes documents, which under the corpus split live in the content
+store rather than the blob, so the pointer cannot witness it: the step re-reads
+the class afterwards and requires exactly what the apply's ledger said it would
+leave behind.
+
 `merits-phantom-removal` drops open merits events whose docket carries no cert
 grant — the shape a live re-poll leaves when it stops reading a grant out of the
 proceedings and overwrites the stored date with NULL. Nothing re-mints one and

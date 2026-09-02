@@ -18,6 +18,13 @@ runbook, [docs/security.md](docs/security.md).
   bumps it. The packages `uvx` resolves at run time are *not* in that lock and
   are pinned by version alone: the CourtListener MCP server named in
   `config/predictors.yaml` / `config/evaluators.yaml`, and the workflow linters.
+  A third class is pinned by neither: the OS packages two steps install with
+  `apt-get` — the labeler's sandbox on `run-analytics`, and the OCR recovery's
+  two binaries on `run-repair`. They come from the runner image's own Ubuntu
+  archive, with no third-party repository and no added signing key, so the trust
+  is the runner's rather than ours; an exact version pin would only add a
+  failure the week the image rolls, so the OCR step echoes the versions it
+  resolved into its run summary instead.
 - **Least-privilege permissions.** Every workflow sets top-level `permissions: {}`
   and grants only what each job needs.
 - **No static key in the runner's process env where untrusted code runs.** The

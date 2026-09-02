@@ -76,7 +76,14 @@ REMOTE_COMMANDS = frozenset({"corpus-push", "corpus-pull"})
 #: the *fixture* corpus lacks rather than to anything about the argv. The
 #: fixture stores no petition text, so the questions-presented backfill refuses
 #: the blob outright — after parsing every flag it was handed.
-BENIGN_REFUSALS = {"backfill-questions-presented": "no stored petition text"}
+BENIGN_REFUSALS = {
+    "backfill-questions-presented": "no stored petition text",
+    # Same fixture, same reason from the other side: the OCR recovery reads the
+    # petition *rows*, and a corpus holding none is the wrong blob rather than a
+    # converged class — the refusal that tells a misconfigured content store
+    # apart from a corpus with nothing left to repair.
+    "ocr-recover-petitions": "no stored petitions",
+}
 
 
 def _workflow() -> dict[Any, Any]:
@@ -271,7 +278,7 @@ def _seed_stamped_cell(data_root: Path) -> None:
 
 @pytest.mark.parametrize("pass_name", _passes())
 def test_every_run_repair_pass_still_parses_against_the_cli(pass_name: str, tmp_path: Path) -> None:
-    """Each pass's own argv, executed. The drift detector for all nine."""
+    """Each pass's own argv, executed. The drift detector for every one of them."""
     invocations = _pass_invocations(pass_name)
     assert invocations, (
         f"no `uv run fedcourts` invocation found for repair={pass_name} — either the "
@@ -285,8 +292,8 @@ def test_every_run_repair_pass_still_parses_against_the_cli(pass_name: str, tmp_
 def test_the_repair_prerequisites_still_parse_against_the_cli(tmp_path: Path) -> None:
     """The ungated steps every dispatch runs, whichever pass it selected.
 
-    The dedupe runs before any pass and in both modes, so drift here breaks all
-    nine at once — and it breaks them *before* the selected pass, which reads
+    The dedupe runs before any pass and in both modes, so drift here breaks
+    every one at once — and it breaks them *before* the selected pass, which reads
     as the pass being broken.
     """
     invocations: list[list[str]] = []
