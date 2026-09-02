@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import sqlite3
 import sys
@@ -1378,6 +1379,48 @@ def backfill_questions_presented_cmd(
     typer.echo(result.model_dump_json())
 
 
+def _ocr_slice_deadline(started: float, seconds: float | None) -> float | None:
+    """The monotonic instant an OCR slice may no longer start new work at.
+
+    Zero is a legitimate budget — it starts nothing and reports the whole slice
+    unreached, which is the honest reading of a caller with no time left — but a
+    negative one is a typo, and reading it as "already spent" would turn a
+    mistyped dispatch into a silent no-op slice that looks like a clean run.
+    The same refusal covers what is not a number at all: `nan` compares false
+    against every estimate and `inf` never runs out, so either would *disable*
+    the deadline while reading as one that was set.
+    """
+    if seconds is None:
+        return None
+    if seconds < 0 or not math.isfinite(seconds):
+        typer.echo(
+            "ocr-recover-petitions: --deadline-seconds must be a finite, "
+            f"non-negative number of seconds (got {seconds}); 0 is the budget "
+            "that starts nothing.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    return started + seconds
+
+
+def _echo_ocr_unreached(unreached: Sequence[str]) -> None:
+    """Name the candidates the slice deadline declined to start, if any.
+
+    Apart from the failures, because they are a different fact: nothing was
+    fetched, recognized or written for these, so they are what the next dispatch
+    starts on rather than a reason the head of the class is stuck. Naming every
+    one costs a handful of lines — the list is bounded by `--max-cases`.
+    """
+    if not unreached:
+        return
+    typer.echo(
+        f"  slice deadline: {len(unreached)} candidate(s) not started "
+        "(unreached, not failed — they head the next slice)"
+    )
+    for case_id in unreached:
+        typer.echo(f"  {case_id}: NOT STARTED (slice deadline)")
+
+
 @app.command("ocr-recover-petitions")
 def ocr_recover_petitions_cmd(
     apply: Annotated[
@@ -1404,6 +1447,18 @@ def ocr_recover_petitions_cmd(
             "through the writer's own fetch path and report the status of. 0 fetches nothing.",
         ),
     ] = DEFAULT_OCR_PROBE_SAMPLE,
+    deadline_seconds: Annotated[
+        float | None,
+        typer.Option(
+            "--deadline-seconds",
+            help="Wall-clock budget for this run, measured from the moment the command "
+            "starts. Before each candidate the pass estimates its cost from the stored "
+            "page count and stops taking new ones once the budget will not hold it; "
+            "those are reported unreached and head the next slice. Size it under the "
+            "caller's own cap by whatever must still fit there once the pass stops "
+            "taking work. Ignored on a dry run, which OCRs nothing. Omit for no deadline.",
+        ),
+    ] = None,
 ) -> None:
     """Read the scanned petitions off their page images and store what comes back.
 
@@ -1442,6 +1497,25 @@ def ocr_recover_petitions_cmd(
     petition whose images OCR to nothing stays in the class and re-enters the
     next slice.
 
+    `--deadline-seconds` is what keeps an apply inside its caller's wall-clock
+    cap, and the bound is a spend cap rather than the safety mechanism because of
+    it: page counts across the class vary several-fold, so no fixed number of
+    cases is both safe against a step timeout and worth dispatching. The budget
+    runs from the moment the command starts, so the population walk is charged to
+    it; before each candidate the pass estimates that candidate's cost from the
+    page count the stored row already carries and, where what is left will not
+    hold it, stops taking new ones and reports the rest of the slice
+    **unreached** — untouched, unwritten, and at the head of the next slice.
+    A candidate already started is finished rather than killed, so the pass can
+    return a little after its deadline — the page a document's own budget
+    interrupted still finishes, and a re-fetch can retry — which is why a caller
+    sizes the deadline under its own cap by everything that must still fit there
+    once the pass stops taking work, not merely by what runs after it returns.
+    A budget already spent starts nothing and reports the whole slice unreached:
+    a clean zero-work run, not an error. One that is negative, or not a finite
+    number, is a typo and is refused. A dry run OCRs nothing, so it ignores the
+    budget it was handed.
+
     Local OCR only: `pdftoppm` renders a page and `tesseract` reads it, neither a
     Python dependency and both installed by the `run-repair` OCR step alone, so
     no scheduled lane grows them. An apply with work to do refuses where they are
@@ -1449,6 +1523,10 @@ def ocr_recover_petitions_cmd(
     corpus-write credentials exist only there — and the lane invocation is
     run-repair's `ocr-recovery` pass. Fails loud if the corpus is absent.
     """
+    # Taken before any other work, so the population walk this command opens with
+    # is charged to the budget the caller sized: it happens inside the caller's
+    # cap whether or not a candidate is ever started.
+    started = time.monotonic()
     settings = get_settings()
     if apply and max_cases is None:
         typer.echo(
@@ -1457,6 +1535,7 @@ def ocr_recover_petitions_cmd(
             err=True,
         )
         raise typer.Exit(code=2)
+    deadline = _ocr_slice_deadline(started, deadline_seconds)
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
         typer.echo(
@@ -1487,6 +1566,7 @@ def ocr_recover_petitions_cmd(
                 today=date.today(),
                 max_cases=max_cases,
                 probe_sample=probe,
+                deadline=deadline,
             )
     except OcrToolsMissing as exc:
         typer.echo(f"ocr-recover-petitions: {exc}", err=True)
@@ -1526,6 +1606,7 @@ def ocr_recover_petitions_cmd(
         typer.echo(f"  {case_id}: {detail}")
     for case_id, reason in result.failures.items():
         typer.echo(f"  {case_id}: NOT RECOVERED ({reason})")
+    _echo_ocr_unreached(result.unreached)
     for entry in result.probes:
         # The dry run's second reading: what the writer's own fetch path gets
         # back from supremecourt.gov, before a slice is spent finding out.
