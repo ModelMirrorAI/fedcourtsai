@@ -28,9 +28,9 @@
 #       matched per-run. Matching is on the integration-test workflow's
 #       `run-name`; the format here and there are coupled, and a
 #       workflow-shape test pins both ends (tests/test_workflow_promote.py).
-#       Under PROMOTION_SKIP_SMOKE (below) the engine-smoke entries leave the
-#       required set and a green `scenario=all-offline` run — the same suite
-#       without them — also counts as whole-suite evidence.
+#       Under PROMOTION_SKIP_SMOKE (below) both engine families' entries leave
+#       the required set and a green `scenario=all-offline` run — the same
+#       suite without them — also counts as whole-suite evidence.
 #
 #   scripts/promotion-gate.sh contexts [candidate...]
 #       Every context `main`'s ruleset requires must have a job on `main` that
@@ -57,10 +57,11 @@
 # matrix is keyed to the default set, so an overridden set is checked against
 # per-scenario runs only.
 #
-# PROMOTION_SKIP_SMOKE=1 drops the `engine-smoke/*` entries and lets a green
-# `scenario=all-offline` run stand in for `scenario=all`. It is the one
-# relaxation a workflow may set, and exactly two workflows set it (a shape test
-# pins that no third does):
+# PROMOTION_SKIP_SMOKE=1 drops the `engine-smoke/*` and
+# `engine-actions-smoke/*` entries — every entry that spends model tokens —
+# and lets a green `scenario=all-offline` run stand in for `scenario=all`. It
+# is the one relaxation a workflow may set, and exactly two workflows set it (a
+# shape test pins that no third does):
 #
 #   * `promote.yml`'s `skip_engine_smoke` dispatch input, which narrows one
 #     pre-flight — a cheap answer to "is anything else missing" before paying
@@ -74,14 +75,17 @@
 # that wanted it. Only the exact value `1` enables it; anything else, a typo
 # included, leaves the gate strict.
 #
-# What it trades away is the only evidence that real engine cells still run in
-# the production posture at the sha being promoted. Whether that evidence is
-# worth its tokens for a given batch is the maintainer's risk call — a batch
-# that cannot affect a cell (docs, analytics, non-cell code) is the easy yes,
-# and when in doubt run the full suite. What the gate owes in return is that a
-# waived batch says so: this script names the dropped entries on every run
-# under the skip, and `ci.yml`'s waiver step annotates the PR and writes the
-# trade into the run summary.
+# What it trades away is every piece of evidence that real engines still run at
+# the sha being promoted: that a cell completes in the production posture
+# (engine-smoke), and that each engine's own invocation block is still accepted
+# by the surface that receives it (engine-actions-smoke) — the second being the
+# class an action version bump breaks, silently, on the very promotion that
+# carries it. Whether that evidence is worth its tokens for a given batch is
+# the maintainer's risk call — a batch that cannot affect a cell (docs,
+# analytics, non-cell code) is the easy yes, and when in doubt run the full
+# suite. What the gate owes in return is that a waived batch says so: this
+# script names the dropped entries on every run under the skip, and `ci.yml`'s
+# waiver step annotates the PR and writes the trade into the run summary.
 set -euo pipefail
 
 REPO="${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}"
@@ -90,17 +94,23 @@ REPO="${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner --jq .nameWithOwn
 # freshness failure, and with the `all` scenario's matrix in
 # integration-test.yml — a `scenario=all` dispatch must fan out exactly this
 # set (a workflow-shape test pins both couplings).
-REQUIRED_SCENARIOS="${PROMOTION_SCENARIOS:-ranged-reads corpus-service stub-cascade mcp-sidecar collect qp-topic engine-smoke/claude-code engine-smoke/codex engine-smoke/gemini}"
+REQUIRED_SCENARIOS="${PROMOTION_SCENARIOS:-ranged-reads corpus-service stub-cascade mcp-sidecar collect qp-topic engine-smoke/claude-code engine-smoke/codex engine-smoke/gemini engine-actions-smoke/claude-code engine-actions-smoke/codex engine-actions-smoke/gemini}"
 
-# The engine-smoke skip (see the header): a filter over whatever set is in
+# The engine skip (see the header): a filter over whatever set is in
 # force, so it composes with a local PROMOTION_SCENARIOS narrowing instead of
-# racing it. Fails closed — only the literal `1` drops anything.
+# racing it. Fails closed — only the literal `1` drops anything. Both
+# token-spending families leave together, and they have to: the whole-suite
+# acceptance the skip unlocks returns before this set is ever looped over, so a
+# filter that kept one family required would not make the gate stricter — a
+# green `all-offline` title, from a suite that ran neither, would satisfy the
+# kept entry without exercising it. Unsound rather than strict, which is worse
+# than the relaxation it looks like.
 if [ "${PROMOTION_SKIP_SMOKE:-}" = 1 ]; then
   kept=""
   dropped=""
   for entry in $REQUIRED_SCENARIOS; do
     case "$entry" in
-      engine-smoke/*)
+      engine-smoke/* | engine-actions-smoke/*)
         dropped="${dropped:+${dropped} }${entry}"
         continue
         ;;
@@ -113,7 +123,7 @@ if [ "${PROMOTION_SKIP_SMOKE:-}" = 1 ]; then
   # short typo away from; naming the entries makes a waived run readable as
   # waived from its log alone, without reconstructing which surface set the
   # variable.
-  echo "promotion gate: engine-smoke waived — not required at this sha: ${dropped:-none}"
+  echo "promotion gate: engine scenarios waived — not required at this sha: ${dropped:-none}"
 fi
 
 fail=0

@@ -36,7 +36,8 @@ name: promote
 #      commands (each runs from the staging branch, which is the gate), and
 #      this workflow is re-dispatched after they land. The `skip_engine_smoke`
 #      input narrows what this pre-flight asks for to the token-free
-#      scenarios. It does not decide what the batch merges on: that is the
+#      scenarios — both engine families leave together, since the
+#      `all-offline` suite it then accepts runs neither. It does not decide what the batch merges on: that is the
 #      `promote:skip-engine-smoke` label on the promotion PR, a separate and
 #      deliberate second act (ci.yml's `promotion-gate` job).
 
@@ -45,10 +46,12 @@ on:
     inputs:
       skip_engine_smoke:
         description: >-
-          Drop the three engine-smoke runs from THIS PRE-FLIGHT's freshness
-          check, accepting a token-free `scenario=all-offline` run as
-          whole-suite evidence. It answers "is anything else missing" without
-          paying for the smokes. It does NOT narrow what the batch merges on:
+          Drop the six token-spending engine runs — the three engine-smoke
+          cells and the three engine-actions-smoke boot probes — from THIS
+          PRE-FLIGHT's freshness check, accepting a token-free
+          `scenario=all-offline` run as whole-suite evidence. It answers "is
+          anything else missing" without
+          paying for them. It does NOT narrow what the batch merges on:
           waiving the smokes at the merge gate is a separate act — the
           `promote:skip-engine-smoke` label on the promotion PR — so that
           setting this input can never quietly become the merge decision too.
@@ -132,17 +135,17 @@ jobs:
           # naming the wrong suite.
           if [ "${PROMOTION_SKIP_SMOKE:-}" = 1 ]; then
             suite=all-offline
-            spend="spends nothing — this dispatch dropped the engine-smoke runs"
+            spend="spends nothing — this dispatch dropped both engine families"
           else
             suite=all
-            spend="spends three engine-smoke cells' worth of tokens"
+            spend="spends three engine-smoke cells' worth of tokens, plus three boot probes"
           fi
           if scripts/promotion-gate.sh freshness "$sha"; then
             {
               if [ "$suite" = all-offline ]; then
-                echo "## Pre-flight green at \`${sha}\` — engine-smoke skipped"
+                echo "## Pre-flight green at \`${sha}\` — engine scenarios skipped"
                 echo
-                echo "Green on the token-free suite alone, so this says nothing about the smokes. The promotion PR's own \`promotion-gate\` check demands them unless that PR carries the \`promote:skip-engine-smoke\` label, and \`main\`'s ruleset has no bypass for the check itself: either dispatch the three engine-smoke runs at this sha, or waive them on the PR and accept that the batch merges with no real-engine evidence."
+                echo "Green on the token-free suite alone, so this says nothing about the engines. The promotion PR's own \`promotion-gate\` check demands them unless that PR carries the \`promote:skip-engine-smoke\` label, and \`main\`'s ruleset has no bypass for the check itself: either dispatch the six engine runs at this sha, or waive them on the PR and accept that the batch merges with no evidence that a real cell runs or that its invocation block is still accepted."
               else
                 echo "## Promotion gates green at \`${sha}\`"
               fi
@@ -176,6 +179,7 @@ jobs:
               if [ "$suite" = all ]; then
                 for e in claude-code codex gemini; do
                   echo "gh workflow run integration-test.yml --ref staging -f scenario=engine-smoke -f engine=${e}"
+                  echo "gh workflow run integration-test.yml --ref staging -f scenario=engine-actions-smoke -f engine=${e}"
                 done
               fi
               echo '```'
