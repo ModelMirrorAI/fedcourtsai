@@ -4,8 +4,9 @@ The append-only record of process-version freezes and their supersessions, of
 the **masking-surface** changes that move what reaches an evaluator's
 information set under an unchanged digest, of the **scoring-baseline** changes
 that move a measured number the same way, of the **provisioning cutoff** that
-moves what a predictor is conditioned on, and of the boundaries a published
-figure may not be pooled across.
+moves what a predictor is conditioned on, of the **membership rules** that move
+which cells a published figure is computed over while moving no value, and of
+the boundaries a published figure may not be pooled across.
 
 Each entry is dated evidence rather than description, and two sets of timestamps
 carry it. The commit that added an entry is when its assertion was made — that
@@ -1667,3 +1668,115 @@ freeze commit is recorded here.
   metrics/statpack.md` matches, and the OT2024 row renders `| 2024 | 75 | 34 |
   73 |` under the qualified header — until that refresh the committed statpack
   keeps the old header, which is the regeneration lag and not a defect.
+
+- **`leakage_suspected` becomes an exclusion: a flagged grading leaves every
+  rank key and every scored aggregate, 2026-09-02** (no digest moves, no
+  committed number moves, no score value changes anywhere). Registered here
+  because it changes **which cells a published figure is computed over**, and
+  nothing in any actor's canonical config carries the rule, so no digest moves
+  and the change is invisible to the frozen/shakedown partition. It is the
+  membership counterpart of the **scoring baseline**
+  ([process-version.md](process-version.md#harness-code-is-outside-the-digest-and-one-case-of-that-has-teeth)),
+  which is recorded here because it moves a measured number under unchanged
+  digests: this moves no number and moves the population instead, and a figure
+  is as unreadable across an unrecorded population change as across an
+  unrecorded re-basing.
+
+  **The state this replaces.** `Evaluation.leakage_suspected` was recorded as
+  advisory and read by no aggregation: `store.stratify` handed every graded
+  cell to the boards whatever the bit said. The 18 flagged gradings on
+  `scotus/73129750` and `scotus/73275185` (2 cases × 3 predictors × 3
+  evaluators, all stamped `proc-v2` on `2026-08-14`), whose recorded
+  `brier_skill_score` runs to 0.9988 because the prediction read the
+  disposition out of a mis-provisioned snapshot, stayed out of the forward
+  stratum only because `integrity.classify_stratum` compares the outcome's
+  `resolved_at` to the prediction's harness clock and those outcomes predate
+  those runs. That is a property of those cells, not of the rule.
+
+  **The rule this entry registers.** A grading carrying `leakage_suspected:
+  true` excludes its cell from **every scored stratum and every rank key** on
+  every surface built from the `store.stratify` join — the ranked cert board
+  and its `stages` blocks, `claim-scores.json`, the dashboard's substance
+  funnel, and the semantic census. It is independent of the timing split and of
+  the forward-claim rule, and that independence is the whole of it: a leaked
+  cell whose outcome resolves *after* its prediction's harness clock classifies
+  **forward** on the clock alone and would be published as claimable
+  forecasting performance, and the retrospective pair is itself a rank key, so
+  near-perfect leaked numbers could order predictors that have no forward
+  cells. `classify_stratum` is unchanged — this is an exclusion, never a
+  stratum reassignment. A **null** bit is "not assessed", not "clean", and such
+  cells are scored; a cell both this rule and the forward-claim rule catch is
+  counted in both ledgers and the two counts are never summed. The boards
+  publish `leakage_exclusion` — the count, the `assessed` denominator, and the
+  per-predictor split — beside their figures, the board builders name each
+  dropped cell on stderr, and the refresh PR body carries the count. The
+  reading rules are `metrics/README.md`, *The leakage exclusion*.
+
+  **What is deliberately outside it**, on the same terms as the forward-claim
+  exclusion, which these surfaces also do not apply: the board's `big_case` and
+  `evaluator_agreement` views, which read the ledger by their own path and
+  measure stakes reads and grader latitude rather than scored performance, and
+  the tool-usefulness figures, which declare themselves a superset. A figure
+  there that differs from a board figure is two populations rather than an error
+  in either.
+
+  **One stale contract, deferred on purpose and named here so it is a recorded
+  deferral rather than an oversight.** The frozen evaluate prompt still tells
+  the grader that the leakage assessment "is advisory and segments scores — it
+  never changes `correct`, `brier_score`, or the other quantitative fields",
+  which is now false in its first clause: the bit does not segment, it removes
+  the cell. The prompt bytes are hashed into the process digest, so correcting
+  that sentence retires all three blessed **evaluator** digests and needs a
+  re-bless — which this change deliberately does not take three days before the
+  counting instant. Until that re-bless, every grading is produced by a grader
+  who was told the bit is inert, and the 18 already in the ledger were. That is
+  a fact about how `excluded` should be read, not a defect in the count: the
+  bit is the grader's assessment either way. Which way the old contract biases
+  a grader is **not established** — a costless flag might be set more freely,
+  an inert one less carefully, and nothing here can tell those apart on 18
+  cells from one unanimous panel — so `excluded` is read as a count taken
+  under the old contract rather than as a bound in either direction, and a
+  count taken after the re-bless is not poolable with one taken before.
+  Correcting the prompt is owed to the next digest-moving
+  freeze, on the same terms as the arrival-cutoff prompt amendment the entry
+  above defers.
+
+  **Nothing counted moves.** All 18 flagged gradings are stamped before
+  `process_version.FROZEN_SINCE` (`2026-09-05T00:00:00Z`), so
+  `graded_post_freeze` already keeps every one of them off every frozen board;
+  the committed `metrics/leaderboard.json` is empty (`entries: []`,
+  `events_scored: 0`) and `metrics/claim-scores.json` fully suppressed at this
+  entry's date. The measured effect is therefore confined to the
+  `--all-versions` diagnostic view, and there it is total: on the pooled cert
+  board the 18 **are** the whole retrospective stratum. Measured over the
+  committed ledger at this entry's date, before → after: `evaluations_total`
+  36 → 18, `retrospective_evaluations` 18 → 0, `events_scored` 4 → 2,
+  `predictors_ranked` 3 → 3, `forward_evaluations` 18 → 18 (unmoved — no
+  forward cell carries the bit), and every entry's whole `retrospective` block
+  goes from a populated aggregate to `null`: `claude-baseline` n=6, accuracy
+  0.5, mean Brier 0.0242, population skill 0.9427; `codex-baseline` n=6, 0.5,
+  0.0410, 0.8947; `gemini-baseline` n=6, 0.5, 0.0613, 0.8553. The three
+  `interim@*` stage blocks are untouched (24/18/18 evaluations), the flagged
+  cells being cert-stage. The published `assessed` denominator reads 96 over
+  that scope — stage-blind and taken before either exclusion, like
+  `claimed_forward` beside it, so it spans the cert board and every stage block
+  at once and must never be netted against the cert-scoped 36. What it
+  establishes is that the count is against a real denominator rather than an
+  unchecked ledger. Those
+  three near-0.9 skill figures were the retrospective rank key's entire input,
+  which is the concrete form of the hazard: they are what a leaked snapshot
+  scores, not what an engine forecast. Every figure here is a diagnostic, not a
+  claim about any engine.
+
+  **The entry is dated before the instant deliberately.** Landing it before
+  `2026-09-05T00:00:00Z` means the counting window opens with the rule already
+  in force, so no published figure ever straddles the change and no board built
+  under the old reading has to be pooled with one built under the new. The
+  runnable effect check for the promotion carrying this: `uv run fedcourts
+  leaderboard --all-versions --out /tmp/lb.json`, whose stderr names each
+  dropped cell and whose artifact carries a `leakage_exclusion` block reading
+  `excluded: 18` over `assessed: 96`. Run against this entry's ledger it emits
+  18 `::warning::leakage exclusion:` lines and writes
+  `by_predictor: {claude-baseline: 6, codex-baseline: 6, gemini-baseline: 6}` —
+  the exclusion falls evenly across the three engines, so it is not a
+  differential-coverage event, which is the reason the split is published at all.

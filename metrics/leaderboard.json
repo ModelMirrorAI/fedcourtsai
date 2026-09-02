@@ -21,6 +21,7 @@
     ],
     "since": "2026-09-05T00:00:00Z"
   },
+  "leakage_exclusion": null,
   "predictors_ranked": 0,
   "procedural_evaluations": 0,
   "process_scope": "frozen",

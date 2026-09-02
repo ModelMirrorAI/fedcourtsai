@@ -48,6 +48,7 @@ from .schemas import (
     FrozenProcessRecord,
     Leaderboard,
     LeakageDigest,
+    LeakageExclusionRecord,
     LiveFrontier,
     ModelUsage,
     OpenTriggerIssue,
@@ -273,13 +274,15 @@ def summarize_substance(
     previous: OpsReport | None = None,
     process_scope: Literal["frozen", "all"] = "frozen",
     forward_claim: ForwardClaimRecord | None = None,
+    leakage_exclusion: LeakageExclusionRecord | None = None,
 ) -> SubstanceDigest:
     """Roll the committed ledger + metrics artifacts into the substance section.
 
     Pure over its inputs (no filesystem): the caller supplies the ledger census
     (:func:`fedcourtsai.store.ledger_cell_counts`), the stratified evaluations,
-    the committed statpack, the published live-frontier snapshot, and the
-    forward-claim record its stratify pass produced — carried verbatim so the
+    the committed statpack, the published live-frontier snapshot, and the two
+    exclusion records its stratify pass produced — the forward-claim rule and
+    the leakage bit, carried verbatim so the
     dashboard and the boards cannot disagree about what was excluded. Deltas
     compare against ``previous``'s substance counts and stay null without a
     comparable prior — a missing or pre-substance snapshot degrades the deltas,
@@ -365,6 +368,7 @@ def summarize_substance(
         calibration=calibration,
         predictor_scores=scores,
         forward_claim=forward_claim,
+        leakage_exclusion=leakage_exclusion,
         live_frontier=live_frontier,
         process_scope=process_scope,
     )
@@ -394,8 +398,11 @@ def render_substance(digest: SubstanceDigest) -> str:
         and c.evaluations_forward == 0
         and c.evaluations_retrospective == 0
         # An exclusion-emptied headline is not the shakedown state: the cells
-        # exist and were dropped, and the forward-claim line below says so.
+        # exist and were dropped, and the exclusion lines below say so. Both
+        # rules count here — a headline emptied by leakage alone would
+        # otherwise render as "nothing ran yet".
         and (digest.forward_claim is None or digest.forward_claim.excluded == 0)
+        and (digest.leakage_exclusion is None or digest.leakage_exclusion.excluded == 0)
     )
     lines = [
         "## Substance (is it producing?)",
@@ -419,6 +426,19 @@ def render_substance(digest: SubstanceDigest) -> str:
             f"whose record contradicts its forward claim, {placement} per the "
             f"`{digest.forward_claim.policy}` policy (see the boards' "
             f"`forward_claim` block)."
+        )
+    if digest.leakage_exclusion is not None and digest.leakage_exclusion.excluded:
+        # Its own line, never folded into the forward-claim count above: the two
+        # rules are independent and a cell both caught is in both counts, so a
+        # sum would be neither figure.
+        leaked = digest.leakage_exclusion
+        lines.append(
+            f"Leakage exclusion: **{leaked.excluded}** of {leaked.assessed} "
+            f"assessed cell(s) carry `leakage_suspected`, excluded from the "
+            f"forward/replay counts above and from every scored figure on the "
+            f"boards (see their `leakage_exclusion` block). Counted separately "
+            f"from the forward-claim line — a cell caught by both appears in "
+            f"both."
         )
     if frozen_empty:
         lines.append(

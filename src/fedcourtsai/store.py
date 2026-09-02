@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from . import corpus, ids
 from .integrity import (
     FORWARD_CLAIM_POLICY,
+    LEAKAGE_EXCLUSION_REASON,
     PROCEDURAL,
     RETROSPECTIVE,
     ForwardClaimPolicy,
@@ -28,6 +29,7 @@ from .integrity import (
     classify_stratum,
     forward_claim_breach,
     latest_evaluation_runs,
+    leakage_excluded,
 )
 from .paths import CasePaths
 from .pipeline import moments
@@ -783,7 +785,12 @@ def normalized_moment(stage: Stage | None, moment: Moment | None) -> Moment | No
 
 
 class ExcludedCell(NamedTuple):
-    """A scored cell the forward-claim rule kept out of every stratum."""
+    """A scored cell an integrity rule kept out of every stratum, and why.
+
+    Shared by the two independent exclusions :func:`stratify` applies — the
+    forward-claim rule and the leakage bit — so both publish the same
+    ``(cell, reason)`` shape and one stderr reporter can name either.
+    """
 
     evaluation: Evaluation
     reason: str
@@ -830,6 +837,34 @@ class _ScopedCell(NamedTuple):
     scored_prediction: Prediction
 
 
+def _stratum_of(
+    scored: Prediction,
+    outcome: Outcome,
+    *,
+    breached: bool,
+    policy: ForwardClaimPolicy,
+) -> Stratum | None:
+    """Which stratum a surviving cell lands in, or ``None`` where it lands in none.
+
+    A mootness-basis outcome never enters the forward/retrospective skill
+    aggregates — the label tracks vacatur practice, not cert-worthiness — so it
+    routes procedural whatever the timing says. A cell whose forward claim its
+    own record contradicts is dropped under ``policy="exclude"`` (the ``None``
+    return) and forced retrospective under the other, procedural still winning.
+    Every other cell takes the timing rule
+    (:func:`fedcourtsai.integrity.classify_stratum`) on the scored prediction's
+    harness clock.
+    """
+    procedural = outcome.disposition_basis == "mootness"
+    if breached:
+        if policy == "exclude":
+            return None
+        return PROCEDURAL if procedural else RETROSPECTIVE
+    if procedural:
+        return PROCEDURAL
+    return classify_stratum(cell_clock(scored), outcome.resolved_at)
+
+
 class StratifiedRun(NamedTuple):
     """:func:`stratify`'s result: the scorable cells, and what was excluded.
 
@@ -844,12 +879,22 @@ class StratifiedRun(NamedTuple):
     cell was re-graded says so. Counted **after** the scope gate, exactly where the
     collapse runs, so it is always "superseded within this scope" and never
     mixes a re-grade the scope excludes into a scoped board's audit line.
+
+    ``leaked`` is the second, independent exclusion ledger: cells whose grading
+    carries ``leakage_suspected``, dropped from every stratum whatever the
+    forward-claim policy is. ``leakage_assessed`` is its denominator — in-scope
+    cells whose grading recorded the bit at all — because a null bit is "not
+    assessed" rather than "clean". A cell caught by both rules appears in
+    ``excluded`` **and** ``leaked``: they answer different questions over one
+    population, so the counts are published side by side and never summed.
     """
 
     cells: list[StratifiedCell]
     excluded: list[ExcludedCell]
+    leaked: list[ExcludedCell]
     claimed_forward: int = 0
     superseded: int = 0
+    leakage_assessed: int = 0
 
 
 def stratify(
@@ -904,6 +949,18 @@ def stratify(
     count and the boards' ``forward_claim`` block states which rule built
     them.
 
+    A cell whose grading carries **``leakage_suspected``**
+    (:func:`fedcourtsai.integrity.leakage_excluded`) lands in ``leaked`` and
+    never in ``cells``, whatever ``policy`` says: the evaluators' bit reports
+    that the graded prediction may have read its own outcome, which is not an
+    observation of forecasting skill in any stratum. The rule is independent of
+    the forward-claim one — the timing split rests on a clock that cannot see a
+    leak, so a leaked cell whose outcome resolves *after* its prediction's
+    harness clock would otherwise classify forward and be published as claimable
+    performance — and a cell both rules catch is listed in both ledgers, since
+    they answer different questions over one population. It changes membership
+    and never a value: no score on any record is touched.
+
     The third element is the event's decision **stage**, read off its committed
     ``event.yaml`` and normalized for stratification: a petition/appeal-kind
     event with no recorded stage reads as **cert** — the case-baseline kinds
@@ -934,9 +991,11 @@ def stratify(
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
-        return StratifiedRun([], [], 0, 0)
+        return StratifiedRun([], [], [])
     cells: list[StratifiedCell] = []
     excluded: list[ExcludedCell] = []
+    leaked: list[ExcludedCell] = []
+    leakage_assessed = 0
     claimed_forward = 0
     scoped: list[_ScopedCell] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
@@ -967,30 +1026,27 @@ def stratify(
     superseded = len(scoped) - len(survivors)
     for evaluation, event_dir, scored in survivors:
         outcome = read_model(event_dir / "outcome.json", Outcome)
-        # A mootness-basis outcome never enters the forward/retrospective
-        # skill aggregates — the label tracks vacatur practice, not
-        # cert-worthiness. Under the retrospective policy a breaching mootness
-        # cell therefore routes procedural, not retrospective; under exclude
-        # it is dropped like any breaching cell.
-        procedural = outcome.disposition_basis == "mootness"
         if scored.context is not None and scored.context.mode == "forward":
             claimed_forward += 1
+        if evaluation.leakage_suspected is not None:
+            leakage_assessed += 1
         breach = forward_claim_breach(scored, outcome)
         if breach is not None:
             excluded.append(ExcludedCell(evaluation, breach))
-            if policy == "exclude":
-                continue
-            stratum: Stratum = PROCEDURAL if procedural else RETROSPECTIVE
-        else:
-            stratum = (
-                PROCEDURAL
-                if procedural
-                else classify_stratum(cell_clock(scored), outcome.resolved_at)
-            )
+        # Both ledgers are filled before either drops the cell, so a cell the
+        # two rules both catch is counted in both — they answer different
+        # questions over one population, and netting them would understate
+        # whichever ran second.
+        if leakage_excluded(evaluation):
+            leaked.append(ExcludedCell(evaluation, LEAKAGE_EXCLUSION_REASON))
+            continue
+        stratum = _stratum_of(scored, outcome, breached=breach is not None, policy=policy)
+        if stratum is None:
+            continue
         event = read_model(event_dir / "event.yaml", PredictableEvent)
         stage = normalized_stage(event.kind, event.stage)
         cells.append((evaluation, stratum, stage, normalized_moment(stage, event.moment)))
-    return StratifiedRun(cells, excluded, claimed_forward, superseded)
+    return StratifiedRun(cells, excluded, leaked, claimed_forward, superseded, leakage_assessed)
 
 
 def iter_stratified_evaluations(
@@ -998,8 +1054,8 @@ def iter_stratified_evaluations(
 ) -> list[StratifiedCell]:
     """:func:`stratify`'s scorable cells alone, for a caller that needs no ledger.
 
-    The cells-only seam; the boards call :func:`stratify` directly so the
-    exclusion record they publish and the cells they aggregate come from one
+    The cells-only seam; the boards call :func:`stratify` directly so the two
+    exclusion records they publish and the cells they aggregate come from one
     pass.
     """
     return stratify(data_root, frozen_only=frozen_only).cells

@@ -1128,17 +1128,22 @@ class Outcome(_Strict):
 
 
 class LeakageAssessment(_Strict):
-    """The cross-evaluator's leakage grading of one prediction (advisory, never a gate).
+    """The cross-evaluator's leakage grading of one prediction (a gate on membership).
 
     The grading half of the leakage doctrine: rather than preventing retrieval,
     the evaluator assesses whether a **replay** predictor retrieved and used
     outcome-revealing material, reading the harness-captured
     ``retrieval_log.json`` (tool calls, query slices, retrieved-document dates)
     beside the predictor's own reasoning. A **forward** prediction was made
-    before the outcome existed, so it grades ``not_applicable``. Contamination
-    here taints iteration signal — backtest results are never claimable
-    performance either way — so the assessment segments scores; it never
-    changes them.
+    before the outcome existed, so it grades ``not_applicable`` — a claim about
+    the cell's design, which a mis-provisioned cell can falsify, and the reason
+    the coarse bit is read as an exclusion rather than trusted as a mode label.
+
+    What the grading decides is **membership, never value**: a
+    possible/likely verdict sets ``leakage_suspected``, which keeps the cell out
+    of every rank key and every scored aggregate
+    (``fedcourtsai.integrity.leakage_excluded``; ``metrics/README.md``, *The
+    leakage exclusion*), while no score on the record is altered by it.
     """
 
     mode: str = Field(
@@ -1457,9 +1462,13 @@ class Evaluation(_Strict):
     leakage_suspected: bool | None = Field(
         default=None,
         description="Coarse leakage bit, kept in step with `leakage`: true when "
-        "`leakage.influenced_prediction` is possible/likely. Advisory: it segments "
-        "scores, never changes them. Null when not assessed (offline evaluators "
-        "and records written before the field existed)",
+        "`leakage.influenced_prediction` is possible/likely. It decides "
+        "**membership, never value**: a true bit keeps the cell out of every "
+        "rank key and every scored aggregate (`store.stratify` drops it, and "
+        "the boards publish the count in their `leakage_exclusion` block), "
+        "while no score on this record is altered by it. Null when not assessed "
+        "(offline evaluators and records written before the field existed), "
+        "which is not a false — an unassessed cell is scored",
     )
     leakage: LeakageAssessment | None = Field(
         default=None,
@@ -2567,6 +2576,50 @@ class ForwardClaimRecord(_Strict):
     )
 
 
+class LeakageExclusionRecord(_Strict):
+    """The leakage exclusion applied when a board was built, and its count.
+
+    A grading that carries ``leakage_suspected`` says the prediction it scored
+    may have read its own outcome, so the cell is not an observation of
+    forecasting skill in **any** stratum
+    (:func:`fedcourtsai.integrity.leakage_excluded`). This block states how many
+    such cells the build dropped, so the exclusion can never be silent — the
+    same reason ``forward_claim`` rides beside it. The rule is independent of
+    that one and of the timing strata: it changes which cells are counted, never
+    what any cell scored.
+    """
+
+    excluded: int = Field(
+        ge=0,
+        description="How many in-scope gradings the leakage bit dropped this "
+        "build. Counted over the same collapsed, scope-gated pass that "
+        "produced the board's cells, so it is always 'excluded within this "
+        "scope' — a shakedown cell dropped from an `all`-scope board is "
+        "counted there and on no frozen board. Deliberately stage-blind, like "
+        "`forward_claim`: it spans the ranked cert board and every `stages` "
+        "block at once, so it must never be subtracted from the cert-scoped "
+        "totals beside it",
+    )
+    assessed: int = Field(
+        ge=0,
+        description="The denominator: in-scope gradings that recorded the "
+        "bit at all (true or false). A null bit is 'not assessed', not 'clean', "
+        "so `excluded: 0` over a ledger of null bits means 'nothing was checked' "
+        "rather than 'nothing leaked' — this count is what tells the two apart. "
+        "Stage-blind and taken before the exclusion, exactly like `excluded` "
+        "above and `claimed_forward`, so it is not `evaluations_total`'s "
+        "denominator and the two are never divided",
+    )
+    by_predictor: dict[str, int] = Field(
+        default_factory=dict,
+        description="Excluded-cell counts keyed by predictor id (only "
+        "predictors with a nonzero count appear). Leakage falling "
+        "differentially on one engine changes the scored population, which is "
+        "the cross-engine comparability condition, so the split is published "
+        "rather than pooled",
+    )
+
+
 class Leaderboard(_Strict):
     """``metrics/leaderboard.json`` — predictors ranked from the evaluations ledger.
 
@@ -2610,6 +2663,15 @@ class Leaderboard(_Strict):
         "and the count of cells it caught (`integrity.forward_claim_breach`); "
         "null on a board built before the record existed, or one constructed "
         "without it",
+    )
+    leakage_exclusion: LeakageExclusionRecord | None = Field(
+        default=None,
+        description="The leakage exclusion applied to this build and the count "
+        "of cells it dropped (`integrity.leakage_excluded`) — an independent "
+        "rule from `forward_claim` beside it, so a cell caught by both is "
+        "counted in both and the two counts must never be summed into an "
+        "exclusion total; null on a board built before the record existed, or "
+        "one constructed without it",
     )
     salience_versions: list[str] = Field(
         default_factory=list,
@@ -2961,10 +3023,17 @@ class ClaimScoreBoard(_Strict):
         "exactly as the leaderboard records it; null on a surface built "
         "before the record existed, or one constructed without it",
     )
+    leakage_exclusion: LeakageExclusionRecord | None = Field(
+        default=None,
+        description="The leakage exclusion applied to this build, exactly as "
+        "the leaderboard records it; null on a surface built before the record "
+        "existed, or one constructed without it",
+    )
     evaluations_total: int = Field(
         ge=0,
         description="Cert-stage evaluation cells in scope (after the "
-        "forward-claim exclusion the `forward_claim` block records), with or "
+        "forward-claim exclusion the `forward_claim` block records and the "
+        "leakage exclusion the `leakage_exclusion` block records), with or "
         "without a claim block — the surface's population, cert-stage because only "
         "the cert-stage event kinds declare a claim set, so a cell on any "
         "other stage is never owed a block and belongs outside the absence "
@@ -6199,16 +6268,30 @@ class DataHealth(_Strict):
 class LeakageDigest(_Strict):
     """The evaluators' leakage grading rolled up for the run-ops dashboard.
 
-    The visibility half of the backtest-as-iteration doctrine: replay cells run
+    The visibility half of the leakage doctrine: replay cells run
     with the same tools as forward cells, so the dashboard must show — across
-    runs — whether outcome material is contaminating the backtest's iteration
-    signal. Counts are over committed ``evaluation.json`` files carrying a
+    runs — whether outcome material is reaching a graded cell. Counts are over
+    committed ``evaluation.json`` files carrying a
     ``leakage`` block within ``window_days`` of generation; ``likely`` offenders
     are listed (capped) so a repeat pattern names its predictor.
+
+    Deliberately **uncollapsed, all-versions and windowed** — shakedown
+    contamination is exactly what it exists to surface, and recency is what
+    makes it operational — so it is never the same population as a board's
+    ``leakage_exclusion`` count, which is scoped, collapsed and all-time. A
+    digest reading zero beside a nonzero board exclusion means the flagged
+    gradings fell outside ``window_days``, not that the two disagree; the pair
+    is read side by side and never subtracted.
     """
 
     assessed: int = Field(ge=0, description="Evaluations carrying a leakage assessment")
-    not_applicable: int = Field(ge=0, description="Forward predictions (leakage cannot apply)")
+    not_applicable: int = Field(
+        ge=0,
+        description="Gradings whose prediction claimed `forward` — the outcome "
+        "did not exist when it ran, so the grader had nothing to assess. A claim "
+        "about the cell's design, not a finding: a mis-provisioned forward cell "
+        "can carry it and still have read its outcome",
+    )
     none: int = Field(ge=0, description="Replay cells graded clean")
     possible: int = Field(ge=0, description="Replay cells where influence is possible")
     likely: int = Field(ge=0, description="Replay cells where influence is likely")
@@ -6496,6 +6579,17 @@ class SubstanceDigest(_Strict):
         "figures, exactly as the boards record it — so the dashboard and the "
         "leaderboard cannot disagree about what was excluded; null on a report "
         "built before the record existed",
+    )
+    leakage_exclusion: LeakageExclusionRecord | None = Field(
+        default=None,
+        description="The leakage exclusion applied to the scored-cell figures, "
+        "exactly as the boards record it. Distinct from the report's `leakage` "
+        "digest, which is an uncollapsed, all-versions, recency-windowed "
+        "diagnostic over every leakage grading rather than a count of what this "
+        "scope dropped — so a digest reading zero beside a nonzero `excluded` "
+        "is the window at work, not a disagreement, and the two are never "
+        "equal and never subtracted from one another; null on a "
+        "report built before the record existed",
     )
 
 

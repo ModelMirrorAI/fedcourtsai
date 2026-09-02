@@ -10,7 +10,7 @@ from typer.testing import CliRunner
 from fedcourtsai import cli, corpus, ops
 from fedcourtsai.agent_feedback import open_issue_once
 from fedcourtsai.cli import app
-from fedcourtsai.integrity import forward_claim_record
+from fedcourtsai.integrity import forward_claim_record, leakage_record
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
     AgentFlag,
@@ -3054,3 +3054,35 @@ def test_ops_report_refuses_an_unparseable_generated_at(tmp_path: Path) -> None:
     # panel frame, collapse whitespace, then look for it.
     plain = re.sub(r"\x1b\[[0-9;]*m|[│╭╰─╮╯]|\s+", "", result.output)
     assert "--generated-at" in plain
+
+
+def test_render_substance_names_the_leakage_exclusions() -> None:
+    # Its own line, on the same terms as the forward-claim one above, with the
+    # assessed denominator beside the count.
+    quiet = ops.summarize_substance(
+        cell_counts=(0, 0, 0),
+        stratified_evaluations=[],
+        leakage_exclusion=leakage_record(0, 4),
+    )
+    loud = ops.summarize_substance(
+        cell_counts=(0, 0, 0),
+        stratified_evaluations=[],
+        leakage_exclusion=leakage_record(3, 9),
+    )
+
+    assert "Leakage exclusion" not in ops.render_substance(quiet)
+    assert "Leakage exclusion: **3** of 9 assessed cell(s)" in ops.render_substance(loud)
+
+
+def test_a_headline_emptied_by_leakage_is_not_the_shakedown_state() -> None:
+    # The shakedown placeholder must not swallow an exclusion-emptied board:
+    # the cells existed and were dropped, which the line above says.
+    emptied = ops.summarize_substance(
+        cell_counts=(2, 1, 1),
+        stratified_evaluations=[],
+        leakage_exclusion=leakage_record(2, 2),
+    )
+    rendered = ops.render_substance(emptied)
+
+    assert "No frozen-process evaluations yet" not in rendered
+    assert "Leakage exclusion: **2** of 2 assessed cell(s)" in rendered
