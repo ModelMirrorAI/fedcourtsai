@@ -20,7 +20,7 @@ against the pinned login before suspecting the gate.
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | daily schedule (15:09 UTC), manual dispatch, issue labeled | Claude Code + Codex + Gemini |
 | `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
-| _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
+| _(none)_        | `run-ops`        | daily schedule (dashboard + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
 | _(none)_        | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary) |
 | _(none)_        | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
@@ -60,10 +60,8 @@ first, so an orphaned issue never sits invisible) — rendered by
 dashboard" issue and appends each JSON snapshot to a dedicated **`ops-metrics`
 branch** (an orphan time-series that never merges to `main`, so the default
 branch stays clean and a prior snapshot backs the substance deltas). On the
-Monday schedule tick it additionally posts the short **weekly digest** comment
-to the dashboard issue — the same numbers as fixed questions demanding a
-reaction ("Replay calibration on N scored cell(s): lift over always-deny — do
-you believe it?"), with the daily dashboard staying the reference view. It triggers
+Monday schedule tick it additionally opens the **weekly performance digest** as
+its own issue (below), with the daily dashboard staying the reference view. It triggers
 nothing and touches neither `main` nor the corpus. It reports the **promoted**
 state: scheduled runs execute from the default branch, so the dashboard describes
 the tree that is actually running rather than the one staged for the next batch —
@@ -81,6 +79,127 @@ renders them as the **data-health** section and the substance section's
 watchlist view, escalating a failing verdict to one
 long-lived issue — so the dashboard surfaces run-health, data-health, and
 substance while staying a read-only presenter that never touches the corpus.
+
+### The weekly performance digest
+
+On the Monday tick the same job opens the **weekly performance digest** as its
+own issue under the non-triggering `weekly-digest` label — one per ISO week,
+which is what its `<!-- weekly-digest: YYYY-Www -->` marker makes the create
+idempotent on. Its own issue rather than a comment on the standing dashboard for
+the same reason the daily digest gets one: a digest is a thing to read and close,
+so the open issues under the label are the unread backlog.
+
+Four blocks, in the order a reader needs them:
+
+- **Health questions** — the fixed interrogative bullets (replay calibration,
+  forward cells scored, watchlist vs next conference, oldest stalled trigger,
+  spend vs budget): numbers as questions demanding a reaction. These carry the
+  dashboard's un-vintaged framing, which is why the vintage rule below is
+  scoped to the two blocks that publish figures to quote.
+- **Analytics state** — what the committed boards hold. An empty one names the
+  condition that empties it — which cells the frozen headline ranks, and how
+  many have reached it — rather than showing a bare zero, and an artifact that
+  has never landed reads differently from one that landed empty. Plus the
+  statpack's two headline rates — stated with each one's own denominator, and
+  with the plain statement that **neither anchors a scored cell**: a forward
+  cert cell is scored against its own band's strictly-prior-Term risk-set rate,
+  and the pooled band rate is a fit diagnostic for the ranking constant rather
+  than a scoring baseline ([salience.md](salience.md)).
+- **Produced this week** — cells landed by role and stage, how many events they
+  covered, and the week's measured spend, all over one window and one set of
+  `usage.json` records; then the spend backstop's own (longer) window and how
+  much of its ceiling the trailing period has consumed. An unenforced ceiling
+  says so instead of reporting a fraction of a budget that does not exist.
+- **Backtest results** — the historical replay **per court**, with each court's
+  own always-deny floor beside its accuracy and the pooled row labelled as the
+  mixture it is (`granted` means cert on a SCOTUS row and a motion granted on a
+  court-of-appeals docket, and the pooled floor mixes an ~80% one with near-zero
+  ones, so a pooled lift can be bought entirely on a docket this pipeline never
+  predicts); the salience-gate replay with the scorer version that produced
+  it named (a per-band figure means something only under the function that
+  assigned the band, so an older version's numbers are history rather than a
+  current reading), and the plain statement that **no cert back-test has landed**
+  — `metrics/cert-backtest.json` is off the scheduled refresh because a
+  real-engine replay spends tokens.
+
+**In the analytics and back-test blocks, every figure carries the vintage of the
+artifact it came from.** None of those artifacts is refreshed on this schedule —
+a board is byte-stable and a statpack moves only when the corpus does — so a
+figure without its vintage would silently claim to be this week's. The vintage
+is the commit that last wrote the file, and a **shallow** checkout yields none:
+in a depth-1 clone the one grafted commit matches every path, so a pathspec'd
+`git log` would stamp every board with today's date — the exact misreading the
+vintage exists to prevent. The renderer refuses to read a shallow history and
+says the vintage is unknown; the `ops` job checks out full history so the dates
+are real ones.
+
+Only the Monday cron posts. Every run renders the digest to a file; only the
+Monday step hands it to `post-weekly-digest`, so the repair for a Monday run that
+failed before that step is a **re-run of that scheduled run**, not a dispatch.
+The create is the job's final step, after the dashboard, the snapshot push, and
+the data-validation escalation, so a degraded API costs the week's digest and
+nothing else — and because the poster takes the already-rendered body rather than
+re-deriving it, the report build stays read-only.
+
+Week-over-week deltas read the `ops-metrics` orphan-branch snapshots, which is
+what makes the substance section's `(+n)` figures mean anything.
+
+### The daily prediction-reading digest
+
+A second job opens the **prediction-reading digest**: one predicted event with
+every predictor side by side — the case/event header, each cell's probability
+and claims, its `predicted_reasoning.md` and `reasoning.md` inline, its flags,
+and links to the committed cell paths — on its own issue under the
+non-triggering `daily-digest` label. The dashboard answers whether the machine
+is producing; this answers *what it said*, which nothing else surfaces for a
+human to read.
+
+The maintainer **closes the issue once read**, so the open `daily-digest` issues
+are the unread backlog and no reading-state store exists. Two HTML markers in
+the body's leading lines are the whole of the state, read back by the same
+substring idempotency the `agent-feedback` latch uses. The **event** marker
+(`<!-- daily-digest-event: <court>/<docket>/<event> -->`) says which event a
+digest featured: selection takes the newest event no prior body carries, and
+rotates to the least-recently-featured one on a day nothing new landed. The
+**day** marker (`<!-- daily-digest-day: <YYYY-MM-DD> -->`) is what the issue
+create is idempotent on, and it has to be a separate key: guarded on the event
+marker, a rotated re-read would find its own past issue and post nothing,
+killing the rotation on the one path it exists for. Guarded on the day, a
+re-dispatch of a day already digested is a no-op and a re-read still opens
+today's issue. Both tests read only those leading lines — everything below them
+is text the harness did not write, and a whole-body test would let a prediction
+that quoted a marker retire an event from the queue for good. As a second,
+independent control the whole body below the markers has its HTML-comment
+openers defused in one pass, so a quoted marker is shown as written rather than
+acting as one, and a field added to the digest later cannot miss the treatment.
+The lookup reads the newest 200 digest issues, so the featured window is roughly
+six months; an event that scrolls out of it re-reads as never featured, which
+repeats a reading rather than skipping one.
+
+The body is bounded by construction (one event, each document capped) and then
+clamped under GitHub's issue-body limit, which is refused with a 422 rather than
+truncated; a truncated document links its committed file. An empty ledger writes
+no body and exits 0, and so does a run whose day was already digested — the
+rendered body is written last, after the post, so what the file holds is what was
+published rather than what selection happened to pick.
+
+Everything under a `##` heading in the body is agent-authored and untrusted: the
+predictors' own prose, verbatim. It is presented, not vouched for, and it can
+spell markdown of its own — including headings that look like the digest's.
+
+The job runs on every trigger the workflow has, including the Monday weekly
+tick: the day marker, not a schedule filter, is what makes it once a day. That
+is deliberate — a `schedule` filter is fail-open on any cron it does not name,
+and the workflow-level `cancel-in-progress` lets the 08:30 weekly tick cancel an
+08:00 run still retrying, which a filtered-out job could not make up.
+
+Selection, rendering, and the once-a-day issue create are all
+`fedcourts daily-digest`, so the workflow step is a thin wrapper with no `gh` of
+its own and the bounded retry is the tested Python seam's
+(`fedcourtsai.agent_feedback`). The job is separate from the dashboard job
+because permissions are per-job and its needs are narrower: `contents: read`
+plus `issues: write`, the ambient `GITHUB_TOKEN`, no corpus credential, no model
+call, no branch write.
 
 ## `run-analytics` — corpus analysis & derived metrics
 
@@ -793,10 +912,9 @@ pattern rather than rediscovering it:
   fails on a bare `uv run fedcourts` reappearing in that composite.
 - **A GitHub API call has no retry unless you give it one.** Two classes of
   call route through `gh_retry`. The steps that keep the run *record* — the ops
-  and pipeline-runs dashboards, the weekly digest, the data-validation
-  escalation, the per-day `pull-log` / `live-log` alarms, the seed guard,
-  run-backtest's result comment — are bookkeeping about a run rather than the
-  work. The **handoff writes** are the work: `open-run-handoff`'s predict
+  and pipeline-runs dashboards, the data-validation escalation, the per-day
+  `pull-log` / `live-log` alarms, the seed guard, run-backtest's result
+  comment — are bookkeeping about a run rather than the work. The **handoff writes** are the work: `open-run-handoff`'s predict
   trigger-issue create, and the trigger-issue closes in run-predict /
   run-evaluate. Outside
   those two lists a bare call is fine and a repo-wide rule would be one nobody
@@ -821,10 +939,12 @@ pattern rather than rediscovering it:
   the retries — three attempts at `timeout 30` plus backoff is 105s per call.
   A call that routes through `agent_feedback.py`'s runner carries the bound
   already: that module's default `GhRunner` applies the same three attempts at
-  the same 30s cap to every `gh` call it makes, so the `post-issue-comment` and
-  `post-agent-feedback` commands — the plan report each non-empty
+  the same 30s cap to every `gh` call it makes, so the `post-issue-comment`,
+  `post-agent-feedback`, `daily-digest --post`, and `post-weekly-digest`
+  commands — the plan report each non-empty
   predict/evaluate round posts before the review hold, the collect job's stall
-  and secret-scan reports, and the flag roll-up latch itself — are covered at
+  and secret-scan reports, the flag roll-up latch itself, and both digests'
+  issue creates — are covered at
   the seam, and a new caller of it inherits the bound rather than adding a copy.
   `authz.py`'s collaborator-permission lookup — behind the `authorize-trigger`
   gate every label-triggered `run:*` workflow (the fan-outs and run-pull) runs

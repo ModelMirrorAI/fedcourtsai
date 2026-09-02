@@ -9,34 +9,55 @@ optionally to JSON.
 
 Unlike the deterministic leaderboard / back-test roll-ups, this is a point-in-time
 view: it carries ``generated_at`` and run durations, so it is not byte-stable.
+
+Two further surfaces live here beside the dashboard, both bounded issue bodies a
+maintainer reads and then closes, and both prose from tested code posted by a
+workflow that contributes no wording of its own. The **weekly performance
+digest** (``ops-report --digest-out``) answers what the week produced and what
+the committed boards say, each figure carrying the vintage of the artifact it
+came from. The **daily prediction-reading digest** (``fedcourts daily-digest``)
+answers what the models *said* about one event, so its input is the committed
+ledger's cells (loaded by :mod:`fedcourtsai.store`) rather than the ops feeds.
 """
 
 from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
-from datetime import UTC, datetime, timedelta
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
+from .agent_feedback import already_posted, marker_head
 from .analytics import _GRANT_LABELS
 from .collect import flags_table
 from .integrity import FORWARD, RETROSPECTIVE
 from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
+    Backtest,
+    BacktestEntry,
+    CertBacktest,
+    ClaimScoreBoard,
     CostEstimate,
     DataHealth,
     Evaluation,
     FlagsDigest,
     FlagSeverity,
     ForwardClaimRecord,
+    FrozenProcessRecord,
+    Leaderboard,
     LeakageDigest,
     LiveFrontier,
     ModelUsage,
     OpenTriggerIssue,
     OpsReport,
+    PredictableEvent,
+    Prediction,
     PredictorScoreRow,
+    SalienceReplay,
     SpendSummary,
+    Stage,
     StatPack,
     Stratum,
     SubstanceCalibration,
@@ -45,6 +66,14 @@ from .schemas import (
     ToolingCount,
     ToolingDigest,
     WorkflowHealth,
+)
+from .spend import SpendVerdict
+from .store import (
+    PredictedEvent,
+    PredictedEventRef,
+    PredictionCell,
+    RecentCells,
+    normalized_stage,
 )
 
 # Conclusions that count as a completed-but-not-successful run.
@@ -468,15 +497,15 @@ def render_substance(digest: SubstanceDigest) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_weekly_digest(report: OpsReport) -> str:
-    """The weekly maintainer digest: fixed questions with this week's answers.
+def _health_questions(report: OpsReport) -> list[str]:
+    """The digest's fixed interrogative bullets, with this week's answers.
 
     Deliberately short and interrogative — the numbers demand a reaction rather
     than sit available for inspection; the daily dashboard stays the reference
     view. Renders from whatever the report holds, with explicit absences.
     """
     substance = report.substance
-    lines = ["### Weekly digest", ""]
+    lines: list[str] = []
 
     # A frozen scope with no scored cells is the shakedown state (nothing blessed
     # yet), not a stalled machine — so the "what is blocking?" framing below would
@@ -567,7 +596,874 @@ def render_weekly_digest(report: OpsReport) -> str:
         f"- **Spend vs budget: ${report.spend.estimated_cost_usd:,.2f} model spend cumulative "
         f"({model_rate} while running), ~{monthly} projected all-in — within plan?**"
     )
-    return "\n".join(lines) + "\n"
+    return lines
+
+
+@dataclass(frozen=True)
+class Vintaged[T]:
+    """A committed metrics artifact and the vintage the figures in it carry.
+
+    None of the boards stamps itself: they are byte-stable functions of their
+    inputs, deliberately, so the vintage cannot come from inside the file. It is
+    supplied by the caller — the commit that last wrote the artifact — and it
+    rides beside the value rather than being folded into a rendered string, so a
+    renderer cannot show a figure while forgetting when it was computed.
+    ``value`` is None when the artifact has not landed at all, which is a
+    different statement from a landed-but-empty one and must read differently.
+    """
+
+    value: T | None
+    vintage: str | None
+
+
+@dataclass(frozen=True)
+class WeeklyAnalytics:
+    """The committed metrics artifacts the weekly digest reports, each vintaged.
+
+    ``salience_version_in_force`` is the scorer the pipeline runs **today**, not
+    the one the replay was produced under: a per-band figure means something only
+    under the function that assigned the band, so a replay from an older version
+    is history rather than a current reading, and the digest has to say which it
+    is looking at.
+    """
+
+    leaderboard: Vintaged[Leaderboard]
+    claim_scores: Vintaged[ClaimScoreBoard]
+    statpack: Vintaged[StatPack]
+    backtest: Vintaged[Backtest]
+    salience_replay: Vintaged[SalienceReplay]
+    cert_backtest: Vintaged[CertBacktest]
+    salience_version_in_force: str
+
+
+@dataclass(frozen=True)
+class WeeklyProduction:
+    """What the ledger recorded this week: cells produced, and what they cost.
+
+    ``census`` and ``spend_usd`` are taken over the *same* window and the same
+    usage records, so the two numbers describe one set of cells. ``backstop`` is
+    the ex-post spend gate's own verdict over its own (longer) window, carried
+    whole rather than reduced to a fraction — an unenforced ceiling has no
+    fraction, and a digest that printed one anyway would invent a budget.
+    """
+
+    census: RecentCells
+    spend_usd: float
+    backstop: SpendVerdict | None
+    window_start: date | None = None
+    window_end: date | None = None
+
+    @property
+    def window(self) -> str:
+        """The window as dates, so two adjacent digests are comparable.
+
+        "last 7d" alone is not recoverable by a reader: the Monday tick titles its
+        issue for the ISO week that *starts* that morning while the census covers
+        the seven days before it, so without the bounds the section silently
+        describes the previous week under this week's heading.
+        """
+        if self.window_start is None or self.window_end is None:
+            return f"last {self.census.window_days}d"
+        return (
+            f"{self.window_start.isoformat()} to {self.window_end.isoformat()}, "
+            f"the {self.census.window_days}d before this digest"
+        )
+
+
+def _cell(value: str) -> str:
+    """One table cell's text, with any pipe escaped.
+
+    Predictor ids come off the ledger as free-form strings, and a `|` in one
+    would silently shift every column to its right rather than failing.
+    """
+    return value.replace("|", r"\|")
+
+
+def _sourced(filename: str, vintaged: Vintaged[object]) -> str:
+    """``` `metrics/x.json`, vintage YYYY-MM-DD ``` — the artifact and when it moved.
+
+    Every metrics-derived figure carries this, because none of these artifacts is
+    refreshed on the digest's own schedule: a board is byte-stable and a statpack
+    moves only when the corpus does, so a figure without its vintage silently
+    claims to be this week's. An unknown vintage says so rather than being
+    omitted — the reader still needs to know the number's age is unestablished.
+    """
+    vintage = f"vintage {vintaged.vintage}" if vintaged.vintage else "vintage unknown"
+    return f"`metrics/{filename}`, {vintage}"
+
+
+def _leaderboard_lines(vintaged: Vintaged[Leaderboard], generated_at: str) -> list[str]:
+    """The standings, or the honest reason there are none."""
+    board = vintaged.value
+    where = _sourced("leaderboard.json", vintaged)
+    if board is None:
+        return ["- **Leaderboard**: `metrics/leaderboard.json` has never landed."]
+    if not board.entries:
+        return [
+            f"- **Leaderboard** ({where}): **no predictor ranked** — "
+            f"{_empty_headline_reason(board.frozen_process, generated_at)} "
+            f"{board.evaluations_total} evaluation(s) in the `{board.process_scope}` "
+            f"scope, {board.events_scored} event(s) scored; `--all-versions` is where "
+            "the shakedown pool shows."
+        ]
+    versions = (
+        f" · banded by {', '.join(f'`{v}`' for v in board.salience_versions)}"
+        if board.salience_versions
+        else ""
+    )
+    regrades = (
+        f" · {board.superseded_gradings} superseded grading(s) collapsed away"
+        if board.superseded_gradings
+        else ""
+    )
+    rows = [
+        f"- **Leaderboard** ({where}): {board.predictors_ranked} predictor(s) over "
+        f"{board.events_scored} event(s), scope `{board.process_scope}`{versions}"
+        f"{regrades}. Rank is forward accuracy, then forward Brier.",
+        "",
+        # `evaluators` is the panel depth — how many judges scored the predictor —
+        # not a cell count. Labelling it "cells" would publish "2 cells over 37
+        # events", which is not a thing the board says.
+        "| Rank | Predictor | Judges | Events |",
+        "| ---: | --- | ---: | ---: |",
+    ]
+    rows += [
+        f"| {entry.rank} | {_cell(entry.predictor_id)} | {entry.evaluators} "
+        f"| {entry.events_scored} |"
+        for entry in board.entries
+    ]
+    return rows
+
+
+def _empty_headline_reason(frozen: FrozenProcessRecord | None, generated_at: str) -> str:
+    """Why an empty frozen board is empty — which is two different states.
+
+    A freeze instant in the *future* means the counting window has not opened:
+    the headline is empty by construction and no grading could have reached it
+    however well the pipeline ran. Once the instant has passed, an empty board
+    means the window is open and nothing has been graded into it — a fact about
+    production. Collapsing the two into "nothing has been graded yet" reports the
+    first as the second, which is the same bare-zero misreading the branch exists
+    to avoid.
+    """
+    if frozen is None or frozen.since is None:
+        return "the board records no freeze instant, so nothing is in scope to rank."
+    since = frozen.since.date().isoformat()
+    now = parse_iso(generated_at)
+    if now is not None and _as_utc(now) < _as_utc(frozen.since):
+        return f"the frozen counting window opens **{since}**, so it is empty by construction."
+    return (
+        f"the frozen counting window opened {since} and no stamped grading has "
+        "reached the ranked population."
+    )
+
+
+def _claim_score_lines(vintaged: Vintaged[ClaimScoreBoard]) -> list[str]:
+    """The claim-score board's state, empty or otherwise."""
+    board = vintaged.value
+    where = _sourced("claim-scores.json", vintaged)
+    if board is None:
+        return ["- **Claim scores**: `metrics/claim-scores.json` has never landed."]
+    if not board.entries:
+        return [
+            f"- **Claim scores** ({where}): **suppressed** — "
+            f"{board.cells_with_claims} cell(s) carry a claims block inside the "
+            f"`{board.process_scope}` scope and this surface's population, so no "
+            "coefficient is computed."
+        ]
+    return [
+        f"- **Claim scores** ({where}): {len(board.entries)} predictor(s) over "
+        f"{board.cells_with_claims} cell(s) carrying claims."
+    ]
+
+
+def _base_rate_lines(vintaged: Vintaged[StatPack]) -> list[str]:
+    """The statpack's two headline rates, each with its own denominator and its limit.
+
+    **Neither anchors a scored cell**, and the line says so. A forward cert cell
+    is scored against its own salience band's strictly-prior-Term risk-set rate;
+    the pack-wide band rate here pools every band over the whole walked range with
+    no own-Term exclusion, which ``docs/salience.md`` registers as a fit
+    diagnostic for the ranking constant and *not* a scoring baseline — quoting it
+    as a forecast anchor would breach the leakage guard registered there. The
+    always-deny figure is the whole modern-cert slice's, not the predicted
+    segment's, so it is an orientation for reading an accuracy, not a floor any
+    scored cell is measured against.
+    """
+    pack = vintaged.value
+    where = _sourced("statpack.json", vintaged)
+    if pack is None:
+        return ["- **Base rates**: `metrics/statpack.json` has never landed."]
+    deny, deny_cases = _deny_base_rate(pack)
+    grant, grant_cases = _segment_base_rate(pack)
+    deny_text = (
+        f"always-deny **{deny:.0%}** (est. over {deny_cases:,} resolved modern-cert "
+        "petitions, denial-reweighted)"
+        if deny is not None and deny_cases is not None
+        else "always-deny **—** (no cert-stage disposition section)"
+    )
+    grant_text = (
+        f"pooled salience-band grant **{grant:.0%}** (over {grant_cases:,} resolved "
+        "petitions of the scored segment, every band pooled)"
+        if grant is not None and grant_cases is not None
+        else "pooled band grant **—** (no salience-band section)"
+    )
+    return [
+        f"- **Base rates** ({where}): {deny_text}; {grant_text}. Pack coverage: "
+        f"{pack.coverage.live_slice_resolved:,} resolved of "
+        f"{pack.coverage.live_slice_rows:,} live-slice rows.",
+        "  _Neither figure anchors a scored cell. A forward cert cell is scored "
+        + "against its own band's strictly-prior-Term risk-set rate; the pooled band "
+        + "rate is a fit diagnostic for the ranking constant, not a scoring baseline "
+        + "(`docs/salience.md`), and the always-deny rate is taken over a different, "
+        + "much wider population than the one the gate predicts — an orientation "
+        + "rather than an effect size._",
+    ]
+
+
+def _render_analytics_state(analytics: WeeklyAnalytics, generated_at: str) -> list[str]:
+    """Section 1: what the committed boards say, and what they honestly cannot."""
+    return [
+        "",
+        "## Analytics state",
+        "",
+        *_leaderboard_lines(analytics.leaderboard, generated_at),
+        *_claim_score_lines(analytics.claim_scores),
+        *_base_rate_lines(analytics.statpack),
+    ]
+
+
+def _render_production(production: WeeklyProduction) -> list[str]:
+    """Section 2: cells produced this week, and the measured cost of producing them."""
+    census = production.census
+    lines = [
+        "",
+        f"## Produced this week ({production.window})",
+        "",
+        f"**{census.cells}** cell(s) over **{census.events}** event(s), and "
+        f"**${production.spend_usd:,.2f}** of measured model spend over the same "
+        "records — the recorded `usage.json` ledger, which lags: a cell's usage "
+        "reaches `data/` only when its run's collect PR merges, so this is a floor "
+        "on what was spent, not a real-time figure.",
+    ]
+    if census.rows:
+        lines += [
+            "",
+            "| Role | Stage | Cells |",
+            "| --- | --- | ---: |",
+            *[f"| {_cell(row.role)} | {_cell(row.stage)} | {row.cells} |" for row in census.rows],
+        ]
+    else:
+        lines += ["", "_No cell landed in the window._"]
+
+    backstop = production.backstop
+    if backstop is None:
+        lines += ["", "_Spend backstop: not evaluated this run._"]
+    elif not backstop.enforced:
+        lines += [
+            "",
+            "_Spend backstop: **no ceiling configured**, so nothing is measured "
+            + "against one and nothing would be deferred._",
+        ]
+    else:
+        share = backstop.spent_usd / backstop.ceiling_usd if backstop.ceiling_usd else 0.0
+        verdict = (
+            "**BREACHED** — a plan seam would defer its matrix" if backstop.breached else "clear"
+        )
+        lines += [
+            "",
+            f"Spend backstop: **${backstop.spent_usd:,.2f}** of "
+            f"**${backstop.ceiling_usd:,.2f}** over the trailing "
+            f"{backstop.window_days}d window (**{share:.0%}** consumed, "
+            f"${backstop.remaining_usd:,.2f} left, {backstop.cells} cell(s)) — {verdict} "
+            "on a lagging ledger, so the verdict is a floor too.",
+        ]
+    return lines
+
+
+#: The court whose rows the digest publishes beside the pooled figure. Pooling
+#: mixes outcome vocabularies — `granted` is cert on a SCOTUS row and a motion
+#: granted on a court-of-appeals docket — and the pooled floor is a mixture of a
+#: high SCOTUS floor and near-zero appellate ones, so a pooled lift can be
+#: produced entirely by a court this pipeline does not predict. This is the one
+#: it does.
+_BACKTEST_HEADLINE_COURT = "scotus"
+
+
+def _pct(value: float | None) -> str:
+    """A percentage, or an em dash where the figure was never computed."""
+    return "—" if value is None else f"{value:.1%}"
+
+
+def _signed_pct(value: float | None) -> str:
+    return "—" if value is None else f"{value:+.2%}"
+
+
+def _brier(value: float | None) -> str:
+    return "—" if value is None else f"{value:.4f}"
+
+
+def _backtest_rows(entry: BacktestEntry) -> list[str]:
+    """One predictor's rows: its predicted court first, then the pooled figure.
+
+    The pooled row is labelled as a mixture rather than left to read as the
+    predictor's score, because it is the row a reader quotes.
+    """
+    rows = [
+        f"| {_cell(entry.predictor_id)} | {_cell(court.court)} | {court.events_scored:,} "
+        f"| {_pct(court.accuracy)} | {_pct(court.always_denied_accuracy)} "
+        f"| {_signed_pct(court.lift_over_always_denied)} | {_brier(court.mean_brier_score)} |"
+        for court in entry.courts
+        if court.court == _BACKTEST_HEADLINE_COURT
+    ]
+    rows.append(
+        f"| {_cell(entry.predictor_id)} | _all courts pooled_ | {entry.events_scored:,} "
+        f"| {_pct(entry.accuracy)} | {_pct(entry.always_denied_accuracy)} "
+        f"| {_signed_pct(entry.lift_over_always_denied)} | {_brier(entry.mean_brier_score)} |"
+    )
+    return rows
+
+
+def _backtest_lines(vintaged: Vintaged[Backtest]) -> list[str]:
+    """The broad replay board: accuracy is unreadable without its own court's floor.
+
+    Published per court rather than as the ranked pooled row, because the pooled
+    row is the one that misleads: a constant predictor scores its slice's base
+    rate exactly, the pooled floor mixes an ~82% SCOTUS floor with ~1% appellate
+    ones, and a pooled lift can therefore be bought entirely on a docket this
+    pipeline never predicts. ``metrics/README.md`` says to read the per-court cut;
+    pointing the reader at the artifact is not enough when the digest is the
+    thing that gets quoted.
+    """
+    board = vintaged.value
+    where = _sourced("backtest.json", vintaged)
+    if board is None:
+        return ["- **Historical replay**: `metrics/backtest.json` has never landed."]
+    if not board.entries:
+        return [
+            f"- **Historical replay** ({where}): empty — no corpus with outcome labels "
+            "has been replayed yet."
+        ]
+    lines = [
+        f"- **Historical replay** ({where}): {board.predictors_evaluated} predictor(s) over "
+        f"{board.events_scored:,} resolved event(s), `{board.stratum}` by construction — "
+        "recall and calibration over known history, never foresight, and an **iteration "
+        "instrument**: nothing here is a claimable performance figure "
+        "(`metrics/README.md`).",
+        "",
+        "| Predictor | Court | Events | Accuracy | Always-deny floor | Lift | Mean Brier |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for entry in board.entries:
+        lines += _backtest_rows(entry)
+    lines += [
+        "",
+        "Read a lift only against its own court's floor. The pooled row mixes outcome "
+        + "vocabularies — `granted` is cert on a SCOTUS row and a motion granted on a "
+        + "court-of-appeals docket — and mixes an ~80% floor with near-zero ones, so a "
+        + "pooled lift can be produced entirely by a court this pipeline does not predict.",
+    ]
+    return lines
+
+
+def _salience_replay_lines(vintaged: Vintaged[SalienceReplay], in_force: str) -> list[str]:
+    """The gate replay, with the scorer that produced it named beside every figure."""
+    replay = vintaged.value
+    where = _sourced("salience-replay.json", vintaged)
+    if replay is None:
+        return ["- **Salience-gate replay**: `metrics/salience-replay.json` has never landed."]
+    stale = (
+        ""
+        if replay.salience_version == in_force
+        else (
+            f" — produced under `{replay.salience_version}` while **`{in_force}`** is the "
+            "scorer in force, so these are that version's numbers and not a current "
+            "reading of the gate"
+        )
+    )
+    versions = ", ".join(f"`{v}`" for v in replay.salience_versions) or "—"
+    terms = ", ".join(str(term) for term in replay.terms) or "—"
+    return [
+        f"- **Salience-gate replay** ({where}): {replay.cells_evaluated} cell(s) over "
+        f"Term(s) {terms} and {len(replay.policies)} cutoff policy(ies), "
+        f"version(s) {versions}{stale}."
+    ]
+
+
+def _cert_backtest_lines(vintaged: Vintaged[CertBacktest]) -> list[str]:
+    """The cert back-test, whose absence is the honest thing to report."""
+    report = vintaged.value
+    if report is None:
+        return [
+            "- **Cert back-test**: **no report has landed yet.** "
+            + "`metrics/cert-backtest.json` is off the scheduled refresh because a "
+            + "real-engine replay spends tokens, so it exists only after a maintainer "
+            + "dispatches `run-backtest` — there is no number here to be stale."
+        ]
+    return [
+        f"- **Cert back-test** ({_sourced('cert-backtest.json', vintaged)}): "
+        f"{report.predictors_evaluated} predictor(s) over {report.events_scored:,} "
+        f"petition(s), banded by `{report.salience_version}`; always-deny floor "
+        f"{report.always_denied_accuracy:.1%}."
+    ]
+
+
+def _render_backtests(analytics: WeeklyAnalytics) -> list[str]:
+    """Section 3: what the replays say, and which replay has never been run."""
+    return [
+        "",
+        "## Backtest results",
+        "",
+        *_backtest_lines(analytics.backtest),
+        *_salience_replay_lines(analytics.salience_replay, analytics.salience_version_in_force),
+        *_cert_backtest_lines(analytics.cert_backtest),
+    ]
+
+
+# The non-triggering label the weekly performance digest issues carry — the same
+# discipline as `daily-digest` below: no `run:*` workflow keys on it, and it must
+# never become one. Its reading state is the issue list too: the maintainer
+# closes one once read.
+WEEKLY_DIGEST_LABEL = "weekly-digest"
+
+#: One digest an ISO week, and that is what the issue create is idempotent on.
+_WEEKLY_DIGEST_MARKER = "<!-- weekly-digest: {week} -->"
+
+#: The weekly body's marker block. One line: unlike the daily digest this body
+#: inlines no agent prose, but the tests read the same way for both.
+WEEKLY_DIGEST_MARKER_LINES = 1
+
+
+def _iso_week(generated_at: str) -> str:
+    """``YYYY-Www`` for a timestamp, or the timestamp itself if it does not parse."""
+    parsed = parse_iso(generated_at)
+    if parsed is None:
+        return generated_at
+    year, week, _ = parsed.isocalendar()
+    return f"{year}-W{week:02d}"
+
+
+def weekly_digest_marker(generated_at: str) -> str:
+    """The HTML marker identifying which ISO week a weekly digest covers."""
+    return _WEEKLY_DIGEST_MARKER.format(week=_iso_week(generated_at))
+
+
+def weekly_digest_week(marker: str) -> str | None:
+    """The ISO week a weekly-digest marker names, or ``None`` if it is not one.
+
+    The inverse of :func:`weekly_digest_marker`, so a poster handed a rendered
+    body can recover the week from the body's own first line rather than being
+    told it a second time — and can refuse a file that is not a weekly digest
+    instead of opening an issue titled from a guess.
+    """
+    prefix, suffix = _WEEKLY_DIGEST_MARKER.split("{week}")
+    line = marker.strip()
+    if not line.startswith(prefix) or not line.endswith(suffix):
+        return None
+    return line[len(prefix) : len(line) - len(suffix)] or None
+
+
+def weekly_digest_title(generated_at: str) -> str:
+    """The weekly digest issue's title, naming its week."""
+    return weekly_digest_title_for_week(_iso_week(generated_at))
+
+
+def weekly_digest_title_for_week(week: str) -> str:
+    """The weekly digest issue's title for an already-resolved ISO week."""
+    return f"Weekly performance digest — {week}"
+
+
+def render_weekly_digest(
+    report: OpsReport,
+    *,
+    analytics: WeeklyAnalytics | None = None,
+    production: WeeklyProduction | None = None,
+) -> str:
+    """The weekly performance digest: the week's substance, on its own issue.
+
+    Four blocks, in the order a reader needs them. The **health questions** are
+    short and interrogative — numbers that demand a reaction rather than sit
+    available for inspection. **Analytics state** says what the committed boards
+    hold, with each empty one explaining *why* it is empty rather than showing a
+    bare zero. **Produced this week** counts the cells that ran and what they
+    cost, over one window and one set of records. **Backtest results** reports
+    the replays, and says plainly that the cert back-test has never been run
+    rather than leaving its absence to be inferred from a missing line.
+
+    In the analytics and back-test blocks every figure carries the vintage of
+    the artifact it came from, because none of those artifacts is refreshed on
+    this schedule: a board is byte-stable and a statpack moves only when the
+    corpus does, so a figure without its vintage silently claims to be this
+    week's. The health questions keep the dashboard's un-vintaged framing — they
+    are the same bullets that surface there, read as questions rather than as
+    figures to quote.
+
+    ``analytics`` and ``production`` are optional so the digest degrades to its
+    questions rather than failing when a feed is absent.
+    """
+    lines = [
+        weekly_digest_marker(report.generated_at),
+        "# Weekly performance digest",
+        "",
+        f"_Generated {report.generated_at}. Close this issue once you have read it — the "
+        "open `weekly-digest` issues are the unread backlog._",
+        "",
+        "## Health questions",
+        "",
+        *_health_questions(report),
+    ]
+    if analytics is not None:
+        lines += _render_analytics_state(analytics, report.generated_at)
+    if production is not None:
+        lines += _render_production(production)
+    if analytics is not None:
+        lines += _render_backtests(analytics)
+    # The marker line stays verbatim; everything below it is defused in one pass,
+    # exactly as the daily digest's body is. Almost all of this document is
+    # harness-computed figures, but the predictor ids threaded through the board
+    # tables are free-form strings from the ledger, and a field added later would
+    # otherwise arrive untreated.
+    prose = _defuse_comments("\n".join(lines[WEEKLY_DIGEST_MARKER_LINES:]))
+    document = "\n".join([*lines[:WEEKLY_DIGEST_MARKER_LINES], prose]) + "\n"
+    if len(document) > _DIGEST_MAX_CHARS:
+        document = document[: _DIGEST_MAX_CHARS - len(_DIGEST_TRUNCATED)] + _DIGEST_TRUNCATED
+    return document
+
+
+# The non-triggering label the daily prediction-reading digest issues carry (no
+# `run:*` workflow keys on it, and it must never become one — an issue opened
+# under a trigger label would start a spending run). The reading state is the
+# issue list itself: an open digest issue is unread, and closing it is the only
+# act the maintainer performs.
+DAILY_DIGEST_LABEL = "daily-digest"
+
+#: The idempotency marker, one per digest body. Stateless "have I featured this
+#: event" derives from prior digest bodies alone (the ``already_posted``
+#: substring check :mod:`fedcourtsai.agent_feedback` uses for the same purpose),
+#: so no featured-events store has to be written, committed, or kept in sync.
+_DAILY_DIGEST_MARKER = "<!-- daily-digest-event: {key} -->"
+
+#: The *create* guard, which is a different question from the *featured* one and
+#: so a different marker. The event marker cannot serve both: once every event
+#: has been featured the digest rotates back to the least-recently-read one, and
+#: a create guarded on that event's own marker would find it and post nothing —
+#: the rotation would be dead on the one path it exists for. A digest is one a
+#: day, so the day is what the create is idempotent on: a re-dispatch of a day
+#: already digested is a no-op, and a re-read of an old event still opens today's
+#: issue.
+_DAILY_DIGEST_DAY_MARKER = "<!-- daily-digest-day: {day} -->"
+
+#: How many leading lines of a digest body carry its markers. Both marker tests
+#: read only this block, never the whole body: everything below it is text the
+#: harness did not write, and a whole-body substring test would let a document
+#: that quoted a marker mark some other event read for good.
+DAILY_DIGEST_MARKER_LINES = 2
+
+#: Per-document ceiling in the rendered body. Predictor prose runs a few
+#: thousand characters, so this truncates only an outlier — and an outlier is
+#: exactly what would otherwise push a three-predictor digest past the body
+#: limit. A truncated document links to the committed file, which is the
+#: complete text.
+_DAILY_DIGEST_DOC_MAX_CHARS = 6_000
+
+#: Every digest body's hard ceiling, under GitHub's 65,536-character issue-body
+#: limit — refused with a 422 rather than truncated. Both digests are bounded by
+#: construction (one event with capped documents; a fixed set of tables); the
+#: clamp makes the bound a guarantee no matter how many predictors an event
+#: accumulates or how long a board grows.
+_DIGEST_MAX_CHARS = 60_000
+
+_DIGEST_TRUNCATED = (
+    "\n\n_Digest truncated at the issue-body ceiling; the linked paths and the committed "
+    "artifacts carry the rest._\n"
+)
+
+
+def daily_digest_marker(case_id: str, event_id: str) -> str:
+    """The HTML marker identifying which event a daily digest body featured."""
+    return _DAILY_DIGEST_MARKER.format(key=f"{case_id}/{event_id}")
+
+
+def daily_digest_day_marker(generated_at: str) -> str:
+    """The HTML marker identifying which *day* a digest body was opened for.
+
+    What the issue create is idempotent on — one digest a day — so a re-dispatch
+    posts nothing while a rotation back to an already-read event still opens
+    today's issue. An unparseable stamp falls back to itself rather than to a
+    guessed date, which keeps the guard exact at the cost of being conservative.
+    """
+    parsed = parse_iso(generated_at)
+    day = parsed.date().isoformat() if parsed is not None else generated_at
+    return _DAILY_DIGEST_DAY_MARKER.format(day=day)
+
+
+def _marker_block(body: str) -> str:
+    """A digest body's leading marker lines, which is all a marker test may read."""
+    return marker_head(body, DAILY_DIGEST_MARKER_LINES)
+
+
+def _featured_rank(ref: PredictedEventRef, prior_bodies: Sequence[str]) -> int | None:
+    """How recently ``ref`` was featured: 0 for the newest body, ``None`` for never.
+
+    ``prior_bodies`` is newest-first, so a larger rank means featured longer ago.
+    """
+    marker = daily_digest_marker(ref.case_id, ref.event_id)
+    return next((i for i, body in enumerate(prior_bodies) if marker in _marker_block(body)), None)
+
+
+def select_daily_digest_event(
+    candidates: Sequence[PredictedEventRef], prior_bodies: Sequence[str]
+) -> PredictedEventRef | None:
+    """Which predicted event today's digest features, or ``None`` with nothing to read.
+
+    Newest not-yet-featured first — the point of the habit is to read what just
+    landed. When every candidate has been featured (the steady state once the
+    ledger stops growing daily), rotate to the **least recently featured** one
+    rather than repeating yesterday's: a re-read of the oldest reading is worth
+    more than a duplicate, and it keeps the digest producing something every day
+    without inventing a backlog. What makes the rotation reach a reader is that
+    the issue create is guarded on the *day* marker, not this one
+    (:func:`daily_digest_day_marker`) — guarded on the event's own marker it
+    would refuse every rotated re-read, which is the only case it exists for.
+
+    ``prior_bodies`` are the bodies of previous digest issues, newest first
+    (``gh issue list`` order), and are the only state: presence of an event's
+    marker in a body's leading marker block is what "featured" means. A digest
+    issue whose body a reader edited past recognition simply reads as never
+    featured, which repeats one event rather than skipping one.
+    """
+    if not candidates:
+        return None
+    blocks = [_marker_block(body) for body in prior_bodies]
+    unfeatured = [
+        ref
+        for ref in candidates
+        if not already_posted(blocks, daily_digest_marker(ref.case_id, ref.event_id))
+    ]
+    if unfeatured:
+        return max(unfeatured, key=lambda ref: (ref.latest_run_id, ref.case_id, ref.event_id))
+    # Every candidate carries a rank here, since none survived the filter above.
+    ranked = [
+        (rank, ref) for ref in candidates if (rank := _featured_rank(ref, prior_bodies)) is not None
+    ]
+    return max(ranked, key=lambda pair: (pair[0], pair[1].case_id, pair[1].event_id))[1]
+
+
+def daily_digest_cell_heading(predictor_id: str, run_id: str) -> str:
+    """The heading of one predictor cell's section in a digest body.
+
+    Public because it is the only handle on a section: the prose a section
+    carries is agent-written and routinely contains its own ``##`` headings, so
+    counting headings identifies nothing. A caller — including a test asserting
+    the digest covered every cell — asks for this exact string instead.
+    """
+    return f"## {predictor_id} · run `{run_id}`"
+
+
+def _repo_link(label: str, path: str, *, repo: str, ref: str) -> str:
+    """A markdown link to a committed path, or bare backticks without a repo."""
+    if not repo:
+        return f"`{path}`"
+    return f"[{label}](https://github.com/{repo}/blob/{ref}/{path})"
+
+
+def _defuse_comments(text: str) -> str:
+    """Neutralize HTML-comment openers without changing what the text says.
+
+    The digest's whole state lives in HTML markers, and everything below the
+    marker block is text the harness did not write: agent prose from cells that
+    read docket text and, on a forward cell, the open web, plus the corpus's own
+    case caption. ``&lt;!--`` renders as the literal characters and is *not* a
+    comment, so a document that quotes a marker is shown exactly as written and
+    cannot be mistaken for one. Applied once over the assembled document rather
+    than per field, so a field added to the digest later cannot fall off an
+    allowlist. The marker tests read only the leading block in any case
+    (:func:`_marker_block`); this is the second of two independent controls,
+    because a body reaching a reader who greps it should carry no forged marker
+    either.
+    """
+    return text.replace("<!--", "&lt;!--")
+
+
+def _digest_document(
+    title: str, text: str | None, *, missing: str, link: str, filename: str
+) -> list[str]:
+    """One document block: the prose inline, truncated to the per-document cap.
+
+    A truncated document says so and carries the link to the complete file, so
+    the digest never presents a cut-off argument as the whole of one.
+    """
+    if text is None:
+        return ["", f"**{title}**", "", f"_{missing}_"]
+    body = text.strip()
+    if len(body) > _DAILY_DIGEST_DOC_MAX_CHARS:
+        body = (
+            body[:_DAILY_DIGEST_DOC_MAX_CHARS].rstrip()
+            + f"\n\n_…truncated at {_DAILY_DIGEST_DOC_MAX_CHARS:,} characters; "
+            + f"the full `{filename}` is in {link}._"
+        )
+    return ["", f"**{title}**", "", body]
+
+
+def _digest_context_line(prediction: Prediction) -> str:
+    """The cell's leakage-relevant framing: mode, snapshot vintage, band."""
+    context = prediction.context
+    if context is None:
+        return "mode — · snapshot — _(no context block recorded)_"
+    snapshot = context.snapshot_date.isoformat() if context.snapshot_date is not None else "—"
+    band = f" · band `{context.band}`" if context.band is not None else ""
+    return f"mode `{context.mode}` · snapshot **{snapshot}** ({context.snapshot_provenance}){band}"
+
+
+#: What ``Prediction.probability`` is the probability *of*, by stage. The field
+#: is P(granted) on a cert or interim event and P(disturbed) on a merits one, so
+#: a digest that labelled it with the predicted disposition would read "P(denied)
+#: = 0.93" on a confident deny — the number inverted by its own caption.
+_STAGE_BINARY_LABEL = {
+    Stage.cert: "P(granted)",
+    Stage.interim: "P(granted)",
+    Stage.merits: "P(disturbed)",
+}
+
+
+def _probability_label(event: PredictableEvent | None) -> str:
+    """The caption for ``Prediction.probability`` on this event's stage.
+
+    Reads the stage through :func:`fedcourtsai.store.normalized_stage`, the rule
+    the stratified boards use: most committed petition events record no stage at
+    all, and declining to normalize would caption the digest's headline number —
+    the one figure it exists to make readable — as an unnamed binary on the
+    majority of the ledger.
+    """
+    if event is None:
+        return "P(the stage's own binary — no event definition committed)"
+    stage = normalized_stage(event.kind, event.stage)
+    if stage is None:
+        return "P(the stage's own binary — no stage recorded for this kind)"
+    return _STAGE_BINARY_LABEL.get(stage, "P(the stage's own binary)")
+
+
+def _digest_cell_lines(
+    cell: PredictionCell, *, probability_label: str, repo: str, ref: str
+) -> list[str]:
+    """One predictor's section: its numbers, its two documents, its flags."""
+    p = cell.prediction
+    link = _repo_link("cell artifacts", cell.cell_path, repo=repo, ref=ref)
+    lines = [
+        "",
+        # The run id belongs in the heading, not only the line under it: an event
+        # a predictor ran twice contributes two sections, and two identically
+        # titled ones would be indistinguishable to a reader — and to anything
+        # that looks a section up by its heading.
+        daily_digest_cell_heading(p.predictor_id, p.run_id),
+        "",
+        f"**{probability_label} = {p.probability:.2f}** · predicted disposition "
+        f"`{p.predicted_disposition}` · engine `{p.engine}` · "
+        f"model `{p.model or '—'}`",
+        "",
+        _digest_context_line(p),
+    ]
+    if p.big_case_score is not None:
+        stated = " ".join((p.big_case_rationale or "").split())
+        rationale = f" — {stated}" if stated else ""
+        lines += ["", f"Big-case score **{p.big_case_score:.2f}**{rationale}"]
+    if p.claims:
+        lines += [
+            "",
+            "| Claim | P |",
+            "| --- | ---: |",
+            *[f"| `{c.claim_id}` | {c.probability:.2f} |" for c in p.claims],
+        ]
+    lines += _digest_document(
+        "Predicted reasoning (what the Court will do)",
+        cell.predicted_reasoning,
+        missing="No predicted-reasoning document is committed for this cell.",
+        link=link,
+        filename=p.predicted_reasoning_doc or "predicted_reasoning.md",
+    )
+    lines += _digest_document(
+        "Rationale (why this number)",
+        cell.reasoning,
+        missing="No rationale document is committed for this cell.",
+        link=link,
+        filename=p.reasoning_doc,
+    )
+    if cell.flags is not None and cell.flags.flags:
+        lines += ["", "**Flags**", ""]
+        lines += [
+            f"- `{flag.severity}` `{flag.category}` — " + " ".join(flag.message.split())
+            for flag in cell.flags.flags
+        ]
+    lines += ["", f"Full artifacts: {link}"]
+    return lines
+
+
+def render_daily_digest(
+    event: PredictedEvent, *, generated_at: str, repo: str = "", ref: str = "main"
+) -> str:
+    """Render one predicted event, every predictor side by side, as an issue body.
+
+    The reading surface: what the models actually said about one case, in one
+    bounded document a maintainer reads and then closes. The first two lines are
+    the markers a later run reads back — which event this featured, and which day
+    it was opened for — so they must stay in the body; a reader who edits them
+    out re-queues the event rather than breaking anything.
+
+    ``repo`` (``owner/name``) turns the committed paths into links at ``ref``;
+    without it the paths render as bare code spans, which is what a local
+    dry-run wants.
+    """
+    definition = event.event
+    title = definition.title if definition is not None else event.case_id
+    court, _, docket = event.case_id.partition("/")
+    lines = [
+        daily_digest_marker(event.case_id, event.event_id),
+        daily_digest_day_marker(generated_at),
+        f"# {title}",
+        "",
+        f"_Generated {generated_at}. Close this issue once you have read it — the open "
+        "`daily-digest` issues are the unread backlog._",
+        "",
+        f"- **Case** `{event.case_id}` — court `{court}`, docket `{docket}`",
+    ]
+    if definition is not None:
+        moment = definition.moment or "—"
+        stage = definition.stage or "—"
+        lines.append(
+            f"- **Event** `{event.event_id}` — kind `{definition.kind}`, stage `{stage}`, "
+            f"moment `{moment}`, target `{definition.decision_target}`"
+        )
+        lines.append(f"- **Resolved** {'yes' if definition.resolved else 'not yet'}")
+    else:
+        lines.append(f"- **Event** `{event.event_id}` — _no `event.yaml` committed for this event_")
+    contexts = {_digest_context_line(cell.prediction) for cell in event.cells}
+    lines.append(
+        f"- **Cells** {len(event.cells)} predictor cell(s) · "
+        + (contexts.pop() if len(contexts) == 1 else "context varies by cell (see each section)")
+    )
+    ledger_link = _repo_link("event directory", event.event_path, repo=repo, ref=ref)
+    lines.append(f"- **Ledger** {ledger_link}")
+    label = _probability_label(definition)
+    for cell in event.cells:
+        lines += _digest_cell_lines(cell, probability_label=label, repo=repo, ref=ref)
+    # The marker block is the harness's own two lines and stays verbatim;
+    # everything below it — the corpus's case caption included — is defused in
+    # one pass, so no field can be added to the digest and miss the treatment.
+    prose = _defuse_comments("\n".join(lines[DAILY_DIGEST_MARKER_LINES:]))
+    document = "\n".join([*lines[:DAILY_DIGEST_MARKER_LINES], prose]) + "\n"
+    if len(document) > _DIGEST_MAX_CHARS:
+        document = document[: _DIGEST_MAX_CHARS - len(_DIGEST_TRUNCATED)] + _DIGEST_TRUNCATED
+    return document
+
+
+def daily_digest_title(event: PredictedEvent) -> str:
+    """The digest issue's title: the case, so the issue list reads as a reading queue.
+
+    Defused like the body: the caption is the corpus's text, not the harness's.
+    """
+    definition = event.event
+    subject = definition.title if definition is not None else event.case_id
+    return _defuse_comments(f"Daily digest: {subject} ({event.case_id} {event.event_id})")
 
 
 def _as_utc(stamp: datetime) -> datetime:
@@ -629,7 +1525,7 @@ def _within_window(run_id: str, generated_at: str, window_days: int) -> bool:
     malformed stamp is surfaced rather than silently dropped from the summary.
     """
     run_dt = _parse_run_id(run_id)
-    gen_dt = _parse_iso(generated_at)
+    gen_dt = parse_iso(generated_at)
     if run_dt is None or gen_dt is None:
         return True
     # run_dt is always UTC-aware; a hand-passed naive `generated_at` would otherwise
@@ -788,7 +1684,15 @@ def summarize_tooling(
     )
 
 
-def _parse_iso(value: str) -> datetime | None:
+def parse_iso(value: str) -> datetime | None:
+    """An ISO-8601 stamp as a datetime, or ``None`` when it does not parse.
+
+    Public because every surface that reads a report's free-string
+    ``generated_at`` has to agree about what fails to parse: two parsers would
+    let one of them fall back while the other carried the raw string, which is
+    how a report ends up pairing a clock-anchored window with a marker naming
+    no week.
+    """
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
@@ -818,7 +1722,7 @@ def estimate_cost(runs: Iterable[Mapping[str, object]], spend: SpendSummary) -> 
     actions_minutes = sum(seconds) / 60.0
     actions_cost = actions_minutes * _ACTIONS_USD_PER_MINUTE
 
-    starts = [t for r in run_list if (t := _parse_iso(str(r.get("createdAt") or ""))) is not None]
+    starts = [t for r in run_list if (t := parse_iso(str(r.get("createdAt") or ""))) is not None]
     window_days = (max(starts) - min(starts)).total_seconds() / 86400.0 if len(starts) > 1 else None
     actions_monthly = (
         actions_cost / window_days * _DAYS_PER_MONTH if window_days and window_days > 0 else None

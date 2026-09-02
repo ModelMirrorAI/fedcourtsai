@@ -277,7 +277,8 @@ instant it was blessed. Everything keys off it:
   Until a stamped cell's digest is blessed *and* its stamp is at or after the
   freeze instant, the frozen headline is legitimately **empty** — "no
   frozen-process evaluations yet" — which the leaderboard, the ops dashboard,
-  and the weekly digest all say in as many words, rather than showing a bare
+  and the weekly performance digest all say in as many words, rather than
+  showing a bare
   `0` that reads as a regression.
 - **Frozen** — a stamped cell whose digest is in the blessed map **and** whose
   stamp is at or after `FROZEN_SINCE`, the freeze instant set in the same
