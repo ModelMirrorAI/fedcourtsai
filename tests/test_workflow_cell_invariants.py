@@ -63,6 +63,7 @@ from fedcourtsai.agent_feedback import (
     _GH_TIMEOUT_SECONDS,
 )
 from fedcourtsai.cli import _echo_text_coverage
+from fedcourtsai.ops import DAILY_DIGEST_LABEL
 from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest
 from fedcourtsai.schemas import UsageRole
@@ -1391,14 +1392,17 @@ def test_the_handoff_writes_stay_fatal_on_exhaustion() -> None:
 def test_the_list_of_retried_ops_steps_is_complete() -> None:
     """The scope above is a name list, so a *sixth* `gh`-calling step is the hole.
 
-    Adding one to `run-ops`'s job with an unwrapped `gh issue create` in it
-    would pass every assertion above simply by not being listed. Invert the
-    question — any step in that job that talks to `gh` at all must be on the
-    list — so the enumeration cannot silently fall behind the workflow.
+    Adding one to `run-ops` with an unwrapped `gh issue create` in it would pass
+    every assertion above simply by not being listed. Invert the question — any
+    step in that workflow that talks to `gh` at all must be on the list — so the
+    enumeration cannot silently fall behind the workflow. Scoped to the whole
+    file rather than the `ops` job, because a second job is exactly the shape a
+    new reporting surface takes here, and one scanned job would leave it out.
     """
     calling = {
         str(step.get("name"))
-        for step in _load("run-ops.yml")["jobs"]["ops"]["steps"]
+        for job in _load("run-ops.yml")["jobs"].values()
+        for step in job.get("steps", [])
         if any(BARE_GH_CALL.search(line) for line in _uncommented(str(step.get("run") or "")))
     }
     assert calling == set(SOURCING_OPS_STEPS)
@@ -1798,3 +1802,44 @@ def test_the_text_coverage_summary_truncation_matches_the_cli_ledger_headers() -
     assert not any("scotus/1" in line or "scotus/2" in line for line in kept), (
         "a ledger case id sits above the truncation sentinel — the summary would leak it"
     )
+
+
+def test_the_daily_digest_job_keeps_its_narrow_permission_surface() -> None:
+    """The digest job opens issues, so its grant is pinned rather than inherited.
+
+    It exists as a separate job for exactly one reason — permissions are
+    per-job — so that grant is the thing an edit must not widen by accident. It
+    reads the committed ledger and writes issues; it touches no branch, no
+    environment, and no secret, and a `contents: write` or an `environment:`
+    appearing here would mean the reporting surface had grown a writer's
+    capability.
+    """
+    job = _load("run-ops.yml")["jobs"]["daily-digest"]
+    assert job["permissions"] == {"contents": "read", "issues": "write"}
+    assert "environment" not in job
+    assert "secrets." not in yaml.safe_dump(job), "the digest job needs no secret"
+
+
+def test_no_workflow_triggers_on_a_digest_label() -> None:
+    """The digests' labels must stay non-triggering, which is what makes the job safe.
+
+    A reporting job holding `issues: write` opens an issue every day; if any
+    workflow ever keyed on that label, the daily report would start a run — and
+    a spending one, if the label were ever added to a fan-out. Nothing enforces
+    the property but this assertion, so it reads every workflow rather than the
+    one that posts.
+    """
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        workflow = _load(path.name)
+        # `on` parses to the truthy bool key in YAML; tolerate either spelling.
+        triggers = workflow.get("on") or workflow.get(True) or {}
+        assert DAILY_DIGEST_LABEL not in yaml.safe_dump(triggers), (
+            f"{path.name} triggers on the non-triggering {DAILY_DIGEST_LABEL} label"
+        )
+        for name, job in (workflow.get("jobs") or {}).items():
+            conditions = [str(job.get("if", ""))]
+            conditions += [str(step.get("if", "")) for step in job.get("steps", [])]
+            for condition in conditions:
+                assert DAILY_DIGEST_LABEL not in condition, (
+                    f"{path.name}:{name} gates on the non-triggering {DAILY_DIGEST_LABEL} label"
+                )

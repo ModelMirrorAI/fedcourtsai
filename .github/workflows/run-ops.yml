@@ -26,6 +26,12 @@ name: run-ops
 # untouched. The Monday schedule additionally posts the short interrogative
 # **weekly digest** comment to the dashboard issue — numbers as questions
 # demanding a reaction; the daily dashboard stays the reference view.
+#
+# A second job on the daily tick opens the **daily prediction-reading digest**:
+# one predicted event with every predictor side by side, on its own
+# `daily-digest` issue, closed by the maintainer once read. It shares nothing
+# with the dashboard job but the schedule — narrower permissions, no corpus, no
+# branch write — which is why it is a job rather than another step.
 on:
   schedule:
     - cron: "0 8 * * *" # after run-pull (07:17) so the day's runs are visible
@@ -237,4 +243,63 @@ jobs:
             gh_retry gh issue comment "$num" --repo "$REPO" \
               --body "✅ Data validation is green again as of the latest ops run — closing."
             gh_retry gh issue close "$num" --repo "$REPO" --reason completed
+          fi
+
+  # The prediction-reading habit: one predicted event with every predictor side
+  # by side, opened as a fresh `daily-digest` issue the maintainer reads and
+  # closes — so the open issues under that label ARE the unread backlog and no
+  # reading-state store has to exist. Its own job rather than a step on `ops`
+  # because permissions are per-job and this one's needs are strictly narrower:
+  # it reads the committed ledger and writes issues, and never touches the
+  # ops-metrics branch, the run history, or the corpus.
+  daily-digest:
+    # Deliberately ungated: it runs on every trigger this workflow has, and the
+    # command's own DAY marker makes it once-a-day rather than once-a-run. A
+    # schedule filter here would be fail-open (true for every cron string it
+    # does not name) and would also lose Monday's digest outright — the
+    # workflow-level `cancel-in-progress` lets the 08:30 weekly tick cancel an
+    # 08:00 run still retrying against a degraded API, and a filtered-out job
+    # cannot make that up. Running on the 08:30 tick too recovers it, and posts
+    # nothing on a day already digested.
+    runs-on: ubuntu-latest
+    # Setup plus a read of `data/`; the headroom is for the four bounded `gh`
+    # calls the command can make (two listings, the label, the create), each
+    # worth up to 105s against a degraded API.
+    timeout-minutes: 15
+    permissions:
+      contents: read # read the committed ledger under data/
+      issues: write # open the digest issue under the non-triggering label
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # this job pushes nothing
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Open the daily prediction-reading digest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          # The ref this job checked out, so the digest's links point at the tree
+          # it actually read — the default branch on a schedule, the dispatcher's
+          # branch on a manual run. Bound through the environment rather than
+          # interpolated into the script.
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # `daily-digest` is a NON-triggering label by design (no run:* workflow
+          # keys on it, and it must never become one — an issue opened under a
+          # trigger label would start a spending run from a reporting job). The
+          # command creates it idempotently.
+          #
+          # Selection, rendering, the marker idempotency, and the bounded gh
+          # retry all live in tested Python (`fedcourts daily-digest`), so this
+          # step stays a thin wrapper with no `gh` of its own. It reads the
+          # committed ledger only: no corpus credential, no model call.
+          uv run fedcourts daily-digest --repo "$REPO" --ref "$REF" --post \
+            --out daily-digest.md
+          # An empty ledger writes no body; the digest still reports what it did
+          # on stderr, which the job log carries.
+          if [ -f daily-digest.md ]; then
+            cat daily-digest.md >> "$GITHUB_STEP_SUMMARY"
           fi

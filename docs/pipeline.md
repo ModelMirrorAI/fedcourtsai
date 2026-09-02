@@ -20,7 +20,7 @@ against the pinned login before suspecting the gate.
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | daily schedule (15:09 UTC), manual dispatch, issue labeled | Claude Code + Codex + Gemini |
 | `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
-| _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
+| _(none)_        | `run-ops`        | daily schedule (dashboard + prediction-reading digest; a weekly digest tick), manual | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
 | _(none)_        | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary) |
 | _(none)_        | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
@@ -81,6 +81,63 @@ renders them as the **data-health** section and the substance section's
 watchlist view, escalating a failing verdict to one
 long-lived issue — so the dashboard surfaces run-health, data-health, and
 substance while staying a read-only presenter that never touches the corpus.
+
+### The daily prediction-reading digest
+
+A second job opens the **prediction-reading digest**: one predicted event with
+every predictor side by side — the case/event header, each cell's probability
+and claims, its `predicted_reasoning.md` and `reasoning.md` inline, its flags,
+and links to the committed cell paths — on its own issue under the
+non-triggering `daily-digest` label. The dashboard answers whether the machine
+is producing; this answers *what it said*, which nothing else surfaces for a
+human to read.
+
+The maintainer **closes the issue once read**, so the open `daily-digest` issues
+are the unread backlog and no reading-state store exists. Two HTML markers in
+the body's leading lines are the whole of the state, read back by the same
+substring idempotency the `agent-feedback` latch uses. The **event** marker
+(`<!-- daily-digest-event: <court>/<docket>/<event> -->`) says which event a
+digest featured: selection takes the newest event no prior body carries, and
+rotates to the least-recently-featured one on a day nothing new landed. The
+**day** marker (`<!-- daily-digest-day: <YYYY-MM-DD> -->`) is what the issue
+create is idempotent on, and it has to be a separate key: guarded on the event
+marker, a rotated re-read would find its own past issue and post nothing,
+killing the rotation on the one path it exists for. Guarded on the day, a
+re-dispatch of a day already digested is a no-op and a re-read still opens
+today's issue. Both tests read only those leading lines — everything below them
+is text the harness did not write, and a whole-body test would let a prediction
+that quoted a marker retire an event from the queue for good. As a second,
+independent control the whole body below the markers has its HTML-comment
+openers defused in one pass, so a quoted marker is shown as written rather than
+acting as one, and a field added to the digest later cannot miss the treatment.
+The lookup reads the newest 200 digest issues, so the featured window is roughly
+six months; an event that scrolls out of it re-reads as never featured, which
+repeats a reading rather than skipping one.
+
+The body is bounded by construction (one event, each document capped) and then
+clamped under GitHub's issue-body limit, which is refused with a 422 rather than
+truncated; a truncated document links its committed file. An empty ledger writes
+no body and exits 0, and so does a run whose day was already digested — the
+rendered body is written last, after the post, so what the file holds is what was
+published rather than what selection happened to pick.
+
+Everything under a `##` heading in the body is agent-authored and untrusted: the
+predictors' own prose, verbatim. It is presented, not vouched for, and it can
+spell markdown of its own — including headings that look like the digest's.
+
+The job runs on every trigger the workflow has, including the Monday weekly
+tick: the day marker, not a schedule filter, is what makes it once a day. That
+is deliberate — a `schedule` filter is fail-open on any cron it does not name,
+and the workflow-level `cancel-in-progress` lets the 08:30 weekly tick cancel an
+08:00 run still retrying, which a filtered-out job could not make up.
+
+Selection, rendering, and the once-a-day issue create are all
+`fedcourts daily-digest`, so the workflow step is a thin wrapper with no `gh` of
+its own and the bounded retry is the tested Python seam's
+(`fedcourtsai.agent_feedback`). The job is separate from the dashboard job
+because permissions are per-job and its needs are narrower: `contents: read`
+plus `issues: write`, the ambient `GITHUB_TOKEN`, no corpus credential, no model
+call, no branch write.
 
 ## `run-analytics` — corpus analysis & derived metrics
 
@@ -816,10 +873,11 @@ pattern rather than rediscovering it:
   the retries — three attempts at `timeout 30` plus backoff is 105s per call.
   A call that routes through `agent_feedback.py`'s runner carries the bound
   already: that module's default `GhRunner` applies the same three attempts at
-  the same 30s cap to every `gh` call it makes, so the `post-issue-comment` and
-  `post-agent-feedback` commands — the plan report each non-empty
+  the same 30s cap to every `gh` call it makes, so the `post-issue-comment`,
+  `post-agent-feedback`, and `daily-digest --post` commands — the plan report each non-empty
   predict/evaluate round posts before the review hold, the collect job's stall
-  and secret-scan reports, and the flag roll-up latch itself — are covered at
+  and secret-scan reports, the flag roll-up latch itself, and the daily
+  prediction-reading digest's issue create — are covered at
   the seam, and a new caller of it inherits the bound rather than adding a copy.
   `authz.py`'s collaborator-permission lookup — behind the `authorize-trigger`
   gate every label-triggered `run:*` workflow (the fan-outs and run-pull) runs

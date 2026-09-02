@@ -61,7 +61,7 @@ from . import (
     secretscan,
     tool_usage,
 )
-from .agent_feedback import post_agent_feedback, post_once
+from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
 from .application_migration import (
     MOTION_BASELINE_EVENT_ID,
     relabel_application_baseline_events,
@@ -153,10 +153,16 @@ from .merits_event_migration import (
     backfill_merits_events,
 )
 from .ops import (
+    DAILY_DIGEST_LABEL,
+    DAILY_DIGEST_MARKER_LINES,
     build_ops_report,
+    daily_digest_day_marker,
+    daily_digest_title,
+    render_daily_digest,
     render_data_health,
     render_markdown,
     render_weekly_digest,
+    select_daily_digest_event,
     summarize_substance,
     summarize_trigger_issues,
 )
@@ -278,9 +284,11 @@ from .store import (
     forward_refusal_reason_from_parts,
     iter_evaluations,
     iter_flags,
+    iter_predicted_events,
     iter_tooling,
     iter_usage,
     ledger_cell_counts,
+    load_predicted_event,
     open_events,
     resolved_events,
     scored_prediction,
@@ -5607,6 +5615,160 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         digest_out.parent.mkdir(parents=True, exist_ok=True)
         digest_out.write_text(render_weekly_digest(report))
     typer.echo(render_markdown(report), nl=False)
+
+
+#: The `daily-digest` label's appearance when the first run creates it. Blue,
+#: distinct from the red `data-validation` escalation and the green
+#: `ops-dashboard` reference view: this one is a reading queue, not an alarm.
+_DAILY_DIGEST_LABEL_COLOR = "1d76db"
+_DAILY_DIGEST_LABEL_DESCRIPTION = (
+    "Daily prediction-reading digest (run-ops); close one once you have read it"
+)
+
+
+def _prior_digest_bodies(path: Path) -> list[str]:
+    """Prior digest issue bodies from a JSON file, newest first.
+
+    Accepts either ``gh issue list --json body`` output (a list of objects) or a
+    bare list of body strings, so a test fixture does not have to imitate gh's
+    envelope to exercise the selection rule.
+    """
+    try:
+        raw = json.loads(path.read_text())
+    except (OSError, ValueError) as error:
+        # A usage error, not a traceback: the selection would otherwise proceed
+        # as if nothing had ever been featured and re-feature the newest event.
+        raise typer.BadParameter(f"--prior-issues {path}: {error}") from error
+    if not isinstance(raw, list):
+        return []
+    return [str(item.get("body", "")) if isinstance(item, dict) else str(item) for item in raw]
+
+
+@app.command("daily-digest")
+def daily_digest(
+    *,
+    repo: Annotated[
+        str,
+        typer.Option(
+            help="owner/name — turns committed paths into links, and is the "
+            "repository the prior-digest lookup and --post write against."
+        ),
+    ] = "",
+    prior_issues: Annotated[
+        Path | None,
+        typer.Option(
+            help="JSON file of prior digest issue bodies, newest first "
+            "(`gh issue list --label daily-digest --json body`, or a bare list of "
+            "strings). Takes precedence over the gh lookup."
+        ),
+    ] = None,
+    fetch_prior: Annotated[
+        bool,
+        typer.Option(
+            "--fetch-prior",
+            help="Read the prior digests from GitHub with `gh` instead of a file "
+            "(implied by --post, which must not duplicate a featured event).",
+        ),
+    ] = False,
+    post: Annotated[
+        bool,
+        typer.Option("--post", help="Open the digest as a `daily-digest` issue on --repo."),
+    ] = False,
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Write the rendered body here instead of stdout."),
+    ] = None,
+    title_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the issue title here, for a caller that opens the issue "
+            "itself rather than with --post."
+        ),
+    ] = None,
+    ref: Annotated[
+        str, typer.Option(help="Git ref the repo links point at (the branch the data is on).")
+    ] = "main",
+    generated_at: Annotated[
+        str, typer.Option(help="ISO timestamp stamped on the digest; defaults to now (UTC).")
+    ] = "",
+) -> None:
+    """Render one predicted event, every predictor side by side, for a daily read.
+
+    The reading habit's renderer: it selects the newest predicted event no prior
+    digest has featured (rotating to the least-recently-featured one when nothing
+    new has landed), reads that event's committed cells out of ``data/`` — no
+    corpus, no model call — and renders a bounded Markdown body carrying the
+    idempotency marker future runs read back. Which events have been featured is
+    derived from the prior digest issues alone, so there is no featured-events
+    store to keep in sync.
+
+    ``--post`` opens the body as a fresh ``daily-digest`` issue (a non-triggering
+    label, created idempotently), which is the whole run-ops step; without it the
+    command is a dry run that prints what the next digest would say. With nothing
+    to feature it writes nothing and exits 0.
+    """
+    # Refuse before any work or any write: an unusable request must not leave a
+    # rendered body behind and then fail.
+    if post and not repo:
+        typer.echo("--post needs --repo owner/name.", err=True)
+        raise typer.Exit(2)
+    settings = get_settings()
+    candidates = iter_predicted_events(settings.data_root)
+    if prior_issues is not None:
+        bodies = _prior_digest_bodies(prior_issues)
+    elif (fetch_prior or post) and repo:
+        bodies = issue_bodies(repo, DAILY_DIGEST_LABEL)
+    else:
+        bodies = []
+    chosen = select_daily_digest_event(candidates, bodies)
+    if chosen is None:
+        typer.echo("No predicted events in the ledger — nothing to feature.", err=True)
+        return
+    event = load_predicted_event(settings.data_root, chosen.case_id, chosen.event_id)
+    if event is None:  # pragma: no cover - the index is built from the same tree
+        typer.echo(f"{chosen.case_id} {chosen.event_id} has no readable cells.", err=True)
+        raise typer.Exit(1)
+    when = generated_at or datetime.now(UTC).isoformat()
+    body = render_daily_digest(event, generated_at=when, repo=repo, ref=ref)
+    title = daily_digest_title(event)
+    typer.echo(
+        f"Featured {chosen.case_id} {chosen.event_id} "
+        f"({len(event.cells)} cell(s), {len(body):,} chars) from {len(candidates)} "
+        f"predicted event(s), {len(bodies)} prior digest(s) read.",
+        err=True,
+    )
+    published = True
+    if post:
+        status = open_issue_once(
+            repo=repo,
+            label=DAILY_DIGEST_LABEL,
+            label_color=_DAILY_DIGEST_LABEL_COLOR,
+            label_description=_DAILY_DIGEST_LABEL_DESCRIPTION,
+            title=title,
+            body=body,
+            # The DAY marker, not the event's: the create is idempotent per day,
+            # so a re-dispatch posts nothing while a rotation back to an
+            # already-read event still opens today's issue. Guarding on the event
+            # marker would refuse every rotated re-read.
+            marker=daily_digest_day_marker(when),
+            # And searched only in each prior body's marker block, since the rest
+            # of a digest body is text the harness did not write.
+            marker_lines=DAILY_DIGEST_MARKER_LINES,
+        )
+        published = status.startswith("opened")
+        typer.echo(status, err=True)
+    # The written files are what was *published*, which is why they are written
+    # last: selection runs before the day guard, so a second run of a day already
+    # digested renders the next event and then posts nothing. Writing that body
+    # anyway would put an unpublished digest in the caller's step summary.
+    if not published:
+        return
+    if title_out is not None:
+        write_text(title_out, title)
+    if out is not None:
+        write_text(out, body)
+    else:
+        typer.echo(body, nl=False)
 
 
 @app.command("export-schemas")

@@ -9,6 +9,15 @@ optionally to JSON.
 
 Unlike the deterministic leaderboard / back-test roll-ups, this is a point-in-time
 view: it carries ``generated_at`` and run durations, so it is not byte-stable.
+
+The module carries a second, differently-shaped surface beside the dashboard: the
+**daily prediction-reading digest** (``fedcourts daily-digest``), which renders
+one predicted event with every predictor side by side. It answers what the models
+*said* rather than whether the machine is producing, so its input is the
+committed ledger's cells (loaded by :mod:`fedcourtsai.store`) rather than the ops
+feeds, and its output is one bounded issue body a maintainer reads and closes.
+The renderers live together because both are the same kind of thing — prose from
+tested code, posted by a workflow that contributes no wording of its own.
 """
 
 from __future__ import annotations
@@ -18,6 +27,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
+from .agent_feedback import already_posted, marker_head
 from .analytics import _GRANT_LABELS
 from .collect import flags_table
 from .integrity import FORWARD, RETROSPECTIVE
@@ -35,8 +45,11 @@ from .schemas import (
     ModelUsage,
     OpenTriggerIssue,
     OpsReport,
+    PredictableEvent,
+    Prediction,
     PredictorScoreRow,
     SpendSummary,
+    Stage,
     StatPack,
     Stratum,
     SubstanceCalibration,
@@ -46,6 +59,7 @@ from .schemas import (
     ToolingDigest,
     WorkflowHealth,
 )
+from .store import PredictedEvent, PredictedEventRef, PredictionCell, normalized_stage
 
 # Conclusions that count as a completed-but-not-successful run.
 _FAILURE_CONCLUSIONS = frozenset({"failure", "timed_out", "cancelled", "startup_failure"})
@@ -568,6 +582,344 @@ def render_weekly_digest(report: OpsReport) -> str:
         f"({model_rate} while running), ~{monthly} projected all-in — within plan?**"
     )
     return "\n".join(lines) + "\n"
+
+
+# The non-triggering label the daily prediction-reading digest issues carry (no
+# `run:*` workflow keys on it, and it must never become one — an issue opened
+# under a trigger label would start a spending run). The reading state is the
+# issue list itself: an open digest issue is unread, and closing it is the only
+# act the maintainer performs.
+DAILY_DIGEST_LABEL = "daily-digest"
+
+#: The idempotency marker, one per digest body. Stateless "have I featured this
+#: event" derives from prior digest bodies alone (the ``already_posted``
+#: substring check :mod:`fedcourtsai.agent_feedback` uses for the same purpose),
+#: so no featured-events store has to be written, committed, or kept in sync.
+_DAILY_DIGEST_MARKER = "<!-- daily-digest-event: {key} -->"
+
+#: The *create* guard, which is a different question from the *featured* one and
+#: so a different marker. The event marker cannot serve both: once every event
+#: has been featured the digest rotates back to the least-recently-read one, and
+#: a create guarded on that event's own marker would find it and post nothing —
+#: the rotation would be dead on the one path it exists for. A digest is one a
+#: day, so the day is what the create is idempotent on: a re-dispatch of a day
+#: already digested is a no-op, and a re-read of an old event still opens today's
+#: issue.
+_DAILY_DIGEST_DAY_MARKER = "<!-- daily-digest-day: {day} -->"
+
+#: How many leading lines of a digest body carry its markers. Both marker tests
+#: read only this block, never the whole body: everything below it is text the
+#: harness did not write, and a whole-body substring test would let a document
+#: that quoted a marker mark some other event read for good.
+DAILY_DIGEST_MARKER_LINES = 2
+
+#: Per-document ceiling in the rendered body. Predictor prose runs a few
+#: thousand characters, so this truncates only an outlier — and an outlier is
+#: exactly what would otherwise push a three-predictor digest past the body
+#: limit. A truncated document links to the committed file, which is the
+#: complete text.
+_DAILY_DIGEST_DOC_MAX_CHARS = 6_000
+
+#: The rendered body's hard ceiling, under GitHub's 65,536-character issue-body
+#: limit — refused with a 422 rather than truncated. Every section above is
+#: bounded by construction (one event, capped documents); the clamp makes the
+#: bound a guarantee no matter how many predictors an event accumulates.
+_DAILY_DIGEST_MAX_CHARS = 60_000
+
+_DAILY_DIGEST_TRUNCATED = (
+    "\n\n_Digest truncated at the issue-body ceiling; the linked cell paths carry every "
+    "artifact in full._\n"
+)
+
+
+def daily_digest_marker(case_id: str, event_id: str) -> str:
+    """The HTML marker identifying which event a daily digest body featured."""
+    return _DAILY_DIGEST_MARKER.format(key=f"{case_id}/{event_id}")
+
+
+def daily_digest_day_marker(generated_at: str) -> str:
+    """The HTML marker identifying which *day* a digest body was opened for.
+
+    What the issue create is idempotent on — one digest a day — so a re-dispatch
+    posts nothing while a rotation back to an already-read event still opens
+    today's issue. An unparseable stamp falls back to itself rather than to a
+    guessed date, which keeps the guard exact at the cost of being conservative.
+    """
+    parsed = _parse_iso(generated_at)
+    day = parsed.date().isoformat() if parsed is not None else generated_at
+    return _DAILY_DIGEST_DAY_MARKER.format(day=day)
+
+
+def _marker_block(body: str) -> str:
+    """A digest body's leading marker lines, which is all a marker test may read."""
+    return marker_head(body, DAILY_DIGEST_MARKER_LINES)
+
+
+def _featured_rank(ref: PredictedEventRef, prior_bodies: Sequence[str]) -> int | None:
+    """How recently ``ref`` was featured: 0 for the newest body, ``None`` for never.
+
+    ``prior_bodies`` is newest-first, so a larger rank means featured longer ago.
+    """
+    marker = daily_digest_marker(ref.case_id, ref.event_id)
+    return next((i for i, body in enumerate(prior_bodies) if marker in _marker_block(body)), None)
+
+
+def select_daily_digest_event(
+    candidates: Sequence[PredictedEventRef], prior_bodies: Sequence[str]
+) -> PredictedEventRef | None:
+    """Which predicted event today's digest features, or ``None`` with nothing to read.
+
+    Newest not-yet-featured first — the point of the habit is to read what just
+    landed. When every candidate has been featured (the steady state once the
+    ledger stops growing daily), rotate to the **least recently featured** one
+    rather than repeating yesterday's: a re-read of the oldest reading is worth
+    more than a duplicate, and it keeps the digest producing something every day
+    without inventing a backlog. What makes the rotation reach a reader is that
+    the issue create is guarded on the *day* marker, not this one
+    (:func:`daily_digest_day_marker`) — guarded on the event's own marker it
+    would refuse every rotated re-read, which is the only case it exists for.
+
+    ``prior_bodies`` are the bodies of previous digest issues, newest first
+    (``gh issue list`` order), and are the only state: presence of an event's
+    marker in a body's leading marker block is what "featured" means. A digest
+    issue whose body a reader edited past recognition simply reads as never
+    featured, which repeats one event rather than skipping one.
+    """
+    if not candidates:
+        return None
+    blocks = [_marker_block(body) for body in prior_bodies]
+    unfeatured = [
+        ref
+        for ref in candidates
+        if not already_posted(blocks, daily_digest_marker(ref.case_id, ref.event_id))
+    ]
+    if unfeatured:
+        return max(unfeatured, key=lambda ref: (ref.latest_run_id, ref.case_id, ref.event_id))
+    # Every candidate carries a rank here, since none survived the filter above.
+    ranked = [
+        (rank, ref) for ref in candidates if (rank := _featured_rank(ref, prior_bodies)) is not None
+    ]
+    return max(ranked, key=lambda pair: (pair[0], pair[1].case_id, pair[1].event_id))[1]
+
+
+def daily_digest_cell_heading(predictor_id: str, run_id: str) -> str:
+    """The heading of one predictor cell's section in a digest body.
+
+    Public because it is the only handle on a section: the prose a section
+    carries is agent-written and routinely contains its own ``##`` headings, so
+    counting headings identifies nothing. A caller — including a test asserting
+    the digest covered every cell — asks for this exact string instead.
+    """
+    return f"## {predictor_id} · run `{run_id}`"
+
+
+def _repo_link(label: str, path: str, *, repo: str, ref: str) -> str:
+    """A markdown link to a committed path, or bare backticks without a repo."""
+    if not repo:
+        return f"`{path}`"
+    return f"[{label}](https://github.com/{repo}/blob/{ref}/{path})"
+
+
+def _defuse_comments(text: str) -> str:
+    """Neutralize HTML-comment openers without changing what the text says.
+
+    The digest's whole state lives in HTML markers, and everything below the
+    marker block is text the harness did not write: agent prose from cells that
+    read docket text and, on a forward cell, the open web, plus the corpus's own
+    case caption. ``&lt;!--`` renders as the literal characters and is *not* a
+    comment, so a document that quotes a marker is shown exactly as written and
+    cannot be mistaken for one. Applied once over the assembled document rather
+    than per field, so a field added to the digest later cannot fall off an
+    allowlist. The marker tests read only the leading block in any case
+    (:func:`_marker_block`); this is the second of two independent controls,
+    because a body reaching a reader who greps it should carry no forged marker
+    either.
+    """
+    return text.replace("<!--", "&lt;!--")
+
+
+def _digest_document(
+    title: str, text: str | None, *, missing: str, link: str, filename: str
+) -> list[str]:
+    """One document block: the prose inline, truncated to the per-document cap.
+
+    A truncated document says so and carries the link to the complete file, so
+    the digest never presents a cut-off argument as the whole of one.
+    """
+    if text is None:
+        return ["", f"**{title}**", "", f"_{missing}_"]
+    body = text.strip()
+    if len(body) > _DAILY_DIGEST_DOC_MAX_CHARS:
+        body = (
+            body[:_DAILY_DIGEST_DOC_MAX_CHARS].rstrip()
+            + f"\n\n_…truncated at {_DAILY_DIGEST_DOC_MAX_CHARS:,} characters; "
+            + f"the full `{filename}` is in {link}._"
+        )
+    return ["", f"**{title}**", "", body]
+
+
+def _digest_context_line(prediction: Prediction) -> str:
+    """The cell's leakage-relevant framing: mode, snapshot vintage, band."""
+    context = prediction.context
+    if context is None:
+        return "mode — · snapshot — _(no context block recorded)_"
+    snapshot = context.snapshot_date.isoformat() if context.snapshot_date is not None else "—"
+    band = f" · band `{context.band}`" if context.band is not None else ""
+    return f"mode `{context.mode}` · snapshot **{snapshot}** ({context.snapshot_provenance}){band}"
+
+
+#: What ``Prediction.probability`` is the probability *of*, by stage. The field
+#: is P(granted) on a cert or interim event and P(disturbed) on a merits one, so
+#: a digest that labelled it with the predicted disposition would read "P(denied)
+#: = 0.93" on a confident deny — the number inverted by its own caption.
+_STAGE_BINARY_LABEL = {
+    Stage.cert: "P(granted)",
+    Stage.interim: "P(granted)",
+    Stage.merits: "P(disturbed)",
+}
+
+
+def _probability_label(event: PredictableEvent | None) -> str:
+    """The caption for ``Prediction.probability`` on this event's stage.
+
+    Reads the stage through :func:`fedcourtsai.store.normalized_stage`, the rule
+    the stratified boards use: most committed petition events record no stage at
+    all, and declining to normalize would caption the digest's headline number —
+    the one figure it exists to make readable — as an unnamed binary on the
+    majority of the ledger.
+    """
+    if event is None:
+        return "P(the stage's own binary — no event definition committed)"
+    stage = normalized_stage(event.kind, event.stage)
+    if stage is None:
+        return "P(the stage's own binary — no stage recorded for this kind)"
+    return _STAGE_BINARY_LABEL.get(stage, "P(the stage's own binary)")
+
+
+def _digest_cell_lines(
+    cell: PredictionCell, *, probability_label: str, repo: str, ref: str
+) -> list[str]:
+    """One predictor's section: its numbers, its two documents, its flags."""
+    p = cell.prediction
+    link = _repo_link("cell artifacts", cell.cell_path, repo=repo, ref=ref)
+    lines = [
+        "",
+        # The run id belongs in the heading, not only the line under it: an event
+        # a predictor ran twice contributes two sections, and two identically
+        # titled ones would be indistinguishable to a reader — and to anything
+        # that looks a section up by its heading.
+        daily_digest_cell_heading(p.predictor_id, p.run_id),
+        "",
+        f"**{probability_label} = {p.probability:.2f}** · predicted disposition "
+        f"`{p.predicted_disposition}` · engine `{p.engine}` · "
+        f"model `{p.model or '—'}`",
+        "",
+        _digest_context_line(p),
+    ]
+    if p.big_case_score is not None:
+        stated = " ".join((p.big_case_rationale or "").split())
+        rationale = f" — {stated}" if stated else ""
+        lines += ["", f"Big-case score **{p.big_case_score:.2f}**{rationale}"]
+    if p.claims:
+        lines += [
+            "",
+            "| Claim | P |",
+            "| --- | ---: |",
+            *[f"| `{c.claim_id}` | {c.probability:.2f} |" for c in p.claims],
+        ]
+    lines += _digest_document(
+        "Predicted reasoning (what the Court will do)",
+        cell.predicted_reasoning,
+        missing="No predicted-reasoning document is committed for this cell.",
+        link=link,
+        filename=p.predicted_reasoning_doc or "predicted_reasoning.md",
+    )
+    lines += _digest_document(
+        "Rationale (why this number)",
+        cell.reasoning,
+        missing="No rationale document is committed for this cell.",
+        link=link,
+        filename=p.reasoning_doc,
+    )
+    if cell.flags is not None and cell.flags.flags:
+        lines += ["", "**Flags**", ""]
+        lines += [
+            f"- `{flag.severity}` `{flag.category}` — " + " ".join(flag.message.split())
+            for flag in cell.flags.flags
+        ]
+    lines += ["", f"Full artifacts: {link}"]
+    return lines
+
+
+def render_daily_digest(
+    event: PredictedEvent, *, generated_at: str, repo: str = "", ref: str = "main"
+) -> str:
+    """Render one predicted event, every predictor side by side, as an issue body.
+
+    The reading surface: what the models actually said about one case, in one
+    bounded document a maintainer reads and then closes. The first two lines are
+    the markers a later run reads back — which event this featured, and which day
+    it was opened for — so they must stay in the body; a reader who edits them
+    out re-queues the event rather than breaking anything.
+
+    ``repo`` (``owner/name``) turns the committed paths into links at ``ref``;
+    without it the paths render as bare code spans, which is what a local
+    dry-run wants.
+    """
+    definition = event.event
+    title = definition.title if definition is not None else event.case_id
+    court, _, docket = event.case_id.partition("/")
+    lines = [
+        daily_digest_marker(event.case_id, event.event_id),
+        daily_digest_day_marker(generated_at),
+        f"# {title}",
+        "",
+        f"_Generated {generated_at}. Close this issue once you have read it — the open "
+        "`daily-digest` issues are the unread backlog._",
+        "",
+        f"- **Case** `{event.case_id}` — court `{court}`, docket `{docket}`",
+    ]
+    if definition is not None:
+        moment = definition.moment or "—"
+        stage = definition.stage or "—"
+        lines.append(
+            f"- **Event** `{event.event_id}` — kind `{definition.kind}`, stage `{stage}`, "
+            f"moment `{moment}`, target `{definition.decision_target}`"
+        )
+        lines.append(f"- **Resolved** {'yes' if definition.resolved else 'not yet'}")
+    else:
+        lines.append(f"- **Event** `{event.event_id}` — _no `event.yaml` committed for this event_")
+    contexts = {_digest_context_line(cell.prediction) for cell in event.cells}
+    lines.append(
+        f"- **Cells** {len(event.cells)} predictor cell(s) · "
+        + (contexts.pop() if len(contexts) == 1 else "context varies by cell (see each section)")
+    )
+    ledger_link = _repo_link("event directory", event.event_path, repo=repo, ref=ref)
+    lines.append(f"- **Ledger** {ledger_link}")
+    label = _probability_label(definition)
+    for cell in event.cells:
+        lines += _digest_cell_lines(cell, probability_label=label, repo=repo, ref=ref)
+    # The marker block is the harness's own two lines and stays verbatim;
+    # everything below it — the corpus's case caption included — is defused in
+    # one pass, so no field can be added to the digest and miss the treatment.
+    prose = _defuse_comments("\n".join(lines[DAILY_DIGEST_MARKER_LINES:]))
+    document = "\n".join([*lines[:DAILY_DIGEST_MARKER_LINES], prose]) + "\n"
+    if len(document) > _DAILY_DIGEST_MAX_CHARS:
+        document = (
+            document[: _DAILY_DIGEST_MAX_CHARS - len(_DAILY_DIGEST_TRUNCATED)]
+            + _DAILY_DIGEST_TRUNCATED
+        )
+    return document
+
+
+def daily_digest_title(event: PredictedEvent) -> str:
+    """The digest issue's title: the case, so the issue list reads as a reading queue.
+
+    Defused like the body: the caption is the corpus's text, not the harness's.
+    """
+    definition = event.event
+    subject = definition.title if definition is not None else event.case_id
+    return _defuse_comments(f"Daily digest: {subject} ({event.case_id} {event.event_id})")
 
 
 def _as_utc(stamp: datetime) -> datetime:

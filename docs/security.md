@@ -224,8 +224,9 @@ comment with the job's **ambient `GITHUB_TOKEN`** (job-scoped **`issues: write`*
 is a non-triggering label), which is the only reason a workflow here ever reaches
 for the App token — so issue-write deliberately stays **off** the App token that
 carries `contents: write` and opens the auto-merging PR. This mirrors `run-ops`,
-which posts its `ops-dashboard` / `data-validation` issues with `GITHUB_TOKEN` the
-same way, and `run-pull`, whose pipeline-runs dashboard row and failure-only
+which posts its `ops-dashboard` / `data-validation` / `daily-digest` issues with
+the same ambient token — each of those labels non-triggering, so a reporting job
+opening an issue can never start a spending run — and `run-pull`, whose pipeline-runs dashboard row and failure-only
 run-log issues ride the ambient token for the same reason (its App token is
 reserved for the writes that must trigger downstream: the corpus commits and
 the `run:predict` handoff issues). The capability is therefore on the lower-trust, non-bypass token, scoped

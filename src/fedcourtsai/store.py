@@ -753,6 +753,22 @@ def _declares_forecastable(event: corpus.CorpusEvent, stage: Stage) -> bool:
     )
 
 
+def normalized_stage(kind: EventKind, stage: Stage | None) -> Stage | None:
+    """The decision standard a cell reads as, normalizing an unrecorded stage.
+
+    A missing or null stage on a petition/appeal-kind event reads as **cert** —
+    the case-baseline kinds resolve on the cert standard by construction — while
+    a null stage on any other kind stays no-stage, since nothing says which rule
+    would govern. The twin of :func:`normalized_moment` on the other axis, and
+    one rule in one place: the stratified boards and every surface that captions
+    a number by its stage have to agree about what a null means, or the same cell
+    reads as two different populations.
+    """
+    if stage is None and kind in _FORECASTABLE_KINDS:
+        return Stage.cert
+    return stage
+
+
 def normalized_moment(stage: Stage | None, moment: Moment | None) -> Moment | None:
     """The forecast moment a cell reads as, normalizing an unrecorded one.
 
@@ -971,13 +987,7 @@ def stratify(
                 else classify_stratum(cell_clock(scored), outcome.resolved_at)
             )
         event = read_model(event_dir / "event.yaml", PredictableEvent)
-        # Stage normalization for stratification: a missing/null stage on a
-        # petition/appeal-kind event reads as cert — the case-baseline kinds
-        # resolve on the cert standard by construction — while a null stage on
-        # any other kind stays no-stage.
-        stage: Stage | None = event.stage
-        if stage is None and event.kind in _FORECASTABLE_KINDS:
-            stage = Stage.cert
+        stage = normalized_stage(event.kind, event.stage)
         cells.append((evaluation, stratum, stage, normalized_moment(stage, event.moment)))
     return StratifiedRun(cells, excluded, claimed_forward, superseded)
 
@@ -1012,6 +1022,149 @@ def ledger_cell_counts(data_root: Path) -> tuple[int, int, int]:
     event_dirs = {path.parents[3] for path in prediction_files}
     resolved = sum(1 for event_dir in event_dirs if (event_dir / "outcome.json").exists())
     return (len(prediction_files), len(event_dirs), resolved)
+
+
+class PredictedEventRef(NamedTuple):
+    """One predicted event in the committed ledger, cheap enough to enumerate all of.
+
+    The selection index behind the daily prediction-reading digest: identity and
+    the newest run that wrote under the event, read from the *path* alone so
+    choosing which event to feature never parses hundreds of documents. The
+    chosen one is then loaded in full by :func:`load_predicted_event`.
+    """
+
+    case_id: str
+    event_id: str
+    latest_run_id: str
+
+
+def iter_predicted_events(data_root: Path) -> list[PredictedEventRef]:
+    """Every event with at least one committed prediction, newest run first.
+
+    ``latest_run_id`` is the newest run id under the event across all
+    predictors; run ids are UTC timestamps, so descending lexical order is
+    newest-first, and the ordering is total (case, then event) so two callers
+    reading the same tree agree on "the newest event". Returns nothing if the
+    ledger does not exist yet (reading must not create it).
+    """
+    cases_dir = data_root / "cases"
+    if not cases_dir.exists():
+        return []
+    # <cases>/<court>/<docket>/events/<event>/predictions/<predictor>/<run>/prediction.json
+    by_event: dict[tuple[str, str], str] = {}
+    for path in cases_dir.glob("*/*/events/*/predictions/*/*/prediction.json"):
+        event_dir = path.parents[3]
+        docket = event_dir.parents[1].name
+        if not docket.isdigit():
+            continue
+        key = (ids.case_id(event_dir.parents[2].name, int(docket)), event_dir.name)
+        run_id = path.parent.name
+        by_event[key] = max(by_event.get(key, ""), run_id)
+    refs = [
+        PredictedEventRef(case_id=case, event_id=event, latest_run_id=run)
+        for (case, event), run in by_event.items()
+    ]
+    refs.sort(key=lambda ref: (ref.latest_run_id, ref.case_id, ref.event_id), reverse=True)
+    return refs
+
+
+class PredictionCell(NamedTuple):
+    """One predictor's committed output for an event, documents included.
+
+    ``reasoning`` / ``predicted_reasoning`` are the *text* of the documents the
+    prediction names (``None`` where it names none, or where the named file is
+    missing — ``validate`` refuses that state, so a reader reports the absence
+    rather than failing on it). ``cell_path`` is the run directory spelled as
+    ``data_root`` spells it — repo-relative under the default root, the same
+    convention ``Prediction.input_snapshot`` records — which is what a digest
+    links to for the full artifacts.
+    """
+
+    prediction: Prediction
+    reasoning: str | None
+    predicted_reasoning: str | None
+    flags: AgentFlags | None
+    cell_path: str
+
+
+class PredictedEvent(NamedTuple):
+    """A predicted event with every predictor's cell — the digest's whole input.
+
+    ``event`` is the committed ``event.yaml`` definition, ``None`` when the
+    ledger carries predictions under an event whose definition is absent (a
+    state ``validate`` refuses, reported rather than crashed on).
+    """
+
+    case_id: str
+    event_id: str
+    event: PredictableEvent | None
+    event_path: str
+    cells: list[PredictionCell]
+
+
+def _named_document(cell_dir: Path, name: str | None) -> str | None:
+    """The text of the document a prediction names, or ``None``.
+
+    Resolves the pointer under the same rule
+    :func:`fedcourtsai.validate.check_prediction_docs` enforces — a plain
+    filename beside the record, never a path and never a symlink — rather than
+    trusting the gate to have run: this reader's output is published verbatim to
+    a public issue, which is the one place a malformed pointer would be worth
+    writing. A pointer that fails the rule, or a file that is absent or
+    unreadable, reports as a missing document rather than raising.
+    """
+    if not name or Path(name).name != name or name in (".", ".."):
+        return None
+    path = cell_dir / name
+    if path.is_symlink():
+        return None
+    try:
+        return path.read_text()
+    except OSError:
+        return None
+
+
+def load_predicted_event(data_root: Path, case_id: str, event_id: str) -> PredictedEvent | None:
+    """Load one event's predictions and their documents, or ``None`` if it has none.
+
+    The expensive half of the digest read, run once for the event
+    :func:`iter_predicted_events` selected. Cells are ordered by predictor, then
+    run, so the rendered document is stable across regenerations; a predictor
+    with several runs contributes each of them, newest last.
+    """
+    pair = _case_pair(case_id)
+    if pair is None:
+        return None
+    event_paths = CasePaths(data_root, *pair).event(event_id)
+    files = sorted(event_paths.predictions_dir.glob("*/*/prediction.json"))
+    if not files:
+        return None
+    cells: list[PredictionCell] = []
+    for path in files:
+        prediction = read_model(path, Prediction)
+        cells.append(
+            PredictionCell(
+                prediction=prediction,
+                reasoning=_named_document(path.parent, prediction.reasoning_doc),
+                predicted_reasoning=_named_document(
+                    path.parent, prediction.predicted_reasoning_doc
+                ),
+                flags=(
+                    read_model(flags_path, AgentFlags)
+                    if (flags_path := path.parent / "flags.json").is_file()
+                    else None
+                ),
+                cell_path=path.parent.as_posix(),
+            )
+        )
+    event_file = event_paths.event_file
+    return PredictedEvent(
+        case_id=case_id,
+        event_id=event_id,
+        event=read_model(event_file, PredictableEvent) if event_file.is_file() else None,
+        event_path=event_paths.base.as_posix(),
+        cells=cells,
+    )
 
 
 def iter_usage(data_root: Path) -> list[ModelUsage]:
