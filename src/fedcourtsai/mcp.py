@@ -5,7 +5,9 @@ Claude Code reads an ``--mcp-config`` JSON file, Codex reads
 ``$CODEX_HOME/config.toml`` ``[mcp_servers.*]`` tables, and the Gemini CLI
 reads ``mcpServers`` in ``.gemini/settings.json``. The tested emitters here
 keep the three in lockstep so the workflow steps only plumb bytes to files
-(the logic-in-tested-Python rule).
+(the logic-in-tested-Python rule). The codex emitter carries one thing beyond
+retrieval — the cell's permission profile — because that file is codex's only
+trusted configuration layer; see :func:`codex_mcp_config`.
 
 Two transports, one manifest:
 
@@ -44,6 +46,51 @@ GEMINI_SETTINGS_FILENAME = "settings.json"
 
 # The HTTP sidecar's default port; the corpus query sidecar holds 8377.
 MCP_SIDECAR_DEFAULT_PORT = 8378
+
+# The permission profile a codex cell runs under, named here because both ends
+# of the invocation read it from this one constant: the emitted config.toml
+# declares it, and the cell workflows select it through codex-action's
+# `permission-profile:` input (which reaches the CLI as
+# `--config default_permissions="<name>"`).
+#
+# Codex ships three built-in profiles — `:read-only`, `:workspace`,
+# `:danger-full-access` — and none of them combines workspace writes with
+# network. The cell needs both: it writes its outputs into the checkout and its
+# spawned commands must reach the localhost corpus and MCP sidecars that claude
+# and gemini reach unsandboxed. So the profile below extends `:workspace` (the
+# filesystem half, verbatim) and turns the network half on.
+CODEX_CELL_PERMISSION_PROFILE = "fedcourts-cell"
+
+# `network.enabled = true` compiles to an unrestricted network policy for
+# sandboxed commands. It is deliberately the only network key here: codex's
+# `network_proxy` feature would layer domain/mode restrictions on top, which
+# would put codex on a strictly smaller information set than the engines it is
+# scored against — the cross-engine comparability the leaderboard rests on.
+#
+# The file-level `default_permissions` is not redundant with the workflows'
+# `permission-profile:` input. A config that declares `[permissions]` profiles
+# and selects none refuses to start unless the invocation names a legacy
+# sandbox mode, so a codex process reading this home without `--sandbox` —
+# `codex login`, an interactive local run — would die on a config it did not
+# write. Naming the selection here makes the file valid on its own; the cell
+# steps still pass the same name, and the runner's `--sandbox workspace-write`
+# puts that invocation on the legacy path where this selection is inert.
+#
+# It also decides what a *local* codex run gets, which is the one place this
+# reaches beyond CI: point `CODEX_HOME` at a generated config and an interactive
+# codex works under the cell's policy — workspace writes plus network for
+# spawned commands — where codex's own default for that home would restrict
+# network. That is the cell's posture by design, and worth knowing before
+# pointing a local session at it.
+_CODEX_PERMISSION_PROFILE_TOML = f"""\
+default_permissions = "{CODEX_CELL_PERMISSION_PROFILE}"
+
+[permissions.{CODEX_CELL_PERMISSION_PROFILE}]
+description = "fedcourtsai cell: workspace writes plus network for spawned commands"
+extends = ":workspace"
+
+[permissions.{CODEX_CELL_PERMISSION_PROFILE}.network]
+enabled = true"""
 
 
 # The HTTP sidecar cannot use the release's own HTTP entry point.
@@ -143,7 +190,18 @@ def claude_mcp_config(
 def codex_mcp_config(
     servers: list[McpServerConfig], *, http_urls: dict[str, str] | None = None
 ) -> str:
-    """The ``[mcp_servers.*]`` TOML tables for ``$CODEX_HOME/config.toml``.
+    """The whole ``$CODEX_HOME/config.toml`` document a codex cell reads.
+
+    Two halves: the ``[mcp_servers.*]`` retrieval entries, and the
+    ``[permissions.*]`` profile the cell runs under
+    (:data:`CODEX_CELL_PERMISSION_PROFILE`) with the ``default_permissions``
+    key that selects it. The profile lives here rather than
+    in the workflows because ``$CODEX_HOME/config.toml`` is the only *trusted*
+    codex configuration layer — codex-action rejects a ``permissions`` or
+    ``sandbox_workspace_write`` override arriving through ``codex-args`` — so
+    the file this emitter writes is where a cell's filesystem and network
+    policy has to be declared, and one tested emitter keeps every workflow that
+    writes it identical.
 
     Rendered by hand (the shape is a few flat keys per table) so the runtime
     needs no TOML writer dependency; ids and packages come from the validated
@@ -157,7 +215,7 @@ def codex_mcp_config(
     default — overriding it is a security-review decision, not a config tweak.
     """
     urls = http_urls or {}
-    blocks: list[str] = []
+    blocks: list[str] = [_CODEX_PERMISSION_PROFILE_TOML]
     for server in servers:
         url = urls.get(server.id)
         if url is not None:
@@ -176,7 +234,7 @@ def codex_mcp_config(
             pairs = ", ".join(f"{key} = {json.dumps(value)}" for key, value in env.items())
             lines.append(f"env = {{ {pairs} }}")
         blocks.append("\n".join(lines))
-    return "\n\n".join(blocks) + ("\n" if blocks else "")
+    return "\n\n".join(blocks) + "\n"
 
 
 def _gemini_entry(server: McpServerConfig, http_urls: dict[str, str]) -> dict[str, object]:

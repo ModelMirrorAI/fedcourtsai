@@ -851,8 +851,8 @@ jobs:
       # loosen.
       #
       # Both codex legs need it: the actions-smoke leg passes the cells' own
-      # `sandbox: workspace-write` / `safety-strategy: drop-sudo` pair, so its
-      # turn runs under the same bubblewrap sandbox.
+      # `permission-profile: fedcourts-cell` / `safety-strategy: drop-sudo`
+      # pair, so its turn runs under the same bubblewrap sandbox.
       - name: Enable unprivileged user namespaces for the codex sandbox
         if: ${{ (matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke') && matrix.engine == 'codex' }}
         run: |
@@ -1221,7 +1221,7 @@ jobs:
         id: actions_smoke_codex
         if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'codex' }}
         timeout-minutes: 10
-        uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1.11
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
         env:
           # Pin codex's home to the workspace dir the config was written into,
           # as the cell step does; the session rollout the assertion below
@@ -1238,10 +1238,14 @@ jobs:
             probe of the invocation path, not a task.
           model: ${{ steps.cell.outputs.model }}
           effort: high
-          sandbox: workspace-write
           safety-strategy: drop-sudo
+          # The cells' own block: the permission profile named here is declared
+          # in the `$CODEX_HOME/config.toml` the MCP step above wrote, so this
+          # leg exercises the profile-selection path the cells depend on — the
+          # layer the bare-CLI engine smoke never traverses.
+          permission-profile: fedcourts-cell
           codex-version: "0.144.1"
-          codex-args: '["-c","sandbox_workspace_write.network_access=true","-c","web_search=live"]'
+          codex-args: '["-c","web_search=live"]'
 
       - name: Smoke the Gemini cell invocation
         id: actions_smoke_gemini

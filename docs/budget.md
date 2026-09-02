@@ -1065,10 +1065,10 @@ move it:
 - **The output estimate assumes the probe behaves.** The codex row is the
   softest: reasoning tokens bill at the output rate, and `effort: high` on a
   trivial question is not obviously bounded at 500 — at 2K it is $0.14 rather
-  than $0.09. Each leg also runs with the
-  cells' own permissions (`bypassPermissions`, `--yolo`, codex's
-  workspace-write sandbox with network and live search), so "a short reply" is
-  the model obeying *use no tools*. The only hard bound is the per-leg
+  than $0.09. Each leg also runs with the cells' own permissions
+  (`bypassPermissions`, `--yolo`, codex's `fedcourts-cell` permission profile
+  with network and live search), so "a short reply" is the model obeying *use
+  no tools*. The only hard bound is the per-leg
   `timeout-minutes: 10` — and a probe that starts spending it is the same event
   the canary exists to report, so the cost model's assumption fails in the
   instant the canary fires. Read a red canary as a spend signal too.

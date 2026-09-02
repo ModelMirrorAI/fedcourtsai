@@ -754,16 +754,7 @@ jobs:
         if: matrix.engine == 'codex'
         # Same buffer as the Claude step: trip this step, not the job, on overrun.
         timeout-minutes: 50
-        # Held at v1.12's predecessor: v1.12 treats its safety strategy as
-        # protected and rejects the `sandbox_workspace_write.network_access`
-        # override the cell requires for its live retrieval contract — the
-        # refusal fires in the action's validation layer before any model
-        # call (the bare CLI accepts the same override, so the engine smoke
-        # cannot see it). Dependabot is told to skip this action below its
-        # migration; moving forward again means adopting the action's
-        # profile-based network configuration deliberately, with a cell-path
-        # check beside it.
-        uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1.11
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
@@ -807,14 +798,16 @@ jobs:
             for a reply.
           model: ${{ matrix.model }}
           effort: high
-          sandbox: workspace-write
           safety-strategy: drop-sudo
-          # Subprocess network for spawned commands (the localhost corpus
-          # service), live web search to match the other engines' reach, and a
-          # pinned CLI — the same grants and rationale as the predict cell's
-          # codex step.
+          # Workspace writes plus subprocess network for spawned commands (the
+          # localhost corpus service) through the `fedcourts-cell` permission
+          # profile in the emitted `$CODEX_HOME/config.toml`, live web search to
+          # match the other engines' reach, and a pinned CLI — the same grants
+          # and rationale as the predict cell's codex step, which carries them
+          # in full.
+          permission-profile: fedcourts-cell
           codex-version: "0.144.1"
-          codex-args: '["-c","sandbox_workspace_write.network_access=true","-c","web_search=live"]'
+          codex-args: '["-c","web_search=live"]'
 
       # Install the Gemini CLI in its own SECRET-FREE step: only the top-level
       # version is exactly pinned (transitive dependencies resolve fresh at every

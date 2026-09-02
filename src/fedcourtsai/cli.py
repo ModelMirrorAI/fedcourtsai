@@ -5659,8 +5659,10 @@ def mcp_config_cmd(
     from THIS process's environment (see ``fedcourtsai.mcp``); run it in a
     step whose env holds the tokens the manifest names. ``--http-url``
     entries carry no token at all — the sidecar does. An actor with an empty
-    manifest emits an empty config — a cell without retrieval is a valid
-    configuration, not an error.
+    manifest emits a config with no servers in it — a cell without retrieval is
+    a valid configuration, not an error. The codex document additionally
+    declares the cell's permission profile, which the codex-action steps select
+    by name; see :func:`fedcourtsai.mcp.codex_mcp_config`.
     """
     settings = get_settings()
     if role not in ("predictor", "evaluator"):
