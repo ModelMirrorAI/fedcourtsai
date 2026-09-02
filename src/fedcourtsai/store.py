@@ -9,8 +9,9 @@ case set and the event state are read from the packed corpus; the git tree under
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from datetime import date
+from collections import Counter
+from collections.abc import Iterable, Sequence
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import NamedTuple
 
@@ -19,6 +20,7 @@ from pydantic import BaseModel
 from . import corpus, ids
 from .integrity import (
     FORWARD_CLAIM_POLICY,
+    LEAKAGE_EXCLUSION_REASON,
     PROCEDURAL,
     RETROSPECTIVE,
     ForwardClaimPolicy,
@@ -27,6 +29,7 @@ from .integrity import (
     classify_stratum,
     forward_claim_breach,
     latest_evaluation_runs,
+    leakage_excluded,
 )
 from .paths import CasePaths
 from .pipeline import moments
@@ -753,6 +756,22 @@ def _declares_forecastable(event: corpus.CorpusEvent, stage: Stage) -> bool:
     )
 
 
+def normalized_stage(kind: EventKind, stage: Stage | None) -> Stage | None:
+    """The decision standard a cell reads as, normalizing an unrecorded stage.
+
+    A missing or null stage on a petition/appeal-kind event reads as **cert** —
+    the case-baseline kinds resolve on the cert standard by construction — while
+    a null stage on any other kind stays no-stage, since nothing says which rule
+    would govern. The twin of :func:`normalized_moment` on the other axis, and
+    one rule in one place: the stratified boards and every surface that captions
+    a number by its stage have to agree about what a null means, or the same cell
+    reads as two different populations.
+    """
+    if stage is None and kind in _FORECASTABLE_KINDS:
+        return Stage.cert
+    return stage
+
+
 def normalized_moment(stage: Stage | None, moment: Moment | None) -> Moment | None:
     """The forecast moment a cell reads as, normalizing an unrecorded one.
 
@@ -766,7 +785,12 @@ def normalized_moment(stage: Stage | None, moment: Moment | None) -> Moment | No
 
 
 class ExcludedCell(NamedTuple):
-    """A scored cell the forward-claim rule kept out of every stratum."""
+    """A scored cell an integrity rule kept out of every stratum, and why.
+
+    Shared by the two independent exclusions :func:`stratify` applies — the
+    forward-claim rule and the leakage bit — so both publish the same
+    ``(cell, reason)`` shape and one stderr reporter can name either.
+    """
 
     evaluation: Evaluation
     reason: str
@@ -813,6 +837,34 @@ class _ScopedCell(NamedTuple):
     scored_prediction: Prediction
 
 
+def _stratum_of(
+    scored: Prediction,
+    outcome: Outcome,
+    *,
+    breached: bool,
+    policy: ForwardClaimPolicy,
+) -> Stratum | None:
+    """Which stratum a surviving cell lands in, or ``None`` where it lands in none.
+
+    A mootness-basis outcome never enters the forward/retrospective skill
+    aggregates — the label tracks vacatur practice, not cert-worthiness — so it
+    routes procedural whatever the timing says. A cell whose forward claim its
+    own record contradicts is dropped under ``policy="exclude"`` (the ``None``
+    return) and forced retrospective under the other, procedural still winning.
+    Every other cell takes the timing rule
+    (:func:`fedcourtsai.integrity.classify_stratum`) on the scored prediction's
+    harness clock.
+    """
+    procedural = outcome.disposition_basis == "mootness"
+    if breached:
+        if policy == "exclude":
+            return None
+        return PROCEDURAL if procedural else RETROSPECTIVE
+    if procedural:
+        return PROCEDURAL
+    return classify_stratum(cell_clock(scored), outcome.resolved_at)
+
+
 class StratifiedRun(NamedTuple):
     """:func:`stratify`'s result: the scorable cells, and what was excluded.
 
@@ -827,12 +879,22 @@ class StratifiedRun(NamedTuple):
     cell was re-graded says so. Counted **after** the scope gate, exactly where the
     collapse runs, so it is always "superseded within this scope" and never
     mixes a re-grade the scope excludes into a scoped board's audit line.
+
+    ``leaked`` is the second, independent exclusion ledger: cells whose grading
+    carries ``leakage_suspected``, dropped from every stratum whatever the
+    forward-claim policy is. ``leakage_assessed`` is its denominator — in-scope
+    cells whose grading recorded the bit at all — because a null bit is "not
+    assessed" rather than "clean". A cell caught by both rules appears in
+    ``excluded`` **and** ``leaked``: they answer different questions over one
+    population, so the counts are published side by side and never summed.
     """
 
     cells: list[StratifiedCell]
     excluded: list[ExcludedCell]
+    leaked: list[ExcludedCell]
     claimed_forward: int = 0
     superseded: int = 0
+    leakage_assessed: int = 0
 
 
 def stratify(
@@ -887,6 +949,18 @@ def stratify(
     count and the boards' ``forward_claim`` block states which rule built
     them.
 
+    A cell whose grading carries **``leakage_suspected``**
+    (:func:`fedcourtsai.integrity.leakage_excluded`) lands in ``leaked`` and
+    never in ``cells``, whatever ``policy`` says: the evaluators' bit reports
+    that the graded prediction may have read its own outcome, which is not an
+    observation of forecasting skill in any stratum. The rule is independent of
+    the forward-claim one — the timing split rests on a clock that cannot see a
+    leak, so a leaked cell whose outcome resolves *after* its prediction's
+    harness clock would otherwise classify forward and be published as claimable
+    performance — and a cell both rules catch is listed in both ledgers, since
+    they answer different questions over one population. It changes membership
+    and never a value: no score on any record is touched.
+
     The third element is the event's decision **stage**, read off its committed
     ``event.yaml`` and normalized for stratification: a petition/appeal-kind
     event with no recorded stage reads as **cert** — the case-baseline kinds
@@ -917,9 +991,11 @@ def stratify(
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
-        return StratifiedRun([], [], 0, 0)
+        return StratifiedRun([], [], [])
     cells: list[StratifiedCell] = []
     excluded: list[ExcludedCell] = []
+    leaked: list[ExcludedCell] = []
+    leakage_assessed = 0
     claimed_forward = 0
     scoped: list[_ScopedCell] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
@@ -950,36 +1026,27 @@ def stratify(
     superseded = len(scoped) - len(survivors)
     for evaluation, event_dir, scored in survivors:
         outcome = read_model(event_dir / "outcome.json", Outcome)
-        # A mootness-basis outcome never enters the forward/retrospective
-        # skill aggregates — the label tracks vacatur practice, not
-        # cert-worthiness. Under the retrospective policy a breaching mootness
-        # cell therefore routes procedural, not retrospective; under exclude
-        # it is dropped like any breaching cell.
-        procedural = outcome.disposition_basis == "mootness"
         if scored.context is not None and scored.context.mode == "forward":
             claimed_forward += 1
+        if evaluation.leakage_suspected is not None:
+            leakage_assessed += 1
         breach = forward_claim_breach(scored, outcome)
         if breach is not None:
             excluded.append(ExcludedCell(evaluation, breach))
-            if policy == "exclude":
-                continue
-            stratum: Stratum = PROCEDURAL if procedural else RETROSPECTIVE
-        else:
-            stratum = (
-                PROCEDURAL
-                if procedural
-                else classify_stratum(cell_clock(scored), outcome.resolved_at)
-            )
+        # Both ledgers are filled before either drops the cell, so a cell the
+        # two rules both catch is counted in both — they answer different
+        # questions over one population, and netting them would understate
+        # whichever ran second.
+        if leakage_excluded(evaluation):
+            leaked.append(ExcludedCell(evaluation, LEAKAGE_EXCLUSION_REASON))
+            continue
+        stratum = _stratum_of(scored, outcome, breached=breach is not None, policy=policy)
+        if stratum is None:
+            continue
         event = read_model(event_dir / "event.yaml", PredictableEvent)
-        # Stage normalization for stratification: a missing/null stage on a
-        # petition/appeal-kind event reads as cert — the case-baseline kinds
-        # resolve on the cert standard by construction — while a null stage on
-        # any other kind stays no-stage.
-        stage: Stage | None = event.stage
-        if stage is None and event.kind in _FORECASTABLE_KINDS:
-            stage = Stage.cert
+        stage = normalized_stage(event.kind, event.stage)
         cells.append((evaluation, stratum, stage, normalized_moment(stage, event.moment)))
-    return StratifiedRun(cells, excluded, claimed_forward, superseded)
+    return StratifiedRun(cells, excluded, leaked, claimed_forward, superseded, leakage_assessed)
 
 
 def iter_stratified_evaluations(
@@ -987,8 +1054,8 @@ def iter_stratified_evaluations(
 ) -> list[StratifiedCell]:
     """:func:`stratify`'s scorable cells alone, for a caller that needs no ledger.
 
-    The cells-only seam; the boards call :func:`stratify` directly so the
-    exclusion record they publish and the cells they aggregate come from one
+    The cells-only seam; the boards call :func:`stratify` directly so the two
+    exclusion records they publish and the cells they aggregate come from one
     pass.
     """
     return stratify(data_root, frozen_only=frozen_only).cells
@@ -1012,6 +1079,221 @@ def ledger_cell_counts(data_root: Path) -> tuple[int, int, int]:
     event_dirs = {path.parents[3] for path in prediction_files}
     resolved = sum(1 for event_dir in event_dirs if (event_dir / "outcome.json").exists())
     return (len(prediction_files), len(event_dirs), resolved)
+
+
+class PredictedEventRef(NamedTuple):
+    """One predicted event in the committed ledger, cheap enough to enumerate all of.
+
+    The selection index behind the daily prediction-reading digest: identity and
+    the newest run that wrote under the event, read from the *path* alone so
+    choosing which event to feature never parses hundreds of documents. The
+    chosen one is then loaded in full by :func:`load_predicted_event`.
+    """
+
+    case_id: str
+    event_id: str
+    latest_run_id: str
+
+
+def iter_predicted_events(data_root: Path) -> list[PredictedEventRef]:
+    """Every event with at least one committed prediction, newest run first.
+
+    ``latest_run_id`` is the newest run id under the event across all
+    predictors; run ids are UTC timestamps, so descending lexical order is
+    newest-first, and the ordering is total (case, then event) so two callers
+    reading the same tree agree on "the newest event". Returns nothing if the
+    ledger does not exist yet (reading must not create it).
+    """
+    cases_dir = data_root / "cases"
+    if not cases_dir.exists():
+        return []
+    # <cases>/<court>/<docket>/events/<event>/predictions/<predictor>/<run>/prediction.json
+    by_event: dict[tuple[str, str], str] = {}
+    for path in cases_dir.glob("*/*/events/*/predictions/*/*/prediction.json"):
+        event_dir = path.parents[3]
+        docket = event_dir.parents[1].name
+        if not docket.isdigit():
+            continue
+        key = (ids.case_id(event_dir.parents[2].name, int(docket)), event_dir.name)
+        run_id = path.parent.name
+        by_event[key] = max(by_event.get(key, ""), run_id)
+    refs = [
+        PredictedEventRef(case_id=case, event_id=event, latest_run_id=run)
+        for (case, event), run in by_event.items()
+    ]
+    refs.sort(key=lambda ref: (ref.latest_run_id, ref.case_id, ref.event_id), reverse=True)
+    return refs
+
+
+class PredictionCell(NamedTuple):
+    """One predictor's committed output for an event, documents included.
+
+    ``reasoning`` / ``predicted_reasoning`` are the *text* of the documents the
+    prediction names (``None`` where it names none, or where the named file is
+    missing — ``validate`` refuses that state, so a reader reports the absence
+    rather than failing on it). ``cell_path`` is the run directory spelled as
+    ``data_root`` spells it — repo-relative under the default root, the same
+    convention ``Prediction.input_snapshot`` records — which is what a digest
+    links to for the full artifacts.
+    """
+
+    prediction: Prediction
+    reasoning: str | None
+    predicted_reasoning: str | None
+    flags: AgentFlags | None
+    cell_path: str
+
+
+class PredictedEvent(NamedTuple):
+    """A predicted event with every predictor's cell — the digest's whole input.
+
+    ``event`` is the committed ``event.yaml`` definition, ``None`` when the
+    ledger carries predictions under an event whose definition is absent (a
+    state ``validate`` refuses, reported rather than crashed on).
+    """
+
+    case_id: str
+    event_id: str
+    event: PredictableEvent | None
+    event_path: str
+    cells: list[PredictionCell]
+
+
+def _named_document(cell_dir: Path, name: str | None) -> str | None:
+    """The text of the document a prediction names, or ``None``.
+
+    Resolves the pointer under the same rule
+    :func:`fedcourtsai.validate.check_prediction_docs` enforces — a plain
+    filename beside the record, never a path and never a symlink — rather than
+    trusting the gate to have run: this reader's output is published verbatim to
+    a public issue, which is the one place a malformed pointer would be worth
+    writing. A pointer that fails the rule, or a file that is absent or
+    unreadable, reports as a missing document rather than raising.
+    """
+    if not name or Path(name).name != name or name in (".", ".."):
+        return None
+    path = cell_dir / name
+    if path.is_symlink():
+        return None
+    try:
+        return path.read_text()
+    except OSError:
+        return None
+
+
+def load_predicted_event(data_root: Path, case_id: str, event_id: str) -> PredictedEvent | None:
+    """Load one event's predictions and their documents, or ``None`` if it has none.
+
+    The expensive half of the digest read, run once for the event
+    :func:`iter_predicted_events` selected. Cells are ordered by predictor, then
+    run, so the rendered document is stable across regenerations; a predictor
+    with several runs contributes each of them, newest last.
+    """
+    pair = _case_pair(case_id)
+    if pair is None:
+        return None
+    event_paths = CasePaths(data_root, *pair).event(event_id)
+    files = sorted(event_paths.predictions_dir.glob("*/*/prediction.json"))
+    if not files:
+        return None
+    cells: list[PredictionCell] = []
+    for path in files:
+        prediction = read_model(path, Prediction)
+        cells.append(
+            PredictionCell(
+                prediction=prediction,
+                reasoning=_named_document(path.parent, prediction.reasoning_doc),
+                predicted_reasoning=_named_document(
+                    path.parent, prediction.predicted_reasoning_doc
+                ),
+                flags=(
+                    read_model(flags_path, AgentFlags)
+                    if (flags_path := path.parent / "flags.json").is_file()
+                    else None
+                ),
+                cell_path=path.parent.as_posix(),
+            )
+        )
+    event_file = event_paths.event_file
+    return PredictedEvent(
+        case_id=case_id,
+        event_id=event_id,
+        event=read_model(event_file, PredictableEvent) if event_file.is_file() else None,
+        event_path=event_paths.base.as_posix(),
+        cells=cells,
+    )
+
+
+class CellCensusRow(NamedTuple):
+    """How many cells one ``(role, stage)`` pair produced inside a window."""
+
+    role: str
+    stage: str
+    cells: int
+
+
+class RecentCells(NamedTuple):
+    """What the ledger recorded inside a trailing window: cells, and their spread.
+
+    ``rows`` is the ``(role, stage)`` breakdown in a stable order, ``cells`` the
+    total, ``events`` the distinct events those cells covered. The census is over
+    the recorded ``usage.json`` ledger, so it counts cells that *ran*, whatever
+    their output — which is the right denominator for "what did the machine
+    produce this week" and a different question from the scored-cell funnel.
+    """
+
+    rows: list[CellCensusRow]
+    cells: int
+    events: int
+    window_days: int
+
+
+#: The stage label a census row carries when the moment register declares none
+#: for the event — a legacy id, or an entry-pinned event the extractor minted.
+#: Named rather than dropped: a bucket that vanished would make the rows stop
+#: summing to the total.
+UNDECLARED_STAGE = "undeclared"
+
+
+def recent_cell_census(
+    data_root: Path, *, window_days: int, now: datetime | None = None
+) -> RecentCells:
+    """The ledger's cells inside the trailing window, by role and stage."""
+    return cell_census(iter_usage(data_root), window_days=window_days, now=now)
+
+
+def cell_census(
+    usage: Iterable[ModelUsage], *, window_days: int, now: datetime | None = None
+) -> RecentCells:
+    """The cells among ``usage`` inside the trailing window, by role and stage.
+
+    Applies the same cutoff rule :func:`fedcourtsai.spend.spend_over` applies to
+    the very same records (a naive ``created_at`` reads as UTC), so the count and
+    the cost a digest reports describe exactly the same set of cells. The stage
+    comes off the moment register
+    (:func:`fedcourtsai.pipeline.moments.spec_for`) rather than the ledger, since
+    a usage record names its event but not the standard governing it.
+    """
+    cutoff = (now or datetime.now(UTC)) - timedelta(days=window_days)
+    counts: Counter[tuple[str, str]] = Counter()
+    events: set[tuple[str, str]] = set()
+    for record in usage:
+        created = record.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=UTC)
+        if created < cutoff:
+            continue
+        spec = moments.spec_for(record.event_id)
+        stage = str(spec.stage) if spec is not None else UNDECLARED_STAGE
+        counts[(str(record.role), stage)] += 1
+        events.add((record.case_id, record.event_id))
+    rows = [
+        CellCensusRow(role=role, stage=stage, cells=cells)
+        for (role, stage), cells in sorted(counts.items())
+    ]
+    return RecentCells(
+        rows=rows, cells=sum(counts.values()), events=len(events), window_days=window_days
+    )
 
 
 def iter_usage(data_root: Path) -> list[ModelUsage]:

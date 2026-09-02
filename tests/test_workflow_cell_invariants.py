@@ -65,6 +65,7 @@ from fedcourtsai.agent_feedback import (
 )
 from fedcourtsai.cli import _echo_text_coverage
 from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE, codex_mcp_config
+from fedcourtsai.ops import DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL
 from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest
 from fedcourtsai.registry import load_mcp_servers, load_predictors, resolve_mcp_servers
@@ -890,7 +891,6 @@ SOURCING_OPS_STEPS = (
     "Collect recent workflow runs",
     "Collect open trigger issues",
     "Post or update the ops dashboard issue",
-    "Post the weekly digest comment",
     "Escalate a failing data-validation verdict",
 )
 BACKTEST_REPORT_STEP = (
@@ -1395,16 +1395,19 @@ def test_the_handoff_writes_stay_fatal_on_exhaustion() -> None:
 
 
 def test_the_list_of_retried_ops_steps_is_complete() -> None:
-    """The scope above is a name list, so a *sixth* `gh`-calling step is the hole.
+    """The scope above is a name list, so a *fifth* `gh`-calling step is the hole.
 
-    Adding one to `run-ops`'s job with an unwrapped `gh issue create` in it
-    would pass every assertion above simply by not being listed. Invert the
-    question — any step in that job that talks to `gh` at all must be on the
-    list — so the enumeration cannot silently fall behind the workflow.
+    Adding one to `run-ops` with an unwrapped `gh issue create` in it would pass
+    every assertion above simply by not being listed. Invert the question — any
+    step in that workflow that talks to `gh` at all must be on the list — so the
+    enumeration cannot silently fall behind the workflow. Scoped to the whole
+    file rather than the `ops` job, because a second job is exactly the shape a
+    new reporting surface takes here, and one scanned job would leave it out.
     """
     calling = {
         str(step.get("name"))
-        for step in _load("run-ops.yml")["jobs"]["ops"]["steps"]
+        for job in _load("run-ops.yml")["jobs"].values()
+        for step in job.get("steps", [])
         if any(BARE_GH_CALL.search(line) for line in _uncommented(str(step.get("run") or "")))
     }
     assert calling == set(SOURCING_OPS_STEPS)
@@ -1983,3 +1986,72 @@ def test_the_text_coverage_summary_truncation_matches_the_cli_ledger_headers() -
         "a ledger header is outside the workflow's truncation sentinel, so a run "
         + f"whose earlier ledgers are empty would publish its case ids: {unguarded}"
     )
+
+
+def test_the_daily_digest_job_keeps_its_narrow_permission_surface() -> None:
+    """The digest job opens issues, so its grant is pinned rather than inherited.
+
+    It exists as a separate job for exactly one reason — permissions are
+    per-job — so that grant is the thing an edit must not widen by accident. It
+    reads the committed ledger and writes issues; it touches no branch, no
+    environment, and no secret, and a `contents: write` or an `environment:`
+    appearing here would mean the reporting surface had grown a writer's
+    capability.
+    """
+    job = _load("run-ops.yml")["jobs"]["daily-digest"]
+    assert job["permissions"] == {"contents": "read", "issues": "write"}
+    assert "environment" not in job
+    assert "secrets." not in yaml.safe_dump(job), "the digest job needs no secret"
+
+
+def test_no_workflow_triggers_on_a_digest_label() -> None:
+    """The digests' labels must stay non-triggering, which is what makes the job safe.
+
+    A reporting job holding `issues: write` opens an issue every day; if any
+    workflow ever keyed on that label, the daily report would start a run — and
+    a spending one, if the label were ever added to a fan-out. Nothing enforces
+    the property but this assertion, so it reads every workflow rather than the
+    one that posts.
+    """
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        workflow = _load(path.name)
+        # `on` parses to the truthy bool key in YAML; tolerate either spelling.
+        triggers = workflow.get("on") or workflow.get(True) or {}
+        for label in (DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL):
+            assert label not in yaml.safe_dump(triggers), (
+                f"{path.name} triggers on the non-triggering {label} label"
+            )
+            for name, job in (workflow.get("jobs") or {}).items():
+                conditions = [str(job.get("if", ""))]
+                conditions += [str(step.get("if", "")) for step in job.get("steps", [])]
+                for condition in conditions:
+                    assert label not in condition, (
+                        f"{path.name}:{name} gates on the non-triggering {label} label"
+                    )
+
+
+def test_every_schedule_gate_names_a_cron_run_ops_declares() -> None:
+    """A cron literal in a gate must be one the workflow actually declares.
+
+    Change the schedule and forget the gate, and the weekly digest silently stops
+    posting — fail-closed, but silently, on a surface whose whole point is being
+    read once a week, so "silently" costs weeks. Scoped by *what a gate compares
+    against* rather than by the step's name, because a gate can live in an `if:`
+    or in an `env:` value the shell then tests, and keying on the name would stop
+    covering the gate the moment it moved.
+    """
+    workflow = _load("run-ops.yml")
+    triggers = workflow.get("on") or workflow.get(True) or {}
+    declared = {str(entry["cron"]) for entry in triggers["schedule"]}
+    gates = [
+        expression
+        for job in workflow["jobs"].values()
+        for step in job.get("steps", [])
+        for expression in [str(step.get("if", "")), *map(str, (step.get("env") or {}).values())]
+        if "github.event.schedule" in expression
+    ]
+    assert gates, "run-ops gates nothing on its schedule"
+    for gate in gates:
+        assert any(cron in gate for cron in declared), (
+            f"the gate {gate!r} names no cron run-ops declares: {sorted(declared)}"
+        )

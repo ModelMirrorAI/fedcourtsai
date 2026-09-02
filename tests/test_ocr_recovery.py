@@ -30,11 +30,15 @@ from fedcourtsai.pipeline.documents import (
     KIND_QUESTIONS_PRESENTED,
 )
 from fedcourtsai.pipeline.ocr_recovery import (
+    DOCUMENT_BUDGET_SECONDS,
+    ESTIMATED_CANDIDATE_OVERHEAD_SECONDS,
+    ESTIMATED_SECONDS_PER_PAGE,
     MAX_DOCUMENT_BYTES,
     OcrPageFactory,
     OcrRun,
     OcrToolsMissing,
     ScannedPetition,
+    estimated_candidate_seconds,
     fetchable_document_url,
     missing_ocr_binaries,
     ocr_page_for_pdf,
@@ -413,6 +417,215 @@ def test_the_slice_bounds_the_run_and_reports_the_backlog(tmp_path: Path) -> Non
             ocr_page_factory=_stub_ocr(),
         )
     assert second.candidates == 1 and second.recovered == 1 and second.remaining == 0
+
+
+# --- the slice deadline ----------------------------------------------------
+
+
+class _Clock:
+    """A monotonic seam the test moves by hand.
+
+    Wall clock is what the deadline is about, so the tests drive it directly
+    rather than sleeping: `advance` is what a fetch and a recognition would have
+    cost, and the pass reads the same clock it would read in production.
+    """
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+def _timed_ocr(clock: _Clock, seconds: float) -> OcrPageFactory:
+    """A stub recognition that costs ``seconds`` of the clock per document."""
+
+    @contextmanager
+    def factory(_data: bytes) -> Iterator[OcrRun]:
+        clock.advance(seconds)
+        yield OcrRun(page=lambda _index: _OCR_TEXT)
+
+    return factory
+
+
+def test_the_candidate_estimate_reads_pages_and_caps_at_the_document_budget() -> None:
+    """Page count is known before OCR starts, and no document may outspend its budget."""
+    small = ScannedPetition(petition=_document("scotus/1", pages=10), stored_questions=None)
+    assert estimated_candidate_seconds(small) == pytest.approx(
+        ESTIMATED_CANDIDATE_OVERHEAD_SECONDS + 10 * ESTIMATED_SECONDS_PER_PAGE
+    )
+    # A monster does not cost its page count: `ocr_page_for_pdf` stops the
+    # recognition at the document budget and the partial reading is discarded,
+    # so charging it more would refuse slices over a filing that cannot spend it.
+    monster = ScannedPetition(petition=_document("scotus/2", pages=4_000), stored_questions=None)
+    assert estimated_candidate_seconds(monster) == pytest.approx(
+        ESTIMATED_CANDIDATE_OVERHEAD_SECONDS + DOCUMENT_BUDGET_SECONDS
+    )
+
+
+def test_the_slice_deadline_declines_a_candidate_before_starting_it(tmp_path: Path) -> None:
+    """What is left has to hold the next candidate's estimate, or the slice ends.
+
+    The candidate is declined *before* the fetch, so a declined one costs neither
+    a request nor a page: it is untouched, stays in the class, and heads the next
+    slice — unreached rather than failed, which is a different fact about the
+    class and reported as one.
+    """
+    documents = [_document(f"scotus/{n}", pages=20) for n in (1, 2, 3)]
+    db = _seed(tmp_path / "corpus", documents)
+    served = {d.url: _pdf_pages([""]) for d in documents}
+    clock = _Clock()
+    # 20 pages estimates 30 + 60 = 90 s; the first document then eats 200 s of a
+    # 250 s budget, leaving 50 s — less than the next candidate's estimate.
+    with _client(served) as client, corpus.connect(db) as conn:
+        result = recover_scanned_petitions(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=3,
+            ocr_page_factory=_timed_ocr(clock, 200.0),
+            deadline=250.0,
+            monotonic=clock,
+        )
+    assert result.attempted == 1 and result.recovered == 1
+    assert result.unreached == ["scotus/2", "scotus/3"]
+    # Unreached is not failed: nothing was fetched or written for them, so
+    # neither the failure ledger nor the fetch ledger names them.
+    assert result.failures == {} and result.unfetched == {}
+    # The backlog is the whole class minus what was recovered.
+    assert result.candidates == 3 and result.remaining == 2
+    assert _documents(db, "scotus/2")[KIND_PETITION].text == ""
+
+
+def test_the_decline_ends_the_slice_rather_than_skipping_to_a_cheaper_candidate(
+    tmp_path: Path,
+) -> None:
+    """The expensive filing keeps its place; the cheap one behind it waits.
+
+    A greedy skip would fit more cases into this dispatch and defer the long
+    petitions indefinitely — the class is in `case_id` order, so the ones a
+    deadline cannot fit are the same ones every dispatch. Stopping at the first
+    decline is what puts them at the head of the next slice with its whole
+    budget in front of them.
+    """
+    documents = [
+        _document("scotus/1", pages=5),
+        _document("scotus/2", pages=180),  # estimates 30 + 540; will not fit
+        _document("scotus/3", pages=5),  # estimates 45; would fit a greedy skip
+    ]
+    db = _seed(tmp_path / "corpus", documents)
+    served = {d.url: _pdf_pages([""]) for d in documents}
+    clock = _Clock()
+    with _client(served) as client, corpus.connect(db) as conn:
+        result = recover_scanned_petitions(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=3,
+            ocr_page_factory=_timed_ocr(clock, 100.0),
+            deadline=200.0,
+            monotonic=clock,
+        )
+    # 100 s left after the first: the 180-page filing does not fit, and the
+    # 5-page one behind it is not promoted over it.
+    assert result.recovered == 1 and result.unreached == ["scotus/2", "scotus/3"]
+    assert _documents(db, "scotus/3")[KIND_PETITION].text == ""
+
+
+def test_a_candidate_already_started_is_finished_not_killed(tmp_path: Path) -> None:
+    """The deadline is the last moment work may begin, not the moment it stops.
+
+    A recognition cut off mid-document would be a partial reading with nothing
+    downstream to say so, which is what the per-document budget exists to
+    prevent; the slice deadline stays out of a document once it has begun and the
+    write lands whole.
+    """
+    documents = [_document(f"scotus/{n}", pages=20) for n in (1, 2)]
+    db = _seed(tmp_path / "corpus", documents)
+    served = {d.url: _pdf_pages([""]) for d in documents}
+    clock = _Clock()
+    # The first document is admitted with 250 s in hand and then runs 900 s past
+    # the deadline. It still writes.
+    with _client(served) as client, corpus.connect(db) as conn:
+        result = recover_scanned_petitions(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=2,
+            ocr_page_factory=_timed_ocr(clock, 1_000.0),
+            deadline=250.0,
+            monotonic=clock,
+        )
+    assert clock.now > 250.0
+    assert result.recovered == 1 and result.unreached == ["scotus/2"]
+    recovered = _documents(db, "scotus/1")[KIND_PETITION]
+    assert _OCR_TEXT in recovered.text and recovered.ocr_derived is True
+    assert result.questions_rederived == 1
+
+
+def test_a_deadline_already_spent_starts_nothing(tmp_path: Path) -> None:
+    """The edge is a clean zero-work run, not a crash and not a silent slice.
+
+    A caller with no time left has an honest answer available — the class is
+    exactly what it was — so the pass reports the whole slice unreached and
+    writes nothing, which is what keeps the workflow's own witness (the class
+    the ledger says it left behind) converging.
+    """
+    documents = [_document(f"scotus/{n}") for n in (1, 2, 3)]
+    db = _seed(tmp_path / "corpus", documents)
+    clock = _Clock()
+    # Nothing is served: a fetch would be a failure, so an empty failure ledger
+    # is what proves no candidate was started.
+    with _client({}) as client, corpus.connect(db) as conn:
+        result = recover_scanned_petitions(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=2,
+            ocr_page_factory=_stub_ocr(),
+            deadline=-1.0,
+            monotonic=clock,
+        )
+    assert result.applied is True
+    assert result.attempted == 0 and result.recovered == 0
+    assert result.unreached == ["scotus/1", "scotus/2"]
+    assert result.failures == {} and result.unfetched == {}
+    # The witness the workflow re-reads: the class it left behind is the class
+    # it found.
+    assert result.candidates == 3 and result.remaining == 3
+    assert _documents(db, "scotus/1")[KIND_PETITION].text == ""
+
+
+def test_no_deadline_runs_the_whole_slice(tmp_path: Path) -> None:
+    """`deadline=None` is no wall clock at all — the dry-run and dev-checkout case."""
+    documents = [_document(f"scotus/{n}") for n in (1, 2)]
+    db = _seed(tmp_path / "corpus", documents)
+    served = {d.url: _pdf_pages([""]) for d in documents}
+    clock = _Clock()
+    with _client(served) as client, corpus.connect(db) as conn:
+        result = recover_scanned_petitions(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=2,
+            ocr_page_factory=_timed_ocr(clock, 10_000.0),
+            deadline=None,
+            monotonic=clock,
+        )
+    assert result.attempted == 2 and result.recovered == 2 and result.unreached == []
 
 
 def test_an_apply_without_its_bound_is_refused(tmp_path: Path) -> None:
@@ -919,6 +1132,59 @@ def test_the_cli_refuses_an_apply_without_its_slice(
     result = runner.invoke(app, ["ocr-recover-petitions", "--apply"])
     assert result.exit_code == 2
     assert "requires an explicit --max-cases" in result.output
+
+
+@pytest.mark.parametrize("budget", ["-1", "nan", "inf"])
+def test_the_cli_refuses_a_deadline_that_is_not_a_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, budget: str
+) -> None:
+    """Zero is a budget; below zero, `nan` and `inf` are not.
+
+    Reading a mistyped `-1800` as "already spent" would turn a dispatch a
+    maintainer meant to spend a slice into a silent no-op that reads like a clean
+    run. `nan` and `inf` fail the other way and are worse: every comparison
+    against a candidate's estimate admits it, so the deadline is *disabled* by a
+    dispatch that reads as having set one.
+    """
+    _seed(tmp_path / "corpus", [_document("scotus/1")])
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = runner.invoke(
+        app,
+        ["ocr-recover-petitions", "--apply", "--max-cases", "5", "--deadline-seconds", budget],
+    )
+    assert result.exit_code == 2
+    assert "must be a finite, non-negative number" in result.output
+
+
+def test_the_cli_reports_a_spent_deadline_as_a_zero_work_slice(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The whole wiring, end to end: option, ledger, and the prose that names them.
+
+    `--deadline-seconds 0` is spent by the time the class has been walked, so
+    every candidate inside the bound is declined before its fetch. The run is a
+    clean exit that recovered nothing and says exactly which candidates the next
+    dispatch will start on.
+    """
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    # The apply's pre-flight refusal is ahead of the deadline check, so the
+    # binaries have to be found for the deadline to be what ends the slice.
+    _fake_binary(binaries, "pdftoppm", "exit 0")
+    _fake_binary(binaries, "tesseract", "exit 0")
+    monkeypatch.setenv("PATH", f"{binaries}{os.pathsep}{os.environ['PATH']}")
+    _seed(tmp_path / "corpus", [_document(f"scotus/{n}") for n in (1, 2, 3)])
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = runner.invoke(
+        app,
+        ["ocr-recover-petitions", "--apply", "--max-cases", "2", "--deadline-seconds", "0"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "recovered 0, 3 left for the next slice" in result.output
+    assert "attempted 0 (bound 2)" in result.output
+    assert "slice deadline: 2 candidate(s) not started" in result.output
+    assert "scotus/1: NOT STARTED (slice deadline)" in result.output
+    assert '"unreached":["scotus/1","scotus/2"]' in result.output
 
 
 def test_the_cli_fails_loud_without_a_corpus(tmp_path: Path) -> None:

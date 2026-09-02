@@ -27,11 +27,13 @@ Two properties worth stating, because they bound what this can promise:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .config import SpendConfig
+from .schemas import ModelUsage
 from .store import iter_usage
 
 
@@ -64,6 +66,30 @@ class SpendVerdict:
         return max(0.0, self.ceiling_usd - self.spent_usd)
 
 
+def spend_over(
+    usage: Iterable[ModelUsage], *, window_days: int, now: datetime | None = None
+) -> tuple[float, int]:
+    """Estimated cost and cell count among ``usage`` inside the trailing window.
+
+    The pure half of :func:`trailing_spend`, for a caller that has already read
+    the ledger and would otherwise walk it again — the weekly digest prices two
+    different windows and counts a census over the same records, and three walks
+    of a growing tree for one report is three times the work and one more chance
+    for the three figures to disagree about what they cover.
+    """
+    cutoff = (now or datetime.now(UTC)) - timedelta(days=window_days)
+    total = 0.0
+    cells = 0
+    for record in usage:
+        created = record.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=UTC)
+        if created >= cutoff:
+            total += record.estimated_cost_usd
+            cells += 1
+    return total, cells
+
+
 def trailing_spend(
     data_root: Path, *, window_days: int, now: datetime | None = None
 ) -> tuple[float, int]:
@@ -75,17 +101,17 @@ def trailing_spend(
     naive ``created_at`` is read as UTC, so a hand-written ledger row cannot crash
     the gate on a comparison.
     """
-    cutoff = (now or datetime.now(UTC)) - timedelta(days=window_days)
-    total = 0.0
-    cells = 0
-    for record in iter_usage(data_root):
-        created = record.created_at
-        if created.tzinfo is None:
-            created = created.replace(tzinfo=UTC)
-        if created >= cutoff:
-            total += record.estimated_cost_usd
-            cells += 1
-    return total, cells
+    return spend_over(iter_usage(data_root), window_days=window_days, now=now)
+
+
+def verdict_over(
+    usage: Iterable[ModelUsage], config: SpendConfig, *, now: datetime | None = None
+) -> SpendVerdict:
+    """:func:`check_spend` over records a caller has already read."""
+    if config.ceiling_usd <= 0:
+        return SpendVerdict(0.0, 0.0, config.window_days, 0, enforced=False)
+    spent, cells = spend_over(usage, window_days=config.window_days, now=now)
+    return SpendVerdict(spent, config.ceiling_usd, config.window_days, cells, enforced=True)
 
 
 def check_spend(
@@ -99,5 +125,4 @@ def check_spend(
     """
     if config.ceiling_usd <= 0:
         return SpendVerdict(0.0, 0.0, config.window_days, 0, enforced=False)
-    spent, cells = trailing_spend(data_root, window_days=config.window_days, now=now)
-    return SpendVerdict(spent, config.ceiling_usd, config.window_days, cells, enforced=True)
+    return verdict_over(iter_usage(data_root), config, now=now)

@@ -142,6 +142,18 @@ the scoring baseline and takes the same remedy, which is the only one available:
 a freeze-record entry, since the record is the only place the boundary can
 exist.
 
+A **membership rule** — which cells a published figure is computed over — is the
+list's last member and the one that moves no value at all. The scoring funnel's
+exclusions live here: the forward-claim rule and the leakage bit
+(`metrics/README.md` registers both), each of which drops a cell from every
+scored aggregate under unchanged digests, since nothing about which cells count
+sits in an actor's canonical config. Two boards built either side of such a rule
+are over different populations, which is as unreadable as two built either side
+of a re-basing, so a membership rule belongs in the freeze record for the same
+reason the baseline does. Its own boundary is the published exclusion block —
+`forward_claim` / `leakage_exclusion` on every board — so, like the provisioning
+cutoff and unlike the baseline, the change is at least visible in the artifact.
+
 ## The stamp is the harness's word, not the agent's
 
 The agent writes `prediction.json` / `evaluation.json`; a post-agent step
@@ -288,7 +300,8 @@ instant it was blessed. Everything keys off it:
   Until a stamped cell's digest is blessed *and* its stamp is at or after the
   freeze instant, the frozen headline is legitimately **empty** — "no
   frozen-process evaluations yet" — which the leaderboard, the ops dashboard,
-  and the weekly digest all say in as many words, rather than showing a bare
+  and the weekly performance digest all say in as many words, rather than
+  showing a bare
   `0` that reads as a regression.
 - **Frozen** — a stamped cell whose digest is in the blessed map **and** whose
   stamp is at or after `FROZEN_SINCE`, the freeze instant set in the same
@@ -346,7 +359,8 @@ the re-bless instead of resting on a maintainer's grep.
 
 The frozen filter lives at the one shared producer both surfaces read
 (`store.stratify`, `frozen_only=True` by default — the boards call it directly
-so the scored cells and the `forward_claim` exclusion record come from one
+so the scored cells and both exclusion
+records — `forward_claim` and `leakage_exclusion` — come from one
 pass; `iter_stratified_evaluations` is its thin cells-only wrapper), so the
 leaderboard headline and the ops dashboard's scored figures can never disagree —
 they each pass one boolean. Both CLIs take `--all-versions` for the pooled

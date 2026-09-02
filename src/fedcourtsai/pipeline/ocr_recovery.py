@@ -27,6 +27,14 @@ the pass that does, on the terms recorded in *Contract for the recovery pass*
   lossy in a way a text layer is not, and must never read as a clean
   extraction. (A candidate whose re-fetch now serves a PDF with a text layer is
   recovered without the marker, which is the honest reading of it.)
+- **Bounded twice.** The dispatch's slice size is the *spend* cap — how many
+  cases one run may pay for. What keeps the run inside its caller's wall-clock
+  cap is a slice-level deadline: before each candidate the pass estimates its
+  cost from the page count the stored row already carries, and declines the rest
+  of the slice once what is left will not hold it, so the upserts and whatever
+  the caller must do after the pass have the room the caller reserved for them.
+  A declined candidate is *unreached* rather than failed — untouched, and at the
+  head of the next slice.
 - **What follows.** A recovered petition re-derives its ``questions-presented``
   row through the same deriver the ingest path uses, since such a row is written
   only where the petition has text; the derived row carries the petition's
@@ -96,11 +104,42 @@ PAGE_TIMEOUT_SECONDS = 120.0
 # alone is not a document bound: a scan whose pages OCR to nothing accumulates
 # no characters, so the extractor's cap never fires and a long one can run for
 # the length of the step, discarding the slice's other petitions with it. At the
-# ~5 s a rendered page costs, this admits a filing well past the longest
-# petition and cuts off anything that is no longer reading pages but grinding on
-# them. What it has read by then is a partial reading, so it is discarded rather
-# than stored, and the candidate stays in the class.
+# couple of seconds a rendered page costs, this admits a filing well past the
+# longest petition on the docket and cuts off anything that is no longer reading
+# pages but grinding on them. What it has read by then is a partial reading, so
+# it is discarded rather than stored, and the candidate stays in the class.
 DOCUMENT_BUDGET_SECONDS = 600.0
+
+# What one candidate is estimated to cost, which is what the slice deadline
+# admits or declines it on. The estimate is deliberately high rather than
+# central: declining a candidate costs nothing — it is untouched, stays at the
+# head of the class and heads the next slice — while admitting one that does not
+# fit costs the whole slice its index push, so the asymmetry is priced in. It is
+# not a *ceiling*, and cannot usefully be one: the true worst case for a page is
+# `PAGE_TIMEOUT_SECONDS` twice over, which every candidate past three pages
+# would hit, so an estimate built from it would admit one candidate a dispatch
+# and starve the class. It is a high estimate of the ordinary cost, and the
+# caller's reserve carries what a candidate spends past it.
+#
+# Pages are the unit, and the count is known before a page is rendered because
+# the stored row carries it. The rate is the per-page cost of the two binaries
+# together — `pdftoppm` rasterizes at 300 dpi and `tesseract` reads the PNG —
+# which measures around 2.3 s a page across a slice of Court filings on a
+# GitHub-hosted runner, spread roughly 1.6-2.8. The constant is set above the
+# top of that spread rather than at its middle: a slice that under-estimates
+# overruns its caller's cap, which is the failure this exists to prevent, while
+# one that over-estimates only leaves candidates for the next dispatch.
+ESTIMATED_SECONDS_PER_PAGE = 3.0
+
+# The part of a candidate that is not pages: the politeness-throttled re-fetch
+# from supremecourt.gov, the spill to disk, and the upsert of the recovered
+# petition and its re-derived questions row into the content store. Measured at
+# a few seconds a case, and held well above that for the same asymmetry. A fixed
+# term rather than a share of the page cost, because none of it scales with
+# pages. Not a ceiling either: a GET that times out and takes the client's one
+# retry runs to about three times this, which is the second thing a caller's
+# reserve carries.
+ESTIMATED_CANDIDATE_OVERHEAD_SECONDS = 30.0
 
 # The hosts a stored document URL may be re-fetched from. The ingest path takes
 # `DocumentUrl` verbatim out of the upstream docket JSON, so a stored URL is
@@ -334,7 +373,16 @@ class OcrRecoveryResult(BaseModel):
         "null on a dry run, which is unbounded because it writes nothing",
     )
     attempted: int = Field(
-        ge=0, description="Candidates this run re-fetched — the slice, never more than `bound`"
+        ge=0,
+        description="Candidates this run re-fetched — never more than `bound`, and "
+        "short of it by the ones the slice deadline declined to start",
+    )
+    unreached: list[str] = Field(
+        default_factory=list,
+        description="Candidates inside the bound the slice deadline declined to "
+        "start, in class order. Unreached, not failed: nothing was fetched, "
+        "recognized or written for them, so they are untouched, keep their place "
+        "at the head of the class and head the next slice",
     )
     recovered: int = Field(
         ge=0, description="Petitions that came back with text (apply writes these)"
@@ -418,6 +466,27 @@ class ScannedPetition:
 
     petition: corpus.CaseDocument
     stored_questions: str | None
+
+
+def estimated_candidate_seconds(candidate: ScannedPetition) -> float:
+    """The wall clock the slice deadline admits one candidate on.
+
+    Pages times the per-page rate, plus the fixed fetch-and-write overhead, with
+    the page term capped at :data:`DOCUMENT_BUDGET_SECONDS` — where the document
+    budget stops the recognition, bar the page already running, and discards the
+    partial reading. The cap is what keeps the estimate from refusing a slice on
+    a filing whose page count is large: a 400-page scan does not cost 400 pages
+    of runner time, it costs the document budget and then leaves unrecovered,
+    and charging it the whole page count would decline every slice it heads.
+
+    A high estimate of the ordinary cost, not a ceiling on the possible one; see
+    :func:`recover_scanned_petitions` for what a candidate can spend past it and
+    who carries that.
+    """
+    pages = max(candidate.petition.pages, 0)
+    return ESTIMATED_CANDIDATE_OVERHEAD_SECONDS + min(
+        pages * ESTIMATED_SECONDS_PER_PAGE, DOCUMENT_BUDGET_SECONDS
+    )
 
 
 @dataclass(frozen=True)
@@ -583,7 +652,7 @@ def _refetch_document(
     return data, None
 
 
-def recover_scanned_petitions(
+def recover_scanned_petitions(  # noqa: PLR0913 - keyword-only; slice deadline + injected clock over the pass's args
     conn: sqlite3.Connection,
     *,
     client: SupremeCourtClient,
@@ -593,6 +662,8 @@ def recover_scanned_petitions(
     max_cases: int | None = None,
     probe_sample: int = DEFAULT_PROBE_SAMPLE,
     ocr_page_factory: OcrPageFactory = ocr_page_for_pdf,
+    deadline: float | None = None,
+    monotonic: Callable[[], float] = time.monotonic,
 ) -> OcrRecoveryResult:
     """Re-read the scanned petitions off their page images; write what comes back.
 
@@ -604,10 +675,15 @@ def recover_scanned_petitions(
     (:class:`OcrFetchProbe`). The **apply** takes the first ``max_cases``
     candidates — required, and the slice size rather than a refusal threshold,
     because each case costs a fetch and a page-by-page recognition and the whole
-    cost is runner minutes — re-fetches each by its stored URL, walks its pages
-    through the extractor with the OCR seam supplied, and upserts the petitions
-    that came back with text, each carrying ``ocr_derived``, together with the
-    questions-presented row re-derived from the recovered text.
+    cost is runner minutes. It is a *spend* cap and not the pass's safety
+    mechanism: page counts across the class vary several-fold, so no fixed
+    number of cases is both safe against a caller's wall-clock cap and worth
+    dispatching — ``deadline`` below is what holds the wall clock, and the bound
+    is what holds the spend. The apply re-fetches each candidate by its stored
+    URL, walks its pages through the extractor with the OCR seam supplied, and
+    upserts the petitions that came back with text, each carrying
+    ``ocr_derived``, together with the questions-presented row re-derived from
+    the recovered text.
 
     Written per case rather than in one batch at the end, because the step that
     runs this has a wall-clock cap: a batched write turns a cap hit into a slice
@@ -616,6 +692,39 @@ def recover_scanned_petitions(
     durable one; against a self-contained blob the durable step is the pointer
     push the workflow makes after the pass, and a cap hit loses the slice however
     it was written.
+
+    ``deadline`` is the slice's wall clock: a :func:`time.monotonic` reading the
+    run must not start new work past. Before each candidate, what that candidate
+    is estimated to cost (:func:`estimated_candidate_seconds`) is checked against
+    what is left, and the first one that does not fit ends the slice — it and
+    every candidate behind it are reported ``unreached``, untouched and
+    unwritten. Stopping at the first decline rather than skipping ahead to a
+    cheaper candidate is deliberate: the class is in ``case_id`` order, so a
+    greedy skip would defer the expensive filings indefinitely; declining in
+    order puts them at the head of the next slice with its whole budget in front
+    of them. A candidate already started is *finished*, never killed — its own
+    document budget is what bounds it — so the deadline is the last moment work
+    may begin rather than the moment it stops, and the caller sizes it to leave
+    room for everything that must still fit inside its own cap once the pass
+    stops taking work. A deadline
+    already spent when the loop is reached starts nothing and reports every
+    candidate in the bound unreached: a clean zero-work run, not an error, since
+    the class is exactly what it was and the ledger says so. ``None`` is no
+    deadline, which is what a dry run and a caller under no cap want.
+
+    What the deadline does not promise is that the pass returns *by* it, and a
+    caller's reserve has to carry the difference. Three things run past it. The
+    page already being read when a document's own budget fires is finished, at
+    the render and recognition ceilings :data:`PAGE_TIMEOUT_SECONDS` sets, so a
+    document ends up to one page's worth after its budget. A re-fetch that times
+    out and takes the client's one retry costs several times the fixed overhead
+    term. And the estimate reads the page count the *stored* row carries while
+    the recognition walks the re-served PDF, so a URL that has started serving a
+    longer filing is under-estimated — bounded, like everything else here, by the
+    document budget. None of that is a reason to estimate at the worst case,
+    which would starve the class; it is what the caller's own hard cap is the
+    backstop for, and keeping that cap a backstop rather than the routine end of
+    a heavy slice is the whole arrangement.
 
     Additive on the petition. A candidate whose re-fetch fails, or whose pages
     OCR to nothing, is *counted and named* and nothing is written for it: the
@@ -683,7 +792,26 @@ def recover_scanned_petitions(
         failures[case_id] = reason
         unfetched[reason] = unfetched.get(reason, 0) + 1
 
-    for candidate in slice_:
+    unreached: list[str] = []
+    for index, candidate in enumerate(slice_):
+        if deadline is not None:
+            estimate = estimated_candidate_seconds(candidate)
+            left = deadline - monotonic()
+            if estimate > left:
+                # The whole tail, not this one candidate: see the docstring —
+                # skipping ahead to a cheaper candidate would defer the
+                # expensive filings forever.
+                unreached = [c.petition.case_id for c in slice_[index:]]
+                logger.warning(
+                    "ocr: slice deadline reached with %.0fs left; "
+                    "%d candidate(s) not started, first %s (%d pages, ~%.0fs)",
+                    left,
+                    len(unreached),
+                    candidate.petition.case_id,
+                    candidate.petition.pages,
+                    estimate,
+                )
+                break
         document = candidate.petition
         data, refused = _refetch_document(client, document)
         if data is None:
@@ -734,7 +862,8 @@ def recover_scanned_petitions(
         petitions_seen=scan.petitions_seen,
         candidates=len(candidates),
         bound=max_cases,
-        attempted=len(slice_),
+        attempted=len(slice_) - len(unreached),
+        unreached=unreached,
         recovered=len(recoveries),
         empty_after_ocr=empty_after_ocr,
         unfetched=dict(sorted(unfetched.items())),

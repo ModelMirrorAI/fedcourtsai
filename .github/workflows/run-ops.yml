@@ -23,15 +23,25 @@ name: run-ops
 # and appends the JSON snapshot to a dedicated `ops-metrics` branch (an orphan
 # time-series, never merged to main — a week-old snapshot backs the substance
 # section's deltas). So `main` stays clean and the corpus-write path is
-# untouched. The Monday schedule additionally posts the short interrogative
-# **weekly digest** comment to the dashboard issue — numbers as questions
-# demanding a reaction; the daily dashboard stays the reference view.
+# untouched. The Monday schedule additionally opens the **weekly performance
+# digest** as its own `weekly-digest` issue — the health questions, the committed
+# boards' state, the week's cells and measured spend, and the back-test results,
+# every metrics figure carrying its artifact's vintage — closed by the maintainer
+# once read; the daily dashboard stays the reference view.
+#
+# A second job on the daily tick opens the **daily prediction-reading digest**:
+# one predicted event with every predictor side by side, on its own
+# `daily-digest` issue, closed by the maintainer once read. It shares nothing
+# with the dashboard job but the schedule — narrower permissions, no corpus, no
+# branch write — which is why it is a job rather than another step.
 on:
   schedule:
     - cron: "0 8 * * *" # after run-pull (07:17) so the day's runs are visible
-    # The weekly digest tick: the same daily job, plus the digest comment (the
-    # step is gated on this exact schedule string). Offset from the daily 08:00
-    # so the two never race on the dashboard issue.
+    # The weekly tick: the same daily job, plus the weekly performance digest
+    # issue. Two steps are gated on this exact schedule string — the build
+    # step's WEEKLY_TICK env and the posting step's `if` — and a shape test
+    # pins both to a cron this block actually declares. Offset from the daily
+    # 08:00 so the two runs never race on the dashboard issue.
     - cron: "30 8 * * 1"
   workflow_dispatch:
 
@@ -45,13 +55,14 @@ jobs:
   ops:
     runs-on: ubuntu-latest
     # Setup + report is a couple of minutes; the cap is sized for the degraded
-    # API this job's `gh_retry` calls exist to survive. Twelve retryable calls
-    # across the five latching steps, each worth up to 105s when every attempt
-    # times out (3 × `timeout 30` plus 5s + 10s of backoff), is ~21 min of
-    # retry alone — under a 15 min cap the job would be killed mid-recovery,
-    # after posting the dashboard but before the data-validation escalation.
-    # This job holds no corpus lock, so a wider cap costs only runner minutes
-    # on a day the API is already broken.
+    # API this job's retries exist to survive. Ten retryable shell calls across
+    # the four latching steps, plus the three the weekly digest's poster can
+    # make at its Python seam, each worth up to 105s when every attempt times
+    # out (3 × `timeout 30` plus 5s + 10s of backoff): ~23 min of retry alone.
+    # Under a 15 min cap the job would be killed mid-recovery, after posting
+    # the dashboard but before the data-validation escalation. This job holds
+    # no corpus lock, so a wider cap costs only runner minutes on a day the API
+    # is already broken.
     timeout-minutes: 30
     permissions:
       contents: write # read the ledger + push the snapshot to the ops-metrics branch
@@ -60,9 +71,16 @@ jobs:
     steps:
       # Persist the built-in token so git can fetch/push the ops-metrics branch.
       # This job uploads no artifacts, so credential leakage is not a concern.
+      # Full history, because the weekly digest reads each committed metrics
+      # artifact's vintage out of the commit that last wrote it: on a depth-1
+      # clone the single grafted commit matches every path, so every board
+      # would be stamped with today's date. (The renderer refuses to read a
+      # shallow history at all and reports the vintage as unknown, so this
+      # buys the real dates rather than preventing a wrong one.)
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: # zizmor: ignore[artipacked]
           persist-credentials: true
+          fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
 
@@ -123,6 +141,11 @@ jobs:
               prev_args+=(--previous prev-ops.json)
             fi
           fi
+          # The weekly performance digest is rendered every run — it is cheap,
+          # and this step stays read-only, so nothing here can fail the run
+          # before the dashboard, the snapshot, and the data-validation
+          # escalation have landed. Opening it as an issue is the last step of
+          # the job, on the Monday tick only.
           # ops-report runs the git-only `validate` over data/ itself for the data-health
           # section, catching anything that reached the default branch without the gate.
           uv run fedcourts ops-report --runs runs.json --trigger-issues trigger-issues.json \
@@ -180,32 +203,6 @@ jobs:
             gh_retry gh issue edit "$num" --repo "$REPO" --body-file ops.md
           fi
 
-      # The weekly digest: a short interrogative comment on the dashboard issue —
-      # the same numbers as questions demanding a reaction, posted only on the
-      # Monday schedule tick (the daily dashboard above stays the reference view).
-      # The body is rendered by the tested `render_weekly_digest`; this step only
-      # posts it.
-      - name: Post the weekly digest comment
-        if: github.event_name == 'schedule' && github.event.schedule == '30 8 * * 1'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
-          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
-          # The digest is a once-a-week post, so a blip on this lookup costs a
-          # whole week rather than the next window — worth the 15s the retry can
-          # spend before giving up.
-          num=$(gh_retry gh issue list --repo "$REPO" --label ops-dashboard --state open \
-            --json number --jq '.[0].number')
-          if [ -z "$num" ]; then
-            echo "No open dashboard issue; the digest lives in the step summary."
-            cat digest.md >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          gh_retry gh issue comment "$num" --repo "$REPO" --body-file digest.md
-
       - name: Escalate a failing data-validation verdict
         env:
           GH_TOKEN: ${{ github.token }}
@@ -237,4 +234,88 @@ jobs:
             gh_retry gh issue comment "$num" --repo "$REPO" \
               --body "✅ Data validation is green again as of the latest ops run — closing."
             gh_retry gh issue close "$num" --repo "$REPO" --reason completed
+          fi
+
+      # The weekly performance digest, on its own issue the maintainer closes
+      # once read — the open `weekly-digest` issues are the unread backlog.
+      # LAST in the job, deliberately: this is a non-idempotent network write,
+      # and everything the run must not lose to a degraded API — the dashboard,
+      # the ops-metrics snapshot, the data-validation escalation — has already
+      # landed by the time it is attempted, so a blip here costs the week's
+      # digest and nothing else.
+      #
+      # `weekly-digest` is a NON-triggering label by design (no run:* workflow
+      # keys on it, and it must never become one — an issue opened under a
+      # trigger label would start a spending run from a reporting job). The
+      # command creates it idempotently and keys the once-a-week create on the
+      # body's own ISO-week marker, so a re-dispatch of this tick adds no second
+      # issue. Rendering, that idempotency, and the bounded gh retry all live in
+      # tested Python, so this step keeps no `gh` of its own.
+      - name: Post the weekly performance digest
+        if: github.event_name == 'schedule' && github.event.schedule == '30 8 * * 1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts post-weekly-digest --repo "$REPO" --body-file digest.md
+          cat digest.md >> "$GITHUB_STEP_SUMMARY"
+
+  # The prediction-reading habit: one predicted event with every predictor side
+  # by side, opened as a fresh `daily-digest` issue the maintainer reads and
+  # closes — so the open issues under that label ARE the unread backlog and no
+  # reading-state store has to exist. Its own job rather than a step on `ops`
+  # because permissions are per-job and this one's needs are strictly narrower:
+  # it reads the committed ledger and writes issues, and never touches the
+  # ops-metrics branch, the run history, or the corpus.
+  daily-digest:
+    # Deliberately ungated: it runs on every trigger this workflow has, and the
+    # command's own DAY marker makes it once-a-day rather than once-a-run. A
+    # schedule filter here would be fail-open (true for every cron string it
+    # does not name) and would also lose Monday's digest outright — the
+    # workflow-level `cancel-in-progress` lets the 08:30 weekly tick cancel an
+    # 08:00 run still retrying against a degraded API, and a filtered-out job
+    # cannot make that up. Running on the 08:30 tick too recovers it, and posts
+    # nothing on a day already digested.
+    runs-on: ubuntu-latest
+    # Setup plus a read of `data/`; the headroom is for the four bounded `gh`
+    # calls the command can make (two listings, the label, the create), each
+    # worth up to 105s against a degraded API.
+    timeout-minutes: 15
+    permissions:
+      contents: read # read the committed ledger under data/
+      issues: write # open the digest issue under the non-triggering label
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # this job pushes nothing
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Open the daily prediction-reading digest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          # The ref this job checked out, so the digest's links point at the tree
+          # it actually read — the default branch on a schedule, the dispatcher's
+          # branch on a manual run. Bound through the environment rather than
+          # interpolated into the script.
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # `daily-digest` is a NON-triggering label by design (no run:* workflow
+          # keys on it, and it must never become one — an issue opened under a
+          # trigger label would start a spending run from a reporting job). The
+          # command creates it idempotently.
+          #
+          # Selection, rendering, the marker idempotency, and the bounded gh
+          # retry all live in tested Python (`fedcourts daily-digest`), so this
+          # step stays a thin wrapper with no `gh` of its own. It reads the
+          # committed ledger only: no corpus credential, no model call.
+          uv run fedcourts daily-digest --repo "$REPO" --ref "$REF" --post \
+            --out daily-digest.md
+          # An empty ledger writes no body; the digest still reports what it did
+          # on stderr, which the job log carries.
+          if [ -f daily-digest.md ]; then
+            cat daily-digest.md >> "$GITHUB_STEP_SUMMARY"
           fi

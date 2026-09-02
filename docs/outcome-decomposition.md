@@ -443,8 +443,17 @@ replay totals never leave the iteration lane.
 ## Advisory, and segmented
 
 Claim scores never alter `correct`, `brier_score`, `vote_accuracy`, or
-`brier_skill_score`. They are a separate block, segmented the way the leakage
-assessment is: they describe a cell without changing the numbers it is ranked on.
+`brier_skill_score`. They are a separate block: they describe a cell without
+changing the numbers it is ranked on. **Segmented** on the axes a claim total
+is never comparable across — per predictor, per pre-registration stratum, per
+declared-set version, and per stage moment — so a total is only ever read
+inside one of those cells.
+
+Advisory is not the same as inert, and the leakage bit beside them is the
+contrast: `leakage_suspected` changes no value on the record either, but it
+decides **membership**, taking its cell out of every rank key and scored
+aggregate (`metrics/README.md`, *The leakage exclusion*). A block that never
+touches a number can still be the reason a number has no cells.
 
 That is a starting posture, not a permanent one — but note where the process
 digest actually moves, because it is not where it looks. The digest hashes the

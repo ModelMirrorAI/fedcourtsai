@@ -368,7 +368,18 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   implicated. Both binaries are installed by that step alone, so no scheduled
   lane grows the dependency. Dry run by
   default, and bounded through `repair_bound` so a backlog clears in slices
-  rather than in one long job; runner minutes are the whole cost.
+  rather than in one long job; runner minutes are the whole cost. That bound is
+  the *spend* cap. What keeps a slice inside the step's own wall clock is a
+  **slice deadline** the step passes with it, sized from everything that must
+  still fit inside that cap once the pass stops taking work — the writes it has
+  in flight, the witness re-read, the blob push and the pointer commit. Before
+  each candidate the pass estimates its cost from the stored page count and
+  stops taking new ones once what is left will not hold it. Page counts across
+  the class vary several-fold, so a fixed bound cannot do that job — a slice
+  that draws three long filings is the same dispatch as one that draws three
+  short ones. The estimate is a high reading of the ordinary cost rather than a
+  ceiling on the possible one, so the step's cap stays the backstop for what
+  runs past it.
 - **What it reads.** Stored **petitions** whose text is empty or
   whitespace-only and whose page count is above zero. A zero-page row is either
   a PDF the extractor could not open or a derived section — `pages` carries
@@ -416,12 +427,18 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   recovered ones leave, not that a later slice starts further along. The ledger
   reports them apart from the candidates a slice never reached for exactly that
   reason — a class whose head is permanently unreadable makes a small bound a
-  no-op, and the ledger is what shows it. Three bounds keep one filing from costing the rest: a stored
+  no-op, and the ledger is what shows it. The candidates a slice never reached
+  are named there too, one by one, because the slice deadline is what leaves
+  them: unreached is not failed, and a maintainer reading the ledger should see
+  which of the two a dispatch produced. Three bounds keep one filing from
+  costing the rest: a stored
   URL is refused unless it is HTTPS on the Court's own host (`DocumentUrl` is
   upstream text, and this pass is the only thing that GETs one back), a body
   past a size ceiling is refused as not-a-filing, and a document that outlives
   its recognition budget is abandoned unread — each costing its own candidate,
-  which stays in the class. Each recovery is written as it is made rather than
+  which stays in the class. The slice deadline is the fourth and the only one
+  above the filing: it costs no candidate at all, since it declines before the
+  fetch. Each recovery is written as it is made rather than
   batched at the end, so a step that hits its wall-clock cap has banked what it
   recovered — under the corpus split, where the content-store write is itself
   the durable one; on a self-contained blob the pointer push at the end of the
