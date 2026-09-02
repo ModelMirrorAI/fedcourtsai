@@ -1050,15 +1050,20 @@ def default_event(row: CorpusRow) -> corpus.CorpusEvent:
         title=row.case_name or row.docket_number or row.case_id,
         decision_target="disposition",
         # The application's own submission entry first, then the docketing
-        # date. Entry-first rather than the reverse because this stamp is where
-        # provisioning cuts: the cut keeps everything filed strictly before the
-        # day after `opened_at`, so stamping a date *earlier* than the entry
-        # that states the application would cut that entry away and hand an
-        # arrival cell a docket with no application on it. The submission entry
-        # is the trigger by construction, so cutting at it is well-formed
-        # whatever the docketing date says. `application_filed_at` is written
-        # only on the live application branch, so every other form takes the
-        # docketing date exactly as before.
+        # date. Entry-first because this stamp is where provisioning cuts, and
+        # the two readings do not disagree symmetrically: over 60 substantive
+        # application dockets the submission entry precedes docketing on 34 (a
+        # median 5 days, up to 64) and follows it on none, so the docketing
+        # date is systematically the *later* of the two. Later is the enlarging
+        # direction — the cut keeps everything filed strictly before the day
+        # after `opened_at`, so a docketing stamp admits filings the arrival
+        # moment never saw, and on the sampled dockets it admitted the
+        # response-request trigger on 5 of the 7 that have one and the
+        # disposition itself on 4 of the 55 that had been disposed of.
+        # Entry-first tightens the boundary onto
+        # the trigger the moment is declared at. `application_filed_at` is
+        # written only on the live application branch, so every other form
+        # takes the docketing date exactly as before.
         opened_at=row.application_filed_at or row.date_filed,
         resolved=row.disposition is not None,
     )
@@ -1109,15 +1114,45 @@ def to_corpus_row(
     (``source``, ``schema_version``, ``docket_id`` — recoverable from
     ``case_id``); ``nature_of_suit`` maps onto the store's ``topic`` column.
 
-    One docket *fact* is deliberately dropped too, unlike its dated interim
-    siblings: ``application_filed_at`` exists to stamp the interim baseline's
+    One docket *fact* is deliberately dropped too:
+    ``application_filed_at`` exists to stamp the interim baseline's
     ``opened_at`` (:func:`default_event`), and that event column is the durable
     record of the arrival. A ``cases`` column beside it would state the same
-    date twice, with nothing keeping the two in step — and the cost of the
-    choice is stated where it bites: with no stored column, re-deriving the
-    arrival on an already-decided application means re-reading its stored
-    snapshot, the way :mod:`fedcourtsai.pipeline.response_backfill` re-reads
-    the dated response signals.
+    date twice with nothing keeping the two in step.
+
+    The choice carries a cost, and it is **not** the one the dated interim
+    signals carry. ``response_requested_at`` and ``response_filed_at`` are
+    stored columns under a fill-in ``COALESCE`` latch
+    (:func:`fedcourtsai.corpus._update_clause`), so a channel that cannot read
+    them leaves what another channel stamped. ``events.opened_at`` has **no**
+    latch (:func:`fedcourtsai.corpus._event_update_clause` — every event column
+    but ``resolved`` takes the incoming value), and the arrival read is
+    live-branch-only. So a **non-live re-extraction** of an application docket —
+    ``pull.pull_case`` or ``discover``, both re-running
+    :func:`extract_events` over :func:`from_api_docket`, which carries no
+    ``application_filed_at`` — would write the docketing date back over the
+    arrival stamp, in the enlarging direction.
+
+    Two things keep that from happening, and **neither is a latch**. Discovery
+    is off (``config/tracking.yaml``'s ``discover_new_filings``, a flag whose
+    own comment invites flipping it back on): with it on, :mod:`.discover`
+    reconciles a CourtListener docket onto the live-first row it matches — the
+    docket-number join matches an application number verbatim — and then
+    rewrites that row's events. And the REST refresh rotation is stalest-first
+    with no live-id or application filter, so an application row is not excluded
+    from it, merely far back in it; most SCOTUS application-form rows carry
+    CourtListener ids, and a live-polled substantive application addressable by
+    both channels exists today. The exposure is therefore real, dormant, and
+    held off by configuration rather than by construction. The seeding and
+    dedupe paths are safe for a firmer reason: they copy stored event rows
+    rather than re-deriving them. Recorded here because it is a *cross-channel
+    reset* rather than a degraded parse, and because the latch that would close
+    it belongs to ``events`` rather than to this projection.
+
+    The other cost is ordinary: with no stored column, re-deriving the arrival
+    on an already-decided application means re-reading its stored snapshot, the
+    way :mod:`fedcourtsai.pipeline.response_backfill` re-reads the dated
+    response signals.
 
     ``last_pulled`` and ``last_live_polled`` are channel tracking state (not
     docket facts), so they are supplied by the caller: ``pull`` stamps the REST

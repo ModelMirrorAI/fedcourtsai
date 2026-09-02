@@ -1515,3 +1515,120 @@ freeze commit is recorded here.
   `uv run pytest tests/test_legacy_denial_weight.py` green, and — where the
   corpus is pulled — the population reproduced by the shipped rule under the
   membership predicate above before the writer-lane pass, and empty after it.
+
+- **The interim arrival moment is dated from the docket's own submission entry,
+  2026-09-02.** A **provisioning-cutoff** entry on the pattern of *The moment
+  cutoff on forward provisioning, 2026-08-17* above, and a second boundary
+  inside that one rather than a restatement of it: that entry registered
+  *whether* a declared moment is cut, and named the interim application
+  baseline among the placed moments; this one moves **where** the interim
+  arrival cut falls. No freeze commit and no digest movement — no prompt byte
+  changes — and the data-visible marker is the same `context.cutoff`, so an
+  auditor reading only the 2026-08-17 entry would pool interim arrival cells
+  across a real boundary. They may not be pooled.
+
+  **What changed.** `evt-motion-disposition` opened at the row's docketing date
+  — the `cases.date_filed` column, which the live channel fills from the
+  payload's `DocketedDate` — where it opened at all. It now opens at the date of
+  the entry in which the application was submitted
+  (`interim_signals.application_arrival_date`), falling back to `date_filed`
+  where no submission entry can be dated. `provision.moment_cutoff` is unchanged
+  and still returns `opened_at + 1 day`; what moves is the date it is given.
+
+  **The corpus this entry's figures are read against** is the blob whose newest
+  pull stamp is `2026-09-02` (newest stored snapshot `2026-07-13`). Two of the
+  three measurements below are re-runnable against it from the index alone; the
+  third is a payload read, and its predicate is stated so it can be repeated.
+
+  **Index-only, and the half that needs no payload.** Of the **340** rows with
+  `application_kind = 'substantive'`, **85** carry no `date_filed` at all — a
+  quarter of the substantive interim population, for which the submission entry
+  is not the better stamp but the *only* one. Those are the cells that were
+  provisioned `as-stored` with `cutoff: null`, the shape this change closes
+  outright.
+
+  **The direction, from a payload read.** Over the **60** substantive
+  application dockets whose live `supremecourt.gov` payloads were read for the
+  stats review of this change — a sample of that 340, not the whole of it, and
+  the figures below are that review's measurement rather than a re-derivation
+  here — the submission entry **precedes** docketing on 34, by a median 5 days
+  and a maximum of 64, and **follows** it on **none**. So the old stamp ran
+  systematically late, and late is the enlarging direction: the cut admits
+  filings the arrival moment never saw. Two moment-collapses are what that
+  bought, on the same sample: the old cut admitted the **response-request**
+  entry on 5 of the 7 dockets that have one — the trigger of a *different*
+  declared moment (`evt-order-response-requested-disposition`), so the arrival
+  cell was conditioned on the thing that defines the moment after it — and
+  admitted the **disposition itself** on 4 of the 55 that had been disposed of.
+  A second read, of 150 live application dockets, is what the parser rests on:
+  the submission clause matched the head entry of all 150 and matched no
+  disposing entry on any of them.
+
+  **The cohort split, on the 12 rows that are `salience_selected` with an
+  `application_kind` at this entry's date.** Two (`scotus/9526000256`,
+  `scotus/9526000273`) move from `as-stored` — no cutoff at all — to placed;
+  six keep a cutoff that moves **earlier**; four are unchanged, their submission
+  and docketing dates falling on the same day. Ten of the twelve carry a
+  committed prediction. A figure over interim arrival cells may not pool across
+  the promotion carrying this, and — the 2026-08-17 entry's rule, which applies
+  here unchanged — a figure over the placed ones owes the `dated`/`truncated`
+  counts beside it.
+
+  **One residual the boundary cannot remove.** On 2 of the 60 — both capital
+  applications — the application is submitted and disposed of on the **same
+  day**, so a cutoff of arrival + 1 necessarily keeps the disposing entry. The
+  cut is exclusive at day granularity and the docket records no finer time, so
+  this is a floor of the reconstruction rather than a defect of the rule; such
+  a cell is refused by the forward terminal gate rather than placed, and a
+  replay of one is reading a docket that was over before the day ended.
+
+  **The boundary takes effect for cells provisioned after the promotion
+  carrying it**, which is the 2026-08-17 entry's rule and matters more here
+  because the counting instant is close. `process_version.FROZEN_SINCE` is
+  `2026-09-05T00:00:00Z`, and the interim predict trigger is the live channel's
+  docket-change queue, which mints arrival cells continuously. So **nothing
+  counted re-bases provided this promotes before that instant**, and the
+  condition is registered rather than assumed: an interim arrival cell stamped
+  in a gap between the instant and the carrying promotion would be counted *and*
+  provisioned under the old boundary, and would need its own entry.
+
+  **What the existing cells are, and on what ground they are excluded.** The 30
+  committed `evt-motion-disposition` predictions sit on 10 application
+  baselines and partition 18 `proc-v3` + 2 `proc-v4` + 10 `proc-v5`. The
+  2026-08-29 shakedown declaration above covers the first 20; it does **not**
+  reach the 10, which carry the currently blessed `proc-v5` predictor digests.
+  Those are excluded on the instant alone — stamped `2026-09-01`, before
+  `FROZEN_SINCE` — so the coverage rests on two grounds for 20 cells and one for
+  10, not on the declaration for all 30.
+
+  No interim base rate re-prices either: `pipeline.base_rates` keys the interim
+  section on `application_term` and carries no provisioning version, so it is a
+  function of realized outcomes and is untouched by what a cell was conditioned
+  on. This is a **conditioning** change and nothing else.
+
+  **One amendment debt, named here because it cannot be paid in the same
+  commit.** The frozen predict prompt tells an interim arrival cell its event
+  was "opened when the application was docketed", which this change makes false
+  — it is now opened at the submission entry. The prompt bytes are an input to
+  the process digest, so correcting that sentence moves all three `proc-v5`
+  predictor digests; it is therefore owed to the next re-bless rather than taken
+  here, and until then an arrival cell is told a slightly wrong thing about why
+  its snapshot ends where it does. This is the same shape as the 2026-08-17
+  entry's own caveat, that its cells were placed under a frozen prompt still
+  describing the snapshot as the latest.
+
+  **The expected-skill corollary, registered now so a decline cannot be read as
+  a regression.** `context.response_requested` flips `True` → `False`/`None` on
+  5 of the 7 sampled dockets that have a request, and the frozen escalation trio
+  is part of what an interim cell reads. So a post-fix `interim@arrival` cell
+  sees **strictly less** than a pre-fix one, against an unchanged realized
+  baseline. Expected interim skill should therefore **decline**, and a drop
+  across this boundary is the change working. A *rise* would be the surprising
+  result and would want explaining.
+
+  The runnable effect check, for the promotion carrying this:
+  `uv run pytest tests/test_interim_signals.py` green, and — on the next
+  interim arrival cell provisioned after it — `record/context.json` carrying a
+  non-null `cutoff` equal to the day after the case's own
+  `Application (…) … submitted` entry, with that entry the last one surviving
+  in the provisioned snapshot.

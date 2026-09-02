@@ -480,14 +480,125 @@ def test_a_companion_applications_number_does_not_supply_the_arrival() -> None:
     assert application_arrival_date("24A1099", entries) == date(2025, 5, 14)
 
 
-def test_the_earliest_naming_entry_wins_however_the_docket_is_ordered() -> None:
-    # No entry naming the application can predate the application, so the
-    # minimum is the arrival whatever order the stored entries arrive in.
+def test_the_earliest_submission_wins_however_the_docket_is_ordered() -> None:
+    # Only the submission clause matches, so the disposition below cannot
+    # supply a date whatever order the stored entries arrive in.
     entries = _entries(
         ("May 23 2025", "Application (24A1099) denied by Justice Kagan."),
         ("May 14 2025", "Application (24A1099) for a stay, submitted to The Chief Justice."),
     )
     assert application_arrival_date("24A1099", entries) == date(2025, 5, 14)
+
+
+def test_a_lost_head_entry_yields_no_arrival_rather_than_the_disposition_date() -> None:
+    """The failure the submission clause exists to refuse.
+
+    On most application dockets the next entry naming the number after the
+    submission *is the disposition*. A bare-number anchor over a payload whose
+    head entry is missing would therefore stamp the arrival at the day the
+    application was decided — and the cell would be provisioned under a
+    well-formed `truncated` cutoff admitting its own outcome. Requiring the
+    filing verb degrades that to `None`, and the stamp falls back to the
+    docketing date, which is merely late.
+    """
+    decapitated = _entries(
+        ("May 20 2025", "Response to application (24A1099) filed."),
+        ("May 23 2025", "Application (24A1099) denied by Justice Kagan."),
+    )
+    assert application_arrival_date("24A1099", decapitated) is None
+
+    # End to end: the baseline takes the docketing date rather than the denial.
+    payload = {
+        "CaseNumber": "24A1099",
+        "DocketedDate": "May 14, 2025",
+        "ProceedingsandOrder": [
+            {"Date": day, "Text": text} for text, day in decapitated if day is not None
+        ],
+    }
+    record = map_live_docket(payload, live_application_id(24, 1099), form="application")
+    assert record["application_filed_at"] is None
+    assert default_event(from_live_record(record)).opened_at == date(2025, 5, 14)
+
+
+def test_a_renewal_to_a_second_justice_does_not_displace_the_submission() -> None:
+    # The Clerk's renewal form is "refiled and submitted", which satisfies the
+    # submission anchor — so the verb alone does not exclude it. With the head
+    # entry present `min` keeps the original.
+    entries = _entries(
+        ("May 14 2025", "Application (24A1099) for a stay, submitted to Justice Alito."),
+        ("May 19 2025", "Application (24A1099) refiled and submitted to Justice Kagan."),
+    )
+    assert application_arrival_date("24A1099", entries) == date(2025, 5, 14)
+
+
+def test_a_refiling_alone_yields_no_arrival() -> None:
+    """The case `min` cannot decide, and the one that discriminates.
+
+    A refiling always follows a denial, so a decapitated payload whose only
+    submission-shaped entry is the renewal would be stamped *after* the
+    application's own first disposition — the same admits-its-own-outcome
+    failure the submission clause exists to refuse, wearing the filing verb.
+    The renewal exclusion is what refuses it; the stamp falls back to docketing.
+    """
+    entries = _entries(
+        ("May 19 2025", "Application (24A1099) refiled and submitted to Justice Kagan."),
+    )
+    assert application_arrival_date("24A1099", entries) is None
+
+    payload = {
+        "CaseNumber": "24A1099",
+        "DocketedDate": "May 14, 2025",
+        "ProceedingsandOrder": [
+            {"Date": "May 19 2025", "Text": "Application (24A1099) refiled and submitted."},
+        ],
+    }
+    record = map_live_docket(payload, live_application_id(24, 1099), form="application")
+    assert record["application_filed_at"] is None
+    assert default_event(from_live_record(record)).opened_at == date(2025, 5, 14)
+
+
+def test_the_cut_separates_arrival_from_the_response_request_it_precedes() -> None:
+    """The moment separation the fix buys, on the shape 57% of the sample takes.
+
+    An application submitted the day before it is docketed, whose response
+    request lands on the docketing day itself. Stamped at docketing the cut
+    falls the day after and admits the response request — the interim stage's
+    strongest cheap signal, and the trigger of a *different* declared moment
+    (`evt-order-response-requested-disposition`). The arrival cell would then
+    be conditioned on the thing that defines the moment after it.
+    """
+    payload = {
+        "CaseNumber": "26A203",
+        "DocketedDate": "August 14, 2026",
+        "ProceedingsandOrder": [
+            {
+                "Date": "Aug 13 2026",
+                "Text": "Application (26A203) for a stay of mandate, submitted to Justice Kagan.",
+            },
+            {
+                "Date": "Aug 14 2026",
+                "Text": "Response to application (26A203) requested, due August 18, 2026.",
+            },
+        ],
+    }
+    record = map_live_docket(payload, live_application_id(26, 203), form="application")
+    assert record["date_filed"] == "August 14, 2026"
+    assert record["application_filed_at"] == "2026-08-13"
+    assert record["response_requested_at"] == "2026-08-14"
+
+    event = default_event(from_live_record(record))
+    assert event.opened_at == date(2026, 8, 13)
+    cutoff = moment_cutoff("evt-motion-disposition", [event])
+    assert cutoff == date(2026, 8, 14)
+
+    kept, dropped = truncate_snapshot(payload, cutoff)
+    assert [entry["Text"] for entry in kept["ProceedingsandOrder"]] == [
+        "Application (26A203) for a stay of mandate, submitted to Justice Kagan."
+    ]
+    assert dropped == 1
+    # The docketing stamp would have kept it: cutoff 2026-08-15, both entries.
+    stale, _ = truncate_snapshot(payload, date(2026, 8, 15))
+    assert len(stale["ProceedingsandOrder"]) == 2
 
 
 def test_an_undated_submission_entry_yields_no_arrival() -> None:
