@@ -1,9 +1,10 @@
 """The mechanical integrity rules a scored cell must pass, and what qualifies a pass.
 
-Clock, run, claim, stratum — four pass/fail rules — plus one description that
-a pass does not settle: how far behind its own frozen placement the cell ran.
+Clock, run, claim, leak, stratum — five pass/fail rules — plus one description
+that a pass does not settle: how far behind its own frozen placement the cell
+ran.
 
-Four questions every scoring surface needs answered the same way, in one leaf
+Five questions every scoring surface needs answered the same way, in one leaf
 module so no join can answer them differently:
 
 **Whose clock says when a cell ran?** The pre-registration boundary must not
@@ -40,6 +41,17 @@ cell was placed at was when it ran, which is what separates a cell forecasting
 its increments from one able to read them off a docket that moved since the
 cutoff.
 
+**Did the graded prediction read its own outcome?** The evaluators' coarse
+leakage bit (``leakage_suspected``) answers it, and :func:`leakage_excluded`
+turns the bit into the one rule every scoring surface applies: a cell carrying
+it leaves every rank key and every scored aggregate. Independent of the claim
+rule above and of the stratum below — the clock cannot see a leak, so a leaked
+cell whose outcome resolves *after* its prediction's clock classifies forward
+and only this bit keeps it out. It decides membership, never value: no score on
+the record is touched, and the boards publish the count
+(:func:`leakage_record`) beside their figures so the exclusion can never be
+silent.
+
 **Which stratum does the cell belong to?** The pre-registration split is the
 same question asked once more, and it rests on the same clock, so the
 vocabulary lives here too: the :data:`FORWARD` / :data:`RETROSPECTIVE` /
@@ -65,6 +77,7 @@ from typing import Literal
 from .schemas import (
     Evaluation,
     ForwardClaimRecord,
+    LeakageExclusionRecord,
     Moment,
     Outcome,
     Prediction,
@@ -329,6 +342,58 @@ def forward_claim_breach(prediction: Prediction, outcome: Outcome) -> str | None
             f"({clock_date.isoformat()})"
         )
     return None
+
+
+#: The reason recorded against a cell the leakage bit drops. One string, so
+#: every surface names the exclusion identically and the stderr line, the board
+#: block and the tests cannot drift apart.
+LEAKAGE_EXCLUSION_REASON = (
+    "the grading records `leakage_suspected` — the prediction may have read its "
+    "own outcome, so the cell is an observation of no scored stratum"
+)
+
+
+def leakage_excluded(evaluation: Evaluation) -> bool:
+    """Whether this grading's leakage bit keeps its cell out of every scored figure.
+
+    True only on an explicit ``leakage_suspected: true``. A **null** bit is "not
+    assessed" — offline evaluators and records written before the field existed
+    — and is deliberately not read as a suspicion: excluding on a null would
+    empty the board of every unassessed cell, which is most of the ledger.
+
+    The rule is independent of :func:`forward_claim_breach` and of
+    :func:`classify_stratum`, and that independence is the point. The timing
+    split rests on the clock, so a leaked cell whose outcome resolves *after*
+    its prediction's harness clock classifies **forward** and would be published
+    as claimable forecasting performance; the clock cannot see the leak, and
+    this bit is the only thing that can. It is an exclusion, never a stratum
+    change: a cell that carries it leaves every rank key and every scored
+    aggregate rather than moving to a different one, because the retrospective
+    stratum is the iteration signal and a cell that read its own outcome
+    degrades exactly that.
+    """
+    return evaluation.leakage_suspected is True
+
+
+def leakage_record(
+    excluded: Sequence[tuple[str, str]] | int, assessed: int = 0
+) -> LeakageExclusionRecord:
+    """The leakage-exclusion record every scoring surface publishes beside its numbers.
+
+    ``excluded`` is the exclusion ledger's ``(predictor_id, reason)`` pairs (a
+    bare count is accepted where a caller has only the number and no
+    per-predictor split to publish), mirroring :func:`forward_claim_record`.
+    """
+    if isinstance(excluded, int):
+        return LeakageExclusionRecord(excluded=excluded, assessed=assessed)
+    by_predictor: dict[str, int] = {}
+    for predictor_id, _reason in excluded:
+        by_predictor[predictor_id] = by_predictor.get(predictor_id, 0) + 1
+    return LeakageExclusionRecord(
+        excluded=len(excluded),
+        assessed=assessed,
+        by_predictor=dict(sorted(by_predictor.items())),
+    )
 
 
 def forward_claim_record(

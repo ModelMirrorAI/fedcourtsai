@@ -1147,11 +1147,15 @@ def _render_usefulness(usage: ToolUsage) -> list[str]:
     lines += [
         "",
         "_An ops view, not a scored board. It shares the boards' process scope and their "
-        + "one-grading-per-judge collapse, but it does not apply the forward-claim "
-        + "exclusion and it keys `mode` on the harness's own record rather than on the "
+        + "one-grading-per-judge collapse, but it applies neither the forward-claim nor "
+        + "the leakage exclusion, and it keys `mode` on the harness's own record rather "
+        + "than on the "
         + "derived stratum — so this population is a superset of the leaderboard's, and a "
         + "figure here that differs from a board figure is two populations rather than an "
-        + "error in either._",
+        + "error in either. The leakage half has a direction worth naming: a cell that "
+        + "read its outcome out of its snapshot scores a near-zero Brier having made few "
+        + "calls, which pushes the calls-against-Brier coefficient toward 'retrieval "
+        + "does not help'._",
     ]
     return lines
 

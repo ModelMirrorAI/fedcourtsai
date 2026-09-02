@@ -127,6 +127,7 @@ from .integrity import (
     evaluation_clock,
     forward_claim_record,
     latest_evaluation_runs,
+    leakage_record,
 )
 from .leaderboard import (
     big_case_agreement,
@@ -247,6 +248,7 @@ from .schemas import (
     Leaderboard,
     LeaderboardEntry,
     LeaderboardStageEntry,
+    LeakageExclusionRecord,
     LiveFrontier,
     ModelUsage,
     OpsReport,
@@ -269,7 +271,6 @@ from .serialize import read_model, write_json, write_raw_json, write_text, write
 from .slug_migration import converge_event_slugs
 from .spend import SpendVerdict, check_spend
 from .store import (
-    ExcludedCell,
     StratifiedRun,
     cases_due_for_pull,
     event_has_claimable_prediction,
@@ -3333,7 +3334,7 @@ def leaderboard(
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     frozen_only = not all_versions
     run = stratify(settings.data_root, frozen_only=frozen_only)
-    _report_forward_claim_exclusions(run.excluded)
+    _report_exclusions(run)
     cells = run.cells
     # The realized-Term skill column is scored at render against the committed
     # pack, so every cell on a board shares one vintage. Best-effort like the
@@ -3346,13 +3347,22 @@ def leaderboard(
         process_scope=scope,
         skills=skill_components(cells, settings.data_root, statpack),
         forward_claim=_forward_claim_from(run),
+        leakage_exclusion=_leakage_exclusion_from(run),
         superseded_gradings=run.superseded,
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
+    # An exclusion-emptied headline is not the shakedown state — the cells
+    # existed and were dropped, which the notes below say — so the shakedown
+    # placeholder stands down whenever either exclusion caught anything. The
+    # dashboard's `render_substance` guards its own placeholder the same way,
+    # and the two surfaces must not describe one build differently.
+    excluded_any = (board.forward_claim is not None and board.forward_claim.excluded) or (
+        board.leakage_exclusion is not None and board.leakage_exclusion.excluded
+    )
     empty_note = (
         "  (frozen headline empty — no frozen-process evaluations yet)"
-        if scope == "frozen" and board.predictors_ranked == 0
+        if scope == "frozen" and board.predictors_ranked == 0 and not excluded_any
         else ""
     )
     # A re-grade is invisible on the board's own figures — every one of them is
@@ -3362,6 +3372,17 @@ def leaderboard(
     regrade_note = (
         f"  ({board.superseded_gradings} superseded grading(s) collapsed away)"
         if board.superseded_gradings
+        else ""
+    )
+    # Same reasoning as the note above: every figure on the board is taken
+    # after the exclusion, so a leaked cell leaves no mark on the standings.
+    # The denominator rides with the count here exactly as it does in the ops
+    # line and the refresh PR body — a null bit is "not assessed", so a bare
+    # count cannot be read.
+    leak_note = (
+        f"  ({board.leakage_exclusion.excluded} of {board.leakage_exclusion.assessed} "
+        f"assessed cell(s) excluded as leakage-suspected)"
+        if board.leakage_exclusion is not None and board.leakage_exclusion.excluded
         else ""
     )
     # An unreadable pack and a board where no cell qualified both render the
@@ -3381,7 +3402,7 @@ def leaderboard(
         f"{board.retrospective_evaluations} retrospective / "
         f"{board.procedural_evaluations} procedural) over "
         f"{board.events_scored} scored event(s) "
-        f"-> {destination}{empty_note}{regrade_note}"
+        f"-> {destination}{empty_note}{regrade_note}{leak_note}"
     )
 
 
@@ -3420,11 +3441,12 @@ def claim_scores_command(
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     run = stratify(settings.data_root, frozen_only=not all_versions)
-    _report_forward_claim_exclusions(run.excluded)
+    _report_exclusions(run)
     board = build_claim_scores(
         run.cells,
         process_scope=scope,
         forward_claim=_forward_claim_from(run),
+        leakage_exclusion=_leakage_exclusion_from(run),
     )
     destination = out if out is not None else settings.metrics_root / "claim-scores.json"
     write_json(destination, board)
@@ -3516,7 +3538,7 @@ def semantic_summary_command(
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     run = stratify(settings.data_root, frozen_only=not all_versions)
-    _report_forward_claim_exclusions(run.excluded)
+    _report_exclusions(run)
     latest: dict[tuple[str, str, str, str], tuple[tuple[datetime, str, str], Evaluation]] = {}
     for evaluation, cell_stratum, stage, moment in run.cells:
         if cell_stratum != segment or stage is None:
@@ -5572,7 +5594,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     # design; per-stage segmentation — and every claim that must not pool —
     # is the leaderboard's job.
     stratified_run = stratify(settings.data_root, frozen_only=not all_versions)
-    _report_forward_claim_exclusions(stratified_run.excluded)
+    _report_exclusions(stratified_run)
     stratified = [(ev, stratum) for ev, stratum, _stage, _moment in stratified_run.cells]
     substance = summarize_substance(
         cell_counts=ledger_cell_counts(settings.data_root),
@@ -5582,6 +5604,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         previous=prior,
         process_scope=scope,
         forward_claim=_forward_claim_from(stratified_run),
+        leakage_exclusion=_leakage_exclusion_from(stratified_run),
     )
     report = build_ops_report(
         generated_at=when,
@@ -9401,6 +9424,14 @@ def _forward_claim_from(run: StratifiedRun) -> ForwardClaimRecord:
     )
 
 
+def _leakage_exclusion_from(run: StratifiedRun) -> LeakageExclusionRecord:
+    """The same pass's leakage-exclusion record — count, denominator, and split."""
+    return leakage_record(
+        [(cell.evaluation.predictor_id, cell.reason) for cell in run.leaked],
+        run.leakage_assessed,
+    )
+
+
 def _report_uneven_coverage(board: Leaderboard) -> None:
     """Warn where a population's predictors were not scored on the same events.
 
@@ -9445,15 +9476,22 @@ def _report_uneven_coverage(board: Leaderboard) -> None:
         )
 
 
-def _report_forward_claim_exclusions(excluded: Sequence[ExcludedCell]) -> None:
-    """One line per dropped cell, so the boards' count is never the only record."""
-    for cell in excluded:
-        ev = cell.evaluation
-        typer.echo(
-            f"::warning::forward-claim exclusion: {ev.case_id} {ev.event_id} "
-            f"{ev.predictor_id} (graded by {ev.evaluator_id}) — {cell.reason}",
-            err=True,
-        )
+def _report_exclusions(run: StratifiedRun) -> None:
+    """One line per dropped cell, so the boards' counts are never the only record.
+
+    Both of :func:`fedcourtsai.store.stratify`'s exclusions, from one call, so a
+    surface cannot report one rule and stay silent about the other. A cell both
+    rules caught is named twice — once per reason, which is what the two counts
+    on the boards say too.
+    """
+    for label, dropped in (("forward-claim", run.excluded), ("leakage", run.leaked)):
+        for cell in dropped:
+            ev = cell.evaluation
+            typer.echo(
+                f"::warning::{label} exclusion: {ev.case_id} {ev.event_id} "
+                f"{ev.predictor_id} (graded by {ev.evaluator_id}) — {cell.reason}",
+                err=True,
+            )
 
 
 def _report_predict_cap(capped: CappedMatrix, max_cells: int) -> None:

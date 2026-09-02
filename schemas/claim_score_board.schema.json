@@ -339,6 +339,38 @@
       ],
       "title": "FrozenProcessRecord",
       "type": "object"
+    },
+    "LeakageExclusionRecord": {
+      "additionalProperties": false,
+      "description": "The leakage exclusion applied when a board was built, and its count.\n\nA grading that carries ``leakage_suspected`` says the prediction it scored\nmay have read its own outcome, so the cell is not an observation of\nforecasting skill in **any** stratum\n(:func:`fedcourtsai.integrity.leakage_excluded`). This block states how many\nsuch cells the build dropped, so the exclusion can never be silent \u2014 the\nsame reason ``forward_claim`` rides beside it. The rule is independent of\nthat one and of the timing strata: it changes which cells are counted, never\nwhat any cell scored.",
+      "properties": {
+        "assessed": {
+          "description": "The denominator: in-scope gradings that recorded the bit at all (true or false). A null bit is 'not assessed', not 'clean', so `excluded: 0` over a ledger of null bits means 'nothing was checked' rather than 'nothing leaked' \u2014 this count is what tells the two apart. Stage-blind and taken before the exclusion, exactly like `excluded` above and `claimed_forward`, so it is not `evaluations_total`'s denominator and the two are never divided",
+          "minimum": 0,
+          "title": "Assessed",
+          "type": "integer"
+        },
+        "by_predictor": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Excluded-cell counts keyed by predictor id (only predictors with a nonzero count appear). Leakage falling differentially on one engine changes the scored population, which is the cross-engine comparability condition, so the split is published rather than pooled",
+          "title": "By Predictor",
+          "type": "object"
+        },
+        "excluded": {
+          "description": "How many in-scope gradings the leakage bit dropped this build. Counted over the same collapsed, scope-gated pass that produced the board's cells, so it is always 'excluded within this scope' \u2014 a shakedown cell dropped from an `all`-scope board is counted there and on no frozen board. Deliberately stage-blind, like `forward_claim`: it spans the ranked cert board and every `stages` block at once, so it must never be subtracted from the cert-scoped totals beside it",
+          "minimum": 0,
+          "title": "Excluded",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "excluded",
+        "assessed"
+      ],
+      "title": "LeakageExclusionRecord",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -359,7 +391,7 @@
       "type": "array"
     },
     "evaluations_total": {
-      "description": "Cert-stage evaluation cells in scope (after the forward-claim exclusion the `forward_claim` block records), with or without a claim block \u2014 the surface's population, cert-stage because only the cert-stage event kinds declare a claim set, so a cell on any other stage is never owed a block and belongs outside the absence counts",
+      "description": "Cert-stage evaluation cells in scope (after the forward-claim exclusion the `forward_claim` block records and the leakage exclusion the `leakage_exclusion` block records), with or without a claim block \u2014 the surface's population, cert-stage because only the cert-stage event kinds declare a claim set, so a cell on any other stage is never owed a block and belongs outside the absence counts",
       "minimum": 0,
       "title": "Evaluations Total",
       "type": "integer"
@@ -399,6 +431,18 @@
       ],
       "default": null,
       "description": "The freeze constants in force at build time, exactly as the leaderboard records them \u2014 the partition's definition, never a claim it was applied; null on a surface built before the record existed, or one constructed without it"
+    },
+    "leakage_exclusion": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LeakageExclusionRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The leakage exclusion applied to this build, exactly as the leaderboard records it; null on a surface built before the record existed, or one constructed without it"
     },
     "procedural_agreement": {
       "anyOf": [

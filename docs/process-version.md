@@ -131,6 +131,18 @@ placed cell — so the two conditionings are separable in the record rather than
 pooled silently, which is the property the scoring baseline lacks. It belongs in
 the freeze record on the same terms as the rest.
 
+A **membership rule** — which cells a published figure is computed over — is the
+list's last member and the one that moves no value at all. The scoring funnel's
+exclusions live here: the forward-claim rule and the leakage bit
+(`metrics/README.md` registers both), each of which drops a cell from every
+scored aggregate under unchanged digests, since nothing about which cells count
+sits in an actor's canonical config. Two boards built either side of such a rule
+are over different populations, which is as unreadable as two built either side
+of a re-basing, so a membership rule belongs in the freeze record for the same
+reason the baseline does. Its own boundary is the published exclusion block —
+`forward_claim` / `leakage_exclusion` on every board — so, like the provisioning
+cutoff and unlike the baseline, the change is at least visible in the artifact.
+
 ## The stamp is the harness's word, not the agent's
 
 The agent writes `prediction.json` / `evaluation.json`; a post-agent step
@@ -335,7 +347,8 @@ the re-bless instead of resting on a maintainer's grep.
 
 The frozen filter lives at the one shared producer both surfaces read
 (`store.stratify`, `frozen_only=True` by default — the boards call it directly
-so the scored cells and the `forward_claim` exclusion record come from one
+so the scored cells and both exclusion
+records — `forward_claim` and `leakage_exclusion` — come from one
 pass; `iter_stratified_evaluations` is its thin cells-only wrapper), so the
 leaderboard headline and the ops dashboard's scored figures can never disagree —
 they each pass one boolean. Both CLIs take `--all-versions` for the pooled

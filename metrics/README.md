@@ -212,9 +212,10 @@ stays outside the gate:
   wider in two ways. It is stage-blind like `forward_claim` (a superseded
   grading shares its survivor's stage), so it spans the ranked board and every
   `stages` block at once and must never be netted against a stage-scoped
-  total. And it is taken where the collapse runs, which is *before* the
-  forward-claim exclusion, exactly like `claimed_forward` — so a supersession
-  of a cell the exclusion then drops is counted while the cell itself reaches
+  total. And it is taken where the collapse runs, which is *before* both
+  exclusions — the forward-claim rule and the leakage bit — exactly like
+  `claimed_forward` and `assessed` beside it, so a supersession
+  of a cell an exclusion then drops is counted while the cell itself reaches
   no block, and a board reading `predictors_ranked: 0` can still carry a
   nonzero count. Nonzero is not by itself a fault — a
   re-grade is a legitimate operation — but it is the cue to ask **why** a cell
@@ -304,7 +305,11 @@ stays outside the gate:
   applied (`claim-scores.json` carries the identical block; null on a
   board built before the record existed). `forward_claim` sits beside it —
   the forward-claim integrity rule the build applied and how many cells it
-  caught (the exclusion defined beside the strata below). And `salience_versions` lists the distinct
+  caught (the exclusion defined beside the strata below) — and
+  `leakage_exclusion` beside that, the leakage bit's own count, denominator and
+  per-predictor split. The two are independent rules over one population, so a
+  cell both caught appears in both counts and neither may be subtracted from a
+  board total nor summed with the other. And `salience_versions` lists the distinct
   salience versions the ranked cells' baselines were read under. The gate is
   not part of any actor's process, so a change to it moves **no process
   digest** and the frozen/shakedown partition cannot see it — but it decides
@@ -478,14 +483,24 @@ stays outside the gate:
   the honest reading of a re-grade — the newest grading is the observation, all
   of it — but it means a withdrawn read moves `cases` / `events` as well as the
   coefficient, so read the two together.
+
+  Both also run over a **wider population than the ranked figures beside them**:
+  they read the ledger directly, so neither the forward-claim exclusion nor the
+  leakage exclusion (both below) applies, and a leakage-suspected cell the board
+  drops is still a point in these correlations. That is deliberate — a stakes
+  read is neither scored nor ranked — but it is a caveat that has to travel with
+  a quoted tau, and it bites hardest on `big_case`: a stakes read is partly a
+  read of the disposition, so a predictor that saw its own outcome may have read
+  the stakes off it too, and over a handful of cases two contaminated points can
+  carry the coefficient.
   `fedcourts leaderboard` produces it — a deterministic, offline roll-up of the
   ledger and the committed `statpack.json` — empty (`{}` plus the zero counts)
   until the first evaluation lands.
 - `claim-scores.json` — the mechanical claim-score surface: every
   harness-computed `claim_scores` block in the evaluations ledger (minus any
-  forward-claim breaching cell — that exclusion applies to every scored
-  surface), rolled up
-  per predictor **per stratum** and published beside the leaderboard.
+  forward-claim breaching cell and any leakage-suspected one — both exclusions
+  apply to every scored surface), rolled up per predictor **per stratum** and
+  published beside the leaderboard.
   `fedcourts claim-scores` produces it, deterministic and offline, defaulting
   to the same frozen process scope as the board. While no committed
   `claim_scores` block reaches that scope *and* this surface's population —
@@ -802,6 +817,71 @@ stderr, so the exclusion is never silent. The provisioning-side record gate
 reads the corpus's view at provisioning time, so a resolution the corpus has
 not yet ingested can still slip through it; this scoring-side rule is the
 defense in depth that makes the claim mechanical rather than trusted.
+
+**The leakage exclusion.** A cell whose grading carries `leakage_suspected`
+— the evaluators' coarse bit, true where the structured `leakage` block reads
+`influenced_prediction` as possible or likely — is **excluded from every rank
+key and every scored aggregate**
+(`fedcourtsai.integrity.leakage_excluded`, applied at the same join as the rule
+above). The bit says the graded prediction may have read its own outcome, which
+makes the cell an observation of no scored stratum: not forward, where it would
+be published as forecasting skill, and not retrospective, which is the
+iteration signal a contaminated cell degrades. The exclusion therefore reaches
+the **retrospective pair** that breaks ties on the ranked board as well as the
+forward pair, since that is where a near-perfect leaked number would otherwise
+order a predictor with no forward cells.
+
+The rule is **independent of timing and of the forward-claim rule**, and that is
+what it is for. The stratum boundary compares the outcome's `resolved_at` to the
+prediction's harness clock, and a clock cannot see a leak: a leaked cell whose
+outcome resolves *after* its prediction's clock classifies `forward` on the
+timing rule alone. Only the bit keeps it out. A cell both rules catch is counted
+in **both** ledgers — they answer different questions over one population — so
+the two counts sit side by side and are never summed into an exclusion total.
+
+**The unit is the grading, not the prediction.** The bit lives on one judge's
+`evaluation.json`, so it drops that judge's cell and no other: on a split panel
+the same prediction stays in the scored set through the judges that did not
+flag it, at reduced panel depth, and `by_predictor` counts gradings rather than
+predictions. Read a nonzero `excluded` as "this many judge-readings left",
+divide it by the panel depth to recover predictions, and treat a *partial* flag
+on one prediction as the signal it is — the panel disagreed about whether the
+cell read its own outcome, which is a question about the record no aggregate
+here answers.
+
+**It changes membership, never value.** No score on any record is altered,
+recomputed, or reweighted by the bit; the cell simply is not counted. And a
+**null** bit is "not assessed", not "clean" — offline evaluators and records
+written before the field existed carry null, and those cells are scored. That is
+why the published block carries a denominator: the boards' `leakage_exclusion`
+records `excluded`, `assessed` (in-scope cells whose grading recorded the bit at
+all), and the per-predictor split, so `excluded: 0` over a ledger of nulls reads
+as "nothing was checked" rather than "nothing leaked". The split is published
+because exclusion falling differentially on one engine changes the scored
+population, which is the cross-engine comparability condition. The board
+builders name each dropped cell on stderr and the refresh PR body carries the
+count, so the exclusion is never silent.
+
+Both figures in that block are **stage-blind and taken before the exclusion**,
+exactly like `forward_claim`'s pair and `superseded_gradings`: they span the
+ranked cert board and every `stages` block at once, and they count cells the
+board's own totals never saw. So neither may be netted against a count on the
+board — `excluded` is not `evaluations_total`'s missing term and `assessed` is
+not its denominator. Read them as an audit line about the pass, never as terms
+in the board's arithmetic. For the same reason `leakage_exclusion` is never the
+ops dashboard's `leakage` digest, which is uncollapsed, all-versions, and
+window-scoped: the two answer different questions over different populations and
+are never differenced.
+
+The scope is the **stratified scored stream** — the ranked board and its stage
+blocks, `claim-scores.json`, the dashboard's substance funnel, and the semantic
+census, all of which read one `store.stratify` pass. Two surfaces read the
+ledger by their own path and so do not apply it, deliberately and for the same
+reason they do not apply the forward-claim exclusion: the board's `big_case` and
+`evaluator_agreement` views measure stakes reads and grader latitude rather than
+scored performance, and the tool-usefulness figures are a declared superset
+(below). A figure there that differs from a board figure is two populations
+rather than an error in either.
 
 **The procedural stratum.** A cell whose outcome was mootness practice — a
 Munsingwear vacatur ("granted", but the wording tracks the Court's vacatur
@@ -1396,8 +1476,9 @@ blessed processes only by default, `all` under `--all-versions`, stamped in
 `process_scope` and printed beside the table, because a grade with no scope
 beside it is not readable. It is an **ops view, not a scored board**: it shares
 the boards' process scope and their one-grading-per-judge collapse, but it does
-not apply the forward-claim exclusion and it keys its `mode` on the harness's
-own `retrieval_log.json` record rather than on the derived stratum, so its
+not apply the forward-claim or leakage exclusions and it keys its `mode` on
+the harness's own `retrieval_log.json` record rather than on the derived
+stratum, so its
 population is a superset of the leaderboard's and a figure that differs from a
 board figure is two populations rather than an error in either. Nothing is
 pooled across modes or across forecast moments, in the table or in the
@@ -1527,6 +1608,10 @@ the unstamped cell's `created_at`) against the outcome's `resolved_at`, both
 committed artifacts, decides the stratum — not any restriction on what a cell
 could retrieve. Replay cells run with the same tools as forward cells; the
 cross-evaluator's leakage grading (the `leakage` block on each
-`evaluation.json`, read off the harness-captured `retrieval_log.json`) exists
-so contamination of the *iteration signal* is visible, not to police a claim
-that is structurally never made.
+`evaluation.json`, read off the harness-captured `retrieval_log.json`) makes
+contamination of the *iteration signal* visible, and its coarse bit is what
+takes a contaminated cell out of every scored figure (*The leakage exclusion*
+above). Timing alone cannot: it is the control over what a cell was *placed*
+to see, and a mis-provisioned cell that claims `forward` is precisely the case
+where the placement is not what the record says. The two mechanisms are
+complementary and neither substitutes for the other.
