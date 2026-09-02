@@ -90,7 +90,7 @@ config (which would make it a partition key rather than an honour system), a
 registry change that alters the candidate set belongs in the freeze record
 ([freeze-record.md](freeze-record.md)) beside the masking changes.
 
-The **scoring baseline** is a third member of this list, and the only one with
+The **scoring baseline** is a third member of this list, and one of two with
 no data-visible boundary at all. Skill numbers are computed against the
 salience-band base rates, and the lookback window that builds them
 (`base_rate_lookback_terms` in `config/tracking.yaml`) sits in no actor's
@@ -130,6 +130,17 @@ It does carry a data-visible boundary — `context.cutoff`, non-null exactly on 
 placed cell — so the two conditionings are separable in the record rather than
 pooled silently, which is the property the scoring baseline lacks. It belongs in
 the freeze record on the same terms as the rest.
+
+**What the pipeline provisions** is the fourth member, and the second with no
+data-visible boundary. A change to which filed documents `select_documents`
+nominates moves what a cell reads — a widened selector hands it a primary
+document a cell before it did not have — under an unchanged digest and with
+nothing in the artifact to say so: the documents live in the cell's gitignored
+`record/documents/`, and `prediction.json` carries no field separating a cell
+that read its petition from one that did not. It is therefore the same shape as
+the scoring baseline and takes the same remedy, which is the only one available:
+a freeze-record entry, since the record is the only place the boundary can
+exist.
 
 A **membership rule** — which cells a published figure is computed over — is the
 list's last member and the one that moves no value at all. The scoring funnel's

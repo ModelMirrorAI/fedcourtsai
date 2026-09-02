@@ -1947,13 +1947,18 @@ def test_the_text_coverage_summary_truncation_matches_the_cli_ledger_headers() -
         distributed=3,
         distributed_without_petition=1,
         queued=2,
+        queued_cert_forms=1,
+        queued_application_forms=1,
         queued_without_petition=1,
-        queued_application_forms=0,
+        queued_without_application=1,
         unopened_petitions=0,
         offloaded=True,
         cuts=[TextCoverageCut(kind="petition", segment="scored", documents=2, empty=1)],
         empty_documents={"scotus/1": ["petition"]},
         queued_without_petition_cases=["scotus/2"],
+        # Every ledger, so the sentinel is pinned against all of them and not
+        # only the two that happen to print first.
+        queued_without_application_cases=["scotus/3"],
     )
     buffer = io.StringIO()
     with redirect_stdout(buffer):
@@ -1966,8 +1971,20 @@ def test_the_text_coverage_summary_truncation_matches_the_cli_ledger_headers() -
         + "a ledger header was renamed and the summary would carry every case id"
     )
     kept = lines[: matched[0]]
-    assert not any("scotus/1" in line or "scotus/2" in line for line in kept), (
-        "a ledger case id sits above the truncation sentinel — the summary would leak it"
+    assert not any(
+        any(case_id in line for case_id in ("scotus/1", "scotus/2", "scotus/3")) for line in kept
+    ), "a ledger case id sits above the truncation sentinel — the summary would leak it"
+
+    # EVERY header, not just the first one printed. A ledger is printed only
+    # when it is non-empty, so a header missing from the sentinel leaks its
+    # whole ledger onto the login-free summary on any run where the ledgers
+    # above it happen to be empty — which is the state a drained gap reaches.
+    headers = [line for line in lines if re.match(r"^\S.*\(\d+ case\(s\)\):$", line)]
+    assert len(headers) == 3, f"expected three ledger headers, got {headers}"
+    unguarded = [header for header in headers if not pattern.search(header)]
+    assert not unguarded, (
+        "a ledger header is outside the workflow's truncation sentinel, so a run "
+        + f"whose earlier ledgers are empty would publish its case ids: {unguarded}"
     )
 
 

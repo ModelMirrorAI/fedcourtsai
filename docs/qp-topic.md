@@ -506,7 +506,16 @@ the corpus is a **document-fetch artifact, not a sample**:
   modern discretionary-cert petitions — the same frame the docket pack's topic
   section is computed over — so `kept` and `<N>` in the scope string are counts
   over one population rather than two, and no row inside the section's frame is
-  unlabelable. The extract does **not** narrow to the predict-scope segment,
+  unlabelable. The frame is keyed on the **docket form** (the Term-prefixed
+  `YY-NNNN` number), not on the writ sought, so it takes in the whole
+  case-opening filing family a cert-form docket can be opened by: a mandamus or
+  habeas petition, and a direct appeal's statement as to jurisdiction, all of
+  which store under `petition` and derive questions the same way. "Modern
+  discretionary-cert" therefore names the form these filings share, and a
+  direct appeal inside it is mandatory jurisdiction rather than discretionary —
+  a small, docket-form-honest widening of what the section describes, not a
+  second population. An *application* is a different form and never enters: no
+  questions-presented row is derived from one. The extract does **not** narrow to the predict-scope segment,
   which is the tempting narrowing and the wrong one; the reason is in *What one
   labeling run can hold* below, and it is a measurement-integrity reason rather
   than a statistical one.

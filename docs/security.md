@@ -779,12 +779,15 @@ ingested dockets by public docket number, membership conditioned on a parse
 delta (the case's DISTRIBUTED count reads differently under the candidate
 parse), re-derivable on a re-dispatch against the corpus sha it records. A
 fourth rides the same window on the same terms: the `text-coverage` report,
-which also republishes no document text — counts, kinds, and two untruncated
+which also republishes no document text — counts, kinds, and three untruncated
 case-id ledgers, the empty-text documents (fetch-conditioned membership whose
-extent tracks corpus growth) and the queued cases holding no petition row
+extent tracks corpus growth), the queued cert-form cases holding no petition row
 (membership conditioned on the salience gate's selection, the same
-grant-correlated cut argued above) — re-derivable on a re-dispatch over the
-blob its own vintage lines name. But it
+grant-correlated cut argued above) and the queued application-form cases holding
+no application document (membership conditioned on the interim lane's own
+predict-queue decision, which turns on the ask being substantive rather than on
+any grant-correlated cut, and is the weaker of the two) — re-derivable on a
+re-dispatch over the blob its own vintage lines name. But it
 widens
 discovery, not reach: the role can already `GetObject` that content by key, and
 the no-republication posture is license/content-based (see

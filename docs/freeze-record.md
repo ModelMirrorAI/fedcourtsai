@@ -1780,3 +1780,126 @@ freeze commit is recorded here.
   `by_predictor: {claude-baseline: 6, codex-baseline: 6, gemini-baseline: 6}` —
   the exclusion falls evenly across the three engines, so it is not a
   differential-coverage event, which is the reason the split is published at all.
+
+- **The document selector reaches the whole case-opening filing family and the
+  application, 2026-09-02.** A **conditioning** entry with no digest movement —
+  no prompt byte and no registry field changes — and, unlike the
+  provisioning-cutoff entries above, **no data-visible boundary at all**: which
+  documents a cell was provisioned with lives in its gitignored
+  `record/documents/`, and `prediction.json` carries no *semantic* field
+  separating a cell that read its petition from one that did not. So this
+  boundary exists only here, and cells minted on the affected dockets before and
+  after it may not be pooled. It is nevertheless **mechanically checkable**
+  rather than a matter of trusting this record: every stamped cell carries
+  `process_version.pipeline_sha`, so a cell resolves to a side of this boundary
+  by asking whether that sha is an ancestor of the carrying promotion's merge
+  commit. The population is named below so the check has something to run over.
+
+  **What changed.** `pipeline.documents.select_documents` matched one
+  case-opening entry, "petition for a writ of certiorari … filed", and had no
+  arm for an application at all. It now matches the seven entry shapes the Court
+  actually opens a cert-form docket with — certiorari, certiorari *before
+  judgment*, *mandamus*, *prohibition*, *mandamus and/or prohibition*, *habeas
+  corpus* (whose entry omits the article), and a
+  direct appeal's *statement as to jurisdiction* — all stored under the
+  unchanged `petition` kind, and selects a docket's own
+  `Application (…) … submitted to Justice …` entry under a new `application`
+  kind whenever the ask reads **substantive** to the same predicate that gates
+  the interim predict queue. An administrative application — more time, more
+  pages, more words — is not selected, and neither is an ask that predicate
+  cannot read.
+
+  **The population it moves, and what it has already cost.** The census is
+  quoted from the per-case route walk that motivated the change — `fedcourts
+  corpus-info --text-coverage` run store-configured against the blob whose
+  newest pull stamp is `2026-09-02` (newest stored snapshot `2026-07-13`),
+  plus a per-case read of each named docket's live JSON: of 249 cases queued
+  for prediction, 33 held no primary document, and 19 of those carry a
+  first-filing entry with a live document link — 8 cert-form dockets in the
+  filing family this arm now matches, and 11 application dockets. **That 19 is
+  a reading of the entries and links, not an executed run of the new
+  selector**: the walk probed three of them end to end (25-1290, 26-40,
+  26A203 — all HTTP 200 with real extracted text) and read the entry text and
+  link label on the rest. The effect check below is what settles it, and it is
+  the figure that check will falsify first if the reading is wrong.
+
+  **What the new selector does read, run over the same blob.** The class is
+  defined by the filing family rather than by that census, so the arms were
+  also run — the real `select_documents`, not a re-implementation — over all
+  1,567 stored SCOTUS payloads carrying proceedings. The case-opening arm
+  newly reaches **51** of them, none of which it previously did and **none
+  lost**: 16 habeas-plus-IFP, 10 mandamus-plus-IFP, 5 certiorari before
+  judgment, 5 mandamus, 4 mandamus and/or prohibition, 2 bare habeas, 2
+  jurisdictional statements, 1 prohibition, and the remainder further IFP
+  pairings. The application arm selects **22**, every one of them substantive
+  (a stay, a stay of execution, an injunction). Those two numbers are the
+  measured shape of what this entry moves; the queued census above is the
+  subset of it that costs cells.
+
+  **The cases, named, because the ledgers that hold them today are the ledgers
+  this change drains.** Of the 19, **14** already carry committed prediction
+  cells that ran docket-only — **66 cells** in all. Four cert-form dockets, 3
+  cells each (12): `scotus/73275185`, `scotus/73299074`, `scotus/73358839`,
+  `scotus/73500218`. Ten application dockets (54): `scotus/73279700`,
+  `scotus/9526000124`, `scotus/9526000139`, `scotus/9526000163`,
+  `scotus/9526000203`, `scotus/9526000245`, `scotus/9526000256`,
+  `scotus/9526000273`, `scotus/9526000274`, `scotus/9526000275` — four of them
+  at 9 cells and six at 3. Prospectively
+  this entry closes the class at the trigger; the committed cells stay as they
+  were minted, and a cell minted on one of these cases after this lands read
+  strictly **more** than one minted before it.
+
+  **None of the 66 has ever been counted, and the condition is registered
+  rather than assumed.** Partitioned by their own stamps: 11 are unstamped (an
+  unstamped cell is never frozen), 39 carry digests outside
+  `FROZEN_PROCESS_DIGESTS` and are de-counted by the membership filter, and 16
+  carry blessed `proc-v5` predictor digests but are stamped before
+  `FROZEN_SINCE` = `2026-09-05T00:00:00Z`, so they are de-counted by timing.
+  **That holds provided this promotes before that instant.** If it promotes
+  after it, a cell minted on this population in the gap would be counted *and*
+  provisioned under the old selector, and would need its own entry — and the
+  interim lane is the one that mints continuously, since its predict trigger is
+  the live channel's docket-change queue rather than a conference calendar.
+
+  **The expected-skill corollary, registered so a rise cannot be read as more
+  than it is.** A post-change cell on an affected docket reads its primary
+  filing where a pre-change one read the docket entries alone, against an
+  unchanged realized baseline. Expected skill on that population should
+  therefore **rise** — and a rise across this boundary **may not be read as a
+  model improvement**. That is the negative form deliberately: the design
+  supports excluding one reading, not asserting a cause, and 14 cell-bearing
+  cases support no pooled figure either way. The class is defined by the filing
+  family and the docket form, not by that count, so a docket entering the gap
+  between now and the carrying promotion joins it.
+
+  **No base rate re-prices.** `pipeline.salience` and `pipeline.base_rates` read
+  no document text, so no band assignment and no segment base rate moves. This
+  is a conditioning change and a measurement change, and nothing else.
+
+  **The measurements this moves.** `corpus-info --text-coverage`'s queued gap
+  becomes **form-keyed**: a cert-form
+  row is measured against its `petition`, an application-form row against its
+  `application`, each against its own form's denominator. The application-form
+  gap therefore stops being a structural floor — "an application is not a cert
+  petition, so nothing was ever selected" — and becomes a provisioning gap that
+  drains as the documents store; it is reported as `queued_without_application`,
+  named for its predicate, while `queued_application_forms` keeps its name for
+  the population it is now the denominator over. Three more move at the same
+  instant. The `petition` kind's own denominator widens, since four further
+  filing types now store under it. `cases_read` and the `text frame:` reach line
+  rise because `TEXT_COVERAGE_KINDS` gained a kind, which is the kind list
+  widening and not more reach. And `metrics/live-frontier.json`'s
+  `documents_provisioned` — the one moved figure with a committed downstream
+  surface — counts watchlist cases holding any document over a watchlist keyed
+  on `is_modern_cert`, so the mandamus, habeas, certiorari-before-judgment and
+  jurisdictional-statement dockets on it start counting.
+
+  The runnable effect check, for the promotion carrying this:
+  `uv run pytest tests/test_documents.py` green, and — on the next `run-pull`
+  window that provisions one of the named dockets — `fedcourts corpus-info
+  --text-coverage` showing a `no application, queued` ledger shorter than the
+  11 it starts at, with the recovered case holding an `application` row. This
+  entry registers the prospective half only. The retrospective half — a bounded
+  corpus pass applying the same selector to the cases already past their trigger
+  — is not built, and will carry its own entry when it is: without it the 14
+  cases whose cells already ran keep the record they were minted with.

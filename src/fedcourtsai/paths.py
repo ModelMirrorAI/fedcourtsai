@@ -189,8 +189,9 @@ class CasePaths:
     @property
     def documents_dir(self) -> Path:
         # Provisioning location for the case's fetched filed-document text
-        # (petition, questions presented, BIO), materialized from the
-        # corpus alongside the snapshot. Gitignored like everything in record/.
+        # (petition, questions presented, BIO, and on an application docket the
+        # application itself), materialized from the corpus alongside the
+        # snapshot. Gitignored like everything in record/.
         return self.record / "documents"
 
     def document(self, kind: str) -> Path:
