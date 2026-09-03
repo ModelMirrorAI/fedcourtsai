@@ -1,6 +1,6 @@
 """`run-repair`'s embedded CLI strings, executed against the fixture corpus.
 
-`run-repair.yml` is dispatch-only, so its nine maintenance passes are argv that
+`run-repair.yml` is dispatch-only, so its eleven maintenance passes are argv that
 nothing runs until a maintainer runs one — in front of the maintainer, at the
 moment they most want it to work. A flag renamed in `cli.py` leaves the workflow
 string behind, and the whole cost of that drift lands on the dispatch as a usage
@@ -13,19 +13,22 @@ rather than retyped here — a copy would drift exactly as the workflow does —
 selector inputs are filled with representative values, and the command is
 executed against the offline fixture corpus. What they prove is *parity*, not a
 pass's behaviour: every flag the workflow passes still exists and still parses.
-Two tests go a step further, where a pass couples to something argv parity
+Some tests go a step further, where a pass couples to something argv parity
 cannot see. The qp pass's convergence gate couples to the CLI's *output
 wording*: that test replays the step's own invocations over a purpose-seeded
 corpus and asserts the workflow's grepped literal against the converged summary.
-The OCR pass's slice deadline couples to a *number in the same step* — it is the
-step's `timeout-minutes` less what the step must still do once the pass stops
-taking work — and nothing at runtime holds the two together, so that test reads
-both out of the YAML and asserts the difference.
+The two fetching passes' slice deadlines couple to a *number in the same step* —
+each is the step's `timeout-minutes` less what the step must still do once the
+pass stops taking work — and nothing at runtime holds the two together, so those
+tests read both out of the YAML and assert the difference. The document
+back-fill's write witness couples to *field names* in a shell JSON pipeline no
+type checker sees, so a third reads them back against the ledger model.
 The passes' own semantics are pinned at their unit seams
 (`tests/test_dedupe.py`, `tests/test_distribution_rederive.py`,
 `tests/test_docket_marking_migration.py`, `tests/test_response_backfill.py`,
 `tests/test_attribution_migration.py`, `tests/test_disposition_convergence.py`,
-`tests/test_sampled_frame_repair.py`, `tests/test_documents.py` and
+`tests/test_sampled_frame_repair.py`, `tests/test_documents.py`,
+`tests/test_document_backfill.py` and
 `tests/test_cli_stamp.py`), which is why a
 near-empty fixture corpus is enough here — a pass with nothing to do still
 parses every flag it was given.
@@ -156,7 +159,7 @@ def _cli_steps() -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
 
 def _ungated_cli_steps() -> list[dict[str, Any]]:
     """The CLI-invoking steps no pass gate selects — every corpus-pass dispatch
-    runs these, whichever of the eight it named (the re-grade has its own job,
+    runs these, whichever of them it named (the re-grade has its own job,
     which none of them are in).
 
     Keyed on ``(job, step name)``, not the name alone: two jobs carrying a
