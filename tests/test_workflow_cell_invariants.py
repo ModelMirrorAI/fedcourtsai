@@ -1073,6 +1073,7 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Converge stored docket markings", ()),
     ("repair", "Backfill the dated response signals", ()),
     ("repair", "Recover scanned petitions by OCR", ("apply did not converge",)),
+    ("repair", "Backfill missing primary documents", ("apply did not converge",)),
     ("repair", "Remove ungranted merits phantoms", ()),
     ("repair", "Converge disposition labels", ()),
     ("repair", "Repair the sampled-frame weights", ()),

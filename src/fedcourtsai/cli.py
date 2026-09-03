@@ -2799,7 +2799,9 @@ def backfill_documents_cmd(
             "--max-cases",
             help="Per-dispatch slice size, required with --apply: the number of "
             "candidate cases this run fetches for. Honored on a dry run too, which "
-            "spends one paced docket GET per candidate.",
+            "spends one paced docket GET per candidate. 0 takes an empty slice, "
+            "which walks the population and fetches nothing — the free reading of "
+            "the class as the corpus now holds it.",
         ),
     ] = None,
     deadline_seconds: Annotated[

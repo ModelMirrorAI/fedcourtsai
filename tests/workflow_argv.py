@@ -148,18 +148,28 @@ def expand(
     :class:`UnresolvedToken` — a workflow that starts reading a new input should
     fail the test until the test says what that input holds.
 
+    The splice runs first and its contents go through the scalar pass with
+    everything else, because an array built under a guard is exactly where a
+    conditional flag carries a dispatch input — ``args+=(--max-cases
+    "${REPAIR_BOUND}")`` — and a splice exempt from that pass would leave the
+    value unexpanded. An array naming another array is not re-spliced; nothing
+    writes that shape, and the closing sweep refuses it rather than dropping it.
+
     The returned argv carries no ``$`` anywhere, and the closing sweep enforces
     that rather than trusting the two forms above to have covered every token: a
     default (``${NAME:-x}``) or an interpolation (``x$NAME``) matches neither
     pattern, and passing one through as a literal would hand the CLI a nonsense
     argument that reads exactly like the drift a caller is testing for.
     """
-    expanded: list[str] = []
+    spliced: list[str] = []
     for token in argv:
         array = _ARRAY.match(token)
         if array is not None:
-            expanded.extend(arrays.get(array.group(1), ()))
+            spliced.extend(arrays.get(array.group(1), ()))
             continue
+        spliced.append(token)
+    expanded: list[str] = []
+    for token in spliced:
         scalar = _SCALAR.match(token)
         if scalar is None:
             expanded.append(token)

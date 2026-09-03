@@ -43,6 +43,10 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus, fixture
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline.document_backfill import (
+    DocumentBackfillResult,
+    estimated_candidate_seconds,
+)
 from fedcourtsai.pipeline.ocr_recovery import (
     DOCUMENT_BUDGET_SECONDS,
     ESTIMATED_CANDIDATE_OVERHEAD_SECONDS,
@@ -91,6 +95,12 @@ BENIGN_REFUSALS = {
     # converged class — the refusal that tells a misconfigured content store
     # apart from a corpus with nothing left to repair.
     "ocr-recover-petitions": "no stored petitions",
+    # The same refusal a third time, on the population rather than the
+    # documents: the fixture holds no row queued for prediction or selected by
+    # the salience gate, so the document back-fill has no denominator to walk.
+    # Reaching it is also what keeps this pass's argv offline here — the refusal
+    # fires on the walk, before a candidate, a docket fetch or a client exists.
+    "backfill-documents": "no predict-relevant live-slice rows",
 }
 
 
@@ -410,6 +420,80 @@ def test_the_ocr_slice_deadline_keeps_its_reserve_under_the_steps_own_cap() -> N
     # the pass can estimate, or the head of the class is declined every dispatch
     # and the backlog freezes instead of draining.
     assert deadline > ESTIMATED_CANDIDATE_OVERHEAD_SECONDS + DOCUMENT_BUDGET_SECONDS
+
+
+#: What the document back-fill's apply holds back between the slice deadline it
+#: passes and its own `timeout-minutes`: the walk-only witness re-read, the blob
+#: push, the pointer commit, and the work a started candidate can run past the
+#: deadline. As with the OCR reserve above, the arithmetic is stated beside the
+#: invocation and repeated here so the two halves cannot move apart.
+DOCUMENT_BACKFILL_DEADLINE_RESERVE_SECONDS = 540
+
+#: And what its *dry run* holds back, which is smaller because a dry run commits
+#: and pushes nothing: only a started candidate's own docket fetch follows it.
+DOCUMENT_BACKFILL_DRY_RESERVE_SECONDS = 120
+
+
+@pytest.mark.parametrize(
+    ("apply", "reserve"),
+    [
+        (True, DOCUMENT_BACKFILL_DEADLINE_RESERVE_SECONDS),
+        (False, DOCUMENT_BACKFILL_DRY_RESERVE_SECONDS),
+    ],
+    ids=["apply", "dry-run"],
+)
+def test_the_document_backfill_deadlines_keep_their_reserve_under_the_step_cap(
+    apply: bool, reserve: int
+) -> None:
+    """Both of this pass's deadlines are derived from the one step cap.
+
+    Its dry run is deadlined as well as its apply, because both spend paced
+    upstream round trips — the dry run fetches every candidate's docket JSON —
+    so neither is free to run to the step's kill. The two reserves differ only
+    in what still has to happen after the pass stops taking work: a dry run
+    writes nothing, so it holds back the overshoot alone.
+    """
+    (step,) = [
+        step
+        for step in _steps_for("document-backfill")
+        if "--deadline-seconds" in str(step.get("run", ""))
+    ]
+    cap = int(step["timeout-minutes"]) * 60
+    (argv,) = [
+        invocation
+        for invocation in command_argv(str(step["run"]), FEDCOURTS)
+        if "--deadline-seconds" in invocation and ("--apply" in invocation) == apply
+    ]
+    deadline = float(argv[argv.index("--deadline-seconds") + 1])
+    assert deadline == cap - reserve, (
+        f"the document back-fill's {'apply' if apply else 'dry-run'} deadline "
+        f"({deadline:.0f}s) no longer leaves {reserve}s under the step's {cap}s cap"
+    )
+    # And whatever the number is, it has to hold a candidate's whole estimate in
+    # the mode it runs in, or the head of the class is declined every dispatch
+    # and the backlog freezes instead of draining.
+    assert deadline > estimated_candidate_seconds(apply=apply)
+
+
+def test_the_document_backfills_witness_reads_the_ledger_fields_its_pass_writes() -> None:
+    """The convergence check names fields `DocumentBackfillResult` actually has.
+
+    The step reads its verdict out of the ledger by field name, in a shell
+    `grep`/`json` pipeline no type checker sees — so a renamed field would turn
+    the witness into a `KeyError` on the run that was going to prove the write
+    landed, which is the one run where a silent failure costs the most.
+    """
+    (step,) = [
+        step
+        for step in _steps_for("document-backfill")
+        if "ledger_field" in str(step.get("run", ""))
+    ]
+    read = set(re.findall(r"ledger_field /tmp/[a-z-]+\.txt ([a-z_]+)", str(step["run"])))
+    assert read, "the witness reads no ledger field; this test now covers nothing"
+    assert read <= set(DocumentBackfillResult.model_fields), (
+        f"the witness reads ledger field(s) the pass does not write: "
+        f"{sorted(read - set(DocumentBackfillResult.model_fields))}"
+    )
 
 
 def test_the_regrade_dry_run_preview_names_the_argv_it_would_run() -> None:
