@@ -864,6 +864,10 @@ pattern rather than rediscovering it:
   the first path: each window is a bounded chunk (≤40 min; the daily sweep window walks 25
   to fund its trailing sweeps) under one token, so it
   needs no re-mint — a deliberate simplification over a longer walk that would.
+  `run-repair`'s OCR pass takes the second: it sits behind other capped steps and
+  runs long enough that the opening grants can expire under it, so a fresh App
+  token and AWS session are minted immediately before its step, and the trailing
+  verdict rides whichever token is newest.
 - **The runner is ephemeral, so fixed per-run costs are re-paid every run.** Build
   expensive shared state once per job and reuse it across a loop's chunks rather
   than per chunk.

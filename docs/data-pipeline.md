@@ -1104,7 +1104,7 @@ unreadable scan, a recognition cut short) stays, and stays at the *head* in
 apart, because a class whose head is permanently unreadable turns a small bound
 into a no-op and nothing else would show it. The bound is therefore the *spend*
 cap and not the pass's safety mechanism: what keeps a heavy slice inside the
-step's 30-minute cap is the **slice deadline** the step passes
+step's 45-minute cap is the **slice deadline** the step passes
 (`--deadline-seconds`, sized in a comment beside the invocation from everything
 that must still fit inside that cap once the pass stops taking work — the
 witness re-read, the blob push, the pointer commit, and the work a started
