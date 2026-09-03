@@ -2831,9 +2831,12 @@ def backfill_arrival_stamps_cmd(
     live poller serves the unresolved slice, so a decided application has left
     the rotation and is never re-polled: an event last polled before the arrival
     read existed keeps the docketing date or nothing at all, and resolution
-    status therefore decides which reading a row carries. Forward cells are
-    unresolved by construction and unaffected, but any retrospective interim
-    population drawn from these events inherits that conditioning.
+    status therefore decides which reading a row carries, and any retrospective
+    interim population drawn from these events inherits that conditioning. A
+    forward cell is unaffected *once its row has been re-polled* — not by
+    construction: a queued row not polled since the arrival read shipped still
+    carries the docketing stamp and is moved by an apply, so the boundary runs
+    through the forward stratum too.
 
     The population is SCOTUS interim baseline events — entry-pinned motion events
     are excluded, since the arrival derivation is the wrong reading for one —
@@ -2891,7 +2894,9 @@ def backfill_arrival_stamps_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
-        result = backfill_arrival_stamps(conn, apply=apply, max_fills=max_fills)
+        result = backfill_arrival_stamps(
+            conn, apply=apply, max_fills=max_fills, data_root=settings.data_root
+        )
     if not result.events_seen:
         # Zero candidates has two causes and they are not the same run: a corpus
         # whose interim events all carry their arrival, and one holding no
@@ -2911,6 +2916,13 @@ def backfill_arrival_stamps_cmd(
         )
         raise typer.Exit(code=1)
     verb = "stamped" if apply else "would stamp"
+    # ORDERING IS LOAD-BEARING, not stylistic. The run-repair step tees this
+    # output into a GitHub step summary, which is capped at 1 MiB and discarded
+    # WHOLE above it, so the step truncates head-first. Over a five-figure class
+    # the per-row `filled` list alone runs past the cap — so every aggregate, the
+    # named exposure lists, and the JSON ledger are printed BEFORE it, and the
+    # per-row enumeration goes last where truncation costs the least. Do not
+    # reorder without re-reading the step.
     typer.echo(
         f"backfill-arrival-stamps ({'applied' if apply else 'dry-run'}): "
         f"{verb} {len(result.filled)} of {result.candidates} candidate(s) in a population "
@@ -2919,6 +2931,19 @@ def backfill_arrival_stamps_cmd(
         f"{result.no_snapshot} with no stored snapshot; "
         f"{result.no_proceedings} whose snapshot discloses no proceedings; "
         f"{result.unparsed} naming no dated submission entry"
+    )
+    # The matched denominator beside the loose one, and the arm no dispatch can
+    # reach: `events_seen` includes entry-pinned rows this route never acts on,
+    # so a prevalence taken against it is not one, and both live-slice counts are
+    # blind to the rows this pass structurally cannot repair.
+    unreachable = result.events_all_slices - result.baseline_candidates_seen
+    typer.echo(
+        f"  population: {result.candidates} of {result.baseline_candidates_seen} "
+        "reachable baseline event(s) carry the defect (the prevalence; the "
+        f"{result.events_seen} above is the looser wrong-blob denominator). "
+        f"{result.events_all_slices} baseline event(s) exist across the blob, so "
+        f"{unreachable} sit outside the live slice, hold no re-readable snapshot, "
+        "and keep their stamp through every dispatch of this pass"
     )
     # The `stamped` arm is a much larger change than any move, and the caveat has
     # to travel with the number: those cells took NO cut at all — a null
@@ -2933,13 +2958,21 @@ def backfill_arrival_stamps_cmd(
         "histogram below is the moved arm only: "
         + ", ".join(f"{bucket}d: {count}" for bucket, count in result.move_histogram.items())
     )
-    # And what was actually inside those windows, which is the reading that bears
-    # on leakage — a day delta over a quiet docket admits nothing.
+    # The exposure readings, stated as what they are. They are computed against
+    # the newest stored snapshot with no date bound, so they say what a cell
+    # provisioned TODAY under the pre-repair stamp would admit — a bound on the
+    # rule's remaining reach, not a measurement of what any committed cell saw.
+    vintage = result.corpus_vintage.isoformat() if result.corpus_vintage else "unknown"
     typer.echo(
-        f"  admitted: {result.over_admitted_entries} docket entr(ies) across "
-        f"{result.over_admitted_rows} row(s) that the repaired cut does not; "
-        f"{len(result.admitted_the_disposition)} row(s) admitted their own disposition, "
-        f"{result.admitted_the_response_request} the response request"
+        f"  forward exposure (counterfactual over the corpus as of {vintage}): a cell "
+        "provisioned today under the pre-repair stamp would admit "
+        f"{result.over_admitted_entries} docket entr(ies) across "
+        f"{result.over_admitted_rows} row(s) that the repaired stamp does not; for "
+        f"{len(result.admitted_the_disposition)} row(s) that includes the case's own "
+        f"disposition, and {result.admitted_the_response_request} the response request. "
+        "Not a claim about cells that ran: it over-counts against a cell provisioned "
+        "when the docket was shorter, and under-counts wherever the stored snapshot "
+        "predates filings the docket has since gained"
     )
     # The resolution split: whether the correlation was removed or only shrunk.
     typer.echo(
@@ -2949,6 +2982,36 @@ def backfill_arrival_stamps_cmd(
         "decided — a residue that is entirely decided is a correlation this pass "
         "shrank rather than removed"
     )
+    # And the residue's own exposure, which the repaired rows' readings cannot
+    # give: conditioning persists exactly where the stamp did not move.
+    typer.echo(
+        f"  residue exposure: {len(result.residue_admits_disposition)} of "
+        f"{result.unrepaired} unrepaired row(s) keep a stamp that still admits their "
+        f"own disposition ({len(result.later_refused)} of those were refused for "
+        "direction). These are where the conditioning survives this pass"
+    )
+    for case_id in result.admitted_the_disposition:
+        # The sharpest reading in this ledger, named rather than counted so a
+        # cohort can be checked case by case — and marked where the case actually
+        # carries committed predict output, which is the subset where the question
+        # is worth asking of a grading rather than of a rule.
+        committed = (
+            " [COMMITTED PREDICT OUTPUT]"
+            if case_id in result.admitted_the_disposition_committed
+            else ""
+        )
+        typer.echo(
+            f"  {case_id}: a cell provisioned today under the pre-repair stamp "
+            f"would read this case's own disposition{committed}"
+        )
+    for case_id in result.later_refused:
+        # Named, not counted: the parser anchors on the submission entry, which
+        # precedes docketing on every docket sampled for the rule, so a later
+        # reading is a payload to look at rather than a stamp to write.
+        typer.echo(f"  {case_id}: REFUSED — the parsed arrival postdates the stored stamp")
+    typer.echo(result.model_dump_json())
+    # Last, and deliberately: this is the only unbounded list here, so it is the
+    # only thing a truncated step summary should lose.
     for fill in result.filled:
         moved = f" (was {fill.previous.isoformat()}, {fill.moved_days}d)" if fill.previous else ""
         admitted = (
@@ -2958,16 +3021,6 @@ def backfill_arrival_stamps_cmd(
             f"  {verb} {fill.case_id} {fill.event_id}: "
             f"{fill.opened_at.isoformat()}{moved}{admitted}"
         )
-    for case_id in result.admitted_the_disposition:
-        # The sharpest line in this ledger: a cell conditioned that way could see
-        # the outcome it was forecasting, so these are named rather than counted.
-        typer.echo(f"  {case_id}: the pre-repair cut ADMITTED ITS OWN DISPOSITION")
-    for case_id in result.later_refused:
-        # Named, not counted: the parser anchors on the submission entry, which
-        # precedes docketing on every docket sampled for the rule, so a later
-        # reading is a payload to look at rather than a stamp to write.
-        typer.echo(f"  {case_id}: REFUSED — the parsed arrival postdates the stored stamp")
-    typer.echo(result.model_dump_json())
 
 
 @app.command("backfill-documents")

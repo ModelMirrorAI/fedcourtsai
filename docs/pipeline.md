@@ -627,14 +627,25 @@ therefore only ever moves a stamp earlier or supplies a missing one, and a parse
 that would move one later is refused and named. Its ledger states how many stamps
 moved and by how much, as a day-delta histogram — but that is the *window*, an
 upper bound on what could have been admitted rather than what was, so beside it
-the ledger counts the **entries** the pre-repair cut admitted and names the rows
-whose own **disposition** fell inside that band. A one-day move on a docket
-disposed of that day admits the outcome; a month over a quiet docket admits
-nothing, and only the second reading tells them apart. It also splits the class,
-the repairs and the residue by **resolution**, because what it removes is the
+the ledger counts the **entries** a cell provisioned today under the pre-repair
+stamp would admit, and names the rows whose own **disposition** is among them. A
+one-day move on a docket disposed of that day admits the outcome; a month over a
+quiet docket admits nothing, and only the second reading tells them apart. Those
+exposure figures are **counterfactuals over the corpus at the ledger's
+`corpus_vintage`**, read with no date bound, so they bound what the rule still
+exposes rather than measuring what any committed cell saw — over-counting
+against a cell provisioned when the docket was shorter, under-counting where the
+stored snapshot predates later filings. The intersection with events carrying
+committed predict output is reported beside them, as the subset where the
+question is worth asking of a grading. It also measures the **residue** on the
+same terms — the unrepaired rows whose surviving stamp still admits their own
+disposition, which is where conditioning persists — and splits the class, the
+repairs and the residue by **resolution**, because what it removes is the
 correlation on the slice carrying a readable snapshot: every other arm keeps the
 pre-repair stamp, and a residue that is entirely decided rows is a correlation
-shrunk rather than removed. It writes events rather
+shrunk rather than removed. Its denominators are stated matched (baseline events
+the predicate could select) and live-slice-blind (every baseline event in the
+blob), so the prevalence is readable and the arm no dispatch reaches is visible. It writes events rather
 than a `cases` column, so unlike the response back-fill it re-mirrors the
 touched cases — provisioning reads events back through the content store, and a
 stale mirror would hand a cell the very stamp the pass replaced.

@@ -1319,10 +1319,13 @@ jobs:
       # serves the UNRESOLVED slice, so a decided application has left the
       # rotation and is never re-polled: an event last polled before the arrival
       # read existed keeps the docketing date or nothing at all, and resolution
-      # status therefore decides which reading a row carries. Forward cells are
-      # unresolved by construction and unaffected, but any retrospective interim
-      # population drawn from these events inherits that conditioning. The pass
-      # is deliberately not predicated on resolution for the same reason:
+      # status therefore decides which reading a row carries, and any
+      # retrospective interim population drawn from these events inherits that
+      # conditioning. A forward cell is unaffected ONCE ITS ROW HAS BEEN
+      # RE-POLLED — not by construction: a queued row not polled since the
+      # arrival read shipped still carries the docketing stamp and is moved by
+      # this apply, so the boundary runs through the forward stratum too. The
+      # pass is deliberately not predicated on resolution for the same reason:
       # repairing only the decided half would condition the class all over again.
       #
       # Recoverable from the corpus alone, since the stored live-shaped snapshot
@@ -1373,20 +1376,37 @@ jobs:
           fi
           gh auth setup-git # persist-credentials is false on checkout
           # Dry-run first, into the summary: this pass's ledger is the reading
-          # the apply's bound comes from, and it must outlive the step log. Three
-          # things a maintainer weighs there beyond the count. The **entries the
-          # pre-repair cut admitted**, and the rows whose own disposition was
-          # among them — the move histogram beside it is only the *window*, an
-          # upper bound on what could have been admitted rather than what was,
-          # and a one-day move on a docket disposed of that day is worse than a
-          # month over a quiet one. The **resolution split** of the residue,
-          # which says whether the correlation was removed or merely shrunk. And
-          # the per-row fill list, which after the apply is the only record of
-          # what each repaired cell's cutoff had been derived from — the corpus
-          # holds the new stamp, and `event.yaml` is rewritten with it the next
-          # time any cell runs over that event. That record belongs in the
-          # freeze-record entry the apply owes, not only in a run summary that
-          # expires with the run and is capped at 1 MiB.
+          # the apply's bound comes from, and it must outlive the step log. Four
+          # things a maintainer weighs there beyond the count.
+          #
+          # The **forward-exposure** figures — the entries a cell provisioned
+          # today under the pre-repair stamp would admit, and the rows whose own
+          # disposition is among them. The move histogram beside them is only
+          # the *window*: a one-day move on a docket disposed of that day is
+          # worse than a month over a quiet one. These are counterfactuals over
+          # the corpus at the ledger's `corpus_vintage`, read with no date
+          # bound, so they bound what the rule still exposes rather than
+          # measuring what a committed cell saw; the committed-output
+          # intersection printed with them is the subset worth checking against
+          # a grading.
+          #
+          # The **residue** measurement, which is where conditioning survives:
+          # the unrepaired rows whose surviving stamp still admits their own
+          # disposition. A claim scoped to the repaired rows says nothing here.
+          #
+          # The **resolution split**, which says whether the correlation was
+          # removed or merely shrunk, and the matched/blind denominators beside
+          # it, which say what fraction carries the defect and how much of the
+          # population no dispatch of this pass can reach at all.
+          #
+          # And the per-row fill list, which after the apply is the only record
+          # of what each repaired cell's cutoff had been derived from — the
+          # corpus holds the new stamp, and `event.yaml` is rewritten with it
+          # the next time any cell runs over that event. That record belongs in
+          # the freeze-record entry the apply owes, not only in a run summary
+          # that expires with the run: the CLI prints it LAST, after every
+          # aggregate and the JSON ledger, precisely so the head-first
+          # truncation below drops the enumeration rather than the figures.
           # (On an apply this run is a receipt, not a reading.)
           # Bounded into the summary rather than tee'd whole. GitHub caps a step
           # summary at 1 MiB and discards it ENTIRELY above that, warning only —

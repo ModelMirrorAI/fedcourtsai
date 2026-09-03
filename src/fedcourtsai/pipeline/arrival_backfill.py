@@ -12,10 +12,14 @@ carries a readable one.
 serves the *unresolved* slice, so a decided application has left the rotation
 and is never re-polled: an event minted or last polled before the arrival read
 existed keeps whatever it had, which is the docketing date or nothing at all.
-Resolution status therefore decides which reading a row carries. Forward cells
-are unresolved by construction and unaffected, but any retrospective interim
-population drawn from these events inherits that conditioning — which is exactly
-the kind of rule a cohort must not be built on.
+Resolution status therefore decides which reading a row carries, and any
+retrospective interim population drawn from these events inherits that
+conditioning — which is exactly the kind of rule a cohort must not be built on.
+A forward cell is unaffected *once its row has been re-polled* — **not** by
+construction: a queued row not polled since the arrival read shipped still
+carries the docketing stamp and is moved by an apply, so the boundary runs
+through the forward stratum too, and closing that gap is part of what this pass
+is for.
 
 - **Population.** SCOTUS interim baseline events (``evt-motion-disposition``,
   ``docket_entry_id`` null, so an entry-pinned event naming a specific filing is
@@ -77,10 +81,12 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import date
+from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus, ids
+from ..paths import CasePaths
 from ..schemas import EventKind
 from .cert_signals import entry_date, proceedings_entries
 from .interim_signals import application_arrival_date, response_requested_date
@@ -124,24 +130,30 @@ class ArrivalFill(BaseModel):
     over_admitted: int = Field(
         ge=0,
         default=0,
-        description="Docket entries the pre-repair cut admitted that the repaired "
-        "one does not — the entries-admitted reading beside the day delta, and the "
-        "one that actually bears on leakage: a one-day move on a same-day "
-        "disposition admits the outcome, and a month-long move over a quiet docket "
-        "admits nothing. On a row that carried no stamp the pre-repair cut was no "
-        "cut at all, so this counts the whole tail rather than a window",
+        description="Docket entries that a cell provisioned **today**, under the "
+        "pre-repair stamp and over the corpus at `corpus_vintage`, would admit and "
+        "the repaired stamp does not. A bound on the rule's forward exposure, not a "
+        "measurement of what any committed cell saw: it is read off the newest "
+        "stored snapshot with no date bound, so it *over*-counts against a cell "
+        "provisioned when that docket was shorter, and *under*-counts wherever the "
+        "stored snapshot itself predates filings the docket has since gained. It is "
+        "the reading that bears on leakage where the day delta does not — a one-day "
+        "move on a same-day disposition admits the outcome, a month-long move over a "
+        "quiet docket admits nothing. On a row that carried no stamp the pre-repair "
+        "cut was no cut at all, so this counts the whole tail rather than a window",
     )
     admitted_the_disposition: bool = Field(
         default=False,
-        description="Whether the row's own disposition date fell inside what the "
-        "pre-repair cut admitted. The sharpest reading in this ledger: a cell "
-        "conditioned this way could see the outcome it was forecasting",
+        description="Whether this row's own disposition date is inside that band — "
+        "i.e. whether a cell provisioned today under the pre-repair stamp would read "
+        "the outcome it was forecasting. The sharpest reading in this ledger, and a "
+        "counterfactual on the same terms as `over_admitted`: it says what the rule "
+        "still exposes, not what a committed cell was shown",
     )
     admitted_the_response_request: bool = Field(
         default=False,
-        description="Whether the Court's request for a response fell inside what "
-        "the pre-repair cut admitted — an escalation signal the arrival moment "
-        "had not yet seen",
+        description="The same counterfactual for the Court's request for a response "
+        "— an escalation signal the arrival moment had not yet seen",
     )
 
     @property
@@ -158,10 +170,33 @@ class ArrivalBackfillResult(BaseModel):
     applied: bool = Field(description="Whether the pass wrote the stamps or only counted them")
     events_seen: int = Field(
         ge=0,
-        description="SCOTUS interim baseline events the walk read at all — the "
-        "denominator under `candidates`. Zero means the population could not be "
-        "read rather than that the class is empty, so the caller refuses on it: a "
-        "blob carrying no interim events would otherwise report a clean pass over nothing",
+        description="Live-slice SCOTUS interim baseline events the walk read at "
+        "all, entry-pinned rows included. The **wrong-blob** denominator and only "
+        "that: zero means the population could not be read rather than that the "
+        "class is empty, so the caller refuses on it. Deliberately looser than the "
+        "class, so `candidates / events_seen` is not a prevalence — "
+        "`baseline_candidates_seen` is the matched denominator",
+    )
+    baseline_candidates_seen: int = Field(
+        ge=0,
+        default=0,
+        description="The **matched** denominator: live-slice SCOTUS interim "
+        "baseline events with `docket_entry_id IS NULL`, which is every row the "
+        "predicate could have selected. `candidates / baseline_candidates_seen` is "
+        "the defect's prevalence in the reachable population; the ratio against "
+        "`events_seen` is not, since that count includes entry-pinned rows this "
+        "route never acts on",
+    )
+    events_all_slices: int = Field(
+        ge=0,
+        default=0,
+        description="Baseline interim events with `docket_entry_id IS NULL` across "
+        "the whole blob, live slice or not. The count that makes the **unreachable** "
+        "arm visible: this pass needs a stored live-shaped snapshot, so a row "
+        "outside the live slice is never even a candidate, and its defective stamp "
+        "survives every dispatch. The gap between this and "
+        "`baseline_candidates_seen` is the part of the population no run of this "
+        "pass can reach",
     )
     candidates: int = Field(
         ge=0,
@@ -203,10 +238,12 @@ class ArrivalBackfillResult(BaseModel):
     over_admitted_rows: int = Field(
         ge=0,
         default=0,
-        description="Of `filled`, the rows whose pre-repair cut admitted at least "
-        "one docket entry the repaired cut does not. The day histogram bounds the "
-        "*window*; this counts what was actually in it, which is the reading that "
-        "bears on leakage — a day delta over a quiet docket admits nothing",
+        description="Of `filled`, the rows where a cell provisioned today under the "
+        "pre-repair stamp would admit at least one docket entry the repaired stamp "
+        "does not. The day histogram bounds the *window*; this counts what is in it, "
+        "which is the reading that bears on leakage — a day delta over a quiet "
+        "docket admits nothing. A forward-exposure bound, not a cell measurement: "
+        "see `over_admitted` on `ArrivalFill` for which way it errs",
     )
     over_admitted_entries: int = Field(
         ge=0,
@@ -215,18 +252,46 @@ class ArrivalBackfillResult(BaseModel):
     )
     admitted_the_disposition: list[str] = Field(
         default_factory=list,
-        description="The cases whose own disposition date fell inside what the "
-        "pre-repair cut admitted, in class order. The sharpest reading this ledger "
-        "carries and the one that decides whether the pre-repair interim population "
-        "was merely late or could see the outcome it was forecasting. Named rather "
-        "than counted, because these are the cases a cohort has to be checked against",
+        description="The cases where a cell provisioned today under the pre-repair "
+        "stamp would read the case's own disposition, in class order. The sharpest "
+        "reading this ledger carries — but a **counterfactual over the corpus at "
+        "`corpus_vintage`**, not a claim about any cell that ran: it says what the "
+        "rule still exposes. Named rather than counted, because these are the cases "
+        "a cohort has to be checked against; `admitted_the_disposition_committed` is "
+        "the subset that actually carries committed predict output",
+    )
+    admitted_the_disposition_committed: list[str] = Field(
+        default_factory=list,
+        description="Of `admitted_the_disposition`, the cases carrying committed "
+        "predict output on this event — the cut that turns a forward-exposure bound "
+        "into a list of gradings a reader can go and check. Still not proof the "
+        "cell saw the disposition (its own provisioning read a shorter docket), but "
+        "it is the population where that question is worth asking one case at a "
+        "time. Empty where no data root was supplied",
     )
     admitted_the_response_request: int = Field(
         ge=0,
         default=0,
-        description="Rows whose response-request entry fell inside what the "
-        "pre-repair cut admitted — an escalation signal the arrival moment had not "
-        "yet seen, and the other reading the registered boundary measurement took",
+        description="The same counterfactual for the response request — an "
+        "escalation signal the arrival moment had not yet seen, and the other "
+        "reading the registered boundary measurement took",
+    )
+    residue_admits_disposition: list[str] = Field(
+        default_factory=list,
+        description="The **unrepaired** cases whose *surviving* stamp still admits "
+        "their own disposition, in class order. The measurement the repaired rows' "
+        "readings above cannot give: conditioning persists exactly where the stamp "
+        "did not move, so a boundary claim scoped to `filled` describes the half of "
+        "the class that was fixed and says nothing about the half that was not. "
+        "Answerable without an arrival — the stored stamp and `date_decided` decide "
+        "it — so every residue arm is covered, `no_snapshot` included",
+    )
+    corpus_vintage: date | None = Field(
+        default=None,
+        description="The newest `last_pulled` stamp across the blob this ran "
+        "against (what `fedcourts corpus-info` prints). Every exposure reading "
+        "above is a counterfactual over the corpus as of this date, so a ledger "
+        "quoted without it states a bound whose basis is unrecoverable",
     )
     candidates_resolved: int = Field(
         ge=0,
@@ -350,11 +415,22 @@ class _Tally:
     unrepaired: int = 0
     unrepaired_resolved: int = 0
     filled_resolved: int = 0
+    residue_admits_disposition: list[str] = field(default_factory=list)
 
     def record_unrepairable(self, candidate: _Candidate) -> None:
-        """Record a candidate that keeps its pre-repair stamp."""
+        """Record a candidate that keeps its pre-repair stamp.
+
+        Also asks the residue-side question the repaired rows' readings cannot:
+        does the stamp this row *keeps* still admit its own disposition? It
+        needs no arrival — the stored stamp and ``date_decided`` decide it — so
+        every arm is covered, including the rows whose snapshot could not be
+        read at all. This is where conditioning persists, so a boundary claim
+        that omits it describes only the half of the class that was fixed.
+        """
         self.unrepaired += 1
         self.unrepaired_resolved += int(candidate.resolved)
+        if _admits(candidate.date_decided, stamp=candidate.opened_at):
+            self.residue_admits_disposition.append(candidate.case_id)
 
 
 def _stored_date(record: sqlite3.Row, column: str) -> date | None:
@@ -388,8 +464,24 @@ def _histogram(fills: list[ArrivalFill]) -> tuple[dict[str, int], int]:
     return counts, largest
 
 
-def arrival_candidates(conn: sqlite3.Connection) -> tuple[list[_Candidate], int]:
-    """The interim baseline events showing the stamp defect, and the denominator.
+@dataclass(frozen=True)
+class ArrivalScan:
+    """The class this route can act on, and the three denominators around it."""
+
+    candidates: tuple[_Candidate, ...]
+    #: Live-slice baseline interim events, entry-pinned rows included. The
+    #: wrong-blob denominator the caller refuses on, and nothing else.
+    events_seen: int
+    #: Live-slice baseline interim events the predicate could have selected —
+    #: the matched denominator, so a prevalence can be stated.
+    baseline_candidates_seen: int
+    #: The same, blind to the live slice: what the population would be if this
+    #: route could reach every row. The gap is the arm no dispatch reaches.
+    events_all_slices: int
+
+
+def arrival_candidates(conn: sqlite3.Connection) -> ArrivalScan:
+    """The interim baseline events showing the stamp defect, and its denominators.
 
     Two arms in one predicate, because the defect has two shapes and they are the
     same defect: a row that never got an arrival read carries the docketing date
@@ -399,41 +491,58 @@ def arrival_candidates(conn: sqlite3.Connection) -> tuple[list[_Candidate], int]
     is being compared against nor the number the parser anchors on can be read
     for it.
 
-    The denominator returned beside the class is every baseline interim event in
-    the live slice, entry-pinned rows included — deliberately looser than the
-    class, because its job is to say whether this process can read the
-    population at all, and a blob that serves no interim event is the wrong blob
-    whether or not any of them were this route's subject.
+    **Three denominators, because one number cannot answer three questions.**
+    ``events_seen`` is deliberately loose — every live-slice baseline interim
+    event, entry-pinned rows included — and exists only to tell a converged
+    corpus from one this process cannot read at all.
+    ``baseline_candidates_seen`` is matched to the predicate, so
+    ``candidates / baseline_candidates_seen`` is the defect's prevalence in the
+    reachable population, which the loose count's ratio is not.
+    ``events_all_slices`` drops the live-slice limb: this pass needs a stored
+    live-shaped snapshot, so a row outside that slice is never a candidate and
+    its defective stamp survives every dispatch — the gap between the two is the
+    arm no run of this pass reaches, and it is invisible without the count.
     """
-    seen = conn.execute(
-        "SELECT COUNT(*) FROM events e JOIN cases c ON c.case_id = e.case_id "
-        f"WHERE e.event_id = ? AND e.court = 'scotus' AND {corpus.live_slice_sql('c')}",
-        (MOTION_BASELINE_EVENT_ID,),
-    ).fetchone()[0]
+
+    def _count(where: str) -> int:
+        return int(
+            conn.execute(
+                "SELECT COUNT(*) FROM events e JOIN cases c ON c.case_id = e.case_id "
+                f"WHERE e.event_id = ? AND e.court = 'scotus' AND {where}",
+                (MOTION_BASELINE_EVENT_ID,),
+            ).fetchone()[0]
+        )
+
+    live = corpus.live_slice_sql("c")
+    # An entry-pinned motion event names one specific filing rather than the
+    # docket's arrival, so the arrival derivation is the wrong reading for it.
+    baseline = "e.docket_entry_id IS NULL"
     rows = conn.execute(
         "SELECT e.case_id AS case_id, e.event_id AS event_id, e.opened_at AS opened_at, "
         "e.resolved AS resolved, c.docket_number AS docket_number, "
         "c.date_decided AS date_decided "
         "FROM events e JOIN cases c ON c.case_id = e.case_id "
-        f"WHERE e.event_id = ? AND e.court = 'scotus' AND {corpus.live_slice_sql('c')} "
-        # An entry-pinned motion event names one specific filing rather than the
-        # docket's arrival, so the arrival derivation is the wrong reading for it.
-        "AND e.docket_entry_id IS NULL "
+        f"WHERE e.event_id = ? AND e.court = 'scotus' AND {live} AND {baseline} "
         "AND (e.opened_at IS NULL OR e.opened_at = c.date_filed) "
         "ORDER BY e.case_id, e.event_id",
         (MOTION_BASELINE_EVENT_ID,),
     ).fetchall()
-    return [
-        _Candidate(
-            case_id=str(record["case_id"]),
-            event_id=str(record["event_id"]),
-            docket_number=str(record["docket_number"] or ""),
-            opened_at=_stored_date(record, "opened_at"),
-            resolved=bool(record["resolved"]),
-            date_decided=_stored_date(record, "date_decided"),
-        )
-        for record in rows
-    ], int(seen)
+    return ArrivalScan(
+        candidates=tuple(
+            _Candidate(
+                case_id=str(record["case_id"]),
+                event_id=str(record["event_id"]),
+                docket_number=str(record["docket_number"] or ""),
+                opened_at=_stored_date(record, "opened_at"),
+                resolved=bool(record["resolved"]),
+                date_decided=_stored_date(record, "date_decided"),
+            )
+            for record in rows
+        ),
+        events_seen=_count(live),
+        baseline_candidates_seen=_count(f"{live} AND {baseline}"),
+        events_all_slices=_count(baseline),
+    )
 
 
 def backfill_arrival_stamps(
@@ -441,6 +550,7 @@ def backfill_arrival_stamps(
     *,
     apply: bool,
     max_fills: int | None = None,
+    data_root: Path | None = None,
 ) -> ArrivalBackfillResult:
     """Re-derive the interim baseline's arrival stamp from each row's newest snapshot.
 
@@ -463,10 +573,26 @@ def backfill_arrival_stamps(
     fill-in latch, so a non-live re-extraction can write the docketing date back
     and put the row in the docketing arm again. Successive dispatches converge it
     each time.
+
+    ``data_root`` enables the committed-cell cut: the exposure readings below are
+    counterfactuals over the corpus as it stands, and intersecting them with the
+    events that actually carry committed predict output is what turns a bound
+    into a list of gradings a reader can check. Omitted, that field stays empty
+    and the rest of the ledger is unchanged.
     """
-    candidates, events_seen = arrival_candidates(conn)
+    scan = arrival_candidates(conn)
+    candidates = scan.candidates
     result = ArrivalBackfillResult(
-        applied=apply, events_seen=events_seen, candidates=len(candidates), bound=max_fills
+        applied=apply,
+        events_seen=scan.events_seen,
+        baseline_candidates_seen=scan.baseline_candidates_seen,
+        events_all_slices=scan.events_all_slices,
+        candidates=len(candidates),
+        bound=max_fills,
+        # Every exposure reading below is a counterfactual over the corpus as of
+        # this date, so the date travels with them rather than being recoverable
+        # only from whatever the operator happened to note.
+        corpus_vintage=corpus.latest_pull_date(conn),
     )
     if not candidates:
         result.move_histogram = {label: 0 for label, _ in MOVE_BUCKETS}
@@ -492,6 +618,9 @@ def backfill_arrival_stamps(
     result.admitted_the_disposition = [
         fill.case_id for fill in tally.filled if fill.admitted_the_disposition
     ]
+    result.admitted_the_disposition_committed = _with_committed_predictions(
+        data_root, result.admitted_the_disposition
+    )
     result.admitted_the_response_request = sum(
         1 for fill in tally.filled if fill.admitted_the_response_request
     )
@@ -501,6 +630,7 @@ def backfill_arrival_stamps(
     result.filled_resolved = tally.filled_resolved
     result.unrepaired = tally.unrepaired
     result.unrepaired_resolved = tally.unrepaired_resolved
+    result.residue_admits_disposition = tally.residue_admits_disposition
     result.unchanged = tally.unchanged
     result.later_refused = tally.later_refused
     result.no_snapshot = tally.no_snapshot
@@ -516,6 +646,40 @@ def backfill_arrival_stamps(
         conn, [(fill.case_id, fill.event_id, fill.opened_at) for fill in result.filled]
     )
     return result
+
+
+def _with_committed_predictions(data_root: Path | None, case_ids: list[str]) -> list[str]:
+    """Of ``case_ids``, those whose interim baseline event carries committed predict output.
+
+    Read off the committed tree rather than the corpus, because that is where the
+    question lives: a case in this list has a grading someone can open and check
+    against the exposure the ledger reports. A malformed ``case_id`` is skipped
+    rather than raised on — this is a reporting cut, and it must not be able to
+    fail a pass whose write already landed.
+    """
+    if data_root is None:
+        return []
+    found: list[str] = []
+    for case in case_ids:
+        court, _, docket = case.partition("/")
+        if not docket.isdigit():
+            continue
+        predictions = (
+            CasePaths(data_root, court, int(docket)).event(MOTION_BASELINE_EVENT_ID).predictions_dir
+        )
+        if predictions.is_dir() and any(predictions.iterdir()):
+            found.append(case)
+    return found
+
+
+def _admits(when: date | None, *, stamp: date | None) -> bool:
+    """Whether a cut taken at ``stamp`` would show a docket entry dated ``when``.
+
+    The cut keeps everything dated on or before the stamp, and a ``None`` stamp
+    is no cut at all — `moment_cutoff` returns nothing for it, so the cell reads
+    the latest snapshot and every date is admitted.
+    """
+    return when is not None and (stamp is None or when <= stamp)
 
 
 def _inside(when: date | None, *, arrival: date, previous: date | None) -> bool:

@@ -164,10 +164,14 @@ def test_both_shapes_of_the_defect_are_one_class(tmp_path: Path) -> None:
         _event("scotus/4", opened_at=None, docket_entry_id=77),
     ]
     with _seeded(tmp_path / "corpus", rows, events) as conn:
-        candidates, seen = arrival_candidates(conn)
-    assert [candidate.case_id for candidate in candidates] == ["scotus/1", "scotus/2"]
-    # The denominator is every baseline interim event, not the class.
-    assert seen == 4
+        scan = arrival_candidates(conn)
+    assert [candidate.case_id for candidate in scan.candidates] == ["scotus/1", "scotus/2"]
+    # The loose denominator counts every baseline interim event, entry-pinned
+    # rows included; the matched one counts only what the predicate could have
+    # selected, so the entry-pinned row is in the first and not the second — and
+    # `candidates / events_seen` is therefore not a prevalence.
+    assert scan.events_seen == 4
+    assert scan.baseline_candidates_seen == 3
 
 
 def test_a_row_outside_the_live_slice_is_never_read(tmp_path: Path) -> None:
@@ -175,9 +179,14 @@ def test_a_row_outside_the_live_slice_is_never_read(tmp_path: Path) -> None:
     rows = [_row("scotus/1"), _row("scotus/2", last_live_polled=None)]
     events = [_event("scotus/1"), _event("scotus/2")]
     with _seeded(tmp_path / "corpus", rows, events) as conn:
-        candidates, seen = arrival_candidates(conn)
-    assert [candidate.case_id for candidate in candidates] == ["scotus/1"]
-    assert seen == 1
+        scan = arrival_candidates(conn)
+    assert [candidate.case_id for candidate in scan.candidates] == ["scotus/1"]
+    assert scan.events_seen == 1
+    # The row outside the live slice is invisible to both live-slice counts and
+    # visible only to the blind one — which is exactly why it is carried: that
+    # row keeps its defective stamp through every dispatch of this pass.
+    assert scan.baseline_candidates_seen == 1
+    assert scan.events_all_slices == 2
 
 
 def test_the_class_is_not_predicated_on_resolution(tmp_path: Path) -> None:
@@ -192,8 +201,8 @@ def test_the_class_is_not_predicated_on_resolution(tmp_path: Path) -> None:
     rows = [_row("scotus/1"), _row("scotus/2")]
     events = [_event("scotus/1", resolved=True), _event("scotus/2", resolved=False)]
     with _seeded(tmp_path / "corpus", rows, events) as conn:
-        candidates, _ = arrival_candidates(conn)
-    assert [candidate.case_id for candidate in candidates] == ["scotus/1", "scotus/2"]
+        scan = arrival_candidates(conn)
+    assert [candidate.case_id for candidate in scan.candidates] == ["scotus/1", "scotus/2"]
 
 
 # --- The re-derivation --------------------------------------------------------
@@ -580,9 +589,140 @@ def test_a_row_on_another_court_is_out_of_the_population(tmp_path: Path) -> None
     events = [_event("scotus/1"), _event("ca9/2")]
     events[1] = events[1].model_copy(update={"court": "ca9"})
     with _seeded(tmp_path / "corpus", rows, events) as conn:
-        candidates, seen = arrival_candidates(conn)
-    assert [candidate.case_id for candidate in candidates] == ["scotus/1"]
-    assert seen == 1
+        scan = arrival_candidates(conn)
+    assert [candidate.case_id for candidate in scan.candidates] == ["scotus/1"]
+    assert scan.events_seen == 1
+
+
+# --- What the pass cannot repair, and what the readings are -------------------
+
+
+def test_the_residue_reports_where_the_conditioning_survives(tmp_path: Path) -> None:
+    """The measurement the repaired rows' readings cannot give.
+
+    Conditioning persists exactly where the stamp did **not** move, so a boundary
+    claim scoped to `filled` describes the half of the class that was fixed and
+    says nothing about the half that was not. Answerable with no arrival at all —
+    the surviving stamp and `date_decided` decide it — so every residue arm is
+    covered, including the row whose snapshot could not be read.
+    """
+    rows = [
+        # Unparsed, decided inside its surviving docketing stamp: still exposed.
+        _row("scotus/1", date_decided=date(2026, 6, 8)),
+        # No snapshot at all, and decided after its stamp: not exposed, and the
+        # arm is still reached — the reading needs no payload.
+        _row("scotus/2", date_decided=date(2026, 7, 20)),
+        # Refused for direction, and its surviving stamp admits its disposition.
+        _row("scotus/3", date_decided=date(2026, 6, 9)),
+    ]
+    events = [_event(f"scotus/{n}", opened_at=_DOCKETED) for n in (1, 2, 3)]
+    snapshots = {
+        "scotus/1": (date(2026, 7, 1), _payload(_renewal())),
+        "scotus/3": (date(2026, 7, 1), _payload(_submission(day="Jun 15 2026"))),
+    }
+    with _seeded(tmp_path / "corpus", rows, events, snapshots) as conn:
+        result = backfill_arrival_stamps(conn, apply=False)
+    assert (result.unparsed, result.no_snapshot) == (1, 1)
+    assert result.later_refused == ["scotus/3"]
+    assert result.unrepaired == 3
+    # scotus/2 is decided after its stamp, so its surviving cut does not reach
+    # the disposition; the other two are still conditioned.
+    assert result.residue_admits_disposition == ["scotus/1", "scotus/3"]
+
+
+def test_an_unstamped_residue_row_admits_everything(tmp_path: Path) -> None:
+    """A null surviving stamp is no cut at all, so any disposition is inside it."""
+    with _seeded(
+        tmp_path / "corpus",
+        [_row(date_decided=date(2030, 1, 1))],
+        [_event(opened_at=None)],
+        {_CASE: (date(2026, 7, 1), _payload(_renewal()))},
+    ) as conn:
+        result = backfill_arrival_stamps(conn, apply=False)
+    assert result.unparsed == 1
+    assert result.residue_admits_disposition == [_CASE]
+
+
+def test_a_repaired_row_is_not_counted_in_the_residue(tmp_path: Path) -> None:
+    """The two measurements partition: a row is exposed on one side or the other."""
+    with _seeded(
+        tmp_path / "corpus",
+        [_row(date_decided=date(2026, 6, 8))],
+        [_event(opened_at=_DOCKETED)],
+        {_CASE: (date(2026, 7, 1), _payload(_submission()))},
+    ) as conn:
+        result = backfill_arrival_stamps(conn, apply=False)
+    assert result.admitted_the_disposition == [_CASE]
+    assert result.unrepaired == 0
+    assert not result.residue_admits_disposition
+
+
+def test_the_ledger_carries_the_corpus_vintage_its_readings_are_over(
+    tmp_path: Path,
+) -> None:
+    """The exposure figures are counterfactuals over a corpus, so it has to be named.
+
+    They are read off the newest stored snapshot with no date bound, so without
+    the vintage a ledger states a bound whose basis is unrecoverable.
+    """
+    with _seeded(
+        tmp_path / "corpus",
+        [_row(last_pulled=date(2026, 8, 30))],
+        [_event(opened_at=_DOCKETED)],
+        {_CASE: (date(2026, 7, 1), _payload(_submission()))},
+    ) as conn:
+        result = backfill_arrival_stamps(conn, apply=False)
+    assert result.corpus_vintage == date(2026, 8, 30)
+
+
+def test_the_committed_cut_names_only_cases_carrying_predict_output(
+    tmp_path: Path,
+) -> None:
+    """The subset where the exposure bound is worth checking against a grading.
+
+    The full list is a counterfactual over the current corpus; this cut is the
+    part of it a reader can actually go and open. A case with no committed
+    output is exposed by the *rule* and has no grading to check.
+    """
+    rows = [
+        _row("scotus/1", date_decided=date(2026, 6, 8)),
+        _row("scotus/2", date_decided=date(2026, 6, 8)),
+    ]
+    events = [_event("scotus/1", opened_at=_DOCKETED), _event("scotus/2", opened_at=_DOCKETED)]
+    snapshots = {
+        "scotus/1": (date(2026, 7, 1), _payload(_submission())),
+        "scotus/2": (date(2026, 7, 1), _payload(_submission())),
+    }
+    data_root = tmp_path / "data"
+    committed = (
+        data_root / "cases" / "scotus" / "1" / "events" / MOTION_BASELINE_EVENT_ID / "predictions"
+    )
+    (committed / "claude-baseline" / "20260816T111104Z").mkdir(parents=True)
+    with _seeded(tmp_path / "corpus", rows, events, snapshots) as conn:
+        result = backfill_arrival_stamps(conn, apply=False, data_root=data_root)
+        blind = backfill_arrival_stamps(conn, apply=False)
+    assert result.admitted_the_disposition == ["scotus/1", "scotus/2"]
+    assert result.admitted_the_disposition_committed == ["scotus/1"]
+    # And with no data root the cut is simply absent rather than wrong.
+    assert blind.admitted_the_disposition == ["scotus/1", "scotus/2"]
+    assert blind.admitted_the_disposition_committed == []
+
+
+def test_an_empty_predictions_directory_is_not_committed_output(tmp_path: Path) -> None:
+    """A bare directory is a provisioning artifact, not a grading to check."""
+    data_root = tmp_path / "data"
+    (
+        data_root / "cases" / "scotus" / "1" / "events" / MOTION_BASELINE_EVENT_ID / "predictions"
+    ).mkdir(parents=True)
+    with _seeded(
+        tmp_path / "corpus",
+        [_row(date_decided=date(2026, 6, 8))],
+        [_event(opened_at=_DOCKETED)],
+        {_CASE: (date(2026, 7, 1), _payload(_submission()))},
+    ) as conn:
+        result = backfill_arrival_stamps(conn, apply=False, data_root=data_root)
+    assert result.admitted_the_disposition == [_CASE]
+    assert not result.admitted_the_disposition_committed
 
 
 # --- The bound and the write --------------------------------------------------
@@ -686,6 +826,18 @@ def test_the_histogram_buckets_every_move(tmp_path: Path) -> None:
 # --- The command surface ------------------------------------------------------
 
 
+def _ledger_line(output: str) -> str:
+    """The machine-readable ledger line, wherever in the output it sits.
+
+    The same read the run-repair step makes (`grep '^{"applied"'`), and for the
+    same reason: this command prints the per-row list *after* the ledger so a
+    truncated step summary loses the enumeration rather than the figures, so
+    nothing may assume the JSON is last.
+    """
+    (line,) = [line for line in output.splitlines() if line.startswith('{"applied"')]
+    return line
+
+
 def _cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *args: str) -> Any:
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
     monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
@@ -735,9 +887,11 @@ def test_cli_prints_the_move_histogram_and_the_ledger(
     assert "4-7d: 1" in result.output
     assert "would stamp scotus/1" in result.output
     assert '"moved":1' in result.output
-    # Structural, not quote-splitting: a field name appearing as a *value*
-    # would satisfy a substring check, and any future `indent=` would break it.
-    ArrivalBackfillResult.model_validate_json(result.output.splitlines()[-1])
+    # Structural, not quote-splitting: a field name appearing as a *value* would
+    # satisfy a substring check. Found by prefix rather than by position, because
+    # the per-row list is printed *after* the ledger on purpose — see the
+    # truncation-safe ordering the run-repair step depends on.
+    ArrivalBackfillResult.model_validate_json(_ledger_line(result.output))
 
 
 def test_cli_applies_and_names_what_the_old_cut_admitted(
@@ -754,10 +908,40 @@ def test_cli_applies_and_names_what_the_old_cut_admitted(
     result = _cli(tmp_path, monkeypatch, "--apply", "--max-fills", "5")
     assert result.exit_code == 0
     assert "stamped scotus/1" in result.output
-    assert "ADMITTED ITS OWN DISPOSITION" in result.output
+    assert "would read this case's own disposition" in result.output
     assert '"applied":true' in result.output
     with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         assert _stored(conn) == _SUBMITTED
+
+
+def test_cli_prints_the_figures_before_the_unbounded_row_list(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ordering is load-bearing: the step summary truncates head-first.
+
+    GitHub caps a step summary at 1 MiB and discards it whole above that, and the
+    run-repair step tees this output into one — so over a five-figure class the
+    per-row list must come after every aggregate, the named exposure lists and
+    the JSON ledger, or the truncation deletes exactly the figures the freeze
+    entry registers as claimable.
+    """
+    with _seeded(
+        tmp_path / "corpus",
+        [_row(date_decided=date(2026, 6, 8))],
+        [_event(opened_at=_DOCKETED)],
+        {_CASE: (date(2026, 7, 1), _payload(_submission()))},
+    ):
+        pass
+    result = _cli(tmp_path, monkeypatch)
+    lines = result.output.splitlines()
+    ledger = lines.index(_ledger_line(result.output))
+    named = next(i for i, line in enumerate(lines) if "own disposition" in line)
+    per_row = next(i for i, line in enumerate(lines) if line.startswith("  would stamp "))
+    # Aggregates and names first, ledger next, the unbounded enumeration last.
+    assert named < ledger < per_row
+    assert any("forward exposure (counterfactual over the corpus as of" in x for x in lines)
+    assert any("residue exposure:" in x for x in lines)
+    assert any("reachable baseline event(s) carry the defect" in x for x in lines)
 
 
 def test_cli_refuses_above_the_bound(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

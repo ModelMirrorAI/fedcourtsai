@@ -2198,9 +2198,13 @@ freeze commit is recorded here.
   rotation never re-polls — that is false in fact: the promotion moves no stamp,
   the apply does. So a figure over interim arrival cells may not pool across the
   apply dispatch, and the dispatch's own date is the boundary instant to quote.
-  It matters more here than at the read's own boundary, because `context.cutoff`
-  is non-null on both sides of this one: the two conditionings are not separable
-  from the artifact alone.
+  It matters more here than at the read's own boundary, and differently on each
+  arm. For the **moved** rows `context.cutoff` is non-null on both sides, so the
+  two conditionings are not separable from the artifact alone and only the
+  dispatch date tells them apart. For the **stamped** rows it moves from null to
+  non-null — a pre-repair cell took no cut at all and carries `as-stored`
+  provenance — so there the boundary *is* visible in the artifact, as the
+  as-stored → placed transition this entry's provenance paragraph describes.
 
   *It may straddle the counting instant.* `FROZEN_SINCE` is `2026-09-05`. If the
   apply lands on or after it, frozen-counted interim arrival cells exist on both
@@ -2212,10 +2216,16 @@ freeze commit is recorded here.
   rewritten with it the next time any cell runs over that event, so the pass's
   own `filled` list is the sole record of what a committed interim cell's cutoff
   had been derived from. The apply owes an entry here carrying it, along with
-  the dispatch date, the corpus vintage it was measured against, and the
-  ledger's `events_seen` / `candidates` / `candidates_resolved` / `stamped` /
-  `moved` / move histogram / `over_admitted_entries` /
-  `admitted_the_disposition` / `unrepaired` / `unrepaired_resolved` counts.
+  the dispatch date and the ledger's `corpus_vintage` — which every exposure
+  figure below is a counterfactual over, so a figure quoted without it states a
+  bound whose basis is unrecoverable — plus the `events_seen` /
+  `baseline_candidates_seen` / `events_all_slices` / `candidates` /
+  `candidates_resolved` / `stamped` / `moved` / move histogram /
+  `over_admitted_entries` / `admitted_the_disposition` /
+  `admitted_the_disposition_committed` / `residue_admits_disposition` /
+  `unrepaired` / `unrepaired_resolved` counts. Only **resolved** rows can appear
+  in `admitted_the_disposition` or `residue_admits_disposition` — both are keyed
+  on `date_decided` — so neither list discloses anything about a pending case.
 
   **What the repair can and cannot be said to remove.** The defect is that
   resolution status decides which stamp a row carries — the poller re-polls only
@@ -2231,13 +2241,47 @@ freeze commit is recorded here.
   channel polled the case. The ledger therefore splits the class, the repairs
   and the residue by resolution, and the apply's entry states that split.
 
+  The residue is **measured, not merely counted**, and it has to be: the
+  exposure readings below are taken over the rows the pass repaired, and
+  conditioning persists exactly where the stamp did not move. So the ledger also
+  reports `residue_admits_disposition` — the unrepaired rows whose *surviving*
+  stamp still admits their own disposition, answerable from the stored stamp and
+  `date_decided` with no arrival needed, so every arm is covered including the
+  rows whose snapshot could not be read. A boundary claim scoped to the repaired
+  rows describes the half of the class that was fixed and says nothing about the
+  half that was not; both halves are stated.
+
+  Two denominators go with that, because one number cannot carry it.
+  `baseline_candidates_seen` is matched to the predicate, so the prevalence is
+  taken against the population the predicate could actually select rather than
+  against the looser `events_seen` (which counts entry-pinned rows this route
+  never acts on, and exists only as the wrong-blob refusal). `events_all_slices`
+  drops the live-slice limb: this pass needs a stored live-shaped snapshot, so
+  rows outside that slice are never candidates and keep their defective stamps
+  through every dispatch — the gap between the two is the arm no run of this
+  pass reaches, and it is invisible without the count.
+
   **The reading rule for the move sizes.** The day-delta histogram is the
   *window* the pre-repair cut spanned — an upper bound on what could have been
   admitted, not a measure of what was. A one-day move on a docket disposed of
   that day admits the outcome; a month over a quiet docket admits nothing. The
   claimable figures are the entries-admitted counts beside it and the named rows
-  whose own disposition fell inside the band, which is the form the arrival
+  whose own disposition falls inside the band, which is the form the arrival
   read's own boundary measurement took.
+
+  **Those figures are counterfactuals, and must be quoted as such.** They are
+  computed against each row's newest stored snapshot with **no date bound**, so
+  they state what a cell provisioned *today*, over the corpus at
+  `corpus_vintage`, would admit under the pre-repair stamp — a bound on the
+  rule's remaining forward exposure, not a measurement of what any committed
+  cell was shown. The error runs both ways and neither direction is
+  conservative: they **over**-count against a cell provisioned when that docket
+  was shorter, and **under**-count wherever the stored snapshot itself predates
+  filings the docket has since gained. What turns the bound into something
+  checkable is `admitted_the_disposition_committed`, the intersection with the
+  events carrying committed predict output — still not proof a cell saw the
+  disposition, but the population where that question is worth asking one
+  grading at a time.
 
   **The provenance mix moves with it.** The repair takes rows from `as-stored`
   to placed (the unstamped arm, whose cells took no cut at all and read the
