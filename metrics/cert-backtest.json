@@ -1,0 +1,261 @@
+{
+  "always_denied_accuracy": 0.6,
+  "entries": [
+    {
+      "accuracy": 0.6,
+      "big_case": null,
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.07305309514743133,
+          "observed_granted_rate": 0.45,
+          "predictions": 20,
+          "upper": 0.1
+        },
+        {
+          "lower": 0.1,
+          "mean_probability": 0.1037210665104014,
+          "observed_granted_rate": 0.0,
+          "predictions": 5,
+          "upper": 0.2
+        }
+      ],
+      "events_scored": 25,
+      "granted_accuracy": 0.64,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.3138574615019898,
+      "predictor_id": "prior-vote",
+      "rank": 1,
+      "segments": [
+        {
+          "accuracy": 1.0,
+          "band": "federal",
+          "events_scored": 2,
+          "mean_brier_score": 0.005399637701845856,
+          "mean_brier_skill": 0.989847478721868,
+          "segment_base_rate": 0.7292817679558011
+        },
+        {
+          "accuracy": 0.42857142857142855,
+          "band": "high",
+          "events_scored": 14,
+          "mean_brier_score": 0.4933723476699488,
+          "mean_brier_skill": -0.1693448965464099,
+          "segment_base_rate": 0.34613719604235615
+        },
+        {
+          "accuracy": 0.0,
+          "band": "state",
+          "events_scored": 1,
+          "mean_brier_score": 0.005399637701845856,
+          "mean_brier_skill": 0.8110884562474173,
+          "segment_base_rate": 0.16906474820143885
+        }
+      ]
+    },
+    {
+      "accuracy": 0.6,
+      "big_case": {
+        "maximum": 0.5,
+        "mean": 0.5,
+        "minimum": 0.5,
+        "scored": 25
+      },
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.0,
+          "observed_granted_rate": 0.36,
+          "predictions": 25,
+          "upper": 0.1
+        }
+      ],
+      "events_scored": 25,
+      "granted_accuracy": 0.64,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.36,
+      "predictor_id": "claude-baseline",
+      "rank": 2,
+      "segments": [
+        {
+          "accuracy": 1.0,
+          "band": "federal",
+          "events_scored": 2,
+          "mean_brier_score": 0.0,
+          "mean_brier_skill": 1.0,
+          "segment_base_rate": 0.7292817679558011
+        },
+        {
+          "accuracy": 0.42857142857142855,
+          "band": "high",
+          "events_scored": 14,
+          "mean_brier_score": 0.5714285714285714,
+          "mean_brier_skill": -0.3385145964948757,
+          "segment_base_rate": 0.34613719604235615
+        },
+        {
+          "accuracy": 0.0,
+          "band": "state",
+          "events_scored": 1,
+          "mean_brier_score": 0.0,
+          "mean_brier_skill": 1.0,
+          "segment_base_rate": 0.16906474820143885
+        }
+      ]
+    },
+    {
+      "accuracy": 0.6,
+      "big_case": {
+        "maximum": 0.5,
+        "mean": 0.5,
+        "minimum": 0.5,
+        "scored": 25
+      },
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.0,
+          "observed_granted_rate": 0.36,
+          "predictions": 25,
+          "upper": 0.1
+        }
+      ],
+      "events_scored": 25,
+      "granted_accuracy": 0.64,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.36,
+      "predictor_id": "codex-baseline",
+      "rank": 3,
+      "segments": [
+        {
+          "accuracy": 1.0,
+          "band": "federal",
+          "events_scored": 2,
+          "mean_brier_score": 0.0,
+          "mean_brier_skill": 1.0,
+          "segment_base_rate": 0.7292817679558011
+        },
+        {
+          "accuracy": 0.42857142857142855,
+          "band": "high",
+          "events_scored": 14,
+          "mean_brier_score": 0.5714285714285714,
+          "mean_brier_skill": -0.3385145964948757,
+          "segment_base_rate": 0.34613719604235615
+        },
+        {
+          "accuracy": 0.0,
+          "band": "state",
+          "events_scored": 1,
+          "mean_brier_score": 0.0,
+          "mean_brier_skill": 1.0,
+          "segment_base_rate": 0.16906474820143885
+        }
+      ]
+    },
+    {
+      "accuracy": 0.6,
+      "big_case": null,
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.0,
+          "observed_granted_rate": 0.36,
+          "predictions": 25,
+          "upper": 0.1
+        }
+      ],
+      "events_scored": 25,
+      "granted_accuracy": 0.64,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.36,
+      "predictor_id": "constant-denied",
+      "rank": 4,
+      "segments": [
+        {
+          "accuracy": 1.0,
+          "band": "federal",
+          "events_scored": 2,
+          "mean_brier_score": 0.0,
+          "mean_brier_skill": 1.0,
+          "segment_base_rate": 0.7292817679558011
+        },
+        {
+          "accuracy": 0.42857142857142855,
+          "band": "high",
+          "events_scored": 14,
+          "mean_brier_score": 0.5714285714285714,
+          "mean_brier_skill": -0.3385145964948757,
+          "segment_base_rate": 0.34613719604235615
+        },
+        {
+          "accuracy": 0.0,
+          "band": "state",
+          "events_scored": 1,
+          "mean_brier_score": 0.0,
+          "mean_brier_skill": 1.0,
+          "segment_base_rate": 0.16906474820143885
+        }
+      ]
+    },
+    {
+      "accuracy": 0.6,
+      "big_case": {
+        "maximum": 0.5,
+        "mean": 0.5,
+        "minimum": 0.5,
+        "scored": 25
+      },
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.0,
+          "observed_granted_rate": 0.36,
+          "predictions": 25,
+          "upper": 0.1
+        }
+      ],
+      "events_scored": 25,
+      "granted_accuracy": 0.64,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.36,
+      "predictor_id": "gemini-baseline",
+      "rank": 5,
+      "segments": [
+        {
+          "accuracy": 1.0,
+          "band": "federal",
+          "events_scored": 2,
+          "mean_brier_score": 0.0,
+          "mean_brier_skill": 1.0,
+          "segment_base_rate": 0.7292817679558011
+        },
+        {
+          "accuracy": 0.42857142857142855,
+          "band": "high",
+          "events_scored": 14,
+          "mean_brier_score": 0.5714285714285714,
+          "mean_brier_skill": -0.3385145964948757,
+          "segment_base_rate": 0.34613719604235615
+        },
+        {
+          "accuracy": 0.0,
+          "band": "state",
+          "events_scored": 1,
+          "mean_brier_score": 0.0,
+          "mean_brier_skill": 1.0,
+          "segment_base_rate": 0.16906474820143885
+        }
+      ]
+    }
+  ],
+  "events_scored": 25,
+  "predictors_evaluated": 5,
+  "provisioning": {
+    "blind": 5,
+    "truncated": 20
+  },
+  "salience_version": "sal-v4",
+  "schema_version": "1.0",
+  "stratum": "retrospective"
+}
