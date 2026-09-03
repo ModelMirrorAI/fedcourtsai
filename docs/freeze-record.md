@@ -1904,14 +1904,14 @@ freeze commit is recorded here.
   — is not built, and will carry its own entry when it is: without it the 14
   cases whose cells already ran keep the record they were minted with.
 
-- Freeze commit: `<FILL: this entry's own freeze commit>`, to be tagged
+- Freeze commit: `86ab9ace96486b22b147bac7e24244929dc9c1c1`, to be tagged
   **`prereg/proc-v6`** per step 4 — on this freeze commit itself, once its
   carrying promotion lands and the instant audit passes (`proc-v4`'s
   merge-placed tag is the recorded anomaly, not the rule). Blesses the six
   proc-v6 digests, retires all six of `prereg/proc-v5`'s, and **holds** the
   freeze instant at **`2026-09-05T00:00:00Z`**. Carried to `main` by the
-  promotion tagged **`<FILL: promotion tag>`** (merge commit `<FILL>`, merged
-  `<FILL: merge date>`).
+  promotion tagged **`promotion/2026-09-03`** (merge commit `9293f70539718b5e5dbbad0c904ae4cbca6e6bac`, merged
+  `2026-09-03T23:46:41Z`).
 
   **Fleet-wide: both halves move, and two different inputs move them.** Every
   enabled actor's digest changes, so both halves of the map are replaced at
@@ -1994,8 +1994,8 @@ freeze commit is recorded here.
   below step 2's own floor of the commit timestamp — the safe direction, forecast
   early because a late forecast fires the ledger tripwire on every honest cell
   minted before step 4's correction. Step 4 replaces all six with the carrying
-  merge's real time, `git log -1 --format=%cI <FILL: carrying merge>` =
-  `<FILL: merge date>`.
+  merge's real time, `git log -1 --format=%cI 9293f7053` =
+  `2026-09-03T19:46:41-04:00` (`2026-09-03T23:46:41Z`).
 
   **The boundary, stated: no committed cell re-stamps.** A cell stamped before
   the bless moment carries the digest that was blessed when it ran, and this
@@ -2020,7 +2020,7 @@ freeze commit is recorded here.
   recorded). The rest carry proc-v2/proc-v3 digests already outside the map.
   Step 0's stamped-cell grep for each of the six **newly blessed** digests:
   **zero** on `origin/main` and **zero** in this tree, all six. Re-run at the
-  promotion: `<FILL: promotion-time step-0 re-run>`.
+  promotion: zero on the promotion merge's own tree (`9293f7053`), all six.
 
   **The de-count this freeze executes, and why no shakedown declaration is
   called on.** Retiring the predictor half removes every prediction stamped
@@ -2075,11 +2075,9 @@ freeze commit is recorded here.
     evaluation stamped before the new instant via `graded_post_freeze`, blessed
     evaluator digests or not, so the boundary is total in both halves.
 
-  Which case obtained: `<FILL: the side the carrying promotion landed on, with
-  the gap cohort's census — predictions and evaluations stamped in
-  [instant, merge), split by whether the graded outcome had already resolved at
-  the prediction's harness clock — or "promoted before the instant; the gap is
-  empty">`.
+  Which case obtained: promoted before the instant; the gap is empty
+  (merge `2026-09-03T23:46:41Z` against `FROZEN_SINCE = 2026-09-05T00:00:00Z`,
+  the clean first-supersession timing this entry intended).
 
   **The evaluator half's pooling exposure, and the surfaces it actually
   reaches.** An evaluation's digest is recorded but never partitions the

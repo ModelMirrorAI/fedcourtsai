@@ -104,34 +104,32 @@ CURRENT_PROCESS_LABEL = "proc-v6"
 # command that yields it.
 FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
     {
-        # Every entry below carries step 2's **forecast** bless moment — this
-        # freeze commit's own date, the safe floor, since the carrying merge
-        # is necessarily at or after it. Step 4 replaces all six with the real
-        # merge time of the promotion that lands them on `main`; forecast
-        # early rather than late, because a late forecast fires the tripwire
-        # on every honest cell minted before the correction.
+        # Every entry below carries the real merge time of the promotion that
+        # landed this freeze on `main` (`promotion/2026-09-03`, merge
+        # 9293f7053, 2026-09-03T23:46:41Z) — step 4's correction of the
+        # forecast the freeze commit was authored with.
         #
         # predictors: claude-baseline, codex-baseline, gemini-baseline.
         "sha256:902b332565be0a00f1180796b6ba1b216567300921416c2c3730cc6bca40e485": datetime(
-            2026, 9, 3, 0, 0, 0, tzinfo=UTC
+            2026, 9, 3, 23, 46, 41, tzinfo=UTC
         ),
         "sha256:5af41a53302ee9349ab3f210903b7f756bf27aa5d2a2392eb3394404bbad730f": datetime(
-            2026, 9, 3, 0, 0, 0, tzinfo=UTC
+            2026, 9, 3, 23, 46, 41, tzinfo=UTC
         ),
         "sha256:8438d9682a88a0f972ba18fdcaa64f9587096015c4c99d4ba58e6440b0bde999": datetime(
-            2026, 9, 3, 0, 0, 0, tzinfo=UTC
+            2026, 9, 3, 23, 46, 41, tzinfo=UTC
         ),
         # evaluators: claude-judge, codex-judge, gemini-judge. None carries
         # forward — the evaluate prompt's bytes move for all three — so none
         # keeps an earlier label's bless moment.
         "sha256:e84e8e5fbf47002aa9ed867db60f3f5eee82dcc3bfdd76e44a0b4aac09d5e631": datetime(
-            2026, 9, 3, 0, 0, 0, tzinfo=UTC
+            2026, 9, 3, 23, 46, 41, tzinfo=UTC
         ),
         "sha256:e44173fbe316c7dc95412f3b1165f7ac37f6f41ac7d2bb4ef58d86dee7dca7a8": datetime(
-            2026, 9, 3, 0, 0, 0, tzinfo=UTC
+            2026, 9, 3, 23, 46, 41, tzinfo=UTC
         ),
         "sha256:64ae1b0c392b62f88c952bbbcc44de2d9ea358f7a7c36dbc10d231f9ed3366c3": datetime(
-            2026, 9, 3, 0, 0, 0, tzinfo=UTC
+            2026, 9, 3, 23, 46, 41, tzinfo=UTC
         ),
     }
 )
