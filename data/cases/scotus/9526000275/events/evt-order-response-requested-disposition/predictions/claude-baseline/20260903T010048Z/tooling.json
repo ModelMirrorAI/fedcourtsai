@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000275",
+  "run_id": "20260903T010048Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md (interim docket section)",
+    "provisioned application.txt + snapshot + context.json"
+  ],
+  "helpful": [
+    "The estimator-caption interim section made the pooled baseline (31/296, Terms 2024-2025) computable directly and unambiguously clears the 50-resolved floor.",
+    "Provisioned full application text (43pp, clean extraction) was the core evidence — no MCP retrieval was needed for the merits read.",
+    "context.json's frozen escalation state (response_requested/referred/amicus) made the increment claims' vantage unambiguous."
+  ],
+  "gaps": [
+    "No published grant rate conditioned on the escalation ladder (e.g. grant rate given response requested) — the referral and disposition adjustments rest on a handful of recent corpus rows.",
+    "No applicant-class cut (federal government vs. state vs. private) on the interim slice, though recent substantive grants look dominated by federal applicants.",
+    "fedcourts query has no free-text or ask-kind filter (stay vs. injunction vs. vacatur), so finding election-ballot application priors means scanning recent rows by hand."
+  ],
+  "notes": "Forward cell whose requested disposition date coincides with the run date; I skipped all live retrieval on the case itself to avoid surfacing the outcome, so this cell exercised only the corpus/statpack surfaces."
+}

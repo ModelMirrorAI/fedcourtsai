@@ -43,6 +43,20 @@ survivor looks exactly like a cell that was only ever graded once: without the
 count, a maintainer-reachable re-grade could move a standing and leave no mark
 on any artifact.
 
+Two exclusions run before any of that, both applied at the join
+(``store.stratify``) and both published beside the standings so neither can be
+silent: the forward-claim rule, and the evaluators' leakage bit. A cell whose
+grading carries ``leakage_suspected`` may have read its own outcome, so it
+enters no rank key and no scored aggregate — including the retrospective pair
+that orders predictors with no forward cells, which is where near-perfect
+leaked numbers would otherwise decide a standing. The bit changes membership
+and never a value; ``leakage_exclusion`` carries the count and its
+per-predictor split. Both exclusions reach exactly the cells the join yields,
+which is **not** the two agreement views below: they read the ledger by their
+own path (:func:`_scoped_evaluations`) and apply neither rule, deliberately —
+they measure stakes reads and grader latitude rather than scored performance,
+and ``metrics/README.md`` states the carve-out.
+
 Coverage is published beside the ranking for the same reason. Grading is gated
 at ``(evaluator, event)`` grain, so the scored set is selected rather than
 sampled: a prediction committed after a judge graded its event is never scored
@@ -95,6 +109,7 @@ from .schemas import (
     LeaderboardStage,
     LeaderboardStageEntry,
     LeaderboardStratum,
+    LeakageExclusionRecord,
     Moment,
     Outcome,
     Prediction,
@@ -358,6 +373,15 @@ def _scoped_evaluations(
     reading of what a re-grade means: a judge that re-graded a cell without
     recording a stakes read has no current read of it, so the cell leaves the
     panel rather than falling back to the read the re-grade superseded.
+
+    Reading the ledger here rather than through ``store.stratify`` means the
+    join's two exclusions — the forward-claim rule and the leakage bit — do not
+    apply, which is deliberate rather than an omission: both drop a cell from
+    *scored performance*, and a stakes read is neither scored nor ranked, so
+    excluding on them would shrink a panel to protect a figure they do not
+    reach. ``metrics/README.md`` registers the carve-out, and a count here that
+    differs from a board count is two populations rather than an error in
+    either.
     """
     scoped: list[Evaluation] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
@@ -819,6 +843,7 @@ def build_leaderboard(
     process_scope: Literal["frozen", "all"] = "frozen",
     skills: Mapping[EvaluationKey, CellSkill] | None = None,
     forward_claim: ForwardClaimRecord | None = None,
+    leakage_exclusion: LeakageExclusionRecord | None = None,
     superseded_gradings: int = 0,
 ) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
@@ -855,6 +880,11 @@ def build_leaderboard(
         ``cells`` and ``big_case`` to that scope (both via the shared ``frozen_only``
         seam). Recording it makes the empty frozen headline self-explaining rather
         than reading as a regression.
+
+    ``forward_claim`` and ``leakage_exclusion`` are the caller's stratify pass's
+        two exclusion records, carried verbatim. They are independent rules over
+        one population — a cell both caught appears in both counts — so they are
+        published side by side and never summed into an exclusion total.
 
     ``superseded_gradings`` is likewise the caller's to supply
         (``store.StratifiedRun.superseded``): ``cells`` holds only survivors of the
@@ -905,6 +935,9 @@ def build_leaderboard(
         # The forward-claim rule and count the caller's stratify pass applied
         # (null only on a board constructed without the ledger in hand).
         forward_claim=forward_claim,
+        # The same pass's leakage exclusion. An independent rule, so it rides
+        # as its own block rather than folding into the count above.
+        leakage_exclusion=leakage_exclusion,
         # The same pass's run-collapse count. The cells below are survivors, so
         # this is the only surface on which a re-grade is visible at all.
         superseded_gradings=superseded_gradings,

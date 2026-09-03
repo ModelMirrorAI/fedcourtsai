@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000256",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "Decided case provisioned forward: the event resolved 2026-08-28 (application 26A256 denied by Justice Thomas), yet all three blinded candidates ran forward-mode after resolution (two on 2026-08-29, one on 2026-08-31). The committed 2026-08-31 snapshot \u2014 codex-baseline's provisioned input \u2014 itself carries the denial entry, so that cell's baseline disclosed the outcome; I graded its leakage retrieved_outcome_material=true / influenced_prediction=possible, though its prose shows no sign the entry was registered (it forecasts a September disposition). The two 2026-08-29 cells show no outcome surfacing in log or prose, but their superseded 2026-08-29 snapshot is no longer in the tree and the corpus query surface exposes case rows rather than snapshot history, so what that snapshot disclosed could not be verified. Application dockets resolve in days; a freshness check at forward provisioning would prevent this shape.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260902T185700Z",
+  "schema_version": "1.0"
+}

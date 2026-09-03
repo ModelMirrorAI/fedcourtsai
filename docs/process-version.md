@@ -90,7 +90,7 @@ config (which would make it a partition key rather than an honour system), a
 registry change that alters the candidate set belongs in the freeze record
 ([freeze-record.md](freeze-record.md)) beside the masking changes.
 
-The **scoring baseline** is a third member of this list, and the only one with
+The **scoring baseline** is a third member of this list, and one of two with
 no data-visible boundary at all. Skill numbers are computed against the
 salience-band base rates, and the lookback window that builds them
 (`base_rate_lookback_terms` in `config/tracking.yaml`) sits in no actor's
@@ -130,6 +130,29 @@ It does carry a data-visible boundary — `context.cutoff`, non-null exactly on 
 placed cell — so the two conditionings are separable in the record rather than
 pooled silently, which is the property the scoring baseline lacks. It belongs in
 the freeze record on the same terms as the rest.
+
+**What the pipeline provisions** is the fourth member, and the second with no
+data-visible boundary. A change to which filed documents `select_documents`
+nominates moves what a cell reads — a widened selector hands it a primary
+document a cell before it did not have — under an unchanged digest and with
+nothing in the artifact to say so: the documents live in the cell's gitignored
+`record/documents/`, and `prediction.json` carries no field separating a cell
+that read its petition from one that did not. It is therefore the same shape as
+the scoring baseline and takes the same remedy, which is the only one available:
+a freeze-record entry, since the record is the only place the boundary can
+exist.
+
+A **membership rule** — which cells a published figure is computed over — is the
+list's last member and the one that moves no value at all. The scoring funnel's
+exclusions live here: the forward-claim rule and the leakage bit
+(`metrics/README.md` registers both), each of which drops a cell from every
+scored aggregate under unchanged digests, since nothing about which cells count
+sits in an actor's canonical config. Two boards built either side of such a rule
+are over different populations, which is as unreadable as two built either side
+of a re-basing, so a membership rule belongs in the freeze record for the same
+reason the baseline does. Its own boundary is the published exclusion block —
+`forward_claim` / `leakage_exclusion` on every board — so, like the provisioning
+cutoff and unlike the baseline, the change is at least visible in the artifact.
 
 ## The stamp is the harness's word, not the agent's
 
@@ -277,7 +300,8 @@ instant it was blessed. Everything keys off it:
   Until a stamped cell's digest is blessed *and* its stamp is at or after the
   freeze instant, the frozen headline is legitimately **empty** — "no
   frozen-process evaluations yet" — which the leaderboard, the ops dashboard,
-  and the weekly digest all say in as many words, rather than showing a bare
+  and the weekly performance digest all say in as many words, rather than
+  showing a bare
   `0` that reads as a regression.
 - **Frozen** — a stamped cell whose digest is in the blessed map **and** whose
   stamp is at or after `FROZEN_SINCE`, the freeze instant set in the same
@@ -335,7 +359,8 @@ the re-bless instead of resting on a maintainer's grep.
 
 The frozen filter lives at the one shared producer both surfaces read
 (`store.stratify`, `frozen_only=True` by default — the boards call it directly
-so the scored cells and the `forward_claim` exclusion record come from one
+so the scored cells and both exclusion
+records — `forward_claim` and `leakage_exclusion` — come from one
 pass; `iter_stratified_evaluations` is its thin cells-only wrapper), so the
 leaderboard headline and the ops dashboard's scored figures can never disagree —
 they each pass one boolean. Both CLIs take `--all-versions` for the pooled
@@ -512,10 +537,12 @@ freeze record states the exposure.
 counted cells** is the third supersession shape, and the only one that
 de-counts: the predictor digests are the enforced filter, so replacing them in
 `FROZEN_PROCESS_DIGESTS` removes every cell stamped under the retired digests
-from every frozen-scope artifact at once — and moving `FROZEN_SINCE` past the
+from every frozen-scope artifact at once — and `FROZEN_SINCE` sitting past the
 carrying promotion, the ordinary step-4 rule (the held-instant exception above
-is scoped to byte-identical predictor digests and cannot apply), independently
-drops every evaluation stamped before the new instant via
+is scoped to byte-identical predictor digests and cannot apply, so the instant
+is either moved there or already sits there, which satisfies the same rule
+without a move), independently
+drops every evaluation stamped before the instant via
 `graded_post_freeze`, blessed evaluator digests or not, so the boundary is
 total in both halves rather than incidental to one. That is a
 retroactive-looking move, and what makes it pre-registered

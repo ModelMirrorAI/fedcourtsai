@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000203",
+  "run_id": "20260902T185700Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "local file reads",
+    "Pydantic schema-model validation"
+  ],
+  "helpful": [
+    "Blinded candidate staging preserved independent scoring.",
+    "Captured retrieval logs made forward-mode leakage assessment auditable."
+  ],
+  "gaps": [],
+  "notes": "No external retrieval was needed for this interim evaluation."
+}

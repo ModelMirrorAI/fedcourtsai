@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000203",
+  "run_id": "20260902T185700Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (interim-docket section)",
+    "committed case record (resolved snapshot, event.yaml, outcome.json)",
+    "blinded staging area (record/blinded/<alias>/)"
+  ],
+  "helpful": [
+    "The staged retrieval_log.json result_capture markers made the leakage grading straightforward across three very different engine telemetry shapes (coverage 1.0, 0.0, and mixed).",
+    "The resolved snapshot's full order text (referral recital, dissent lineup) let forecast texture be checked against the docket directly."
+  ],
+  "gaps": [
+    "The provisioned snapshot the candidates predicted from (2026-08-18.json) is no longer in the record tree, so a claim two candidates disputed - the exact wording of the amicus entries at snapshot time - could not be checked either way."
+  ],
+  "notes": "Interim cell: baseline and skill left to the harness stamp; elicited correct/brier written per contract."
+}

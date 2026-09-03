@@ -59,6 +59,7 @@ from .schemas import (
     ClaimScoreStratum,
     Evaluation,
     ForwardClaimRecord,
+    LeakageExclusionRecord,
     Stage,
     Stratum,
 )
@@ -210,12 +211,17 @@ def build_claim_scores(
     *,
     process_scope: Literal["frozen", "all"] = "frozen",
     forward_claim: ForwardClaimRecord | None = None,
+    leakage_exclusion: LeakageExclusionRecord | None = None,
 ) -> ClaimScoreBoard:
     """Roll stratified evaluations up into the claim-score surface.
 
     ``cells`` is the same stratified stream the leaderboard consumes
-    (``store.iter_stratified_evaluations``), already filtered to
-    ``process_scope`` by the caller — recording the scope makes the empty
+    (``store.iter_stratified_evaluations``), so it arrives with the join's two
+    exclusions already applied — the forward-claim rule and the leakage bit,
+    whose counts the caller passes through as ``forward_claim`` and
+    ``leakage_exclusion`` so this surface and the board publish the same
+    population. It is filtered to
+    ``process_scope`` by the same caller — recording the scope makes the empty
     frozen headline self-explaining rather than reading as a regression. The
     surface's population is the **cert-stage** cells only: stages are never
     blended, so an interim or merits cell's block (the ``interim-v1`` and
@@ -262,6 +268,7 @@ def build_claim_scores(
     return ClaimScoreBoard(
         process_scope=process_scope,
         forward_claim=forward_claim,
+        leakage_exclusion=leakage_exclusion,
         # Recorded on every build, `all` scope included: it states what the
         # freeze constants were, not that the partition was applied.
         frozen_process=frozen_process_record(),

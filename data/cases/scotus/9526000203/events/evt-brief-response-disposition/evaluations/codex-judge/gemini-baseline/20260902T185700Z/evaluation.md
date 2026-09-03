@@ -1,0 +1,7 @@
+# Evaluation
+
+gemini-baseline correctly predicted an unqualified grant at 0.70, producing a Brier score of 0.09. The rationale identifies several relevant considerations: the strictly prior interim baseline, the federal applicant and emergency posture, the requested response, the lower-court injunction, timing pressure, and asserted institutional and security interests.
+
+Its analysis is materially thinner and less reliable than the other information available in the record. It calls the project a military complex, conflates the lower courts' statutory and appropriations analysis with a separation-of-powers ground, invokes border-wall deference only generally, and does not seriously test the forecast against the tailored injunction, repeated adverse rulings, or the preservation interest. Most importantly, it does not explain how those signals support the jump from 13.3% to 70%. I assign reasoning quality 0.62 based only on `reasoning.md`; the forecast document and structured claims were not scored.
+
+This is an interim cell. The segment baseline, Brier skill score, and mechanical claim scores are owned by the harness and are intentionally absent here pending stamping; `base_rate_basis` is structurally null. Votes are not scored at this stage. The genuinely forward forecast was made before resolution; its unobserved web-search result is a telemetry limitation, but the query and prose contain no outcome material, so leakage influence is not applicable.

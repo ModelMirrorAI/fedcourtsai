@@ -13,10 +13,14 @@ rather than retyped here — a copy would drift exactly as the workflow does —
 selector inputs are filled with representative values, and the command is
 executed against the offline fixture corpus. What they prove is *parity*, not a
 pass's behaviour: every flag the workflow passes still exists and still parses.
-One test goes a step further, because the qp pass's convergence gate couples to
-the CLI's *output wording* rather than its argv: it replays the step's own
-invocations over a purpose-seeded corpus and asserts the workflow's grepped
-literal against the converged summary — the one seam argv parity cannot see.
+Two tests go a step further, where a pass couples to something argv parity
+cannot see. The qp pass's convergence gate couples to the CLI's *output
+wording*: that test replays the step's own invocations over a purpose-seeded
+corpus and asserts the workflow's grepped literal against the converged summary.
+The OCR pass's slice deadline couples to a *number in the same step* — it is the
+step's `timeout-minutes` less what the step must still do once the pass stops
+taking work — and nothing at runtime holds the two together, so that test reads
+both out of the YAML and asserts the difference.
 The passes' own semantics are pinned at their unit seams
 (`tests/test_dedupe.py`, `tests/test_distribution_rederive.py`,
 `tests/test_docket_marking_migration.py`, `tests/test_response_backfill.py`,
@@ -39,6 +43,10 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus, fixture
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline.ocr_recovery import (
+    DOCUMENT_BUDGET_SECONDS,
+    ESTIMATED_CANDIDATE_OVERHEAD_SECONDS,
+)
 from tests.conftest import seed_evaluation, seed_prediction
 from tests.test_documents import _seed_qp_backfill_corpus
 from tests.workflow_argv import command_argv, expand, logical_lines, shell_arrays
@@ -363,6 +371,45 @@ def test_the_regrade_cell_grammar_admits_this_tests_subject() -> None:
     assert re.match(pattern, REGRADE_CELL), (
         f"{REGRADE_CELL!r} is not a cell id run-repair would accept"
     )
+
+
+#: What the OCR step holds back between the slice deadline it passes and its own
+#: `timeout-minutes`: the witness re-read, the blob push, the pointer commit, and
+#: the work a started candidate can run past the deadline. The arithmetic is
+#: stated beside the invocation; this number is the same one, here so the two
+#: halves of it cannot move apart.
+OCR_DEADLINE_RESERVE_SECONDS = 660
+
+
+def test_the_ocr_slice_deadline_keeps_its_reserve_under_the_steps_own_cap() -> None:
+    """The deadline and the step cap are one number, written in two places.
+
+    The deadline is derived from the cap — everything the step must still do
+    once the pass stops taking work has to fit in the difference — but nothing
+    couples them at runtime: raise the cap alone and the pass leaves runner
+    minutes unspent; widen the deadline alone and the kill this guard exists to
+    prevent is back, silently, on the next heavy slice.
+    """
+    (step,) = [
+        step
+        for step in _steps_for("ocr-recovery")
+        if "--deadline-seconds" in str(step.get("run", ""))
+    ]
+    cap = int(step["timeout-minutes"]) * 60
+    (argv,) = [
+        invocation
+        for invocation in command_argv(str(step["run"]), FEDCOURTS)
+        if "--deadline-seconds" in invocation
+    ]
+    deadline = float(argv[argv.index("--deadline-seconds") + 1])
+    assert deadline == cap - OCR_DEADLINE_RESERVE_SECONDS, (
+        f"the OCR slice deadline ({deadline:.0f}s) no longer leaves "
+        f"{OCR_DEADLINE_RESERVE_SECONDS}s under the step's {cap}s cap"
+    )
+    # And whatever the number is, it has to hold the most expensive candidate
+    # the pass can estimate, or the head of the class is declined every dispatch
+    # and the backlog freezes instead of draining.
+    assert deadline > ESTIMATED_CANDIDATE_OVERHEAD_SECONDS + DOCUMENT_BUDGET_SECONDS
 
 
 def test_the_regrade_dry_run_preview_names_the_argv_it_would_run() -> None:

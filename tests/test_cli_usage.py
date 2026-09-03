@@ -56,9 +56,9 @@ def test_record_predict_usage_from_explicit_tokens(
         .prediction_usage("claude-baseline", "20260624T103000Z")
     )
     usage = read_model(path, ModelUsage)
-    assert usage.model == "claude-fable-5"  # engine default applied
+    assert usage.model == "claude-fable-5-1"  # engine default applied
     assert usage.input_tokens == 150_000
-    # 150K fresh input + 8K output at claude-fable-5's $10/$50 = $1.90.
+    # 150K fresh input + 8K output at claude-fable-5-1's $10/$50 = $1.90.
     assert usage.estimated_cost_usd == pytest.approx(1.90)
     # created_at was derived from the run id timestamp.
     assert usage.created_at.isoformat() == "2026-06-24T10:30:00+00:00"

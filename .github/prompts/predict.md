@@ -21,7 +21,7 @@ your shell, substitute the literals from your kickoff prompt.
 | `EVENT_ID`     | The event to predict, e.g. `evt-motion-stay`        |
 | `PREDICTOR_ID` | Your predictor id; names your output directory      |
 | `RUN_ID`       | Shared run id for this fan-out (a UTC timestamp)    |
-| `MODEL_ID`     | The model you are running as, e.g. `claude-fable-5` |
+| `MODEL_ID`     | The model you are running as, e.g. `claude-fable-5-1` |
 
 Run `uv run fedcourts paths --court "$COURT_ID" --docket "$DOCKET_ID" --event
 "$EVENT_ID" --role predictor` to see resolved paths if you are unsure. (The
@@ -322,8 +322,11 @@ resolves them against what later accrues.
 
 **Three interim cells, three moments.** `event.yaml`'s `moment` says which:
 
-- `moment: arrival` — event `evt-motion-disposition`, opened when the
-  application was docketed. The ordinary interim cell.
+- `moment: arrival` — event `evt-motion-disposition`, opened at the
+  application's **own submission entry** (`Application (…) … submitted to
+  Justice …`), and at the docketing date only where no submission entry can be
+  dated. The submission entry is never the later of the two readings, so this
+  is where your snapshot ends. The ordinary interim cell.
 - `moment: response-requested` — event
   `evt-order-response-requested-disposition`, opened when the Court or a
   Circuit Justice **asked** for a response. The strongest rung of the
@@ -569,9 +572,17 @@ was worth.
     in the cert order itself, is excluded, and the exclusion does not rest on
     the disposition label alone: the `gvr` label is a forward convention, so
     the section also excludes, label-independently, any row whose parsed
-    judgment carries its own grant's date or no date the gap could be tested
-    on (a disposition riding in the cert order carries the grant's own date —
-    `docs/decision-model.md`). Where the section publishes an `excluded`
+    judgment is **dated on or before its own grant** (a disposition riding in
+    the cert order carries the grant's own date — `docs/decision-model.md`). A
+    parsed judgment carrying **no** date cannot be gap-tested at all, so that
+    row is *not* excluded: it stays in `granted` as a visible coverage gap,
+    with only its judgment out of the parsed slice. **Read the section's counts
+    as two populations, not three nested ones**: an excluded row is counted in
+    `excluded (not in granted)` *instead of* in `granted`, so per Term those
+    two partition the pre-guard population and only `parsed` nests inside
+    `granted` — a Term whose `parsed` + `excluded` runs past its `granted` is
+    adding across the two populations, and says nothing is wrong. Where the
+    section publishes an `excluded`
     count, every parsed judgment in the pool provably postdates its grant and
     the pooled rate is the rate argued cases face — the baseline your cell's
     `brier_skill_score` **is scored against**, so treat it as the bar, not

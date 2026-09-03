@@ -17,6 +17,11 @@ than at each site.
 The job invokes this with the ambient ``GITHUB_TOKEN`` (job-scoped
 ``issues: write``), never its contents-write App token: latching needs no
 cross-workflow trigger because ``agent-feedback`` is a non-triggering label.
+
+The seam carries every issue write the pipeline makes under a non-triggering
+label, not only the latch: :func:`open_issue_once` opens the run-ops digests'
+per-issue reading surfaces from the same bounded runner and the same marker
+test, so no workflow has to grow its own find-or-create bash for them.
 """
 
 from __future__ import annotations
@@ -226,6 +231,119 @@ def post_agent_feedback(comment: str, repo: str, *, runner: GhRunner = _gh) -> s
         return f"agent feedback already on #{number}"
     runner(["gh", "issue", "comment", str(number), "--repo", repo, "--body", comment])
     return f"posted agent feedback to #{number}"
+
+
+def issue_bodies(repo: str, label: str, *, limit: int = 200, runner: GhRunner = _gh) -> list[str]:
+    """The bodies of the newest ``limit`` issues carrying ``label``, newest first.
+
+    Both states, deliberately: the digest surfaces close when read, so an open-only
+    listing would forget everything already read and re-feature it tomorrow. Newest
+    first is ``gh issue list``'s own creation order, which is what lets a caller
+    read recency off the list position rather than parsing a date out of a body.
+
+    ``limit`` is a real horizon, not a formality: a caller deriving state from
+    these bodies remembers exactly this many issues, and anything older reads as
+    if it never happened. For a once-a-day surface that is roughly half a year of
+    history, which is longer than any rotation the digest performs.
+    """
+    issues = json.loads(
+        runner(
+            [
+                "gh",
+                "issue",
+                "list",
+                "--repo",
+                repo,
+                "--label",
+                label,
+                "--state",
+                "all",
+                "--limit",
+                str(limit),
+                "--json",
+                "body",
+            ]
+        )
+        or "[]"
+    )
+    return [str(issue.get("body", "")) for issue in issues]
+
+
+def marker_head(body: str, lines: int | None) -> str:
+    """The part of ``body`` a marker test may read: its first ``lines``, or all of it.
+
+    A body whose tail is agent prose must not have that prose searched — a
+    document quoting a marker would otherwise decide control flow. ``None`` keeps
+    the whole-body search, which is right where the body is entirely
+    harness-rendered (the flag roll-up comments).
+    """
+    return body if lines is None else "\n".join(body.splitlines()[:lines])
+
+
+def open_issue_once(  # noqa: PLR0913 - the label's appearance is three of these
+    *,
+    repo: str,
+    label: str,
+    label_color: str,
+    label_description: str,
+    title: str,
+    body: str,
+    marker: str,
+    marker_lines: int | None = None,
+    runner: GhRunner = _gh,
+) -> str:
+    """Open a **fresh** issue under a non-triggering label, once per ``marker``.
+
+    The digests' counterpart to :func:`post_agent_feedback`, which latches onto
+    one long-lived issue instead: a digest is a thing to read and close, so each
+    one gets its own issue and the open ones are the unread backlog. The label is
+    created idempotently first, so the first ever run does not fail on a missing
+    label, and the marker check makes a re-run of the same day's schedule a
+    no-op rather than a second copy — the same substring test
+    :func:`already_posted` applies to comments.
+
+    ``marker_lines`` bounds that test to each prior body's leading lines
+    (:func:`marker_head`). A caller whose bodies inline agent prose passes it, so
+    the guard does not depend on the renderer having escaped every field it
+    inlines; ``None`` searches the whole body.
+
+    ``label`` must never be a ``run:*`` trigger: creating an issue under one
+    would start a spending run from a reporting job.
+    """
+    runner(
+        [
+            "gh",
+            "label",
+            "create",
+            label,
+            "--repo",
+            repo,
+            "--force",
+            "--color",
+            label_color,
+            "--description",
+            label_description,
+        ]
+    )
+    prior = [marker_head(body, marker_lines) for body in issue_bodies(repo, label, runner=runner)]
+    if already_posted(prior, marker):
+        return f"digest already posted under `{label}` ({marker})"
+    url = runner(
+        [
+            "gh",
+            "issue",
+            "create",
+            "--repo",
+            repo,
+            "--title",
+            title,
+            "--label",
+            label,
+            "--body",
+            body,
+        ]
+    ).strip()
+    return f"opened {url or f'a `{label}` issue'}"
 
 
 def post_once(

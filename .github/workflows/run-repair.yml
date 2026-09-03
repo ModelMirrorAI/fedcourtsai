@@ -310,7 +310,8 @@ jobs:
     # the trailing verdict inside the remainder. A hit here cancels the run,
     # which no failure handling absorbs; kept under the App token's 1h life so
     # one token covers the whole run, which is why the pass's cap is what gives
-    # when this arithmetic tightens.
+    # when this arithmetic tightens — and the OCR slice deadline is derived from
+    # that 30-minute step cap, so it moves with it.
     timeout-minutes: 55
     environment: prod
     # Corpus-split flags (see run-pull): dual-write off unless CASESTORE_URL is
@@ -909,7 +910,10 @@ jobs:
       #
       # The bound is a slice size rather than a refusal threshold — each case
       # costs a fetch and a page-by-page recognition, and runner minutes are the
-      # whole cost — so a backlog clears across dispatches. It reads and writes
+      # whole cost — so a backlog clears across dispatches. It is the *spend*
+      # cap; what holds the pass inside this step's wall clock is the slice
+      # deadline the apply below is given, which stops the pass taking new
+      # candidates while the writes and the witness still fit. It reads and writes
       # documents, which under the corpus split live in the content store rather
       # than the blob, so the pointer commit cannot witness the write: the
       # post-apply re-read below is what does, and it must find exactly the
@@ -918,9 +922,12 @@ jobs:
         if: ${{ inputs.repair == 'ocr-recovery' && steps.dedupe-live-rows.outcome == 'success' }}
         # Two full-population content-store walks on an apply — the pass's own,
         # and the witness re-read — plus the slice, which is the expensive half:
-        # rendering and recognizing a page is around five seconds, so a 60-page
-        # petition is five minutes of it. `repair_bound` is what sizes that
-        # half, and a slice of about five is what a dispatch fits here. The cap
+        # rendering and recognizing a page costs a couple of seconds, so a
+        # 60-page petition is two or three minutes of it. What sizes that half
+        # is the slice deadline below, not `repair_bound`: page counts across
+        # the class vary several-fold, so no fixed number of cases is both safe
+        # against this cap and worth dispatching. This cap is the backstop
+        # behind that deadline rather than the thing a heavy slice hits. It
         # stays inside the job's so one App token still covers the whole run.
         timeout-minutes: 30
         env:
@@ -971,8 +978,56 @@ jobs:
           # once the untruncated recovery list runs past a pipe buffer. stderr
           # still reaches the step log, and the file is tee'd into the summary
           # after, so the reader loses nothing.
+          #
+          # The slice's wall clock, measured from the moment the command starts
+          # so its own population walk is charged to it. The step has 30 minutes
+          # (1800 s) and everything below still has to land inside them, so the
+          # pass gets what is left after that tail is reserved:
+          #
+          #   witness re-read     300 s  one full-population content-store walk,
+          #                              which measures 133-162 s and grows with
+          #                              the population — reserved at roughly
+          #                              twice the largest observed
+          #   corpus-push          60 s  the blob comes back byte-identical on
+          #                              this pass, so the push is seconds;
+          #                              reserved for one that is not
+          #   commit + push        60 s  the pointer commit and its retrying
+          #                              push, reached only where the index
+          #                              itself moved
+          #   overshoot           240 s  the deadline is the last moment work may
+          #                              BEGIN, and a started candidate can end
+          #                              after it: the document budget is checked
+          #                              between pages, so the page already
+          #                              running when it fires still costs a
+          #                              render and a recognition at their own
+          #                              120 s ceilings, and a re-fetch that
+          #                              times out and takes the client's one
+          #                              retry costs a further minute or so over
+          #                              what the estimate charges for it. About
+          #                              335 s together, against this row plus
+          #                              the walk reserve's own slack over the
+          #                              133-162 s it measures
+          #   ------------------------
+          #   reserve             660 s  →  1800 - 660 = 1140
+          #
+          # A candidate is admitted only where what is left holds its whole
+          # estimate, and no candidate estimates above the per-document
+          # recognition budget plus the fixed per-case overhead (630 s), so even
+          # against the walk's full reserve 1140 still admits the most expensive
+          # filing the class can hold (1140 - 300 = 840): the head of the class
+          # cannot be starved by the deadline. Candidates it declines are
+          # reported unreached — untouched, still in the class, and first next
+          # dispatch.
+          #
+          # Two things this arithmetic does not cover, both of which the step's
+          # own cap is the backstop for: a renderer or recognizer wedging on
+          # every page of a document rather than one (a broken runner image, not
+          # a heavy slice), and a stored page count that understates the filing
+          # now served at that URL. Keeping those cases on the timeout, and the
+          # heavy slice off it, is the point of the deadline.
           uv run fedcourts ocr-recover-petitions --apply \
-            --max-cases "${REPAIR_BOUND}" > /tmp/ocr-apply.txt
+            --max-cases "${REPAIR_BOUND}" \
+            --deadline-seconds 1140 > /tmp/ocr-apply.txt
           tee -a "$GITHUB_STEP_SUMMARY" < /tmp/ocr-apply.txt
           # The witness. The apply's ledger states the class it expects to leave
           # behind, and a re-read of the corpus must find exactly that: a
@@ -991,6 +1046,17 @@ jobs:
           }
           expected="$(ledger_field /tmp/ocr-apply.txt remaining)"
           found="$(ledger_field /tmp/ocr-verify.txt candidates)"
+          # A slice that started nothing converges, pushes nothing and exits
+          # green, which is the one shape of this pass a reader can miss: the
+          # deadline declined the head of the class, so the backlog is frozen
+          # rather than draining. It means the population walk has grown into
+          # the slice's budget, which is a sizing decision and not something a
+          # re-dispatch fixes. Said as an annotation because the ledger's own
+          # `attempted 0` sits in a summary nobody reads on a green run.
+          if [ "$(ledger_field /tmp/ocr-apply.txt attempted)" = "0" ] \
+            && [ "${expected}" != "0" ]; then
+            echo "::warning::the slice deadline started no candidate at all — ${expected} left in the class and nothing recovered. The population walk now takes most of the slice's budget; re-read the deadline arithmetic beside the invocation rather than re-dispatching."
+          fi
           if [ "${found}" != "${expected}" ]; then
             echo "::error::apply did not converge — the re-read finds ${found} scanned petition(s) where the apply's ledger left ${expected} (a content-store write may have failed; see the warnings above)"
             exit 1

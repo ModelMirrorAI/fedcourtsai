@@ -617,7 +617,12 @@ class CaseDocument(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     case_id: str
-    kind: str = Field(description="petition | brief-in-opposition | questions-presented | …")
+    kind: str = Field(
+        description="petition (the case-opening filing on a cert-form docket, "
+        "whichever writ it seeks) | application (the interim relief an "
+        "application-form docket is opened by) | brief-in-opposition | "
+        "questions-presented | …"
+    )
     url: str = Field(
         description="The supremecourt.gov DocumentUrl fetched; for a combined "
         "brief-in-opposition (multiple respondents) the '|'-joined set of fetched "

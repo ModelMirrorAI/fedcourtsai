@@ -1,19 +1,28 @@
 import json
+import re
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus, ops
+from fedcourtsai import cli, corpus, ops
+from fedcourtsai.agent_feedback import open_issue_once
 from fedcourtsai.cli import app
-from fedcourtsai.integrity import forward_claim_record
+from fedcourtsai.integrity import forward_claim_record, leakage_record
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
     AgentToolingFeedback,
+    Backtest,
+    BacktestCourtScore,
+    BacktestEntry,
     BaseRateBucket,
+    CertBacktest,
+    ClaimProbability,
+    ClaimScoreBoard,
     ConferenceBucket,
     CorpusCheck,
     CorpusValidation,
@@ -22,22 +31,38 @@ from fedcourtsai.schemas import (
     DispositionShare,
     Engine,
     Evaluation,
+    EventKind,
     FlagCategory,
     FlagSeverity,
+    FrozenProcessRecord,
     GroupBy,
+    Leaderboard,
+    LeaderboardEntry,
     LeakageAssessment,
     LedgerValidation,
     LiveFrontier,
     ModelUsage,
+    Moment,
     OpsReport,
     Outcome,
+    PredictableEvent,
     Prediction,
+    SalienceReplay,
+    Stage,
     StatPack,
     StatPackSection,
     Stratum,
     UsageRole,
 )
-from fedcourtsai.serialize import write_json
+from fedcourtsai.serialize import write_json, write_text, write_yaml
+from fedcourtsai.spend import SpendVerdict
+from fedcourtsai.store import (
+    CellCensusRow,
+    PredictedEventRef,
+    RecentCells,
+    iter_predicted_events,
+    load_predicted_event,
+)
 
 
 def _run(
@@ -1363,7 +1388,9 @@ def test_render_weekly_digest_asks_the_fixed_questions() -> None:
         ),
     )
     md = ops.render_weekly_digest(report)
-    assert "### Weekly digest" in md
+    assert md.startswith("<!-- weekly-digest: 2026-W28 -->")
+    assert "# Weekly performance digest" in md
+    assert "## Health questions" in md
     assert "Replay calibration on 1 scored cell(s)" in md and "do you believe it?" in md
     assert "Forward cells scored (frozen): 1 total, no prior snapshot to diff" in md
     assert "35 petition(s) distributed for **2026-09-29**" in md and "28/40" in md
@@ -1480,7 +1507,9 @@ def test_ops_report_writes_the_digest_and_reads_the_frontier(tmp_path: Path) -> 
     assert result.exit_code == 0, result.output
     assert "documents provisioned on **2/3**" in result.output
     body = digest_out.read_text()
-    assert "### Weekly digest" in body and "3 petition(s) distributed for **2026-09-29**" in body
+    assert body.startswith("<!-- weekly-digest: ")
+    assert "# Weekly performance digest" in body
+    assert "3 petition(s) distributed for **2026-09-29**" in body
 
 
 # --- the live-frontier snapshot CLI ------------------------------------------------
@@ -1724,3 +1753,1336 @@ def test_render_substance_names_the_forward_claim_exclusions() -> None:
 
     assert "Forward-claim integrity" not in ops.render_substance(quiet)
     assert "Forward-claim integrity: **2** cell(s)" in ops.render_substance(loud)
+
+
+# --- the daily prediction-reading digest -----------------------------------------
+
+
+def _seed_digest_cell(  # noqa: PLR0913 - a full cell is this many independent parts
+    data_root: Path,
+    court: str,
+    docket: int,
+    event_id: str,
+    *,
+    predictor_id: str,
+    run_id: str,
+    stage: Stage = Stage.cert,
+    probability: float = 0.4,
+    reasoning: str = "Because the anchor says so.",
+    predicted_reasoning: str | None = "The Court will deny.",
+    flags: AgentFlags | None = None,
+) -> None:
+    """Commit one full predict cell — event.yaml, prediction, both documents.
+
+    Richer than ``conftest.seed_prediction``, which writes the record alone: the
+    digest's whole subject is the prose beside the number, so its fixtures have
+    to carry the documents the prediction names.
+    """
+    event = CasePaths(data_root, court, docket).event(event_id)
+    write_yaml(
+        event.event_file,
+        PredictableEvent(
+            event_id=event_id,
+            case_id=f"{court}/{docket}",
+            kind=EventKind.petition,
+            stage=stage,
+            moment=Moment.distribution,
+            title=f"Case {docket}",
+        ),
+    )
+    write_json(
+        event.prediction(predictor_id, run_id),
+        Prediction(
+            case_id=f"{court}/{docket}",
+            event_id=event_id,
+            predictor_id=predictor_id,
+            engine="claude-code",
+            model="claude-fable-5",
+            run_id=run_id,
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=probability,
+            predicted_disposition=Disposition.denied,
+            claims=[ClaimProbability(claim_id="disposition", probability=probability)],
+            predicted_reasoning_doc=(
+                "predicted_reasoning.md" if predicted_reasoning is not None else None
+            ),
+        ),
+    )
+    write_text(event.reasoning(predictor_id, run_id), reasoning)
+    if predicted_reasoning is not None:
+        write_text(event.predicted_reasoning(predictor_id, run_id), predicted_reasoning)
+    if flags is not None:
+        write_json(event.prediction_flags(predictor_id, run_id), flags)
+
+
+def _digest_refs(*specs: tuple[str, str, str]) -> list[PredictedEventRef]:
+    """Selection-index rows from ``(case, event, latest run)`` triples, newest first."""
+    refs = [
+        PredictedEventRef(case_id=case, event_id=event, latest_run_id=run)
+        for case, event, run in specs
+    ]
+    refs.sort(key=lambda ref: (ref.latest_run_id, ref.case_id, ref.event_id), reverse=True)
+    return refs
+
+
+def _digest_body(ref: PredictedEventRef) -> str:
+    """A stand-in prior digest body: the marker is all the selector reads."""
+    return f"{ops.daily_digest_marker(ref.case_id, ref.event_id)}\n# read me\n"
+
+
+def test_the_digest_features_the_newest_event_nothing_has_featured() -> None:
+    # The point of the habit is to read what just landed, so recency wins over
+    # every other ordering the index could offer.
+    refs = _digest_refs(
+        ("scotus/1", "evt-petition-disposition", "20260101T000000Z"),
+        ("scotus/2", "evt-petition-disposition", "20260301T000000Z"),
+        ("scotus/3", "evt-petition-disposition", "20260201T000000Z"),
+    )
+
+    chosen = ops.select_daily_digest_event(refs, [])
+
+    assert chosen is not None
+    assert chosen.case_id == "scotus/2"
+
+
+def test_two_consecutive_digests_feature_two_different_events() -> None:
+    # The whole idempotency contract: yesterday's body is the only state, and
+    # reading it back must move the digest on rather than repeat it.
+    refs = _digest_refs(
+        ("scotus/1", "evt-petition-disposition", "20260101T000000Z"),
+        ("scotus/2", "evt-petition-disposition", "20260301T000000Z"),
+        ("scotus/3", "evt-petition-disposition", "20260201T000000Z"),
+    )
+
+    first = ops.select_daily_digest_event(refs, [])
+    assert first is not None
+    second = ops.select_daily_digest_event(refs, [_digest_body(first)])
+
+    assert second is not None
+    assert (second.case_id, second.event_id) != (first.case_id, first.event_id)
+    assert second.case_id == "scotus/3"
+
+
+def test_the_digest_rotates_rather_than_duplicating_when_nothing_is_new() -> None:
+    # Once the ledger stops growing daily every candidate is featured. Repeating
+    # the newest reading would make the digest worthless; re-reading the oldest
+    # keeps it producing something without inventing a backlog.
+    refs = _digest_refs(
+        ("scotus/1", "evt-petition-disposition", "20260101T000000Z"),
+        ("scotus/2", "evt-petition-disposition", "20260301T000000Z"),
+        ("scotus/3", "evt-petition-disposition", "20260201T000000Z"),
+    )
+    by_case = {ref.case_id: ref for ref in refs}
+    # Newest issue first, gh's own order: scotus/1 was featured longest ago.
+    prior = [_digest_body(by_case[case]) for case in ("scotus/3", "scotus/2", "scotus/1")]
+
+    chosen = ops.select_daily_digest_event(refs, prior)
+
+    assert chosen is not None
+    assert chosen.case_id == "scotus/1"
+
+
+def test_an_empty_ledger_features_nothing() -> None:
+    assert ops.select_daily_digest_event([], []) is None
+
+
+def test_the_digest_renders_a_header_and_a_section_per_predictor(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    for predictor in ("claude-baseline", "codex-baseline", "gemini-baseline"):
+        _seed_digest_cell(
+            data_root,
+            "scotus",
+            9,
+            "evt-petition-disposition",
+            predictor_id=predictor,
+            run_id="20260301T000000Z",
+            reasoning=f"{predictor} rationale.",
+            predicted_reasoning=f"{predictor} forecast of the Court.",
+        )
+    event = load_predicted_event(data_root, "scotus/9", "evt-petition-disposition")
+    assert event is not None
+
+    body = ops.render_daily_digest(
+        event, generated_at="2026-03-02T08:00:00Z", repo="owner/name", ref="main"
+    )
+
+    assert body.startswith("<!-- daily-digest-event: scotus/9/evt-petition-disposition -->")
+    for predictor in ("claude-baseline", "codex-baseline", "gemini-baseline"):
+        assert ops.daily_digest_cell_heading(predictor, "20260301T000000Z") in body
+        assert f"{predictor} rationale." in body
+        assert f"{predictor} forecast of the Court." in body
+    # Header facts a reader needs before the prose means anything.
+    assert "kind `petition`, stage `cert`, moment `distribution`" in body
+    assert "https://github.com/owner/name/blob/main/" in body
+
+
+def test_the_digest_labels_the_probability_by_stage_not_by_disposition(tmp_path: Path) -> None:
+    # `probability` is P(granted) on cert and interim, P(disturbed) on merits —
+    # never P(the predicted disposition). Captioning it with the disposition
+    # would render a confident deny as "P(denied) = 0.05", the number inverted
+    # by its own caption.
+    data_root = tmp_path / "data"
+    _seed_digest_cell(
+        data_root,
+        "scotus",
+        1,
+        "evt-petition-disposition",
+        predictor_id="claude-baseline",
+        run_id="20260301T000000Z",
+        probability=0.05,
+    )
+    _seed_digest_cell(
+        data_root,
+        "scotus",
+        2,
+        "evt-brief-judgment",
+        predictor_id="claude-baseline",
+        run_id="20260301T000000Z",
+        stage=Stage.merits,
+        probability=0.05,
+    )
+    cert = load_predicted_event(data_root, "scotus/1", "evt-petition-disposition")
+    merits = load_predicted_event(data_root, "scotus/2", "evt-brief-judgment")
+    assert cert is not None
+    assert merits is not None
+
+    cert_body = ops.render_daily_digest(cert, generated_at="2026-03-02T08:00:00Z")
+    merits_body = ops.render_daily_digest(merits, generated_at="2026-03-02T08:00:00Z")
+
+    assert "**P(granted) = 0.05** · predicted disposition `denied`" in cert_body
+    assert "**P(disturbed) = 0.05** · predicted disposition `denied`" in merits_body
+
+
+def test_the_digest_truncates_a_long_document_and_links_the_file(tmp_path: Path) -> None:
+    # A cut-off argument must never read as the whole of one, so a truncated
+    # document says so and carries the link to the committed text.
+    data_root = tmp_path / "data"
+    _seed_digest_cell(
+        data_root,
+        "scotus",
+        1,
+        "evt-petition-disposition",
+        predictor_id="claude-baseline",
+        run_id="20260301T000000Z",
+        reasoning="x" * 40_000,
+    )
+    event = load_predicted_event(data_root, "scotus/1", "evt-petition-disposition")
+    assert event is not None
+
+    body = ops.render_daily_digest(
+        event, generated_at="2026-03-02T08:00:00Z", repo="owner/name", ref="main"
+    )
+
+    assert "truncated at 6,000 characters" in body
+    assert "the full `reasoning.md` is in" in body
+    assert len(body) < 20_000
+
+
+def test_the_digest_body_is_clamped_under_the_issue_size_limit(tmp_path: Path) -> None:
+    # GitHub refuses an over-long body with a 422 rather than truncating it, so a
+    # digest of an event that accumulated many predictors must lose its tail
+    # rather than lose the whole reading surface.
+    data_root = tmp_path / "data"
+    for index in range(40):
+        _seed_digest_cell(
+            data_root,
+            "scotus",
+            1,
+            "evt-petition-disposition",
+            predictor_id=f"p{index:02d}-baseline",
+            run_id="20260301T000000Z",
+            reasoning="y" * 5_000,
+            predicted_reasoning="z" * 5_000,
+        )
+    event = load_predicted_event(data_root, "scotus/1", "evt-petition-disposition")
+    assert event is not None
+
+    body = ops.render_daily_digest(event, generated_at="2026-03-02T08:00:00Z")
+
+    assert len(body) <= 60_000
+    assert body.endswith("the committed artifacts carry the rest._\n")
+    # The marker survives the clamp: it is the first line, so a clamped digest is
+    # still recognized as having featured its event.
+    assert body.startswith("<!-- daily-digest-event: scotus/1/evt-petition-disposition -->")
+
+
+def test_daily_digest_cli_writes_a_bounded_body_and_a_title(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    for predictor in ("claude-baseline", "codex-baseline"):
+        _seed_digest_cell(
+            data_root,
+            "scotus",
+            7,
+            "evt-petition-disposition",
+            predictor_id=predictor,
+            run_id="20260301T000000Z",
+        )
+    out = tmp_path / "digest.md"
+    title_out = tmp_path / "title.txt"
+
+    result = runner.invoke(
+        app,
+        [
+            "daily-digest",
+            "--repo",
+            "owner/name",
+            "--out",
+            str(out),
+            "--title-out",
+            str(title_out),
+            "--generated-at",
+            "2026-03-02T08:00:00Z",
+        ],
+        env=_ops_env(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    body = out.read_text()
+    assert body.startswith("<!-- daily-digest-event: scotus/7/evt-petition-disposition -->")
+    for predictor in ("claude-baseline", "codex-baseline"):
+        assert ops.daily_digest_cell_heading(predictor, "20260301T000000Z") in body
+    assert len(body) <= 60_000
+    assert title_out.read_text().startswith("Daily digest: Case 7 (scotus/7 ")
+
+
+def test_daily_digest_cli_reads_prior_bodies_and_moves_on(tmp_path: Path) -> None:
+    # The workflow-facing contract in file form: yesterday's issue body in,
+    # today's different event out — no state store between the two runs.
+    data_root = tmp_path / "data"
+    for docket, run in ((1, "20260101T000000Z"), (2, "20260301T000000Z")):
+        _seed_digest_cell(
+            data_root,
+            "scotus",
+            docket,
+            "evt-petition-disposition",
+            predictor_id="claude-baseline",
+            run_id=run,
+        )
+    first = tmp_path / "day1.md"
+    args = ["daily-digest", "--out", str(first), "--generated-at", "2026-03-02T08:00:00Z"]
+    assert runner.invoke(app, args, env=_ops_env(tmp_path)).exit_code == 0
+    prior = tmp_path / "prior.json"
+    prior.write_text(json.dumps([{"body": first.read_text()}]))
+    second = tmp_path / "day2.md"
+
+    result = runner.invoke(
+        app,
+        [
+            "daily-digest",
+            "--prior-issues",
+            str(prior),
+            "--out",
+            str(second),
+            "--generated-at",
+            "2026-03-03T08:00:00Z",
+        ],
+        env=_ops_env(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "scotus/2/evt-petition-disposition" in first.read_text().splitlines()[0]
+    assert "scotus/1/evt-petition-disposition" in second.read_text().splitlines()[0]
+
+
+def test_daily_digest_cli_says_so_when_there_is_nothing_to_feature(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app, ["daily-digest", "--out", str(tmp_path / "digest.md")], env=_ops_env(tmp_path)
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "nothing to feature" in result.output
+    assert not (tmp_path / "digest.md").exists()
+
+
+def test_daily_digest_over_the_committed_ledger_is_bounded_and_complete() -> None:
+    # The acceptance dry-run, against the repo's own `data/`: a real event, one
+    # section per committed predictor cell, inside the body limit. Asserted
+    # structurally rather than against a fixed case, because which event is
+    # newest moves with every data run.
+    ledger = Path("data")
+    if not (ledger / "cases").exists():  # pragma: no cover - the ledger is committed
+        pytest.skip("no committed ledger in this checkout")
+    refs = iter_predicted_events(ledger)
+    chosen = ops.select_daily_digest_event(refs, [])
+    assert chosen is not None
+    event = load_predicted_event(ledger, chosen.case_id, chosen.event_id)
+    assert event is not None
+
+    body = ops.render_daily_digest(
+        event, generated_at="2026-03-02T08:00:00Z", repo="ModelMirrorAI/fedcourtsai"
+    )
+
+    assert body.startswith(ops.daily_digest_marker(chosen.case_id, chosen.event_id))
+    # Counting `## ` headings would identify nothing: the prose a section
+    # carries is agent-written and routinely spells its own headings, so the
+    # assertion asks for each cell's own heading instead.
+    for cell in event.cells:
+        heading = ops.daily_digest_cell_heading(
+            cell.prediction.predictor_id, cell.prediction.run_id
+        )
+        assert heading in body
+    assert len(event.cells) >= 1
+    assert 1_000 < len(body) <= 60_000
+
+
+class _FakeDigestGh:
+    """A :data:`GhRunner` whose ``issue list --json body`` returns canned bodies.
+
+    Local to the digest tests because what they exercise is the *composition* of
+    selection and posting — the seam's own contract is asserted in
+    ``tests/test_agent_feedback.py``.
+    """
+
+    def __init__(self, *, bodies: list[str], create_url: str = "") -> None:
+        self._bodies = bodies
+        self._create_url = create_url
+        self.calls: list[list[str]] = []
+
+    def __call__(self, argv: Sequence[str]) -> str:
+        self.calls.append(list(argv))
+        verb = tuple(argv[1:3])
+        if verb == ("issue", "list"):
+            return json.dumps([{"body": body} for body in self._bodies])
+        if verb == ("issue", "create"):
+            return self._create_url + "\n"
+        return ""  # label create
+
+    def created_issue(self) -> bool:
+        return any(tuple(c[1:3]) == ("issue", "create") for c in self.calls)
+
+
+def _prior_digest(case: str, day: str) -> str:
+    """A prior digest body: both markers, then prose."""
+    return (
+        f"{ops.daily_digest_marker(case, 'evt-petition-disposition')}\n"
+        f"{ops.daily_digest_day_marker(day)}\n# read me\n"
+    )
+
+
+def test_the_digest_body_carries_both_markers_in_its_leading_lines(tmp_path: Path) -> None:
+    # The two markers answer different questions — which event was featured, and
+    # which day this issue is — and both have to be where the readers look.
+    data_root = tmp_path / "data"
+    _seed_digest_cell(
+        data_root,
+        "scotus",
+        1,
+        "evt-petition-disposition",
+        predictor_id="claude-baseline",
+        run_id="20260301T000000Z",
+    )
+    event = load_predicted_event(data_root, "scotus/1", "evt-petition-disposition")
+    assert event is not None
+
+    body = ops.render_daily_digest(event, generated_at="2026-03-02T08:00:00Z")
+
+    lines = body.splitlines()
+    assert lines[0] == ops.daily_digest_marker("scotus/1", "evt-petition-disposition")
+    assert lines[1] == ops.daily_digest_day_marker("2026-03-02T08:00:00Z")
+    assert ops.daily_digest_day_marker("2026-03-02T08:00:00Z") == (
+        "<!-- daily-digest-day: 2026-03-02 -->"
+    )
+
+
+def test_a_marker_quoted_in_agent_prose_cannot_retire_an_event(tmp_path: Path) -> None:
+    # The prose a digest inlines is written by agents that read docket text and,
+    # on a forward cell, the open web. A whole-body marker test would let one of
+    # them quote another event's marker and take that event out of the reading
+    # queue for good, silently.
+    data_root = tmp_path / "data"
+    victim = ops.daily_digest_marker("scotus/2", "evt-petition-disposition")
+    _seed_digest_cell(
+        data_root,
+        "scotus",
+        1,
+        "evt-petition-disposition",
+        predictor_id="claude-baseline",
+        run_id="20260301T000000Z",
+        reasoning=f"The docket says {victim} which is not a marker.",
+    )
+    event = load_predicted_event(data_root, "scotus/1", "evt-petition-disposition")
+    assert event is not None
+    body = ops.render_daily_digest(event, generated_at="2026-03-02T08:00:00Z")
+    refs = _digest_refs(
+        ("scotus/1", "evt-petition-disposition", "20260301T000000Z"),
+        ("scotus/2", "evt-petition-disposition", "20260201T000000Z"),
+    )
+
+    chosen = ops.select_daily_digest_event(refs, [body])
+
+    # scotus/2 is still unfeatured, so it is what tomorrow reads.
+    assert chosen is not None
+    assert chosen.case_id == "scotus/2"
+    # And the quoted marker is shown as written rather than acting as one.
+    assert "&lt;!-- daily-digest-event: scotus/2/evt-petition-disposition -->" in body
+
+
+def test_a_rotated_re_read_actually_opens_an_issue() -> None:
+    # The two halves composed, because separately they were both right and
+    # together they were not: guarded on the event marker the create would find
+    # the rotated event's own past issue and post nothing, so the rotation would
+    # be dead on the one path it exists for.
+    refs = _digest_refs(
+        ("scotus/1", "evt-petition-disposition", "20260101T000000Z"),
+        ("scotus/2", "evt-petition-disposition", "20260201T000000Z"),
+    )
+    prior = [_prior_digest("scotus/2", "2026-03-02"), _prior_digest("scotus/1", "2026-03-01")]
+    chosen = ops.select_daily_digest_event(refs, prior)
+    assert chosen is not None
+    assert chosen.case_id == "scotus/1"  # the rotation branch
+
+    gh = _FakeDigestGh(bodies=prior, create_url="https://github.com/o/r/issues/9")
+    status = open_issue_once(
+        repo="o/r",
+        label=ops.DAILY_DIGEST_LABEL,
+        label_color="1d76db",
+        label_description="d",
+        title="Daily digest",
+        body="body",
+        marker=ops.daily_digest_day_marker("2026-03-03T08:00:00Z"),
+        runner=gh,
+    )
+
+    assert status == "opened https://github.com/o/r/issues/9"
+    assert gh.created_issue()
+
+
+def test_a_second_run_on_a_day_already_digested_posts_nothing() -> None:
+    # The other half of the same guard: the create is idempotent per day, so a
+    # re-dispatch of the schedule adds no second issue.
+    gh = _FakeDigestGh(bodies=[_prior_digest("scotus/1", "2026-03-03")])
+
+    status = open_issue_once(
+        repo="o/r",
+        label=ops.DAILY_DIGEST_LABEL,
+        label_color="1d76db",
+        label_description="d",
+        title="Daily digest",
+        body="body",
+        marker=ops.daily_digest_day_marker("2026-03-03T20:00:00Z"),
+        runner=gh,
+    )
+
+    assert status.startswith("digest already posted")
+    assert not gh.created_issue()
+
+
+def test_daily_digest_cli_post_opens_one_issue_with_the_day_marker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The CLI's own wiring: --post reaches the opener with the day marker and the
+    # rendered title, and reads the prior bodies through the gh seam.
+    data_root = tmp_path / "data"
+    _seed_digest_cell(
+        data_root,
+        "scotus",
+        3,
+        "evt-petition-disposition",
+        predictor_id="claude-baseline",
+        run_id="20260301T000000Z",
+    )
+    seen: dict[str, object] = {}
+
+    def fake_open(**kwargs: object) -> str:
+        seen.update(kwargs)
+        return "opened https://github.com/o/r/issues/1"
+
+    monkeypatch.setattr(cli, "issue_bodies", lambda *args, **kwargs: [])
+    monkeypatch.setattr(cli, "open_issue_once", fake_open)
+
+    result = runner.invoke(
+        app,
+        [
+            "daily-digest",
+            "--repo",
+            "o/r",
+            "--post",
+            "--out",
+            str(tmp_path / "digest.md"),
+            "--generated-at",
+            "2026-03-02T08:00:00Z",
+        ],
+        env=_ops_env(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert seen["marker"] == "<!-- daily-digest-day: 2026-03-02 -->"
+    assert seen["label"] == ops.DAILY_DIGEST_LABEL
+    assert str(seen["title"]).startswith("Daily digest: Case 3")
+    assert str(seen["body"]).startswith("<!-- daily-digest-event: scotus/3/")
+
+
+def test_daily_digest_cli_post_needs_a_repo(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _seed_digest_cell(
+        data_root,
+        "scotus",
+        3,
+        "evt-petition-disposition",
+        predictor_id="claude-baseline",
+        run_id="20260301T000000Z",
+    )
+
+    result = runner.invoke(app, ["daily-digest", "--post"], env=_ops_env(tmp_path))
+
+    assert result.exit_code == 2
+    assert "--post needs --repo" in result.output
+
+
+def test_the_digest_reads_a_null_stage_petition_as_cert(tmp_path: Path) -> None:
+    # Most committed petition events record no stage at all. Declining to
+    # normalize would caption the digest's headline number — the one figure it
+    # exists to make readable — as an unnamed binary on the bulk of the ledger.
+    data_root = tmp_path / "data"
+    event_paths = CasePaths(data_root, "scotus", 5).event("evt-petition-disposition")
+    _seed_digest_cell(
+        data_root,
+        "scotus",
+        5,
+        "evt-petition-disposition",
+        predictor_id="claude-baseline",
+        run_id="20260301T000000Z",
+        probability=0.12,
+    )
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id="evt-petition-disposition",
+            case_id="scotus/5",
+            kind=EventKind.petition,
+            stage=None,
+            title="Case 5",
+        ),
+    )
+    event = load_predicted_event(data_root, "scotus/5", "evt-petition-disposition")
+    assert event is not None
+
+    body = ops.render_daily_digest(event, generated_at="2026-03-02T08:00:00Z")
+
+    assert "**P(granted) = 0.12**" in body
+    assert "no stage recorded" not in body
+
+
+def test_the_digest_defuses_every_field_it_did_not_write(tmp_path: Path) -> None:
+    # The defusing runs once over everything below the marker block, so a field
+    # nobody thought of — a claim id, the corpus's own case caption — cannot
+    # carry a marker into the body and suppress a later digest.
+    data_root = tmp_path / "data"
+    forged = ops.daily_digest_day_marker("2026-03-03")
+    event_paths = CasePaths(data_root, "scotus", 6).event("evt-petition-disposition")
+    _seed_digest_cell(
+        data_root,
+        "scotus",
+        6,
+        "evt-petition-disposition",
+        predictor_id="claude-baseline",
+        run_id="20260301T000000Z",
+    )
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id="evt-petition-disposition",
+            case_id="scotus/6",
+            kind=EventKind.petition,
+            stage=Stage.cert,
+            title=f"A case captioned {forged}",
+        ),
+    )
+    event = load_predicted_event(data_root, "scotus/6", "evt-petition-disposition")
+    assert event is not None
+
+    body = ops.render_daily_digest(event, generated_at="2026-03-02T08:00:00Z")
+
+    assert forged not in body
+    assert forged.replace("<!--", "&lt;!--") in body
+    assert forged not in ops.daily_digest_title(event)
+
+
+def test_a_marker_below_the_block_does_not_block_the_next_create() -> None:
+    # The create guard reads the same leading block the selection does, so even
+    # an un-defused marker deeper in a body cannot suppress tomorrow's digest.
+    body = _prior_digest("scotus/1", "2026-03-02")
+    body += f"\nThe filing quotes {ops.daily_digest_day_marker('2026-03-03')} verbatim.\n"
+    gh = _FakeDigestGh(bodies=[body], create_url="https://github.com/o/r/issues/4")
+
+    status = open_issue_once(
+        repo="o/r",
+        label=ops.DAILY_DIGEST_LABEL,
+        label_color="1d76db",
+        label_description="d",
+        title="t",
+        body="b",
+        marker=ops.daily_digest_day_marker("2026-03-03T08:00:00Z"),
+        marker_lines=ops.DAILY_DIGEST_MARKER_LINES,
+        runner=gh,
+    )
+
+    assert status == "opened https://github.com/o/r/issues/4"
+    assert gh.created_issue()
+
+
+def test_daily_digest_cli_writes_no_body_when_the_day_is_already_digested(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Selection runs before the day guard, so a second run of an already-digested
+    # day renders the *next* event. Writing that body would put an unpublished
+    # digest into the caller's step summary as if it had been featured.
+    data_root = tmp_path / "data"
+    _seed_digest_cell(
+        data_root,
+        "scotus",
+        8,
+        "evt-petition-disposition",
+        predictor_id="claude-baseline",
+        run_id="20260301T000000Z",
+    )
+    monkeypatch.setattr(cli, "issue_bodies", lambda *args, **kwargs: [])
+    monkeypatch.setattr(cli, "open_issue_once", lambda **kwargs: "digest already posted under `x`")
+    out = tmp_path / "digest.md"
+
+    result = runner.invoke(
+        app,
+        ["daily-digest", "--repo", "o/r", "--post", "--out", str(out)],
+        env=_ops_env(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert not out.exists()
+
+
+def test_daily_digest_cli_refuses_an_unreadable_prior_issues_file(tmp_path: Path) -> None:
+    # Falling back to "nothing featured" would silently re-feature the newest
+    # event, which is the one failure the stateless design cannot notice.
+    bad = tmp_path / "prior.json"
+    bad.write_text("{not json")
+
+    result = runner.invoke(
+        app, ["daily-digest", "--prior-issues", str(bad)], env=_ops_env(tmp_path)
+    )
+
+    assert result.exit_code == 2
+    # Under FORCE_COLOR the usage error renders in a wrapped rich panel, so the
+    # flag name can be split across styled lines: strip the escapes and the
+    # panel frame, collapse whitespace, then look for it.
+    plain = re.sub(r"\x1b\[[0-9;]*m|[│╭╰─╮╯]|\s+", "", result.output)
+    assert "--prior-issues" in plain
+
+
+# --- the weekly performance digest's three substantive sections -------------------
+
+
+def _empty_report(generated_at: str = "2026-09-02T08:30:00+00:00") -> OpsReport:
+    return ops.build_ops_report(generated_at=generated_at, runs=[], usage=[])
+
+
+def _analytics(
+    *,
+    leaderboard: Leaderboard | None = None,
+    claim_scores: ClaimScoreBoard | None = None,
+    statpack: StatPack | None = None,
+    backtest: Backtest | None = None,
+    salience_replay: SalienceReplay | None = None,
+    cert_backtest: CertBacktest | None = None,
+    vintage: str | None = "2026-08-29",
+    in_force: str = "sal-v4",
+) -> ops.WeeklyAnalytics:
+    """A `WeeklyAnalytics` whose every artifact carries the same stated vintage."""
+    return ops.WeeklyAnalytics(
+        leaderboard=ops.Vintaged(leaderboard, vintage),
+        claim_scores=ops.Vintaged(claim_scores, vintage),
+        statpack=ops.Vintaged(statpack, vintage),
+        backtest=ops.Vintaged(backtest, vintage),
+        salience_replay=ops.Vintaged(salience_replay, vintage),
+        cert_backtest=ops.Vintaged(cert_backtest, vintage),
+        salience_version_in_force=in_force,
+    )
+
+
+def _production(
+    rows: list[CellCensusRow] | None = None,
+    *,
+    cells: int = 29,
+    events: int = 10,
+    spend: float = 60.69,
+    backstop: SpendVerdict | None = None,
+) -> ops.WeeklyProduction:
+    return ops.WeeklyProduction(
+        census=RecentCells(
+            rows=rows if rows is not None else [CellCensusRow("predictor", "cert", 29)],
+            cells=cells,
+            events=events,
+            window_days=7,
+        ),
+        spend_usd=spend,
+        backstop=backstop,
+    )
+
+
+def test_the_weekly_digest_explains_an_empty_leaderboard_rather_than_showing_a_zero() -> None:
+    # An empty frozen board is the registered shakedown state, not a regression.
+    # A bare "0 predictors ranked" reads as the latter, which is exactly the
+    # misreading metrics/README.md warns about.
+    board = Leaderboard(
+        process_scope="frozen",
+        predictors_ranked=0,
+        evaluations_total=0,
+        events_scored=0,
+        frozen_process=FrozenProcessRecord(
+            since=datetime(2026, 8, 1, tzinfo=UTC), digests=["sha256:abc"]
+        ),
+    )
+
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
+
+    assert "**no predictor ranked**" in md
+    assert "no stamped grading has reached the ranked population" in md
+    assert "the frozen counting window opened 2026-08-01" in md
+    assert "`--all-versions` is where the shakedown pool shows" in md
+    assert "`metrics/leaderboard.json`, vintage 2026-08-29" in md
+
+
+def test_the_weekly_digest_distinguishes_an_absent_board_from_an_empty_one() -> None:
+    # "Never landed" and "landed and empty" are different facts about the
+    # pipeline, and only one of them is a reason to look at the refresh.
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics())
+
+    assert "**Leaderboard**: `metrics/leaderboard.json` has never landed." in md
+    assert "**no predictor ranked**" not in md
+    # An artifact that never landed carries no vintage: there is no commit to
+    # date, and printing "vintage unknown" beside it would suggest there is.
+    assert "leaderboard.json`, vintage" not in md
+
+
+def test_the_weekly_digest_carries_a_vintage_beside_every_metrics_figure() -> None:
+    # A board is byte-stable and a statpack moves only when the corpus does, so a
+    # figure without its vintage silently claims to be this week's.
+    md = ops.render_weekly_digest(
+        _empty_report(),
+        analytics=_analytics(
+            leaderboard=Leaderboard(
+                process_scope="frozen", predictors_ranked=0, evaluations_total=0, events_scored=0
+            ),
+            claim_scores=ClaimScoreBoard(
+                process_scope="frozen", evaluations_total=0, cells_with_claims=0
+            ),
+            statpack=_statpack_with_cert_section(denied=95, granted=5),
+            backtest=Backtest(predictors_evaluated=0, events_scored=0),
+            salience_replay=SalienceReplay(salience_version="sal-v4", cells_evaluated=0),
+        ),
+    )
+
+    for artifact in (
+        "leaderboard.json",
+        "claim-scores.json",
+        "statpack.json",
+        "backtest.json",
+        "salience-replay.json",
+    ):
+        assert f"`metrics/{artifact}`, vintage 2026-08-29" in md
+
+
+def test_the_weekly_digest_says_when_a_vintage_is_unknown() -> None:
+    # Omitting it would leave the number reading as current; saying "unknown"
+    # tells the reader its age is unestablished.
+    md = ops.render_weekly_digest(
+        _empty_report(),
+        analytics=_analytics(
+            statpack=_statpack_with_cert_section(denied=95, granted=5), vintage=None
+        ),
+    )
+
+    assert "`metrics/statpack.json`, vintage unknown" in md
+
+
+def test_the_weekly_digest_reports_the_missing_cert_backtest_honestly() -> None:
+    # `metrics/cert-backtest.json` has never landed and is off the scheduled
+    # refresh, so the line has to say so — never a stale number as current, and
+    # never a silently absent section either.
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics())
+
+    assert "**Cert back-test**: **no report has landed yet.**" in md
+    assert "there is no number here to be stale" in md
+
+
+def test_the_weekly_digest_names_the_scorer_a_replay_was_produced_under() -> None:
+    # A per-band figure means something only under the function that assigned the
+    # band, so a replay from an older scorer is history, not a current reading.
+    replay = SalienceReplay(
+        salience_version="sal-v1",
+        salience_versions=["sal-v1"],
+        terms=[2022, 2023],
+        policies=["arrival"],
+        cells_evaluated=6,
+    )
+
+    stale = ops.render_weekly_digest(
+        _empty_report(), analytics=_analytics(salience_replay=replay, in_force="sal-v4")
+    )
+    current = ops.render_weekly_digest(
+        _empty_report(), analytics=_analytics(salience_replay=replay, in_force="sal-v1")
+    )
+
+    assert "produced under `sal-v1` while **`sal-v4`** is the scorer in force" in stale
+    assert "not a current reading of the gate" in stale
+    assert "is the scorer in force" not in current
+
+
+def test_the_weekly_digest_reports_the_backtest_floor_beside_its_accuracy() -> None:
+    # Raw accuracy is close to meaningless alone under cert's denial skew: a
+    # constant predictor scores its slice's base rate exactly.
+    board = Backtest(
+        predictors_evaluated=1,
+        events_scored=28_409,
+        entries=[
+            BacktestEntry(
+                rank=1,
+                predictor_id="prior-vote",
+                events_scored=28_409,
+                accuracy=0.6382,
+                granted_accuracy=0.8897,
+                mean_brier_score=0.0985,
+                always_denied_accuracy=0.6374,
+                lift_over_always_denied=0.0008,
+            )
+        ],
+    )
+
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(backtest=board))
+
+    assert "| prior-vote | _all courts pooled_ | 28,409 | 63.8% | 63.7% | +0.08% | 0.0985 |" in md
+    assert "Read a lift only against its own court's floor" in md
+
+
+def test_the_weekly_digest_counts_the_weeks_cells_by_role_and_stage() -> None:
+    rows = [
+        CellCensusRow("evaluator", "interim", 2),
+        CellCensusRow("predictor", "cert", 6),
+        CellCensusRow("predictor", "merits", 3),
+    ]
+
+    md = ops.render_weekly_digest(
+        _empty_report(), production=_production(rows, cells=11, events=4, spend=12.5)
+    )
+
+    assert "## Produced this week (last 7d)" in md
+    assert "**11** cell(s) over **4** event(s)" in md
+    assert "**$12.50** of measured model spend" in md
+    assert "| evaluator | interim | 2 |" in md
+    assert "| predictor | merits | 3 |" in md
+    # The ledger lag is part of the figure's meaning, not a footnote to omit.
+    assert "floor on what was spent" in md
+
+
+def test_the_weekly_digest_places_the_spend_backstop_window() -> None:
+    md = ops.render_weekly_digest(
+        _empty_report(),
+        production=_production(backstop=SpendVerdict(688.12, 2500.0, 30, 300, enforced=True)),
+    )
+
+    assert "**$688.12** of **$2,500.00** over the trailing 30d window" in md
+    assert "**28%** consumed" in md
+    assert "$1,811.88 left" in md
+    assert "clear" in md
+
+
+def test_the_weekly_digest_invents_no_budget_when_none_is_configured() -> None:
+    # An unenforced ceiling has no fraction; printing one would report a budget
+    # that does not exist.
+    md = ops.render_weekly_digest(
+        _empty_report(),
+        production=_production(backstop=SpendVerdict(0.0, 0.0, 30, 0, enforced=False)),
+    )
+
+    assert "**no ceiling configured**" in md
+    assert "consumed" not in md
+
+
+def test_the_weekly_digest_degrades_to_its_questions_without_the_feeds() -> None:
+    md = ops.render_weekly_digest(_empty_report())
+
+    assert "## Health questions" in md
+    assert "## Analytics state" not in md
+    assert "## Produced this week" not in md
+    assert "## Backtest results" not in md
+
+
+def test_the_weekly_digest_marker_is_one_per_iso_week() -> None:
+    # Monday and the following Sunday are the same week and so the same digest;
+    # the Monday after is a new one.
+    assert ops.weekly_digest_marker("2026-09-02T08:30:00Z") == "<!-- weekly-digest: 2026-W36 -->"
+    assert ops.weekly_digest_marker("2026-09-06T23:00:00Z") == "<!-- weekly-digest: 2026-W36 -->"
+    assert ops.weekly_digest_marker("2026-09-07T08:30:00Z") == "<!-- weekly-digest: 2026-W37 -->"
+    assert ops.weekly_digest_title("2026-09-02T08:30:00Z") == (
+        "Weekly performance digest — 2026-W36"
+    )
+
+
+def test_ops_report_renders_every_weekly_section_over_the_committed_tree(tmp_path: Path) -> None:
+    # The acceptance dry-run, against the repo's own `metrics/` and `data/`: all
+    # three sections, the honest-empty leaderboard state, the missing
+    # cert-backtest line, and a vintage beside every metrics-derived figure.
+    if not Path("metrics/leaderboard.json").exists():  # pragma: no cover - it is committed
+        pytest.skip("no committed metrics in this checkout")
+    out = tmp_path / "digest.md"
+
+    result = runner.invoke(
+        app,
+        ["ops-report", "--digest-out", str(out), "--generated-at", "2026-09-02T08:30:00+00:00"],
+    )
+
+    assert result.exit_code == 0, result.output
+    md = out.read_text()
+    assert md.startswith("<!-- weekly-digest: 2026-W36 -->")
+    for heading in (
+        "## Health questions",
+        "## Analytics state",
+        "## Produced this week",
+        "## Backtest results",
+    ):
+        assert heading in md
+    # Structural only. Asserting the *current* contents of `metrics/` — the empty
+    # leaderboard, the absent cert back-test — would turn each of those milestones
+    # into a red required check on `main` the day it is reached; the honest-empty
+    # and missing-report branches are pinned synthetically above instead.
+    for artifact in ("leaderboard.json", "claim-scores.json", "statpack.json", "backtest.json"):
+        assert f"`metrics/{artifact}`, " in md
+    assert len(md) <= 60_000
+
+
+def test_post_weekly_digest_takes_its_key_and_title_from_the_body(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The body's own marker is both the once-a-week idempotency key and the
+    # source of the title, so a re-dispatch adds no second issue and the title
+    # can never disagree with what the issue says.
+    seen: dict[str, object] = {}
+
+    def fake_open(**kwargs: object) -> str:
+        seen.update(kwargs)
+        return "opened https://github.com/o/r/issues/2"
+
+    monkeypatch.setattr(cli, "open_issue_once", fake_open)
+    body = tmp_path / "digest.md"
+    body.write_text("<!-- weekly-digest: 2026-W36 -->\n# Weekly performance digest\n")
+
+    result = runner.invoke(app, ["post-weekly-digest", "--repo", "o/r", "--body-file", str(body)])
+
+    assert result.exit_code == 0, result.output
+    assert seen["marker"] == "<!-- weekly-digest: 2026-W36 -->"
+    assert seen["label"] == ops.WEEKLY_DIGEST_LABEL
+    assert seen["title"] == "Weekly performance digest — 2026-W36"
+    assert seen["marker_lines"] == ops.WEEKLY_DIGEST_MARKER_LINES
+
+
+def test_post_weekly_digest_refuses_a_body_that_is_not_a_digest(tmp_path: Path) -> None:
+    # Opening it anyway would title the issue from a guess and key its
+    # idempotency on a line that means nothing.
+    body = tmp_path / "digest.md"
+    body.write_text("# Some other document\n")
+
+    result = runner.invoke(app, ["post-weekly-digest", "--repo", "o/r", "--body-file", str(body)])
+
+    assert result.exit_code == 2
+    assert "does not open with a weekly-digest marker" in result.output
+
+
+def test_post_weekly_digest_posts_nothing_for_an_empty_body(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app, ["post-weekly-digest", "--repo", "o/r", "--body-file", str(tmp_path / "absent.md")]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "nothing to post" in result.output
+
+
+def test_the_weekly_digest_marker_round_trips_to_its_week() -> None:
+    marker = ops.weekly_digest_marker("2026-09-02T08:30:00Z")
+    assert ops.weekly_digest_week(marker) == "2026-W36"
+    assert ops.weekly_digest_title_for_week("2026-W36") == "Weekly performance digest — 2026-W36"
+    # Anything that is not a marker reads as one, so a poster can refuse it.
+    assert ops.weekly_digest_week("# Weekly performance digest") is None
+    assert ops.weekly_digest_week("<!-- daily-digest-day: 2026-09-02 -->") is None
+
+
+def test_artifact_vintage_refuses_a_shallow_history(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A depth-1 clone must yield no vintage, not the tip's date.
+
+    In a shallow clone the single fetched commit is grafted parentless, so a
+    pathspec'd ``git log`` matches it for every tracked path and answers with the
+    tip's date — stamping a months-old board as today's. That is the exact
+    misreading the vintage exists to prevent, and worse than no vintage at all,
+    so shallowness is checked before the history is read.
+    """
+    artifact = tmp_path / "leaderboard.json"
+    artifact.write_text("{}")
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(*args: str) -> str | None:
+        calls.append(args)
+        if args[:2] == ("rev-parse", "--is-shallow-repository"):
+            return "true"
+        return "2026-09-02"
+
+    monkeypatch.setattr(cli, "_git", fake_git)
+
+    assert cli._artifact_vintage(artifact) is None
+    # And the history was never read, so no wrong date could leak out.
+    assert all(args[0] != "log" for args in calls)
+
+
+def test_artifact_vintage_reads_the_commit_date_on_a_full_history(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact = tmp_path / "leaderboard.json"
+    artifact.write_text("{}")
+
+    def fake_git(*args: str) -> str | None:
+        return "false" if args[0] == "rev-parse" else "2026-08-29"
+
+    monkeypatch.setattr(cli, "_git", fake_git)
+
+    assert cli._artifact_vintage(artifact) == "2026-08-29"
+
+
+def test_artifact_vintage_of_an_absent_file_is_unknown(tmp_path: Path) -> None:
+    assert cli._artifact_vintage(tmp_path / "never-landed.json") is None
+
+
+def test_the_weekly_digest_says_the_frozen_window_has_not_opened_yet() -> None:
+    # An empty board has two causes and only one of them is about production. A
+    # freeze instant in the future means the counting window has not opened, so
+    # no grading could have reached it however well the pipeline ran; reporting
+    # that as "nothing has been graded" is the bare-zero misreading again.
+    board = Leaderboard(
+        process_scope="frozen",
+        predictors_ranked=0,
+        evaluations_total=0,
+        events_scored=0,
+        frozen_process=FrozenProcessRecord(
+            since=datetime(2026, 9, 5, tzinfo=UTC), digests=["sha256:abc"]
+        ),
+    )
+    before = ops.render_weekly_digest(
+        _empty_report("2026-09-02T08:30:00+00:00"), analytics=_analytics(leaderboard=board)
+    )
+    after = ops.render_weekly_digest(
+        _empty_report("2026-09-12T08:30:00+00:00"), analytics=_analytics(leaderboard=board)
+    )
+
+    assert "the frozen counting window opens **2026-09-05**" in before
+    assert "empty by construction" in before
+    assert "the frozen counting window opened 2026-09-05 and no stamped grading" in after
+
+
+def test_the_weekly_digest_refuses_to_anchor_a_score_on_a_pooled_base_rate() -> None:
+    # docs/salience.md registers the pooled band rate as a fit diagnostic for the
+    # ranking constant, not a scoring baseline: quoting one as a forecast anchor
+    # would breach the leakage guard registered there.
+    md = ops.render_weekly_digest(
+        _empty_report(),
+        analytics=_analytics(statpack=_statpack_with_cert_section(denied=95, granted=5)),
+    )
+
+    assert "Neither figure anchors a scored cell" in md
+    assert "strictly-prior-Term risk-set rate" in md
+    assert "orientation" in md
+    assert "anchors every score" not in md
+
+
+def test_the_weekly_digest_publishes_the_predicted_courts_row_not_only_the_pooled_one() -> None:
+    # A pooled lift can be bought entirely on a docket this pipeline never
+    # predicts: the SCOTUS floor is ~82% and the appellate floors near zero, so
+    # the pooled row is the one that misleads and it is the one that gets quoted.
+    board = Backtest(
+        predictors_evaluated=1,
+        events_scored=28_409,
+        entries=[
+            BacktestEntry(
+                rank=1,
+                predictor_id="prior-vote",
+                events_scored=28_409,
+                accuracy=0.6382,
+                granted_accuracy=0.8897,
+                mean_brier_score=0.0985,
+                always_denied_accuracy=0.6374,
+                lift_over_always_denied=0.0008,
+                courts=[
+                    BacktestCourtScore(
+                        court="scotus",
+                        events_scored=21_511,
+                        accuracy=0.8219,
+                        granted_accuracy=0.9,
+                        mean_brier_score=0.1,
+                        always_denied_accuracy=0.8219,
+                        lift_over_always_denied=0.0,
+                    ),
+                    BacktestCourtScore(
+                        court="ca4",
+                        events_scored=5_736,
+                        accuracy=0.0154,
+                        granted_accuracy=0.9,
+                        mean_brier_score=0.1,
+                        always_denied_accuracy=0.011,
+                        lift_over_always_denied=0.0044,
+                    ),
+                ],
+            )
+        ],
+    )
+
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(backtest=board))
+
+    assert "| prior-vote | scotus | 21,511 | 82.2% | 82.2% | +0.00% | 0.1000 |" in md
+    assert "| prior-vote | _all courts pooled_ | 28,409 |" in md
+    assert "Read a lift only against its own court's floor" in md
+    assert "iteration instrument" in md
+
+
+def test_the_weekly_digest_prints_an_uncomputed_backtest_figure_as_unknown() -> None:
+    # The floor, the lift and the Brier are all nullable on the schema. Formatting
+    # a None raises, which would take the whole ops report down — dashboard
+    # included — over a figure that simply was not computed.
+    board = Backtest(
+        predictors_evaluated=1,
+        events_scored=10,
+        entries=[
+            BacktestEntry(
+                rank=1,
+                predictor_id="p",
+                events_scored=10,
+                accuracy=0.5,
+                granted_accuracy=0.5,
+                mean_brier_score=None,
+                always_denied_accuracy=None,
+                lift_over_always_denied=None,
+            )
+        ],
+    )
+
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(backtest=board))
+
+    assert "| p | _all courts pooled_ | 10 | 50.0% | — | — | — |" in md
+
+
+def test_the_weekly_digest_dates_the_window_it_counted() -> None:
+    # "last 7d" alone is not recoverable: the Monday tick titles its issue for the
+    # week that starts that morning while the census covers the seven days before
+    # it, so without bounds the section describes the previous week under this
+    # week's heading.
+    production = ops.WeeklyProduction(
+        census=RecentCells(rows=[], cells=0, events=0, window_days=7),
+        spend_usd=0.0,
+        backstop=None,
+        window_start=date(2026, 8, 26),
+        window_end=date(2026, 9, 2),
+    )
+
+    md = ops.render_weekly_digest(_empty_report(), production=production)
+
+    assert "## Produced this week (2026-08-26 to 2026-09-02, the 7d before this digest)" in md
+
+
+def test_the_weekly_digest_body_is_clamped_under_the_issue_size_limit() -> None:
+    # Bounded by construction, but the boards it renders grow with the roster, so
+    # the clamp is what makes the bound a guarantee — and the marker has to
+    # survive it or the week's idempotency key is gone.
+    board = Leaderboard(
+        process_scope="all",
+        predictors_ranked=4_000,
+        evaluations_total=4_000,
+        events_scored=1,
+        entries=[
+            LeaderboardEntry(
+                predictor_id=f"predictor-{index:05d}",
+                rank=index + 1,
+                evaluators=1,
+                events_scored=1,
+            )
+            for index in range(4_000)
+        ],
+    )
+
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
+
+    assert len(md) <= 60_000
+    assert md.startswith("<!-- weekly-digest: 2026-W36 -->")
+    assert md.endswith("the committed artifacts carry the rest._\n")
+
+
+def test_the_weekly_digest_defuses_a_marker_quoted_by_the_ledger() -> None:
+    # Predictor ids are free-form strings off the ledger; the same one-pass
+    # defusing the daily digest applies keeps one from forging a marker.
+    board = Leaderboard(
+        process_scope="all",
+        predictors_ranked=1,
+        evaluations_total=1,
+        events_scored=1,
+        entries=[
+            LeaderboardEntry(
+                predictor_id="<!-- weekly-digest: 2026-W40 -->",
+                rank=1,
+                evaluators=1,
+                events_scored=1,
+            ),
+        ],
+    )
+
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
+
+    assert "<!-- weekly-digest: 2026-W40 -->" not in md
+    assert "&lt;!-- weekly-digest: 2026-W40 -->" in md
+    assert md.splitlines()[0] == "<!-- weekly-digest: 2026-W36 -->"
+
+
+def test_ops_report_refuses_an_unparseable_generated_at(tmp_path: Path) -> None:
+    # Two parsers with two failure postures would anchor the census window on the
+    # clock while the marker still carried the raw string — one report pairing a
+    # clock-anchored week with a marker naming no week.
+    result = runner.invoke(
+        app,
+        ["ops-report", "--digest-out", str(tmp_path / "d.md"), "--generated-at", "last tuesday"],
+        env=_ops_env(tmp_path),
+    )
+
+    assert result.exit_code == 2
+    # Under FORCE_COLOR the usage error renders in a wrapped rich panel, so the
+    # flag name can be split across styled lines: strip the escapes and the
+    # panel frame, collapse whitespace, then look for it.
+    plain = re.sub(r"\x1b\[[0-9;]*m|[│╭╰─╮╯]|\s+", "", result.output)
+    assert "--generated-at" in plain
+
+
+def test_render_substance_names_the_leakage_exclusions() -> None:
+    # Its own line, on the same terms as the forward-claim one above, with the
+    # assessed denominator beside the count.
+    quiet = ops.summarize_substance(
+        cell_counts=(0, 0, 0),
+        stratified_evaluations=[],
+        leakage_exclusion=leakage_record(0, 4),
+    )
+    loud = ops.summarize_substance(
+        cell_counts=(0, 0, 0),
+        stratified_evaluations=[],
+        leakage_exclusion=leakage_record(3, 9),
+    )
+
+    assert "Leakage exclusion" not in ops.render_substance(quiet)
+    assert "Leakage exclusion: **3** of 9 assessed cell(s)" in ops.render_substance(loud)
+
+
+def test_a_headline_emptied_by_leakage_is_not_the_shakedown_state() -> None:
+    # The shakedown placeholder must not swallow an exclusion-emptied board:
+    # the cells existed and were dropped, which the line above says.
+    emptied = ops.summarize_substance(
+        cell_counts=(2, 1, 1),
+        stratified_evaluations=[],
+        leakage_exclusion=leakage_record(2, 2),
+    )
+    rendered = ops.render_substance(emptied)
+
+    assert "No frozen-process evaluations yet" not in rendered
+    assert "Leakage exclusion: **2** of 2 assessed cell(s)" in rendered
