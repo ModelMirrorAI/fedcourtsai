@@ -786,9 +786,9 @@ def _cli_env(tmp_path: Path, *dockets: int, provisioned: bool = True) -> dict[st
 def test_predict_matrix_with_no_body_file_derives_its_cases_from_the_backlog(
     tmp_path: Path,
 ) -> None:
-    """The scheduled mode: given no trigger at all, the fan-out is the forecasts
-    committed state still owes — the derivation a run-predict schedule consumes
-    instead of a handoff from the pull run."""
+    """The scheduled mode: given no case list at all, the fan-out is the
+    forecasts committed state still owes — the derivation a run-predict
+    schedule consumes."""
     env = _cli_env(tmp_path, 24001, 24002)
 
     result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"], env=env)

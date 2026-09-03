@@ -179,6 +179,7 @@ from .ops import (
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import cell_context, historical, liveprobe, moments, qp_topics, semantic
+from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.asof import CutoffPolicy
 from .pipeline.base_rates import interim_base_rate, merits_base_rate
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
@@ -190,8 +191,10 @@ from .pipeline.cert_signals import (
     match_disposition_signal,
 )
 from .pipeline.claims import score_claims
+from .pipeline.decision_dates import converge_decision_dates
 from .pipeline.discover import discover_cases
 from .pipeline.distribution_rederive import rederive_distribution_counts
+from .pipeline.document_backfill import backfill_documents
 from .pipeline.documents import (
     KIND_PETITION,
     TextCoverage,
@@ -552,6 +555,48 @@ def reconcile_scope_cmd(
     typer.echo(
         f"reconcile-scope ({'applied' if apply else 'dry-run'}): {verb} "
         f"{result.excluded} / {result.released} of {result.eligible_cases} eligible case(s)"
+    )
+    typer.echo(result.model_dump_json())
+
+
+@app.command("converge-decision-dates")
+def converge_decision_dates_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply", help="Write the decision dates; omit for a dry-run that only plans."
+        ),
+    ] = False,
+) -> None:
+    """Fill a denied petition's `date_decided` from its own cert-denial date.
+
+    The order refusing the writ ends the docket, so on a denied SCOTUS petition
+    the petition-stage decision and the termination are one moment; this
+    converges the rows written before the live channel's parse carried the date
+    across. Denial side only — a granted docket terminates at its later merits
+    judgment, a date no column on the row holds. Dry-run by default; `--apply`
+    writes (the run-seed walk then pushes the corpus). Prints a
+    `DecisionDateConvergenceResult`. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the decision-date convergence.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = converge_decision_dates(conn, apply=apply)
+    # On an apply the number a maintainer reads off the run summary is the one
+    # the UPDATE confirmed, not the one the plan plurality expected.
+    verb, count = (
+        ("converged", result.converged) if apply else ("would converge", result.candidates)
+    )
+    typer.echo(
+        f"converge-decision-dates ({'applied' if apply else 'dry-run'}): {verb} "
+        f"{count} denied petition(s) missing a decision date"
     )
     typer.echo(result.model_dump_json())
 
@@ -1401,8 +1446,28 @@ def backfill_questions_presented_cmd(
     typer.echo(result.model_dump_json())
 
 
-def _ocr_slice_deadline(started: float, seconds: float | None) -> float | None:
-    """The monotonic instant an OCR slice may no longer start new work at.
+def _slice_bound(value: int | None, *, command: str) -> int | None:
+    """The slice size a bounded fetching pass was given, refusing a non-bound.
+
+    A slice is taken as ``candidates[:value]``, and Python reads a negative index
+    from the other end — ``[:-5]`` is *every candidate but the last five*, which
+    is a near-unbounded fetch campaign wearing the argument that exists to
+    prevent one. Zero is legitimate and means exactly what it says: an empty
+    slice, which walks the population and starts nothing.
+    """
+    if value is None or value >= 0:
+        return value
+    typer.echo(
+        f"{command}: --max-cases must be zero or a positive number of cases "
+        f"(got {value}); a negative slice reads from the other end of the class "
+        "and would take nearly all of it.",
+        err=True,
+    )
+    raise typer.Exit(code=2)
+
+
+def _slice_deadline(started: float, seconds: float | None, *, command: str) -> float | None:
+    """The monotonic instant a bounded slice may no longer start new work at.
 
     Zero is a legitimate budget — it starts nothing and reports the whole slice
     unreached, which is the honest reading of a caller with no time left — but a
@@ -1411,12 +1476,16 @@ def _ocr_slice_deadline(started: float, seconds: float | None) -> float | None:
     The same refusal covers what is not a number at all: `nan` compares false
     against every estimate and `inf` never runs out, so either would *disable*
     the deadline while reading as one that was set.
+
+    ``command`` names the caller in the refusal, since more than one deadlined
+    pass reads its budget through here and a maintainer correcting a mistyped
+    dispatch needs to know which flag was rejected.
     """
     if seconds is None:
         return None
     if seconds < 0 or not math.isfinite(seconds):
         typer.echo(
-            "ocr-recover-petitions: --deadline-seconds must be a finite, "
+            f"{command}: --deadline-seconds must be a finite, "
             f"non-negative number of seconds (got {seconds}); 0 is the budget "
             "that starts nothing.",
             err=True,
@@ -1425,7 +1494,7 @@ def _ocr_slice_deadline(started: float, seconds: float | None) -> float | None:
     return started + seconds
 
 
-def _echo_ocr_unreached(unreached: Sequence[str]) -> None:
+def _echo_unreached(unreached: Sequence[str]) -> None:
     """Name the candidates the slice deadline declined to start, if any.
 
     Apart from the failures, because they are a different fact: nothing was
@@ -1557,7 +1626,8 @@ def ocr_recover_petitions_cmd(
             err=True,
         )
         raise typer.Exit(code=2)
-    deadline = _ocr_slice_deadline(started, deadline_seconds)
+    max_cases = _slice_bound(max_cases, command="ocr-recover-petitions")
+    deadline = _slice_deadline(started, deadline_seconds, command="ocr-recover-petitions")
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
         typer.echo(
@@ -1628,7 +1698,7 @@ def ocr_recover_petitions_cmd(
         typer.echo(f"  {case_id}: {detail}")
     for case_id, reason in result.failures.items():
         typer.echo(f"  {case_id}: NOT RECOVERED ({reason})")
-    _echo_ocr_unreached(result.unreached)
+    _echo_unreached(result.unreached)
     for entry in result.probes:
         # The dry run's second reading: what the writer's own fetch path gets
         # back from supremecourt.gov, before a slice is spent finding out.
@@ -2776,6 +2846,404 @@ def backfill_response_fields_cmd(
             if value is not None
         )
         typer.echo(f"  {verb} {fill.case_id}: {gained}")
+
+
+@app.command("backfill-arrival-stamps")
+def backfill_arrival_stamps_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the arrival stamps; omit for a dry-run report."),
+    ] = False,
+    max_fills: Annotated[
+        int | None,
+        typer.Option(
+            "--max-fills",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
+        ),
+    ] = None,
+) -> None:
+    """Re-derive the interim baseline's arrival stamp from each row's newest snapshot.
+
+    An interim event's `opened_at` is the moment it declares — the day the
+    application was submitted to a Justice — and it is where provisioning cuts,
+    so what is stamped there decides what a cell for that moment may see. The
+    arrival is read off the docket's own submission entry on the live ingest
+    branch, with the docketing date as the fallback.
+
+    The defect this repairs is a stamp rule **correlated with the outcome**. The
+    live poller serves the unresolved slice, so a decided application has left
+    the rotation and is never re-polled: an event last polled before the arrival
+    read existed keeps the docketing date or nothing at all, and resolution
+    status therefore decides which reading a row carries, and any retrospective
+    interim population drawn from these events inherits that conditioning. A
+    forward cell is unaffected *once its row has been re-polled* — not by
+    construction: a queued row not polled since the arrival read shipped still
+    carries the docketing stamp and is moved by an apply, so the boundary runs
+    through the forward stratum too.
+
+    The population is SCOTUS interim baseline events — entry-pinned motion events
+    are excluded, since the arrival derivation is the wrong reading for one —
+    whose stamp shows either shape of the defect: no stamp, or the docketing
+    date. Not predicated on resolution, even though the class is overwhelmingly
+    decided rows: repairing only the decided half would condition the population
+    on resolution all over again.
+
+    Direction is a safety property. The cut keeps everything filed strictly
+    before the day after `opened_at`, so an earlier stamp admits less and a later
+    one admits more; docketing is systematically the later of the two readings.
+    A parse that would move a stamp **later** is refused rather than written, and
+    those cases are named.
+
+    Prints the day-delta histogram of every stamp that moved — but that is the
+    *window*, an upper bound on what could have been admitted rather than what
+    was, so beside it the ledger counts the entries the pre-repair cut admitted
+    and names the rows whose own disposition, or the Court's response request,
+    fell inside that band. A one-day move on a docket disposed of that day
+    admits the outcome; a month over a quiet docket admits nothing. The rows
+    that carried no stamp are reported apart and are the *larger* change: an
+    unstamped interim event takes no cut at all, so its cell read the latest
+    snapshot and what it gains is the window itself.
+
+    It also splits the class, the repairs and the residue by resolution, because
+    what it removes is the correlation on the slice carrying a readable snapshot
+    with a parseable arrival. Every other arm keeps the pre-repair stamp — late
+    is safe for leakage and is the conditioning defect itself — so a residue
+    that is entirely decided rows is a correlation shrunk rather than removed.
+
+    Idempotent, and convergent rather than terminal — `events.opened_at` carries
+    no fill-in latch, so a non-live re-extraction can write the docketing date
+    back and the sweep re-selects the row, provided that write leaves the stamp
+    equal to the docketing date the predicate matches on.
+
+    Run where the corpus is pulled — a dev checkout dry-runs it, and the apply
+    half belongs in run-repair's `arrival-backfill` pass, which holds the
+    corpus-write credentials. `--apply` refuses above `--max-fills`, which counts
+    the rows actually written. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_fills is None:
+        typer.echo(
+            "backfill-arrival-stamps: --apply requires an explicit --max-fills. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the arrival back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = backfill_arrival_stamps(
+            conn, apply=apply, max_fills=max_fills, data_root=settings.data_root
+        )
+    if not result.events_seen:
+        # Zero candidates has two causes and they are not the same run: a corpus
+        # whose interim events all carry their arrival, and one holding no
+        # interim events at all. The denominator is what tells them apart.
+        typer.echo(
+            f"backfill-arrival-stamps: no SCOTUS interim baseline events in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if result.refused:
+        typer.echo(
+            f"backfill-arrival-stamps: refusing to apply {len(result.filled)} stamp(s) "
+            f"(--max-fills {max_fills}). Read the dry run's own count rather than raising "
+            "the bound past it: this pass rewrites the moment provisioning cuts on.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "stamped" if apply else "would stamp"
+    # ORDERING IS LOAD-BEARING, not stylistic. The run-repair step tees this
+    # output into a GitHub step summary, which is capped at 1 MiB and discarded
+    # WHOLE above it, so the step truncates head-first. Over a five-figure class
+    # the per-row `filled` list alone runs past the cap — so every aggregate, the
+    # named exposure lists, and the JSON ledger are printed BEFORE it, and the
+    # per-row enumeration goes last where truncation costs the least. Do not
+    # reorder without re-reading the step.
+    typer.echo(
+        f"backfill-arrival-stamps ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.filled)} of {result.candidates} candidate(s) in a population "
+        f"of {result.events_seen} interim baseline event(s); "
+        f"{result.unchanged} already carrying their arrival; "
+        f"{result.no_snapshot} with no stored snapshot; "
+        f"{result.no_proceedings} whose snapshot discloses no proceedings; "
+        f"{result.unparsed} naming no dated submission entry"
+    )
+    # The matched denominator beside the loose one, and the arm no dispatch can
+    # reach: `events_seen` includes entry-pinned rows this route never acts on,
+    # so a prevalence taken against it is not one, and both live-slice counts are
+    # blind to the rows this pass structurally cannot repair.
+    unreachable = result.events_all_slices - result.baseline_candidates_seen
+    typer.echo(
+        f"  population: {result.candidates} of {result.baseline_candidates_seen} "
+        "reachable baseline event(s) carry the defect (the prevalence; the "
+        f"{result.events_seen} above is the looser wrong-blob denominator). "
+        f"{result.events_all_slices} baseline event(s) exist across the blob, so "
+        f"{unreachable} sit outside the live slice, hold no re-readable snapshot, "
+        "and keep their stamp through every dispatch of this pass"
+    )
+    # The `stamped` arm is a much larger change than any move, and the caveat has
+    # to travel with the number: those cells took NO cut at all — a null
+    # `opened_at` makes `moment_cutoff` return None, so the cell reads the latest
+    # snapshot — which is an unbounded window closed rather than a late one
+    # tightened. The histogram covers the `moved` arm alone.
+    worst = f"worst {result.move_days_max} day(s)" if result.moved else "no move to size"
+    typer.echo(
+        f"  {result.stamped} row(s) had no stamp at all — those cells took no cut, "
+        "reading the latest snapshot, so this closes an unbounded window rather "
+        f"than tightening a late one. {result.moved} moved earlier ({worst}); the "
+        "histogram below is the moved arm only: "
+        + ", ".join(f"{bucket}d: {count}" for bucket, count in result.move_histogram.items())
+    )
+    # The exposure readings, stated as what they are. They are computed against
+    # the newest stored snapshot with no date bound, so they say what a cell
+    # provisioned TODAY under the pre-repair stamp would admit — a bound on the
+    # rule's remaining reach, not a measurement of what any committed cell saw.
+    vintage = result.corpus_vintage.isoformat() if result.corpus_vintage else "unknown"
+    typer.echo(
+        f"  forward exposure (counterfactual over the corpus as of {vintage}): a cell "
+        "provisioned today under the pre-repair stamp would admit "
+        f"{result.over_admitted_entries} docket entr(ies) across "
+        f"{result.over_admitted_rows} row(s) that the repaired stamp does not; for "
+        f"{len(result.admitted_the_disposition)} row(s) that includes the case's own "
+        f"disposition, and {result.admitted_the_response_request} the response request. "
+        "Not a claim about cells that ran: it over-counts against a cell provisioned "
+        "when the docket was shorter, and under-counts wherever the stored snapshot "
+        "predates filings the docket has since gained"
+    )
+    # The resolution split: whether the correlation was removed or only shrunk.
+    typer.echo(
+        f"  resolution: {result.candidates_resolved} of {result.candidates} candidate(s) "
+        f"decided, {result.filled_resolved} of {len(result.filled)} repair(s); "
+        f"{result.unrepaired_resolved} of {result.unrepaired} unrepaired row(s) are "
+        "decided — a residue that is entirely decided is a correlation this pass "
+        "shrank rather than removed"
+    )
+    # And the residue's own exposure, which the repaired rows' readings cannot
+    # give: conditioning persists exactly where the stamp did not move.
+    typer.echo(
+        f"  residue exposure: {len(result.residue_admits_disposition)} of "
+        f"{result.unrepaired} unrepaired row(s) keep a stamp that still admits their "
+        f"own disposition ({len(result.later_refused)} of those were refused for "
+        "direction). These are where the conditioning survives this pass"
+    )
+    for case_id in result.admitted_the_disposition:
+        # The sharpest reading in this ledger, named rather than counted so a
+        # cohort can be checked case by case — and marked where the case actually
+        # carries committed predict output, which is the subset where the question
+        # is worth asking of a grading rather than of a rule.
+        committed = (
+            " [COMMITTED PREDICT OUTPUT]"
+            if case_id in result.admitted_the_disposition_committed
+            else ""
+        )
+        typer.echo(
+            f"  {case_id}: a cell provisioned today under the pre-repair stamp "
+            f"would read this case's own disposition{committed}"
+        )
+    for case_id in result.later_refused:
+        # Named, not counted: the parser anchors on the submission entry, which
+        # precedes docketing on every docket sampled for the rule, so a later
+        # reading is a payload to look at rather than a stamp to write.
+        typer.echo(f"  {case_id}: REFUSED — the parsed arrival postdates the stored stamp")
+    typer.echo(result.model_dump_json())
+    # Last, and deliberately: this is the only unbounded list here, so it is the
+    # only thing a truncated step summary should lose.
+    for fill in result.filled:
+        moved = f" (was {fill.previous.isoformat()}, {fill.moved_days}d)" if fill.previous else ""
+        admitted = (
+            f", {fill.over_admitted} entr(ies) no longer admitted" if fill.over_admitted else ""
+        )
+        typer.echo(
+            f"  {verb} {fill.case_id} {fill.event_id}: "
+            f"{fill.opened_at.isoformat()}{moved}{admitted}"
+        )
+
+
+@app.command("backfill-documents")
+def backfill_documents_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Fetch and store the primary documents; omit for a dry run that "
+            "fetches each candidate's docket JSON and reports what selection finds.",
+        ),
+    ] = False,
+    max_cases: Annotated[
+        int | None,
+        typer.Option(
+            "--max-cases",
+            help="Per-dispatch slice size, required with --apply: the number of "
+            "candidate cases this run fetches for. Honored on a dry run too, which "
+            "spends one paced docket GET per candidate. 0 takes an empty slice, "
+            "which walks the population and fetches nothing — the free reading of "
+            "the class as the corpus now holds it.",
+        ),
+    ] = None,
+    deadline_seconds: Annotated[
+        float | None,
+        typer.Option(
+            "--deadline-seconds",
+            help="Wall-clock budget for this run, measured from the moment the command "
+            "starts. Before each candidate the pass checks its estimated cost against "
+            "what is left and stops taking new ones once the budget will not hold it; "
+            "those are reported unreached and head the next slice. Size it under the "
+            "caller's own cap by whatever must still fit there once the pass stops "
+            "taking work. Omit for no deadline.",
+        ),
+    ] = None,
+) -> None:
+    """Provision the queued cases that hold no primary document, a slice at a time.
+
+    A case reaches prediction with the filing that opens it — the `petition` on a
+    cert-form docket, the `application` on an interim one — because provisioning
+    runs at the transition that queues it. A case whose provisioning ran before
+    the selector had an arm for its filing type kept nothing, and no lane repairs
+    that: the poller re-fetches a kind only when its link changes, and a kind
+    never stored has no link to change. This applies the current selector to the
+    cases already past their trigger.
+
+    The population is **form-keyed**: live-slice rows queued for prediction or
+    selected by the salience gate, measured against their own docket form's
+    primary document, so an application docket is never reported as missing a
+    petition it structurally never has. Not the wide distributed stock, which is
+    overwhelmingly legacy rows carrying no document links at all — this pass
+    costs paced round trips against the Court's own host, and the cases that can
+    mint a cell are the ones worth spending them on.
+
+    Each candidate is re-keyed off its stored docket number to the `(term,
+    serial)` the upstream endpoint addresses, and its docket JSON is fetched
+    **fresh** rather than read from the stored snapshot: the question is whether
+    the link is served now. The **dry run** stops there — one paced GET per
+    candidate, no filings fetched and nothing written — which is the whole
+    diagnostic, since it is what separates a case with a link waiting for it from
+    one at a floor. The **apply** goes on through the same fetch the live poller
+    runs, and writes each case's documents as they are made rather than batching
+    them, so a step that hits its cap has banked what it recovered.
+
+    Two floors are reported apart from the failures, because neither drains and
+    reading them as failures reports a converged class as a permanent defect: a
+    docket carrying the opening entry with no PDF behind it (a Rule 34.6 paper
+    filing), and one carrying no such entry at all. The second on a *modern*
+    docket is not a floor but a selector regression, and those cases are named.
+
+    `--max-cases` is a slice size rather than a refusal threshold, required on an
+    apply and honored on a dry run too, since both spend paced GETs.
+    `--deadline-seconds` is what keeps a slice inside its caller's wall-clock cap:
+    a candidate the budget will not hold is reported **unreached** — untouched,
+    unwritten, and at the head of the next slice — rather than failed. Its apply
+    half is a writer-lane pass by construction, since the corpus-write
+    credentials exist only there, and the lane invocation is run-repair's
+    `document-backfill` pass. Fails loud if the corpus is absent.
+    """
+    # Taken before any other work, so the population walk this command opens with
+    # is charged to the budget the caller sized.
+    started = time.monotonic()
+    settings = get_settings()
+    if apply and max_cases is None:
+        typer.echo(
+            "backfill-documents: --apply requires an explicit --max-cases. "
+            "Read the dry run first and pass the slice you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    max_cases = _slice_bound(max_cases, command="backfill-documents")
+    deadline = _slice_deadline(started, deadline_seconds, command="backfill-documents")
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the document back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cfg = load_historical_config(settings.config_root)
+    if apply:
+        # The pointer the back-fill is about to supersede — the corpus state the
+        # ledger below describes. Under the split mode the durable write is the
+        # content store's, so this names the index the store was consistent with.
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    with (
+        corpus.connect(db_path) as conn,
+        SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
+    ):
+        result = backfill_documents(
+            conn,
+            client=client,
+            apply=apply,
+            char_cap=cfg.document_text_cap,
+            today=date.today(),
+            max_cases=max_cases,
+            deadline=deadline,
+        )
+    if not result.cases_seen:
+        # Zero candidates has two causes and they are not the same run: a corpus
+        # whose queued population is fully provisioned, and one this process
+        # cannot read at all. The denominator is what tells them apart.
+        typer.echo(
+            f"backfill-documents: no predict-relevant live-slice rows in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "recovered" if apply else "would fetch for"
+    # The *recovered* count, not the number of cases anything was written for: a
+    # candidate whose primary filing was selected and then did not serve can
+    # still store the opposition briefs beside it, and headlining those together
+    # would report a slice as having recovered cases it left exactly where they
+    # were — which the `remaining` on the same line would then contradict.
+    counted = result.recovered if apply else len(result.selected)
+    typer.echo(
+        f"backfill-documents ({'applied' if apply else 'dry-run'}): "
+        f"{result.candidates} addressable candidate(s) in a population of "
+        f"{result.cases_seen} predict-relevant row(s) "
+        f"({result.cases_with_documents} holding any stored document) — "
+        f"{verb} {counted}, {result.remaining} left for the next slice"
+    )
+    typer.echo(
+        f"  attempted {result.attempted} "
+        f"(bound {'none' if result.bound is None else result.bound}); "
+        f"{result.unaddressable} unaddressable row(s) outside the class"
+    )
+    if apply and len(result.documents) > result.recovered:
+        # The gap between the two counts, said out loud: these cases gained a
+        # document and stayed in the class, which is the one shape of this pass
+        # that reads like a recovery on a per-case line and is not one.
+        typer.echo(
+            f"  {len(result.documents) - result.recovered} case(s) stored a "
+            "secondary document without their primary one and stay in the class"
+        )
+    typer.echo(
+        f"  floors: {result.no_link} with no link behind the opening entry "
+        f"(Rule 34.6 paper filings), {result.no_entry} with no opening entry at all"
+    )
+    typer.echo(
+        f"  losses: {result.docket_unserved} docket(s) unserved, "
+        f"{result.docket_errors} docket fetch error(s); "
+        + ", ".join(f"{reason}: {count}" for reason, count in result.fetch_losses.items())
+    )
+    for case_id, kinds in result.documents.items():
+        typer.echo(f"  {case_id}: stored {', '.join(kinds)}")
+    for case_id, kinds in result.selected.items():
+        typer.echo(f"  {case_id}: would fetch {', '.join(kinds)}")
+    for case_id in result.no_entry_modern_cases:
+        # Named, not counted: a modern docket whose opening filing matched no
+        # entry is a filing shape the selector has no arm for, which is the class
+        # this pass exists to stop producing rather than to absorb.
+        typer.echo(f"  {case_id}: NO OPENING ENTRY on a modern docket (selector regression)")
+    _echo_unreached(result.unreached)
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(result.model_dump_json())
 
 
 @app.command("scope-manifest")
@@ -5733,7 +6201,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         Path | None,
         typer.Option(
             help="JSON file of open issues (`gh issue list --json number,title,labels,createdAt`) "
-            "for the open-trigger-issues section; omit to skip it."
+            "for the stale-fan-out-labels section; omit to skip it."
         ),
     ] = None,
     all_versions: Annotated[
@@ -5792,7 +6260,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     frontier = _read_best_effort(live_frontier, LiveFrontier)
     prior = _read_best_effort(previous, OpsReport)
     statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
-    # Open run:* trigger issues (stalled fan-outs), best-effort like the other feeds:
+    # Open issues wearing a run:* fan-out label, best-effort like the other feeds:
     # a missing/unreadable file just drops the section.
     open_triggers = None
     if trigger_issues is not None and trigger_issues.exists():
@@ -6334,8 +6802,11 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
     # The other failure mode, printed beside the first because it is the larger
     # one and nothing re-extracts what was never stored. Two denominators: the
     # stock of distributed rows (many predating the document channel, so never
-    # fetched for), and the rows actually queued for prediction, which is the
-    # population a missing petition costs a cell on.
+    # fetched for), and the rows the pipeline queued or predicted — over both
+    # lanes, the stamped ones and the ones the ledger holds a prediction for —
+    # which is the population a missing primary document costs a cell on. Two
+    # words, because only one half is a mint: the stamp says a lane queued the
+    # case, which a later gate can still drop before a cell exists.
     # Each gap prints against the population it is a gap over, not against the
     # whole queue: a number that drains is unreadable without its denominator,
     # and the two forms' denominators partition `queued`.
@@ -6343,10 +6814,10 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
         f"missing documents: {coverage.distributed_without_petition} of "
         f"{coverage.distributed} distributed case(s) hold no petition row at all, "
         f"and {coverage.queued_without_petition} of {coverage.queued_cert_forms} "
-        "queued cert-form case(s); an extraction fix reaches none of them. The "
-        "wide count is an unfiltered stock — a row distributed before the "
-        "document channel existed was never fetched for — so read the queued one "
-        "for what is recoverable now."
+        "queued-or-predicted cert-form case(s); an extraction fix reaches none of "
+        "them. The wide count is an unfiltered stock — a row distributed before "
+        "the document channel existed was never fetched for — so read the queued "
+        "one for what is recoverable now."
     )
     # The other form's own gap, printed rather than left implicit: measured
     # against a different document, it would otherwise be an absence a reader
@@ -6357,7 +6828,19 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
         "docket(s) hold no application document — measured against their own "
         "primary filing, not the petition an application docket never has. The "
         "two form counts partition the "
-        f"{coverage.queued} queued case(s).)"
+        f"{coverage.queued} queued-or-predicted case(s).)"
+    )
+    # And how much of each gap is a floor rather than a backlog. Without this the
+    # residue a successful back-fill leaves reads as an unexplained provisioning
+    # gap forever, and the number stops meaning anything a reader can act on.
+    typer.echo(
+        f"  ({coverage.queued_without_petition_floor} of the queued cert-form gap "
+        f"and {coverage.queued_without_application_floor} of the application one "
+        "are a structural floor: their stored docket carries the opening entry "
+        "with no document behind it — a paper filing the Court posted no PDF for, "
+        "which no fetch reaches. The rest is what the document back-fill drains. "
+        "Read off the stored payload, so a case upstream has since posted a link "
+        "for is counted here until that pass fetches it.)"
     )
     typer.echo(
         f"text frame: the pass read documents for {coverage.cases_read} of the "
@@ -6401,6 +6884,10 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
     # a case whose documents were never provisioned reads the same as one whose
     # fetch was attempted and served nothing — and a count names no case.
     if coverage.queued_without_petition_cases:
+        # This header is a contract, not a caption: `run-analytics`' text-coverage
+        # job truncates the step-summary copy of the report at exactly this line
+        # (the ledgers are artifact-only, because the summary is readable without
+        # login). Renaming it publishes the whole worklist to the run page.
         typer.echo(f"no petition, queued ({len(coverage.queued_without_petition_cases)} case(s)):")
         for case_id in coverage.queued_without_petition_cases:
             typer.echo(f"  {case_id}")
@@ -6664,7 +7151,7 @@ def refresh_dockets_cmd(
     not: a served record with no machine-readable disposition is reported and
     skipped (pending matters are the forward poller's charter), and one whose
     case carries an open, predicted event is left to the watchlist so its
-    resolution reaches the evaluate handoff this path never files.
+    resolution reaches the evaluate queue this path never writes.
 
     Dry-run by default: it resolves each number against the stored rows and
     fetches nothing, so the reading costs no upstream traffic. `--apply` does the
@@ -6732,7 +7219,7 @@ def refresh_dockets_cmd(
     if rep.left_to_watchlist:
         typer.echo(
             f"  left to the watchlist: {', '.join(rep.left_to_watchlist)} "
-            "(an open, predicted event — its re-poll files the evaluate handoff)"
+            "(an open, predicted event — its re-poll writes the evaluate queue)"
         )
     # An upstream error is not a result: the named docket was neither re-served
     # nor found absent, so the list this dispatch answered for is incomplete.
@@ -6791,7 +7278,7 @@ def historical_terms(
     number, raw JSON snapshotted, the resolved row + ``outcome.json`` recorded,
     and filed documents provisioned for OT``document_floor_term``+ — so they
     feed the statpack's per-Term base rates and replay/evaluation only.
-    **Writes no handoff queues**: these are decided historical matters and must
+    **Writes no queue files**: these are decided historical matters and must
     never queue forward prediction. The ``run-seed`` workflow loops this
     command, committing the corpus after each chunk.
     """
@@ -6981,7 +7468,7 @@ def corpus_info(
                         f"sha256 {pulled_sha}) — re-pull before quoting this vintage"
                     )
         if text_coverage:
-            _echo_text_coverage(document_text_coverage(conn))
+            _echo_text_coverage(document_text_coverage(conn, settings.data_root))
         _echo_read_stats(conn)
 
 
@@ -8827,7 +9314,7 @@ def pull_all(
         ),
     ] = None,
 ) -> None:
-    """Refresh the stalest tracked cases within budget; queue downstream handoffs.
+    """Refresh the stalest tracked cases within budget; write the downstream queues.
 
     The API-budget governor: rotation picks the oldest-``last_pulled``-first slice
     of the active set (skipping closed/resolved cases), capped at
@@ -8991,7 +9478,7 @@ def live_poll(
     predict for a changed, still-unresolved substantive application in scope
     (daily-debounced), ground truth for the rest. Resolution is detected from
     the proceedings text, so a decided petition or application lands
-    ``outcome.json`` deterministically. Writes the same three handoff queues
+    ``outcome.json`` deterministically. Writes the same three queue files
     as ``pull-all``.
     """
     settings = get_settings()
@@ -9286,13 +9773,13 @@ def _resolve_cases(
     corpus now refuses. The listing is what makes the re-check necessary: a
     case with no events runs through selection, which applies every
     forecastability rule, while a listed event skips selection entirely — and a
-    trigger issue is written when its events are forecastable and fanned out
-    whenever the workflow runs, with a pipeline pause free to put an arbitrary
-    gap between the two. Without the re-check the stale listing mints cells
-    provisioning must then refuse one by one; with it each event is dropped
+    case list is composed when its events are forecastable and fanned out
+    whenever the round that reads it runs, with a review hold free to put an
+    arbitrary gap between the two. Without the re-check the stale listing mints
+    cells provisioning must then refuse one by one; with it each event is dropped
     here, once, with its own reason on the record (printed verbatim, so a new
     refusal class needs no second annotation site). An event the callback does
-    not name stays listed, because the matrix trusts the trigger's event ids
+    not name stays listed, because the matrix trusts the request's event ids
     and the provisioning record gate backs the trust. The predict matrix passes
     :func:`fedcourtsai.store.unforecastable_listed_events`; evaluate passes
     ``None``, since its listed events are exactly the resolved ones.
@@ -9400,7 +9887,7 @@ def _scope_filtered(
 
     Gating reads the corpus through the configured backend — the pulled local
     file, or the resolved pointer read in place over ``ranged``. The matrix is
-    built from the *specific* cases the trigger issue names, so gating is a
+    built from the *specific* cases the request names, so gating is a
     handful of point lookups (each case's row, and a latest-snapshot lookup only
     for a bare-import row), which the ranged backend serves in KBs — no full
     pull. Under ``local`` the database must be on disk: if it is absent the gate
@@ -9731,7 +10218,7 @@ def _requested_cases(
     """Cases to fan out over, from a batch body file, single-case flags, or the backlog.
 
     ``--body-file`` (one ``{court, docket, events}`` object or a JSON array of
-    them) is the multi-case path a trigger issue takes. The single-case
+    them) is the multi-case path a named backfill takes. The single-case
     ``--court``/``--docket``/``--event`` flags serve ad-hoc invocations.
 
     ``backlog`` names which stage's deriver answers the third mode: given *no*
@@ -9778,7 +10265,7 @@ def _spend_gate_or_empty(stage: str) -> SpendVerdict:
     """The ex-post spend backstop, consulted before either stage mints a matrix.
 
     Returns the verdict so the caller can emit an empty matrix on a breach —
-    deferring, never destroying: the trigger's cases stay in their queue and
+    deferring, never destroying: the round's cases stay owed and
     re-derive next cycle, exactly as under the volume cap. Reports on the same two
     channels as the other plan-time gates (a workflow-command line on stderr, and
     the step summary inside Actions), never on stdout, which carries only the
@@ -9912,27 +10399,26 @@ def _report_predict_cap(capped: CappedMatrix, max_cells: int) -> None:
     is empty because of the cap, not scope — reachable when the single
     lowest-``case_id`` case alone exceeds the cap, i.e. a pathological many-event
     case or a misconfigured tiny ``max_predict_cells_per_run``), the plan reports
-    ``has_jobs=false`` and the workflow's empty-matrix step closes the trigger
-    issue with an *out-of-scope* message — cap-empty and scope-empty are
-    indistinguishable to that YAML step. So emit a distinct, escalated
-    ``::error::`` here that names the cap as the cause, so the misattributed
-    close is never the only record. It is still safe: the deferred cases stay in
-    the corpus predict queue and re-queue next cycle regardless of the issue
-    close.
+    ``has_jobs=false`` and the workflow's empty-matrix branch says the backlog is
+    drained — cap-empty and drained-empty are indistinguishable to that YAML
+    step. So emit a distinct, escalated ``::error::`` here that names the cap as
+    the cause, so the misattributed summary line is never the only record. It is
+    still safe: the deferred cases stay owed and are re-derived next cycle
+    whatever the summary said.
     """
     cases = ", ".join(capped.dropped_cases)
     if not capped.include:
         # All cases deferred by the cap: escalate past the normal warning, because
-        # the workflow's empty-matrix step will close the trigger issue with the
-        # generic out-of-scope note (it cannot tell cap-empty from scope-empty).
-        # This line is the correctly-attributed record; the close is harmless
-        # because the deferred cases persist in the predict queue (see docstring).
+        # the workflow's empty-matrix branch will report a drained backlog (it
+        # cannot tell cap-empty from drained-empty). This line is the
+        # correctly-attributed record; the misreading is harmless because the
+        # deferred cases stay owed and re-derive next cycle (see docstring).
         typer.echo(
             f"::error::predict-matrix: volume cap deferred ALL {len(capped.dropped_cases)} "
-            f"case(s) this run — nothing fits under the {max_cells}-cell backstop, so the "
-            f"matrix is empty and the trigger issue will close as if out of scope. The cases "
-            f"remain queued and re-run next cycle ({cases}). Raise "
-            f"predict.max_predict_cells_per_run or split the trigger if this is unexpected.",
+            f"case(s) this round — nothing fits under the {max_cells}-cell backstop, so the "
+            f"matrix is empty and the summary will read as a drained backlog. The cases "
+            f"remain owed and re-derive next cycle ({cases}). Raise "
+            f"predict.max_predict_cells_per_run if this is unexpected.",
             err=True,
         )
     else:
@@ -9961,26 +10447,36 @@ _STRANDED_RERUN_CAVEAT = (
 )
 _STRANDED_OVERRIDE = (
     "The guard releases itself: a run leaves the census once its `collect` concludes success, "
-    "and ages out of the 48-hour window regardless. To get a fresh run *sooner*, delete the "
+    "and ages out of the 48-hour window regardless. To get a fresh round *sooner*, delete the "
     "stranded run's cell artifacts (`gh api -X DELETE "
-    "repos/<owner>/<repo>/actions/artifacts/<artifact_id>`) and re-queue — an explicit act "
-    "rather than a new trigger."
+    "repos/<owner>/<repo>/actions/artifacts/<artifact_id>`) and let the next derivation mint "
+    "them again — an explicit act rather than a dispatch."
 )
 
 
 def _stranded_note(runs: Sequence[int]) -> str:
-    """The trigger-issue close note for a run the guard withheld entirely."""
+    """The recovery note for a round the guard withheld entirely.
+
+    Written to ``--stranded-note-file``, and only in that all-withheld case, so
+    the file's *presence* is also the marker the plan step branches on: an empty
+    matrix that means "recover that run" and one that means "the backlog is
+    drained" are identical from the count alone. The surface it is written for
+    is the run's own step summary — a schedule-driven round is addressed to
+    whoever reads the run, not to a request someone filed — so the note names
+    the round rather than an issue, and its closing line is about what the next
+    derivation will do rather than about closing anything.
+    """
     reruns = "\n".join(f"    gh run rerun {run} --failed" for run in runs)
     return (
-        "Every cell this run would have queued already ran in a run whose `collect` never "
+        "Every cell this round would have minted already ran in a run whose `collect` never "
         "succeeded — the predictions exist as cell artifacts; what is missing is the step that "
         f"commits them. Recover {'that run' if len(runs) == 1 else 'those runs'} rather than "
-        "re-running this one, which would re-spend the same tokens on the same events — rerun "
-        "the collect job:\n\n"
+        "starting another round, which would re-spend the same tokens on the same events — "
+        "rerun the collect job:\n\n"
         f"{reruns}\n\n"
         f"{_STRANDED_RERUN_CAVEAT}\n\n"
-        "Closing this issue loses nothing: an event with no committed prediction re-queues on a "
-        f"later cycle regardless. {_STRANDED_OVERRIDE}\n"
+        "Nothing is lost by leaving this round here: an event with no committed prediction is "
+        f"still owed, and the next scheduled round derives it again. {_STRANDED_OVERRIDE}\n"
     )
 
 
@@ -10017,10 +10513,11 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
 
     Three channels, all of them a run's record rather than a plan's: a
     ``::warning::`` per withheld cell carrying its own recovery command, the
-    escalated ``::error::`` plus ``note_file`` close note when the guard emptied
-    the matrix (the workflow's close step posts the note in place of its generic
-    out-of-scope one), and the Actions step summary. Called only when something
-    was actually withheld.
+    escalated ``::error::`` plus the ``note_file`` recovery note when the guard
+    emptied the matrix (the plan step branches on that file's presence so an
+    empty matrix reads as "recover that run" rather than as a drained backlog),
+    and the Actions step summary. Called only when something was actually
+    withheld.
     """
     runs = sorted({cell.run_db_id for cell in guarded.withheld})
     run_list = ", ".join(str(run) for run in runs)
@@ -10033,13 +10530,13 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
             err=True,
         )
     if not guarded.include:
-        # Every cell withheld: the plan reports has_jobs=false, and the workflow's
-        # close step would otherwise post its generic out-of-scope note. Write the
-        # honest one for it to post instead, and escalate here so the cause is on
-        # the record even if the note never reaches the issue.
+        # Every cell withheld: the plan reports has_jobs=false, which is
+        # indistinguishable from a drained backlog by the count alone. Write the
+        # note that says otherwise, and escalate here so the cause is on the
+        # record even if the note never reaches a reader.
         typer.echo(
             f"::error::{stage}: the stranded-run guard withheld ALL "
-            f"{len(guarded.withheld)} cell(s) — every event this trigger names already ran in "
+            f"{len(guarded.withheld)} cell(s) — every event this round derived already ran in "
             f"uncollected run(s) {run_list}. Recover rather than re-run: "
             f"`gh run rerun {runs[0]} --failed`. {_STRANDED_RERUN_CAVEAT} " + _STRANDED_OVERRIDE,
             err=True,
@@ -10048,11 +10545,13 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
             try:
                 note_file.write_text(_stranded_note(runs), encoding="utf-8")
             except OSError as exc:
-                # An unwritable note costs the issue its honest close message,
-                # never the run: the ::error:: above is already on the record.
+                # An unwritable note costs the round's summary its honest
+                # explanation, never the run: the ::error:: above is already on
+                # the record, and the guard's own summary section below carries
+                # the run ids and the rerun command.
                 typer.echo(
-                    f"::warning::{stage}: could not write the stranded-run close note to "
-                    f"{note_file} ({exc}); the trigger issue closes with the generic note",
+                    f"::warning::{stage}: could not write the stranded-run recovery note to "
+                    f"{note_file} ({exc}); the empty matrix is left to read as a drained backlog",
                     err=True,
                 )
     else:
@@ -10069,8 +10568,8 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
                 f"## run-predict — stranded-run guard withheld {len(guarded.withheld)} cell(s)\n"
                 f"Their output already sits in uncollected run(s) {run_list}, whose `collect` did "
                 f"not succeed: the tokens are spent and the predictions exist as cell artifacts. "
-                f"Recover with `gh run rerun {runs[0]} --failed` rather than re-running this "
-                f"trigger. {_STRANDED_RERUN_CAVEAT} Kept {len(guarded.include)} genuinely new "
+                f"Recover with `gh run rerun {runs[0]} --failed` rather than starting another "
+                f"round. {_STRANDED_RERUN_CAVEAT} Kept {len(guarded.include)} genuinely new "
                 f"cell(s). {_STRANDED_OVERRIDE}\n"
             )
 
@@ -10240,23 +10739,23 @@ def _predict_fanout(
     )
     if requested and any(c.events for c in requested) and not any(c.events for c in cases):
         # Every listed event fell to the forecastability re-check, so the
-        # emitted matrix will be empty and the workflow's empty-matrix step will
-        # close the trigger issue with its generic out-of-scope note (it cannot
-        # tell the causes apart). This line is the correctly-attributed record;
-        # safe, because every class the re-check drops on needs something other
-        # than a re-queue — a grade for a resolved event, a corpus fix for a
-        # stale grant. The per-event warnings above carry which class each was.
+        # emitted matrix will be empty and the workflow's empty-matrix branch
+        # will report a drained backlog (it cannot tell the causes apart). This
+        # line is the correctly-attributed record; safe, because every class the
+        # re-check drops on needs something other than another round — a grade
+        # for a resolved event, a corpus fix for a stale grant. The per-event
+        # warnings above carry which class each was.
         if report:
             typer.echo(
                 f"::error::{stage}: the forecastability re-check dropped every listed event — "
                 "none is still forecastable; nothing is minted",
                 err=True,
             )
-        # A workflow-log annotation is retention-bounded; the close note is the
-        # durable, human-read surface. Re-derive the per-event reasons (point
-        # lookups, only on this empty path) and hand the workflow's close step
-        # an attributed note in place of its generic out-of-scope one — the
-        # same channel the stranded guard uses.
+        # A workflow-log annotation is buried in the log; the note is the
+        # surface a reader lands on. Re-derive the per-event reasons (point
+        # lookups, only on this empty path) and write the attributed note the
+        # empty-matrix branch reports in place of a drained backlog — the same
+        # channel the stranded guard uses.
         if note_file is not None and recheck is not None:
             lines: list[str] = []
             for c in requested:
@@ -10267,9 +10766,9 @@ def _predict_fanout(
                     if event in c.events
                 )
             note_file.write_text(
-                "Every event this trigger listed has become unforecastable since it was "
-                "queued, so nothing was minted:\n\n" + "\n".join(lines) + "\n\n"
-                "None of these needs a re-queue — a resolved event needs its grade, and a "
+                "Every event this round listed has become unforecastable since it was "
+                "listed, so nothing was minted:\n\n" + "\n".join(lines) + "\n\n"
+                "None of these needs another round — a resolved event needs its grade, and a "
                 "decided or stale proceeding must not receive a forward cell.\n",
                 encoding="utf-8",
             )
@@ -10303,11 +10802,11 @@ def _predict_fanout(
     #
     # Coupling to watch: if the cap defers ALL cases the emitted matrix is empty,
     # which the plan job's `has_jobs=false` path routes to the workflow's
-    # empty-matrix step — and that step closes the trigger issue with a generic
-    # *out-of-scope* note, since cap-empty and scope-empty look identical to it.
-    # `_report_predict_cap` escalates to a ::error:: in that case so the cause is
-    # on the record; it is safe because the deferred cases persist in the corpus
-    # predict queue and re-queue next cycle regardless of the close.
+    # empty-matrix branch — and that branch reports a *drained backlog*, since
+    # cap-empty and drained-empty look identical to it. `_report_predict_cap`
+    # escalates to a ::error:: in that case so the cause is on the record; it is
+    # safe because the deferred cases stay owed and re-derive next cycle
+    # whatever the summary said.
     capped = cap_predict_cells(matrix, predict_config.max_predict_cells_per_run)
     if capped.dropped_cells and report:
         _report_predict_cap(capped, predict_config.max_predict_cells_per_run)
@@ -10353,18 +10852,18 @@ def predict_matrix_cmd(
     stranded_note_file: Annotated[
         Path | None,
         typer.Option(
-            help="Where to write the trigger-issue close note when the stranded-run guard "
-            "withholds every cell (nothing is written otherwise).",
+            help="Where to write the recovery note when the stranded-run guard withholds "
+            "every cell (nothing is written otherwise).",
         ),
     ] = None,
 ) -> None:
     """Emit the predictor x case x event GitHub Actions matrix as compact JSON.
 
-    Two input modes. ``--body-file`` takes the cases from a trigger issue, and
+    Two input modes. ``--body-file`` takes an explicit case list, and
     ``--court``/``--docket`` name one ad hoc. Given no input at all, they come
     from the corpus-level predict backlog — the forecasts committed state still
     owes, on cases that are in scope, funded, and already provisioned — so a
-    scheduled run derives its own work with no issue body. That derivation
+    scheduled run derives its own work with no case list named. That derivation
     writes no ``predict_queued_at`` debounce stamp: the per-(predictor, event)
     already-predicted skip below is the idempotency, and the corpus of record is
     writable only from the writer jobs. Run it where the corpus is pulled.
@@ -10549,10 +11048,10 @@ def evaluate_matrix_cmd(
 ) -> None:
     """Emit the evaluator x case x event GitHub Actions matrix as compact JSON.
 
-    Two input modes. ``--body-file`` takes the cases from a trigger issue, and
+    Two input modes. ``--body-file`` takes an explicit case list, and
     ``--court``/``--docket`` name one ad hoc. Given no input at all, they come
     from the corpus-level evaluate backlog — the gradings committed state still
-    owes — so a scheduled run derives its own work with no issue body. That
+    owes — so a scheduled run derives its own work with no case list named. That
     derivation writes no ``evaluate_queued_at`` debounce stamp: the
     already-graded gate below is the idempotency, and the corpus of record is
     writable only from the writer jobs. Run it where the corpus is pulled.
@@ -10594,7 +11093,7 @@ _PLANNING_USD_PER_CELL = 2.50
 #: Per-cell rates in USD, keyed (seam, engine), from ``docs/budget.md``. The
 #: predict row is the whole-run column of *Per-cell cost is keyed on the stage*
 #: — one stamped fan-out, 81 cells over 27 events, since re-based out of the
-#: frozen partition by the `proc-v5` instant. The evaluate row is
+#: frozen partition by the predictor re-blesses that followed it. The evaluate row is
 #: that section's evaluate-cohort table, ``proc-v2`` row (the better-matched of
 #: its two pre-freeze anchors), scaled by the whole predict move (x1.218)
 #: exactly as the doc's own per-case derivation does. The doc's stamped
@@ -11125,8 +11624,8 @@ def _render_approval_report(plan: dict[str, Any], *, stage: str, run_url: str = 
 _ApprovalReportOption = Annotated[
     Path | None,
     typer.Option(
-        help="Also write the plan as a bounded markdown report, for a hold gate to post as "
-        "a trigger-issue comment. stdout is unchanged, with the flag or without it.",
+        help="Also write the plan as a bounded markdown report, for a hold gate to publish "
+        "where an approver reads it. stdout is unchanged, with the flag or without it.",
     ),
 ]
 _ApprovalReportRunUrlOption = Annotated[
@@ -11155,11 +11654,11 @@ def _echo_plan(
     report was written beside it.
 
     That write is deliberately **fail-loud**, and deliberately *before* the
-    stdout echo, which is the opposite of the stranded-run close note's
-    fail-open: an unwritable note costs the trigger issue a better message and
+    stdout echo, which is the opposite of the stranded-run recovery note's
+    fail-open: an unwritable note costs the round's summary a better message and
     nothing else, while an unwritable approval report costs the hold its entire
     decision surface. A gate that read the plan from stdout, found no report,
-    and posted an empty comment would ask a maintainer to approve a fan-out
+    and published an empty document would ask a maintainer to approve a fan-out
     they cannot see. Raising here stops the run instead.
     """
     for line in _plan_count_lines(plan, stage=stage):
@@ -11214,7 +11713,7 @@ def predict_plan_cmd(
     The dry run of ``predict-matrix``: the same inputs through the same pipeline
     — scope gate, forecastability re-check, per-predictor ledger gate,
     stranded-run guard, volume cap — with nothing minted and nothing written. No
-    trigger-issue close note, no Actions step summary, no model spend; only the
+    recovery note, no Actions step summary, no model spend; only the
     plan document on stdout, its summary lines on stderr, and — on request —
     the ``--approval-report`` markdown.
 
@@ -11473,7 +11972,7 @@ def authorize_trigger_cmd(
     sender_type: Annotated[
         str, typer.Option(help="github.event.sender.type (a 'Bot' sender is the App handoff).")
     ],
-    actor: Annotated[str, typer.Option(help="github.actor that applied the run:* label.")],
+    actor: Annotated[str, typer.Option(help="github.actor that triggered the run.")],
     repo: Annotated[str, typer.Option(help="github.repository, owner/name.")],
     bot_actor: Annotated[
         str | None,
@@ -11484,14 +11983,16 @@ def authorize_trigger_cmd(
         ),
     ] = None,
 ) -> None:
-    """Authorize a run:* label trigger, or refuse and exit non-zero (fail closed).
+    """Authorize a run's sender, or refuse and exit non-zero (fail closed).
 
-    The pipeline's trust boundary: a Bot sender is the trusted App handoff
-    (pinnable to one login via ``--bot-actor``), any other actor needs
-    write-or-higher collaborator access (looked up via ``gh api``). Every
-    label-triggered ``run:*`` workflow runs this *before* it mints a token,
-    assumes the S3 role, or runs an agent. Prints the authorization line and
-    exits 0 when allowed;
+    A Bot sender is the trusted App handoff (pinnable to one login via
+    ``--bot-actor``); any other actor needs write-or-higher collaborator access
+    (looked up via ``gh api``). No workflow calls this, because none carries a
+    trigger an outside actor can fire — every lane here is schedule- or
+    dispatch-only, both gated by the platform (see ``fedcourtsai.authz``). It is
+    what a workflow that gained such a trigger would run *before* it mints a
+    token, assumes the S3 role, or runs an agent. Prints the authorization line
+    and exits 0 when allowed;
     prints the refusal to stderr and exits 1 otherwise. Needs ``GH_TOKEN`` in
     the environment for the permission lookup.
     """
@@ -11622,7 +12123,7 @@ def scan_diff_for_secrets_cmd(
     issue_comment_file: Annotated[
         Path | None,
         typer.Option(
-            help="Where to append the redacted trigger-issue comment (appended only on findings)."
+            help="Where to append the redacted withholding report (appended only on findings)."
         ),
     ] = None,
     run_url: Annotated[
@@ -11702,7 +12203,7 @@ def scan_diff_for_secrets_cmd(
                 handle.write(secretscan.render_issue_comment(findings, run_url) + "\n")
         raise typer.Exit(code=1)
     if misconfigured:
-        # Withholding must never be silent on the trigger issue: with no
+        # Withholding must never be silent on the run's report: with no
         # findings to report, still say why nothing was published.
         if issue_comment_file is not None:
             with issue_comment_file.open("a") as handle:
@@ -11792,9 +12293,7 @@ def cleanup_out_of_scope_predictions_cmd(
     run_id: Annotated[
         str, typer.Option(help="Run id for the review PR's branch name; defaults to now (UTC).")
     ] = "",
-    issue: Annotated[
-        int, typer.Option(help="Trigger issue the PR closes on merge (0 = none).")
-    ] = 0,
+    issue: Annotated[int, typer.Option(help="Issue the PR closes on merge (0 = none).")] = 0,
 ) -> None:
     """Prune committed predictions for cases now out of predict scope.
 
@@ -12318,13 +12817,13 @@ def stall_comment_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
     run_url: Annotated[str, typer.Option(help="The Actions run URL to link from the comment.")],
 ) -> None:
-    """Print the trigger-issue comment for a run that produced no output at all.
+    """Print the stall report for a run that produced no output at all.
 
-    A wholesale failure (every cell dying before its agent ran) opens no PR and
-    would leave the trigger issue silently orphaned open. The collect job renders
-    this comment — prose from tested code, per the house rule — and posts it to
-    the trigger issue with the ambient ``GITHUB_TOKEN`` so the stall is loud and
-    carries retry instructions.
+    A wholesale failure (every cell dying before its agent ran) opens no PR, so
+    without this the stall would be visible only to whoever read the Actions
+    history. The collect job renders this — prose from tested code, per the
+    house rule — onto the run's step summary, and (given an issue number)
+    comments it there with the ambient ``GITHUB_TOKEN``.
     """
     typer.echo(render_stall_comment(role, run_url))
 
@@ -12347,8 +12846,8 @@ def post_issue_comment_cmd(
     For the collect job's stall and secret-scan reports. Their step reruns
     whenever the collect job does — and rerunning collect is the documented
     recovery for a transfer failure — so without the marker every recovery
-    attempt would stack another copy of the same warning on the trigger issue,
-    burying the signal it exists to raise. An empty/absent body posts nothing.
+    attempt would stack another copy of the same warning on the issue, burying
+    the signal it exists to raise. An empty/absent body posts nothing.
     """
     body = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
     if not body.strip():

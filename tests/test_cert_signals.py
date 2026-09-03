@@ -806,6 +806,42 @@ def test_a_deferral_motion_grant_does_not_pre_empt_the_petitions_own_dismissal()
     assert corpus.opens_merits_proceeding(row) is False
 
 
+def test_a_denial_dates_the_termination_as_well_as_the_cert_denial() -> None:
+    # A denial is the only cert-stage disposition where the petition-stage
+    # decision and the docket's termination are one moment: the order refusing
+    # the writ ends the docket. Both columns therefore take the entry's date.
+    entries = [
+        {"description": "Petition for a writ of certiorari filed.", "date_filed": "2019-04-01"},
+        {"description": "Petition DENIED.", "date_filed": "2019-10-07"},
+    ]
+
+    disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
+
+    assert disposition == "denied"
+    assert cert_granted is None
+    assert cert_denied == date(2019, 10, 7)
+    assert terminated == date(2019, 10, 7)
+
+
+def test_a_grant_leaves_the_termination_undated() -> None:
+    # The other side of the split: a granted docket runs on to a merits
+    # judgment months later, so the grant date is not the termination and
+    # stamping it would invent one.
+    entries = [
+        {"description": "Petition for a writ of certiorari filed.", "date_filed": "2020-10-05"},
+        {
+            "description": "Petition GRANTED.",
+            "date_filed": "2021-02-22",
+        },
+    ]
+
+    disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
+
+    assert disposition == "granted"
+    assert cert_granted == date(2021, 2, 22)
+    assert cert_denied is None and terminated is None
+
+
 # --- the noted dissent from a denial ---------------------------------------------
 
 #: Real-shaped order-list text carrying each of the four notations. Aggregated

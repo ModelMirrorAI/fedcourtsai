@@ -1,6 +1,6 @@
 name: Collect a matrix run into one PR
 description: >
-  Download every cell artifact for a `run:predict` / `run:evaluate` fan-out, union
+  Download every cell artifact for a `run-predict` / `run-evaluate` fan-out, union
   the ready cells into one auto-merging PR and any salvageable partial output into
   one draft PR, and surface the run's stalls, secret-scan hits, and agent flags.
 
@@ -221,11 +221,12 @@ runs:
         echo "collected ${collected} of ${expected} artifact(s)"
 
         # Distinguish an infrastructure failure from a genuine stall. With zero
-        # artifacts on disk the aggregate step renders the stall comment, which
-        # tells a maintainer to re-label and re-run the whole matrix — the right
-        # advice when no cell uploaded anything, and an expensive misdiagnosis
-        # when the artifacts exist and merely failed to transfer. Fail loudly
-        # instead and leave them intact: `gh run rerun --failed` is the fix.
+        # artifacts on disk the aggregate step renders the stall report, which
+        # tells a maintainer the cells are still owed and the next round derives
+        # them — the right advice when no cell uploaded anything, and an
+        # expensive misdiagnosis when the artifacts exist and merely failed to
+        # transfer, since a fresh round would re-spend every one of them. Fail
+        # loudly instead and leave them intact: `gh run rerun --failed` is the fix.
         if [ "$expected" -gt 0 ] && [ "$collected" -eq 0 ]; then
           echo "::error::${expected} artifact(s) exist on this run but none downloaded." \
             "This is a transfer failure, not a stalled run — re-run the collect job" \
@@ -242,7 +243,7 @@ runs:
         ISSUE: ${{ inputs.issue || 0 }}
         ROLE: ${{ inputs.role }}
         # Via env, never interpolated into the shell body: the matrix carries
-        # court/docket/event ids parsed from the trigger issue.
+        # the court/docket/event ids the plan job derived.
         # The CLI pinned to this checkout by the step above — never a bare
         # `uv run`, which resolves against a working tree the union loop
         # below rewrites to `origin/main` mid-step.
@@ -266,7 +267,7 @@ runs:
         # omitting cells. Each names its own remedy, and both withhold the issue
         # close as a fully-absent engine already does:
         #   --missing-file  the artifact failed to transfer   -> re-run collect
-        #   --matrix-file   the cell uploaded nothing at all  -> needs a re-queue
+        #   --matrix-file   the cell uploaded nothing at all  -> the next scheduled round re-derives it
         matrix_args=()
         if [ -n "${PLAN_MATRIX:-}" ]; then
           printf '%s' "$PLAN_MATRIX" > plan-matrix.json
@@ -323,7 +324,7 @@ runs:
         # no PR to carry the note and the cells would vanish from the log too.
         jq -r '.uncovered_cells[]
           | "::warning::no cell output at all for \(.actor) on \(.court)/\(.docket) \(.event_id);"
-          + " re-running collect will not recover it — it needs a re-queue"' <<<"$plan"
+          + " re-running collect will not recover it — the next scheduled round re-derives and re-mints it"' <<<"$plan"
         if [ "$(jq -r '.stalled' <<<"$plan")" = "true" ]; then
           # Artifacts arrived but no cell produced output and no agent finished
           # cleanly (the tested `stalled` signal) — same stall, same comment.
@@ -357,7 +358,8 @@ runs:
         # facts rode that PR) and on a run with no failed cell, so this loop can
         # never double-commit the facts. It is a non-draft, deterministic-body PR,
         # so it runs the same three gates and auto-merges like `ready` — but it
-        # carries no `Closes #`, leaving the trigger issue open for the failed run.
+        # closes nothing — the cells it records are still owed, and the next
+        # round is what re-derives them.
         for kind in ready partial facts_only; do
           pr=$(jq -c ".${kind}" <<<"$plan")
           [ "$pr" = "null" ] && continue

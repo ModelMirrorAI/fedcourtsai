@@ -32,7 +32,7 @@ import sys
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 
-# The non-triggering label (no ``run:*`` workflow keys on it) the single long-lived
+# The non-triggering label (no workflow keys on ``issues: labeled``) the single long-lived
 # issue carries, with the appearance used when this job first creates it.
 LABEL = "agent-feedback"
 _LABEL_COLOR = "fbca04"
@@ -360,7 +360,7 @@ def post_once(
     secret-scan reports. Those are posted by a step that reruns whenever the
     collect job does — and rerunning collect is the documented recovery for a
     transfer failure, so without this every recovery attempt would add another
-    copy of the same warning to the trigger issue, burying the signal it exists
+    copy of the same warning to the issue, burying the signal it exists
     to raise.
 
     The marker is prepended rather than embedded by the renderers: the

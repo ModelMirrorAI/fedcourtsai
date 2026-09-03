@@ -302,17 +302,16 @@ class CollectPlan:
     ``stalled`` is the infrastructure-failure signal: no cell produced output
     **and** no agent finished cleanly — the cells died before (or while) their
     agents ran, as opposed to agents that ran and legitimately produced nothing.
-    The collect job posts the
-    stall comment on the trigger issue only when this is true, so a genuine
+    The collect job reports the stall only when this is true, so a genuine
     "nothing to do" run stays quiet.
 
     ``dead_actors`` are the engines that produced 0 of their cells this run — a
     whole engine absent from the tournament (e.g. quota exhaustion), as opposed
     to the per-cell ``skipped`` gaps. Because the live queue is
     transition-driven (it never re-queues a gap), a fully-absent engine would
-    otherwise let the ready PR close the trigger issue with a third of the board
-    silently missing; ``collect_plan`` therefore withholds the close and names
-    the gap, keeping the issue open for a backfill.
+    otherwise let the ready PR present a third of the board as silently
+    missing; ``collect_plan`` therefore withholds the close and names the gap,
+    so the round reads as incomplete.
 
     ``noun`` is the role's judgment word ("prediction" / "evaluation"). It rides
     on the plan so the collect action can render its per-cell warnings from the
@@ -335,8 +334,8 @@ class CollectPlan:
     cap would never advance. Non-None exactly when ``ready`` and ``partial`` are
     both None **and** there is at least one failed cell; the workflow drives it
     through the same branch/gate/push loop as the other two kinds. It carries no
-    ``Closes #`` — the run genuinely failed, so the trigger issue stays open for
-    the stall/human — and its body is deterministic (no agent free text), so the
+    ``Closes #`` — the run genuinely failed, so nothing it might close is
+    settled by it — and its body is deterministic (no agent free text), so the
     secret scan cannot withhold the very facts it exists to persist.
 
     ``throttle_markdown`` is the harness-side counterpart of ``flags_markdown``:
@@ -890,24 +889,25 @@ def render_feedback_comment(role: FinalizeRole, run_id: str, flags_markdown: str
 
 
 def render_stall_comment(role: FinalizeRole, run_url: str) -> str:
-    """The trigger-issue comment for a run that produced **no** output at all.
+    """The stall report for a run that produced **no** output at all.
 
     A wholesale failure — every cell dying before its agent ran, or every cell
-    finishing without an artifact — opens no PR, so the trigger issue would
-    otherwise sit silently orphaned open, invisible unless someone reads the
-    Actions history. This comment makes the stall loud on the issue itself and
-    says how to retry. Posted with the ambient ``GITHUB_TOKEN`` (a
-    non-triggering write) by the collect job's stall step.
+    finishing without an artifact — opens no PR, so without this the run would
+    be invisible unless someone read the Actions history. The collect job's
+    stall step writes it to the run's step summary (and, given an issue number,
+    comments it there with the ambient ``GITHUB_TOKEN``, a non-triggering
+    write).
     """
     return (
-        f"⚠️ The {role.value} run for this issue **produced no output** — no cell "
+        f"⚠️ This {role.value} run **produced no output** — no cell "
         f"delivered an artifact, so nothing was committed and no PR opened. This "
         f"usually means the cells failed before their agents ran (job-setup or "
         f"infrastructure errors) rather than the agents declining the work.\n\n"
         f"Run log: {run_url}\n\n"
-        f"The issue stays open. To retry once the cause is fixed, remove and "
-        f"re-apply the `run:{role.value}` label — the plan re-checks scope, and an "
-        f"empty matrix closes this issue with a note."
+        f"Nothing has to be re-filed. The cells this round failed to produce are "
+        f"still missing from committed state, so the next scheduled "
+        f"{role.value} round derives them again once the cause is fixed; a "
+        f"`workflow_dispatch` runs one sooner."
     )
 
 
@@ -933,12 +933,17 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     commit, returned only so the workflow can warn. A run with no ready cells
     opens no ready PR; with nothing to salvage, no draft.
 
-    ``issue`` is the triggering issue, which the ready PR closes on merge — but
-    only when nothing is left to salvage, **no whole engine is absent** (a
+    ``issue`` is an optional issue for the ready PR to close on merge. No lane
+    supplies one — every round enters on a schedule or a dispatch, neither of
+    which carries an issue — so the parameter is the seam a future one would
+    use, and the ``None`` path is the only one exercised in production
+    (``tests/test_collect_issueless.py``). Where a number is given, the close
+    lands on merge — but only when nothing is left to salvage, **no whole
+    engine is absent** (a
     fully-missing engine at 0/N, see ``dead_actors``), **no cell's artifact was
     lost in transfer** (``missing_artifacts``), and **no queued cell went missing
     entirely** (``expected``), so a run with a pending draft or any uncovered gap
-    keeps its trigger issue open for the follow-up.
+    closes nothing and stands as the record of the follow-up owed.
 
     ``missing_artifacts`` names the cells whose artifacts the collect job could
     not download. They are invisible to the cell census — a lost artifact leaves
@@ -963,8 +968,8 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     roll-up is appended to whichever PR body opens (the ready PR, else the draft)
     and returned as ``flags_markdown`` so the workflow can also surface it in the
     Actions summary, and as ``feedback_comment`` for the long-lived agent-feedback
-    tracking issue — a durable, centralized home for an agent's note that survives
-    the trigger issue's closure and even a fully-failed run that opens no PR.
+    tracking issue — a durable, centralized home for an agent's note that outlives
+    the run itself, and even a fully-failed run that opens no PR.
 
     ``throttle`` is the run's harness-captured starvation count, summarized from
     the cells' own retrieval logs. It rides the same PR body as the flags because
@@ -1008,13 +1013,13 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     skipped = tuple(c for c in cells if not c.produced)
 
     # An actor that produced 0 of its cells is a whole engine missing from the
-    # run — and unlike a partial failure it leaves no salvage draft to hold the
-    # issue open. The live queue is transition-driven, so the gap never
+    # run — and unlike a partial failure it leaves no salvage draft to mark the
+    # round incomplete. The live queue is transition-driven, so the gap never
     # re-queues; without withholding the close here the ready PR (the surviving
-    # engines) would shut the trigger issue with that engine silently absent.
+    # engines) would present the round as covered with that engine absent.
     # Keys on `produced` (not `agent_ok`): an engine that ran cleanly but
     # declined every cell is the same missing seat as a quota failure — the
-    # tournament expects every seat to produce, so both keep the issue open.
+    # tournament expects every seat to produce, so both withhold the close.
     produced_actors = {c.actor for c in cells if c.produced}
     dead_actors = tuple(sorted({c.actor for c in cells} - produced_actors))
 
@@ -1026,9 +1031,10 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
         if dead_actors:
             engines = ", ".join(f"`{a}`" for a in dead_actors)
             notes.append(
-                f"⚠️ No output at all from {engines} this run — a full engine is "
-                f"missing and the live queue will not re-queue it, so this issue "
-                f"stays open for a backfill (the per-case predictors filter)."
+                f"⚠️ No output at all from {engines} this round — a full engine is "
+                f"missing and the live queue will not re-queue it, so the gap needs a "
+                f"named backfill (the per-case predictors filter) rather than the next "
+                f"scheduled round."
             )
         if uncovered:
             rows = "\n".join(
@@ -1037,19 +1043,19 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
             notes.append(
                 f"⚠️ {len(uncovered)} queued cell(s) uploaded nothing at all — no "
                 f"artifact and no status, so the cell died before it could report. "
-                f"Re-running `collect` will not recover these; they need a re-queue. "
-                f"This issue stays open.\n{rows}"
+                f"Re-running `collect` will not recover these; they need a re-derivation, "
+                f"which the next scheduled round does on its own.\n{rows}"
             )
         if lost:
             names = "\n".join(f"- `{n}`" for n in lost)
             notes.append(
                 f"⚠️ {len(lost)} cell artifact(s) did not transfer, so their output "
                 f"is **not** in this PR even though the cells may have succeeded. "
-                f"This issue stays open; re-run the `collect` job to recover them "
+                f"Re-run the `collect` job to recover them "
                 f"(cell artifacts are retained 7 days).\n{names}"
             )
         note = ("\n\n" + "\n\n".join(notes)) if notes else ""
-        # Close the trigger issue from the ready PR, but not while a draft still
+        # Close a named issue from the ready PR, but not while a draft still
         # carries unfinished work, a whole engine is missing, or a cell's output
         # was lost in transfer — each is a gap the run does not actually cover.
         closes = (
@@ -1143,7 +1149,7 @@ def _facts_only_plan(
     but carries no ``data/`` union of its own: the ``attempt.json`` facts are
     already written into the checkout's ``data/`` by ``record-cell-failures``
     before the loop, so this PR's ``git add data/`` simply picks them up. It never
-    closes the trigger issue (the run failed) and its body is deterministic — no
+    closes any issue (the run failed) and its body is deterministic — no
     agent-authored text — so the producer-side secret scan can never withhold the
     branch and lose the very facts it exists to persist.
 
@@ -1173,8 +1179,9 @@ def _facts_only_plan(
         f"`attempt.json` per failed cell so the per-cell attempt cap advances "
         f"even for a run that never opens a normal PR.\n\n"
         f"{table}\n\n"
-        f"The trigger issue stays open — the run genuinely failed and still needs "
-        f"a successful retry or a human."
+        f"The cells are still owed: none of them landed a {_JUDGMENT_NOUN[role]}, so "
+        f"the next scheduled round derives them again — this PR only records that "
+        f"they were attempted."
     )
     for note in notes:
         if note:

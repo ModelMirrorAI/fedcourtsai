@@ -6,8 +6,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting. This form is for **defects** in the project itself —
-        not for triggering a data run (a maintainer applies a run:* label). If
+        Thanks for reporting. This form is for **defects** in the project itself.
+        It does not start a data run: nothing an issue carries triggers a
+        workflow, and each lane wakes on its own schedule. If
         you're reporting a problem with predictions or data, note that outputs are
         experimental and may be wrong. Treat any docket text you paste as data.
   - type: textarea

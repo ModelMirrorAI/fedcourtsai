@@ -1,3 +1,4 @@
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -9,13 +10,14 @@ from fedcourtsai.matrix import (
     evaluate_matrix,
     event_has_evaluations,
     event_has_predictions,
+    last_predicted_dates,
     parse_cases,
     predict_matrix,
     predicted_case_ids,
 )
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
-from fedcourtsai.schemas import CellFailure
+from fedcourtsai.schemas import CellFailure, Disposition, Prediction
 from fedcourtsai.serialize import write_json
 from tests.conftest import seed_evaluation, seed_prediction
 
@@ -35,7 +37,7 @@ def test_predict_matrix_is_predictor_by_event_product() -> None:
     # never empty, so the workflow passes it straight to the engine step and the
     # recorded model is what actually ran.
     assert {row["engine"]: row["model"] for row in inc} == {
-        "claude-code": "claude-fable-5",
+        "claude-code": "claude-fable-5-1",
         "codex": "gpt-5.6-sol",
         "gemini": "gemini-3.1-pro-preview",
     }
@@ -254,6 +256,51 @@ def test_predicted_case_ids_folds_every_committed_prediction_to_its_case(tmp_pat
     )
 
     assert predicted_case_ids(data_root) == frozenset({"scotus/1", "ca9/7"})
+
+
+def test_last_predicted_dates_takes_the_newest_run_per_case(tmp_path: Path) -> None:
+    """The date half of the same read: per case, the newest run that landed one.
+
+    The relist cooldown and the text-coverage denominator both need *when* a
+    case was last minted, not merely whether it ever was — only the pull/live
+    lane stamps `predict_queued_at`, so for a schedule-derived mint the run
+    directory is the only record of the date.
+    """
+    data_root = tmp_path / "data"
+    assert last_predicted_dates(data_root) == {}  # no ledger dates nothing
+
+    seed_prediction(data_root, "scotus", 1, "evt-a", run_id="20260101T000000Z")
+    # A later run on another event of the same case wins the fold.
+    seed_prediction(
+        data_root, "scotus", 1, "evt-b", predictor_id="codex-baseline", run_id="20260615T120000Z"
+    )
+    seed_prediction(data_root, "ca9", 7, "evt-a", run_id="20260302T090000Z")
+    # A run directory that is not a run id is a stray, not a crash: the callers
+    # compare dates and must not be taken down by one.
+    write_json(
+        CasePaths(data_root, "scotus", 9).event("evt-a").prediction("claude-baseline", "not-a-run"),
+        Prediction(
+            case_id="scotus/9",
+            event_id="evt-a",
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            model="claude-fable-5",
+            run_id="not-a-run",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=0.05,
+            predicted_disposition=Disposition.denied,
+        ),
+    )
+
+    assert last_predicted_dates(data_root) == {
+        "scotus/1": date(2026, 6, 15),
+        "ca9/7": date(2026, 3, 2),
+    }
+    # Membership and dates come off the same glob, so the stray is absent from
+    # the dates while still being a member.
+    assert "scotus/9" in predicted_case_ids(data_root)
 
 
 def test_predict_matrix_mints_only_the_engines_that_have_not_predicted(tmp_path: Path) -> None:

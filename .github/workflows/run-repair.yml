@@ -60,6 +60,8 @@ on:
           - normalize-docket-markings
           - response-backfill
           - ocr-recovery
+          - document-backfill
+          - arrival-backfill
           - merits-phantom-removal
           - disposition-convergence
           - sampled-frame-weight-repair
@@ -142,6 +144,7 @@ jobs:
           # meant for one pass silently reaches another.
           bound_flag=""
           bound_required_on_apply=0
+          bound_read_on_dry_run=0
           target_kind=""
           accepted_options=""
           case "${REPAIR}" in
@@ -155,6 +158,11 @@ jobs:
               bound_flag="--max-fills"; bound_required_on_apply=1 ;;
             ocr-recovery)
               bound_flag="--max-cases"; bound_required_on_apply=1 ;;
+            document-backfill)
+              bound_flag="--max-cases"; bound_required_on_apply=1
+              bound_read_on_dry_run=1 ;;
+            arrival-backfill)
+              bound_flag="--max-fills"; bound_required_on_apply=1 ;;
             merits-phantom-removal)
               bound_flag="--max-removals"; bound_required_on_apply=1
               accepted_options="include-failed-attempts" ;;
@@ -211,6 +219,19 @@ jobs:
           if [ "$bound_required_on_apply" -eq 1 ] && [ "${REPAIR_MODE}" = "apply" ] \
             && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # The one pass whose DRY RUN also consumes the bound, because its dry
+          # run fetches a docket per candidate and the number is load-bearing in
+          # both modes. A field a pass reads must satisfy the grammar wherever it
+          # is set, not only on an apply: the CLI's own parse takes a negative
+          # integer, and a slice of `candidates[:-5]` means "every candidate but
+          # the last five" — a near-unbounded fetch campaign wearing a bound.
+          # Refused here so a typo dies before an App token is minted and before
+          # the dedupe prerequisite writes anything.
+          if [ "$bound_read_on_dry_run" -eq 1 ] && [ -n "${REPAIR_BOUND}" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} reads repair_bound in BOTH modes, so it must be a positive integer wherever it is set — a bound its dry run would also spend. Clear the field or correct the number."
             exit 1
           fi
           # `include-scored` widens the disposition sweep onto events already
@@ -289,7 +310,7 @@ jobs:
     # pass reaches them only by being named here. A deny-list would hand every
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
-    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) }}
+    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) }}
     # Join the repo-wide corpus-writer lock: one writer at a time across
     # run-pull, run-seed and this bench. cancel-in-progress:false so a
     # dispatch queues behind a running window rather than cancelling it.
@@ -301,18 +322,21 @@ jobs:
     # run's own real pass — before ever being skipped. The condition is the
     # `if:` above, repeated because no context available here can hold it once.
     concurrency:
-      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     # Headroom over the longest chain of capped steps a dispatch can run, which
     # is the OCR recovery's: the dedupe prerequisite (10m), its own binary
-    # install (5m) and the pass (30m), leaving the setup, the corpus pull and
-    # the trailing verdict inside the remainder. A hit here cancels the run,
-    # which no failure handling absorbs; kept under the App token's 1h life so
-    # one token covers the whole run, which is why the pass's cap is what gives
-    # when this arithmetic tightens — and the OCR slice deadline is derived from
-    # that 30-minute step cap, so it moves with it.
-    timeout-minutes: 55
+    # install (5m), the fresh credential pair (the assume-role's own 120s
+    # bound) and the pass (45m), leaving the setup, the corpus pull and the
+    # trailing verdict inside the remainder. A hit here cancels the run,
+    # which no failure handling absorbs. Every pass but the OCR one still runs
+    # entirely inside the opening credentials' 1h lives; the OCR pass alone
+    # sits too deep in the chain for that, so a fresh App token and AWS session
+    # are minted right before it and the arithmetic here answers to this cap
+    # only — the OCR slice deadline is derived from that 45-minute step cap,
+    # so it moves with it.
+    timeout-minutes: 72
     environment: prod
     # Corpus-split flags (see run-pull): dual-write off unless CASESTORE_URL is
     # set; FEDCOURTS_CORPUS_SPLIT is the go-live switch (unset → '0' → off).
@@ -329,10 +353,12 @@ jobs:
       contents: read
       id-token: write # assume the AWS role for the corpus S3 remote (read-write)
     steps:
-      # One token up front: the whole run stays inside its 1h life, so no
-      # mid-run re-mint is needed. Scoped to contents:write only (the corpus
-      # pushes) — progress goes to the Actions step summary, not an issue, so
-      # no issues:write is needed.
+      # One token up front: on every pass but the OCR recovery the whole run
+      # stays inside its 1h life. The OCR pass and anything after it can end
+      # past that hour, so a fresh token is minted just before that step and
+      # the trailing verdict rides whichever mint is newest. Scoped to
+      # contents:write only (the corpus pushes) — progress goes to the Actions
+      # step summary, not an issue, so no issues:write is needed.
       - name: Mint app token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
@@ -370,7 +396,9 @@ jobs:
 
       # Same read-write (append-only) role as run-pull's and run-seed's
       # writers: a pass adds and rewrites rows in the corpus blob but can never
-      # wipe remote objects. The 1h session outlasts the job's own cap.
+      # wipe remote objects. The 1h session outlasts the whole run on every
+      # pass but the OCR recovery, which re-assumes the role just before its
+      # own step runs.
       - name: Configure AWS credentials (corpus S3 remote, read-write)
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
@@ -893,6 +921,33 @@ jobs:
             pdftoppm -v 2>&1 | head -n 1 || true
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Fresh credentials for the OCR pass alone. Both opening grants live 1h
+      # from job start, and this pass's step is the one whose worst case —
+      # behind the dedupe's and the install's own caps — can still be running
+      # (and committing) past that hour. Re-minting immediately before the
+      # step means the pass starts each grant's clock at zero, so its 45-minute
+      # cap fits with room to spare; every other pass keeps the opening pair.
+      # Conditions mirror the pass step's own, so the grants are refreshed
+      # exactly when they will be used.
+      - name: Mint app token (OCR pass)
+        if: ${{ inputs.repair == 'ocr-recovery' && steps.dedupe-live-rows.outcome == 'success' }}
+        id: app-token-ocr
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Configure AWS credentials (corpus S3 remote, read-write, OCR pass)
+        if: ${{ inputs.repair == 'ocr-recovery' && steps.dedupe-live-rows.outcome == 'success' }}
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 3600 # 1h
+          # See the opening credentials step for what this bound buys and costs.
+          action-timeout-s: 120
+
       # Read the scanned petitions off their page images. A petition filed on
       # paper reaches the corpus with no text layer, so the extractor stored
       # nothing for it and every cell minted over that case reads an empty
@@ -927,11 +982,12 @@ jobs:
         # is the slice deadline below, not `repair_bound`: page counts across
         # the class vary several-fold, so no fixed number of cases is both safe
         # against this cap and worth dispatching. This cap is the backstop
-        # behind that deadline rather than the thing a heavy slice hits. It
-        # stays inside the job's so one App token still covers the whole run.
-        timeout-minutes: 30
+        # behind that deadline rather than the thing a heavy slice hits. It is
+        # what the pass's fresh credentials above are sized against: 45 minutes
+        # from a mint moments earlier sits well inside both grants' 1h lives.
+        timeout-minutes: 45
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token-ocr.outputs.token }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
@@ -980,8 +1036,8 @@ jobs:
           # after, so the reader loses nothing.
           #
           # The slice's wall clock, measured from the moment the command starts
-          # so its own population walk is charged to it. The step has 30 minutes
-          # (1800 s) and everything below still has to land inside them, so the
+          # so its own population walk is charged to it. The step has 45 minutes
+          # (2700 s) and everything below still has to land inside them, so the
           # pass gets what is left after that tail is reserved:
           #
           #   witness re-read     300 s  one full-population content-store walk,
@@ -1008,13 +1064,13 @@ jobs:
           #                              the walk reserve's own slack over the
           #                              133-162 s it measures
           #   ------------------------
-          #   reserve             660 s  →  1800 - 660 = 1140
+          #   reserve             660 s  →  2700 - 660 = 2040
           #
           # A candidate is admitted only where what is left holds its whole
           # estimate, and no candidate estimates above the per-document
           # recognition budget plus the fixed per-case overhead (630 s), so even
-          # against the walk's full reserve 1140 still admits the most expensive
-          # filing the class can hold (1140 - 300 = 840): the head of the class
+          # against the walk's full reserve 2040 still admits the most expensive
+          # filing the class can hold (2040 - 300 = 1740): the head of the class
           # cannot be starved by the deadline. Candidates it declines are
           # reported unreached — untouched, still in the class, and first next
           # dispatch.
@@ -1027,7 +1083,7 @@ jobs:
           # heavy slice off it, is the point of the deadline.
           uv run fedcourts ocr-recover-petitions --apply \
             --max-cases "${REPAIR_BOUND}" \
-            --deadline-seconds 1140 > /tmp/ocr-apply.txt
+            --deadline-seconds 2040 > /tmp/ocr-apply.txt
           tee -a "$GITHUB_STEP_SUMMARY" < /tmp/ocr-apply.txt
           # The witness. The apply's ledger states the class it expects to leave
           # behind, and a re-read of the corpus must find exactly that: a
@@ -1074,6 +1130,350 @@ jobs:
           git commit -m "repair: recover scanned petitions (OCR)"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "OCR recovery pointer"
+
+      # Provision the queued cases holding no primary document. A case reaches
+      # prediction with the filing that opens it — the petition on a cert-form
+      # docket, the application on an interim one — because provisioning runs at
+      # the transition that queues it. A case whose provisioning ran before the
+      # selector had an arm for its filing type kept nothing, and no fetching
+      # lane repairs that: the poller re-fetches a kind only when its link
+      # changes, and a kind never stored has no link to change, while the case
+      # itself is decided by now on most of the class and the rotation has left
+      # it. This applies the current selector to the cases already past their
+      # trigger.
+      #
+      # The population is form-keyed and scoped to what can still mint a cell —
+      # live-slice rows queued for prediction or salience-selected, measured
+      # against their own docket form's primary document — not the wide
+      # distributed stock, which is overwhelmingly legacy rows carrying no
+      # document links at all. Each candidate costs paced round trips against
+      # the Court's own host, so the bound is a slice size rather than a refusal
+      # threshold and a backlog clears across dispatches, the `repair_bound`
+      # exception the OCR recovery already occupies.
+      #
+      # Its writes are documents, which under the corpus split land in the
+      # content store rather than the blob, so the pointer commit cannot witness
+      # them and an unchanged pointer is reported rather than failed. The
+      # witness is the walk-only re-read below.
+      - name: Backfill missing primary documents
+        if: ${{ inputs.repair == 'document-backfill' && steps.dedupe-live-rows.outcome == 'success' }}
+        # The slice is the expensive half: a candidate is one paced docket GET
+        # plus a GET, a download and a text extraction per filing the docket
+        # nominates. What sizes it is the slice deadline below rather than
+        # `repair_bound`, since what a candidate turns out to cost is what its
+        # docket nominates and no fixed number of cases is both safe against
+        # this cap and worth dispatching. This cap is the backstop behind that
+        # deadline. It stays inside the job's so one App token covers the run.
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # Validate the bound before anything else, including the corpus guard:
+          # a dispatch that cannot legally apply should say so in seconds, not
+          # after a full-population read of the content store. `Validate the
+          # repair selector` duplicates it word for word so a bad dispatch dies
+          # before any credential is minted; this copy is the one of record,
+          # because the step has to be safe on whatever reaches it. The refusal
+          # names the pass through `${REPAIR}` rather than a literal so the two
+          # copies are identical as text, not merely equivalent once expanded.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # And the every-mode half, because this pass's dry run spends the bound
+          # too — a field it reads must satisfy the grammar wherever it is set,
+          # or a negative integer reaches the slice as "every candidate but the
+          # last five". Copied word for word from `Validate the repair selector`
+          # like the refusal above it; this copy is the one of record.
+          if [ -n "${REPAIR_BOUND}" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} reads repair_bound in BOTH modes, so it must be a positive integer wherever it is set — a bound its dry run would also spend. Clear the field or correct the number."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to provision from.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the document backfill"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # The dry run spends one paced docket GET per candidate — running
+          # `select_documents` over a freshly served payload is the whole
+          # diagnostic, and it is what separates a case with a link waiting for
+          # it from one at a floor — so it is bounded on the same terms as the
+          # apply. `repair_bound` is optional here and honored when set; the
+          # deadline below is the bound that is always present, and it is what
+          # holds either mode inside this step's wall clock.
+          # Read off the machine-readable ledger each run prints last, rather
+          # than off the prose above it: the field name is passed as an argument
+          # so nothing from a file is interpolated into the program. Defined
+          # ahead of both modes because the dry run reads its alarm this way too.
+          ledger_field() {
+            grep -h '^{"applied"' "$1" | tail -n 1 \
+              | uv run python -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$2"
+          }
+          # A modern docket whose opening filing matched no entry is not a floor
+          # but a selector regression — the class this pass exists to stop
+          # producing rather than to absorb. Raised as an annotation in BOTH
+          # modes: the dry run is the reading a maintainer does first and where
+          # the decision to apply is actually made, so an alarm that fired only
+          # on the apply would arrive a dispatch after it was wanted.
+          alarm_on_regression() {
+            modern="$(ledger_field "$1" no_entry_modern_cases)"
+            if [ "${modern}" != "[]" ]; then
+              echo "::warning::selector regression: ${modern} matched no opening entry on a modern docket. The selector has no arm for their filing type; widen it rather than re-dispatching this pass."
+            fi
+          }
+          dry_args=()
+          if [ -n "${REPAIR_BOUND}" ]; then
+            dry_args+=(--max-cases "${REPAIR_BOUND}")
+          fi
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            # 1800 s of step budget, of which the dry run pushes nothing and
+            # commits nothing: only the tee and the trailing verdict follow it,
+            # so the reserve is the overshoot of a candidate already started
+            # (one docket GET, and the client's one retry on a transport
+            # failure) rather than a write tail.
+            #
+            # Its stdout goes to a file for the reason the apply's does: the
+            # ledger's last line is JSON read back as data, and a merged stream
+            # can interleave a log line into it once the untruncated per-case
+            # lists run past a pipe buffer.
+            uv run fedcourts backfill-documents "${dry_args[@]}" \
+              --deadline-seconds 1680 > /tmp/document-dry.txt
+            tee -a "$GITHUB_STEP_SUMMARY" < /tmp/document-dry.txt
+            alarm_on_regression /tmp/document-dry.txt
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          # Both runs below are read back as data, so their stdout goes to a
+          # file of its own rather than through `2>&1 | tee`: the ledger's last
+          # line is JSON, and a merged stream can interleave a log line into it
+          # once the untruncated per-case lists run past a pipe buffer. stderr
+          # still reaches the step log, and the file is tee'd into the summary
+          # after, so the reader loses nothing.
+          #
+          # The slice's wall clock, measured from the moment the command starts
+          # so its own population walk is charged to it. The step has 30 minutes
+          # (1800 s) and everything below still has to land inside them, so the
+          # pass gets what is left after that tail is reserved:
+          #
+          #   witness re-walk     180 s  one walk of the predict-relevant
+          #                              population's stored documents. A strict
+          #                              subset of the OCR recovery's own walk —
+          #                              the same live-slice row iteration, then
+          #                              filtered to the queued-or-selected rows
+          #                              — so it is bounded above by the 133-162 s
+          #                              that one measures, and this is roughly
+          #                              twice that ceiling
+          #   corpus-push          60 s  the blob comes back byte-identical
+          #                              where only documents moved; reserved
+          #                              for a run where it does not
+          #   commit + push        60 s  the pointer commit and its retrying
+          #                              push, reached only where the index
+          #                              itself moved
+          #   overshoot           240 s  the deadline is the last moment work may
+          #                              BEGIN, and a started candidate can end
+          #                              after it: a docket nominating more
+          #                              filings than the estimate charges for —
+          #                              one opposition brief per respondent —
+          #                              runs past it, as does a download that
+          #                              times out and takes the client's one
+          #                              retry
+          #   ------------------------
+          #   reserve             540 s  →  1800 - 540 = 1260
+          #
+          # A candidate is admitted only where what is left holds its whole
+          # estimate (65 s: the docket GET plus the filings it is charged for),
+          # so even against the walk's full reserve the head of the class cannot
+          # be starved by the deadline. Candidates it declines are reported
+          # unreached — untouched, still in the class, and first next dispatch.
+          #
+          # Two things this arithmetic does not cover, both of which the step's
+          # own cap is the backstop for: a docket nominating far more filings
+          # than the estimate charges for (selection returns every distinct-URL
+          # opposition brief with no per-case cap, so a many-respondent docket
+          # can run several times the charge), and a run of downloads that each
+          # time out and take the client's retry. Keeping those on the timeout,
+          # and the ordinary heavy slice off it, is the point of the deadline.
+          uv run fedcourts backfill-documents --apply \
+            --max-cases "${REPAIR_BOUND}" \
+            --deadline-seconds 1260 > /tmp/document-apply.txt
+          tee -a "$GITHUB_STEP_SUMMARY" < /tmp/document-apply.txt
+          # The witness. The apply's ledger states the class it expects to leave
+          # behind, and a re-read of the corpus must find exactly that: a
+          # content-store write that failed would leave the recovered cases in
+          # the class, which nothing in the pointer commit below would ever
+          # notice. `--max-cases 0` is the walk-only reading — it takes an empty
+          # slice, so it fetches nothing and costs no upstream round trip at
+          # all, and what it reports is the class as the corpus now holds it.
+          uv run fedcourts backfill-documents --max-cases 0 > /tmp/document-verify.txt
+          tee -a "$GITHUB_STEP_SUMMARY" < /tmp/document-verify.txt
+          expected="$(ledger_field /tmp/document-apply.txt remaining)"
+          found="$(ledger_field /tmp/document-verify.txt candidates)"
+          # A slice that started nothing converges, pushes nothing and exits
+          # green, which is the one shape of this pass a reader can miss: the
+          # deadline declined the head of the class, so the backlog is frozen
+          # rather than draining. It means the population walk has grown into
+          # the slice's budget, which is a sizing decision and not something a
+          # re-dispatch fixes. Said as an annotation because the ledger's own
+          # `attempted 0` sits in a summary nobody reads on a green run.
+          if [ "$(ledger_field /tmp/document-apply.txt attempted)" = "0" ] \
+            && [ "${expected}" != "0" ]; then
+            echo "::warning::the slice deadline started no candidate at all — ${expected} left in the class and nothing recovered. The population walk now takes most of the slice's budget; re-read the deadline arithmetic beside the invocation rather than re-dispatching."
+          fi
+          if [ "${found}" != "${expected}" ]; then
+            echo "::error::apply did not converge — the re-read finds ${found} case(s) without their primary document where the apply's ledger left ${expected} (a content-store write may have failed; see the warnings above)"
+            exit 1
+          fi
+          alarm_on_regression /tmp/document-apply.txt
+          # Blob before pointer commit, as everywhere. Under the corpus split
+          # the recovered documents land in the content store and the blob may
+          # come back byte-identical, which is why the pointer is not the witness
+          # here and an unchanged one is reported rather than failed.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Recovered documents are in the content store; the index pointer is unchanged."
+            exit 0
+          fi
+          git commit -m "repair: provision missing primary documents"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "document backfill pointer"
+
+      # Re-derive the interim baseline's arrival stamp. An interim event's
+      # `opened_at` is the moment it declares — the day the application was
+      # submitted to a Justice — and it is where provisioning cuts, so what is
+      # stamped there decides what a cell for that moment may see.
+      #
+      # The defect is a stamp rule correlated with the outcome. The live poller
+      # serves the UNRESOLVED slice, so a decided application has left the
+      # rotation and is never re-polled: an event last polled before the arrival
+      # read existed keeps the docketing date or nothing at all, and resolution
+      # status therefore decides which reading a row carries, and any
+      # retrospective interim population drawn from these events inherits that
+      # conditioning. A forward cell is unaffected ONCE ITS ROW HAS BEEN
+      # RE-POLLED — not by construction: a queued row not polled since the
+      # arrival read shipped still carries the docketing stamp and is moved by
+      # this apply, so the boundary runs through the forward stratum too. The
+      # pass is deliberately not predicated on resolution for the same reason:
+      # repairing only the decided half would condition the class all over again.
+      #
+      # Recoverable from the corpus alone, since the stored live-shaped snapshot
+      # is the same payload the original ingest read — so this re-parses it with
+      # the same pure parsers rather than re-fetching, and reaches no network at
+      # all. It reads those snapshots, which under the corpus split live in the
+      # content store rather than the blob, so it depends on the job-level
+      # split-mode env pair, and a row with no stored snapshot is counted and
+      # reported rather than failed.
+      #
+      # Its write is a direct UPDATE of the index, so the pointer IS the witness
+      # here and a plain pointer commit suffices — but it also re-mirrors the
+      # touched cases' events, because provisioning reads events back through the
+      # content store and a stale events.json would hand a cell the very stamp
+      # this pass replaced.
+      - name: Backfill the interim arrival stamps
+        if: ${{ inputs.repair == 'arrival-backfill' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Network-bound like the response-signal backfill rather than the local
+        # passes: one content-store read per candidate row, pooled by the shared
+        # prefetch, over a class in the thousands. No upstream fetch and no
+        # per-row recognition, so the walk is the whole cost.
+        timeout-minutes: 20
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # Validate the bound before anything else, including the corpus
+          # guard: a dispatch that cannot legally apply should say so in
+          # seconds, not after a full-population read of the content store.
+          # `Validate the repair selector` duplicates it word for word so a bad
+          # dispatch dies before any credential is minted; this copy is the one
+          # of record, because the step has to be safe on whatever reaches it.
+          # The refusal names the pass through `${REPAIR}` rather than a literal
+          # so the two copies are identical as text, not merely equivalent once
+          # expanded.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to re-derive.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the arrival-stamp backfill"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Dry-run first, into the summary: this pass's ledger is the reading
+          # the apply's bound comes from, and it must outlive the step log. Four
+          # things a maintainer weighs there beyond the count.
+          #
+          # The **forward-exposure** figures — the entries a cell provisioned
+          # today under the pre-repair stamp would admit, and the rows whose own
+          # disposition is among them. The move histogram beside them is only
+          # the *window*: a one-day move on a docket disposed of that day is
+          # worse than a month over a quiet one. These are counterfactuals over
+          # the corpus at the ledger's `corpus_vintage`, read with no date
+          # bound, so they bound what the rule still exposes rather than
+          # measuring what a committed cell saw; the committed-output
+          # intersection printed with them is the subset worth checking against
+          # a grading.
+          #
+          # The **residue** measurement, which is where conditioning survives:
+          # the unrepaired rows whose surviving stamp still admits their own
+          # disposition. A claim scoped to the repaired rows says nothing here.
+          #
+          # The **resolution split**, which says whether the correlation was
+          # removed or merely shrunk, and the matched/blind denominators beside
+          # it, which say what fraction carries the defect and how much of the
+          # population no dispatch of this pass can reach at all.
+          #
+          # And the per-row fill list, which after the apply is the only record
+          # of what each repaired cell's cutoff had been derived from — the
+          # corpus holds the new stamp, and `event.yaml` is rewritten with it
+          # the next time any cell runs over that event. That record belongs in
+          # the freeze-record entry the apply owes, not only in a run summary
+          # that expires with the run: the CLI prints it LAST, after every
+          # aggregate and the JSON ledger, precisely so the head-first
+          # truncation below drops the enumeration rather than the figures.
+          # (On an apply this run is a receipt, not a reading.)
+          # Bounded into the summary rather than tee'd whole. GitHub caps a step
+          # summary at 1 MiB and discards it ENTIRELY above that, warning only —
+          # and this pass's per-row lines plus its JSON ledger run to megabytes
+          # over a five-figure class, so an untruncated tee would drop the one
+          # surface the ledger was meant to outlive the run on. The full output
+          # stays in the step log either way.
+          summarize() {
+            head -c 900000 "$1" >> "$GITHUB_STEP_SUMMARY"
+            cat "$1"
+          }
+          uv run fedcourts backfill-arrival-stamps > /tmp/arrival-dry.txt 2>&1
+          summarize /tmp/arrival-dry.txt
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts backfill-arrival-stamps --apply \
+            --max-fills "${REPAIR_BOUND}" > /tmp/arrival-apply.txt 2>&1
+          summarize /tmp/arrival-apply.txt
+          # Blob before pointer commit, as everywhere. The index is where
+          # `events.opened_at` lives, so unlike the two document passes the
+          # pointer moving IS the witness that the write landed.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Arrival stamps already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: converge corpus (interim arrival stamps)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "arrival-stamp pointer"
 
       # Drop open SCOTUS merits events whose docket carries no cert grant, in
       # both stores. A merits event is born from a grant — every mint path
@@ -1479,7 +1879,13 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/publish-corpus-verdict
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          # On the OCR path this step can start past the opening token's 1h
+          # life, and every failure mode below it is swallowed (the fetch, the
+          # push retries, and this step's own continue-on-error) — an expired
+          # token here publishes nothing and looks green. Ride the fresh OCR
+          # mint where it exists; a skipped step's output is the empty string,
+          # so every other pass falls through to the opening token.
+          token: ${{ steps.app-token-ocr.outputs.token || steps.app-token.outputs.token }}
 
   # The ledger-only pass, in its own job because its credentials are a strict
   # subset: it recomputes graded fields out of committed artifacts and writes

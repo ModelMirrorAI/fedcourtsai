@@ -92,9 +92,17 @@ _MAX_PROBLEMS = 20
 
 # Accepted floor for `case_dates_ordered`: a stable handful of CourtListener rows
 # carry `date_decided < date_filed` (faithful upstream data, not rewritten — the
-# check below monitors the count). The observed steady-state is ~20; this floor leaves headroom
+# check below monitors the count). The observed steady-state is ~30; this floor leaves headroom
 # so noise passes while a material climb fails. Raise it deliberately if the steady
 # count grows (e.g. after a large historical backfill), never to silence a regression.
+#
+# Part of that count reaches the comparison through a derived column: on a denied
+# SCOTUS petition `date_decided` takes the row's own `date_cert_denied`
+# (`corpus.converge_denial_termination_dates`), so a docket whose upstream
+# `date_filed` postdates its denial entry lands here. The *pair* is still
+# upstream's — nothing is rewritten — but a future climb has two possible causes
+# rather than one, and telling them apart means asking whether the new rows are
+# denials.
 _CASE_DATE_ORDER_BASELINE = 50
 
 # Stable check identifiers (the `name` field of each emitted CorpusCheck).

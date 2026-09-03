@@ -3,7 +3,7 @@
 The design contract for the ingestion channels — the **pull** (CourtListener
 enrichment), **live** (forward SCOTUS poll), **historical** (Term walker), and
 **enrich** (opinion clusters) jobs — and for the stores they write. For the
-label/workflow mechanics see
+workflow mechanics see
 [pipeline.md](pipeline.md); for the store split at a glance see the *Data
 model* section of the [README](../README.md).
 
@@ -152,7 +152,7 @@ standing sweep on the walker instead.
 
 | Axis      | historical (Term walker, run-seed)      | pull (enrichment, run-pull)       | live (forward poll, run-pull)   | enrich (opinions, run-pull) | repair (maintenance bench, run-repair) |
 |-----------|-----------------------------------------|-----------------------------------|---------------------------------|-----------------------------|----------------------------------------|
-| Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           | REST API (opinion clusters) | the stored corpus itself, and for the OCR recovery alone the filings it names (supremecourt.gov PDFs) |
+| Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           | REST API (opinion clusters) | the stored corpus itself, and for the two fetching passes the filings and dockets they name (supremecourt.gov) |
 | Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions & applications, granted dockets to judgment: discovery, watchlist, outcomes | granted dockets → published opinion: reporter citations and opinion body | repair what no channel corrects: re-derive, relabel, normalize, remove |
 | Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        | shares the CourtListener budget, bounded per dispatch | ~0 API; each apply bounded by a blast-radius count, or by a slice where the cost is runner minutes |
 | Cadence   | **daily** (4 dead-zone windows)         | **daily** (4 windows)             | **daily** (4 windows)           | **dispatch only** (never scheduled) | **dispatch only** (never scheduled) |
@@ -239,8 +239,8 @@ delete in the read-write role ([security.md](security.md)); the shape of
 and existence checks and no list or delete primitive to call. So the prefix
 only grows. The scale: the blob is ~1.1 GB and the writers hold twelve
 scheduled windows a day (`run-pull`'s two cron entries, four pull windows and
-four live, plus `run-seed`'s four historical ones), with dispatches and label
-runs on top and several pushes possible inside one window — in practice the
+four live, plus `run-seed`'s four historical ones), with dispatched runs on top
+and several pushes possible inside one window — in practice the
 committed pointer moves a median of **13 times a day**, on the order of 14 GB a
 day of new objects. That is a floor on the accretion, not a count of it: a push
 whose pointer commit never lands still leaves its object behind.
@@ -699,8 +699,8 @@ records resolved, and any listed merits moment whose row fails the selection
 predicate's row arms — latched judgment or termination, a grant that no
 longer opens a merits proceeding, a stale unparsed grant — wherever the scope
 gate consults the corpus at all; under `predict.scope: all` neither does), so
-a stale trigger issue sheds its dead events at plan time instead of minting
-cells. For the resolved, latched-judgment, and terminated classes this guard
+a round whose events went stale while it waited on the review hold sheds them
+at plan time instead of minting cells. For the resolved, latched-judgment, and terminated classes this guard
 then re-refuses whatever slips through one by one; for the gvr-re-resolved
 and stale-grant classes the plan seam is the **only** guard — the forward
 record gate does not read those columns — which is why the re-check exists. A refusal
@@ -867,8 +867,9 @@ or network.
 ## Historical — the Term walker
 
 - **Trigger:** the `run-seed` workflow's cron windows (four dead-zone slots a
-  day, or manual dispatch). No trigger label: nothing an outside actor can file
-  fires it. It shares run-pull's `corpus-write` lock, so it still serializes with
+  day, or manual dispatch). Nothing an outside actor can file fires it: a
+  `schedule` runs only from the default branch and a dispatch needs repository
+  write. It shares run-pull's `corpus-write` lock, so it still serializes with
   the forward writers despite the separate schedule.
 - **Each run** (deterministic, no agent, no API secret): loop
   `fedcourts historical-terms` in checkpointed chunks — walk the configured
@@ -889,7 +890,7 @@ or network.
   expensive stages are predict and evaluate, which *select* from the corpus, and
   sampling belongs there because it is reversible there. Undecided petitions are
   skipped entirely (pending matters are the forward poller's charter), so the
-  walker writes **no** predict/evaluate handoffs, ever.
+  walker writes **no** predict/evaluate queue file, ever.
 - **Re-walking:** a Term walked to its frontier is invisible to later runs, so
   run-seed's manual dispatch carries `refresh_terms` / `refresh_streams` (blank
   on every scheduled window): it runs `fedcourts refresh-historical --apply`
@@ -914,7 +915,7 @@ or network.
   for an event still open, so a re-serve converges the row and leaves a
   committed ledger label to `converge-disposition-labels`. A number the corpus
   never held is onboarded outright, ledger included.
-- **Maintenance sweeps:** after the loop, one window a day also runs seven
+- **Maintenance sweeps:** after the loop, one window a day also runs eight
   converging sweeps in order — `fedcourts dedupe-live-rows --apply` (merging
   live-minted duplicate rows; a minted moment's committed event directory moves
   onto the survivor with its re-keyed row, so the lane must stage the moved
@@ -932,7 +933,17 @@ or network.
   `fedcourts reopen-misattributed-outcomes --apply` — ledger deletions and
   rewrites staged in the one pointer commit, removal first so the entry-pinned
   case clears the reopen sweep's baseline-pair triage in the same window, each
-  refusing to apply above its per-run blast-radius cap), and `fedcourts
+  refusing to apply above its per-run blast-radius cap), `fedcourts
+  converge-decision-dates --apply` (a denied petition's termination date, filled
+  in from the row's own `date_cert_denied` — the order refusing the writ is the
+  order that ends the docket, so the two name one moment; the grant side stays
+  out, since a granted docket terminates at a later merits judgment no column
+  holds, and two date guards decline a denial dated before its own filing or
+  after the as-of day rather than propagating either into a second column. It
+  converges rather than flaps only because the live channel's
+  resolution parse dates a denial's termination too: `date_decided` is
+  last-write-wins on upsert, so a sweep without that ingest default behind it
+  would be undone by the next walk of the Term), and `fedcourts
   scrub-bulk-cluster-fields --apply` (the stored circuit slice's misjoined
   bulk cluster fields, dropped from the rows nothing re-serves — keyed on
   the fields no channel could have written to a non-SCOTUS row, the ingest
@@ -955,21 +966,25 @@ or network.
 
 ## Pull — forward freshness
 
-- **Trigger:** an intraday cron (several windows a day), `workflow_dispatch`,
-  or a maintainer-applied `run:pull` label. Each window that ends in success
-  or failure lands its row on the long-lived pipeline-runs dashboard issue; a
-  failing window also opens a `pull-log` issue for a human, and a window
-  cancelled mid-run (timeout, manual stop) gets only that alarm issue, no
-  dashboard row (`run-log-dashboard` and `pull-log` are deliberately not
-  `run:*` trigger labels — see [pipeline.md](pipeline.md)).
+- **Trigger:** an intraday cron (several windows a day), or a
+  `workflow_dispatch` whose `mode` input picks the window to run. Each window
+  that ends in success or failure lands its row on the long-lived pipeline-runs
+  dashboard issue; a failing window also opens a `pull-log` issue for a human,
+  and a window cancelled mid-run (timeout, manual stop) gets only that alarm
+  issue, no dashboard row. Neither of those writes can start anything: no
+  workflow keys on `issues: labeled`, so labeling triggers nothing — see
+  [pipeline.md](pipeline.md).
 - **Budget governor:** a per-run cap (`max_cases_per_run`) with
   **oldest-`last_pulled`-first rotation** and skip-closed/resolved, sized to
   the active CourtListener tier's ceilings; a slice of each run
   (`eligible_refresh_reserve`) is reserved for the stalest SCOTUS dockets, so
   the in-scope set rotates ahead of the much larger active set.
 - **Two forward jobs over the shared core:**
-  1. **Refresh** active known cases (`pull_case`), queuing `run:predict` for
-     changed cases with open case-baseline events — unless the refreshed docket already looks
+  1. **Refresh** active known cases (`pull_case`), routing changed cases with
+     open case-baseline events onto the predict queue — a `predict_queued_at`
+     stamp and a count, not a request: `run-predict` derives its own backlog on
+     its own schedule and merely honours that stamp as a debounce. A case is
+     kept off the queue if the refreshed docket already looks
      decided (its *latest* entry reads terminal, or its open events surfaced an
      unrecorded outcome). Such a case is diverted to the run's
      `predict_skipped_decided` list and surfaced on the job's Actions run log
@@ -1021,7 +1036,7 @@ or network.
 
 The `run-repair` workflow is the maintainer's repair bench: the corpus and
 ledger passes that fix what no channel corrects. It is `workflow_dispatch`
-only — no schedule, no `run:*` label — and it joins the same `corpus-write`
+only — nothing schedules it — and it joins the same `corpus-write`
 lock the walker and the pullers hold, so a pass can never interleave with a
 window's corpus push.
 
@@ -1043,12 +1058,14 @@ pass's ledger to the run summary and writes nothing, the maintainer reads the
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
-before the write. Two passes skip it, and for the same reason: the distribution
-re-derivation, whose plan *is* its write set, and the OCR recovery, whose apply
-ledger already states the class it found before writing. In both, the receipt
-would be bought with a whole extra full-population read of the content store —
-the third, on an OCR apply, which already re-reads the class as its own write
-witness. `repair` defaults to `none`, which
+before the write. Three passes skip it, and for the same reason: the
+distribution re-derivation, whose plan *is* its write set, and the two fetching
+passes, whose apply ledgers already state the class they found before writing.
+In each, the receipt would be bought with a whole extra full-population read of
+the content store — the third, on a fetching apply, which already re-reads the
+class as its own write witness — and on the document back-fill it would also
+buy a second paced docket fetch for every candidate. `repair` defaults to
+`none`, which
 is refused outright: the form's initial state cannot start a corpus write.
 
 **The five inputs.**
@@ -1081,6 +1098,8 @@ population and apply against another.
 | `normalize-docket-markings` | `normalize-docket-markings` | `--max-rewrites` | — | — |
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
 | `ocr-recovery` | `ocr-recover-petitions` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`) | — | — |
+| `document-backfill` | `backfill-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too) | — | — |
+| `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
 | `sampled-frame-weight-repair` | `repair-sampled-frame-weights` | `--max-repairs` | — | — |
@@ -1091,20 +1110,27 @@ the scan runs unless it is a positive integer — blank, zero, negative, decimal
 and leading-zero alike. An unbounded apply would convert a widened predicate
 into a mass rewrite rather than a loud refusal, and each of these populations is
 finite, so a count above the one read means the predicate widened rather than a
-dirtier corpus. **The OCR recovery's bound is the one that means something
-else**: it is a *slice size*, and the pass takes the first that many candidates
-rather than refusing above them. What bounds the others is blast radius, which
-is why exceeding the read count is a refusal; what bounds this one is runner
-minutes, since each case costs a re-fetch and a page-by-page recognition, so a
-backlog is meant to clear across dispatches. The slice is self-advancing — a
-recovered petition leaves the class — but only the recovered ones do. Anything
+dirtier corpus. **The two fetching passes' bounds mean something else**: on the
+OCR recovery and the document back-fill the bound is a *slice size*, and the
+pass takes the first that many candidates rather than refusing above them. What
+bounds the others is blast radius, which is why exceeding the read count is a
+refusal; what bounds these two is runner minutes against a politeness-paced
+upstream — a re-fetch and a page-by-page recognition on the one, a docket fetch
+and the filings it nominates on the other — so a backlog is meant to clear
+across dispatches. The document back-fill takes its bound on `dry-run` as well,
+because its dry run is not free either: running selection over a freshly served
+docket payload is the whole diagnostic, and that payload is a paced round trip
+per candidate. The rest of this paragraph describes the OCR recovery, and the
+document back-fill is built on the same terms except where said. The slice is
+self-advancing — a recovered petition leaves the class — but only the recovered
+ones do. Anything
 the slice reached and could not recover (a refused URL, a failed fetch, an
 unreadable scan, a recognition cut short) stays, and stays at the *head* in
 `case_id` order, so the next dispatch retries it first; the ledger names each
 apart, because a class whose head is permanently unreadable turns a small bound
 into a no-op and nothing else would show it. The bound is therefore the *spend*
 cap and not the pass's safety mechanism: what keeps a heavy slice inside the
-step's 30-minute cap is the **slice deadline** the step passes
+step's 45-minute cap is the **slice deadline** the step passes
 (`--deadline-seconds`, sized in a comment beside the invocation from everything
 that must still fit inside that cap once the pass stops taking work — the
 witness re-read, the blob push, the pointer commit, and the work a started
@@ -1120,6 +1146,26 @@ refuses on it: zero candidates out of zero petitions is a blob whose documents
 this process cannot read — a split-mode index with no content store configured
 serves every case an empty document list — not a converged class, and the two
 must not report the same way.
+
+The **document back-fill** reads the same way with one addition its class
+forces. Its candidates are live-slice rows queued for prediction or selected by
+the salience gate that hold no document of their own docket form's primary kind
+— an application-form row measured against its `application`, a cert-form row
+against its `petition` — and a candidate it cannot recover falls into one of two
+**floors** rather than a failure: a docket carrying the opening entry with no
+PDF behind it is a Rule 34.6 paper filing the Court served nothing for, and one
+carrying no such entry at all is a legacy docket whose proceedings list holds no
+document links. Neither drains, so a slice that clears its bound without
+shrinking the class is the expected reading once the recoverable half is gone,
+and only the floor counts say so. The exception is the alarm: a docket modern
+enough that its proceedings list should carry links, matching no opening entry,
+is a filing shape the selector has no arm for rather than a floor, and the
+ledger **names** those cases where the counts would bury them. Its ledger
+carries two denominators, not one — the predict-relevant rows the walk read at
+all, which the command refuses on, and how many of them served any stored
+document, which is the opposite degradation: a content store the process cannot
+read makes every row in the population look like a gap.
+
 The distribution re-derivation is the exception that proves it:
 its bound is fixed in code because the population's delta was measured before
 the surface existed, so moving it is a code change with the new basis stated
@@ -1216,7 +1262,7 @@ the runner image rolls, and would fail the pass for a reason that has nothing to
 do with the corpus, so what a recovered text was read by is recorded by the run
 instead of promised by the workflow. An apply refuses where the binaries are
 absent, which is what keeps a failed install from reading as a converged class.
-**Least privilege per pass.** The nine corpus passes run in a job holding the
+**Least privilege per pass.** The eleven corpus passes run in a job holding the
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
@@ -1259,6 +1305,28 @@ gh workflow run run-repair.yml --ref main \
   -f repair=ocr-recovery -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
   -f repair=ocr-recovery -f repair_mode=apply -f repair_bound=15
+
+# The document back-fill's bound is a slice too, and it is the one pass whose
+# `dry-run` takes it as well — the diagnostic is a paced docket fetch per
+# candidate, so an unbounded dry run over a large class is an hour of them.
+# Read the ledger's floor counts before sizing the apply: they say how much of
+# the class no fetch reaches, so a bound above the recoverable half buys nothing.
+gh workflow run run-repair.yml --ref main \
+  -f repair=document-backfill -f repair_mode=dry-run -f repair_bound=40
+gh workflow run run-repair.yml --ref main \
+  -f repair=document-backfill -f repair_mode=apply -f repair_bound=15
+
+# The arrival back-fill's bound is an ordinary refusal threshold, so the number
+# is the fill count its dry run printed — a five-figure class is expected, and
+# the number below is a placeholder rather than a measurement. Read three things
+# off that dry run before applying: the entries the pre-repair cut admitted and
+# the rows whose own disposition was among them (the day histogram is only the
+# window, not what was in it), and the resolution split of the residue, which
+# says whether the correlation was removed or merely shrunk.
+gh workflow run run-repair.yml --ref main \
+  -f repair=arrival-backfill -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=arrival-backfill -f repair_mode=apply -f repair_bound=<the dry run's fill count>
 
 # A pass with an option. `include-scored` demands the bound in BOTH modes, so
 # the dry run that decides the widening states it too.

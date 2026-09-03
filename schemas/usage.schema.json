@@ -21,7 +21,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``usage.json`` \u2014 measured model token usage and estimated cost for one run.\n\nWritten per ``run:predict`` / ``run:evaluate`` matrix cell (predictor x event\nfor predict, evaluator x event for evaluate) alongside that cell's prediction\nor evaluation output. Token buckets follow the Claude convention:\n``input_tokens`` is fresh input, with cached reads and cache writes counted\nseparately so ``estimated_cost_usd`` can apply the right rate to each (see\n``fedcourtsai.pricing``). Summing these across runs replaces the planning\nassumption in ``docs/budget.md`` with a measured \\$/run.",
+  "description": "``usage.json`` \u2014 measured model token usage and estimated cost for one run.\n\nWritten per ``run-predict`` / ``run-evaluate`` matrix cell (predictor x event\nfor predict, evaluator x event for evaluate) alongside that cell's prediction\nor evaluation output. Token buckets follow the Claude convention:\n``input_tokens`` is fresh input, with cached reads and cache writes counted\nseparately so ``estimated_cost_usd`` can apply the right rate to each (see\n``fedcourtsai.pricing``). Summing these across runs replaces the planning\nassumption in ``docs/budget.md`` with a measured \\$/run.",
   "properties": {
     "actor_id": {
       "description": "The predictor_id (predict) or evaluator_id (evaluate)",

@@ -29,12 +29,41 @@ whose merits cell carries a judgment with its mandatory vote block, the one decl
 `merits-v1` claim, and the two declared `semantic-v1` propositions its grader answers
 entirely with the availability mask (the fixture corpus holds no opinion body). Each non-cert cell lands in the leaderboard's own unranked stage block
 rather than the ranked cert board, and the later-moment cert cell likewise aggregates
-into its own `cert@cvsg` block. One further round drives the *scheduled* evaluate
-lane rather than a labelled one: it predicts with the judges held off, derives the
+into its own `cert@cvsg` block. One further round drives the evaluate lane's own
+**backlog derivation** rather than a named case list: it predicts with the judges
+held off, derives the
 matrix from the evaluate backlog (`evaluate-matrix` with no `--body-file`, as the
-scheduled plan job does), grades the cells that derivation planned, and requires the
+plan job does), grades the cells that derivation planned, and requires the
 re-derivation to come back empty — the backlog drained, which is the lane's resting
 state. Run them all with `uv run pytest -k cascade_smoke`.
+
+The `test` stage runs the suite **in parallel**, one `pytest-xdist` worker per
+available CPU. No test depends on state another test left behind: the process-wide
+caches are reset per test by autouse fixtures in `tests/conftest.py`, and everything
+else a test needs — corpus, data root, working directory, environment — it builds for
+itself under `tmp_path` and `monkeypatch`. So a test may land on any worker. The stage
+distributes with xdist's `loadgroup`, which spreads per test as the default `load`
+does and additionally honours `@pytest.mark.xdist_group`, so a test that ever does
+need to run beside its siblings on one worker can say so where it lives instead of
+needing the gate changed underneath it. Coverage is unaffected: under `GATE_COV=1`
+each worker measures its own slice and pytest-cov combines them into the single
+`.coverage` file the CI job's summary step reads.
+
+Parallel workers are the wrong shape for debugging one failure — a worker has no
+terminal for `breakpoint()`, and output from several interleaves — so the worker count
+is overridable, and `1` drops xdist entirely:
+
+```bash
+GATE_TEST_WORKERS=1 scripts/gate.sh test   # serial, debuggable
+GATE_TEST_WORKERS=4 scripts/gate.sh test   # pin the count instead of per-core
+uv run pytest tests/test_salience.py       # a bare pytest run is serial anyway
+```
+
+A test that fails only under parallelism is a test leaking state, not a reason to
+serialize it: give it its own `tmp_path` root rather than a shared one. An
+`xdist_group` mark is for the case isolation cannot reach — a genuinely external
+shared resource — and carries the reason in a comment beside it. The suite needs
+none today.
 
 If you changed the pydantic models, the `schemas` stage regenerates the exported
 schemas and fails on drift — so regenerate and commit them in the same change.
@@ -52,12 +81,12 @@ the bulk of the codebase and it is fully testable offline. The
 predictors (`ConstantBacktester`, `PriorVoteBacktester`) run with no model and no
 network, so the scoring metric is real in a unit test.
 
-**The agentic stages** — `run:predict` and `run:evaluate` —
+**The agentic stages** — `run-predict` and `run-evaluate` —
 are the gap. They invoke a coding agent (`anthropics/claude-code-action` and the
 Codex equivalent) *inside the workflow*, so without a harness the only feedback on a
 change to a prompt, the snapshot provisioning, or a finalize step is "open a PR,
-have a maintainer apply a label, wait for Actions, read the logs" — slow,
-token-spending, and human-gated.
+have a maintainer dispatch the lane and release the `review` hold, wait for
+Actions, read the logs" — slow, token-spending, and human-gated.
 
 **Infra-bound integration** — the live CourtListener REST API, the corpus pull
 from S3 over OIDC, the GitHub App token, issue comments — is deliberately
@@ -234,7 +263,7 @@ way `qp-topic` and `collect` do, so plumbing bugs surface for runner minutes
 instead of across paid dispatches. `integration-test.yml`'s scenario roster
 above is the checklist: a new paid surface without a scenario is an incomplete
 change unless it ships an equally token-free dry-run mode of itself (the
-`run:backtest` replay's stub engine is that shape, and stronger evidence than
+`run-backtest` replay's stub engine is that shape, and stronger evidence than
 a scenario would be), and the scenario ships in the same batch as the mode it
 guards. A scenario that joins the promotion gate's **required** set moves the
 run counts below and the gate's own scenario roster with it — both
@@ -357,8 +386,8 @@ The more logic lives in YAML, the less of the pipeline is testable, because YAML
 runs in Actions. The standing principle is to push logic *out* of the workflows and
 into tested `fedcourts` commands, leaving the YAML as orchestration. The matrix
 builders follow this (`predict-matrix` / `evaluate-matrix` are library code with unit
-tests, not inline script), as do the predict/evaluate decisions: the
-trigger-authorization gate (`authorize-trigger`), whether a cell produced its own
+tests, not inline script), as do the predict/evaluate decisions: whether a cell
+produced its own
 output (`finalize-produced`), the path jail (`assert-paths`), and the per-run
 ready/draft PR aggregation (`collect-plan`). The YAML
 calls those and runs only the git/`gh` plumbing, so "test the workflow" reduces to
@@ -376,27 +405,31 @@ including `py/implicit-string-concatenation-in-list`, the dropped-comma guard
 AGENTS.md leans on — with results in the Security tab rather than a required
 check. Beside them, a family of pytest
 workflow-shape tests pins the YAML *contracts* the linters cannot see — the
-label-trigger authorization shape (`test_workflow_auth_gate`: every gated
-workflow's gate is the tested `authorize-trigger` command, nothing but a
-credential-free checkout and the env sync may precede it, nothing
-privileged runs ahead of it, and every gate pins the Bot allowance to the
-data App's login), the
+trigger surface (`test_workflow_auth_gate`: no workflow in the directory takes a
+privilege-reaching trigger an actor without repository write can fire — the
+exception, `pull_request` on CI, the linters and CodeQL, is held to a shape that
+makes it moot: no environment, no secret, no token mint, no role — the privileged lanes carry
+nothing but the platform-gated `schedule` and `workflow_dispatch` and keep the
+dispatch their recovery path depends on, every privileged job binds a deployment
+environment so a dispatch cannot run it from an arbitrary ref, and every agent
+job waits on the `review` hold), the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants
 (`test_workflow_cell_invariants`: the qp-topics oracle fence, the corpus-split
-env pair, the forward leakage guard, the run-surface retry with its inline
-copies and its still-fatal handoff writes, the 10-input `workflow_dispatch`
+env pair, the forward leakage guard, the arm/disarm bracket and deadline of the
+codex hang watchdog, the run-surface retry with its inline copies, the absence
+of any step that applies a fan-out label, the 10-input `workflow_dispatch`
 cap the UI enforces silently, the fail-closed shape every input gate must have
 on a scheduled workflow, and the word-for-word pairing between each fail-fast
 validator and the step of record that re-checks it), and the predict plan job's stranded-run
 guard (`test_workflow_plan_census`: the census runs before the matrix step and
 feeds it, degrades open rather than failing the job, and lets a fully-superseded
-run close with the recovery note) — so deleting a load-bearing line fails a
+run report the recovery note instead of a drained backlog) — so deleting a load-bearing line fails a
 named test instead of passing every linter. Two of the family go further and
 *run* what the YAML embeds, because a workflow string is matched against the CLI
 for the first time when the job runs: `test_workflow_repair_cli_parity` reads
-each of `run-repair`'s nine dispatch-only maintenance passes back out of the
+each of `run-repair`'s twelve dispatch-only maintenance passes back out of the
 workflow — argv, conditional flag arrays and all, via the shared reader
 `tests/workflow_argv.py` — and executes it against the fixture corpus, so a
 renamed flag fails here rather than as a usage error mid-dispatch (its qp
@@ -404,9 +437,14 @@ test also replays the pass's convergence re-run over a seeded corpus and
 asserts the workflow's grepped literal against the summary the CLI prints —
 the one coupling that lives in output wording rather than argv); and
 `test_collect_issueless` executes the collect composite's own `collect-plan`
-call with the sentinel it normalizes an absent trigger issue to, which is the
-one path a scheduled round takes and an issue-triggered run never does. For a heavier local check of the
-deterministic jobs (the `plan` job, matrix generation, the auth gate),
+call with the sentinel it normalizes an absent issue number to, which is the
+path every round takes, since no lane supplies one. `test_codex_watchdog` does
+the same for the codex cells' hang bound: it runs `scripts/codex-watchdog.sh`
+against a process whose command line stands in for the wedged engine, because
+every claim about that guard is a claim about process matching and signals on
+a live runner, and a wedge otherwise destroys its own evidence. For a heavier
+local check of the
+deterministic jobs (the `plan` job, matrix generation, the collect seam),
 [`nektos/act`](https://github.com/nektos/act) can run them in Docker — useful for
 orchestration, though its OIDC and secret handling mean it does not cover the agent
 or S3 steps.

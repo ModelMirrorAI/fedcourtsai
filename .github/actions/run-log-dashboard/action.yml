@@ -51,14 +51,6 @@ inputs:
       when the window failed before committing (rendered as a blank).
     required: false
     default: ''
-  predict-note:
-    description: >-
-      The predict handoff's Markdown note (held channel); empty otherwise.
-      Predict is the only handoff a window files, so it is the only note: the
-      evaluate column is a backlog count run-evaluate's own schedule drains,
-      with no handoff here to hold and so nothing to annotate.
-    required: false
-    default: ''
 
 runs:
   using: composite
@@ -70,7 +62,6 @@ runs:
         CHANNEL: ${{ inputs.channel }}
         OUTCOME: ${{ inputs.outcome }}
         COMMITTED: ${{ inputs.committed }}
-        PREDICT_NOTE: ${{ inputs.predict-note }}
       run: |
         set -euo pipefail
         # Every GitHub API call below is retried (contract and rationale in the
@@ -80,9 +71,10 @@ runs:
         # way it is not in the caller's no-checkout failure alarms.
         # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
         source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
-        # `run-log-dashboard` is a NON-triggering label by design (no `run:*`
-        # workflow keys on it, so labeling the dashboard cannot fire anything).
-        # Create it idempotently so a fresh repo's first window does not fail.
+        # `run-log-dashboard` triggers nothing, as every label in this repository
+        # does: no workflow keys on `issues: labeled` at all, so labeling the
+        # dashboard cannot fire anything. Create it idempotently so a fresh
+        # repo's first window does not fail.
         gh_retry gh label create run-log-dashboard --repo "$REPO" --force \
           --color 0e8a16 --description "Long-lived pipeline-runs dashboard (run-pull; updated in place each window)"
 
@@ -152,13 +144,12 @@ runs:
           --arg channel "$CHANNEL" \
           --arg outcome "$OUTCOME" \
           --arg committed "$COMMITTED" \
-          --arg pnote "$PREDICT_NOTE" \
           --argjson predict "$predict" \
           --argjson evaluate "$evaluate" \
           --argjson unrecorded "$unrecorded" \
           --argjson unrecorded_cases "$cases" \
           '{ts: $ts, channel: $channel, outcome: $outcome,
-            predict: $predict, predict_note: $pnote,
+            predict: $predict,
             evaluate: $evaluate,
             unrecorded: $unrecorded, unrecorded_cases: $unrecorded_cases,
             committed: ($committed | if . == "true" then true elif . == "false" then false else null end)}')
@@ -183,7 +174,7 @@ runs:
             echo '| Window (UTC) | Channel | Outcome | predict queued | evaluate owed | unrecorded | Corpus |'
             echo '|---|---|---|---:|---:|---:|---|'
             jq -r 'def clean: tostring | gsub("[\r\n|`]"; " ");
-              .[] | "| \(.ts | clean) | \(.channel | clean) | \(if .outcome == "success" then "✅ success" else "❌ failure" end) | \((.predict // "") | clean)\((.predict_note // "") | clean) | \((.evaluate // "") | clean) | \((.unrecorded // "") | clean) | \(if .committed == true then "committed" elif .committed == false then "no change" else "" end) |"' \
+              .[] | "| \(.ts | clean) | \(.channel | clean) | \(if .outcome == "success" then "✅ success" else "❌ failure" end) | \((.predict // "") | clean) | \((.evaluate // "") | clean) | \((.unrecorded // "") | clean) | \(if .committed == true then "committed" elif .committed == false then "no change" else "" end) |"' \
               <<<"$state"
             triage=$(jq -r 'def clean: tostring | gsub("[\r\n|`]"; " ");
               .[] | "\(.ts | clean) \(.channel | clean)" as $w

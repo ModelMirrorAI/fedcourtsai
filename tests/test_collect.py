@@ -240,7 +240,7 @@ def test_ready_pr_closes_trigger_issue_when_nothing_pending() -> None:
 
 def test_ready_pr_keeps_issue_open_while_a_draft_remains() -> None:
     # A salvageable partial means unfinished work for the run, so the ready PR must
-    # not close the trigger issue — the maintainer closes it after the draft.
+    # not close a named issue — the maintainer closes it after the draft.
     plan = collect_plan(
         FinalizeRole.predict,
         run_id="R",
@@ -255,8 +255,8 @@ def test_ready_pr_keeps_issue_open_while_a_draft_remains() -> None:
 def test_fully_absent_engine_blocks_issue_close() -> None:
     # An engine at 0/N (e.g. quota) leaves no salvage draft, and the live queue
     # is transition-driven so the gap never re-queues — the ready PR must NOT
-    # close the trigger issue, or a third of the board vanishes silently. The
-    # issue stays open for a backfill, with the missing engine named.
+    # close a named issue, or a third of the board vanishes silently. The gap
+    # needs a named backfill, and the missing engine is named for it.
     plan = collect_plan(
         FinalizeRole.predict,
         run_id="R",
@@ -460,7 +460,9 @@ def test_render_stall_comment_names_the_role_and_retry_path() -> None:
     comment = render_stall_comment(FinalizeRole.predict, "https://github.com/o/r/actions/runs/1")
     assert "produced no output" in comment
     assert "https://github.com/o/r/actions/runs/1" in comment
-    assert "`run:predict`" in comment  # the re-fire instruction names the label
+    # The retry path is the lane's own next round, never a re-filed request.
+    assert "the next scheduled predict round derives them again" in comment
+    assert "run:predict" not in comment
 
 
 def test_the_plan_carries_the_judgment_noun_for_each_role() -> None:
@@ -493,7 +495,7 @@ def test_a_transfer_lost_artifact_withholds_the_issue_close() -> None:
     assert plan.partial is None and not plan.dead_actors
     assert "Closes #42" not in plan.ready.body, "a lost cell must keep the issue open"
     assert "predict-gemini-baseline-scotus-1-evt-x" in plan.ready.body, "name the lost cell"
-    assert "re-run the `collect` job" in plan.ready.body, "point at the recovery path"
+    assert "Re-run the `collect` job" in plan.ready.body, "point at the recovery path"
     assert plan.missing_artifacts == ("predict-gemini-baseline-scotus-1-evt-x",)
 
 
@@ -530,14 +532,14 @@ def test_a_queued_cell_that_uploaded_nothing_is_named_and_holds_the_issue() -> N
     assert plan.uncovered_cells == (_expected("gemini-baseline"),)
     assert "Closes #42" not in plan.ready.body
     assert "gemini-baseline" in plan.ready.body
-    assert "need a re-queue" in plan.ready.body, (
+    assert "need a re-derivation" in plan.ready.body, (
         "name the remedy, which differs from a lost artifact"
     )
 
 
 def test_a_transfer_lost_cell_is_not_also_counted_as_never_uploaded() -> None:
     """Both gaps are 'absent from the census', but the remedies differ — re-run
-    collect vs re-queue. Reporting one cell as both would misdirect the fix."""
+    collect vs re-derive. Reporting one cell as both would misdirect the fix."""
     lost = _expected("gemini-baseline")
     plan = collect_plan(
         FinalizeRole.predict,
@@ -550,8 +552,8 @@ def test_a_transfer_lost_cell_is_not_also_counted_as_never_uploaded() -> None:
     assert plan.uncovered_cells == (), "a transfer-lost cell is already accounted for"
     assert plan.missing_artifacts == ("predict-gemini-baseline-scotus-1-evt-petition-disposition",)
     assert plan.ready is not None
-    assert "re-run the `collect` job" in plan.ready.body
-    assert "need a re-queue" not in plan.ready.body
+    assert "Re-run the `collect` job" in plan.ready.body
+    assert "need a re-derivation" not in plan.ready.body
 
 
 def test_without_a_matrix_the_plan_behaves_exactly_as_before() -> None:
@@ -635,7 +637,7 @@ def test_facts_only_pr_opens_when_every_cell_died_and_never_closes_the_issue() -
     # A run whose only cells were skipped (produced nothing) opens no ready and no
     # draft, so its failure facts would die with the runner. The facts-only PR
     # carries them — auto-merging (not a draft), run-scoped branch — but must not
-    # close the trigger issue, since the run genuinely failed.
+    # close a named issue, since the run genuinely failed.
     plan = collect_plan(
         FinalizeRole.predict,
         run_id="R",
@@ -648,7 +650,7 @@ def test_facts_only_pr_opens_when_every_cell_died_and_never_closes_the_issue() -
     assert fo.branch == "predict/run-R-facts"
     assert fo.draft is False
     assert fo.artifact_dirs == ()
-    assert "Closes #" not in fo.body, "a failed run must keep its trigger issue open"
+    assert "Closes #" not in fo.body, "a failed run must close nothing"
     # There is exactly one failure fact for this run, which the PR exists to commit.
     assert len(cell_failures(plan, run_id="R", role=FinalizeRole.predict)) == 1
 

@@ -31,6 +31,11 @@ of them while every gate stays green:
   `CodexRunner.build_command`'s argv are one invocation described in several
   places, held in lockstep only by comments; a drifted member runs codex under
   sandbox or search semantics nothing else uses, and every gate stays green;
+* the **codex hang bound** — the codex step's own `timeout-minutes` does not
+  conclude a wedged engine, so an arm/disarm pair brackets it with a
+  runner-level watchdog that kills the engine well inside the job cap and
+  leaves its diagnostics in the cell artifact; the whole guard is step order,
+  one deadline, and one artifact path;
 * the **labeler transcript capture** — the qp-topic labeler's execution log is
   scanned and published as a short-lived artifact, and every clause of that
   (the scan gate, the retention window, the survive-failure condition, and the
@@ -616,11 +621,17 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
     # a cell the forward gate refused was never provisioned by design, so
     # re-asserting its record would report the refusal as an incomplete write.
     assert record.get("if") == "steps.provision.outputs.refused != 'true'"
+    # The watchdog's arm step belongs here too: it guards the codex step's
+    # window, so a refused cell — which runs no engine — must not arm a killer
+    # over the deterministic steps that follow. Its disarm counterpart is
+    # deliberately absent: that one is `always()`, because a cell that armed
+    # nothing must still be safe to stand down.
     gated = [
         "Mint agent comment token",
         "Configure agent retrieval (MCP)",
         "Materialize the event definition for the ledger",
         "Predict with Claude Code",
+        "Arm the codex watchdog",
         "Predict with Codex",
         "Install the Gemini CLI",
         "Predict with Gemini",
@@ -889,32 +900,25 @@ def test_the_staging_seed_accepts_the_only_list_shape_its_form_can_produce() -> 
 # to; every other one carries an inline copy instead — pinned identical below.
 SOURCING_OPS_STEPS = (
     "Collect recent workflow runs",
-    "Collect open trigger issues",
+    "Collect issues wearing a stale fan-out label",
     "Post or update the ops dashboard issue",
     "Escalate a failing data-validation verdict",
 )
-BACKTEST_REPORT_STEP = (
-    "run-backtest.yml",
-    "backtest",
-    "Comment the result on the trigger issue",
-)
-# `(workflow, job, step name)` for the handoff writes that source the script:
-# each runs after its own job's checkout, in a workspace no agent has touched.
-SOURCING_HANDOFF_STEPS = (
-    ("run-predict.yml", "plan", "Close the trigger issue when nothing is in scope"),
-    ("run-evaluate.yml", "plan", "Close the trigger issue when nothing is in scope"),
-)
+# `(workflow, job, step name)` for the record-keeping writes that source the
+# script: each runs after its own job's checkout, in a workspace no agent has
+# touched. Empty on the run surfaces — the fan-outs' own records go to the step
+# summary, which needs no API call and so no retry — and kept as a table rather
+# than deleted, because the next such write belongs here and the tests below
+# already scan whatever it holds.
+SOURCING_HANDOFF_STEPS: tuple[tuple[str, str, str], ...] = ()
 # The composites, whose `uses: ./.github/actions/...` resolution already proves
 # a workspace checkout put `scripts/` on disk.
-SOURCING_COMPOSITES = ("run-log-dashboard", "open-run-handoff")
+SOURCING_COMPOSITES = ("run-log-dashboard",)
 # `(workflow, job, step name)` for each step that inlines its own copy.
 INLINE_GH_RETRY_STEPS = (
     ("run-pull.yml", "pull", "Open the failure run-log issue"),
     ("run-pull.yml", "live", "Open the failure run-log issue"),
     ("run-seed.yml", "guard", "Escalate a cancelled or failed seed walk"),
-    ("run-predict.yml", "rejected", "Close the trigger issue when the hold did not release"),
-    ("run-evaluate.yml", "rejected", "Close the trigger issue when the hold did not release"),
-    BACKTEST_REPORT_STEP,
 )
 # The find-or-create alarms, where an exhausted listing that reads as an empty
 # result opens a second thread for the same broken day.
@@ -922,14 +926,10 @@ FIND_OR_CREATE_ALARM_STEPS = (
     ("run-pull.yml", "pull", "Open the failure run-log issue"),
     ("run-pull.yml", "live", "Open the failure run-log issue"),
 )
-# The handoff writes that decide whether a queued round runs at all: retried,
-# never tolerated. An exhausted retry must still fail its step.
-FATAL_HANDOFF_STEPS = (
-    ("run-predict.yml", "plan", "Close the trigger issue when nothing is in scope"),
-    ("run-evaluate.yml", "plan", "Close the trigger issue when nothing is in scope"),
-    ("run-predict.yml", "rejected", "Close the trigger issue when the hold did not release"),
-    ("run-evaluate.yml", "rejected", "Close the trigger issue when the hold did not release"),
-)
+# The writes that decide whether a queued round runs at all: retried, never
+# tolerated. An exhausted retry must still fail its step. Empty for the same
+# reason `SOURCING_HANDOFF_STEPS` is, and kept for the same reason.
+FATAL_HANDOFF_STEPS: tuple[tuple[str, str, str], ...] = ()
 # Any `gh` invocation, with the `gh_retry` prefix when it carries one — the
 # assertion below is that every match has the prefix. `\b` anchors the prefix so
 # a name merely *ending* in `gh_retry` cannot pass as the wrapper, and `\s+`
@@ -1073,6 +1073,8 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Converge stored docket markings", ()),
     ("repair", "Backfill the dated response signals", ()),
     ("repair", "Recover scanned petitions by OCR", ("apply did not converge",)),
+    ("repair", "Backfill missing primary documents", ("apply did not converge",)),
+    ("repair", "Backfill the interim arrival stamps", ()),
     ("repair", "Remove ungranted merits phantoms", ()),
     ("repair", "Converge disposition labels", ()),
     ("repair", "Repair the sampled-frame weights", ()),
@@ -1351,11 +1353,23 @@ def test_no_retried_step_makes_an_unretried_github_api_call() -> None:
 def test_the_handoff_writes_stay_fatal_on_exhaustion() -> None:
     """A retry absorbs a blip; it must never turn a real outage into a pass.
 
-    These writes *are* the work — the trigger issue a queued round runs from,
-    and the closes that keep a finished or declined round from reading as a
-    stalled fan-out. So none of them may tolerate an exhausted retry: no
-    `continue-on-error` on the step, and no `|| true` swallowing the non-zero
-    return the wrapper exists to deliver at the end of three attempts.
+    A write on `FATAL_HANDOFF_STEPS` *is* the work — the record that keeps a
+    finished or declined round from reading as a stalled fan-out — so none of
+    them may tolerate an exhausted retry: no `continue-on-error` on the step, and
+    no `|| true` swallowing the non-zero return the wrapper exists to deliver at
+    the end of three attempts. The set is empty while every such record is a step
+    summary, which no API call can lose; the assertion stands ready for the next
+    one rather than being a rule someone has to remember to reinstate.
+
+    The other half of the invariant is an absence, and it is the load-bearing
+    half. No stage may hand work to another by filing a labelled issue:
+    run-predict and run-evaluate each derive their own backlog from committed
+    state on their own schedule, and nothing keys on `issues: labeled` to receive
+    such a handoff anyway (`tests/test_workflow_auth_gate.py` sweeps the trigger
+    side). The coupling would come back as a step that *applies* a fan-out label,
+    so that is what is asserted absent across every workflow — a mention is fine,
+    since run-ops reads those labels to report on them; applying one is the
+    coupling. A lost round is then impossible rather than merely fatal.
     """
     for site in FATAL_HANDOFF_STEPS:
         step = _named_step(*site)
@@ -1364,34 +1378,18 @@ def test_the_handoff_writes_stay_fatal_on_exhaustion() -> None:
             if "gh_retry gh" in line:
                 assert "||" not in line, f"{site} swallows an exhausted retry: {line.strip()}"
 
-    handoff = _composite_run("open-run-handoff")
-    for line in _uncommented(handoff):
-        if "gh_retry gh" in line:
-            assert "||" not in line, f"open-run-handoff swallows an exhausted retry: {line.strip()}"
-    # And no caller may absorb it either: a held or empty queue files nothing
-    # and exits 0, so a failure here means the window really did lose its round.
-    #
-    # Predict is the only channel a pull window hands off. Evaluate is not a
-    # handoff at all — run-evaluate derives its own backlog on its own schedule —
-    # so the assertion is exact rather than "at least one": a second caller here
-    # would mean a stage is coupled to the pull window, which is what this
-    # assertion exists to catch.
-    for job in ("pull", "live"):
-        callers = [
-            step
-            for step in _load("run-pull.yml")["jobs"][job]["steps"]
-            if str(step.get("uses") or "").endswith("open-run-handoff")
-        ]
-        assert len(callers) == 1, (
-            f"run-pull {job!r} should file exactly the predict handoff, found {len(callers)}"
-        )
-        step = callers[0]
-        assert step["with"]["label"] == "run:predict", (
-            f"run-pull {job!r} files a handoff for {step['with']['label']!r}"
-        )
-        assert "continue-on-error" not in step, (
-            f"run-pull {job!r} handoff must fail the window, not absorb it"
-        )
+    fan_out_labels = ("run:predict", "run:evaluate", "run:pull", "run:backtest")
+    # `gh` spells label application four ways; each is a write that would restore
+    # a stage-to-stage handoff, and a mention on any other line is a read.
+    applying = ("--label", "--add-label", "label create", "labels:")
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        for line in _uncommented(path.read_text()):
+            if not any(label in line for label in fan_out_labels):
+                continue
+            assert not any(verb in line for verb in applying), (
+                f"{path.name} applies a fan-out label: {line.strip()} — nothing triggers "
+                "on a label, and each stage derives its own backlog from committed state"
+            )
 
 
 def test_the_list_of_retried_ops_steps_is_complete() -> None:
@@ -1439,12 +1437,6 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
     composite = _composite_run("run-log-dashboard")
     assert "body=$(gh_retry gh issue view" in composite
     assert "dashboard-body.md" in composite
-
-    # The back-test comment's PR lookup is the same shape: assigned, filtered
-    # by `gh`'s own `--jq`, so an exhausted retry fails the assignment instead
-    # of silently dropping the review-PR back-link from the comment.
-    report = str(_named_step(*BACKTEST_REPORT_STEP)["run"])
-    assert "pr_url=$(gh_retry gh pr list" in report
 
 
 # The codex invocation surface, described in six places that certify each
@@ -1733,6 +1725,78 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
             f"{name}: @openai/codex npm pin(s) {sorted(pins)!r} differ from the "
             f"cell steps' codex-version {version!r}"
         )
+
+
+# The codex hang bound, which is three step attributes and their ORDER. A
+# wedged `codex exec` outlives the engine step's own `timeout-minutes` — the
+# step stays `in_progress` until the job cap cancels the runner, which runs
+# none of the capture tail and leaves GitHub no logs to serve, so the hang
+# erases its own evidence and spends the whole budget. The watchdog converts
+# that into a step failure the tail salvages, and every clause of it is YAML
+# nothing at runtime notices: an arm step that does not immediately precede the
+# engine guards a window that is not the engine's, a disarm step that does not
+# immediately follow it leaves a killer running through the capture steps, a
+# deadline at or above the step's own backstop never bites first, and a bundle
+# the artifact does not carry is thrown away with the runner.
+CODEX_WATCHDOG_SCRIPT = "scripts/codex-watchdog.sh"
+CODEX_WATCHDOG_DIR = "codex-watchdog"
+# 40 minutes, against a 60-minute job cap and the engine step's 50-minute
+# backstop; the arm steps carry the arithmetic.
+CODEX_WATCHDOG_DEADLINE_S = "2400"
+CODEX_WATCHDOG_CELL_JOBS = {"run-predict.yml": "predict", "run-evaluate.yml": "evaluate"}
+
+
+def test_the_codex_cell_brackets_its_engine_with_a_watchdog() -> None:
+    assert (REPO_ROOT / CODEX_WATCHDOG_SCRIPT).is_file()
+    for name, job_name in CODEX_WATCHDOG_CELL_JOBS.items():
+        job = _load(name)["jobs"][job_name]
+        steps = job["steps"]
+        engine_at = next(
+            i
+            for i, step in enumerate(steps)
+            if str(step.get("uses") or "").startswith("openai/codex-action@")
+        )
+        engine = steps[engine_at]
+        arm, disarm = steps[engine_at - 1], steps[engine_at + 1]
+        assert arm.get("name") == "Arm the codex watchdog", f"{name}: nothing arms the watchdog"
+        assert disarm.get("name") == "Disarm the codex watchdog", (
+            f"{name}: the step after the engine does not disarm the watchdog"
+        )
+        # The arm step guards exactly the window the engine step runs in.
+        assert arm.get("if") == engine.get("if"), f"{name}: the arm step's gate is not the engine's"
+        assert CODEX_WATCHDOG_SCRIPT in str(arm["run"])
+        # The production pattern is the script's default; an override here
+        # would point the watchdog at a process the cell does not run.
+        assert set(arm["env"]) == {"CODEX_HOME", "WATCHDOG_DIR", "WATCHDOG_DEADLINE_S"}, (
+            f"{name}: unexpected watchdog configuration {sorted(arm['env'])!r}"
+        )
+        assert arm["env"]["CODEX_HOME"] == CODEX_HOME_EXPRESSION
+        # Outside the workspace: the bundle is evidence about a cell that may
+        # be wedged inside that tree, so the tree must not be able to rewrite
+        # it. The disarm step is what carries it back for the upload.
+        assert arm["env"]["WATCHDOG_DIR"] == f"${{{{ runner.temp }}}}/{CODEX_WATCHDOG_DIR}"
+        assert arm["env"]["WATCHDOG_DEADLINE_S"] == CODEX_WATCHDOG_DEADLINE_S
+        # Deadline < the step's own `timeout-minutes` < the job cap. The middle
+        # bound is a backstop for an overrun the runner can end, not evidence
+        # that it ends this one — a wedged engine has run straight through it;
+        # what this pins is that the watchdog is the bound that comes first and
+        # that its kill still leaves the tail inside the job.
+        deadline_minutes = int(CODEX_WATCHDOG_DEADLINE_S) / 60
+        assert deadline_minutes < engine["timeout-minutes"] < job["timeout-minutes"], (
+            f"{name}: the watchdog deadline does not sit under the step and job bounds"
+        )
+        # `always()`, so an engine that failed, timed out, or never ran still
+        # stands its killer down before the capture tail.
+        assert disarm.get("if") == "${{ always() && matrix.engine == 'codex' }}"
+        assert "codex-watchdog.pid" in str(disarm["run"])
+        assert CODEX_WATCHDOG_DIR in str(disarm["run"]), (
+            f"{name}: the disarm step does not carry the bundle back for the upload"
+        )
+        # The evidence has to leave the runner, and the cell artifact is the
+        # only thing that does; the collect job commits `data/` alone, so the
+        # bundle reaches a maintainer without reaching the ledger.
+        upload = next(s for s in steps if s.get("name") == "Upload cell output")
+        assert CODEX_WATCHDOG_DIR in str(upload["with"]["path"]).split()
 
 
 # The one condition every engine-actions-smoke step is gated on. A leg whose

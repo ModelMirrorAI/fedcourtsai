@@ -8,17 +8,19 @@
 # Stages:
 #
 #   scripts/promotion-gate.sh quiesce
-#       No predict/evaluate/backtest fan-out may be in flight: an open trigger
-#       issue carrying one of the run labels, or an unfinished run of any of
-#       the three fan-out workflows, fails the gate. A workflow-file change
-#       that reaches main mid-run changes what the run's later jobs execute
-#       against (see "Recovering a run whose `collect` failed" in
-#       docs/pipeline.md), so promotions wait for quiet — and backtests end in
-#       a branch push + PR against main, so they count as matrices here.
-#       Anything but a literal 0 from a count read — including a malformed
-#       API response — fails the gate. Label fan-out means every
-#       `issues: labeled` event briefly spawns to-be-skipped runs of the
-#       fan-outs; a false positive from that window clears in seconds — re-run.
+#       No predict/evaluate/backtest fan-out may be in flight: an unfinished
+#       run of any of the three fan-out workflows fails the gate. A
+#       workflow-file change that reaches main mid-run changes what the run's
+#       later jobs execute against (see "Recovering a run whose `collect`
+#       failed" in docs/pipeline.md), so promotions wait for quiet — and
+#       backtests end in a branch push + PR against main, so they count as
+#       matrices here. Anything but a literal 0 from a count read — including a
+#       malformed API response — fails the gate. Run state is what the gate
+#       reads, and it is exhaustive: every fan-out enters through this
+#       workflow's own schedule or dispatch, so a round in flight is always a
+#       run in flight. A round parked on the `review` hold counts as in flight
+#       (`waiting`), which is the intent — it will spend against whatever is on
+#       `main` when it releases.
 #
 #   scripts/promotion-gate.sh freshness <sha>
 #       Every required integration scenario must have a green run at exactly
@@ -45,8 +47,8 @@
 #   scripts/promotion-gate.sh all <sha>
 #       The quiesce and freshness stages, in order.
 #
-# quiesce and freshness need `gh` with Actions read + issues read (GH_TOKEN in
-# CI); contexts additionally needs repository administration read (see above).
+# quiesce and freshness need `gh` with Actions read (GH_TOKEN in CI); contexts
+# additionally needs repository administration read (see above).
 #
 # Two environment variables move the required set, and they are not peers:
 #
@@ -129,17 +131,7 @@ fi
 fail=0
 
 quiesce() {
-  local label wf status n
-  for label in "run:predict" "run:evaluate" "run:backtest"; do
-    n=$(gh api "repos/${REPO}/issues?labels=${label}&state=open&per_page=100" \
-      --jq '[.[] | select(.pull_request | not)] | length')
-    # Fail on anything that is not a literal 0, so a malformed count fails
-    # closed instead of reading as "quiet".
-    if [ "$n" != "0" ]; then
-      echo "::error::quiescence: open '${label}' trigger issue count is ${n} — a run is in flight (or stalled: resolve it before promoting)"
-      fail=1
-    fi
-  done
+  local wf status n
   for wf in run-predict.yml run-evaluate.yml run-backtest.yml; do
     for status in queued in_progress waiting pending requested; do
       n=$(gh api "repos/${REPO}/actions/workflows/${wf}/runs?status=${status}&per_page=1" \

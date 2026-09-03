@@ -294,13 +294,20 @@ same reason (verified live at implementation).
 Measured on the blob the corpus pointer named on 2026-08-28 (`b16b856f…` — the
 pointer is a content digest, which `corpus-info` does not print; its freshness
 pair is a 2026-08-28 pull stamp and a 2026-07-13 newest stored snapshot, and
-the documents were served by the per-case content store). Of the 9,231 stored
+the documents were served by the per-case content store). Every figure below
+taken over the queued population is on the **stamp-only** denominator — the
+rows carrying a `predict_queued_at` — which is what the report counted at the
+time. It now counts the union of that with the cases the git ledger holds a
+committed prediction for, because a schedule-derived mint leaves no stamp, so a
+re-run today reports a wider denominator than these numbers were taken over. Of the 9,231 stored
 petitions, 271 carry no text: **2.94%** over both segments pooled, and **2.90%**
 (192 of 6,613) over the cut the salience gate scores replay candidates on.
 Those are stored documents, not cells. On the 242 cases queued for prediction —
 where a missing petition costs a forward cell — **6** hold a petition that read
-back empty, which the report does not print but its case-id ledger gives when
-intersected with the rows carrying a `predict_queued_at`. Of the 271, 270 have
+back empty, which the report did not print but its case-id ledger gave when
+intersected with the rows carrying a `predict_queued_at` (the reconstruction
+that the widened denominator retires: it is the ledger's predicted set the
+count now also spans). Of the 271, 270 have
 a page count and no text layer, the class optical character recognition can
 repair, and one is a PDF the extractor could not open at all, which it cannot.
 The 270 is an upper bound: a document whose text leaf never mirrored to the
@@ -317,7 +324,17 @@ undifferentiated, and the report is not: it measures each docket form against
 the document that opens it, counts the two classes apart and enumerates both,
 so a read of the same population prints a cert-form gap, an application-form
 gap, and the case ids in each. No extraction fix reaches any of them; that is a
-fetch question, repaired in the fetch path or not at all.
+fetch question, and the document back-fill contracted below is the fetch-path
+answer to it — bounded, form-keyed, and reporting apart the part of the class no
+fetch reaches. The report draws that second line itself, beside each gap: of the
+cases in it, how many hold a stored docket carrying the opening entry with **no
+document behind it**, which is a paper filing the Court posted no PDF for and a
+structural floor. The rest is what the back-fill drains, so the headline stops
+reading as an unexplained provisioning gap the moment it has been worked. A case
+matching *no* opening entry is deliberately outside that floor and stays in the
+unexplained remainder — on a modern docket it is a filing shape the selector
+cannot see, which is a defect to fix rather than a floor to accept, and the
+back-fill's own ledger names those cases.
 
 So the scanned-petition class is small on every population, and on this blob it
 is a bounded 270 documents, each named in the report's case-id ledger alongside
@@ -362,10 +379,10 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   one shared core* and *Maintenance passes* in
   [data-pipeline.md](data-pipeline.md)): it writes the corpus, which only a
   writer job may, and its dry run is exactly the triage list that bench exists
-  for. It is the one pass there that fetches, and the fetch is what keeps it in
-  that lane rather than the pullers': supremecourt.gov is free and
-  politeness-capped, so no budget is governed and no window's schedule is
-  implicated. Both binaries are installed by that step alone, so no scheduled
+  for. It is one of the two passes there that fetch — the document back-fill
+  below is the other — and the fetch is what keeps them in that lane rather than
+  the pullers': supremecourt.gov is free and politeness-capped, so no budget is
+  governed and no window's schedule is implicated. Both binaries are installed by that step alone, so no scheduled
   lane grows the dependency. Dry run by
   default, and bounded through `repair_bound` so a backlog clears in slices
   rather than in one long job; runner minutes are the whole cost. That bound is
@@ -499,6 +516,75 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   lands in the access-gated corpus under the same no-republication posture as
   every other extraction ([data-sources.md](data-sources.md)).
 
+### Contract for the document back-fill pass
+
+The answer to the other half of the gap above — the queued cases holding no
+primary document at all, which is a fetch question and repaired in the fetch
+path or not at all. It is `fedcourts backfill-documents`, dispatched as
+`run-repair`'s `document-backfill` selector value. It installs nothing: the
+route is the provisioning path the live poller already runs, re-keyed off the
+corpus row rather than off a poll.
+
+- **Where it runs.** As a pass on `run-repair`, by the same standing rule the
+  recovery pass above cites, and for the same two reasons: it writes the corpus,
+  which only a writer job may, and its dry run is exactly the triage list that
+  bench exists for. It is the second fetching pass there, and its fetches are
+  the same free, politeness-capped supremecourt.gov requests — no budget is
+  governed and no window's schedule is implicated. Dry run by default, bounded
+  through `repair_bound` so a backlog clears in slices, and bounded again by a
+  **slice deadline** the step passes, sized from everything that must still fit
+  inside the step's cap once the pass stops taking work. The bound applies to
+  the dry run as well, which is the one way this pass's contract differs from
+  the recovery's: its dry run is not free.
+- **What it reads.** Live-slice SCOTUS rows that are **predict-relevant** —
+  queued for prediction, or selected by the salience gate and not yet queued —
+  holding no stored document of their own docket form's primary kind. Form-keyed
+  rather than petition-keyed: an application docket structurally never holds a
+  petition, so a petition-keyed predicate would strand every application in the
+  class forever and spend the bound on cases no fetch can drain. The selected
+  arm is not redundant either — a reserve-selected application has no
+  distribution transition to be queued at and reaches the predict path through
+  the selection sweep. Predict-relevant rather than the wide distributed stock,
+  which is overwhelmingly pre-modern rows carrying no document links at all:
+  each candidate costs paced round trips, and the rows that can mint a cell are
+  the ones worth spending them on.
+- **What it fetches.** One docket JSON per candidate, addressed by the
+  `(term, serial)` its stored docket number parses to, and fetched **fresh**
+  rather than read from the stored snapshot — the question is whether the link
+  is served *now*, and a stored payload can name a URL upstream has since
+  withdrawn or predate the filing entirely. The dry run stops there and fetches
+  no filings: running selection over that payload is the whole diagnostic, since
+  it is what separates a case with a link waiting for it from one at a floor.
+  The apply goes on through the same fetch the poller runs, so a recovered case
+  is provisioned on exactly the terms a case provisioned at its trigger was —
+  the opposition briefs and the derived questions-presented row land with the
+  primary filing.
+- **What it reports as a floor rather than a failure.** Two readings, and
+  keeping them apart is what stops a converged class reading as a permanent
+  defect. A docket carrying the opening entry with **no link** behind it is a
+  Rule 34.6 paper filing: the Court served nothing, so there is nothing to fetch
+  and no repair reaches it. A docket carrying **no such entry** at all is a
+  legacy proceedings list holding no document links. Neither drains, so a slice
+  that clears its bound without shrinking the class is the expected reading once
+  the recoverable half is gone. The exception is the alarm: no entry on a docket
+  modern enough to carry links is a filing shape the selector has no arm for,
+  which is the class this pass exists to stop producing, and those cases are
+  **named** where the counts would bury them.
+- **What it writes.** Each case's documents as they are made rather than batched
+  at the end, so a step that hits its cap has banked what it recovered — under
+  the corpus split the per-case content-store write is itself the durable one.
+  Additive by construction: the fetch is idempotent against the stored
+  `(kind, url)` mapping, so a case already holding a document at the selected
+  URL is not re-fetched, and a case this pass cannot recover keeps exactly what
+  it had and re-enters the next slice. Because the durable write is the content
+  store's rather than the pointer's, the step re-walks the class afterwards on
+  an **empty slice** — which costs no round trip — and requires exactly what the
+  apply's ledger said it would leave behind.
+- **Terms.** Unchanged. These filings are the Court's own public records, fetched
+  from the Court's own host, and their text lands in the access-gated corpus
+  under the same no-republication posture as every other extraction
+  ([data-sources.md](data-sources.md)).
+
 ## The historical Term set: per-Term history through the same channel
 
 The docket JSON serves decided petitions all the way back to OT2017 (the
@@ -578,8 +664,8 @@ serials the sample never ingested. Each kept petition lands through `ingest_live
 **resolved** (machine-read label, dated raw-JSON snapshot, its cert event
 latched closed) with filed documents provisioned for OT2021+ (the links'
 retention window), so it provisions replay cells like any other case. Decided
-history must never feed forward prediction: the loader files **no handoff
-queues at all**, records with no readable disposition are skipped (pending
+history must never feed forward prediction: the loader writes **no queue files
+at all**, records with no readable disposition are skipped (pending
 matters are the forward poller's charter), and resolved rows are structurally
 invisible to the live refresh rotation. (The one row that stays visible is
 the one whose ingest *itself* resolves a tracked open petition as granted:
