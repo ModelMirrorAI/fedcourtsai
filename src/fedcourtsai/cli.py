@@ -192,6 +192,7 @@ from .pipeline.cert_signals import (
 from .pipeline.claims import score_claims
 from .pipeline.discover import discover_cases
 from .pipeline.distribution_rederive import rederive_distribution_counts
+from .pipeline.document_backfill import backfill_documents
 from .pipeline.documents import (
     KIND_PETITION,
     TextCoverage,
@@ -1401,8 +1402,8 @@ def backfill_questions_presented_cmd(
     typer.echo(result.model_dump_json())
 
 
-def _ocr_slice_deadline(started: float, seconds: float | None) -> float | None:
-    """The monotonic instant an OCR slice may no longer start new work at.
+def _slice_deadline(started: float, seconds: float | None, *, command: str) -> float | None:
+    """The monotonic instant a bounded slice may no longer start new work at.
 
     Zero is a legitimate budget — it starts nothing and reports the whole slice
     unreached, which is the honest reading of a caller with no time left — but a
@@ -1411,12 +1412,16 @@ def _ocr_slice_deadline(started: float, seconds: float | None) -> float | None:
     The same refusal covers what is not a number at all: `nan` compares false
     against every estimate and `inf` never runs out, so either would *disable*
     the deadline while reading as one that was set.
+
+    ``command`` names the caller in the refusal, since more than one deadlined
+    pass reads its budget through here and a maintainer correcting a mistyped
+    dispatch needs to know which flag was rejected.
     """
     if seconds is None:
         return None
     if seconds < 0 or not math.isfinite(seconds):
         typer.echo(
-            "ocr-recover-petitions: --deadline-seconds must be a finite, "
+            f"{command}: --deadline-seconds must be a finite, "
             f"non-negative number of seconds (got {seconds}); 0 is the budget "
             "that starts nothing.",
             err=True,
@@ -1425,7 +1430,7 @@ def _ocr_slice_deadline(started: float, seconds: float | None) -> float | None:
     return started + seconds
 
 
-def _echo_ocr_unreached(unreached: Sequence[str]) -> None:
+def _echo_unreached(unreached: Sequence[str]) -> None:
     """Name the candidates the slice deadline declined to start, if any.
 
     Apart from the failures, because they are a different fact: nothing was
@@ -1557,7 +1562,7 @@ def ocr_recover_petitions_cmd(
             err=True,
         )
         raise typer.Exit(code=2)
-    deadline = _ocr_slice_deadline(started, deadline_seconds)
+    deadline = _slice_deadline(started, deadline_seconds, command="ocr-recover-petitions")
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
         typer.echo(
@@ -1628,7 +1633,7 @@ def ocr_recover_petitions_cmd(
         typer.echo(f"  {case_id}: {detail}")
     for case_id, reason in result.failures.items():
         typer.echo(f"  {case_id}: NOT RECOVERED ({reason})")
-    _echo_ocr_unreached(result.unreached)
+    _echo_unreached(result.unreached)
     for entry in result.probes:
         # The dry run's second reading: what the writer's own fetch path gets
         # back from supremecourt.gov, before a slice is spent finding out.
@@ -2776,6 +2781,169 @@ def backfill_response_fields_cmd(
             if value is not None
         )
         typer.echo(f"  {verb} {fill.case_id}: {gained}")
+
+
+@app.command("backfill-documents")
+def backfill_documents_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Fetch and store the primary documents; omit for a dry run that "
+            "fetches each candidate's docket JSON and reports what selection finds.",
+        ),
+    ] = False,
+    max_cases: Annotated[
+        int | None,
+        typer.Option(
+            "--max-cases",
+            help="Per-dispatch slice size, required with --apply: the number of "
+            "candidate cases this run fetches for. Honored on a dry run too, which "
+            "spends one paced docket GET per candidate.",
+        ),
+    ] = None,
+    deadline_seconds: Annotated[
+        float | None,
+        typer.Option(
+            "--deadline-seconds",
+            help="Wall-clock budget for this run, measured from the moment the command "
+            "starts. Before each candidate the pass checks its estimated cost against "
+            "what is left and stops taking new ones once the budget will not hold it; "
+            "those are reported unreached and head the next slice. Size it under the "
+            "caller's own cap by whatever must still fit there once the pass stops "
+            "taking work. Omit for no deadline.",
+        ),
+    ] = None,
+) -> None:
+    """Provision the queued cases that hold no primary document, a slice at a time.
+
+    A case reaches prediction with the filing that opens it — the `petition` on a
+    cert-form docket, the `application` on an interim one — because provisioning
+    runs at the transition that queues it. A case whose provisioning ran before
+    the selector had an arm for its filing type kept nothing, and no lane repairs
+    that: the poller re-fetches a kind only when its link changes, and a kind
+    never stored has no link to change. This applies the current selector to the
+    cases already past their trigger.
+
+    The population is **form-keyed**: live-slice rows queued for prediction or
+    selected by the salience gate, measured against their own docket form's
+    primary document, so an application docket is never reported as missing a
+    petition it structurally never has. Not the wide distributed stock, which is
+    overwhelmingly legacy rows carrying no document links at all — this pass
+    costs paced round trips against the Court's own host, and the cases that can
+    mint a cell are the ones worth spending them on.
+
+    Each candidate is re-keyed off its stored docket number to the `(term,
+    serial)` the upstream endpoint addresses, and its docket JSON is fetched
+    **fresh** rather than read from the stored snapshot: the question is whether
+    the link is served now. The **dry run** stops there — one paced GET per
+    candidate, no filings fetched and nothing written — which is the whole
+    diagnostic, since it is what separates a case with a link waiting for it from
+    one at a floor. The **apply** goes on through the same fetch the live poller
+    runs, and writes each case's documents as they are made rather than batching
+    them, so a step that hits its cap has banked what it recovered.
+
+    Two floors are reported apart from the failures, because neither drains and
+    reading them as failures reports a converged class as a permanent defect: a
+    docket carrying the opening entry with no PDF behind it (a Rule 34.6 paper
+    filing), and one carrying no such entry at all. The second on a *modern*
+    docket is not a floor but a selector regression, and those cases are named.
+
+    `--max-cases` is a slice size rather than a refusal threshold, required on an
+    apply and honored on a dry run too, since both spend paced GETs.
+    `--deadline-seconds` is what keeps a slice inside its caller's wall-clock cap:
+    a candidate the budget will not hold is reported **unreached** — untouched,
+    unwritten, and at the head of the next slice — rather than failed. Its apply
+    half is a writer-lane pass by construction, since the corpus-write
+    credentials exist only there, and the lane invocation is run-repair's
+    `document-backfill` pass. Fails loud if the corpus is absent.
+    """
+    # Taken before any other work, so the population walk this command opens with
+    # is charged to the budget the caller sized.
+    started = time.monotonic()
+    settings = get_settings()
+    if apply and max_cases is None:
+        typer.echo(
+            "backfill-documents: --apply requires an explicit --max-cases. "
+            "Read the dry run first and pass the slice you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    deadline = _slice_deadline(started, deadline_seconds, command="backfill-documents")
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the document back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cfg = load_historical_config(settings.config_root)
+    if apply:
+        # The pointer the back-fill is about to supersede — the corpus state the
+        # ledger below describes. Under the split mode the durable write is the
+        # content store's, so this names the index the store was consistent with.
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    with (
+        corpus.connect(db_path) as conn,
+        SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
+    ):
+        result = backfill_documents(
+            conn,
+            client=client,
+            apply=apply,
+            char_cap=cfg.document_text_cap,
+            today=date.today(),
+            max_cases=max_cases,
+            deadline=deadline,
+        )
+    if not result.cases_seen:
+        # Zero candidates has two causes and they are not the same run: a corpus
+        # whose queued population is fully provisioned, and one this process
+        # cannot read at all. The denominator is what tells them apart.
+        typer.echo(
+            f"backfill-documents: no predict-relevant live-slice rows in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "recovered" if apply else "would fetch for"
+    counted = len(result.documents) if apply else len(result.selected)
+    typer.echo(
+        f"backfill-documents ({'applied' if apply else 'dry-run'}): "
+        f"{result.candidates} addressable candidate(s) in a population of "
+        f"{result.cases_seen} predict-relevant row(s) "
+        f"({result.cases_with_documents} holding any stored document) — "
+        f"{verb} {counted}, {result.remaining} left for the next slice"
+    )
+    typer.echo(
+        f"  attempted {result.attempted} (bound {result.bound}); "
+        f"{result.unaddressable} unaddressable row(s) outside the class"
+    )
+    typer.echo(
+        f"  floors: {result.no_link} with no link behind the opening entry "
+        f"(Rule 34.6 paper filings), {result.no_entry} with no opening entry at all"
+    )
+    typer.echo(
+        f"  losses: {result.docket_unserved} docket(s) unserved, "
+        f"{result.docket_errors} docket fetch error(s); "
+        + ", ".join(f"{reason}: {count}" for reason, count in result.fetch_losses.items())
+    )
+    for case_id, kinds in result.documents.items():
+        typer.echo(f"  {case_id}: stored {', '.join(kinds)}")
+    for case_id, kinds in result.selected.items():
+        typer.echo(f"  {case_id}: would fetch {', '.join(kinds)}")
+    for case_id in result.no_entry_modern_cases:
+        # Named, not counted: a modern docket whose opening filing matched no
+        # entry is a filing shape the selector has no arm for, which is the class
+        # this pass exists to stop producing rather than to absorb.
+        typer.echo(f"  {case_id}: NO OPENING ENTRY on a modern docket (selector regression)")
+    _echo_unreached(result.unreached)
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(result.model_dump_json())
 
 
 @app.command("scope-manifest")
