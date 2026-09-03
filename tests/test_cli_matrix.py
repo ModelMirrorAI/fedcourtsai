@@ -188,9 +188,9 @@ def test_predict_matrix_volume_cap_defers_overflow_and_surfaces_it(tmp_path: Pat
 
 def test_predict_matrix_volume_cap_deferring_every_case_escalates_to_error(tmp_path: Path) -> None:
     # Pathological cap-empty: even the single lowest-case_id case (3 cells) exceeds
-    # a 2-cell cap, so the matrix empties. The workflow's empty-matrix step will
-    # close the trigger issue as if out of scope, so the cap escalates to a
-    # correctly-attributed ::error:: — the deferred cases still re-run next cycle.
+    # a 2-cell cap, so the matrix empties. The workflow's empty-matrix branch will
+    # report a drained backlog, so the cap escalates to a correctly-attributed
+    # ::error:: — the deferred cases stay owed and re-derive next cycle.
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
     env = _env(
@@ -207,7 +207,9 @@ def test_predict_matrix_volume_cap_deferring_every_case_escalates_to_error(tmp_p
     assert _cells(result.stdout) == []  # matrix empty: has_jobs=false downstream
     assert "::error::" in result.stderr
     assert "deferred ALL 2 case(s)" in result.stderr
-    assert "out of scope" in result.stderr  # names the misattributed close
+    # Names the misreading it exists to correct: an empty matrix otherwise reads
+    # as a drained backlog on the summary.
+    assert "drained backlog" in result.stderr
 
 
 def test_predict_matrix_under_the_cap_is_unchanged(tmp_path: Path) -> None:
@@ -505,8 +507,8 @@ def test_predict_matrix_unreadable_census_fails_open_with_a_warning(tmp_path: Pa
 
 def test_predict_matrix_all_cells_stranded_signals_recovery_not_requeue(tmp_path: Path) -> None:
     # Every cell withheld: the matrix empties, so the workflow's has_jobs=false
-    # path closes the trigger issue — and it must close with the guard's note,
-    # which says recover the stranded run rather than re-run this one.
+    # path reports an empty round — and the guard's note must be there to say
+    # recover the stranded run rather than start another one.
     body = tmp_path / "issue-body.md"
     body.write_text(_SINGLE_BODY)
     env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
@@ -1406,8 +1408,8 @@ def test_matrix_is_unaffected_when_no_spend_section_is_configured(tmp_path: Path
 def test_predict_matrix_drops_events_resolved_since_queueing(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    # The forecastability re-check: a trigger issue queued while both events were open
-    # fans out after one resolved (the paused-pipeline gap). The resolved
+    # The forecastability re-check: a case list composed while both events were
+    # open fans out after one resolved (the review-hold gap). The resolved
     # listing is dropped at plan time, with the cause on the record, rather
     # than minted into a cell provisioning must refuse.
     env = _env(
@@ -1445,10 +1447,10 @@ def test_predict_matrix_errors_when_the_forecastability_recheck_empties_the_matr
 ) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    # When every listed event resolved since queueing the matrix is empty, and
-    # the workflow's empty-matrix step will close the trigger issue with its
-    # generic out-of-scope note — so the re-check must leave the correctly
-    # attributed record as an ::error:: annotation.
+    # When every listed event resolved since listing the matrix is empty, and
+    # the workflow's empty-matrix branch will report a drained backlog — so the
+    # re-check must leave the correctly attributed record as an ::error::
+    # annotation.
     env = _env(
         tmp_path,
         scope="scotus_docket",
@@ -1490,10 +1492,10 @@ def test_predict_matrix_errors_when_the_forecastability_recheck_empties_the_matr
     assert "::error::predict-matrix: the forecastability re-check dropped every listed event" in (
         result.stderr
     )
-    # The durable half of the record: an attributed close note for the
-    # workflow's close step, naming each dropped event and its reason.
+    # The durable half of the record: an attributed note for the round's own
+    # report, naming each dropped event and its reason.
     text = note.read_text(encoding="utf-8")
-    assert "unforecastable since it was queued" in text
+    assert "unforecastable since it was listed" in text
     assert "`scotus/24001` `evt-petition-cert`" in text
     assert "resolved" in text
 
@@ -1565,7 +1567,7 @@ def _granted_row(corpus_root: Path, case_id: str, granted: date) -> None:
 
 
 def test_predict_matrix_drops_listed_merits_events_on_a_stale_grant(tmp_path: Path) -> None:
-    # The replay hole the re-check closes: re-labeling an old trigger issue
+    # The replay hole the re-check closes: re-running an old case list
     # replays its event listing, which skips the selection-time stale-grant
     # refusal. Every declared merits moment goes — the staleness is a property
     # of the proceeding — while the case's cert event, which the rule says
@@ -1621,9 +1623,9 @@ def test_predict_matrix_scope_all_keeps_a_stale_grants_merits_event(tmp_path: Pa
 def test_predict_matrix_errors_when_the_stale_grant_drop_empties_the_matrix(
     tmp_path: Path,
 ) -> None:
-    # An emptied matrix closes the trigger issue with the workflow's generic
-    # out-of-scope note, so the re-check must leave the attributed record —
-    # reason-agnostic, since the per-event warnings carry which class each was.
+    # An emptied matrix reads on the workflow's summary as a drained backlog,
+    # so the re-check must leave the attributed record — reason-agnostic, since
+    # the per-event warnings carry which class each was.
     body = _listing_body(tmp_path / "issue-body.md", [MERITS_EVENT_ID])
     env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
     _granted_row(tmp_path / "corpus", "scotus/24001", date(2020, 1, 6))
@@ -1836,7 +1838,7 @@ def test_evaluate_plan_enumerates_exactly_the_cells_evaluate_matrix_would_mint(
 def test_predict_plan_writes_nothing_where_the_matrix_command_writes(tmp_path: Path) -> None:
     # A plan reports; it never mints, and it never leaves a trace. The
     # all-withheld stranded path is where `predict-matrix` makes both of its
-    # writes — the trigger-issue close note and the Actions step-summary block —
+    # writes — the recovery note and the Actions step-summary block —
     # so it is where "writes nothing" is worth asserting.
     body = tmp_path / "issue-body.md"
     body.write_text(_SINGLE_BODY)
@@ -2186,11 +2188,11 @@ def test_predict_plan_balances_when_the_volume_cap_defers_a_case(tmp_path: Path)
     assert "deferred by the volume cap re-queue" in result.stderr
 
 
-# The approval report. A hold gate posts it as a trigger-issue comment for a
-# maintainer to approve or reject the fan-out from, so it is rendered by the
-# tested command rather than assembled in the workflow's shell — and it is
-# bounded, because GitHub refuses an over-long comment with a 422 rather than
-# truncating it, and a 422 is not transient.
+# The approval report. A hold gate publishes it for a maintainer to approve or
+# reject the fan-out from, so it is rendered by the tested command rather than
+# assembled in the workflow's shell — and it is bounded, because GitHub refuses
+# an over-long comment with a 422 rather than truncating it, and a 422 is not
+# transient.
 
 #: GitHub's issue-comment ceiling. The report's own cap sits under it.
 _COMMENT_LIMIT = 65_536
@@ -2552,9 +2554,9 @@ def _stamps(env: dict[str, str], *cases: str) -> dict[str, object]:
 def test_evaluate_matrix_with_no_body_file_derives_its_cases_from_the_backlog(
     tmp_path: Path,
 ) -> None:
-    """The scheduled mode: given no trigger at all, the fan-out is the gradings
-    committed state still owes — the derivation a run-evaluate cron consumes
-    instead of a handoff from the pull run."""
+    """The scheduled mode: given no case list at all, the fan-out is the
+    gradings committed state still owes — the derivation a run-evaluate cron
+    consumes."""
     env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
     _resolve(env, "scotus/24001", "scotus/24002")
 

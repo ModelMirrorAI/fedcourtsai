@@ -47,6 +47,7 @@ from collections import Counter
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -55,6 +56,12 @@ from pypdf import PdfReader
 from pypdf.errors import PyPdfError
 
 from .. import corpus
+
+# The git ledger's own record of which cases hold a committed prediction, for
+# the text-coverage denominator. `matrix`'s import closure does not reach
+# `pipeline` at all, so the import closes no cycle — stated as the property
+# rather than as a list of modules, which the next import would falsify.
+from ..matrix import predicted_case_ids
 from ..supremecourt import SupremeCourtClient
 
 # `_scored_segment` is the salience gate's paid modern-cert predicate, imported
@@ -1290,9 +1297,13 @@ class TextCoverage(BaseModel):
     )
     queued: int = Field(
         ge=0,
-        description="Live-slice rows the pipeline queued for prediction — the "
+        description="Live-slice rows the pipeline queued or predicted — the "
         "decision-relevant denominator, since a missing primary document costs a "
-        "cell only where a cell is minted",
+        "cell only where a cell is minted. Both lanes count: rows carrying a "
+        "`predict_queued_at` stamp, plus rows the git ledger holds a committed "
+        "prediction for, which is all a stamp-free scheduled mint leaves. Only "
+        "the second half proves a cell exists — a stamped case can still be "
+        "dropped by a later gate — so this is an upper bound on cells minted",
     )
     queued_cert_forms: int = Field(
         ge=0,
@@ -1421,7 +1432,7 @@ def _stored_payload_floor(conn: corpus.ReadConnection, case_id: str, *, kind: st
     return primary_entry_matched(payload, kind=kind)
 
 
-def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
+def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> TextCoverage:
     """Count the stored documents whose text is empty, by kind and segment.
 
     The measurement behind an extraction decision: a filing that reaches the
@@ -1458,9 +1469,22 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
     :func:`~fedcourtsai.pipeline.live.provision_documents` fetches — but it
     includes rows written before the document channel existed, which were never
     fetched for, so it is a stock rather than a failure rate. ``queued`` is the
-    rows the pipeline queued for prediction, which is the population a missing
-    petition actually costs a cell on. Reading the empty share without these
-    beside it is how a decision gets made about the smaller of the two modes.
+    rows the pipeline queued or predicted, which is the population a missing
+    petition actually costs a cell on. Reading the empty share without
+    these beside it is how a decision gets made about the smaller of the two
+    modes.
+
+    That population is read over **both minting lanes**, which is why
+    ``data_root`` is an argument here at all. The pull/live lane stamps
+    ``predict_queued_at`` when it queues a case; the scheduled predict backlog
+    writes no stamp — the corpus of record is writable only from the writer jobs
+    — and leaves its mint recorded solely as the committed prediction. Taken off
+    the stamp alone the denominator would shrink as the scheduled lane takes
+    over, and shrink *selectively*: the cases it drops are exactly the ones no
+    lane stamped, so a gap on them would vanish from the figure planned against
+    rather than being reported. So the count is the union of the stamped rows
+    and :func:`~fedcourtsai.matrix.predicted_case_ids`, intersected with the
+    walked slice.
 
     On the queued count — the one a repair is planned against — the gap is
     **keyed on the docket form's own primary document**, on
@@ -1538,8 +1562,13 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
     # ever attempted for it. A stock, which is why `queued` is printed beside it.
     distributed = {row.case_id for row in rows if (row.distribution_count or 0) > 0}
     # The narrow denominator beside it: a missing petition costs a prediction
-    # only where one was minted.
-    queued = {row.case_id for row in rows if row.predict_queued_at is not None}
+    # only where one was minted. Both lanes, since only one of them stamps —
+    # the ledger read is what keeps a stamp-free scheduled mint inside the
+    # figure a provisioning repair is planned against.
+    predicted = predicted_case_ids(data_root)
+    queued = {
+        row.case_id for row in rows if row.predict_queued_at is not None or row.case_id in predicted
+    }
     # The rows whose primary document is an `application` rather than a
     # `petition`. The frame is already SCOTUS-only, which is the gate the
     # predicate's callers owe.

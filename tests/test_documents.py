@@ -35,7 +35,7 @@ from fedcourtsai.pipeline.documents import (
     select_documents,
 )
 from fedcourtsai.supremecourt import SupremeCourtClient
-from tests.conftest import FixtureCorpus
+from tests.conftest import FixtureCorpus, seed_prediction
 
 runner = CliRunner()
 
@@ -1918,7 +1918,7 @@ def _seed_text_coverage_corpus(corpus_root: Path) -> Path:
 def test_document_text_coverage_counts_empty_text_by_kind_and_segment(tmp_path: Path) -> None:
     db = _seed_text_coverage_corpus(tmp_path / "corpus")
     with corpus.connect(db) as conn:
-        coverage = document_text_coverage(conn)
+        coverage = document_text_coverage(conn, tmp_path / "data")
 
     # scotus/13 carries an empty petition but no live-slice stamp: documents
     # reach the corpus on that channel only, so counting it would import a row
@@ -2000,7 +2000,7 @@ def test_document_text_coverage_separates_the_structural_floor_from_the_backlog(
         # matches no submission entry at all — the shape that is not a floor.
         corpus.upsert_snapshot(conn, "scotus/16", date(2026, 6, 2), {"ProceedingsandOrder": []})
         conn.commit()
-        floored = document_text_coverage(conn)
+        floored = document_text_coverage(conn, tmp_path / "data")
     assert (floored.queued_without_petition, floored.queued_without_application) == (1, 1)
     assert floored.queued_without_petition_floor == 1
     assert floored.queued_without_application_floor == 0
@@ -2019,7 +2019,7 @@ def test_document_text_coverage_separates_the_structural_floor_from_the_backlog(
     with corpus.connect(db) as conn:
         corpus.upsert_snapshot(conn, "scotus/14", date(2026, 6, 3), linked)
         conn.commit()
-        drainable = document_text_coverage(conn)
+        drainable = document_text_coverage(conn, tmp_path / "data")
     assert drainable.queued_without_petition == 1
     assert drainable.queued_without_petition_floor == 0
 
@@ -2030,12 +2030,81 @@ def test_document_text_coverage_claims_no_floor_for_a_case_it_cannot_read(
     """No stored snapshot is an unread case, not a floor — the corpus cannot say."""
     db = _seed_text_coverage_corpus(tmp_path / "corpus")
     with corpus.connect(db) as conn:
-        coverage = document_text_coverage(conn)
+        coverage = document_text_coverage(conn, tmp_path / "data")
     assert coverage.queued_without_petition == 1
     assert (coverage.queued_without_petition_floor, coverage.queued_without_application_floor) == (
         0,
         0,
     )
+
+
+def test_document_text_coverage_counts_a_stamp_free_mint_in_the_queued_denominator(
+    tmp_path: Path,
+) -> None:
+    """A case predicted with no `predict_queued_at` still counts, off the ledger.
+
+    Only the pull/live lane stamps the column; a schedule-driven backlog
+    derivation writes no stamp — the corpus of record is writable only from the
+    writer jobs — and records its mint as the committed prediction alone. Taken
+    off the stamp, the denominator a provisioning repair is planned against
+    would shrink as that lane takes over, and shrink *selectively*: the rows it
+    dropped would be exactly the ones no lane stamped, so a gap on them would
+    leave the figure rather than be reported.
+    """
+    db = _seed_text_coverage_corpus(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    # A live-slice row with no stamp and no documents at all: the class the
+    # stamp alone cannot see, and the one whose absent petition is a real gap.
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/17",
+                    court="scotus",
+                    docket_number="25-17",
+                    last_live_polled=date(2026, 6, 2),
+                    distribution_count=1,
+                    predict_queued_at=None,
+                )
+            ],
+        )
+    seed_prediction(data_root, "scotus", 17, "evt-petition-disposition")
+    # And one on a stamped case, to show the union does not double-count.
+    seed_prediction(data_root, "scotus", 10, "evt-petition-disposition")
+
+    with corpus.connect(db) as conn:
+        coverage = document_text_coverage(conn, data_root)
+
+    # 3 stamped + scotus/17 from the ledger; scotus/10 is in both and counted once.
+    assert coverage.queued == 4
+    # scotus/17 holds no petition and is not an application form, so it joins the
+    # gap the repair works from — which is the whole point of counting it.
+    assert coverage.queued_without_petition == 2
+    assert coverage.queued_without_petition_cases == ["scotus/14", "scotus/17"]
+    assert coverage.queued_application_forms == 1
+
+
+def test_document_text_coverage_ignores_a_prediction_outside_the_walked_slice(
+    tmp_path: Path,
+) -> None:
+    """The ledger widens the denominator, it does not redefine the frame.
+
+    Documents reach the corpus on the live channel only, so the walk is framed
+    on the live slice; a prediction committed for a row outside it must not drag
+    that row into a count taken over the walked population, or the denominator
+    stops matching the numerator.
+    """
+    db = _seed_text_coverage_corpus(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    # scotus/13 has documents but no `last_live_polled`: outside the slice.
+    seed_prediction(data_root, "scotus", 13, "evt-petition-disposition")
+
+    with corpus.connect(db) as conn:
+        coverage = document_text_coverage(conn, data_root)
+
+    assert coverage.cases == 7
+    assert coverage.queued == 4
 
 
 def test_document_text_coverage_reach_counts_only_the_counted_kinds(tmp_path: Path) -> None:
@@ -2058,7 +2127,7 @@ def test_document_text_coverage_reach_counts_only_the_counted_kinds(tmp_path: Pa
                 )
             ],
         )
-        coverage = document_text_coverage(conn)
+        coverage = document_text_coverage(conn, tmp_path / "data")
     assert coverage.cases_read == 5
     # And it is still counted as a distributed case holding no petition.
     assert coverage.distributed_without_petition == 3
@@ -2067,7 +2136,7 @@ def test_document_text_coverage_reach_counts_only_the_counted_kinds(tmp_path: Pa
 def test_document_text_coverage_share_is_none_over_an_unread_cut(tmp_path: Path) -> None:
     db = _seed_text_coverage_corpus(tmp_path / "corpus")
     with corpus.connect(db) as conn:
-        coverage = document_text_coverage(conn)
+        coverage = document_text_coverage(conn, tmp_path / "data")
     by_cut = {(cut.segment, cut.kind): cut for cut in coverage.cuts}
     # None, not 0.0: a cut nothing was read for must never report as one
     # measured at zero — the same reason every printed line carries its own
@@ -2098,12 +2167,12 @@ def test_corpus_info_text_coverage_is_opt_in(
     # Each gap against its own form's denominator, never against the whole
     # queue: a filtered numerator over an unfiltered denominator is a share of
     # nothing in particular, and a number that drains needs its population.
-    assert "and 1 of 2 queued cert-form case(s)" in measured.stdout
+    assert "and 1 of 2 queued-or-predicted cert-form case(s)" in measured.stdout
     assert (
         "1 of 2 queued interim application docket(s) hold no application document"
         in measured.stdout
     )
-    assert "The two form counts partition the 4 queued case(s)." in measured.stdout
+    assert "The two form counts partition the 4 queued-or-predicted case(s)." in measured.stdout
     # And the widened kind travels with the figure it qualifies.
     assert "`petition` is the case-opening filing on any cert-form docket" in measured.stdout
     # A reach count, said to be one.
@@ -2179,7 +2248,7 @@ def test_corpus_info_text_coverage_self_limits_when_the_store_serves_nothing(
     # Both gaps read fully open, each against its own denominator: the form
     # split survives the degradation because it is read off the docket number,
     # while every document presence check answers false.
-    assert "and 2 of 2 queued cert-form case(s)" in result.stdout
+    assert "and 2 of 2 queued-or-predicted cert-form case(s)" in result.stdout
     assert (
         "2 of 2 queued interim application docket(s) hold no application document" in result.stdout
     )

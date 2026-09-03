@@ -74,7 +74,7 @@ def test_load_pull_config_reads_degradation_keys(tmp_path: Path) -> None:
 
 def test_degradation_defaults_stay_under_the_job_timeout(tmp_path: Path) -> None:
     # The deadline default must leave the workflow job (45 min) ample headroom to
-    # push the corpus and file handoffs after the rotation stops.
+    # push the corpus and write its queues after the rotation stops.
     cfg = load_pull_config(tmp_path / "absent")
     assert cfg.max_run_minutes == 25.0
     assert cfg.max_consecutive_transient_failures == 5

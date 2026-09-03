@@ -6201,7 +6201,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         Path | None,
         typer.Option(
             help="JSON file of open issues (`gh issue list --json number,title,labels,createdAt`) "
-            "for the open-trigger-issues section; omit to skip it."
+            "for the stale-fan-out-labels section; omit to skip it."
         ),
     ] = None,
     all_versions: Annotated[
@@ -6802,8 +6802,11 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
     # The other failure mode, printed beside the first because it is the larger
     # one and nothing re-extracts what was never stored. Two denominators: the
     # stock of distributed rows (many predating the document channel, so never
-    # fetched for), and the rows actually queued for prediction, which is the
-    # population a missing petition costs a cell on.
+    # fetched for), and the rows the pipeline queued or predicted — over both
+    # lanes, the stamped ones and the ones the ledger holds a prediction for —
+    # which is the population a missing primary document costs a cell on. Two
+    # words, because only one half is a mint: the stamp says a lane queued the
+    # case, which a later gate can still drop before a cell exists.
     # Each gap prints against the population it is a gap over, not against the
     # whole queue: a number that drains is unreadable without its denominator,
     # and the two forms' denominators partition `queued`.
@@ -6811,10 +6814,10 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
         f"missing documents: {coverage.distributed_without_petition} of "
         f"{coverage.distributed} distributed case(s) hold no petition row at all, "
         f"and {coverage.queued_without_petition} of {coverage.queued_cert_forms} "
-        "queued cert-form case(s); an extraction fix reaches none of them. The "
-        "wide count is an unfiltered stock — a row distributed before the "
-        "document channel existed was never fetched for — so read the queued one "
-        "for what is recoverable now."
+        "queued-or-predicted cert-form case(s); an extraction fix reaches none of "
+        "them. The wide count is an unfiltered stock — a row distributed before "
+        "the document channel existed was never fetched for — so read the queued "
+        "one for what is recoverable now."
     )
     # The other form's own gap, printed rather than left implicit: measured
     # against a different document, it would otherwise be an absence a reader
@@ -6825,7 +6828,7 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
         "docket(s) hold no application document — measured against their own "
         "primary filing, not the petition an application docket never has. The "
         "two form counts partition the "
-        f"{coverage.queued} queued case(s).)"
+        f"{coverage.queued} queued-or-predicted case(s).)"
     )
     # And how much of each gap is a floor rather than a backlog. Without this the
     # residue a successful back-fill leaves reads as an unexplained provisioning
@@ -6881,6 +6884,10 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
     # a case whose documents were never provisioned reads the same as one whose
     # fetch was attempted and served nothing — and a count names no case.
     if coverage.queued_without_petition_cases:
+        # This header is a contract, not a caption: `run-analytics`' text-coverage
+        # job truncates the step-summary copy of the report at exactly this line
+        # (the ledgers are artifact-only, because the summary is readable without
+        # login). Renaming it publishes the whole worklist to the run page.
         typer.echo(f"no petition, queued ({len(coverage.queued_without_petition_cases)} case(s)):")
         for case_id in coverage.queued_without_petition_cases:
             typer.echo(f"  {case_id}")
@@ -7461,7 +7468,7 @@ def corpus_info(
                         f"sha256 {pulled_sha}) — re-pull before quoting this vintage"
                     )
         if text_coverage:
-            _echo_text_coverage(document_text_coverage(conn))
+            _echo_text_coverage(document_text_coverage(conn, settings.data_root))
         _echo_read_stats(conn)
 
 
@@ -9766,13 +9773,13 @@ def _resolve_cases(
     corpus now refuses. The listing is what makes the re-check necessary: a
     case with no events runs through selection, which applies every
     forecastability rule, while a listed event skips selection entirely — and a
-    trigger issue is written when its events are forecastable and fanned out
-    whenever the workflow runs, with a pipeline pause free to put an arbitrary
-    gap between the two. Without the re-check the stale listing mints cells
-    provisioning must then refuse one by one; with it each event is dropped
+    case list is composed when its events are forecastable and fanned out
+    whenever the round that reads it runs, with a review hold free to put an
+    arbitrary gap between the two. Without the re-check the stale listing mints
+    cells provisioning must then refuse one by one; with it each event is dropped
     here, once, with its own reason on the record (printed verbatim, so a new
     refusal class needs no second annotation site). An event the callback does
-    not name stays listed, because the matrix trusts the trigger's event ids
+    not name stays listed, because the matrix trusts the request's event ids
     and the provisioning record gate backs the trust. The predict matrix passes
     :func:`fedcourtsai.store.unforecastable_listed_events`; evaluate passes
     ``None``, since its listed events are exactly the resolved ones.
@@ -9880,7 +9887,7 @@ def _scope_filtered(
 
     Gating reads the corpus through the configured backend — the pulled local
     file, or the resolved pointer read in place over ``ranged``. The matrix is
-    built from the *specific* cases the trigger issue names, so gating is a
+    built from the *specific* cases the request names, so gating is a
     handful of point lookups (each case's row, and a latest-snapshot lookup only
     for a bare-import row), which the ranged backend serves in KBs — no full
     pull. Under ``local`` the database must be on disk: if it is absent the gate
@@ -10211,7 +10218,7 @@ def _requested_cases(
     """Cases to fan out over, from a batch body file, single-case flags, or the backlog.
 
     ``--body-file`` (one ``{court, docket, events}`` object or a JSON array of
-    them) is the multi-case path a trigger issue takes. The single-case
+    them) is the multi-case path a named backfill takes. The single-case
     ``--court``/``--docket``/``--event`` flags serve ad-hoc invocations.
 
     ``backlog`` names which stage's deriver answers the third mode: given *no*
@@ -10258,7 +10265,7 @@ def _spend_gate_or_empty(stage: str) -> SpendVerdict:
     """The ex-post spend backstop, consulted before either stage mints a matrix.
 
     Returns the verdict so the caller can emit an empty matrix on a breach —
-    deferring, never destroying: the trigger's cases stay in their queue and
+    deferring, never destroying: the round's cases stay owed and
     re-derive next cycle, exactly as under the volume cap. Reports on the same two
     channels as the other plan-time gates (a workflow-command line on stderr, and
     the step summary inside Actions), never on stdout, which carries only the
@@ -10392,27 +10399,26 @@ def _report_predict_cap(capped: CappedMatrix, max_cells: int) -> None:
     is empty because of the cap, not scope — reachable when the single
     lowest-``case_id`` case alone exceeds the cap, i.e. a pathological many-event
     case or a misconfigured tiny ``max_predict_cells_per_run``), the plan reports
-    ``has_jobs=false`` and the workflow's empty-matrix step closes the trigger
-    issue with an *out-of-scope* message — cap-empty and scope-empty are
-    indistinguishable to that YAML step. So emit a distinct, escalated
-    ``::error::`` here that names the cap as the cause, so the misattributed
-    close is never the only record. It is still safe: the deferred cases stay in
-    the corpus predict queue and re-queue next cycle regardless of the issue
-    close.
+    ``has_jobs=false`` and the workflow's empty-matrix branch says the backlog is
+    drained — cap-empty and drained-empty are indistinguishable to that YAML
+    step. So emit a distinct, escalated ``::error::`` here that names the cap as
+    the cause, so the misattributed summary line is never the only record. It is
+    still safe: the deferred cases stay owed and are re-derived next cycle
+    whatever the summary said.
     """
     cases = ", ".join(capped.dropped_cases)
     if not capped.include:
         # All cases deferred by the cap: escalate past the normal warning, because
-        # the workflow's empty-matrix step will close the trigger issue with the
-        # generic out-of-scope note (it cannot tell cap-empty from scope-empty).
-        # This line is the correctly-attributed record; the close is harmless
-        # because the deferred cases persist in the predict queue (see docstring).
+        # the workflow's empty-matrix branch will report a drained backlog (it
+        # cannot tell cap-empty from drained-empty). This line is the
+        # correctly-attributed record; the misreading is harmless because the
+        # deferred cases stay owed and re-derive next cycle (see docstring).
         typer.echo(
             f"::error::predict-matrix: volume cap deferred ALL {len(capped.dropped_cases)} "
-            f"case(s) this run — nothing fits under the {max_cells}-cell backstop, so the "
-            f"matrix is empty and the trigger issue will close as if out of scope. The cases "
-            f"remain queued and re-run next cycle ({cases}). Raise "
-            f"predict.max_predict_cells_per_run or split the trigger if this is unexpected.",
+            f"case(s) this round — nothing fits under the {max_cells}-cell backstop, so the "
+            f"matrix is empty and the summary will read as a drained backlog. The cases "
+            f"remain owed and re-derive next cycle ({cases}). Raise "
+            f"predict.max_predict_cells_per_run if this is unexpected.",
             err=True,
         )
     else:
@@ -10441,26 +10447,36 @@ _STRANDED_RERUN_CAVEAT = (
 )
 _STRANDED_OVERRIDE = (
     "The guard releases itself: a run leaves the census once its `collect` concludes success, "
-    "and ages out of the 48-hour window regardless. To get a fresh run *sooner*, delete the "
+    "and ages out of the 48-hour window regardless. To get a fresh round *sooner*, delete the "
     "stranded run's cell artifacts (`gh api -X DELETE "
-    "repos/<owner>/<repo>/actions/artifacts/<artifact_id>`) and re-queue — an explicit act "
-    "rather than a new trigger."
+    "repos/<owner>/<repo>/actions/artifacts/<artifact_id>`) and let the next derivation mint "
+    "them again — an explicit act rather than a dispatch."
 )
 
 
 def _stranded_note(runs: Sequence[int]) -> str:
-    """The trigger-issue close note for a run the guard withheld entirely."""
+    """The recovery note for a round the guard withheld entirely.
+
+    Written to ``--stranded-note-file``, and only in that all-withheld case, so
+    the file's *presence* is also the marker the plan step branches on: an empty
+    matrix that means "recover that run" and one that means "the backlog is
+    drained" are identical from the count alone. The surface it is written for
+    is the run's own step summary — a schedule-driven round is addressed to
+    whoever reads the run, not to a request someone filed — so the note names
+    the round rather than an issue, and its closing line is about what the next
+    derivation will do rather than about closing anything.
+    """
     reruns = "\n".join(f"    gh run rerun {run} --failed" for run in runs)
     return (
-        "Every cell this run would have queued already ran in a run whose `collect` never "
+        "Every cell this round would have minted already ran in a run whose `collect` never "
         "succeeded — the predictions exist as cell artifacts; what is missing is the step that "
         f"commits them. Recover {'that run' if len(runs) == 1 else 'those runs'} rather than "
-        "re-running this one, which would re-spend the same tokens on the same events — rerun "
-        "the collect job:\n\n"
+        "starting another round, which would re-spend the same tokens on the same events — "
+        "rerun the collect job:\n\n"
         f"{reruns}\n\n"
         f"{_STRANDED_RERUN_CAVEAT}\n\n"
-        "Closing this issue loses nothing: an event with no committed prediction re-queues on a "
-        f"later cycle regardless. {_STRANDED_OVERRIDE}\n"
+        "Nothing is lost by leaving this round here: an event with no committed prediction is "
+        f"still owed, and the next scheduled round derives it again. {_STRANDED_OVERRIDE}\n"
     )
 
 
@@ -10497,10 +10513,11 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
 
     Three channels, all of them a run's record rather than a plan's: a
     ``::warning::`` per withheld cell carrying its own recovery command, the
-    escalated ``::error::`` plus ``note_file`` close note when the guard emptied
-    the matrix (the workflow's close step posts the note in place of its generic
-    out-of-scope one), and the Actions step summary. Called only when something
-    was actually withheld.
+    escalated ``::error::`` plus the ``note_file`` recovery note when the guard
+    emptied the matrix (the plan step branches on that file's presence so an
+    empty matrix reads as "recover that run" rather than as a drained backlog),
+    and the Actions step summary. Called only when something was actually
+    withheld.
     """
     runs = sorted({cell.run_db_id for cell in guarded.withheld})
     run_list = ", ".join(str(run) for run in runs)
@@ -10513,13 +10530,13 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
             err=True,
         )
     if not guarded.include:
-        # Every cell withheld: the plan reports has_jobs=false, and the workflow's
-        # close step would otherwise post its generic out-of-scope note. Write the
-        # honest one for it to post instead, and escalate here so the cause is on
-        # the record even if the note never reaches the issue.
+        # Every cell withheld: the plan reports has_jobs=false, which is
+        # indistinguishable from a drained backlog by the count alone. Write the
+        # note that says otherwise, and escalate here so the cause is on the
+        # record even if the note never reaches a reader.
         typer.echo(
             f"::error::{stage}: the stranded-run guard withheld ALL "
-            f"{len(guarded.withheld)} cell(s) — every event this trigger names already ran in "
+            f"{len(guarded.withheld)} cell(s) — every event this round derived already ran in "
             f"uncollected run(s) {run_list}. Recover rather than re-run: "
             f"`gh run rerun {runs[0]} --failed`. {_STRANDED_RERUN_CAVEAT} " + _STRANDED_OVERRIDE,
             err=True,
@@ -10528,11 +10545,13 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
             try:
                 note_file.write_text(_stranded_note(runs), encoding="utf-8")
             except OSError as exc:
-                # An unwritable note costs the issue its honest close message,
-                # never the run: the ::error:: above is already on the record.
+                # An unwritable note costs the round's summary its honest
+                # explanation, never the run: the ::error:: above is already on
+                # the record, and the guard's own summary section below carries
+                # the run ids and the rerun command.
                 typer.echo(
-                    f"::warning::{stage}: could not write the stranded-run close note to "
-                    f"{note_file} ({exc}); the trigger issue closes with the generic note",
+                    f"::warning::{stage}: could not write the stranded-run recovery note to "
+                    f"{note_file} ({exc}); the empty matrix is left to read as a drained backlog",
                     err=True,
                 )
     else:
@@ -10549,8 +10568,8 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
                 f"## run-predict — stranded-run guard withheld {len(guarded.withheld)} cell(s)\n"
                 f"Their output already sits in uncollected run(s) {run_list}, whose `collect` did "
                 f"not succeed: the tokens are spent and the predictions exist as cell artifacts. "
-                f"Recover with `gh run rerun {runs[0]} --failed` rather than re-running this "
-                f"trigger. {_STRANDED_RERUN_CAVEAT} Kept {len(guarded.include)} genuinely new "
+                f"Recover with `gh run rerun {runs[0]} --failed` rather than starting another "
+                f"round. {_STRANDED_RERUN_CAVEAT} Kept {len(guarded.include)} genuinely new "
                 f"cell(s). {_STRANDED_OVERRIDE}\n"
             )
 
@@ -10720,23 +10739,23 @@ def _predict_fanout(
     )
     if requested and any(c.events for c in requested) and not any(c.events for c in cases):
         # Every listed event fell to the forecastability re-check, so the
-        # emitted matrix will be empty and the workflow's empty-matrix step will
-        # close the trigger issue with its generic out-of-scope note (it cannot
-        # tell the causes apart). This line is the correctly-attributed record;
-        # safe, because every class the re-check drops on needs something other
-        # than a re-queue — a grade for a resolved event, a corpus fix for a
-        # stale grant. The per-event warnings above carry which class each was.
+        # emitted matrix will be empty and the workflow's empty-matrix branch
+        # will report a drained backlog (it cannot tell the causes apart). This
+        # line is the correctly-attributed record; safe, because every class the
+        # re-check drops on needs something other than another round — a grade
+        # for a resolved event, a corpus fix for a stale grant. The per-event
+        # warnings above carry which class each was.
         if report:
             typer.echo(
                 f"::error::{stage}: the forecastability re-check dropped every listed event — "
                 "none is still forecastable; nothing is minted",
                 err=True,
             )
-        # A workflow-log annotation is retention-bounded; the close note is the
-        # durable, human-read surface. Re-derive the per-event reasons (point
-        # lookups, only on this empty path) and hand the workflow's close step
-        # an attributed note in place of its generic out-of-scope one — the
-        # same channel the stranded guard uses.
+        # A workflow-log annotation is buried in the log; the note is the
+        # surface a reader lands on. Re-derive the per-event reasons (point
+        # lookups, only on this empty path) and write the attributed note the
+        # empty-matrix branch reports in place of a drained backlog — the same
+        # channel the stranded guard uses.
         if note_file is not None and recheck is not None:
             lines: list[str] = []
             for c in requested:
@@ -10747,9 +10766,9 @@ def _predict_fanout(
                     if event in c.events
                 )
             note_file.write_text(
-                "Every event this trigger listed has become unforecastable since it was "
-                "queued, so nothing was minted:\n\n" + "\n".join(lines) + "\n\n"
-                "None of these needs a re-queue — a resolved event needs its grade, and a "
+                "Every event this round listed has become unforecastable since it was "
+                "listed, so nothing was minted:\n\n" + "\n".join(lines) + "\n\n"
+                "None of these needs another round — a resolved event needs its grade, and a "
                 "decided or stale proceeding must not receive a forward cell.\n",
                 encoding="utf-8",
             )
@@ -10783,11 +10802,11 @@ def _predict_fanout(
     #
     # Coupling to watch: if the cap defers ALL cases the emitted matrix is empty,
     # which the plan job's `has_jobs=false` path routes to the workflow's
-    # empty-matrix step — and that step closes the trigger issue with a generic
-    # *out-of-scope* note, since cap-empty and scope-empty look identical to it.
-    # `_report_predict_cap` escalates to a ::error:: in that case so the cause is
-    # on the record; it is safe because the deferred cases persist in the corpus
-    # predict queue and re-queue next cycle regardless of the close.
+    # empty-matrix branch — and that branch reports a *drained backlog*, since
+    # cap-empty and drained-empty look identical to it. `_report_predict_cap`
+    # escalates to a ::error:: in that case so the cause is on the record; it is
+    # safe because the deferred cases stay owed and re-derive next cycle
+    # whatever the summary said.
     capped = cap_predict_cells(matrix, predict_config.max_predict_cells_per_run)
     if capped.dropped_cells and report:
         _report_predict_cap(capped, predict_config.max_predict_cells_per_run)
@@ -10833,18 +10852,18 @@ def predict_matrix_cmd(
     stranded_note_file: Annotated[
         Path | None,
         typer.Option(
-            help="Where to write the trigger-issue close note when the stranded-run guard "
-            "withholds every cell (nothing is written otherwise).",
+            help="Where to write the recovery note when the stranded-run guard withholds "
+            "every cell (nothing is written otherwise).",
         ),
     ] = None,
 ) -> None:
     """Emit the predictor x case x event GitHub Actions matrix as compact JSON.
 
-    Two input modes. ``--body-file`` takes the cases from a trigger issue, and
+    Two input modes. ``--body-file`` takes an explicit case list, and
     ``--court``/``--docket`` name one ad hoc. Given no input at all, they come
     from the corpus-level predict backlog — the forecasts committed state still
     owes, on cases that are in scope, funded, and already provisioned — so a
-    scheduled run derives its own work with no issue body. That derivation
+    scheduled run derives its own work with no case list named. That derivation
     writes no ``predict_queued_at`` debounce stamp: the per-(predictor, event)
     already-predicted skip below is the idempotency, and the corpus of record is
     writable only from the writer jobs. Run it where the corpus is pulled.
@@ -11029,10 +11048,10 @@ def evaluate_matrix_cmd(
 ) -> None:
     """Emit the evaluator x case x event GitHub Actions matrix as compact JSON.
 
-    Two input modes. ``--body-file`` takes the cases from a trigger issue, and
+    Two input modes. ``--body-file`` takes an explicit case list, and
     ``--court``/``--docket`` name one ad hoc. Given no input at all, they come
     from the corpus-level evaluate backlog — the gradings committed state still
-    owes — so a scheduled run derives its own work with no issue body. That
+    owes — so a scheduled run derives its own work with no case list named. That
     derivation writes no ``evaluate_queued_at`` debounce stamp: the
     already-graded gate below is the idempotency, and the corpus of record is
     writable only from the writer jobs. Run it where the corpus is pulled.
@@ -11605,8 +11624,8 @@ def _render_approval_report(plan: dict[str, Any], *, stage: str, run_url: str = 
 _ApprovalReportOption = Annotated[
     Path | None,
     typer.Option(
-        help="Also write the plan as a bounded markdown report, for a hold gate to post as "
-        "a trigger-issue comment. stdout is unchanged, with the flag or without it.",
+        help="Also write the plan as a bounded markdown report, for a hold gate to publish "
+        "where an approver reads it. stdout is unchanged, with the flag or without it.",
     ),
 ]
 _ApprovalReportRunUrlOption = Annotated[
@@ -11635,11 +11654,11 @@ def _echo_plan(
     report was written beside it.
 
     That write is deliberately **fail-loud**, and deliberately *before* the
-    stdout echo, which is the opposite of the stranded-run close note's
-    fail-open: an unwritable note costs the trigger issue a better message and
+    stdout echo, which is the opposite of the stranded-run recovery note's
+    fail-open: an unwritable note costs the round's summary a better message and
     nothing else, while an unwritable approval report costs the hold its entire
     decision surface. A gate that read the plan from stdout, found no report,
-    and posted an empty comment would ask a maintainer to approve a fan-out
+    and published an empty document would ask a maintainer to approve a fan-out
     they cannot see. Raising here stops the run instead.
     """
     for line in _plan_count_lines(plan, stage=stage):
@@ -11694,7 +11713,7 @@ def predict_plan_cmd(
     The dry run of ``predict-matrix``: the same inputs through the same pipeline
     — scope gate, forecastability re-check, per-predictor ledger gate,
     stranded-run guard, volume cap — with nothing minted and nothing written. No
-    trigger-issue close note, no Actions step summary, no model spend; only the
+    recovery note, no Actions step summary, no model spend; only the
     plan document on stdout, its summary lines on stderr, and — on request —
     the ``--approval-report`` markdown.
 
@@ -12104,7 +12123,7 @@ def scan_diff_for_secrets_cmd(
     issue_comment_file: Annotated[
         Path | None,
         typer.Option(
-            help="Where to append the redacted trigger-issue comment (appended only on findings)."
+            help="Where to append the redacted withholding report (appended only on findings)."
         ),
     ] = None,
     run_url: Annotated[
@@ -12184,7 +12203,7 @@ def scan_diff_for_secrets_cmd(
                 handle.write(secretscan.render_issue_comment(findings, run_url) + "\n")
         raise typer.Exit(code=1)
     if misconfigured:
-        # Withholding must never be silent on the trigger issue: with no
+        # Withholding must never be silent on the run's report: with no
         # findings to report, still say why nothing was published.
         if issue_comment_file is not None:
             with issue_comment_file.open("a") as handle:
@@ -12274,9 +12293,7 @@ def cleanup_out_of_scope_predictions_cmd(
     run_id: Annotated[
         str, typer.Option(help="Run id for the review PR's branch name; defaults to now (UTC).")
     ] = "",
-    issue: Annotated[
-        int, typer.Option(help="Trigger issue the PR closes on merge (0 = none).")
-    ] = 0,
+    issue: Annotated[int, typer.Option(help="Issue the PR closes on merge (0 = none).")] = 0,
 ) -> None:
     """Prune committed predictions for cases now out of predict scope.
 
@@ -12800,13 +12817,13 @@ def stall_comment_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
     run_url: Annotated[str, typer.Option(help="The Actions run URL to link from the comment.")],
 ) -> None:
-    """Print the trigger-issue comment for a run that produced no output at all.
+    """Print the stall report for a run that produced no output at all.
 
-    A wholesale failure (every cell dying before its agent ran) opens no PR and
-    would leave the trigger issue silently orphaned open. The collect job renders
-    this comment — prose from tested code, per the house rule — and posts it to
-    the trigger issue with the ambient ``GITHUB_TOKEN`` so the stall is loud and
-    carries retry instructions.
+    A wholesale failure (every cell dying before its agent ran) opens no PR, so
+    without this the stall would be visible only to whoever read the Actions
+    history. The collect job renders this — prose from tested code, per the
+    house rule — onto the run's step summary, and (given an issue number)
+    comments it there with the ambient ``GITHUB_TOKEN``.
     """
     typer.echo(render_stall_comment(role, run_url))
 
@@ -12829,8 +12846,8 @@ def post_issue_comment_cmd(
     For the collect job's stall and secret-scan reports. Their step reruns
     whenever the collect job does — and rerunning collect is the documented
     recovery for a transfer failure — so without the marker every recovery
-    attempt would stack another copy of the same warning on the trigger issue,
-    burying the signal it exists to raise. An empty/absent body posts nothing.
+    attempt would stack another copy of the same warning on the issue, burying
+    the signal it exists to raise. An empty/absent body posts nothing.
     """
     body = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
     if not body.strip():

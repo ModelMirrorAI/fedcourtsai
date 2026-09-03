@@ -22,7 +22,7 @@ import yaml
 
 WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 
-# The data App that files the handoff issues; the actor every automated run carries.
+# The data App the automated lanes run as; the actor every automated run carries.
 PIPELINE_BOT = "fedcourtsai-data[bot]"
 
 # Each agent action and the `with:` input that allowlists a bot past its actor check.
@@ -31,7 +31,7 @@ AGENT_BOT_INPUT = {
     "openai/codex-action": "allow-bot-users",
 }
 
-# The fan-out workflows whose agent steps run on the bot handoff.
+# The fan-out workflows whose agent steps run as that bot.
 AGENT_WORKFLOWS = ("run-predict.yml", "run-evaluate.yml")
 
 
@@ -62,7 +62,7 @@ def test_every_agent_step_allowlists_the_pipeline_bot() -> None:
             value = str(step.get("with", {}).get(input_name, ""))
             assert PIPELINE_BOT in value, (
                 f"{name}: {action} step must set {input_name} to include "
-                f"{PIPELINE_BOT!r} so the run-pull handoff reaches the agent "
+                f"{PIPELINE_BOT!r} so a round running as that bot reaches the agent "
                 f"(got {value!r})"
             )
 
