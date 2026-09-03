@@ -51,7 +51,7 @@ substitute the literals from your kickoff prompt.
 | `EVENT_ID`     | The resolved event, e.g. `evt-motion-stay`          |
 | `EVALUATOR_ID` | Your evaluator id; names your output directory      |
 | `RUN_ID`       | Shared run id for this fan-out (a UTC timestamp)    |
-| `MODEL_ID`     | The model you are running as, e.g. `claude-fable-5` |
+| `MODEL_ID`     | The model you are running as, e.g. `claude-fable-5-1` |
 
 ## Inputs (read-only)
 
@@ -317,12 +317,18 @@ fails the cell.
       lookback (`salience.base_rate_lookback_terms` in `config/tracking.yaml` —
       ten as shipped, so `grant_term - 10 <= T < grant_term`). Two properties of
       the number belong in `evaluation.md` beside it. The pool is guarded: the
-      section excludes any row whose parsed judgment carries its own grant's
-      date, or no date the gap could be tested on (a disposition riding in the
-      cert order — the label-independent twin of the GVR exclusion,
+      section excludes any row whose parsed judgment is **dated on or before
+      its own grant** (a disposition riding in the cert order — the
+      label-independent twin of the GVR exclusion,
       `docs/decision-model.md`), so the pooled rate is the rate argued cases
       face rather than an upper bound inflated by pre-convention cert-order
-      vacaturs. And it is **censored**: the nearest Term in the pool is the most
+      vacaturs. A parsed judgment carrying **no** date cannot be gap-tested at
+      all, so that row is *not* excluded: it stays in `granted` as a coverage
+      gap, with only its judgment out of the parsed slice. Read the counts as
+      two populations rather than three nested ones — an excluded row is
+      counted in `excluded (not in granted)` *instead of* in `granted`, so per
+      Term the two partition the pre-guard population and only `parsed` nests
+      inside `granted`. And it is **censored**: the nearest Term in the pool is the most
       censored one in it, since an argued case's judgment lands six to eighteen
       months after its grant, so a still-open Term contributes a slice skewed
       toward the quicker dispositions. Quote the `parsed`/`granted` coverage
@@ -641,10 +647,20 @@ candidate:
    alias to the real predictor id when it un-aliases the cell, in `flags.json`
    and in your prose alike, so the note a maintainer reads names a predictor.
 
-The assessment is **advisory and segments scores — it never changes**
-`correct`, `brier_score`, or the other quantitative fields. Its point is to
-keep the backtest stratum honest as *iteration signal*; backtest results are
-never claimable performance regardless (only the forward stratum is).
+The assessment is an **exclusion, not a segmentation**. A grading you mark
+`leakage_suspected: true` takes its cell out of **every rank key and every
+scored aggregate** on every board — the forward stratum as well as the
+retrospective one — and the boards publish that exclusion beside their
+figures: the count, its `assessed` denominator, and the per-predictor split.
+The unit is the grading, not the prediction, so the bit drops your cell and no
+other judge's. What it does **not** do is change a score value: `correct`,
+`brier_score`, and the other quantitative fields stand exactly as computed,
+here and everywhere — the bit moves which cells a figure is computed over and
+never any number in one. A **null** bit is "not assessed", not "clean", and
+those cells are scored, so record the bit whenever you have graded the
+question. Backtest results are never claimable performance regardless (only
+the forward stratum is). The reading rules are `metrics/README.md`, *The
+leakage exclusion*.
 
 You may consult the corpus for context while scoring (never for new case facts):
 `fedcourts query` / `fedcourts open-events` read the corpus through your cell's

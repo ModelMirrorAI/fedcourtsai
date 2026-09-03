@@ -177,7 +177,7 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     assert recorder.env["EVENT_ID"] == EVENT
     assert recorder.env["PREDICTOR_ID"] == PREDICTOR
     assert recorder.env["RUN_ID"] == RUN
-    assert recorder.env["MODEL_ID"] == "claude-fable-5"
+    assert recorder.env["MODEL_ID"] == "claude-fable-5-1"
     assert "EVALUATOR_ID" not in recorder.env
     # Live cells carry no replay clock; DECIDED_BEFORE is back-test-only.
     assert "DECIDED_BEFORE" not in recorder.env
@@ -185,7 +185,7 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     assert recorder.argv[0] == "claude"
     assert "-p" in recorder.argv
     assert "bypassPermissions" in recorder.argv
-    assert "claude-fable-5" in recorder.argv
+    assert "claude-fable-5-1" in recorder.argv
     # The registry prompt path rides in the instruction it passes the agent.
     assert ".github/prompts/predict.md" in recorder.argv[recorder.argv.index("-p") + 1]
     # It reports the artifacts the agent left at the canonical paths.
