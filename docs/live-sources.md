@@ -657,8 +657,8 @@ serials the sample never ingested. Each kept petition lands through `ingest_live
 **resolved** (machine-read label, dated raw-JSON snapshot, its cert event
 latched closed) with filed documents provisioned for OT2021+ (the links'
 retention window), so it provisions replay cells like any other case. Decided
-history must never feed forward prediction: the loader files **no handoff
-queues at all**, records with no readable disposition are skipped (pending
+history must never feed forward prediction: the loader writes **no queue files
+at all**, records with no readable disposition are skipped (pending
 matters are the forward poller's charter), and resolved rows are structurally
 invisible to the live refresh rotation. (The one row that stays visible is
 the one whose ingest *itself* resolves a tracked open petition as granted:

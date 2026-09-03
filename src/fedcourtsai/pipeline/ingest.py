@@ -798,8 +798,25 @@ def _live_resolution(
     the patterns change to re-establish the recall claim). The first matching
     entry, in docket order, is the cert-stage disposition and its entry date is
     the decision date: a grant (including a GVR, which grants the petition) dates
-    ``date_cert_granted``, a denial ``date_cert_denied``, and anything else
-    (dismissed / withdrawn) dates the termination.
+    ``date_cert_granted``, a denial ``date_cert_denied`` *and* the termination
+    beside it, and anything else (dismissed / withdrawn) dates the termination
+    alone.
+
+    **A denial dates the termination too**, and it is the only disposition that
+    dates both its own cert-stage column and the termination. The order refusing
+    the writ is the order that ends the docket, so the petition-stage decision
+    and the docket's termination are ordinarily the same moment — what
+    ``date_cert_denied``'s own contract says, hedge included
+    (:class:`fedcourtsai.corpus.CorpusRow`), and the date is the row's
+    resolution either way
+    (:func:`fedcourtsai.corpus.resolution_date`). A grant's are two: the docket runs
+    on to a merits judgment months later, and ``date_decided`` keeps termination
+    semantics, so the grant branch deliberately leaves it null rather than
+    stamping the grant date on a case that is not over. A GVR sits on the
+    grant side of that split and is left alone for the same reason the
+    granted-set no-op in :mod:`fedcourtsai.pipeline.outcome` reads a null
+    ``date_decided`` as the retained-grant shape: dating it here would be a
+    change to that reading, not to this one.
     """
     for entry in entries:
         matched = match_disposition_signal(str(entry.get("description") or ""))
@@ -810,7 +827,7 @@ def _live_resolution(
         if disposition in (Disposition.granted.value, Disposition.gvr.value):
             return disposition, decided, None, None
         if disposition == Disposition.denied.value:
-            return disposition, None, decided, None
+            return disposition, None, decided, decided
         return disposition, None, None, decided
     return None, None, None, None
 

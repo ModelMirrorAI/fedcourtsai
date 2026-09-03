@@ -3,7 +3,7 @@ name: run-pull
 # Refresh tracked dockets — three writer jobs on one surface, at most one per
 # run: two scheduled forward writers and one dispatch-only enrichment pass.
 #
-# - `pull` (the `17 *` crons, dispatch mode=pull, or a `run:pull` label):
+# - `pull` (the `17 *` crons or dispatch mode=pull):
 #   targeted CourtListener *enrichment* for the tracked set —
 #   not the primary freshness mechanism. CourtListener discovery is off (`pull.
 #   discover_new_filings: false`): the live channel owns SCOTUS onboarding, and
@@ -12,7 +12,7 @@ name: run-pull
 #   (docs/live-sources.md) — `fedcourts live-poll` probes supremecourt.gov
 #   docket JSON for newly docketed petitions (persisted per-Term cursor) and
 #   re-polls the pending watchlist. No CourtListener token, no API budget; the
-#   same corpus-writer plumbing (corpus push, pointer commit, queue handoffs).
+#   same corpus-writer plumbing (corpus push, pointer commit, queue routing).
 # - `enrich` (dispatch mode=enrich-opinions only, never scheduled): walks
 #   granted SCOTUS rows to their published opinion cluster and lands the
 #   reporter citations and the opinion body (`fedcourts enrich-opinions`,
@@ -42,23 +42,24 @@ name: run-pull
 # corpus (pulled from / pushed back to the remote via `fedcourts corpus-pull` /
 # `corpus-push`). The new outcomes and the
 # small corpus pointer are committed DIRECTLY to main (they are CourtListener
-# facts, not agent output — see docs/data-pipeline.md). It then opens
-# a `run:predict` issue for each changed case with open events; a case that
-# appears decided but whose outcome could not be recorded deterministically is
-# surfaced on the pipeline-runs dashboard for maintainer triage (no issue is
-# filed for it). Grading is not handed off from here: the outcomes this window
-# commits are what run-evaluate's own scheduled backlog derivation reads, so a
-# resolved event reaches a judge by that lane, not by an issue filed here.
+# facts, not agent output — see docs/data-pipeline.md). Neither tournament stage
+# is triggered from here: this window routes the predict queue (stamping
+# `predict_queued_at`) and counts the evaluate backlog, and run-predict and
+# run-evaluate each derive their own fan-out from that committed state on their
+# own schedule — so a changed case reaches a forecaster, and a resolved event a
+# judge, by those lanes rather than by an issue filed here. A case that appears
+# decided but whose outcome could not be recorded deterministically is surfaced
+# on the pipeline-runs dashboard for maintainer triage.
 # Run logging creates nothing on the happy path: every window (pull and live,
 # success or failure) lands its row on the single long-lived `Pipeline runs`
 # dashboard issue, edited in place (.github/actions/run-log-dashboard), and a
 # failing window opens (or reuses, same day) a `pull-log` / `live-log` issue
 # left open for a human — so an open run-log issue means exactly "a window
-# broke". The corpus commits and the run:predict handoff issues
-# use the GitHub App token so they trigger downstream workflows; the logging
-# writes (dashboard + run-log issues) ride the ambient GITHUB_TOKEN instead —
-# they must trigger nothing, and their labels are deliberately NOT `run:*`
-# trigger labels, so no logging issue re-fires pull.
+# broke". The corpus commits use the GitHub App token so they reach `main`
+# through the deterministic-writer bypass; the logging writes (dashboard +
+# run-log issues) ride the ambient GITHUB_TOKEN instead — they must trigger
+# nothing, and no workflow in this repository keys on a label at all, so no
+# logging issue can re-fire anything.
 on:
   schedule:
     # Four pull windows/day, six hours apart (staggered off the hour from other
@@ -83,8 +84,6 @@ on:
         description: "enrich-opinions only: granted dockets to walk this run (~3 API requests each; ~100 exhausts the hourly tier ceiling)"
         type: string
         default: "50"
-  issues:
-    types: [labeled]
 
 permissions: {}
 
@@ -93,23 +92,20 @@ permissions: {}
 # write the single corpus.db pointer, so they run under ONE lock
 # to serialize corpus writers and prevent lost updates.
 # cancel-in-progress is false so a queued run waits rather than being dropped.
-# Only a run that will actually write the corpus joins the shared group: every
-# `issues: labeled` event spawns a run of this workflow (the label filter is the
-# job-level `if`, evaluated after concurrency), so a run that the `if` will skip
-# is given a unique throwaway group — otherwise it could cancel an in-flight
-# writer as the group's pending slot before ever being skipped.
+# Every run of this workflow runs exactly one writer job, so every run belongs
+# in the shared group — there is no event class here that spawns a run only to
+# skip it.
 concurrency:
-  group: ${{ (github.event_name != 'issues' || github.event.label.name == 'run:pull') && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+  group: corpus-write
   cancel-in-progress: false
 
 jobs:
   pull:
     # One writer job per run: the cron minute (17 = pull, 47 = live) or the
-    # dispatch `mode` input selects the job; a `run:pull` label always means pull.
+    # dispatch `mode` input selects the job.
     if: >-
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '17 ')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'pull') ||
-      (github.event_name == 'issues' && github.event.label.name == 'run:pull')
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'pull')
     runs-on: ubuntu-latest
     # A single window's refresh (≤ max_cases_per_run dockets ≈ a few dozen
     # CourtListener fetches + S3 corpus transfer) finishes well inside this; the cap
@@ -128,82 +124,40 @@ jobs:
     # clean-slate cutover): '1' stops packing payloads into the blob (the corpus
     # collapses to the small metadata index) and routes the writer's own payload
     # reads to the store. Unset variable → '0' → off; needs CASESTORE_URL set.
-    # PREDICT_HANDOFF_ENABLED pauses the predict fan-out's trigger issues without
-    # pausing ingestion — set it to '0' in the `prod` environment (a repo-level
-    # variable of the same name works too) and the channel keeps collecting and
-    # committing while it stays quiet (a provider spend cap, a pipeline change
-    # being staged). Unset → '1' → filing, so a mistyped variable keeps the
-    # tournament running rather than silently stopping it.
     #
-    # The queue is level-triggered, so holding it costs latency alone, never a
-    # missed prediction: the selection sweep re-derives it from corpus state on a
-    # later cycle. See the handoff action. Evaluate has no switch here because it
-    # has no handoff here — run-evaluate derives its own backlog on its own
-    # schedule, and pausing it is that workflow's to hold.
+    # Neither fan-out is triggered from here: run-predict and run-evaluate each
+    # derive their own backlog on their own schedule, so this window writes
+    # queues and counts them and nothing else, and pausing a tournament stage is
+    # that stage's workflow to hold.
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
-      PREDICT_HANDOFF_ENABLED: ${{ vars.PREDICT_HANDOFF_ENABLED || '1' }}
     permissions:
       contents: write
-      issues: write
+      issues: write # the dashboard + failure-issue writes (non-triggering, ambient)
       id-token: write # assume the AWS role for the corpus S3 remote (read-write)
     steps:
-      # An issue *form* applies its declared labels on creation regardless of the
-      # submitter's permissions, so on a public repo anyone could fire this
-      # privileged run by filing a form that declares `run:pull`. Require the triggering actor to
-      # be the pipeline App or to hold write access; deny everyone else, failing
-      # closed. The decision — Bot handoff trusted, write required otherwise,
-      # bounded permission lookup — lives in the tested `authorize-trigger`
-      # command, the same gate every label-triggered fan-out runs — pinned, as
-      # at every gate, to the data App's own login, because an unpinned "Bot"
-      # means any admin-installed App; what stays specific to this job is that
-      # no step-layer check backs its gate up. It
-      # refuses BEFORE the App-token mint, the credentialed checkout, and the
-      # S3 role below. The command needs a working tree and a synced env, so a
-      # credential-free checkout precedes it; both run only on the label path
-      # this gate exists for, and neither carries anything the gate protects
-      # (setup-uv's default github-token input does see the ambient token, but
-      # both actions are SHA-pinned and that token's writes trigger nothing).
-      # Two accepted costs of that shape: the credentialed checkout below wipes
-      # this venv, so the label path pays `uv sync` twice (~1 min, against a
-      # 45-minute job), and an unauthorized label holds the shared
-      # corpus-write lock for that minute — bounded; per the concurrency note
-      # above, sustained label spam can evict a queued scheduled window from
-      # the group's one pending slot, costing that window's freshness (the
-      # rotation resumes next window), never its data.
-      # (The label name is already checked in the job `if:`.)
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name == 'issues'
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-python-env
-        if: github.event_name == 'issues'
-      - name: Authorize the trigger (label from the pipeline App or a maintainer)
-        id: authorize
-        if: github.event_name == 'issues'
-        # One retried permission lookup, worth up to 105s against a degraded
-        # API — bounded so a stalled check cannot draw on this job's 45-minute
-        # budget before refusing.
-        timeout-minutes: 3
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          ACTOR: ${{ github.actor }}
-          SENDER_TYPE: ${{ github.event.sender.type }}
-        run: |
-          uv run fedcourts authorize-trigger \
-            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO" \
-            --bot-actor "fedcourtsai-data[bot]"
-
+      # No authorization gate here, and none is missing: this workflow carries
+      # no trigger an outside actor can reach. A `schedule` fires only from the
+      # DEFAULT branch, so it can run only what a maintainer-merged promotion
+      # put on `main`; a `workflow_dispatch` is gated by GitHub on repository
+      # write; and this job binds `prod`, whose deployment branches are
+      # restricted to `main`, so a dispatch from any other ref is refused before
+      # a step runs. So the job goes straight to the App-token mint and the
+      # credentialed checkout, with no pre-flight checkout to pay for.
       - name: Mint app token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          # Contents only, as the enrich job's mint already is. Every consumer of
+          # this token is a contents write — the checkout, the pointer commit,
+          # the verdict push; the issue writes this job still makes (the
+          # dashboard row, the failure alarm) must trigger nothing and so ride
+          # the ambient GITHUB_TOKEN instead, never the branch-protection-bypass
+          # credential.
           permission-contents: write
-          permission-issues: write
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # Persist the App token so refreshed snapshots can be pushed back to main;
@@ -330,21 +284,6 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-      # One run:predict issue for the whole window's queue, not one per case:
-      # predict-matrix parses a JSON array of cases, so the handoff is a single
-      # issue + workflow run that fans out one job per case x predictor (throttled
-      # by the matrix max-parallel) instead of N issues each spawning their own run.
-      - name: Open the run:predict handoff for changed cases
-        id: predict-handoff
-        uses: ./.github/actions/open-run-handoff
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          repo: ${{ github.repository }}
-          queue: predict-queue.json
-          label: run:predict
-          noun: predict
-          enabled: ${{ env.PREDICT_HANDOFF_ENABLED }}
-
       # Success or failure, the window lands its row on the long-lived
       # `Pipeline runs` dashboard issue (edited in place; the unrecorded
       # outcomes ride along per case for maintainer triage). Never on
@@ -377,22 +316,22 @@ jobs:
           channel: pull
           outcome: ${{ job.status }}
           committed: ${{ steps.commit.outputs.committed }}
-          predict-note: ${{ steps.predict-handoff.outputs.note }}
 
       # Ops analytics: the same counts in the Actions UI, no roll-up needed.
       - name: Roll the window up on the Actions summary
         if: success()
         env:
           COMMITTED: ${{ steps.commit.outputs.committed }}
-          PREDICT_NOTE: ${{ steps.predict-handoff.outputs.note }}
         run: |
           set -euo pipefail
           predict=$(jq 'length' predict-queue.json)
-          # The evaluate row is a backlog reading, not a handoff: this window's
-          # deriver counted the gradings committed state owes (stamping none —
-          # a stamp would hold run-evaluate's own derivation off exactly these
-          # cases), and run-evaluate's own schedule is what fans them out. Reported here
-          # because this window is where the number moves.
+          # Both rows are readings, not handoffs. The predict row counts the
+          # cases this window routed into the queue (stamping `predict_queued_at`
+          # as it goes); the evaluate row counts the gradings committed state
+          # owes, stamping none — a stamp would hold run-evaluate's own
+          # derivation off exactly these cases. Each stage's own schedule is what
+          # fans them out. Reported here because this window is where the numbers
+          # move.
           evaluate=$(jq 'length' evaluate-queue.json)
           unrecorded=$(jq 'length' unrecorded-queue.json)
           if [ "${COMMITTED:-false}" = "true" ]; then
@@ -406,7 +345,7 @@ jobs:
             echo ""
             echo "| Channel | Count |"
             echo "|---------|------:|"
-            echo "| run:predict cases queued | ${predict}${PREDICT_NOTE} |"
+            echo "| predict backlog cases queued | ${predict} |"
             echo "| evaluate backlog cases owed | ${evaluate} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -417,21 +356,15 @@ jobs:
       # checkout needed) and on the ambient GITHUB_TOKEN (non-triggering write,
       # same doctrine as the dashboard step above), so it fires for any broken
       # window — including one whose App-token mint itself failed, and one
-      # whose pre-gate checkout or env sync broke (there the authorize step
-      # never runs, its conclusion stays empty, and the alarm fires — a window
-      # lost to infrastructure is a broken window). The one suppression is a
-      # failed authorize step: an unauthorized labeling attempt must stay
-      # fail-closed and file nothing (on schedule/dispatch runs the step is
-      # skipped, not failed, so those alarm normally). A gate killed at its
-      # own timeout lands in the same suppressed branch — GitHub records a
-      # timed-out step as failed (documented behavior, not exercised by any
-      # test here) — and stays silent by the same fail-closed rule.
-      # `cancelled()` is included because the shared lock never cancels an
-      # in-flight run (cancel-in-progress is false; a superseded run dies
-      # queued, before any step) — so an in-flight cancellation is the job
+      # whose checkout or env sync broke: a window lost to infrastructure is a
+      # broken window. No suppression, because every trigger this workflow
+      # carries is one the platform already authorized, so every failure here is
+      # a real one. `cancelled()` is included because the shared lock never
+      # cancels an in-flight run (cancel-in-progress is false; a superseded run
+      # dies queued, before any step) — so an in-flight cancellation is the job
       # timeout or a human's stop, and both are windows that did not complete.
       - name: Open the failure run-log issue
-        if: (failure() || cancelled()) && steps.authorize.conclusion != 'failure'
+        if: failure() || cancelled()
         # Three sequential `gh_retry` calls, up to 105s each against a degraded
         # API. This step already runs on a failed window, often one the job
         # timeout cancelled, so its retries get an explicit bound rather than
@@ -465,11 +398,10 @@ jobs:
             echo "::error::${what} failed after 3 attempts" >&2
             return 1
           }
-          # `pull-log` is a NON-triggering label by design: it is not a `run:*`
-          # label, so labeling this issue cannot re-fire the workflow
-          # (issues: labeled) in a loop — unlike run:pull, which is the trigger.
-          # Create it idempotently so a fresh repo's first failure does not
-          # fail on a missing label.
+          # `pull-log` triggers nothing, as every label in this repository does:
+          # no workflow keys on `issues: labeled` at all, so labeling this issue
+          # cannot re-fire a window in a loop. Create it idempotently so a fresh
+          # repo's first failure does not fail on a missing label.
           gh_retry gh label create pull-log --repo "$REPO" --force \
             --color b60205 --description "A run-pull refresh window failed (open until a human triages)"
           today=$(date -u +%Y-%m-%d)
@@ -502,10 +434,9 @@ jobs:
     # The SCOTUS live channel (docs/live-sources.md): `fedcourts live-poll`
     # probes supremecourt.gov docket JSON for newly docketed petitions and
     # re-polls the pending watchlist — no CourtListener token, no API budget.
-    # Same corpus-writer shape and privileges as `pull` (App token + the
-    # read-write corpus role), but schedule/dispatch only: there is no `run:live`
-    # label, so nothing an outside actor can file fires this job and no
-    # issue-form authorization gate is needed.
+    # Same corpus-writer shape, privileges (App token + the read-write corpus
+    # role) and trigger surface as `pull` — schedule and dispatch, both already
+    # gated by the platform, so this job needs no authorization step either.
     if: >-
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '47 ')) ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'live')
@@ -521,18 +452,14 @@ jobs:
     environment: prod
     # Corpus-split flags (see the pull job): dual-write off unless CASESTORE_URL
     # is set; FEDCOURTS_CORPUS_SPLIT is the phase-4 go-live switch (unset → '0' → off).
-    # PREDICT_HANDOFF_ENABLED is read here exactly as in `pull`: both writers
-    # queue at the same seam, and one variable holds both, so a pause set once
-    # leaves no window still filing.
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
-      PREDICT_HANDOFF_ENABLED: ${{ vars.PREDICT_HANDOFF_ENABLED || '1' }}
     # The ambient GITHUB_TOKEN carries exactly the non-triggering issue writes
     # (the pipeline-runs dashboard row and the failure run-log issue — the
     # doctrine in docs/security.md: issue writes that must trigger nothing stay
-    # off the App token). Checkout, the corpus push, and the handoff issues run
-    # on the App token, and there is no authorize-trigger step to need a read.
+    # off the App token). Checkout and the corpus push run on the App token, and
+    # there is no authorize-trigger step to need a read.
     permissions:
       contents: read
       issues: write # the dashboard + failure-issue writes (non-triggering, ambient)
@@ -544,8 +471,13 @@ jobs:
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          # Contents only, as the enrich job's mint already is. Every consumer of
+          # this token is a contents write — the checkout, the pointer commit,
+          # the verdict push; the issue writes this job still makes (the
+          # dashboard row, the failure alarm) must trigger nothing and so ride
+          # the ambient GITHUB_TOKEN instead, never the branch-protection-bypass
+          # credential.
           permission-contents: write
-          permission-issues: write
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # Persist the App token so outcomes + the corpus pointer can be pushed
@@ -639,17 +571,6 @@ jobs:
           label: outcomes + corpus pointer
           append-date: 'true'
 
-      - name: Open the run:predict handoff for changed cases
-        id: predict-handoff
-        uses: ./.github/actions/open-run-handoff
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          repo: ${{ github.repository }}
-          queue: predict-queue.json
-          label: run:predict
-          noun: predict
-          enabled: ${{ env.PREDICT_HANDOFF_ENABLED }}
-
       # Unrecorded outcomes are surfaced on the dashboard/summary below, exactly
       # as in `pull`: live resolution is machine-readable by construction (the
       # disposition orders ride in the proceedings text), so a non-empty
@@ -671,17 +592,15 @@ jobs:
           channel: live
           outcome: ${{ job.status }}
           committed: ${{ steps.commit.outputs.committed }}
-          predict-note: ${{ steps.predict-handoff.outputs.note }}
 
       - name: Roll the window up on the Actions summary
         if: success()
         env:
           COMMITTED: ${{ steps.commit.outputs.committed }}
-          PREDICT_NOTE: ${{ steps.predict-handoff.outputs.note }}
         run: |
           set -euo pipefail
           predict=$(jq 'length' predict-queue.json)
-          # A backlog reading, not a handoff — see the pull job's copy.
+          # Readings, not handoffs — see the pull job's copy.
           evaluate=$(jq 'length' evaluate-queue.json)
           unrecorded=$(jq 'length' unrecorded-queue.json)
           if [ "${COMMITTED:-false}" = "true" ]; then
@@ -695,7 +614,7 @@ jobs:
             echo ""
             echo "| Channel | Count |"
             echo "|---------|------:|"
-            echo "| run:predict cases queued | ${predict}${PREDICT_NOTE} |"
+            echo "| predict backlog cases queued | ${predict} |"
             echo "| evaluate backlog cases owed | ${evaluate} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
           } >> "$GITHUB_STEP_SUMMARY"

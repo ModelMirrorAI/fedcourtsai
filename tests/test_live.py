@@ -242,10 +242,14 @@ def test_from_live_docket_reads_the_disposition_order() -> None:
     assert denied.disposition == "denied"
     assert denied.date_cert_denied == date(2026, 7, 6)
     assert denied.date_cert_granted is None
+    # The denial ends the docket, so it dates the termination too.
+    assert denied.date_decided == date(2026, 7, 6)
 
     granted = from_live_docket(_payload(proceedings=[_GRANTED_ENTRY]), live_docket_id(25, 101))
     assert granted.disposition == "granted"
     assert granted.date_cert_granted == date(2026, 7, 6)
+    # A grant does not: the docket terminates at the later merits judgment.
+    assert granted.date_decided is None
 
 
 def test_from_live_docket_reads_a_bare_gvr_order() -> None:

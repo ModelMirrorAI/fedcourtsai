@@ -400,10 +400,13 @@ def _decision_days(row: CorpusRow) -> int | None:
 def _cert_days(row: CorpusRow) -> int | None:
     """Days filed→cert-stage resolution, keyed on :func:`corpus.resolution_date`.
 
-    The per-Term timing key: a live-channel denial carries ``date_cert_denied``
-    with no ``date_decided`` at all, and a granted petition's ``date_decided``
-    is the merits termination months later — so docket-termination timing
-    (:func:`_decision_days`) would silently drop denials and overstate grants.
+    The per-Term timing key: a granted petition's ``date_decided`` is the merits
+    termination months after the grant, so docket-termination timing
+    (:func:`_decision_days`) answers a different question on the grant side and
+    overstates how long the *petition* took. On the denial side the two dates
+    name one moment — the order refusing the writ ends the docket — and reading
+    :func:`corpus.resolution_date` keeps one rule across both sides rather than
+    a per-disposition special case.
     """
     resolved_on = corpus.resolution_date(row)
     if row.disposition is None or row.date_filed is None or resolved_on is None:
@@ -826,8 +829,11 @@ class _Slice:
     ``sample_weight`` or 1, so unweighted-capture rows count once); the caller
     picks the view at roll-up. ``cert_timing`` keys the timing pairs on the
     cert-stage resolution date instead of docket termination — the per-Term
-    slices use it so live-channel denials (dated only by ``date_cert_denied``)
-    are not silently dropped.
+    slices use it because the two dates diverge on the grant side, where
+    ``date_decided`` is the merits termination months after the petition was
+    decided, and a per-Term *petition* timing must not be lengthened by the
+    merits proceeding that followed. On the denial side the two keys agree, so
+    the choice only ever changes what the grant rows contribute.
     """
 
     __slots__ = (
@@ -1848,6 +1854,14 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
         "the slice the time-masked replay clock can anchor.",
         "",
         f"**Filing → decision timing:** {_timing_summary(pack.timing)}",
+        "",
+        "_Scope: docket **termination**, every court and both SCOTUS docket forms "
+        + "pooled — cert petitions beside emergency applications, whose lifespans "
+        + "differ by orders of magnitude. The mixture follows which rows carry a "
+        + "`date_decided` at all, so it tracks ingestion coverage rather than a "
+        + "chosen population, and the headline moves as coverage does. Read a "
+        + "petition-timing question off the per-Term table below, which keys on "
+        + "the cert-stage resolution date instead._",
     ]
     lines += _section_tables(pack.sections)
     if pack.terms:

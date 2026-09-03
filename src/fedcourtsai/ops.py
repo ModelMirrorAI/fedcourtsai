@@ -137,9 +137,9 @@ def summarize_health(runs: Iterable[Mapping[str, object]]) -> list[WorkflowHealt
     Each run is expected to carry ``workflowName``, ``status``, ``conclusion``, and
     timestamps. Workflows are returned sorted by name; within each, the success
     rate and the duration percentiles are over *conclusive* completed runs only
-    (success + the failure family — label-filter skips and other non-conclusive
-    conclusions excluded), so the rate matches the rendered success fraction and
-    the ~1s skip overhead never drags the percentiles.
+    (success + the failure family — skips and other non-conclusive conclusions
+    excluded), so the rate matches the rendered success fraction and the ~1s
+    skip overhead never drags the percentiles.
     """
     by_workflow: dict[str, list[Mapping[str, object]]] = {}
     for run in runs:
@@ -149,11 +149,10 @@ def summarize_health(runs: Iterable[Mapping[str, object]]) -> list[WorkflowHealt
     health: list[WorkflowHealth] = []
     for workflow, workflow_runs in sorted(by_workflow.items()):
         completed = [r for r in workflow_runs if r.get("status") == "completed"]
-        # A skipped run is not an execution: the label-triggered workflows
-        # complete a skipped run for every unrelated `issues: labeled` event
-        # (the job-level label filter, by design), so counting skips would
-        # dilute the rate and drag the duration percentiles toward the ~1s
-        # skip overhead. Health reads over the *conclusive* runs only — which
+        # A skipped run is not an execution: a workflow whose every job's `if`
+        # declines completes in ~1s having done nothing, so counting skips would
+        # dilute the rate and drag the duration percentiles toward that
+        # overhead. Health reads over the *conclusive* runs only — which
         # also keeps the rare neutral/action_required conclusions out of the
         # rate and percentiles (they still surface as executions in "Last").
         conclusive = [
@@ -594,11 +593,11 @@ def _health_questions(report: OpsReport) -> list[str]:
     if report.open_triggers:
         oldest = report.open_triggers[0]
         lines.append(
-            f"- **Oldest stalled trigger: `{oldest.label}` "
-            f"({_age(oldest.created_at, report.generated_at)} old) — why is it still open?**"
+            f"- **Oldest stale fan-out label: `{oldest.label}` "
+            f"({_age(oldest.created_at, report.generated_at)} old) — clear it?**"
         )
     else:
-        lines.append("- **Stalled triggers: none — every fan-out landed or closed.**")
+        lines.append("- **Stale fan-out labels: none.**")
 
     monthly = (
         "—"
@@ -1823,18 +1822,19 @@ def _fmt_duration(seconds: int | None) -> str:
     return f"{minutes}m{secs:02d}s" if minutes else f"{secs}s"
 
 
-# The run:* labels whose trigger issues are transient by design: the run's ready
-# PR closes them on merge, and an empty matrix closes them with a note. (run:pull
-# issues are long-lived logs, so they are not stall signals.)
+# The fan-out labels an issue may still be wearing. Nothing keys on them — no
+# workflow triggers on ``issues: labeled`` at all — so an open issue carrying one
+# is a leftover marker rather than queued work, and the dashboard surfaces it so
+# a reader does not mistake it for a round in flight.
 TRIGGER_LABELS: tuple[str, ...] = ("run:predict", "run:evaluate")
 
 
 def summarize_trigger_issues(raw: Iterable[Mapping[str, object]]) -> list[OpenTriggerIssue]:
     """Normalize a ``gh issue list --json number,title,labels,createdAt`` feed.
 
-    Keeps only issues carrying one of :data:`TRIGGER_LABELS` (the transient
-    fan-out triggers), oldest first — the ones that have sat longest lead. The
-    feed shape is gh's: ``labels`` is a list of ``{"name": ...}`` objects.
+    Keeps only issues carrying one of :data:`TRIGGER_LABELS`, oldest first — the
+    ones that have sat longest lead. The feed shape is gh's: ``labels`` is a list
+    of ``{"name": ...}`` objects.
     """
     issues: list[OpenTriggerIssue] = []
     for entry in raw:
@@ -1873,19 +1873,23 @@ def _age(created_at: str, generated_at: str) -> str:
 
 
 def render_open_triggers(issues: list[OpenTriggerIssue], generated_at: str) -> str:
-    """Render the open-trigger-issues section: the stalled fan-outs, oldest first.
+    """Render the stale-fan-out-label section, oldest first.
 
-    An open trigger issue means a run that never landed — failed wholesale,
-    produced nothing, or was never picked up. Empty gets a one-line all-clear so
-    a healthy dashboard still shows the check ran.
+    An open issue wearing one is a marker somebody left behind, not queued work —
+    a round derives its cases from committed state, so nothing is waiting on it.
+    Empty gets a one-line all-clear so a healthy dashboard still shows the check
+    ran. Deleting the two labels from the repository retires the section for
+    good: nothing creates them, so an empty scan is the resting state and a
+    cleared backlog of markers is a permanent one.
     """
     if not issues:
-        return "## Open trigger issues\n\n_None — every fan-out landed or closed._\n"
+        return "## Stale fan-out labels\n\n_None — no stale fan-out label is open._\n"
     lines = [
-        "## Open trigger issues",
+        "## Stale fan-out labels",
         "",
-        f"**{len(issues)}** open `run:*` trigger issue(s) — a stalled fan-out until "
-        "its run lands (re-fire by removing and re-applying the label).",
+        f"**{len(issues)}** open issue(s) carrying a fan-out label. The label starts "
+        "nothing — a predict or evaluate round derives its own backlog on its own "
+        "schedule — so this is a stale marker to clear, not a run to re-fire.",
         "",
         "| issue | label | age | title |",
         "|-------|-------|----:|-------|",
@@ -2179,7 +2183,7 @@ def render_markdown(report: OpsReport) -> str:
         + "history accumulates.",
     ]
 
-    # Only surface stalled fan-outs when there are any (the empty case is the norm).
+    # Only surface stale fan-out labels when there are any (the empty case is the norm).
     if report.open_triggers:
         lines += ["", render_open_triggers(report.open_triggers, report.generated_at).rstrip("\n")]
 

@@ -1766,6 +1766,83 @@ def normalize_predict_eligible(conn: sqlite3.Connection) -> int:
         return changed
 
 
+#: The rows the decision-date convergence owns: a SCOTUS petition whose cert
+#: **denial** is dated but whose ``date_decided`` never took that date. A denial
+#: ends the docket, so the two ordinarily name one moment
+#: (``date_cert_denied``'s own contract on :class:`CorpusRow`, hedge included),
+#: and the fill writes the date :func:`resolution_date` already returns for the
+#: row — which is why this is a convergence and not a guess. The grant side is
+#: deliberately absent: a granted docket terminates at its merits judgment, a
+#: different and later date that no stored column here carries.
+#:
+#: Two date guards ride the predicate, and both **decline** rather than
+#: propagate. A denial dated before its own filing is upstream nonsense
+#: (:func:`is_date_inconsistent` — faithful, never rewritten), and copying it
+#: into a second column would spread one bad pair into the ordering monitor's
+#: population without making the row any more correct. A denial dated after the
+#: as-of day is a clock or ingestion bug, and ``check_case_dates`` fails
+#: outright on a future-dated ``date_decided``, with no baseline to absorb it —
+#: so the sweep will not be the writer that creates one. Either row keeps its
+#: null and converges on its own once the bad date is corrected upstream.
+#:
+#: Safe to inline the disposition: it is a closed-enum code constant, never user
+#: input. The as-of day is bound as a parameter.
+DENIAL_TERMINATION_GAP_SQL = (
+    f"court = 'scotus' AND disposition = '{Disposition.denied.value}' "
+    "AND date_cert_denied IS NOT NULL AND date_decided IS NULL "
+    "AND (date_filed IS NULL OR date_cert_denied >= date_filed) "
+    "AND date_cert_denied <= ?"
+)
+
+
+def denial_termination_gap_case_ids(conn: ReadConnection, *, today: date) -> list[str]:
+    """The case ids :func:`converge_denial_termination_dates` would write, in id order.
+
+    The convergence's dry run and its own write set: one query, so the count a
+    maintainer reads off a plan and the rows an apply touches cannot come from
+    different predicates. ``today`` is the as-of day the future-date guard reads.
+    """
+    cur = conn.execute(
+        f"SELECT case_id FROM cases WHERE {DENIAL_TERMINATION_GAP_SQL} ORDER BY case_id",
+        (today.isoformat(),),
+    )
+    return [str(record["case_id"]) for record in cur]
+
+
+def converge_denial_termination_dates(conn: sqlite3.Connection, *, today: date) -> int:
+    """Stamp a denied petition's termination date from its own denial date.
+
+    The decision-date convergence's sole writer; returns the rows written.
+    Idempotent — a converged row leaves the population, since the predicate
+    requires a null ``date_decided`` — and it only ever fills a gap: no stored
+    date is moved, and no date is derived that is not already in the row.
+
+    Deliberately **not** an upsert. ``date_decided`` is a last-write-wins column
+    (see :func:`_update_clause`), so this write survives only because the
+    ingestion default converges the column toward the same value
+    (:func:`fedcourtsai.pipeline.ingest._live_resolution` dates a denial's
+    termination): without that, a Term re-walk would re-serve the row with a
+    null and undo every write this made. That pairing is the whole reason the
+    two land together, and it is the same discipline
+    :func:`set_distribution_count` states from the other side.
+
+    Like its ``set_*`` siblings it writes the index only, never the casestore
+    mirror, so the mirrored ``case.json`` lags this column until the walker's
+    next Term re-serve rewrites the row through the upsert — the standing
+    caveat :mod:`fedcourtsai.casestore` registers for every direct-``UPDATE``
+    writer. Nothing on the pull or live rotations re-serves a resolved denied
+    row, so that re-serve is the walk's, not a poll's.
+    """
+    with conn:
+        return int(
+            conn.execute(
+                "UPDATE cases SET date_decided = date_cert_denied "
+                f"WHERE {DENIAL_TERMINATION_GAP_SQL}",
+                (today.isoformat(),),
+            ).rowcount
+        )
+
+
 def scotus_case_id_by_docket_number(conn: sqlite3.Connection, raw: str | None) -> str | None:
     """The existing SCOTUS row matching a Term-form docket number, or ``None``.
 
@@ -2446,6 +2523,13 @@ def is_date_inconsistent(row: CorpusRow) -> bool:
     prediction, so the predict scope excludes it. Court-agnostic (the malformation is
     not SCOTUS-specific). This does **not** weaken the monitor — the validation check
     still counts these rows; only prediction skips them.
+
+    One arm of the pairing can be derived rather than served: a denied SCOTUS
+    petition takes its ``date_decided`` from its own ``date_cert_denied``
+    (:func:`converge_denial_termination_dates`), so a docket whose upstream
+    ``date_filed`` postdates the denial entry matches here. The disagreement is
+    still upstream's — both dates come from the record — but the rows it catches
+    are then denials, which is worth knowing when reading a climb in the count.
     """
     return (
         row.date_filed is not None

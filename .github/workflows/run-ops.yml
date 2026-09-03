@@ -98,7 +98,7 @@ jobs:
             --json workflowName,status,conclusion,createdAt,startedAt,updatedAt \
             > runs.json
 
-      - name: Collect open trigger issues
+      - name: Collect issues wearing a stale fan-out label
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -106,10 +106,11 @@ jobs:
           set -euo pipefail
           # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
           source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
-          # A still-open run:* trigger issue is a stalled fan-out (its run's ready
-          # PR closes it on merge; an empty matrix closes it with a note). One gh
-          # call per trigger label, merged; the tested `summarize_trigger_issues`
-          # does the filtering/ordering.
+          # An open issue wearing a run:* fan-out label is a marker somebody left
+          # behind: nothing keys on those labels, so it is queued work to no one
+          # and the dashboard says so rather than letting it read as a round in
+          # flight. One gh call per label, merged; the tested
+          # `summarize_trigger_issues` does the filtering/ordering.
           for label in run:predict run:evaluate; do
             gh_retry gh issue list --repo "$REPO" --label "$label" --state open --limit 100 \
               --json number,title,labels,createdAt
@@ -189,7 +190,7 @@ jobs:
           set -euo pipefail
           # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
           source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
-          # `ops-dashboard` is a NON-triggering label by design (no run:* workflow
+          # `ops-dashboard` is a NON-triggering label by design (no workflow
           # keys on it). Create it idempotently so the first run does not fail.
           gh_retry gh label create ops-dashboard --repo "$REPO" --force \
             --color 0e8a16 --description "Long-lived operational analytics dashboard (run-ops)"
@@ -215,7 +216,7 @@ jobs:
           # OR update ONE long-lived data-validation issue (reuse, don't spam — the
           # same find-or-create idiom as the dashboard / pull-log); when it goes green
           # again, close that issue. `data-validation` is a NON-triggering label by
-          # design (no run:* workflow keys on it). Create it idempotently.
+          # design (no workflow keys on `issues: labeled`). Create it idempotently.
           gh_retry gh label create data-validation --repo "$REPO" --force \
             --color b60205 --description "Long-lived data-validation failure (run-ops escalation)"
           ok=$(jq -r '.data_health.ok' new-ops.json)

@@ -1603,7 +1603,7 @@ class Evaluation(_Strict):
 class ModelUsage(_Strict):
     """``usage.json`` — measured model token usage and estimated cost for one run.
 
-    Written per ``run:predict`` / ``run:evaluate`` matrix cell (predictor x event
+    Written per ``run-predict`` / ``run-evaluate`` matrix cell (predictor x event
     for predict, evaluator x event for evaluate) alongside that cell's prediction
     or evaluation output. Token buckets follow the Claude convention:
     ``input_tokens`` is fresh input, with cached reads and cache writes counted
@@ -4783,9 +4783,14 @@ class StatPackSection(_Strict):
 class TimingStats(_Strict):
     """Duration stats over the resolved cases carrying a usable date pair.
 
-    The pack-level timing keys on ``date_filed`` → ``date_decided``; the per-Term
-    statistics key on the cert-stage resolution date and weight each row by its
-    ``sample_weight`` (each use states which). Rows missing either date are
+    The pack-level timing keys on ``date_filed`` → ``date_decided`` — docket
+    *termination*, pooled across courts and both SCOTUS docket forms, so its
+    mixture follows which rows carry a termination date at all; the per-Term
+    statistics key on the cert-stage resolution date, which is the petition's own
+    moment, and weight each row by its
+    ``sample_weight`` (each use states which). The two keys agree on a denied
+    petition and diverge on a granted one, whose termination is the merits
+    judgment months later. Rows missing either date are
     excluded rather than guessed, so ``cases`` doubles as the coverage
     denominator — a raw count in unweighted uses, the weighted estimate in
     weighted ones. Percentiles use the deterministic nearest-rank method, so the
@@ -5713,6 +5718,33 @@ class ScopeReconcileResult(_Strict):
     sample_released: list[str] = Field(default_factory=list)
 
 
+class DecisionDateConvergenceResult(_Strict):
+    """``converge-decision-dates`` result: what the decision-date sweep filled in.
+
+    A denied SCOTUS petition terminates on the order that denies it, so its
+    ``date_decided`` is its ``date_cert_denied``; the sweep fills that in on rows
+    written before the ingest default carried the date across. Population is the
+    denial side only — a granted docket's termination is its later merits
+    judgment, which no column on the row holds. ``applied`` is False on a dry run
+    (the write set is planned, nothing is written).
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    applied: bool = Field(default=False, description="False on a dry run (no corpus write)")
+    candidates: int = Field(
+        default=0,
+        ge=0,
+        description="Denied SCOTUS petitions carrying a denial date but no `date_decided` — "
+        "the planned write set, on both a dry run and an apply",
+    )
+    converged: int = Field(
+        default=0, ge=0, description="Rows whose `date_decided` was written; 0 on a dry run"
+    )
+    sample: list[str] = Field(
+        default_factory=list, description="A bounded, id-ordered sample of the write set"
+    )
+
+
 class SalienceSelectionResult(_Strict):
     """``reconcile-salience-selection`` result: what the salience pass scored and picked.
 
@@ -6376,17 +6408,17 @@ class ToolingDigest(_Strict):
 
 
 class OpenTriggerIssue(_Strict):
-    """One still-open ``run:*`` trigger issue, surfaced on the ops dashboard.
+    """One open issue wearing a ``run:*`` fan-out label, on the ops dashboard.
 
-    Trigger issues (predict / evaluate fan-outs) are transient by
-    design: the run's ready PR closes them on merge, and an empty matrix closes
-    them with a note. One that stays open means its run stalled — failed
-    wholesale, produced nothing, or was never picked up — so the dashboard lists
-    them with their age instead of letting them sit invisible.
+    Nothing keys on those labels — no workflow triggers on ``issues: labeled``,
+    and a predict or evaluate round derives its cases from committed state — so
+    an issue carrying one is a marker somebody left behind, never queued work.
+    The dashboard lists them with their age so a reader clears them instead of
+    reading them as a round in flight.
     """
 
     number: int = Field(ge=1, description="The issue number")
-    label: str = Field(description="The run:* trigger label, e.g. run:predict")
+    label: str = Field(description="The run:* fan-out label, e.g. run:predict")
     title: str = ""
     created_at: str = Field(description="ISO-8601 creation time (age derives from this)")
 
@@ -6638,8 +6670,8 @@ class OpsReport(_Strict):
     )
     open_triggers: list[OpenTriggerIssue] | None = Field(
         default=None,
-        description="Still-open run:* trigger issues (stalled fan-outs), oldest first; "
-        "null on a report built before the field existed or without the issue feed",
+        description="Open issues wearing a run:* fan-out label (stale markers), oldest "
+        "first; null on a report built before the field existed or without the issue feed",
     )
 
 

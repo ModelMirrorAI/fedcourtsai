@@ -851,7 +851,7 @@ def test_render_markdown_includes_agent_flags_section() -> None:
     assert OpsReport.model_validate(report.model_dump()) == report
 
 
-# --- open trigger issues (stalled fan-outs) -------------------------------------
+# --- open trigger issues (stale fan-out labels) ---------------------------------
 
 
 def test_summarize_trigger_issues_filters_and_orders_oldest_first() -> None:
@@ -896,14 +896,14 @@ def test_render_open_triggers_lists_age_and_labels() -> None:
         ]
     )
     md = ops.render_open_triggers(issues, "2026-07-02T12:00:00Z")
-    assert "## Open trigger issues" in md
+    assert "## Stale fan-out labels" in md
     assert "| #5 | `run:predict` | 1d |" in md
-    assert "re-applying the label" in md
+    assert "a stale marker to clear, not a run to re-fire" in md
 
 
 def test_render_open_triggers_empty_is_all_clear() -> None:
     md = ops.render_open_triggers([], "2026-07-02T12:00:00Z")
-    assert "None — every fan-out landed or closed" in md
+    assert "None — no stale fan-out label is open" in md
 
 
 def test_ops_report_carries_open_triggers_into_markdown() -> None:
@@ -923,7 +923,7 @@ def test_ops_report_carries_open_triggers_into_markdown() -> None:
         ),
     )
     md = ops.render_markdown(report)
-    assert "## Open trigger issues" in md and "| #9 | `run:evaluate` | 3h |" in md
+    assert "## Stale fan-out labels" in md and "| #9 | `run:evaluate` | 3h |" in md
     assert OpsReport.model_validate(report.model_dump()) == report
 
 
@@ -1394,7 +1394,7 @@ def test_render_weekly_digest_asks_the_fixed_questions() -> None:
     assert "Replay calibration on 1 scored cell(s)" in md and "do you believe it?" in md
     assert "Forward cells scored (frozen): 1 total, no prior snapshot to diff" in md
     assert "35 petition(s) distributed for **2026-09-29**" in md and "28/40" in md
-    assert "Oldest stalled trigger: `run:evaluate` (2d old)" in md
+    assert "Oldest stale fan-out label: `run:evaluate` (2d old) — clear it?" in md
     assert "Spend vs budget: $1.50" in md
 
 
@@ -1419,7 +1419,7 @@ def test_render_weekly_digest_all_absent_still_asks() -> None:
     report = ops.build_ops_report(generated_at="2026-07-11T00:00:00+00:00", runs=[], usage=[])
     md = ops.render_weekly_digest(report)
     assert "No scored replay cells yet" in md
-    assert "Stalled triggers: none" in md
+    assert "Stale fan-out labels: none" in md
     assert "within plan?" in md
 
 

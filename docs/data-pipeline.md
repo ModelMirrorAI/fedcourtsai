@@ -3,7 +3,7 @@
 The design contract for the ingestion channels — the **pull** (CourtListener
 enrichment), **live** (forward SCOTUS poll), **historical** (Term walker), and
 **enrich** (opinion clusters) jobs — and for the stores they write. For the
-label/workflow mechanics see
+workflow mechanics see
 [pipeline.md](pipeline.md); for the store split at a glance see the *Data
 model* section of the [README](../README.md).
 
@@ -239,8 +239,8 @@ delete in the read-write role ([security.md](security.md)); the shape of
 and existence checks and no list or delete primitive to call. So the prefix
 only grows. The scale: the blob is ~1.1 GB and the writers hold twelve
 scheduled windows a day (`run-pull`'s two cron entries, four pull windows and
-four live, plus `run-seed`'s four historical ones), with dispatches and label
-runs on top and several pushes possible inside one window — in practice the
+four live, plus `run-seed`'s four historical ones), with dispatched runs on top
+and several pushes possible inside one window — in practice the
 committed pointer moves a median of **13 times a day**, on the order of 14 GB a
 day of new objects. That is a floor on the accretion, not a count of it: a push
 whose pointer commit never lands still leaves its object behind.
@@ -699,8 +699,8 @@ records resolved, and any listed merits moment whose row fails the selection
 predicate's row arms — latched judgment or termination, a grant that no
 longer opens a merits proceeding, a stale unparsed grant — wherever the scope
 gate consults the corpus at all; under `predict.scope: all` neither does), so
-a stale trigger issue sheds its dead events at plan time instead of minting
-cells. For the resolved, latched-judgment, and terminated classes this guard
+a round whose events went stale while it waited on the review hold sheds them
+at plan time instead of minting cells. For the resolved, latched-judgment, and terminated classes this guard
 then re-refuses whatever slips through one by one; for the gvr-re-resolved
 and stale-grant classes the plan seam is the **only** guard — the forward
 record gate does not read those columns — which is why the re-check exists. A refusal
@@ -867,8 +867,9 @@ or network.
 ## Historical — the Term walker
 
 - **Trigger:** the `run-seed` workflow's cron windows (four dead-zone slots a
-  day, or manual dispatch). No trigger label: nothing an outside actor can file
-  fires it. It shares run-pull's `corpus-write` lock, so it still serializes with
+  day, or manual dispatch). Nothing an outside actor can file fires it: a
+  `schedule` runs only from the default branch and a dispatch needs repository
+  write. It shares run-pull's `corpus-write` lock, so it still serializes with
   the forward writers despite the separate schedule.
 - **Each run** (deterministic, no agent, no API secret): loop
   `fedcourts historical-terms` in checkpointed chunks — walk the configured
@@ -889,7 +890,7 @@ or network.
   expensive stages are predict and evaluate, which *select* from the corpus, and
   sampling belongs there because it is reversible there. Undecided petitions are
   skipped entirely (pending matters are the forward poller's charter), so the
-  walker writes **no** predict/evaluate handoffs, ever.
+  walker writes **no** predict/evaluate queue file, ever.
 - **Re-walking:** a Term walked to its frontier is invisible to later runs, so
   run-seed's manual dispatch carries `refresh_terms` / `refresh_streams` (blank
   on every scheduled window): it runs `fedcourts refresh-historical --apply`
@@ -914,7 +915,7 @@ or network.
   for an event still open, so a re-serve converges the row and leaves a
   committed ledger label to `converge-disposition-labels`. A number the corpus
   never held is onboarded outright, ledger included.
-- **Maintenance sweeps:** after the loop, one window a day also runs seven
+- **Maintenance sweeps:** after the loop, one window a day also runs eight
   converging sweeps in order — `fedcourts dedupe-live-rows --apply` (merging
   live-minted duplicate rows; a minted moment's committed event directory moves
   onto the survivor with its re-keyed row, so the lane must stage the moved
@@ -932,7 +933,17 @@ or network.
   `fedcourts reopen-misattributed-outcomes --apply` — ledger deletions and
   rewrites staged in the one pointer commit, removal first so the entry-pinned
   case clears the reopen sweep's baseline-pair triage in the same window, each
-  refusing to apply above its per-run blast-radius cap), and `fedcourts
+  refusing to apply above its per-run blast-radius cap), `fedcourts
+  converge-decision-dates --apply` (a denied petition's termination date, filled
+  in from the row's own `date_cert_denied` — the order refusing the writ is the
+  order that ends the docket, so the two name one moment; the grant side stays
+  out, since a granted docket terminates at a later merits judgment no column
+  holds, and two date guards decline a denial dated before its own filing or
+  after the as-of day rather than propagating either into a second column. It
+  converges rather than flaps only because the live channel's
+  resolution parse dates a denial's termination too: `date_decided` is
+  last-write-wins on upsert, so a sweep without that ingest default behind it
+  would be undone by the next walk of the Term), and `fedcourts
   scrub-bulk-cluster-fields --apply` (the stored circuit slice's misjoined
   bulk cluster fields, dropped from the rows nothing re-serves — keyed on
   the fields no channel could have written to a non-SCOTUS row, the ingest
@@ -955,21 +966,25 @@ or network.
 
 ## Pull — forward freshness
 
-- **Trigger:** an intraday cron (several windows a day), `workflow_dispatch`,
-  or a maintainer-applied `run:pull` label. Each window that ends in success
-  or failure lands its row on the long-lived pipeline-runs dashboard issue; a
-  failing window also opens a `pull-log` issue for a human, and a window
-  cancelled mid-run (timeout, manual stop) gets only that alarm issue, no
-  dashboard row (`run-log-dashboard` and `pull-log` are deliberately not
-  `run:*` trigger labels — see [pipeline.md](pipeline.md)).
+- **Trigger:** an intraday cron (several windows a day), or a
+  `workflow_dispatch` whose `mode` input picks the window to run. Each window
+  that ends in success or failure lands its row on the long-lived pipeline-runs
+  dashboard issue; a failing window also opens a `pull-log` issue for a human,
+  and a window cancelled mid-run (timeout, manual stop) gets only that alarm
+  issue, no dashboard row. Neither of those writes can start anything: no
+  workflow keys on `issues: labeled`, so labeling triggers nothing — see
+  [pipeline.md](pipeline.md).
 - **Budget governor:** a per-run cap (`max_cases_per_run`) with
   **oldest-`last_pulled`-first rotation** and skip-closed/resolved, sized to
   the active CourtListener tier's ceilings; a slice of each run
   (`eligible_refresh_reserve`) is reserved for the stalest SCOTUS dockets, so
   the in-scope set rotates ahead of the much larger active set.
 - **Two forward jobs over the shared core:**
-  1. **Refresh** active known cases (`pull_case`), queuing `run:predict` for
-     changed cases with open case-baseline events — unless the refreshed docket already looks
+  1. **Refresh** active known cases (`pull_case`), routing changed cases with
+     open case-baseline events onto the predict queue — a `predict_queued_at`
+     stamp and a count, not a request: `run-predict` derives its own backlog on
+     its own schedule and merely honours that stamp as a debounce. A case is
+     kept off the queue if the refreshed docket already looks
      decided (its *latest* entry reads terminal, or its open events surfaced an
      unrecorded outcome). Such a case is diverted to the run's
      `predict_skipped_decided` list and surfaced on the job's Actions run log
@@ -1021,7 +1036,7 @@ or network.
 
 The `run-repair` workflow is the maintainer's repair bench: the corpus and
 ledger passes that fix what no channel corrects. It is `workflow_dispatch`
-only — no schedule, no `run:*` label — and it joins the same `corpus-write`
+only — nothing schedules it — and it joins the same `corpus-write`
 lock the walker and the pullers hold, so a pass can never interleave with a
 window's corpus push.
 
@@ -1115,7 +1130,7 @@ unreadable scan, a recognition cut short) stays, and stays at the *head* in
 apart, because a class whose head is permanently unreadable turns a small bound
 into a no-op and nothing else would show it. The bound is therefore the *spend*
 cap and not the pass's safety mechanism: what keeps a heavy slice inside the
-step's 30-minute cap is the **slice deadline** the step passes
+step's 45-minute cap is the **slice deadline** the step passes
 (`--deadline-seconds`, sized in a comment beside the invocation from everything
 that must still fit inside that cap once the pass stops taking work — the
 witness re-read, the blob push, the pointer commit, and the work a started

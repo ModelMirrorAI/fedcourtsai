@@ -100,10 +100,11 @@ def test_promote_is_dispatch_only_and_credential_minimal() -> None:
     # Strictly read-only: the sync push and the promotion PR are both the
     # maintainer's own writes. Any write scope here (or a bound environment,
     # which would put App keys and role ARNs in reach) is a posture change.
+    # No `issues: read` either: the quiescence gate reads run state alone, so a
+    # scope that buys the job nothing must not sit in its token.
     assert job["permissions"] == {
         "contents": "read",
         "actions": "read",
-        "issues": "read",
     }
     assert "environment" not in job
     assert "secrets." not in (WORKFLOWS / "promote.yml").read_text()

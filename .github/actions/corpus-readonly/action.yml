@@ -4,8 +4,9 @@ description: >-
   from the S3 remote (`fedcourts corpus-pull`: boto3 credentials from the
   environment, checksum-verified against the committed pointer — no remote
   config file is written). The shared first half of every corpus *consumer*
-  job — analytics, the metrics refresh, and run-evaluate's plan job on the
-  schedule/dispatch path, whose backlog scan needs the pulled index. Corpus *writers* (run-pull's jobs) assume the read-write role and
+  job — analytics, the metrics refresh, and the predict/evaluate plan jobs,
+  whose backlog scans need the pulled index on every round.
+  Corpus *writers* (run-pull's jobs) assume the read-write role and
   keep their own wiring. The calling job must run setup-python-env BEFORE this
   composite (corpus-pull runs from the synced environment), grant
   `id-token: write`, and run in the `prod` environment so the role and
