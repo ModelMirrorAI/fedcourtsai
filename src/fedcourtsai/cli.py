@@ -179,6 +179,7 @@ from .ops import (
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import cell_context, historical, liveprobe, moments, qp_topics, semantic
+from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.asof import CutoffPolicy
 from .pipeline.base_rates import interim_base_rate, merits_base_rate
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
@@ -2802,6 +2803,224 @@ def backfill_response_fields_cmd(
             if value is not None
         )
         typer.echo(f"  {verb} {fill.case_id}: {gained}")
+
+
+@app.command("backfill-arrival-stamps")
+def backfill_arrival_stamps_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the arrival stamps; omit for a dry-run report."),
+    ] = False,
+    max_fills: Annotated[
+        int | None,
+        typer.Option(
+            "--max-fills",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
+        ),
+    ] = None,
+) -> None:
+    """Re-derive the interim baseline's arrival stamp from each row's newest snapshot.
+
+    An interim event's `opened_at` is the moment it declares — the day the
+    application was submitted to a Justice — and it is where provisioning cuts,
+    so what is stamped there decides what a cell for that moment may see. The
+    arrival is read off the docket's own submission entry on the live ingest
+    branch, with the docketing date as the fallback.
+
+    The defect this repairs is a stamp rule **correlated with the outcome**. The
+    live poller serves the unresolved slice, so a decided application has left
+    the rotation and is never re-polled: an event last polled before the arrival
+    read existed keeps the docketing date or nothing at all, and resolution
+    status therefore decides which reading a row carries, and any retrospective
+    interim population drawn from these events inherits that conditioning. A
+    forward cell is unaffected *once its row has been re-polled* — not by
+    construction: a queued row not polled since the arrival read shipped still
+    carries the docketing stamp and is moved by an apply, so the boundary runs
+    through the forward stratum too.
+
+    The population is SCOTUS interim baseline events — entry-pinned motion events
+    are excluded, since the arrival derivation is the wrong reading for one —
+    whose stamp shows either shape of the defect: no stamp, or the docketing
+    date. Not predicated on resolution, even though the class is overwhelmingly
+    decided rows: repairing only the decided half would condition the population
+    on resolution all over again.
+
+    Direction is a safety property. The cut keeps everything filed strictly
+    before the day after `opened_at`, so an earlier stamp admits less and a later
+    one admits more; docketing is systematically the later of the two readings.
+    A parse that would move a stamp **later** is refused rather than written, and
+    those cases are named.
+
+    Prints the day-delta histogram of every stamp that moved — but that is the
+    *window*, an upper bound on what could have been admitted rather than what
+    was, so beside it the ledger counts the entries the pre-repair cut admitted
+    and names the rows whose own disposition, or the Court's response request,
+    fell inside that band. A one-day move on a docket disposed of that day
+    admits the outcome; a month over a quiet docket admits nothing. The rows
+    that carried no stamp are reported apart and are the *larger* change: an
+    unstamped interim event takes no cut at all, so its cell read the latest
+    snapshot and what it gains is the window itself.
+
+    It also splits the class, the repairs and the residue by resolution, because
+    what it removes is the correlation on the slice carrying a readable snapshot
+    with a parseable arrival. Every other arm keeps the pre-repair stamp — late
+    is safe for leakage and is the conditioning defect itself — so a residue
+    that is entirely decided rows is a correlation shrunk rather than removed.
+
+    Idempotent, and convergent rather than terminal — `events.opened_at` carries
+    no fill-in latch, so a non-live re-extraction can write the docketing date
+    back and the sweep re-selects the row, provided that write leaves the stamp
+    equal to the docketing date the predicate matches on.
+
+    Run where the corpus is pulled — a dev checkout dry-runs it, and the apply
+    half belongs in run-repair's `arrival-backfill` pass, which holds the
+    corpus-write credentials. `--apply` refuses above `--max-fills`, which counts
+    the rows actually written. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_fills is None:
+        typer.echo(
+            "backfill-arrival-stamps: --apply requires an explicit --max-fills. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the arrival back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = backfill_arrival_stamps(
+            conn, apply=apply, max_fills=max_fills, data_root=settings.data_root
+        )
+    if not result.events_seen:
+        # Zero candidates has two causes and they are not the same run: a corpus
+        # whose interim events all carry their arrival, and one holding no
+        # interim events at all. The denominator is what tells them apart.
+        typer.echo(
+            f"backfill-arrival-stamps: no SCOTUS interim baseline events in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if result.refused:
+        typer.echo(
+            f"backfill-arrival-stamps: refusing to apply {len(result.filled)} stamp(s) "
+            f"(--max-fills {max_fills}). Read the dry run's own count rather than raising "
+            "the bound past it: this pass rewrites the moment provisioning cuts on.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "stamped" if apply else "would stamp"
+    # ORDERING IS LOAD-BEARING, not stylistic. The run-repair step tees this
+    # output into a GitHub step summary, which is capped at 1 MiB and discarded
+    # WHOLE above it, so the step truncates head-first. Over a five-figure class
+    # the per-row `filled` list alone runs past the cap — so every aggregate, the
+    # named exposure lists, and the JSON ledger are printed BEFORE it, and the
+    # per-row enumeration goes last where truncation costs the least. Do not
+    # reorder without re-reading the step.
+    typer.echo(
+        f"backfill-arrival-stamps ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.filled)} of {result.candidates} candidate(s) in a population "
+        f"of {result.events_seen} interim baseline event(s); "
+        f"{result.unchanged} already carrying their arrival; "
+        f"{result.no_snapshot} with no stored snapshot; "
+        f"{result.no_proceedings} whose snapshot discloses no proceedings; "
+        f"{result.unparsed} naming no dated submission entry"
+    )
+    # The matched denominator beside the loose one, and the arm no dispatch can
+    # reach: `events_seen` includes entry-pinned rows this route never acts on,
+    # so a prevalence taken against it is not one, and both live-slice counts are
+    # blind to the rows this pass structurally cannot repair.
+    unreachable = result.events_all_slices - result.baseline_candidates_seen
+    typer.echo(
+        f"  population: {result.candidates} of {result.baseline_candidates_seen} "
+        "reachable baseline event(s) carry the defect (the prevalence; the "
+        f"{result.events_seen} above is the looser wrong-blob denominator). "
+        f"{result.events_all_slices} baseline event(s) exist across the blob, so "
+        f"{unreachable} sit outside the live slice, hold no re-readable snapshot, "
+        "and keep their stamp through every dispatch of this pass"
+    )
+    # The `stamped` arm is a much larger change than any move, and the caveat has
+    # to travel with the number: those cells took NO cut at all — a null
+    # `opened_at` makes `moment_cutoff` return None, so the cell reads the latest
+    # snapshot — which is an unbounded window closed rather than a late one
+    # tightened. The histogram covers the `moved` arm alone.
+    worst = f"worst {result.move_days_max} day(s)" if result.moved else "no move to size"
+    typer.echo(
+        f"  {result.stamped} row(s) had no stamp at all — those cells took no cut, "
+        "reading the latest snapshot, so this closes an unbounded window rather "
+        f"than tightening a late one. {result.moved} moved earlier ({worst}); the "
+        "histogram below is the moved arm only: "
+        + ", ".join(f"{bucket}d: {count}" for bucket, count in result.move_histogram.items())
+    )
+    # The exposure readings, stated as what they are. They are computed against
+    # the newest stored snapshot with no date bound, so they say what a cell
+    # provisioned TODAY under the pre-repair stamp would admit — a bound on the
+    # rule's remaining reach, not a measurement of what any committed cell saw.
+    vintage = result.corpus_vintage.isoformat() if result.corpus_vintage else "unknown"
+    typer.echo(
+        f"  forward exposure (counterfactual over the corpus as of {vintage}): a cell "
+        "provisioned today under the pre-repair stamp would admit "
+        f"{result.over_admitted_entries} docket entr(ies) across "
+        f"{result.over_admitted_rows} row(s) that the repaired stamp does not; for "
+        f"{len(result.admitted_the_disposition)} row(s) that includes the case's own "
+        f"disposition, and {result.admitted_the_response_request} the response request. "
+        "Not a claim about cells that ran: it over-counts against a cell provisioned "
+        "when the docket was shorter, and under-counts wherever the stored snapshot "
+        "predates filings the docket has since gained"
+    )
+    # The resolution split: whether the correlation was removed or only shrunk.
+    typer.echo(
+        f"  resolution: {result.candidates_resolved} of {result.candidates} candidate(s) "
+        f"decided, {result.filled_resolved} of {len(result.filled)} repair(s); "
+        f"{result.unrepaired_resolved} of {result.unrepaired} unrepaired row(s) are "
+        "decided — a residue that is entirely decided is a correlation this pass "
+        "shrank rather than removed"
+    )
+    # And the residue's own exposure, which the repaired rows' readings cannot
+    # give: conditioning persists exactly where the stamp did not move.
+    typer.echo(
+        f"  residue exposure: {len(result.residue_admits_disposition)} of "
+        f"{result.unrepaired} unrepaired row(s) keep a stamp that still admits their "
+        f"own disposition ({len(result.later_refused)} of those were refused for "
+        "direction). These are where the conditioning survives this pass"
+    )
+    for case_id in result.admitted_the_disposition:
+        # The sharpest reading in this ledger, named rather than counted so a
+        # cohort can be checked case by case — and marked where the case actually
+        # carries committed predict output, which is the subset where the question
+        # is worth asking of a grading rather than of a rule.
+        committed = (
+            " [COMMITTED PREDICT OUTPUT]"
+            if case_id in result.admitted_the_disposition_committed
+            else ""
+        )
+        typer.echo(
+            f"  {case_id}: a cell provisioned today under the pre-repair stamp "
+            f"would read this case's own disposition{committed}"
+        )
+    for case_id in result.later_refused:
+        # Named, not counted: the parser anchors on the submission entry, which
+        # precedes docketing on every docket sampled for the rule, so a later
+        # reading is a payload to look at rather than a stamp to write.
+        typer.echo(f"  {case_id}: REFUSED — the parsed arrival postdates the stored stamp")
+    typer.echo(result.model_dump_json())
+    # Last, and deliberately: this is the only unbounded list here, so it is the
+    # only thing a truncated step summary should lose.
+    for fill in result.filled:
+        moved = f" (was {fill.previous.isoformat()}, {fill.moved_days}d)" if fill.previous else ""
+        admitted = (
+            f", {fill.over_admitted} entr(ies) no longer admitted" if fill.over_admitted else ""
+        )
+        typer.echo(
+            f"  {verb} {fill.case_id} {fill.event_id}: "
+            f"{fill.opened_at.isoformat()}{moved}{admitted}"
+        )
 
 
 @app.command("backfill-documents")

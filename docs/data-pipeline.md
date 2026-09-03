@@ -1084,6 +1084,7 @@ population and apply against another.
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
 | `ocr-recovery` | `ocr-recover-petitions` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`) | — | — |
 | `document-backfill` | `backfill-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too) | — | — |
+| `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
 | `sampled-frame-weight-repair` | `repair-sampled-frame-weights` | `--max-repairs` | — | — |
@@ -1246,7 +1247,7 @@ the runner image rolls, and would fail the pass for a reason that has nothing to
 do with the corpus, so what a recovered text was read by is recorded by the run
 instead of promised by the workflow. An apply refuses where the binaries are
 absent, which is what keeps a failed install from reading as a converged class.
-**Least privilege per pass.** The ten corpus passes run in a job holding the
+**Least privilege per pass.** The eleven corpus passes run in a job holding the
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
@@ -1299,6 +1300,18 @@ gh workflow run run-repair.yml --ref main \
   -f repair=document-backfill -f repair_mode=dry-run -f repair_bound=40
 gh workflow run run-repair.yml --ref main \
   -f repair=document-backfill -f repair_mode=apply -f repair_bound=15
+
+# The arrival back-fill's bound is an ordinary refusal threshold, so the number
+# is the fill count its dry run printed — a five-figure class is expected, and
+# the number below is a placeholder rather than a measurement. Read three things
+# off that dry run before applying: the entries the pre-repair cut admitted and
+# the rows whose own disposition was among them (the day histogram is only the
+# window, not what was in it), and the resolution split of the residue, which
+# says whether the correlation was removed or merely shrunk.
+gh workflow run run-repair.yml --ref main \
+  -f repair=arrival-backfill -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=arrival-backfill -f repair_mode=apply -f repair_bound=<the dry run's fill count>
 
 # A pass with an option. `include-scored` demands the bound in BOTH modes, so
 # the dry run that decides the widening states it too.

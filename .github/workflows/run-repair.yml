@@ -61,6 +61,7 @@ on:
           - response-backfill
           - ocr-recovery
           - document-backfill
+          - arrival-backfill
           - merits-phantom-removal
           - disposition-convergence
           - sampled-frame-weight-repair
@@ -160,6 +161,8 @@ jobs:
             document-backfill)
               bound_flag="--max-cases"; bound_required_on_apply=1
               bound_read_on_dry_run=1 ;;
+            arrival-backfill)
+              bound_flag="--max-fills"; bound_required_on_apply=1 ;;
             merits-phantom-removal)
               bound_flag="--max-removals"; bound_required_on_apply=1
               accepted_options="include-failed-attempts" ;;
@@ -307,7 +310,7 @@ jobs:
     # pass reaches them only by being named here. A deny-list would hand every
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
-    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) }}
+    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) }}
     # Join the repo-wide corpus-writer lock: one writer at a time across
     # run-pull, run-seed and this bench. cancel-in-progress:false so a
     # dispatch queues behind a running window rather than cancelling it.
@@ -319,7 +322,7 @@ jobs:
     # run's own real pass — before ever being skipped. The condition is the
     # `if:` above, repeated because no context available here can hold it once.
     concurrency:
-      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     # Headroom over the longest chain of capped steps a dispatch can run, which
@@ -1306,6 +1309,136 @@ jobs:
           git commit -m "repair: provision missing primary documents"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "document backfill pointer"
+
+      # Re-derive the interim baseline's arrival stamp. An interim event's
+      # `opened_at` is the moment it declares — the day the application was
+      # submitted to a Justice — and it is where provisioning cuts, so what is
+      # stamped there decides what a cell for that moment may see.
+      #
+      # The defect is a stamp rule correlated with the outcome. The live poller
+      # serves the UNRESOLVED slice, so a decided application has left the
+      # rotation and is never re-polled: an event last polled before the arrival
+      # read existed keeps the docketing date or nothing at all, and resolution
+      # status therefore decides which reading a row carries, and any
+      # retrospective interim population drawn from these events inherits that
+      # conditioning. A forward cell is unaffected ONCE ITS ROW HAS BEEN
+      # RE-POLLED — not by construction: a queued row not polled since the
+      # arrival read shipped still carries the docketing stamp and is moved by
+      # this apply, so the boundary runs through the forward stratum too. The
+      # pass is deliberately not predicated on resolution for the same reason:
+      # repairing only the decided half would condition the class all over again.
+      #
+      # Recoverable from the corpus alone, since the stored live-shaped snapshot
+      # is the same payload the original ingest read — so this re-parses it with
+      # the same pure parsers rather than re-fetching, and reaches no network at
+      # all. It reads those snapshots, which under the corpus split live in the
+      # content store rather than the blob, so it depends on the job-level
+      # split-mode env pair, and a row with no stored snapshot is counted and
+      # reported rather than failed.
+      #
+      # Its write is a direct UPDATE of the index, so the pointer IS the witness
+      # here and a plain pointer commit suffices — but it also re-mirrors the
+      # touched cases' events, because provisioning reads events back through the
+      # content store and a stale events.json would hand a cell the very stamp
+      # this pass replaced.
+      - name: Backfill the interim arrival stamps
+        if: ${{ inputs.repair == 'arrival-backfill' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Network-bound like the response-signal backfill rather than the local
+        # passes: one content-store read per candidate row, pooled by the shared
+        # prefetch, over a class in the thousands. No upstream fetch and no
+        # per-row recognition, so the walk is the whole cost.
+        timeout-minutes: 20
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # Validate the bound before anything else, including the corpus
+          # guard: a dispatch that cannot legally apply should say so in
+          # seconds, not after a full-population read of the content store.
+          # `Validate the repair selector` duplicates it word for word so a bad
+          # dispatch dies before any credential is minted; this copy is the one
+          # of record, because the step has to be safe on whatever reaches it.
+          # The refusal names the pass through `${REPAIR}` rather than a literal
+          # so the two copies are identical as text, not merely equivalent once
+          # expanded.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to re-derive.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the arrival-stamp backfill"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Dry-run first, into the summary: this pass's ledger is the reading
+          # the apply's bound comes from, and it must outlive the step log. Four
+          # things a maintainer weighs there beyond the count.
+          #
+          # The **forward-exposure** figures — the entries a cell provisioned
+          # today under the pre-repair stamp would admit, and the rows whose own
+          # disposition is among them. The move histogram beside them is only
+          # the *window*: a one-day move on a docket disposed of that day is
+          # worse than a month over a quiet one. These are counterfactuals over
+          # the corpus at the ledger's `corpus_vintage`, read with no date
+          # bound, so they bound what the rule still exposes rather than
+          # measuring what a committed cell saw; the committed-output
+          # intersection printed with them is the subset worth checking against
+          # a grading.
+          #
+          # The **residue** measurement, which is where conditioning survives:
+          # the unrepaired rows whose surviving stamp still admits their own
+          # disposition. A claim scoped to the repaired rows says nothing here.
+          #
+          # The **resolution split**, which says whether the correlation was
+          # removed or merely shrunk, and the matched/blind denominators beside
+          # it, which say what fraction carries the defect and how much of the
+          # population no dispatch of this pass can reach at all.
+          #
+          # And the per-row fill list, which after the apply is the only record
+          # of what each repaired cell's cutoff had been derived from — the
+          # corpus holds the new stamp, and `event.yaml` is rewritten with it
+          # the next time any cell runs over that event. That record belongs in
+          # the freeze-record entry the apply owes, not only in a run summary
+          # that expires with the run: the CLI prints it LAST, after every
+          # aggregate and the JSON ledger, precisely so the head-first
+          # truncation below drops the enumeration rather than the figures.
+          # (On an apply this run is a receipt, not a reading.)
+          # Bounded into the summary rather than tee'd whole. GitHub caps a step
+          # summary at 1 MiB and discards it ENTIRELY above that, warning only —
+          # and this pass's per-row lines plus its JSON ledger run to megabytes
+          # over a five-figure class, so an untruncated tee would drop the one
+          # surface the ledger was meant to outlive the run on. The full output
+          # stays in the step log either way.
+          summarize() {
+            head -c 900000 "$1" >> "$GITHUB_STEP_SUMMARY"
+            cat "$1"
+          }
+          uv run fedcourts backfill-arrival-stamps > /tmp/arrival-dry.txt 2>&1
+          summarize /tmp/arrival-dry.txt
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts backfill-arrival-stamps --apply \
+            --max-fills "${REPAIR_BOUND}" > /tmp/arrival-apply.txt 2>&1
+          summarize /tmp/arrival-apply.txt
+          # Blob before pointer commit, as everywhere. The index is where
+          # `events.opened_at` lives, so unlike the two document passes the
+          # pointer moving IS the witness that the write landed.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Arrival stamps already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: converge corpus (interim arrival stamps)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "arrival-stamp pointer"
 
       # Drop open SCOTUS merits events whose docket carries no cert grant, in
       # both stores. A merits event is born from a grant — every mint path
