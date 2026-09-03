@@ -417,8 +417,9 @@ bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants
 (`test_workflow_cell_invariants`: the qp-topics oracle fence, the corpus-split
-env pair, the forward leakage guard, the run-surface retry with its inline
-copies, the absence of any step that applies a fan-out label, the 10-input `workflow_dispatch`
+env pair, the forward leakage guard, the arm/disarm bracket and deadline of the
+codex hang watchdog, the run-surface retry with its inline copies, the absence
+of any step that applies a fan-out label, the 10-input `workflow_dispatch`
 cap the UI enforces silently, the fail-closed shape every input gate must have
 on a scheduled workflow, and the word-for-word pairing between each fail-fast
 validator and the step of record that re-checks it), and the predict plan job's stranded-run
@@ -437,7 +438,12 @@ asserts the workflow's grepped literal against the summary the CLI prints —
 the one coupling that lives in output wording rather than argv); and
 `test_collect_issueless` executes the collect composite's own `collect-plan`
 call with the sentinel it normalizes an absent issue number to, which is the
-path every round takes, since no lane supplies one. For a heavier local check of the
+path every round takes, since no lane supplies one. `test_codex_watchdog` does
+the same for the codex cells' hang bound: it runs `scripts/codex-watchdog.sh`
+against a process whose command line stands in for the wedged engine, because
+every claim about that guard is a claim about process matching and signals on
+a live runner, and a wedge otherwise destroys its own evidence. For a heavier
+local check of the
 deterministic jobs (the `plan` job, matrix generation, the collect seam),
 [`nektos/act`](https://github.com/nektos/act) can run them in Docker — useful for
 orchestration, though its OIDC and secret handling mean it does not cover the agent

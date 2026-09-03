@@ -591,10 +591,48 @@ jobs:
             --permission-mode bypassPermissions
             --mcp-config mcp-servers.json
 
+      # The codex step's own `timeout-minutes` is not enough on its own: a
+      # wedged engine has held the step `in_progress` past it until the JOB cap
+      # cancelled the runner, and a cancelled job runs none of the capture tail
+      # below and has its logs dropped by GitHub — so the hang erases its own
+      # evidence and spends the whole budget. The pinned action carries no
+      # timeout input, so the bound is this runner-level watchdog: it captures
+      # the runner's own state (shapes and metadata only — the bundle is
+      # published), then kills the engine, which fails the STEP and leaves the
+      # tail to salvage the cell. Same shape and rationale as the predict
+      # cell's arm step, which carries them in full.
+      - name: Arm the codex watchdog
+        if: matrix.engine == 'codex'
+        env:
+          CODEX_HOME: ${{ github.workspace }}/.codex
+          WATCHDOG_DIR: ${{ runner.temp }}/codex-watchdog
+          # 40 minutes. The cell job is capped at 60 and reaches this step
+          # inside its first minute (measured: +46s on a healthy cell), so
+          # firing at +40 ends the engine ~41 minutes into the job and leaves
+          # ~19 for the `if: !cancelled()` tail, which measures in single-digit
+          # minutes. It also lands 10 minutes inside the step's own
+          # `timeout-minutes: 50`, which stays as the backstop: a
+          # process-level watchdog is a guess about which process to kill, and
+          # the runner's own cap is not.
+          WATCHDOG_DEADLINE_S: "2400"
+        run: |
+          set -euo pipefail
+          mkdir -p "$WATCHDOG_DIR"
+          # The watchdog and its evidence both live outside the workspace: that
+          # tree belongs to the agent for the next 40 minutes, and bash reads a
+          # script file as it executes it. The disarm step brings the bundle
+          # back for the artifact.
+          cp scripts/codex-watchdog.sh "$RUNNER_TEMP/codex-watchdog.sh"
+          nohup bash "$RUNNER_TEMP/codex-watchdog.sh" \
+            > "$WATCHDOG_DIR/watchdog.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/codex-watchdog.pid"
+
       - name: Evaluate with Codex
         id: evaluate_codex
         if: matrix.engine == 'codex'
         # Same buffer as the Claude step: trip this step, not the job, on overrun.
+        # The watchdog armed above is the bound that actually bites a wedged
+        # engine; this stays as the backstop for an overrun the runner can end.
         timeout-minutes: 50
         uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
         env:
@@ -650,6 +688,73 @@ jobs:
           permission-profile: fedcourts-cell
           codex-version: "0.144.1"
           codex-args: '["-c","web_search=live"]'
+
+      # Stand the watchdog down the moment the engine step is over, however it
+      # ended, so it can never fire late and kill something in the tail.
+      # `always()` and not the arm step's gate: a failed cell must disarm too,
+      # and where the arm step never ran there is simply no pid file to read.
+      - name: Disarm the codex watchdog
+        if: ${{ always() && matrix.engine == 'codex' }}
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          CODEX_HOME: ${{ github.workspace }}/.codex
+        run: |
+          set -euo pipefail
+          # The pid file sits on the runner's temp path, which the agent could
+          # also write, so signal only a pid that is a number and is this
+          # script's own watchdog — never whatever the file happens to name.
+          pid_file="$RUNNER_TEMP/codex-watchdog.pid"
+          if [ -f "$pid_file" ]; then
+            pid=$(cat "$pid_file")
+            if [[ "$pid" =~ ^[0-9]+$ ]] && grep -qa codex-watchdog.sh "/proc/$pid/cmdline" 2>/dev/null; then
+              kill "$pid" 2>/dev/null || true
+            fi
+            rm -f "$pid_file"
+          fi
+          # Bring the bundle into the workspace, which is what the cell
+          # artifact uploads. Regular files only: `upload-artifact` follows
+          # symlinks, so copying the directory wholesale would let a planted
+          # link publish an unrelated readable file.
+          if [ -d "$RUNNER_TEMP/codex-watchdog" ]; then
+            rm -rf codex-watchdog
+            mkdir -p codex-watchdog
+            find "$RUNNER_TEMP/codex-watchdog" -maxdepth 1 -type f \
+              -exec cp -p {} codex-watchdog/ \;
+          fi
+          # The rollout itself never leaves the runner — it carries retrieved
+          # documents verbatim, and a cell artifact is downloadable by anyone
+          # with a GitHub account for its retention window. Its distilled item
+          # shapes say what the engine was doing without republishing what it
+          # read, so they are what a deadline that passed hands the bundle.
+          if [ -f codex-watchdog/FIRED ] || [ -f codex-watchdog/STOOD_DOWN ]; then
+            uv run fedcourts codex-item-shapes \
+              --sessions-dir "$CODEX_HOME/sessions" \
+              --out codex-watchdog/session-shapes.json \
+              || echo "::warning::no codex item shapes distilled for ${EVENT_ID}"
+          fi
+          # A watchdog that reached its deadline is a cell-level fact whichever
+          # way it went, so say it where the run is read; the bundle itself
+          # rides the cell artifact uploaded below. The marker is truncated on
+          # the way into the summary — the bundle directory is runner-writable,
+          # and a summary is rendered markdown.
+          for marker in FIRED STOOD_DOWN; do
+            [ -f "codex-watchdog/$marker" ] || continue
+            case "$marker" in
+              FIRED) note="the engine was killed at its deadline" ;;
+              *) note="the deadline passed with no engine process matched — check the watchdog still names the action's invocation" ;;
+            esac
+            echo "::warning::codex watchdog (${COURT_ID}/${DOCKET_ID} ${EVENT_ID}): ${note}"
+            {
+              echo "## codex watchdog — ${COURT_ID}/${DOCKET_ID} ${EVENT_ID}"
+              echo "${note}; diagnostics ride in this cell's artifact under \`codex-watchdog/\`."
+              echo '```'
+              head -c 500 "codex-watchdog/$marker"
+              echo
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          done
 
       # Install the Gemini CLI in its own SECRET-FREE step: only the top-level
       # version is exactly pinned (transitive dependencies resolve fresh at every
@@ -936,7 +1041,12 @@ jobs:
             '{court:$court,docket:$docket,event_id:$event_id,actor:$actor,run_id:$run_id,produced:$produced,validated:$validated,agent_ok:$agent_ok}' \
             > status.json
 
-      # One artifact per cell: its status.json plus its data/ subtree. The name is
+      # One artifact per cell: its status.json plus its data/ subtree, and — on a
+      # codex cell — the watchdog's directory, which carries its own log always
+      # and the diagnostics bundle when it fired — shapes and metadata only,
+      # because a cell artifact is downloadable by anyone with a GitHub account
+      # for its retention window. The collect job copies only `data/` into the
+      # run's commit, so the bundle never reaches the ledger. The name is
       # unique per evaluator x case x event so concurrent cells never collide, and
       # the collect job keys the download on the `evaluate-` prefix.
       - name: Upload cell output
@@ -947,6 +1057,7 @@ jobs:
           path: |
             status.json
             data
+            codex-watchdog
           if-no-files-found: error
           retention-days: 7
 
