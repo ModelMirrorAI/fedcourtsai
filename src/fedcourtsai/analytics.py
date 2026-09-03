@@ -1856,12 +1856,12 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
         f"**Filing → decision timing:** {_timing_summary(pack.timing)}",
         "",
         "_Scope: docket **termination**, every court and both SCOTUS docket forms "
-        "pooled — cert petitions beside emergency applications, whose lifespans "
-        "differ by orders of magnitude. The mixture follows which rows carry a "
-        "`date_decided` at all, so it tracks ingestion coverage rather than a "
-        "chosen population, and the headline moves as coverage does. Read a "
-        "petition-timing question off the per-Term table below, which keys on "
-        "the cert-stage resolution date instead._",
+        + "pooled — cert petitions beside emergency applications, whose lifespans "
+        + "differ by orders of magnitude. The mixture follows which rows carry a "
+        + "`date_decided` at all, so it tracks ingestion coverage rather than a "
+        + "chosen population, and the headline moves as coverage does. Read a "
+        + "petition-timing question off the per-Term table below, which keys on "
+        + "the cert-stage resolution date instead._",
     ]
     lines += _section_tables(pack.sections)
     if pack.terms:
