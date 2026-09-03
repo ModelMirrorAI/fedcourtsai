@@ -472,6 +472,34 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
     return [ref for ref in (petition, application, *bios) if ref is not None]
 
 
+def primary_entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
+    """Whether the docket carries the entry that opens it, link or no link.
+
+    :func:`select_documents` answers *what is fetchable*, which collapses two
+    very different dockets onto the same empty list: one whose opening filing is
+    on the docket with no PDF posted behind it — a Rule 34.6 paper filing, where
+    the Court served nothing and no repair reaches it — and one carrying no such
+    entry at all, which on a modern docket means the selector has no arm for the
+    filing type. Only the second is a defect. This is the same entry test the
+    selector's two primary arms apply, with the link requirement dropped, so a
+    caller can tell them apart; it reads nothing about the opposition briefs,
+    which open no case.
+
+    ``kind`` is the docket form's primary document (:data:`KIND_PETITION` or
+    :data:`KIND_APPLICATION`); any other kind matches nothing, since no other
+    kind opens a docket.
+    """
+    for entry in payload.get("ProceedingsandOrder") or []:
+        if not isinstance(entry, Mapping):
+            continue
+        text = str(entry.get("Text") or "")
+        if kind == KIND_PETITION and _CASE_OPENING_ENTRY_RE.search(text):
+            return True
+        if kind == KIND_APPLICATION and _is_application_entry(text):
+            return True
+    return False
+
+
 def extract_pdf_text(
     data: bytes, *, char_cap: int, ocr_page: OcrPage | None = None
 ) -> ExtractedText:
@@ -1309,6 +1337,29 @@ class TextCoverage(BaseModel):
         "populations are keyed on different documents; "
         "`queued_without_application_cases` names every case in it",
     )
+    queued_without_petition_floor: int = Field(
+        default=0,
+        ge=0,
+        description="Of the `queued_without_petition` cases, the ones whose newest "
+        "stored docket payload carries the case-opening entry with no document "
+        "behind it — the **structural floor**: a paper filing the Court posted no "
+        "PDF for. Without it a successful back-fill still reports its residue as "
+        "an unexplained provisioning gap forever. A case whose payload matches no "
+        "opening entry at all is deliberately *not* counted here: on a modern "
+        "docket that is a filing shape the selector cannot see, which is a defect "
+        "rather than a floor. Read off the *stored* payload, so it is the floor as "
+        "the corpus holds it: a case counted here can still recover if upstream "
+        "has since posted the link, which is what the fresh-fetch back-fill pass "
+        "finds out",
+    )
+    queued_without_application_floor: int = Field(
+        default=0,
+        ge=0,
+        description="The same reading on the application-form gap: candidates whose "
+        "stored payload carries the submission entry with no main document behind "
+        "it. Expected to be zero — an application docket posts its filing — so a "
+        "non-zero value is a reading to chase rather than a floor to accept",
+    )
     unopened_petitions: int = Field(
         ge=0,
         description="Of the empty petitions, the ones stored with zero pages — "
@@ -1351,6 +1402,34 @@ class TextCoverage(BaseModel):
         """
         cells = [cut for cut in self.cuts if cut.kind == kind]
         return sum(c.documents for c in cells), sum(c.empty for c in cells)
+
+
+def _stored_payload_floor(conn: corpus.ReadConnection, case_id: str, *, kind: str) -> bool:
+    """Whether this case's stored docket payload puts it at a structural floor.
+
+    The floor test behind ``queued_without_*_floor``: a gap the selector can see
+    a link for is a provisioning gap that a re-run drains, while a filing the
+    Court posted no PDF for, or a docket carrying no document links at all, is
+    one no repair reaches. False where no live-shaped snapshot is stored, which
+    is not a floor but an unread case: the corpus cannot say, so the annotation
+    does not claim.
+
+    **Two conditions, not one.** Selecting nothing is necessary but not
+    sufficient — a docket carrying no entry the selector recognizes *at all*
+    reads the same way whether its proceedings hold no links or the selector
+    holds no arm for its filing type, and the second is a defect being counted as
+    a floor on the report a maintainer reads first. So the entry must be there
+    (:func:`primary_entry_matched`) and the link must not: that is the paper
+    filing and the link-free legacy docket, and a filing shape the selector
+    cannot see stays in the unexplained gap where it belongs.
+    """
+    snapshot = corpus.latest_live_snapshot(conn, case_id)
+    if snapshot is None:
+        return False
+    _, payload = snapshot
+    if any(ref.kind == kind for ref in select_documents(payload)):
+        return False
+    return primary_entry_matched(payload, kind=kind)
 
 
 def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> TextCoverage:
@@ -1426,6 +1505,20 @@ def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> Text
     was attempted and served nothing — both classes are enumerated
     (``queued_without_petition_cases``, ``queued_without_application_cases``)
     and not only counted.
+
+    Each gap also carries its **floor**: of the cases in it, how many hold a
+    stored docket payload that carries the opening entry with no document behind
+    it (:func:`_stored_payload_floor`). A gap the selector can see a link for is
+    a provisioning gap and drains; a Rule 34.6 paper filing, and a legacy docket
+    carrying no document links, do not — and reading the two as one number
+    reports a converged corpus as a permanent defect. A case matching *no*
+    opening entry is deliberately outside the floor and stays in the unexplained
+    remainder, because on a modern docket that is a filing shape the selector
+    cannot see rather than one the Court did not post. Read off the stored
+    payload rather than a fresh fetch, so it is the floor as the corpus holds it
+    and the fetching repair is what settles a case upstream has since posted a
+    link for; and read only over the gap lists, so it costs one extra
+    content-store read per gap case rather than per row of the frame.
 
     Split-aware by construction: every read goes through
     :func:`corpus.documents_for_case`, which the registered payload source
@@ -1526,6 +1619,19 @@ def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> Text
                 elif not has_petition:
                     queued_without_petition += 1
                     queued_without_petition_cases.append(case_id)
+    # The floor annotation, read after the walk and only over the gap cases —
+    # a second content-store read each, over a list in the tens rather than the
+    # thousands, so it is bought at the size of the gap and not of the frame.
+    # Serial for the same reason: the pool exists for a per-case read of the
+    # whole population, and this is not one.
+    petition_floor = sum(
+        _stored_payload_floor(conn, case_id, kind=KIND_PETITION)
+        for case_id in queued_without_petition_cases
+    )
+    application_floor = sum(
+        _stored_payload_floor(conn, case_id, kind=KIND_APPLICATION)
+        for case_id in queued_without_application_cases
+    )
     return TextCoverage(
         cases=len(case_ids),
         cases_read=cases_read,
@@ -1539,6 +1645,8 @@ def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> Text
         queued_application_forms=len(queued & application_forms),
         queued_without_petition=queued_without_petition,
         queued_without_application=queued_without_application,
+        queued_without_petition_floor=petition_floor,
+        queued_without_application_floor=application_floor,
         unopened_petitions=unopened_petitions,
         offloaded=corpus.payload_reads_offloaded(),
         # Zero-filled and ordered by construction (kind within segment), so the

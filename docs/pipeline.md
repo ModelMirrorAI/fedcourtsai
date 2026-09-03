@@ -574,8 +574,8 @@ for it and every cell minted over that case reads an empty petition — for as
 long as the docket serves the same URL, since the poller and the Term walker
 re-fetch a kind only when its link changes. It is the only pass that installs a
 binary dependency, in its own gated step (`tesseract` and poppler's `pdftoppm`,
-from the runner image's own archive), and the only one whose bound is a **slice
-size** rather than a refusal threshold: each case costs a re-fetch and a
+from the runner image's own archive), and one of the two whose bound is a
+**slice size** rather than a refusal threshold: each case costs a re-fetch and a
 page-by-page recognition, and runner minutes are the whole cost. That makes the
 bound a *spend* cap, so the step hands the pass a wall-clock deadline as well —
 sized under the step's own cap by everything that must still fit there once the
@@ -592,6 +592,79 @@ The apply writes documents, which under the corpus split live in the content
 store rather than the blob, so the pointer cannot witness it: the step re-reads
 the class afterwards and requires exactly what the apply's ledger said it would
 leave behind.
+
+`document-backfill` provisions the queued cases that hold no primary document.
+A case reaches prediction with the filing that opens it — the petition on a
+cert-form docket, the application on an interim one — because provisioning runs
+at the transition that queues it; a case whose provisioning ran before the
+selector had an arm for its filing type kept nothing, and no lane repairs that,
+since the poller re-fetches a kind only when its link changes and a kind never
+stored has no link to change. It re-keys each candidate off its stored docket
+number and fetches that docket's JSON **fresh** rather than reading the stored
+snapshot, because the question is whether the link is served now, then runs the
+same selection and fetch the live poller runs — so a recovered case is
+provisioned on exactly the terms a case provisioned at its trigger was, opposition
+briefs and derived questions-presented row included. Its population is
+**form-keyed** and scoped to rows that can still mint a cell, not to the wide
+distributed stock, which is overwhelmingly legacy rows carrying no document
+links at all. It is the second slice-bounded pass, and the one whose `dry-run`
+is bounded too: that dry run fetches each candidate's docket JSON, which is the
+whole diagnostic — it is what separates a case with a link waiting for it from
+one at a floor — and it is a paced round trip per candidate. Two floors are
+reported apart from the failures, because neither drains and reading them as
+failures reports a converged class as a permanent defect: a docket carrying the
+opening entry with no PDF behind it, and one carrying no such entry at all. The
+second on a *modern* docket is not a floor but a selector regression, and those
+cases are named rather than counted. Like the OCR recovery it writes documents,
+which under the corpus split live in the content store, so the step re-walks the
+class afterwards — an empty slice, which costs no round trip — and requires
+exactly what the apply's ledger said it would leave behind.
+
+`arrival-backfill` re-derives the interim baseline's arrival stamp — the day an
+application was submitted to a Justice, which is the moment that event declares
+and the day provisioning cuts on. What it repairs is a stamp rule **correlated
+with the outcome**: the live poller serves the unresolved slice, so a decided
+application has left the rotation and is never re-polled, and an event last
+polled before the arrival read existed keeps the docketing date or nothing at
+all. Resolution status therefore decides which reading a row carries, and any
+retrospective interim population drawn from these events inherits that
+conditioning. A forward cell is unaffected *once its row has been re-polled* —
+not by construction: a queued row that has not been polled since the arrival read
+shipped still carries the docketing stamp, and closing that gap is part of what
+this pass is for. It is deliberately *not* predicated on resolution — repairing
+only the decided half would condition the class all over again. Route and shape
+are the response back-fill's: re-parse each row's newest stored live-shaped
+snapshot with the same pure parsers ingest uses, with no upstream fetch, and
+write a direct `UPDATE` of the index, so the pointer is its own witness. Direction is the
+safety property. The cut keeps everything filed strictly before the day after
+the stamp, so an earlier stamp admits less docket and a later one admits more,
+and docketing is systematically the later of the two readings — the pass
+therefore only ever moves a stamp earlier or supplies a missing one, and a parse
+that would move one later is refused and named. Its ledger states how many stamps
+moved and by how much, as a day-delta histogram — but that is the *window*, an
+upper bound on what could have been admitted rather than what was, so beside it
+the ledger counts the **entries** a cell provisioned today under the pre-repair
+stamp would admit, and names the rows whose own **disposition** is among them. A
+one-day move on a docket disposed of that day admits the outcome; a month over a
+quiet docket admits nothing, and only the second reading tells them apart. Those
+exposure figures are **counterfactuals over the corpus at the ledger's
+`corpus_vintage`**, read with no date bound, so they bound what the rule still
+exposes rather than measuring what any committed cell saw — over-counting
+against a cell provisioned when the docket was shorter, under-counting where the
+stored snapshot predates later filings. The intersection with events carrying
+committed predict output is reported beside them, as the subset where the
+question is worth asking of a grading. It also measures the **residue** on the
+same terms — the unrepaired rows whose surviving stamp still admits their own
+disposition, which is where conditioning persists — and splits the class, the
+repairs and the residue by **resolution**, because what it removes is the
+correlation on the slice carrying a readable snapshot: every other arm keeps the
+pre-repair stamp, and a residue that is entirely decided rows is a correlation
+shrunk rather than removed. Its denominators are stated matched (baseline events
+the predicate could select) and live-slice-blind (every baseline event in the
+blob), so the prevalence is readable and the arm no dispatch reaches is visible. It writes events rather
+than a `cases` column, so unlike the response back-fill it re-mirrors the
+touched cases — provisioning reads events back through the content store, and a
+stale mirror would hand a cell the very stamp the pass replaced.
 
 `merits-phantom-removal` drops open merits events whose docket carries no cert
 grant — the shape a live re-poll leaves when it stops reading a grant out of the

@@ -2032,6 +2032,17 @@ def is_live_slice(row: CorpusRow) -> bool:
 LIVE_SLICE_SQL = "last_live_polled IS NOT NULL"
 
 
+def live_slice_sql(alias: str = "") -> str:
+    """:data:`LIVE_SLICE_SQL`, qualified for a query that joins another table.
+
+    The bare constant resolves only because no other table carries the column;
+    the day one does, every unqualified use starts raising *ambiguous column
+    name* from a module that never mentions it. A join passes its ``cases``
+    alias here instead.
+    """
+    return f"{alias}.{LIVE_SLICE_SQL}" if alias else LIVE_SLICE_SQL
+
+
 class ResolutionDatedRow(Protocol):
     """The fields resolution timing reads — satisfied by both the storage row
     (:class:`CorpusRow`) and the ingestion row, which carry the same date facts."""
@@ -3744,6 +3755,38 @@ def stamp_first_moments(conn: sqlite3.Connection, stage: Stage, moment: Moment) 
     if case_ids and (sink := _mirror_sink()) is not None:
         sink.mirror_events_for_cases(conn, case_ids)
     return int(stamped)
+
+
+def stamp_event_opened_at(conn: sqlite3.Connection, stamps: Sequence[tuple[str, str, date]]) -> int:
+    """Write ``opened_at`` on the named event rows, in one transaction.
+
+    The arrival back-fill's sole writer, and a direct ``UPDATE`` for the reason
+    :func:`stamp_first_moments` is: the caller has already decided which rows
+    move and to what, and an ``upsert_events`` round trip would have to
+    reconstruct every other column of a row it is not changing. As there, the
+    write bypasses the upsert mirror hook, so the touched cases are re-mirrored
+    here — provisioning reads events back through the content store, and a stale
+    ``events.json`` would hand a cell the very stamp this call replaced.
+
+    Unconditional on the stored value rather than fill-in only, because this
+    column has two defects to repair and a ``COALESCE`` would reach one of them:
+    a row carrying no stamp at all, and one carrying the docketing date where
+    the arrival entry is the declared moment. What keeps that safe is the
+    caller's own predicate, not a latch here. Returns the rows written.
+    """
+    if not stamps:
+        return 0
+    with conn:
+        written = sum(
+            conn.execute(
+                "UPDATE events SET opened_at = ? WHERE case_id = ? AND event_id = ?",
+                (opened_at.isoformat(), case_id, event_id),
+            ).rowcount
+            for case_id, event_id, opened_at in stamps
+        )
+    if (sink := _mirror_sink()) is not None:
+        sink.mirror_events_for_cases(conn, sorted({case_id for case_id, _, _ in stamps}))
+    return int(written)
 
 
 def rename_event(

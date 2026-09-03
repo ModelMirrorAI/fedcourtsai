@@ -179,6 +179,7 @@ from .ops import (
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import cell_context, historical, liveprobe, moments, qp_topics, semantic
+from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.asof import CutoffPolicy
 from .pipeline.base_rates import interim_base_rate, merits_base_rate
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
@@ -193,6 +194,7 @@ from .pipeline.claims import score_claims
 from .pipeline.decision_dates import converge_decision_dates
 from .pipeline.discover import discover_cases
 from .pipeline.distribution_rederive import rederive_distribution_counts
+from .pipeline.document_backfill import backfill_documents
 from .pipeline.documents import (
     KIND_PETITION,
     TextCoverage,
@@ -1444,8 +1446,28 @@ def backfill_questions_presented_cmd(
     typer.echo(result.model_dump_json())
 
 
-def _ocr_slice_deadline(started: float, seconds: float | None) -> float | None:
-    """The monotonic instant an OCR slice may no longer start new work at.
+def _slice_bound(value: int | None, *, command: str) -> int | None:
+    """The slice size a bounded fetching pass was given, refusing a non-bound.
+
+    A slice is taken as ``candidates[:value]``, and Python reads a negative index
+    from the other end — ``[:-5]`` is *every candidate but the last five*, which
+    is a near-unbounded fetch campaign wearing the argument that exists to
+    prevent one. Zero is legitimate and means exactly what it says: an empty
+    slice, which walks the population and starts nothing.
+    """
+    if value is None or value >= 0:
+        return value
+    typer.echo(
+        f"{command}: --max-cases must be zero or a positive number of cases "
+        f"(got {value}); a negative slice reads from the other end of the class "
+        "and would take nearly all of it.",
+        err=True,
+    )
+    raise typer.Exit(code=2)
+
+
+def _slice_deadline(started: float, seconds: float | None, *, command: str) -> float | None:
+    """The monotonic instant a bounded slice may no longer start new work at.
 
     Zero is a legitimate budget — it starts nothing and reports the whole slice
     unreached, which is the honest reading of a caller with no time left — but a
@@ -1454,12 +1476,16 @@ def _ocr_slice_deadline(started: float, seconds: float | None) -> float | None:
     The same refusal covers what is not a number at all: `nan` compares false
     against every estimate and `inf` never runs out, so either would *disable*
     the deadline while reading as one that was set.
+
+    ``command`` names the caller in the refusal, since more than one deadlined
+    pass reads its budget through here and a maintainer correcting a mistyped
+    dispatch needs to know which flag was rejected.
     """
     if seconds is None:
         return None
     if seconds < 0 or not math.isfinite(seconds):
         typer.echo(
-            "ocr-recover-petitions: --deadline-seconds must be a finite, "
+            f"{command}: --deadline-seconds must be a finite, "
             f"non-negative number of seconds (got {seconds}); 0 is the budget "
             "that starts nothing.",
             err=True,
@@ -1468,7 +1494,7 @@ def _ocr_slice_deadline(started: float, seconds: float | None) -> float | None:
     return started + seconds
 
 
-def _echo_ocr_unreached(unreached: Sequence[str]) -> None:
+def _echo_unreached(unreached: Sequence[str]) -> None:
     """Name the candidates the slice deadline declined to start, if any.
 
     Apart from the failures, because they are a different fact: nothing was
@@ -1600,7 +1626,8 @@ def ocr_recover_petitions_cmd(
             err=True,
         )
         raise typer.Exit(code=2)
-    deadline = _ocr_slice_deadline(started, deadline_seconds)
+    max_cases = _slice_bound(max_cases, command="ocr-recover-petitions")
+    deadline = _slice_deadline(started, deadline_seconds, command="ocr-recover-petitions")
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
         typer.echo(
@@ -1671,7 +1698,7 @@ def ocr_recover_petitions_cmd(
         typer.echo(f"  {case_id}: {detail}")
     for case_id, reason in result.failures.items():
         typer.echo(f"  {case_id}: NOT RECOVERED ({reason})")
-    _echo_ocr_unreached(result.unreached)
+    _echo_unreached(result.unreached)
     for entry in result.probes:
         # The dry run's second reading: what the writer's own fetch path gets
         # back from supremecourt.gov, before a slice is spent finding out.
@@ -2819,6 +2846,404 @@ def backfill_response_fields_cmd(
             if value is not None
         )
         typer.echo(f"  {verb} {fill.case_id}: {gained}")
+
+
+@app.command("backfill-arrival-stamps")
+def backfill_arrival_stamps_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the arrival stamps; omit for a dry-run report."),
+    ] = False,
+    max_fills: Annotated[
+        int | None,
+        typer.Option(
+            "--max-fills",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
+        ),
+    ] = None,
+) -> None:
+    """Re-derive the interim baseline's arrival stamp from each row's newest snapshot.
+
+    An interim event's `opened_at` is the moment it declares — the day the
+    application was submitted to a Justice — and it is where provisioning cuts,
+    so what is stamped there decides what a cell for that moment may see. The
+    arrival is read off the docket's own submission entry on the live ingest
+    branch, with the docketing date as the fallback.
+
+    The defect this repairs is a stamp rule **correlated with the outcome**. The
+    live poller serves the unresolved slice, so a decided application has left
+    the rotation and is never re-polled: an event last polled before the arrival
+    read existed keeps the docketing date or nothing at all, and resolution
+    status therefore decides which reading a row carries, and any retrospective
+    interim population drawn from these events inherits that conditioning. A
+    forward cell is unaffected *once its row has been re-polled* — not by
+    construction: a queued row not polled since the arrival read shipped still
+    carries the docketing stamp and is moved by an apply, so the boundary runs
+    through the forward stratum too.
+
+    The population is SCOTUS interim baseline events — entry-pinned motion events
+    are excluded, since the arrival derivation is the wrong reading for one —
+    whose stamp shows either shape of the defect: no stamp, or the docketing
+    date. Not predicated on resolution, even though the class is overwhelmingly
+    decided rows: repairing only the decided half would condition the population
+    on resolution all over again.
+
+    Direction is a safety property. The cut keeps everything filed strictly
+    before the day after `opened_at`, so an earlier stamp admits less and a later
+    one admits more; docketing is systematically the later of the two readings.
+    A parse that would move a stamp **later** is refused rather than written, and
+    those cases are named.
+
+    Prints the day-delta histogram of every stamp that moved — but that is the
+    *window*, an upper bound on what could have been admitted rather than what
+    was, so beside it the ledger counts the entries the pre-repair cut admitted
+    and names the rows whose own disposition, or the Court's response request,
+    fell inside that band. A one-day move on a docket disposed of that day
+    admits the outcome; a month over a quiet docket admits nothing. The rows
+    that carried no stamp are reported apart and are the *larger* change: an
+    unstamped interim event takes no cut at all, so its cell read the latest
+    snapshot and what it gains is the window itself.
+
+    It also splits the class, the repairs and the residue by resolution, because
+    what it removes is the correlation on the slice carrying a readable snapshot
+    with a parseable arrival. Every other arm keeps the pre-repair stamp — late
+    is safe for leakage and is the conditioning defect itself — so a residue
+    that is entirely decided rows is a correlation shrunk rather than removed.
+
+    Idempotent, and convergent rather than terminal — `events.opened_at` carries
+    no fill-in latch, so a non-live re-extraction can write the docketing date
+    back and the sweep re-selects the row, provided that write leaves the stamp
+    equal to the docketing date the predicate matches on.
+
+    Run where the corpus is pulled — a dev checkout dry-runs it, and the apply
+    half belongs in run-repair's `arrival-backfill` pass, which holds the
+    corpus-write credentials. `--apply` refuses above `--max-fills`, which counts
+    the rows actually written. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_fills is None:
+        typer.echo(
+            "backfill-arrival-stamps: --apply requires an explicit --max-fills. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the arrival back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = backfill_arrival_stamps(
+            conn, apply=apply, max_fills=max_fills, data_root=settings.data_root
+        )
+    if not result.events_seen:
+        # Zero candidates has two causes and they are not the same run: a corpus
+        # whose interim events all carry their arrival, and one holding no
+        # interim events at all. The denominator is what tells them apart.
+        typer.echo(
+            f"backfill-arrival-stamps: no SCOTUS interim baseline events in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if result.refused:
+        typer.echo(
+            f"backfill-arrival-stamps: refusing to apply {len(result.filled)} stamp(s) "
+            f"(--max-fills {max_fills}). Read the dry run's own count rather than raising "
+            "the bound past it: this pass rewrites the moment provisioning cuts on.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "stamped" if apply else "would stamp"
+    # ORDERING IS LOAD-BEARING, not stylistic. The run-repair step tees this
+    # output into a GitHub step summary, which is capped at 1 MiB and discarded
+    # WHOLE above it, so the step truncates head-first. Over a five-figure class
+    # the per-row `filled` list alone runs past the cap — so every aggregate, the
+    # named exposure lists, and the JSON ledger are printed BEFORE it, and the
+    # per-row enumeration goes last where truncation costs the least. Do not
+    # reorder without re-reading the step.
+    typer.echo(
+        f"backfill-arrival-stamps ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.filled)} of {result.candidates} candidate(s) in a population "
+        f"of {result.events_seen} interim baseline event(s); "
+        f"{result.unchanged} already carrying their arrival; "
+        f"{result.no_snapshot} with no stored snapshot; "
+        f"{result.no_proceedings} whose snapshot discloses no proceedings; "
+        f"{result.unparsed} naming no dated submission entry"
+    )
+    # The matched denominator beside the loose one, and the arm no dispatch can
+    # reach: `events_seen` includes entry-pinned rows this route never acts on,
+    # so a prevalence taken against it is not one, and both live-slice counts are
+    # blind to the rows this pass structurally cannot repair.
+    unreachable = result.events_all_slices - result.baseline_candidates_seen
+    typer.echo(
+        f"  population: {result.candidates} of {result.baseline_candidates_seen} "
+        "reachable baseline event(s) carry the defect (the prevalence; the "
+        f"{result.events_seen} above is the looser wrong-blob denominator). "
+        f"{result.events_all_slices} baseline event(s) exist across the blob, so "
+        f"{unreachable} sit outside the live slice, hold no re-readable snapshot, "
+        "and keep their stamp through every dispatch of this pass"
+    )
+    # The `stamped` arm is a much larger change than any move, and the caveat has
+    # to travel with the number: those cells took NO cut at all — a null
+    # `opened_at` makes `moment_cutoff` return None, so the cell reads the latest
+    # snapshot — which is an unbounded window closed rather than a late one
+    # tightened. The histogram covers the `moved` arm alone.
+    worst = f"worst {result.move_days_max} day(s)" if result.moved else "no move to size"
+    typer.echo(
+        f"  {result.stamped} row(s) had no stamp at all — those cells took no cut, "
+        "reading the latest snapshot, so this closes an unbounded window rather "
+        f"than tightening a late one. {result.moved} moved earlier ({worst}); the "
+        "histogram below is the moved arm only: "
+        + ", ".join(f"{bucket}d: {count}" for bucket, count in result.move_histogram.items())
+    )
+    # The exposure readings, stated as what they are. They are computed against
+    # the newest stored snapshot with no date bound, so they say what a cell
+    # provisioned TODAY under the pre-repair stamp would admit — a bound on the
+    # rule's remaining reach, not a measurement of what any committed cell saw.
+    vintage = result.corpus_vintage.isoformat() if result.corpus_vintage else "unknown"
+    typer.echo(
+        f"  forward exposure (counterfactual over the corpus as of {vintage}): a cell "
+        "provisioned today under the pre-repair stamp would admit "
+        f"{result.over_admitted_entries} docket entr(ies) across "
+        f"{result.over_admitted_rows} row(s) that the repaired stamp does not; for "
+        f"{len(result.admitted_the_disposition)} row(s) that includes the case's own "
+        f"disposition, and {result.admitted_the_response_request} the response request. "
+        "Not a claim about cells that ran: it over-counts against a cell provisioned "
+        "when the docket was shorter, and under-counts wherever the stored snapshot "
+        "predates filings the docket has since gained"
+    )
+    # The resolution split: whether the correlation was removed or only shrunk.
+    typer.echo(
+        f"  resolution: {result.candidates_resolved} of {result.candidates} candidate(s) "
+        f"decided, {result.filled_resolved} of {len(result.filled)} repair(s); "
+        f"{result.unrepaired_resolved} of {result.unrepaired} unrepaired row(s) are "
+        "decided — a residue that is entirely decided is a correlation this pass "
+        "shrank rather than removed"
+    )
+    # And the residue's own exposure, which the repaired rows' readings cannot
+    # give: conditioning persists exactly where the stamp did not move.
+    typer.echo(
+        f"  residue exposure: {len(result.residue_admits_disposition)} of "
+        f"{result.unrepaired} unrepaired row(s) keep a stamp that still admits their "
+        f"own disposition ({len(result.later_refused)} of those were refused for "
+        "direction). These are where the conditioning survives this pass"
+    )
+    for case_id in result.admitted_the_disposition:
+        # The sharpest reading in this ledger, named rather than counted so a
+        # cohort can be checked case by case — and marked where the case actually
+        # carries committed predict output, which is the subset where the question
+        # is worth asking of a grading rather than of a rule.
+        committed = (
+            " [COMMITTED PREDICT OUTPUT]"
+            if case_id in result.admitted_the_disposition_committed
+            else ""
+        )
+        typer.echo(
+            f"  {case_id}: a cell provisioned today under the pre-repair stamp "
+            f"would read this case's own disposition{committed}"
+        )
+    for case_id in result.later_refused:
+        # Named, not counted: the parser anchors on the submission entry, which
+        # precedes docketing on every docket sampled for the rule, so a later
+        # reading is a payload to look at rather than a stamp to write.
+        typer.echo(f"  {case_id}: REFUSED — the parsed arrival postdates the stored stamp")
+    typer.echo(result.model_dump_json())
+    # Last, and deliberately: this is the only unbounded list here, so it is the
+    # only thing a truncated step summary should lose.
+    for fill in result.filled:
+        moved = f" (was {fill.previous.isoformat()}, {fill.moved_days}d)" if fill.previous else ""
+        admitted = (
+            f", {fill.over_admitted} entr(ies) no longer admitted" if fill.over_admitted else ""
+        )
+        typer.echo(
+            f"  {verb} {fill.case_id} {fill.event_id}: "
+            f"{fill.opened_at.isoformat()}{moved}{admitted}"
+        )
+
+
+@app.command("backfill-documents")
+def backfill_documents_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Fetch and store the primary documents; omit for a dry run that "
+            "fetches each candidate's docket JSON and reports what selection finds.",
+        ),
+    ] = False,
+    max_cases: Annotated[
+        int | None,
+        typer.Option(
+            "--max-cases",
+            help="Per-dispatch slice size, required with --apply: the number of "
+            "candidate cases this run fetches for. Honored on a dry run too, which "
+            "spends one paced docket GET per candidate. 0 takes an empty slice, "
+            "which walks the population and fetches nothing — the free reading of "
+            "the class as the corpus now holds it.",
+        ),
+    ] = None,
+    deadline_seconds: Annotated[
+        float | None,
+        typer.Option(
+            "--deadline-seconds",
+            help="Wall-clock budget for this run, measured from the moment the command "
+            "starts. Before each candidate the pass checks its estimated cost against "
+            "what is left and stops taking new ones once the budget will not hold it; "
+            "those are reported unreached and head the next slice. Size it under the "
+            "caller's own cap by whatever must still fit there once the pass stops "
+            "taking work. Omit for no deadline.",
+        ),
+    ] = None,
+) -> None:
+    """Provision the queued cases that hold no primary document, a slice at a time.
+
+    A case reaches prediction with the filing that opens it — the `petition` on a
+    cert-form docket, the `application` on an interim one — because provisioning
+    runs at the transition that queues it. A case whose provisioning ran before
+    the selector had an arm for its filing type kept nothing, and no lane repairs
+    that: the poller re-fetches a kind only when its link changes, and a kind
+    never stored has no link to change. This applies the current selector to the
+    cases already past their trigger.
+
+    The population is **form-keyed**: live-slice rows queued for prediction or
+    selected by the salience gate, measured against their own docket form's
+    primary document, so an application docket is never reported as missing a
+    petition it structurally never has. Not the wide distributed stock, which is
+    overwhelmingly legacy rows carrying no document links at all — this pass
+    costs paced round trips against the Court's own host, and the cases that can
+    mint a cell are the ones worth spending them on.
+
+    Each candidate is re-keyed off its stored docket number to the `(term,
+    serial)` the upstream endpoint addresses, and its docket JSON is fetched
+    **fresh** rather than read from the stored snapshot: the question is whether
+    the link is served now. The **dry run** stops there — one paced GET per
+    candidate, no filings fetched and nothing written — which is the whole
+    diagnostic, since it is what separates a case with a link waiting for it from
+    one at a floor. The **apply** goes on through the same fetch the live poller
+    runs, and writes each case's documents as they are made rather than batching
+    them, so a step that hits its cap has banked what it recovered.
+
+    Two floors are reported apart from the failures, because neither drains and
+    reading them as failures reports a converged class as a permanent defect: a
+    docket carrying the opening entry with no PDF behind it (a Rule 34.6 paper
+    filing), and one carrying no such entry at all. The second on a *modern*
+    docket is not a floor but a selector regression, and those cases are named.
+
+    `--max-cases` is a slice size rather than a refusal threshold, required on an
+    apply and honored on a dry run too, since both spend paced GETs.
+    `--deadline-seconds` is what keeps a slice inside its caller's wall-clock cap:
+    a candidate the budget will not hold is reported **unreached** — untouched,
+    unwritten, and at the head of the next slice — rather than failed. Its apply
+    half is a writer-lane pass by construction, since the corpus-write
+    credentials exist only there, and the lane invocation is run-repair's
+    `document-backfill` pass. Fails loud if the corpus is absent.
+    """
+    # Taken before any other work, so the population walk this command opens with
+    # is charged to the budget the caller sized.
+    started = time.monotonic()
+    settings = get_settings()
+    if apply and max_cases is None:
+        typer.echo(
+            "backfill-documents: --apply requires an explicit --max-cases. "
+            "Read the dry run first and pass the slice you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    max_cases = _slice_bound(max_cases, command="backfill-documents")
+    deadline = _slice_deadline(started, deadline_seconds, command="backfill-documents")
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the document back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cfg = load_historical_config(settings.config_root)
+    if apply:
+        # The pointer the back-fill is about to supersede — the corpus state the
+        # ledger below describes. Under the split mode the durable write is the
+        # content store's, so this names the index the store was consistent with.
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    with (
+        corpus.connect(db_path) as conn,
+        SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
+    ):
+        result = backfill_documents(
+            conn,
+            client=client,
+            apply=apply,
+            char_cap=cfg.document_text_cap,
+            today=date.today(),
+            max_cases=max_cases,
+            deadline=deadline,
+        )
+    if not result.cases_seen:
+        # Zero candidates has two causes and they are not the same run: a corpus
+        # whose queued population is fully provisioned, and one this process
+        # cannot read at all. The denominator is what tells them apart.
+        typer.echo(
+            f"backfill-documents: no predict-relevant live-slice rows in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "recovered" if apply else "would fetch for"
+    # The *recovered* count, not the number of cases anything was written for: a
+    # candidate whose primary filing was selected and then did not serve can
+    # still store the opposition briefs beside it, and headlining those together
+    # would report a slice as having recovered cases it left exactly where they
+    # were — which the `remaining` on the same line would then contradict.
+    counted = result.recovered if apply else len(result.selected)
+    typer.echo(
+        f"backfill-documents ({'applied' if apply else 'dry-run'}): "
+        f"{result.candidates} addressable candidate(s) in a population of "
+        f"{result.cases_seen} predict-relevant row(s) "
+        f"({result.cases_with_documents} holding any stored document) — "
+        f"{verb} {counted}, {result.remaining} left for the next slice"
+    )
+    typer.echo(
+        f"  attempted {result.attempted} "
+        f"(bound {'none' if result.bound is None else result.bound}); "
+        f"{result.unaddressable} unaddressable row(s) outside the class"
+    )
+    if apply and len(result.documents) > result.recovered:
+        # The gap between the two counts, said out loud: these cases gained a
+        # document and stayed in the class, which is the one shape of this pass
+        # that reads like a recovery on a per-case line and is not one.
+        typer.echo(
+            f"  {len(result.documents) - result.recovered} case(s) stored a "
+            "secondary document without their primary one and stay in the class"
+        )
+    typer.echo(
+        f"  floors: {result.no_link} with no link behind the opening entry "
+        f"(Rule 34.6 paper filings), {result.no_entry} with no opening entry at all"
+    )
+    typer.echo(
+        f"  losses: {result.docket_unserved} docket(s) unserved, "
+        f"{result.docket_errors} docket fetch error(s); "
+        + ", ".join(f"{reason}: {count}" for reason, count in result.fetch_losses.items())
+    )
+    for case_id, kinds in result.documents.items():
+        typer.echo(f"  {case_id}: stored {', '.join(kinds)}")
+    for case_id, kinds in result.selected.items():
+        typer.echo(f"  {case_id}: would fetch {', '.join(kinds)}")
+    for case_id in result.no_entry_modern_cases:
+        # Named, not counted: a modern docket whose opening filing matched no
+        # entry is a filing shape the selector has no arm for, which is the class
+        # this pass exists to stop producing rather than to absorb.
+        typer.echo(f"  {case_id}: NO OPENING ENTRY on a modern docket (selector regression)")
+    _echo_unreached(result.unreached)
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(result.model_dump_json())
 
 
 @app.command("scope-manifest")
@@ -6404,6 +6829,18 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
         "primary filing, not the petition an application docket never has. The "
         "two form counts partition the "
         f"{coverage.queued} queued-or-predicted case(s).)"
+    )
+    # And how much of each gap is a floor rather than a backlog. Without this the
+    # residue a successful back-fill leaves reads as an unexplained provisioning
+    # gap forever, and the number stops meaning anything a reader can act on.
+    typer.echo(
+        f"  ({coverage.queued_without_petition_floor} of the queued cert-form gap "
+        f"and {coverage.queued_without_application_floor} of the application one "
+        "are a structural floor: their stored docket carries the opening entry "
+        "with no document behind it — a paper filing the Court posted no PDF for, "
+        "which no fetch reaches. The rest is what the document back-fill drains. "
+        "Read off the stored payload, so a case upstream has since posted a link "
+        "for is counted here until that pass fetches it.)"
     )
     typer.echo(
         f"text frame: the pass read documents for {coverage.cases_read} of the "

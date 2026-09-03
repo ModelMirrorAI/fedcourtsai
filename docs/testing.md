@@ -428,7 +428,7 @@ run report the recovery note instead of a drained backlog) — so deleting a loa
 named test instead of passing every linter. Two of the family go further and
 *run* what the YAML embeds, because a workflow string is matched against the CLI
 for the first time when the job runs: `test_workflow_repair_cli_parity` reads
-each of `run-repair`'s nine dispatch-only maintenance passes back out of the
+each of `run-repair`'s twelve dispatch-only maintenance passes back out of the
 workflow — argv, conditional flag arrays and all, via the shared reader
 `tests/workflow_argv.py` — and executes it against the fixture corpus, so a
 renamed flag fails here rather than as a usage error mid-dispatch (its qp
