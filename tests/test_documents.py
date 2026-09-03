@@ -2039,8 +2039,8 @@ def test_document_text_coverage_ignores_a_prediction_outside_the_walked_slice(
     with corpus.connect(db) as conn:
         coverage = document_text_coverage(conn, data_root)
 
-    assert coverage.cases == 6
-    assert coverage.queued == 3
+    assert coverage.cases == 7
+    assert coverage.queued == 4
 
 
 def test_document_text_coverage_reach_counts_only_the_counted_kinds(tmp_path: Path) -> None:
@@ -2108,7 +2108,7 @@ def test_corpus_info_text_coverage_is_opt_in(
         "1 of 2 queued interim application docket(s) hold no application document"
         in measured.stdout
     )
-    assert "The two form counts partition the 4 queued case(s)." in measured.stdout
+    assert "The two form counts partition the 4 queued-or-predicted case(s)." in measured.stdout
     # And the widened kind travels with the figure it qualifies.
     assert "`petition` is the case-opening filing on any cert-form docket" in measured.stdout
     # A reach count, said to be one.
