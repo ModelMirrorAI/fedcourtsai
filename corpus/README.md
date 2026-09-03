@@ -72,7 +72,7 @@ source.
 | `case_name`           | text            | case caption, e.g. `Doe v. Roe` (both ingestion paths) |
 | `petitioner_title`    | text            | the petitioner's structured caption (supremecourt.gov `PetitionerTitle`, role suffix stripped; live channel only, fill-in latched) — the arrival-time party-class reading (`pipeline.caption`) |
 | `date_filed`          | date            |                                              |
-| `date_decided`        | date            |                                              |
+| `date_decided`        | date            | docket-level termination date. On a SCOTUS petition it takes the cert denial's date, since the order refusing the writ is the order that ends the docket; on a grant it stays null until the merits judgment (`date_cert_granted` is the petition's resolution, not the case's) |
 | `disposition`         | text            | realized outcome label; null while unresolved |
 | `judges`              | json array      | judge names (flat retrieval key)             |
 | `panel`               | json array      | structured panel: `{name, seniority}` per judge |

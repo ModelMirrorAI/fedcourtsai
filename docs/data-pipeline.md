@@ -914,7 +914,7 @@ or network.
   for an event still open, so a re-serve converges the row and leaves a
   committed ledger label to `converge-disposition-labels`. A number the corpus
   never held is onboarded outright, ledger included.
-- **Maintenance sweeps:** after the loop, one window a day also runs seven
+- **Maintenance sweeps:** after the loop, one window a day also runs eight
   converging sweeps in order — `fedcourts dedupe-live-rows --apply` (merging
   live-minted duplicate rows; a minted moment's committed event directory moves
   onto the survivor with its re-keyed row, so the lane must stage the moved
@@ -932,7 +932,17 @@ or network.
   `fedcourts reopen-misattributed-outcomes --apply` — ledger deletions and
   rewrites staged in the one pointer commit, removal first so the entry-pinned
   case clears the reopen sweep's baseline-pair triage in the same window, each
-  refusing to apply above its per-run blast-radius cap), and `fedcourts
+  refusing to apply above its per-run blast-radius cap), `fedcourts
+  converge-decision-dates --apply` (a denied petition's termination date, filled
+  in from the row's own `date_cert_denied` — the order refusing the writ is the
+  order that ends the docket, so the two name one moment; the grant side stays
+  out, since a granted docket terminates at a later merits judgment no column
+  holds, and two date guards decline a denial dated before its own filing or
+  after the as-of day rather than propagating either into a second column. It
+  converges rather than flaps only because the live channel's
+  resolution parse dates a denial's termination too: `date_decided` is
+  last-write-wins on upsert, so a sweep without that ingest default behind it
+  would be undone by the next walk of the Term), and `fedcourts
   scrub-bulk-cluster-fields --apply` (the stored circuit slice's misjoined
   bulk cluster fields, dropped from the rows nothing re-serves — keyed on
   the fields no channel could have written to a non-SCOTUS row, the ingest

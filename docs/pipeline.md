@@ -426,7 +426,7 @@ cluster and lands the reporter citations and opinion body
 [data-pipeline.md](data-pipeline.md)). It is the pass's only production lane —
 never scheduled, and dispatched into a dead zone between pull windows so it
 neither queues on the corpus-write lock nor stacks API spend onto a pull
-window's. run-seed also runs seven
+window's. run-seed also runs eight
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
@@ -453,7 +453,12 @@ remove-unmintable-events` then `fedcourts reopen-misattributed-outcomes`),
 which converge the misattribution shape an earlier single-open-event
 attribution shortcut wrote and its cause — removal first, clearing the
 entry-pinned case of the reopen sweep's baseline-pair triage in the same
-window, each bounded by a per-run blast-radius cap; and, last, the
+window, each bounded by a per-run blast-radius cap; the **decision-date
+convergence** (`fedcourts converge-decision-dates`), which fills a denied
+petition's `date_decided` from its own `date_cert_denied` — the order refusing
+the writ is the order that ends the docket, so the two name one moment, while
+the grant side stays out because a granted docket terminates at a later merits
+judgment no column holds; and, last, the
 **bulk-cluster scrub** (`fedcourts scrub-bulk-cluster-fields`), which
 converges the stored circuit slice onto the ingest projection's carve-out —
 the bulk export's misjoined cluster fields are withheld from a re-served
