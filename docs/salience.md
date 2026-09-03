@@ -1827,7 +1827,8 @@ none can be tuned to a result.
 The deterministic salience features and the predictor's big-case score both rest on
 **pre-conference / pre-decision** material only. Allowed predictor signals: the
 docket facts (relists, CVSG, circuit, fee class, questions presented, the petition
-and brief in opposition). Forbidden on the predictor side: the post-hoc press proxy
+and brief in opposition, and on an interim docket the application itself).
+Forbidden on the predictor side: the post-hoc press proxy
 and anything dated after the event — the same signals the evaluator *may* use as a
 judge. This makes both scores' timing contract identical to the grant/deny
 prediction's, so they slot into the existing forward/replay frame with no new
@@ -1849,7 +1850,12 @@ would delete the relist history the band is made of, and it reads the latest
 snapshot. The stage's `cvsg` and `arrival` moments are placed like any other —
 an arrival cell is banded on a docket with no distribution yet recorded, which
 is what `arrival` declares — as is the interim application baseline, whose
-declared moment *is* arrival. `context.cutoff` separates the two conditionings:
+declared moment *is* arrival, dated from the docket's own
+`Application (…) … submitted` entry
+(`interim_signals.application_arrival_date`) and falling back to the docketing
+date only where no submission entry can be dated, since docketing runs late on
+an application and the stamp is where the cut falls.
+`context.cutoff` separates the two conditionings:
 non-null where a moment placed the cell, null where nothing did.
 
 For those two cert moments the placement moves the **base rate**, not just the

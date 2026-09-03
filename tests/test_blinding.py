@@ -348,6 +348,34 @@ def test_an_agent_chosen_prose_filename_is_staged_under_the_harness_name(tmp_pat
     assert (alias_dir / payload["reasoning_doc"]).is_file()
 
 
+def test_a_model_whose_name_extends_another_priced_model_is_scrubbed_whole() -> None:
+    """A point-release id is masked entirely, not down to its version tail.
+
+    ``MODEL_RATES`` prices both a model and its point release, and the shorter
+    id is a strict prefix of the longer one. The alternation is leftmost-first
+    per position and the trailing boundary admits a digit, so offering the
+    prefix first would mask ``claude-fable-5`` and leave ``-1`` legible beside
+    the redaction — a tail that names the model as surely as the whole string
+    does. Longest-first ordering is what prevents it, and the prefix pairs the
+    table actually holds are what this walks, so the guard follows a re-pricing
+    rather than pinning today's ids.
+    """
+    terms = blinding.identity_terms(CONFIG_ROOT)
+    pattern = blinding.scrub_pattern(terms)
+    pairs = [
+        (short, long)
+        for short in MODEL_RATES
+        for long in MODEL_RATES
+        if long != short and long.startswith(short)
+    ]
+    assert pairs, "no prefix pair in MODEL_RATES — this guard has nothing to walk"
+    for _short, long in pairs:
+        scrubbed = blinding.scrub_text(f"I am {long}, answering.", pattern)
+        assert scrubbed == f"I am {blinding.IDENTITY_REDACTION}, answering.", (
+            f"{long} was masked in pieces, leaving its tail beside the redaction: {scrubbed}"
+        )
+
+
 def test_retrieval_md_self_identification_is_scrubbed(ledger: Path) -> None:
     """The title line the committed logs carry names the predictor; the staged one does not."""
     result = _blind(ledger)

@@ -37,6 +37,34 @@ plan job does), grades the cells that derivation planned, and requires the
 re-derivation to come back empty — the backlog drained, which is the lane's resting
 state. Run them all with `uv run pytest -k cascade_smoke`.
 
+The `test` stage runs the suite **in parallel**, one `pytest-xdist` worker per
+available CPU. No test depends on state another test left behind: the process-wide
+caches are reset per test by autouse fixtures in `tests/conftest.py`, and everything
+else a test needs — corpus, data root, working directory, environment — it builds for
+itself under `tmp_path` and `monkeypatch`. So a test may land on any worker. The stage
+distributes with xdist's `loadgroup`, which spreads per test as the default `load`
+does and additionally honours `@pytest.mark.xdist_group`, so a test that ever does
+need to run beside its siblings on one worker can say so where it lives instead of
+needing the gate changed underneath it. Coverage is unaffected: under `GATE_COV=1`
+each worker measures its own slice and pytest-cov combines them into the single
+`.coverage` file the CI job's summary step reads.
+
+Parallel workers are the wrong shape for debugging one failure — a worker has no
+terminal for `breakpoint()`, and output from several interleaves — so the worker count
+is overridable, and `1` drops xdist entirely:
+
+```bash
+GATE_TEST_WORKERS=1 scripts/gate.sh test   # serial, debuggable
+GATE_TEST_WORKERS=4 scripts/gate.sh test   # pin the count instead of per-core
+uv run pytest tests/test_salience.py       # a bare pytest run is serial anyway
+```
+
+A test that fails only under parallelism is a test leaking state, not a reason to
+serialize it: give it its own `tmp_path` root rather than a shared one. An
+`xdist_group` mark is for the case isolation cannot reach — a genuinely external
+shared resource — and carries the reason in a comment beside it. The suite needs
+none today.
+
 If you changed the pydantic models, the `schemas` stage regenerates the exported
 schemas and fails on drift — so regenerate and commit them in the same change.
 
@@ -217,9 +245,9 @@ App token — are marked in the workflow where they are made.
 Dispatch a scenario around the changes it guards: **before and after any
 change to corpus access** (the read seams, `corpus_ranged`, the sidecar
 composites, the blob's physical layout) **or to a corpus-consuming workflow**,
-**engine-smoke around any engine CLI version bump or sandbox/config change,
-and engine-actions-smoke around any bump to an engine action or to a cell's
-`with:` block**,
+**engine-smoke around any engine CLI version bump or sandbox/permission/config
+change, and engine-actions-smoke around any bump to an engine action, to a
+cell's `with:` block, or to the codex permission profile the cells select**,
 **collect around any change to the `collect-run` composite or the collect
 jobs that call it**, **qp-topic around any change to the `qp-topic-measure`
 composite, the labeling job, or the `qp_topics` module — and before any paid

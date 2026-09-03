@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9526000275",
+  "run_id": "20260903T010048Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "Missing snapshot and context.json for forward prediction on evt-order-response-requested-disposition. Proceeding using statpack baselines.",
+      "event_id": "evt-order-response-requested-disposition"
+    }
+  ]
+}

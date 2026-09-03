@@ -7,6 +7,7 @@ import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
+from fedcourtsai.integrity import leakage_record
 from fedcourtsai.metrics_refresh import REFRESH_BRANCH, render_backtest_pr, render_refresh_pr
 from fedcourtsai.schemas import (
     Backtest,
@@ -182,6 +183,23 @@ def test_the_leaderboard_headline_flags_a_regrade_and_uneven_coverage(tmp_path: 
     # The magnitude travels with the flag: this is the line most likely to be
     # quoted out of the body, and a flag without an `n` cannot be read.
     assert "unequal scored-set coverage (codex-baseline 4/6)" in pr.body
+
+
+def test_the_leaderboard_headline_flags_the_leakage_exclusion(tmp_path: Path) -> None:
+    """Cells dropped from every figure on the line have to be visible on it.
+
+    With the denominator beside the count, since a null bit is "not assessed"
+    rather than "clean".
+    """
+    metrics = _metrics_dir(tmp_path)
+    board = read_model(metrics / "leaderboard.json", Leaderboard)
+    board.leakage_exclusion = leakage_record(3, 15)
+    write_json(metrics / "leaderboard.json", board)
+
+    pr = render_refresh_pr(["metrics/leaderboard.json"], metrics.parent, "RID")
+
+    assert pr is not None
+    assert "3 of 15 assessed cell(s) excluded as leakage-suspected" in pr.body
 
 
 def test_the_leaderboard_headline_names_a_wholly_absent_predictor(tmp_path: Path) -> None:

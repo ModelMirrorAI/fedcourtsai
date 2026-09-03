@@ -19,6 +19,7 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.documents import (
     _QP_END_RE,
     _QP_MIN_CHARS,
+    KIND_APPLICATION,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
@@ -124,6 +125,224 @@ def test_select_documents_petition_and_bio_never_qplink() -> None:
         (KIND_BRIEF_IN_OPPOSITION, "https://example/bio.pdf"),
     ]
     assert all("qp" not in r.url for r in refs)  # QPLink leaks the outcome
+
+
+def _opening_payload(entry_text: str, links: list[dict[str, str]]) -> dict[str, object]:
+    """A docket whose only entry is ``entry_text``, carrying ``links``."""
+    return {"ProceedingsandOrder": [{"Date": "Jun 01 2026", "Text": entry_text, "Links": links}]}
+
+
+_PETITION_LINK = [{"Description": "Petition", "DocumentUrl": "https://example/opening.pdf"}]
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    [
+        # The Court's own wording for each filing that opens a cert-form docket,
+        # verbatim off the dockets named in the walk that motivated the arm.
+        "Petition for a writ of certiorari filed. (Response due July 2, 2026)",
+        "Petition for a writ of certiorari before judgment filed.",  # 25-243, 25-1290
+        "Petition for a writ of mandamus filed.",  # 25-1252, 25-1315, 26-40, 26-41
+        # The extraordinary writs the Court pairs on one docket, and the bare
+        # prohibition form beside them.
+        "Petition for a writ of mandamus and/or prohibition filed.",
+        "Petition for a writ of prohibition filed.",
+        # The Clerk omits the article on the habeas form; a pattern requiring
+        # "a writ" reads this docket as carrying no opening filing at all.
+        "Petition for writ of habeas corpus filed.",  # 25-1345
+        "Petition for a writ of certiorari and motion for leave to proceed "
+        + "in forma pauperis filed.",
+        "Petition for a writ of mandamus and/or prohibition and motion for leave "
+        + "to proceed in forma pauperis filed.",
+        "Conditional cross-petition for a writ of certiorari filed.",
+    ],
+)
+def test_select_documents_takes_the_whole_case_opening_family(entry_text: str) -> None:
+    refs = select_documents(_opening_payload(entry_text, _PETITION_LINK))
+    # One kind for the family: they are the same document to every reader here —
+    # the filing that asks the Court to take the case.
+    assert [(r.kind, r.url) for r in refs] == [(KIND_PETITION, "https://example/opening.pdf")]
+
+
+def test_select_documents_case_opening_arm_ignores_a_filing_about_the_petition() -> None:
+    # The phrase also runs mid-sentence in a motion *about* the opening filing.
+    # Docket order usually hides that — the real entry comes first — but not on
+    # the docket shape this arm exists for, a Rule 34.6 filing whose own entry
+    # carries no link, where the motion's PDF would be stored as the petition.
+    payload = {
+        "ProceedingsandOrder": [
+            {
+                "Date": "Jun 01 2026",
+                "Text": "Petition for a writ of mandamus filed.",
+                "Links": [],  # Rule 34.6: the Court posts nothing
+            },
+            {
+                "Date": "Jul 01 2026",
+                "Text": "Motion of petitioner to dismiss the petition for a writ "
+                + "of mandamus filed.",
+                "Links": [
+                    {"Description": "Main Document", "DocumentUrl": "https://example/motion.pdf"}
+                ],
+            },
+        ]
+    }
+    assert select_documents(payload) == []
+
+
+def test_select_documents_takes_a_jurisdictional_statement_by_its_own_label() -> None:
+    # A direct appeal's opening filing posts as `Jurisdictional Statement`, not
+    # `Petition`, and it can sit behind an appendix in the link list — so the
+    # label has to be preferred rather than left to the first-link fallback.
+    payload = _opening_payload(
+        "Statement as to jurisdiction filed.",  # 25-845
+        [
+            {"Description": "Appendix", "DocumentUrl": "https://example/appendix.pdf"},
+            {
+                "Description": "Jurisdictional Statement",
+                "DocumentUrl": "https://example/jurisdictional.pdf",
+            },
+        ],
+    )
+    refs = select_documents(payload)
+    assert [(r.kind, r.url) for r in refs] == [
+        (KIND_PETITION, "https://example/jurisdictional.pdf")
+    ]
+    assert refs[0].description == "Jurisdictional Statement"
+
+
+_APPLICATION_ENTRY = "Application (26A203) for a stay of the mandate, submitted to Justice Kagan."
+_APPLICATION_LINK = [
+    {"Description": "Main Document", "DocumentUrl": "https://example/application.pdf"}
+]
+
+
+def test_select_documents_takes_the_application_as_its_own_kind() -> None:
+    refs = select_documents(_opening_payload(_APPLICATION_ENTRY, _APPLICATION_LINK))
+    # A distinct kind, not an overloaded petition: an application asks for
+    # interim relief rather than review, and keying it apart is what lets the
+    # coverage report measure an application docket against its own filing.
+    assert [(r.kind, r.url) for r in refs] == [
+        (KIND_APPLICATION, "https://example/application.pdf")
+    ]
+    assert refs[0].description == _APPLICATION_ENTRY
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    [
+        # A disposing order over consolidated applications: it names no
+        # submission, so the filing verb is what keeps it out.
+        "Applications for stays (23A349, 23A350, 23A351, and 23A384) granted by the Court.",
+        "Application (26A203) denied by Justice Kagan.",
+        # A recital, not the application: the respondent's own filing carries
+        # the number and (the day it lands, before the Clerk accepts it) the
+        # verb, while its link is the response PDF.
+        "Response to application (26A203) from respondent State of Texas submitted.",
+        # The administrative family, which the arm reads out positively rather
+        # than by exclusion. An extension of time first —
+        "Application (25A410) to extend the time to file a petition for a writ of "
+        + "certiorari from July 15, 2026 to September 13, 2026, submitted to Justice Alito.",
+        # — then the Clerk's renewal wording for the same thing, which no plain
+        # "extend the time" exclusion catches because `further` splits it,
+        # and which is the commonest administrative shape on the docket.
+        "Application (24A797) to extend further the time from June 11, 2025 to "
+        + "July 11, 2025, submitted to Justice Kavanaugh.",
+        # And the over-length requests, which are the same kind of covering ask
+        # under wording an extension-shaped exclusion never reaches at all.
+        "Application (25A118) to file petition for a writ of certiorari in excess "
+        + "of page limits, submitted to Justice Gorsuch.",
+        "Application (25A220) to file reply brief in excess of word limit, "
+        + "submitted to The Chief Justice.",
+        # An ask the interim classifier cannot read is not selected either: the
+        # same reading keeps the docket out of the predict queue, so no cell
+        # ever wants the document.
+        "Application (26A300) concerning the matters described therein, "
+        + "submitted to Justice Barrett.",
+    ],
+)
+def test_select_documents_application_arm_excludes_non_submissions(entry_text: str) -> None:
+    assert select_documents(_opening_payload(entry_text, _APPLICATION_LINK)) == []
+
+
+def test_select_documents_application_arm_takes_only_the_main_document() -> None:
+    # An application entry posts its covering `Written Request` and `Proof of
+    # Service` beside — or instead of — the filing. The any-link fallback the
+    # other arms rely on would store the covering letter as the application's
+    # text, so this arm takes the labelled link or nothing.
+    letters_only = _opening_payload(
+        _APPLICATION_ENTRY,
+        [
+            {
+                "Description": "Written Request",
+                "DocumentUrl": "https://example/written-request.pdf",
+            },
+            {"Description": "Proof of Service", "DocumentUrl": "https://example/service.pdf"},
+        ],
+    )
+    assert select_documents(letters_only) == []
+
+    with_filing = _opening_payload(
+        _APPLICATION_ENTRY,
+        [
+            {
+                "Description": "Written Request",
+                "DocumentUrl": "https://example/written-request.pdf",
+            },
+            {"Description": "Main Document", "DocumentUrl": "https://example/application.pdf"},
+        ],
+    )
+    assert [(r.kind, r.url) for r in select_documents(with_filing)] == [
+        (KIND_APPLICATION, "https://example/application.pdf")
+    ]
+
+
+def test_select_documents_application_arm_skips_an_earlier_administrative_entry() -> None:
+    # First-match-wins is what makes the administrative exclusion load-bearing
+    # rather than cosmetic: an extension letter filed before the real
+    # application would otherwise win the docket and the substantive filing
+    # would never be selected at all.
+    payload = {
+        "ProceedingsandOrder": [
+            {
+                "Date": "Jun 01 2026",
+                "Text": "Application (24A797) to extend further the time from June 11, "
+                + "2025 to July 11, 2025, submitted to Justice Kavanaugh.",
+                "Links": [
+                    {"Description": "Main Document", "DocumentUrl": "https://example/letter.pdf"}
+                ],
+            },
+            {"Date": "Jul 01 2026", "Text": _APPLICATION_ENTRY, "Links": _APPLICATION_LINK},
+        ]
+    }
+    assert [(r.kind, r.url) for r in select_documents(payload)] == [
+        (KIND_APPLICATION, "https://example/application.pdf")
+    ]
+
+
+def test_select_documents_reads_the_renewal_form_off_its_own_ask() -> None:
+    # The Clerk's renewal carries the filing verb, so `interim_signals` names it
+    # explicitly to keep it out of the arrival date. Here it needs no naming:
+    # the bare form states no ask, so the substantive gate declines it, while a
+    # renewal that restates the ask is a real application entry. On a docket
+    # carrying both a head entry and a refiling, docket order takes the head.
+    renewal = "Application (26A118) refiled and submitted to Justice Alito."
+    refiled_link = [{"Description": "Main Document", "DocumentUrl": "https://example/refiled.pdf"}]
+    assert select_documents(_opening_payload(renewal, refiled_link)) == []
+
+    restated = "Application (26A118) for a stay, refiled and submitted to Justice Alito."
+    assert [
+        (r.kind, r.url) for r in select_documents(_opening_payload(restated, refiled_link))
+    ] == [(KIND_APPLICATION, "https://example/refiled.pdf")]
+
+    both = select_documents(
+        {
+            "ProceedingsandOrder": [
+                {"Date": "Jun 01 2026", "Text": _APPLICATION_ENTRY, "Links": _APPLICATION_LINK},
+                {"Date": "Jun 20 2026", "Text": restated, "Links": refiled_link},
+            ]
+        }
+    )
+    assert [r.url for r in both] == ["https://example/application.pdf"]
 
 
 def _bio_url(entry_text: str, *, links: list[dict[str, str]] | None = None) -> str | None:
@@ -812,6 +1031,109 @@ def test_fetch_case_documents_records_nothing_on_a_clean_fetch() -> None:
     assert document_fetch_losses().records == 0
 
 
+def test_fetch_case_documents_records_a_docket_that_selected_nothing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # The pre-selection loss: the three fetch reasons are raised inside the
+    # loops over `select_documents`' output, so a docket the pass was asked
+    # about and selected nothing on leaves no trace among them — which would
+    # leave a case that reaches prediction with no document indistinguishable
+    # from one that was never provisioned.
+    reset_document_fetch_losses()
+    payload = {
+        "ProceedingsandOrder": [
+            {"Date": "Jun 01 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."}
+        ]
+    }
+    with (
+        _doc_client({}) as client,
+        caplog.at_level(logging.WARNING, logger="fedcourtsai.pipeline.documents"),
+    ):
+        documents = fetch_case_documents(
+            client,
+            "scotus/9026000014",
+            payload,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 7, 10),
+        )
+    assert documents == []
+    losses = document_fetch_losses()
+    assert losses.not_selected == 1
+    # Disjoint from the post-selection reasons by construction: nothing was
+    # selected, so nothing could fail.
+    assert (losses.http_error, losses.unavailable, losses.bio_empty) == (0, 0, 0)
+    assert losses.records == 1
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert "not-selected" in logged and "scotus/9026000014" in logged
+
+
+def test_fetch_case_documents_records_a_rule_34_6_paper_filing_once() -> None:
+    # The Court's Rule 34.6 dockets carry the opening entry the pattern matches
+    # with no links at all, because no PDF is published. The entry produces no
+    # ref, so the case records the one pre-selection loss and no per-document
+    # one — the floor must not be double-counted as a fetch failure too.
+    reset_document_fetch_losses()
+    payload = {
+        "ProceedingsandOrder": [
+            {
+                "Date": "Jun 01 2026",
+                "Text": "Petition for a writ of certiorari filed.",
+                "Links": [],
+            },
+            {
+                "Date": "Jun 01 2026",
+                "Text": "Pursuant to Rule 34.6 and Paragraph 9 of the Guidelines for the "
+                + "Submission of Documents to the Supreme Court's Electronic Filing System, "
+                + "filings in this case are not posted.",
+                "Links": [],
+            },
+        ]
+    }
+    assert select_documents(payload) == []
+    with _doc_client({}) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9026000030",
+            payload,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 7, 10),
+        )
+    assert documents == []
+    losses = document_fetch_losses()
+    assert losses.not_selected == 1
+    assert losses.records == 1  # one record for the case, not one per empty entry
+
+
+def test_fetch_case_documents_derives_no_questions_from_an_application() -> None:
+    # The questions-presented section is a petition convention; an application
+    # for interim relief fronts no such heading, and a row derived from one
+    # would enter the labeling extract as a question this case presents. So the
+    # derivation stays keyed on the petition even where the application's text
+    # happens to spell the heading.
+    reset_document_fetch_losses()
+    payload = _opening_payload(_APPLICATION_ENTRY, _APPLICATION_LINK)
+    served = {
+        "https://example/application.pdf": _pdf(
+            "QUESTION PRESENTED Whether the mandate should be stayed. "
+            "PARTIES TO THE PROCEEDING Acme Corp."
+        )
+    }
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9526000203",
+            payload,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 7, 10),
+        )
+    assert [d.kind for d in documents] == [KIND_APPLICATION]
+    assert "mandate should be stayed" in documents[0].text
+    assert document_fetch_losses().records == 0
+
+
 # --- corpus storage + cell provisioning --------------------------------------------
 
 
@@ -1037,6 +1359,18 @@ def _bio_document(case_id: str, text: str) -> corpus.CaseDocument:
         entry_date="Jul 01 2026",
         fetched_at=date(2026, 7, 2),
         pages=20,
+        text=text,
+    )
+
+
+def _application_document(case_id: str, text: str) -> corpus.CaseDocument:
+    return corpus.CaseDocument(
+        case_id=case_id,
+        kind=KIND_APPLICATION,
+        url=f"https://example/{case_id.rsplit('/', 1)[-1]}-application.pdf",
+        entry_date="Jun 01 2026",
+        fetched_at=date(2026, 6, 2),
+        pages=45,
         text=text,
     )
 
@@ -1508,7 +1842,7 @@ def test_backfill_questions_presented_cli_fails_loud(tmp_path: Path) -> None:
 
 
 def _seed_text_coverage_corpus(corpus_root: Path) -> Path:
-    """Seven SCOTUS rows spanning every cut and every caveat the measure reports.
+    """Eight SCOTUS rows spanning every cut and every caveat the measure reports.
 
     - scotus/10: paid modern-cert, a scanned filing — the petition and the
       questions-presented row derived from it both read back empty.
@@ -1522,8 +1856,11 @@ def _seed_text_coverage_corpus(corpus_root: Path) -> Path:
     - scotus/15: an empty petition stored with zero pages, which is the
       could-not-open branch rather than a scan.
     - scotus/16: an interim application docket, distributed and queued and
-      holding nothing — structurally petitionless, so the queued count must
-      hold it out rather than report it as a provisioning gap.
+      holding nothing — measured against its own primary document, so it is a
+      gap on the application count and never on the petition one.
+    - scotus/17: the same docket form holding its application, which is what a
+      complete application docket looks like — it must leave the application
+      gap entirely rather than sit in it forever as a floor.
     """
     db = corpus.corpus_db_path(corpus_root)
     with corpus.connect(db) as conn:
@@ -1551,9 +1888,10 @@ def _seed_text_coverage_corpus(corpus_root: Path) -> Path:
                     # Distributed and queued, but holding nothing to read.
                     (14, "25-14", date(2026, 6, 2), 1, date(2026, 6, 3)),
                     (15, "25-15", date(2026, 6, 2), 1, None),
-                    # An application, not a cert petition: no petition is ever
-                    # selected for it, so its absence is the docket form.
+                    # An application, not a cert petition: its primary document
+                    # is the application, so that is what it is measured on.
                     (16, "26A245", date(2026, 6, 2), 1, date(2026, 6, 3)),
+                    (17, "26A246", date(2026, 6, 2), 1, date(2026, 6, 3)),
                 )
             ],
         )
@@ -1571,6 +1909,7 @@ def _seed_text_coverage_corpus(corpus_root: Path) -> Path:
                 _bio_document("scotus/12", ""),
                 _petition_document("scotus/13", ""),
                 _petition_document("scotus/15", "", pages=0),
+                _application_document("scotus/17", "Applicants seek a stay of the mandate."),
             ],
         )
     return db
@@ -1584,11 +1923,12 @@ def test_document_text_coverage_counts_empty_text_by_kind_and_segment(tmp_path: 
     # scotus/13 carries an empty petition but no live-slice stamp: documents
     # reach the corpus on that channel only, so counting it would import a row
     # the pipeline can never provision a cell from.
-    assert coverage.cases == 6
-    assert coverage.cases_read == 4  # scotus/14 and scotus/16 served nothing
+    assert coverage.cases == 7
+    assert coverage.cases_read == 5  # scotus/14 and scotus/16 served nothing
     assert coverage.offloaded is False
     # The petition cut, which is the one a scanning decision reads.
     assert coverage.kind_totals(KIND_PETITION) == (4, 2)
+    assert coverage.kind_totals(KIND_APPLICATION) == (1, 0)
     assert coverage.kind_totals(KIND_BRIEF_IN_OPPOSITION) == (2, 1)
     assert coverage.kind_totals(KIND_QUESTIONS_PRESENTED) == (2, 1)
 
@@ -1604,16 +1944,20 @@ def test_document_text_coverage_counts_empty_text_by_kind_and_segment(tmp_path: 
     # The two counts that keep the empty share from being read as the whole
     # problem: a distributed case with nothing stored, and an empty petition
     # that is a failed open rather than a scan.
-    # The wide count is the unfiltered stock, so the application docket is in it.
-    assert coverage.distributed == 6
-    assert coverage.distributed_without_petition == 2
-    # The narrow denominator over an empty ledger: scotus/10, scotus/14 and
-    # scotus/16 carry the stamp, two of them hold no petition, and only
-    # scotus/14 is a gap — scotus/16 is an application docket, which no petition
-    # was ever selected for.
-    assert coverage.queued == 3
+    # The wide count stays petition-keyed and unfiltered, so both application
+    # dockets are in it — including scotus/17, which holds its own document.
+    assert coverage.distributed == 7
+    assert coverage.distributed_without_petition == 3
+    # The narrow denominator is form-keyed: of the four queued rows, scotus/14
+    # is the cert-form gap, scotus/16 the application-form one, and scotus/17
+    # is complete — its application stored, so it leaves the count rather than
+    # sitting in it as a floor.
+    assert coverage.queued == 4
+    # Each gap against the population it drains from; the two form denominators
+    # partition the queue, so neither number is a share of the other's rows.
+    assert (coverage.queued_cert_forms, coverage.queued_application_forms) == (2, 2)
     assert coverage.queued_without_petition == 1
-    assert coverage.queued_application_forms == 1
+    assert coverage.queued_without_application == 1
     assert coverage.unopened_petitions == 1
 
     # The triage list an extraction fix would work from: case_ids in walk order,
@@ -1623,9 +1967,11 @@ def test_document_text_coverage_counts_empty_text_by_kind_and_segment(tmp_path: 
         "scotus/12": [KIND_BRIEF_IN_OPPOSITION],
         "scotus/15": [KIND_PETITION],
     }
-    # And the second ledger, for the mode no extraction fix reaches: the gap
-    # named, the structural floor held out of it.
+    # And the two ledgers, for the mode no extraction fix reaches: each docket
+    # form's gap named against its own primary document, kept apart because a
+    # repair works one at a time.
     assert coverage.queued_without_petition_cases == ["scotus/14"]
+    assert coverage.queued_without_application_cases == ["scotus/16"]
 
 
 def test_document_text_coverage_counts_a_stamp_free_mint_in_the_queued_denominator(
@@ -1718,9 +2064,9 @@ def test_document_text_coverage_reach_counts_only_the_counted_kinds(tmp_path: Pa
             ],
         )
         coverage = document_text_coverage(conn, tmp_path / "data")
-    assert coverage.cases_read == 4
+    assert coverage.cases_read == 5
     # And it is still counted as a distributed case holding no petition.
-    assert coverage.distributed_without_petition == 2
+    assert coverage.distributed_without_petition == 3
 
 
 def test_document_text_coverage_share_is_none_over_an_unread_cut(tmp_path: Path) -> None:
@@ -1753,17 +2099,21 @@ def test_corpus_info_text_coverage_is_opt_in(
     assert "1 with pages but no text layer, 1 a PDF the extractor could not open" in measured.stdout
     # The other failure mode, printed beside the first rather than left to a
     # reader to notice it is missing.
-    assert "missing documents: 2 of 6 distributed case(s) hold no petition row" in measured.stdout
-    assert "and 1 of 3 queued or predicted" in measured.stdout
-    # The queued count's exclusion is printed, not left to a reader to infer
-    # from the docket forms — and it says which side of the ratio it left, since
-    # a filtered numerator over an unfiltered denominator is otherwise a share
-    # of nothing in particular.
-    assert "1 further such case(s) hold no petition because they are interim" in measured.stdout
-    assert "out of the count above but still inside its denominator" in measured.stdout
+    assert "missing documents: 3 of 7 distributed case(s) hold no petition row" in measured.stdout
+    # Each gap against its own form's denominator, never against the whole
+    # queue: a filtered numerator over an unfiltered denominator is a share of
+    # nothing in particular, and a number that drains needs its population.
+    assert "and 1 of 2 queued-or-predicted cert-form case(s)" in measured.stdout
+    assert (
+        "1 of 2 queued interim application docket(s) hold no application document"
+        in measured.stdout
+    )
+    assert "The two form counts partition the 4 queued case(s)." in measured.stdout
+    # And the widened kind travels with the figure it qualifies.
+    assert "`petition` is the case-opening filing on any cert-form docket" in measured.stdout
     # A reach count, said to be one.
     assert (
-        "text frame: the pass read documents for 4 of the 6 live-slice case(s)" in measured.stdout
+        "text frame: the pass read documents for 5 of the 7 live-slice case(s)" in measured.stdout
     )
     assert "a reach count, not a failure rate" in measured.stdout
     assert "scored petition            n=3 empty=2 (66.67%)" in measured.stdout
@@ -1781,7 +2131,12 @@ def test_corpus_info_text_coverage_is_opt_in(
     assert "no petition, queued (1 case(s)):" in measured.stdout
     queued_ledger = measured.stdout.split("no petition, queued (1 case(s)):")[1]
     assert queued_ledger.splitlines()[1].strip() == "scotus/14"
-    assert "scotus/16" not in queued_ledger
+    # The application docket is not in the petition ledger; it has its own, and
+    # the complete one (scotus/17) is in neither.
+    assert "no application, queued (1 case(s)):" in measured.stdout
+    application_ledger = measured.stdout.split("no application, queued (1 case(s)):")[1]
+    assert application_ledger.splitlines()[1].strip() == "scotus/16"
+    assert "scotus/17" not in measured.stdout
 
 
 def test_corpus_info_text_coverage_caveats_a_blob_only_read(
@@ -1817,13 +2172,20 @@ def test_corpus_info_text_coverage_self_limits_when_the_store_serves_nothing(
     result = runner.invoke(app, ["corpus-info", "--text-coverage"])
     assert result.exit_code == 0, result.output
     assert "text coverage: 0 of 0 stored petition(s) carry no text (-)" in result.stdout
-    assert "text frame: the pass read documents for 0 of the 6 live-slice case(s)" in result.stdout
+    assert "text frame: the pass read documents for 0 of the 7 live-slice case(s)" in result.stdout
     # Every distributed case reads as holding no petition, which is the loudest
     # form the self-limit takes: nothing was readable, and the report says it in
-    # the count a reader is most likely to act on. The application docket still
-    # comes out of the queued count — that exclusion is read off the docket
-    # number, so it holds whether or not a document was served.
-    assert "missing documents: 6 of 6 distributed case(s)" in result.stdout
-    assert "and 2 of 3 queued or predicted" in result.stdout
-    assert "1 further such case(s) hold no petition because they are interim" in result.stdout
+    # the count a reader is most likely to act on. The application dockets still
+    # come out of the petition count — the form split is read off the docket
+    # number, so it holds whether or not a document was served — and both land
+    # in the application count, including the one whose document exists but was
+    # not served.
+    assert "missing documents: 7 of 7 distributed case(s)" in result.stdout
+    # Both gaps read fully open, each against its own denominator: the form
+    # split survives the degradation because it is read off the docket number,
+    # while every document presence check answers false.
+    assert "and 2 of 2 queued-or-predicted cert-form case(s)" in result.stdout
+    assert (
+        "2 of 2 queued interim application docket(s) hold no application document" in result.stdout
+    )
     assert "text source: the per-case content store" in result.stdout

@@ -245,9 +245,9 @@ def test_a_queued_case_is_admitted_even_with_nothing_stored(tmp_path: Path) -> N
     queue stamp is the pull lane's own record that it ran — the sweep provisions at
     queue time. Reading document presence as the rule instead would conflate "not
     yet provisioned" with "provisioned, found nothing" and permanently strand every
-    docket with no document route at all: `select_documents` has no application
-    branch, so the whole interim lane would be barred from this backlog forever
-    rather than held for a window."""
+    docket whose route came back empty: a Rule 34.6 paper filing the Court
+    publishes no PDF for would be barred from this backlog forever rather than held
+    for a window."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _open_case(db, "scotus", 1, provisioned=False, queued_on=date(2026, 7, 10))

@@ -51,6 +51,7 @@ from .cert_signals import (
     proceedings_entries,
 )
 from .interim_signals import (
+    application_arrival_date,
     application_kind,
     escalation_signals,
     match_interim_disposition,
@@ -205,6 +206,16 @@ class CorpusRow(BaseModel):
         "on a granted docket; None elsewhere — the storage latch keeps a "
         "stored parse when a writer carries none, and it moves as a pair with "
         "`merits_decided`.",
+    )
+    application_filed_at: date | None = Field(
+        default=None,
+        description="When the application itself reached the docket, read from "
+        "its own submission entry — the interim stage's arrival moment, and "
+        "where its baseline event opens. Live application branch only; None "
+        "elsewhere (never application-parsed). Deliberately not projected onto "
+        "the storage row: the durable record of the arrival is the event's "
+        "`opened_at`, which this exists to stamp, and a second column stating "
+        "the same date would be one more thing to keep in step.",
     )
     response_requested_at: date | None = Field(
         default=None, description="When a response to the application was requested."
@@ -538,6 +549,7 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         cvsg_date=_date(record.get("cvsg_date")),
         originating_court_name=_clean(record.get("originating_court_name")),
         application_kind=_clean(record.get("application_kind")),
+        application_filed_at=_date(record.get("application_filed_at")),
         response_requested=_as_flag(record.get("response_requested")),
         referred_to_court=_as_flag(record.get("referred_to_court")),
         amicus_briefs=_as_count(record.get("amicus_briefs")),
@@ -845,6 +857,17 @@ def map_live_docket(
     petition (``fedcourtsai.supremecourt.live_docket_id``).
     """
     entries = _live_entries(payload)
+    # Upstream appends a display annotation to some case numbers
+    # ("19-1094 *** CAPITAL CASE ***"). It is a flag on the case, not part of
+    # the number, and every reader of the stored column parses the whole string
+    # — so storing it raw makes the docket unparseable to the fee-class,
+    # Term-year, and live-addressing readers alike. Strip it here, at the write
+    # site, and latch what it said in `capital_case` so the strip loses nothing.
+    # Read before the form branch because the application branch anchors its
+    # arrival read on the docket's own number, in the stripped spelling the
+    # record below carries.
+    case_number = _clean(payload.get("CaseNumber")) or ""
+    docket_number = corpus.strip_docket_annotation(case_number)
     conference = _live_conference_date(entries)
     cvsg = _live_cvsg_date(entries)
     ask: str | None = None
@@ -855,6 +878,7 @@ def map_live_docket(
     merits_brief: date | None = None
     response_requested_on: date | None = None
     response_filed_on: date | None = None
+    application_filed_on: date | None = None
     if form == "application":
         # An application has no cert stage: no conference, no CVSG, and a
         # disposition its own vocabulary reads. Dating it as a termination rather
@@ -874,9 +898,16 @@ def map_live_docket(
         texts = [str(entry.get("description") or "") for entry in entries]
         ask = application_kind(texts).value
         requested, referred, amici = escalation_signals(texts)
-        # The two dated interim moments, read from the same entries the ladder
+        # The three dated interim moments, read from the same entries the ladder
         # flags come from. Dates rather than flags because these open events.
+        # The arrival is read here rather than left to the docketing date
+        # because that date is not always there to take: an application row
+        # whose `DocketedDate` came back blank opens its baseline at no date at
+        # all, and provisioning cannot place a cell at a moment it cannot date.
+        # The submission entry is also the trigger the cut has to keep, which
+        # the docketing date is only incidentally.
         dated = proceedings_entries(payload)
+        application_filed_on = application_arrival_date(docket_number, dated)
         response_requested_on = response_requested_date(dated)
         response_filed_on = response_filed_date(dated)
     else:
@@ -905,17 +936,10 @@ def map_live_docket(
     parties, attorneys, counsel = _live_counsel(payload)
     lower_court = _clean(payload.get("LowerCourt"))
     lower_numbers = _clean(payload.get("LowerCourtCaseNumbers"))
-    # Upstream appends a display annotation to some case numbers
-    # ("19-1094 *** CAPITAL CASE ***"). It is a flag on the case, not part of
-    # the number, and every reader of the stored column parses the whole string
-    # — so storing it raw makes the docket unparseable to the fee-class,
-    # Term-year, and live-addressing readers alike. Strip it here, at the write
-    # site, and latch what it said in `capital_case` so the strip loses nothing.
-    case_number = _clean(payload.get("CaseNumber")) or ""
     return {
         "id": docket_id,
         "court_id": "scotus",
-        "docket_number": corpus.strip_docket_annotation(case_number),
+        "docket_number": docket_number,
         # Two readings of one fact, OR-ed: the payload's own flag is the
         # authoritative one, and the annotation is what a payload that omits the
         # flag still says. Either alone would under-report.
@@ -933,6 +957,9 @@ def map_live_docket(
         "cvsg_date": cvsg.isoformat() if cvsg else None,
         "originating_court_name": lower_court,
         "application_kind": ask,
+        "application_filed_at": (
+            application_filed_on.isoformat() if application_filed_on else None
+        ),
         "response_requested": requested,
         "referred_to_court": referred,
         "amicus_briefs": amici,
@@ -979,6 +1006,17 @@ def default_event(row: CorpusRow) -> corpus.CorpusEvent:
     replacing the per-case ``event.yaml`` the retired active tier used.
     Deterministic so a re-discovery reproduces the same ``event_id``; richer,
     agent-defined events can be layered on top later.
+
+    ``opened_at`` is the docket's own arrival: the application's submission
+    entry on an interim docket (``application_filed_at``), and the docketing
+    date everywhere else — and on an application where no submission entry
+    could be dated. It matters because the interim baseline's declared moment
+    **is** arrival (:mod:`fedcourtsai.pipeline.moments`), so this stamp is where
+    provisioning cuts the cell's snapshot to the moment
+    (:func:`fedcourtsai.provision.moment_cutoff`): left null, the cell reads the
+    latest stored payload instead and the moment it declares carries no
+    boundary at all — an arrival baseline conditioned on filings that postdate
+    the arrival.
     """
     if row.court == "scotus" and parse_scotus_application_number(row.docket_number) is not None:
         # An interim application docket: a stay/injunction application is a
@@ -1011,7 +1049,22 @@ def default_event(row: CorpusRow) -> corpus.CorpusEvent:
         moment=moments.first_moment(stage) if stage is not None else None,
         title=row.case_name or row.docket_number or row.case_id,
         decision_target="disposition",
-        opened_at=row.date_filed,
+        # The application's own submission entry first, then the docketing
+        # date. Entry-first because this stamp is where provisioning cuts, and
+        # the two readings do not disagree symmetrically: over 60 substantive
+        # application dockets the submission entry precedes docketing on 34 (a
+        # median 5 days, up to 64) and follows it on none, so the docketing
+        # date is systematically the *later* of the two. Later is the enlarging
+        # direction — the cut keeps everything filed strictly before the day
+        # after `opened_at`, so a docketing stamp admits filings the arrival
+        # moment never saw, and on the sampled dockets it admitted the
+        # response-request trigger on 5 of the 7 that have one and the
+        # disposition itself on 4 of the 55 that had been disposed of.
+        # Entry-first tightens the boundary onto
+        # the trigger the moment is declared at. `application_filed_at` is
+        # written only on the live application branch, so every other form
+        # takes the docketing date exactly as before.
+        opened_at=row.application_filed_at or row.date_filed,
         resolved=row.disposition is not None,
     )
 
@@ -1060,6 +1113,46 @@ def to_corpus_row(
     The ingestion model carries provenance the storage model does not need
     (``source``, ``schema_version``, ``docket_id`` — recoverable from
     ``case_id``); ``nature_of_suit`` maps onto the store's ``topic`` column.
+
+    One docket *fact* is deliberately dropped too:
+    ``application_filed_at`` exists to stamp the interim baseline's
+    ``opened_at`` (:func:`default_event`), and that event column is the durable
+    record of the arrival. A ``cases`` column beside it would state the same
+    date twice with nothing keeping the two in step.
+
+    The choice carries a cost, and it is **not** the one the dated interim
+    signals carry. ``response_requested_at`` and ``response_filed_at`` are
+    stored columns under a fill-in ``COALESCE`` latch
+    (:func:`fedcourtsai.corpus._update_clause`), so a channel that cannot read
+    them leaves what another channel stamped. ``events.opened_at`` has **no**
+    latch (:func:`fedcourtsai.corpus._event_update_clause` — every event column
+    but ``resolved`` takes the incoming value), and the arrival read is
+    live-branch-only. So a **non-live re-extraction** of an application docket —
+    ``pull.pull_case`` or ``discover``, both re-running
+    :func:`extract_events` over :func:`from_api_docket`, which carries no
+    ``application_filed_at`` — would write the docketing date back over the
+    arrival stamp, in the enlarging direction.
+
+    Two things keep that from happening, and **neither is a latch**. Discovery
+    is off (``config/tracking.yaml``'s ``discover_new_filings``, a flag whose
+    own comment invites flipping it back on): with it on, :mod:`.discover`
+    reconciles a CourtListener docket onto the live-first row it matches — the
+    docket-number join matches an application number verbatim — and then
+    rewrites that row's events. And the REST refresh rotation is stalest-first
+    with no live-id or application filter, so an application row is not excluded
+    from it, merely far back in it; most SCOTUS application-form rows carry
+    CourtListener ids, and a live-polled substantive application addressable by
+    both channels exists today. The exposure is therefore real, dormant, and
+    held off by configuration rather than by construction. The seeding and
+    dedupe paths are safe for a firmer reason: they copy stored event rows
+    rather than re-deriving them. Recorded here because it is a *cross-channel
+    reset* rather than a degraded parse, and because the latch that would close
+    it belongs to ``events`` rather than to this projection.
+
+    The other cost is ordinary: with no stored column, re-deriving the arrival
+    on an already-decided application means re-reading its stored snapshot, the
+    way :mod:`fedcourtsai.pipeline.response_backfill` re-reads the dated
+    response signals.
 
     ``last_pulled`` and ``last_live_polled`` are channel tracking state (not
     docket facts), so they are supplied by the caller: ``pull`` stamps the REST

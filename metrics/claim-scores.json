@@ -20,6 +20,7 @@
     ],
     "since": "2026-09-05T00:00:00Z"
   },
+  "leakage_exclusion": null,
   "procedural_agreement": null,
   "process_scope": "frozen",
   "retrospective_agreement": null,

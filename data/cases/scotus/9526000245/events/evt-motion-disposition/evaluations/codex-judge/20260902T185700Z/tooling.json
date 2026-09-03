@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000245",
+  "run_id": "20260902T185700Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local file inspection",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "Blinded candidate directories preserved identity-independent grading.",
+    "Captured retrieval logs made the forward-mode leakage assessment auditable.",
+    "The committed interim statpack established that the harness baseline clears its sample floor."
+  ],
+  "gaps": [],
+  "notes": "The provisioned artifacts were sufficient; no external retrieval was needed."
+}

@@ -17,6 +17,8 @@ from fedcourtsai.agent_feedback import (
     _gh,
     already_posted,
     choose_feedback_issue,
+    issue_bodies,
+    open_issue_once,
     post_agent_feedback,
     post_once,
 )
@@ -303,3 +305,85 @@ def test_the_posting_entry_points_inherit_the_bound(monkeypatch: pytest.MonkeyPa
         ["issue", "view"],
         ["issue", "comment"],
     ]
+
+
+# --- open_issue_once: the run-ops digests' per-issue reading surfaces --------
+
+_DIGEST_MARKER = "<!-- daily-digest-event: scotus/1/evt-petition-disposition -->"
+_DIGEST_BODY = f"{_DIGEST_MARKER}\n# Some case\n"
+
+
+class FakeIssueGh:
+    """A :data:`GhRunner` whose ``issue list --json body`` returns canned bodies."""
+
+    def __init__(self, *, bodies: list[str], create_url: str = "") -> None:
+        self._bodies = bodies
+        self._create_url = create_url
+        self.calls: list[list[str]] = []
+
+    def __call__(self, argv: Sequence[str]) -> str:
+        self.calls.append(list(argv))
+        verb = tuple(argv[1:3])
+        if verb == ("issue", "list"):
+            return json.dumps([{"body": body} for body in self._bodies])
+        if verb == ("issue", "create"):
+            return self._create_url + "\n"
+        return ""  # label create
+
+    def created_issue(self) -> bool:
+        return any(tuple(c[1:3]) == ("issue", "create") for c in self.calls)
+
+
+def test_issue_bodies_reads_both_states_newest_first() -> None:
+    # A digest issue is closed once read, so an open-only listing would forget
+    # everything already read and re-feature it tomorrow.
+    gh = FakeIssueGh(bodies=["newest", "older"])
+
+    assert issue_bodies("o/r", "daily-digest", runner=gh) == ["newest", "older"]
+    listing = gh.calls[0]
+    assert listing[:3] == ["gh", "issue", "list"]
+    assert "--state" in listing
+    assert listing[listing.index("--state") + 1] == "all"
+    assert listing[listing.index("--json") + 1] == "body"
+
+
+def test_open_issue_once_creates_the_label_then_the_issue() -> None:
+    gh = FakeIssueGh(bodies=[], create_url="https://github.com/o/r/issues/7")
+
+    status = open_issue_once(
+        repo="o/r",
+        label="daily-digest",
+        label_color="1d76db",
+        label_description="Daily prediction-reading digest",
+        title="Daily digest: Some case",
+        body=_DIGEST_BODY,
+        marker=_DIGEST_MARKER,
+        runner=gh,
+    )
+
+    assert status == "opened https://github.com/o/r/issues/7"
+    # The label is ensured with --force first, so the first ever run cannot fail
+    # on a label that does not exist yet.
+    assert gh.calls[0][:4] == ["gh", "label", "create", "daily-digest"]
+    assert "--force" in gh.calls[0]
+    assert gh.created_issue()
+
+
+def test_open_issue_once_is_idempotent_on_the_marker() -> None:
+    # A re-dispatched schedule must not open a second issue for the event the
+    # last run already featured.
+    gh = FakeIssueGh(bodies=["unrelated", _DIGEST_BODY])
+
+    status = open_issue_once(
+        repo="o/r",
+        label="daily-digest",
+        label_color="1d76db",
+        label_description="Daily prediction-reading digest",
+        title="Daily digest: Some case",
+        body=_DIGEST_BODY,
+        marker=_DIGEST_MARKER,
+        runner=gh,
+    )
+
+    assert status.startswith("digest already posted under `daily-digest`")
+    assert not gh.created_issue()

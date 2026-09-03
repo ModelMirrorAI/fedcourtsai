@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000203",
+  "run_id": "20260902T185700Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (interim-docket section)",
+    "blinded candidate staging (prediction.json, reasoning.md, predicted_reasoning.md, retrieval.md, retrieval_log.json)"
+  ],
+  "helpful": [
+    "result_capture markers on retrieval-log calls made the coverage-0.0 candidate gradeable on queries without guessing what its results held",
+    "candidates' own retrieval.md disclosures (self-bounded date filters, deliberate stop before the disposition) made the forward leakage check fast"
+  ],
+  "gaps": [
+    "an applicant-class (government vs private) cut of the interim pool in the statpack would let a judge check the single largest adjustment every candidate made, instead of grading it as an unverifiable training-knowledge estimate"
+  ],
+  "notes": "Interim cell: baseline and skill left to the harness stamp; elicited correct/brier written per contract as the independent read."
+}

@@ -204,7 +204,9 @@ def test_uncovered_cells_are_warned_in_step_not_only_in_the_pr_body() -> None:
     assert ".uncovered_cells[]" in aggregate["run"], (
         "warn per uncovered cell in-step, or a no-ready-PR run reports none of them"
     )
-    assert "needs a re-queue" in aggregate["run"], "name the remedy, which a rerun cannot supply"
+    assert "the next scheduled round re-derives" in aggregate["run"], (
+        "name the remedy, which a rerun cannot supply"
+    )
 
 
 def test_a_truncated_download_is_cleared_before_retry() -> None:

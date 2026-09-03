@@ -254,6 +254,101 @@ def response_filed_date(entries: list[tuple[str, str | None]]) -> date | None:
     return _first_dated(entries, _RESPONSE_FILED_RE)
 
 
+# The Clerk's **renewal** form, which the submission anchor below would
+# otherwise read as an arrival: an application denied by one Justice is refiled
+# to another under the same number — "Application (26A118) refiled and submitted
+# to Justice Alito." It carries the filing verb, and it is never the arrival:
+# on every refiled docket read for this rule a disposition of the same
+# application had already landed at or before it, so a payload whose head entry
+# is missing would be stamped after its own first denial. It is the shape
+# `\bsubmitted\b` alone does *not* exclude — `resubmitted` is not the Clerk's
+# spelling, `refiled and submitted` is — and it is common: 14 of 70 substantive
+# application dockets read for this rule carry one.
+#
+# Matched entries are skipped whole rather than excluded inside the anchor's
+# span, so the exclusion is one rule a reader can check instead of a lookahead
+# buried in a pattern. The cost is an arrival entry that describes *itself* as a
+# refiling (an application first submitted here after being refiled from another
+# docket), which falls back to the docketing date — merely late, the safe way to
+# be wrong.
+_APPLICATION_RENEWAL_RE = re.compile(r"\brefiled\b", re.I)
+
+
+def application_arrival_date(
+    docket_number: str, entries: list[tuple[str, str | None]]
+) -> date | None:
+    """When the application itself reached the docket, or ``None``.
+
+    The interim stage's arrival moment, read where the docket itself records
+    it: the entry in which the application is *submitted*. The docketing date
+    is the alternative, and it is the worse reading in both directions. It is
+    not always there to take — on a row carrying none the baseline would
+    declare an arrival moment whose date the corpus never held, and
+    provisioning cannot place a cell at a moment it cannot date. And where it
+    is there it runs **late**: over 60 substantive application dockets the
+    submission entry precedes docketing on 34, by a median 5 days and up to 64,
+    and follows it on none. Late is the enlarging direction — a cut taken a day
+    after docketing admits filings the arrival moment never saw.
+
+    Anchored on the **submission clause** of the docket's *own* application
+    number ("Application (26A11) for a stay, submitted to ..."), in the
+    :data:`_RESPONSE_FILED_RE` idiom: the number in its parentheses, then the
+    filing verb within a bounded span. Both halves carry weight, and the verb
+    carries the sharper one. The number alone would match every later entry
+    reciting it, and on 50 of 60 sampled dockets the next entry naming the
+    number **is the disposition** — so an application whose head entry is
+    missing from a degraded payload would be stamped at the day it was decided,
+    and the cell provisioned under a well-formed ``truncated`` cutoff that
+    admits its own outcome. Requiring the verb refuses that: the clause matched
+    the head entry of all 150 live application dockets read for this rule and
+    matched no disposition entry on any of them.
+
+    The verb is necessary but not sufficient, which is what
+    :data:`_APPLICATION_RENEWAL_RE` is for — read it before trusting the
+    paragraph above, because the renewal form carries the verb too.
+
+    The span is ``.{0,200}?`` rather than ``[^.]{0,200}?`` as **headroom**, not
+    as an observed need: no matched entry on those 150 dockets required it
+    (``[^.]`` matches every one, the longest span being 139 characters against
+    the 200 bound). :data:`_RESPONSE_FILED_RE` documents the form that would —
+    text between the number and the verb naming courts and parties that carry
+    periods — and the permissive span costs nothing here.
+
+    The consolidated form :func:`match_interim_disposition` reads
+    ("applications for stays (23A349, 23A350) …") does not match, though the
+    verb rather than the number is what excludes it: that shape is a *disposing*
+    order. A docket whose application was submitted under a consolidated caption
+    falls back to docketing rather than borrowing a companion's date.
+
+    The **earliest** dated match wins, where :func:`_first_dated` takes the
+    first in docket order. The two rules differ because the readings do: a
+    response entry names a distinct filing whose first occurrence is the
+    moment, while every match here is the same application being submitted, so
+    the earliest is the arrival and no ordering assumption is needed to get it.
+    It is also the second half of the renewal defence — on a docket carrying
+    both a head entry and a refiling, ``min`` keeps the head even before the
+    renewal exclusion is reached.
+
+    ``None`` where the number is unusable or no submission entry carries a
+    readable date. Undated entries are skipped rather than guessed at, the same
+    discipline :func:`_first_dated` applies and for the same reason: this date
+    opens an event and fixes the moment a forecast is taken from.
+    """
+    number = docket_number.strip()
+    if not number:
+        return None
+    anchor = re.compile(
+        r"application\s*\(\s*" + re.escape(number) + r"\s*\).{0,200}?\bsubmitted\b", re.I
+    )
+    filed: list[date] = []
+    for text, raw in entries:
+        if _APPLICATION_RENEWAL_RE.search(text):
+            continue
+        if anchor.search(text) and (when := entry_date(raw)) is not None:
+            filed.append(when)
+    return min(filed) if filed else None
+
+
 def _first_dated(entries: list[tuple[str, str | None]], pattern: re.Pattern[str]) -> date | None:
     """The earliest fully-dated entry matching ``pattern``, in docket order.
 

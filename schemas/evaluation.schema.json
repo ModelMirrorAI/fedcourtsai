@@ -174,7 +174,7 @@
     },
     "LeakageAssessment": {
       "additionalProperties": false,
-      "description": "The cross-evaluator's leakage grading of one prediction (advisory, never a gate).\n\nThe grading half of the leakage doctrine: rather than preventing retrieval,\nthe evaluator assesses whether a **replay** predictor retrieved and used\noutcome-revealing material, reading the harness-captured\n``retrieval_log.json`` (tool calls, query slices, retrieved-document dates)\nbeside the predictor's own reasoning. A **forward** prediction was made\nbefore the outcome existed, so it grades ``not_applicable``. Contamination\nhere taints iteration signal \u2014 backtest results are never claimable\nperformance either way \u2014 so the assessment segments scores; it never\nchanges them.",
+      "description": "The cross-evaluator's leakage grading of one prediction (a gate on membership).\n\nThe grading half of the leakage doctrine: rather than preventing retrieval,\nthe evaluator assesses whether a **replay** predictor retrieved and used\noutcome-revealing material, reading the harness-captured\n``retrieval_log.json`` (tool calls, query slices, retrieved-document dates)\nbeside the predictor's own reasoning. A **forward** prediction was made\nbefore the outcome existed, so it grades ``not_applicable`` \u2014 a claim about\nthe cell's design, which a mis-provisioned cell can falsify, and the reason\nthe coarse bit is read as an exclusion rather than trusted as a mode label.\n\nWhat the grading decides is **membership, never value**: a\npossible/likely verdict sets ``leakage_suspected``, which keeps the cell out\nof every rank key and every scored aggregate\n(``fedcourtsai.integrity.leakage_excluded``; ``metrics/README.md``, *The\nleakage exclusion*), while no score on the record is altered by it.",
       "properties": {
         "influenced_prediction": {
           "description": "Whether retrieved outcome material plausibly shaped the prediction. not_applicable for a forward prediction.",
@@ -503,7 +503,7 @@
         }
       ],
       "default": null,
-      "description": "Coarse leakage bit, kept in step with `leakage`: true when `leakage.influenced_prediction` is possible/likely. Advisory: it segments scores, never changes them. Null when not assessed (offline evaluators and records written before the field existed)",
+      "description": "Coarse leakage bit, kept in step with `leakage`: true when `leakage.influenced_prediction` is possible/likely. It decides **membership, never value**: a true bit keeps the cell out of every rank key and every scored aggregate (`store.stratify` drops it, and the boards publish the count in their `leakage_exclusion` block), while no score on this record is altered by it. Null when not assessed (offline evaluators and records written before the field existed), which is not a false \u2014 an unassessed cell is scored",
       "title": "Leakage Suspected"
     },
     "model": {

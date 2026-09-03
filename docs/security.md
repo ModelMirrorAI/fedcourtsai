@@ -228,8 +228,10 @@ in this repository keys on `issues: labeled` at all, so labeling triggers
 nothing), which is the only reason a workflow here ever reaches for the App
 token — so issue-write deliberately stays **off** the App token that
 carries `contents: write` and opens the auto-merging PR. This mirrors `run-ops`,
-which posts its `ops-dashboard` / `data-validation` issues with `GITHUB_TOKEN` the
-same way, and `run-pull`, whose pipeline-runs dashboard row and failure-only
+which posts its `ops-dashboard` / `data-validation` / `daily-digest` /
+`weekly-digest` issues with the same ambient token — each of those labels
+non-triggering, so a reporting job opening an issue can never start a spending
+run — and `run-pull`, whose pipeline-runs dashboard row and failure-only
 run-log issues ride the ambient token for the same reason (its App token is
 reserved for the writes that must reach `main` through the
 deterministic-writer bypass: the corpus commits and the published verdict).
@@ -528,7 +530,11 @@ and a schedule reaches no branch but `main`, so changing what it spends is a
 promotion, reviewed like any other. A codex smoke reads one secret more — the CourtListener token,
 which reaches only the MCP sidecar composite's launch step env, exactly as a
 live cell's does, so the agent step and the generated client config carry a
-localhost URL and no token. Every engine-actions-smoke leg reads that same one,
+localhost URL and no token. (For codex that generated file is the whole
+`$CODEX_HOME/config.toml`, so it carries the cell's permission profile —
+workspace filesystem plus network for spawned commands — beside the sidecar
+URL; codex reads no other trusted configuration layer, and the file still holds
+no credential.) Every engine-actions-smoke leg reads that same one,
 for the same reason and by the same route: each drives the cell's invocation
 block, which names the client config the composite's sidecar serves. Two
 further notes on those legs. They hand `claude-code-action` the job's own
@@ -538,7 +544,15 @@ falls back to an OIDC exchange that mints an installation token defaulting to
 write. And their codex leg is the one place in this workflow where the codex
 sandbox runs the cells' `drop-sudo` safety strategy, so its userns prerequisite
 is the live cells' prerequisite exactly, not the runner seam's relaxation
-described below. The agent in these legs sees no docket text at all: its prompt
+described below. That strategy is the cells' second reason to dispatch the leg
+around a codex-action bump: on Linux with a prompt supplied — the cells' shape —
+the drop happens inline in the action's run step rather than as its own step,
+launching codex under `setpriv` with cleared supplementary groups, `no_new_privs`
+and empty capability sets, and revoking runner write access to root-owned
+sockets under `/run`. Strictly stronger than a plain sudo drop, and strictly
+more host-dependent (`setpriv`, a `nobody` account with a safe primary group,
+passwordless sudo still present when the step starts), which is exactly the
+class only an executed leg can report. The agent in these legs sees no docket text at all: its prompt
 is a fixed one-word probe. The codex-smoke leg exists to exercise the MCP
 wiring itself:
 it is the one engine whose transcript shapes no committed retrieval log has
@@ -774,12 +788,15 @@ ingested dockets by public docket number, membership conditioned on a parse
 delta (the case's DISTRIBUTED count reads differently under the candidate
 parse), re-derivable on a re-dispatch against the corpus sha it records. A
 fourth rides the same window on the same terms: the `text-coverage` report,
-which also republishes no document text — counts, kinds, and two untruncated
+which also republishes no document text — counts, kinds, and three untruncated
 case-id ledgers, the empty-text documents (fetch-conditioned membership whose
-extent tracks corpus growth) and the queued cases holding no petition row
+extent tracks corpus growth), the queued cert-form cases holding no petition row
 (membership conditioned on the salience gate's selection, the same
-grant-correlated cut argued above) — re-derivable on a re-dispatch over the
-blob its own vintage lines name. But it
+grant-correlated cut argued above) and the queued application-form cases holding
+no application document (membership conditioned on the interim lane's own
+predict-queue decision, which turns on the ask being substantive rather than on
+any grant-correlated cut, and is the weaker of the two) — re-derivable on a
+re-dispatch over the blob its own vintage lines name. But it
 widens
 discovery, not reach: the role can already `GetObject` that content by key, and
 the no-republication posture is license/content-based (see

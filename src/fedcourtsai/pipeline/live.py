@@ -301,7 +301,12 @@ def provision_documents(
     char_cap: int,
     today: date,
 ) -> int:
-    """Fetch this petition's predict-input documents into the corpus.
+    """Fetch this case's predict-input documents into the corpus.
+
+    Filing-keyed, not form-keyed: :func:`~fedcourtsai.pipeline.documents.select_documents`
+    reads the payload's own entries, so the same call serves a cert docket (its
+    case-opening filing and opposition briefs) and an application docket (its
+    application).
 
     Called on the same **distribution transition** that queues prediction — the
     moment the record is complete enough to predict is the moment its content

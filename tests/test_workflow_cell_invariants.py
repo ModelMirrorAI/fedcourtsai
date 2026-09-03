@@ -26,11 +26,11 @@ of them while every gate stays green:
   file, and pin the same `CODEX_HOME`, or the smoke answers a question about a
   configuration nothing else runs;
 * the **codex invocation surface** — the two cell workflows' codex-action
-  steps, the npm pins of the same CLI in `run-backtest` and
-  `integration-test`, and `CodexRunner.build_command`'s config overrides are
-  one invocation described in four places, held in lockstep only by comments;
-  a drifted member runs codex under sandbox or search semantics nothing else
-  uses, and every gate stays green;
+  steps, the permission profile `fedcourtsai.mcp` emits for them to select,
+  the npm pins of the same CLI in `run-backtest` and `integration-test`, and
+  `CodexRunner.build_command`'s argv are one invocation described in several
+  places, held in lockstep only by comments; a drifted member runs codex under
+  sandbox or search semantics nothing else uses, and every gate stays green;
 * the **labeler transcript capture** — the qp-topic labeler's execution log is
   scanned and published as a short-lived artifact, and every clause of that
   (the scan gate, the retention window, the survive-failure condition, and the
@@ -51,6 +51,7 @@ import io
 import json
 import re
 import textwrap
+import tomllib
 from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any
@@ -63,8 +64,11 @@ from fedcourtsai.agent_feedback import (
     _GH_TIMEOUT_SECONDS,
 )
 from fedcourtsai.cli import _echo_text_coverage
+from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE, codex_mcp_config
+from fedcourtsai.ops import DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL
 from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest
+from fedcourtsai.registry import load_mcp_servers, load_predictors, resolve_mcp_servers
 from fedcourtsai.schemas import UsageRole
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -412,11 +416,14 @@ def test_sidecar_call_sites_pass_the_pointer_with_the_same_spelling() -> None:
 # separately silent when it drifts — a config written where the CLI does not
 # read it, a port the sidecar does not serve, a server id the manifest does not
 # resolve, a home the session rollout does not land in — and the cell still
-# runs, still validates, and still reports no MCP calls.
+# runs, still validates, and still reports no MCP calls. The redirect carries a
+# second stake now that the same file declares the cell's permission profile:
+# written where the CLI does not read it, the codex step names a profile no
+# config defines and the cell dies at startup instead of degrading.
 CODEX_MCP_HTTP_URL = "--http-url courtlistener=http://127.0.0.1:8378/mcp"
 CODEX_MCP_CONFIG_REDIRECT = "> .codex/config.toml"
 CODEX_HOME_EXPRESSION = "${{ github.workspace }}/.codex"
-CODEX_MCP_WORKFLOWS = ("run-predict.yml", "integration-test.yml")
+CODEX_MCP_WORKFLOWS = ("run-predict.yml", "run-evaluate.yml", "integration-test.yml")
 
 
 def _joined_run_blocks(name: str) -> list[str]:
@@ -884,7 +891,6 @@ SOURCING_OPS_STEPS = (
     "Collect recent workflow runs",
     "Collect issues wearing a stale fan-out label",
     "Post or update the ops dashboard issue",
-    "Post the weekly digest comment",
     "Escalate a failing data-validation verdict",
 )
 # `(workflow, job, step name)` for the record-keeping writes that source the
@@ -1374,16 +1380,19 @@ def test_the_handoff_writes_stay_fatal_on_exhaustion() -> None:
 
 
 def test_the_list_of_retried_ops_steps_is_complete() -> None:
-    """The scope above is a name list, so a *sixth* `gh`-calling step is the hole.
+    """The scope above is a name list, so a *fifth* `gh`-calling step is the hole.
 
-    Adding one to `run-ops`'s job with an unwrapped `gh issue create` in it
-    would pass every assertion above simply by not being listed. Invert the
-    question — any step in that job that talks to `gh` at all must be on the
-    list — so the enumeration cannot silently fall behind the workflow.
+    Adding one to `run-ops` with an unwrapped `gh issue create` in it would pass
+    every assertion above simply by not being listed. Invert the question — any
+    step in that workflow that talks to `gh` at all must be on the list — so the
+    enumeration cannot silently fall behind the workflow. Scoped to the whole
+    file rather than the `ops` job, because a second job is exactly the shape a
+    new reporting surface takes here, and one scanned job would leave it out.
     """
     calling = {
         str(step.get("name"))
-        for step in _load("run-ops.yml")["jobs"]["ops"]["steps"]
+        for job in _load("run-ops.yml")["jobs"].values()
+        for step in job.get("steps", [])
         if any(BARE_GH_CALL.search(line) for line in _uncommented(str(step.get("run") or "")))
     }
     assert calling == set(SOURCING_OPS_STEPS)
@@ -1417,19 +1426,20 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
     assert "dashboard-body.md" in composite
 
 
-# The codex invocation surface, described in five places that certify each
+# The codex invocation surface, described in six places that certify each
 # other only while they agree: the codex-action steps of the two cell
-# workflows (the action pin and its `codex-version` / `codex-args` / `sandbox`
-# inputs), the codex-action step of the `engine-actions-smoke` scenario —
-# whose entire claim is that the cells' input block is still *accepted*, which
-# is worth nothing if the block it sends is not the cells' — the npm pins of
-# the same CLI in run-backtest and the engine smoke,
-# and `CodexRunner.build_command`'s mirrored `-c` overrides. Each carries a
-# "keep in lockstep" comment and nothing else held them together: a member
-# that drifts runs codex under sandbox or web-search semantics nothing else
-# uses — a strictly smaller (or larger) information set than the engines it
-# is scored against — and the cell still runs, still validates, and stays
-# green.
+# workflows (the action pin and its `codex-version` / `codex-args` /
+# `permission-profile` inputs), the codex-action step of the
+# `engine-actions-smoke` scenario — whose entire claim is that the cells' input
+# block is still *accepted*, which is worth nothing if the block it sends is
+# not the cells' — the permission profile `fedcourtsai.mcp` emits into the
+# `$CODEX_HOME/config.toml` those steps select by name, the npm pins of the
+# same CLI in run-backtest and the engine smoke, and
+# `CodexRunner.build_command`'s argv. Each carries a "keep in lockstep" comment
+# and nothing else held them together: a member that drifts runs codex under
+# sandbox or web-search semantics nothing else uses — a strictly smaller (or
+# larger) information set than the engines it is scored against — and the cell
+# still runs, still validates, and stays green.
 CODEX_ACTION_CELL_WORKFLOWS = ("run-predict.yml", "run-evaluate.yml")
 CODEX_ACTION_SMOKE_WORKFLOW = "integration-test.yml"
 CODEX_NPM_PIN_WORKFLOWS = ("run-backtest.yml", "integration-test.yml")
@@ -1440,11 +1450,47 @@ CODEX_NPM_PIN_WORKFLOWS = ("run-backtest.yml", "integration-test.yml")
 CODEX_LOCKSTEP_INPUTS = (
     "codex-version",
     "codex-args",
-    "sandbox",
+    "permission-profile",
     "safety-strategy",
     "effort",
     "allow-bot-users",
 )
+
+# The action path and the bare-CLI path express ONE network posture in two
+# dialects, so they cannot be compared for equality.
+#
+# The constraint: codex-action selects a permission profile — a table in the
+# trusted `$CODEX_HOME/config.toml` — and refuses a `sandbox_workspace_write`
+# or `sandbox_mode` override in `codex-args` alongside it, so the action-side
+# posture is *declarative* and lives in the emitted config file. `CodexRunner`
+# drives `codex exec` directly with no action in front of it and no
+# `permission-profile` concept to pass; its posture is *imperative*, the legacy
+# sandbox flags the CLI still accepts. Neither dialect can be spelled on the
+# other surface.
+#
+# So the two are held together by this mapping instead: each action-side
+# profile setting against the runner argv fragment that expresses the same
+# grant. It is asserted in BOTH directions — every profile setting must have
+# its runner fragment, and every sandbox/network fragment in the runner argv
+# must be a setting the profile declares — so neither surface can gain or lose
+# a grant the other does not have.
+#
+# This table is now the only place the runner's sandbox mode is pinned (the
+# action's `sandbox:` input it used to be compared against is gone), so editing
+# it is a change to what a codex cell may reach, not a test fix. Bring it to
+# security review, and dispatch the engine smokes named in docs/testing.md.
+CODEX_POSTURE_PARITY: dict[str, tuple[str, ...]] = {
+    # `extends = ":workspace"` inherits the built-in workspace filesystem
+    # policy, which is what `--sandbox workspace-write` selects on the CLI.
+    "extends=:workspace": ("--sandbox", "workspace-write"),
+    # `[...network] enabled = true` compiles to an unrestricted network policy
+    # for sandboxed commands — the same grant the legacy override makes.
+    "network.enabled=true": ("-c", "sandbox_workspace_write.network_access=true"),
+}
+# The runner argv tokens that decide sandbox or network posture. Anything here
+# that the mapping above does not account for is drift the mapping would miss.
+CODEX_RUNNER_POSTURE_TOKENS = ("--sandbox", "sandbox_workspace_write.network_access=true")
+
 # Ends on a word character, never a dot: prose comments in the run blocks can
 # put a sentence-ending period right after a pin.
 _CODEX_NPM_PIN = re.compile(r"@openai/codex@([\w-]+(?:\.[\w-]+)*)")
@@ -1466,17 +1512,75 @@ def _config_overrides(argv: list[str]) -> list[str]:
     return [argv[i + 1] for i, flag in enumerate(argv[:-1]) if flag == "-c"]
 
 
+def _cell_permission_profile() -> dict[str, Any]:
+    """The emitted profile the cell steps select, parsed from its own TOML.
+
+    Emitted for the codex cell's real manifest, so this is the document the
+    workflow step writes to ``$CODEX_HOME/config.toml``, not a stub of it.
+    """
+    registry = REPO_ROOT / "config" / "predictors.yaml"
+    actor = next((a for a in load_predictors(registry) if a.id == "codex-baseline"), None)
+    assert actor is not None, "no `codex-baseline` predictor: the cell this test describes is gone"
+    servers = resolve_mcp_servers(load_mcp_servers(registry), actor.mcp_servers)
+    document = tomllib.loads(codex_mcp_config(servers))
+    # The emitter owns the whole trusted document, so a posture key added at the
+    # top level would never reach `_profile_posture_settings`' guard below.
+    assert set(document) == {"default_permissions", "permissions", "mcp_servers"}, (
+        f"the emitted codex config carries {sorted(document)!r}; a key outside "
+        f"retrieval and permissions is configuration no surface compares"
+    )
+    assert document["default_permissions"] == CODEX_CELL_PERMISSION_PROFILE
+    profiles = document["permissions"]
+    assert set(profiles) == {CODEX_CELL_PERMISSION_PROFILE}, (
+        f"the emitted config.toml declares {sorted(profiles)!r}; the cells select "
+        f"exactly one profile, and an unselected second one is dead configuration "
+        f"a reader would take for the live policy"
+    )
+    profile = profiles[CODEX_CELL_PERMISSION_PROFILE]
+    assert isinstance(profile, dict)
+    return profile
+
+
+# Every key a cell profile may carry, split into the two that decide posture
+# and the one that does not. A key outside this set is a grant (or a narrowing)
+# CODEX_POSTURE_PARITY has never been asked about, so it fails here rather than
+# reaching a cell unmapped — `filesystem` and `workspace_roots` are the two the
+# schema allows next, and either would move what the cell can touch.
+_PROFILE_POSTURE_KEYS = ("extends", "network")
+_PROFILE_INERT_KEYS = ("description",)
+
+
+def _profile_posture_settings(profile: dict[str, Any]) -> set[str]:
+    """The profile's sandbox/network grants, in the mapping's own spelling."""
+    unknown = sorted(set(profile) - set(_PROFILE_POSTURE_KEYS) - set(_PROFILE_INERT_KEYS))
+    assert not unknown, (
+        f"the cell permission profile carries {unknown!r}, which this test does "
+        f"not know how to compare against the runner — add it to "
+        f"CODEX_POSTURE_PARITY (with its runner-side expression) or to "
+        f"_PROFILE_INERT_KEYS if it decides nothing"
+    )
+    settings: set[str] = set()
+    if "extends" in profile:
+        settings.add(f"extends={profile['extends']}")
+    network = profile.get("network") or {}
+    assert isinstance(network, dict)
+    for key, value in network.items():
+        settings.add(f"network.{key}={str(value).lower()}")
+    return settings
+
+
 def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> None:
-    """One codex invocation, five surfaces: both cell steps and the
-    action-path smoke share the action pin and its inputs; the runner mirrors
-    the config overrides and sandbox; the npm installs pin the CLI version the
+    """One codex invocation, six surfaces: both cell steps and the action-path
+    smoke share the action pin and its inputs; the profile they select is the
+    one the emitted config.toml declares; the runner reaches the same network
+    posture through the mapping below; the npm installs pin the CLI version the
     action pins."""
     predict, evaluate = (_codex_action_step(name) for name in CODEX_ACTION_CELL_WORKFLOWS)
     smoke = _codex_action_step(CODEX_ACTION_SMOKE_WORKFLOW)
     assert predict["uses"] == evaluate["uses"], (
         f"the codex-action pin differs between the cell workflows: "
-        f"{predict['uses']!r} vs {evaluate['uses']!r} — the v1.11 hold and its "
-        f"rationale (the network-access override refusal) apply to both or neither"
+        f"{predict['uses']!r} vs {evaluate['uses']!r} — one permission-profile "
+        f"contract cannot be validated against two action versions"
     )
     assert smoke["uses"] == predict["uses"], (
         f"the action-path smoke pins {smoke['uses']!r} but the cells run "
@@ -1496,6 +1600,13 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
                 f"{name}: codex-action input {key!r} is missing — it is part "
                 f"of the lockstep invocation surface"
             )
+            # The legacy input the profile replaced. It does not compose with
+            # `permission-profile` — the action refuses the pair — so a surface
+            # that regains it fails at run time, after the cell is funded.
+            assert "sandbox" not in step["with"], (
+                f"{name}: codex-action input `sandbox:` is back alongside "
+                f"`permission-profile:`; the action refuses both together"
+            )
         assert predict["with"][key] == evaluate["with"][key], (
             f"codex-action input {key!r} differs between the cell workflows: "
             f"{predict['with'][key]!r} vs {evaluate['with'][key]!r}"
@@ -1506,8 +1617,19 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
             f"— the smoke's acceptance claim is only about the block it sends"
         )
 
+    # The profile the steps name is the profile the emitted config declares —
+    # the two ends of a selection that fails at startup if they disagree.
+    profile = _cell_permission_profile()
+    assert predict["with"]["permission-profile"] == CODEX_CELL_PERMISSION_PROFILE, (
+        f"the cell steps select {predict['with']['permission-profile']!r} but "
+        f"fedcourtsai.mcp emits {CODEX_CELL_PERMISSION_PROFILE!r} — codex refuses "
+        f"a `default_permissions` naming a profile its config.toml does not define"
+    )
+
     # The runner's argv is the same invocation for back-tests and the stub
-    # cascade; its `-c` overrides and sandbox mode must match the action's.
+    # cascade. Its `-c` overrides must match the action's on the dialect the two
+    # share, and its sandbox/network posture must match the profile's through
+    # CODEX_POSTURE_PARITY on the dialect they do not.
     request = RunRequest(
         role=UsageRole.predictor,
         court_id="scotus",
@@ -1522,15 +1644,64 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
     action_args = json.loads(str(predict["with"]["codex-args"]))
     assert isinstance(action_args, list) and action_args[::2] == ["-c"] * (len(action_args) // 2), (
         f"codex-args must be `-c key=value` pairs only, got {action_args!r} — any "
-        f"other flag would drift from the runner unseen by the override comparison"
+        f"other flag would decide how codex runs without any surface below "
+        f"comparing it against the runner"
     )
-    action_overrides = _config_overrides(action_args)
-    assert action_overrides == _config_overrides(argv), (
-        f"codex config overrides drifted: the action passes {action_overrides!r}, "
-        f"CodexRunner.build_command passes {_config_overrides(argv)!r}"
+    # The action's overrides are the runner's minus the posture ones the profile
+    # carries instead; nothing the action passes may be missing from the runner.
+    action_overrides = set(_config_overrides(action_args))
+    runner_overrides = set(_config_overrides(argv))
+    assert action_overrides <= runner_overrides, (
+        f"codex config overrides drifted: the action passes "
+        f"{sorted(action_overrides - runner_overrides)!r}, which "
+        f"CodexRunner.build_command does not"
     )
-    assert argv[argv.index("--sandbox") + 1] == predict["with"]["sandbox"], (
-        "the runner's --sandbox mode differs from the action's `sandbox:` input"
+    mapped_overrides = {
+        fragment[1]
+        for fragment in CODEX_POSTURE_PARITY.values()
+        if fragment[0] == "-c" and len(fragment) == 2
+    }
+    assert runner_overrides - action_overrides == mapped_overrides, (
+        f"the runner's extra config overrides "
+        f"{sorted(runner_overrides - action_overrides)!r} are not the ones "
+        f"CODEX_POSTURE_PARITY maps the profile onto ({sorted(mapped_overrides)!r})"
+    )
+
+    # Both directions of the mapping. Forward: every grant the profile declares
+    # is expressed in the runner's argv.
+    settings = _profile_posture_settings(profile)
+    assert settings == set(CODEX_POSTURE_PARITY), (
+        f"the profile declares {sorted(settings)!r} but CODEX_POSTURE_PARITY maps "
+        f"{sorted(CODEX_POSTURE_PARITY)!r} — an unmapped profile setting is a "
+        f"posture the runner is never checked against"
+    )
+    for setting, fragment in CODEX_POSTURE_PARITY.items():
+        assert any(
+            tuple(argv[index : index + len(fragment)]) == fragment
+            for index in range(len(argv) - len(fragment) + 1)
+        ), (
+            f"the profile's {setting!r} has no counterpart in the runner's argv: "
+            f"expected {list(fragment)!r}, got {argv!r}"
+        )
+    # Reverse: every sandbox/network decision the runner's argv makes is one the
+    # profile declares, so the runner cannot quietly gain a grant the cells lack.
+    for token in CODEX_RUNNER_POSTURE_TOKENS:
+        assert token in argv, (
+            f"the runner no longer passes {token!r}; CODEX_POSTURE_PARITY maps the "
+            f"profile onto it, so the mapping now certifies a posture nothing runs"
+        )
+    # argv[-1] is the free-text kickoff instruction, scanned out: a prompt that
+    # happens to say "network" is not runner posture drift.
+    unmapped = [
+        token
+        for token in argv[:-1]
+        if ("sandbox" in token or "network" in token)
+        and not any(token in fragment for fragment in CODEX_POSTURE_PARITY.values())
+    ]
+    assert not unmapped, (
+        f"the runner passes sandbox/network argv {unmapped!r} that no "
+        f"CODEX_POSTURE_PARITY entry maps to a profile setting — the action path "
+        f"would run without it"
     )
 
     # The CLI the action installs is the CLI the npm surfaces pin.
@@ -1755,13 +1926,18 @@ def test_the_text_coverage_summary_truncation_matches_the_cli_ledger_headers() -
         distributed=3,
         distributed_without_petition=1,
         queued=2,
+        queued_cert_forms=1,
+        queued_application_forms=1,
         queued_without_petition=1,
-        queued_application_forms=0,
+        queued_without_application=1,
         unopened_petitions=0,
         offloaded=True,
         cuts=[TextCoverageCut(kind="petition", segment="scored", documents=2, empty=1)],
         empty_documents={"scotus/1": ["petition"]},
         queued_without_petition_cases=["scotus/2"],
+        # Every ledger, so the sentinel is pinned against all of them and not
+        # only the two that happen to print first.
+        queued_without_application_cases=["scotus/3"],
     )
     buffer = io.StringIO()
     with redirect_stdout(buffer):
@@ -1774,6 +1950,87 @@ def test_the_text_coverage_summary_truncation_matches_the_cli_ledger_headers() -
         + "a ledger header was renamed and the summary would carry every case id"
     )
     kept = lines[: matched[0]]
-    assert not any("scotus/1" in line or "scotus/2" in line for line in kept), (
-        "a ledger case id sits above the truncation sentinel — the summary would leak it"
+    assert not any(
+        any(case_id in line for case_id in ("scotus/1", "scotus/2", "scotus/3")) for line in kept
+    ), "a ledger case id sits above the truncation sentinel — the summary would leak it"
+
+    # EVERY header, not just the first one printed. A ledger is printed only
+    # when it is non-empty, so a header missing from the sentinel leaks its
+    # whole ledger onto the login-free summary on any run where the ledgers
+    # above it happen to be empty — which is the state a drained gap reaches.
+    headers = [line for line in lines if re.match(r"^\S.*\(\d+ case\(s\)\):$", line)]
+    assert len(headers) == 3, f"expected three ledger headers, got {headers}"
+    unguarded = [header for header in headers if not pattern.search(header)]
+    assert not unguarded, (
+        "a ledger header is outside the workflow's truncation sentinel, so a run "
+        + f"whose earlier ledgers are empty would publish its case ids: {unguarded}"
     )
+
+
+def test_the_daily_digest_job_keeps_its_narrow_permission_surface() -> None:
+    """The digest job opens issues, so its grant is pinned rather than inherited.
+
+    It exists as a separate job for exactly one reason — permissions are
+    per-job — so that grant is the thing an edit must not widen by accident. It
+    reads the committed ledger and writes issues; it touches no branch, no
+    environment, and no secret, and a `contents: write` or an `environment:`
+    appearing here would mean the reporting surface had grown a writer's
+    capability.
+    """
+    job = _load("run-ops.yml")["jobs"]["daily-digest"]
+    assert job["permissions"] == {"contents": "read", "issues": "write"}
+    assert "environment" not in job
+    assert "secrets." not in yaml.safe_dump(job), "the digest job needs no secret"
+
+
+def test_no_workflow_triggers_on_a_digest_label() -> None:
+    """The digests' labels must stay non-triggering, which is what makes the job safe.
+
+    A reporting job holding `issues: write` opens an issue every day; if any
+    workflow ever keyed on that label, the daily report would start a run — and
+    a spending one, if the label were ever added to a fan-out. Nothing enforces
+    the property but this assertion, so it reads every workflow rather than the
+    one that posts.
+    """
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        workflow = _load(path.name)
+        # `on` parses to the truthy bool key in YAML; tolerate either spelling.
+        triggers = workflow.get("on") or workflow.get(True) or {}
+        for label in (DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL):
+            assert label not in yaml.safe_dump(triggers), (
+                f"{path.name} triggers on the non-triggering {label} label"
+            )
+            for name, job in (workflow.get("jobs") or {}).items():
+                conditions = [str(job.get("if", ""))]
+                conditions += [str(step.get("if", "")) for step in job.get("steps", [])]
+                for condition in conditions:
+                    assert label not in condition, (
+                        f"{path.name}:{name} gates on the non-triggering {label} label"
+                    )
+
+
+def test_every_schedule_gate_names_a_cron_run_ops_declares() -> None:
+    """A cron literal in a gate must be one the workflow actually declares.
+
+    Change the schedule and forget the gate, and the weekly digest silently stops
+    posting — fail-closed, but silently, on a surface whose whole point is being
+    read once a week, so "silently" costs weeks. Scoped by *what a gate compares
+    against* rather than by the step's name, because a gate can live in an `if:`
+    or in an `env:` value the shell then tests, and keying on the name would stop
+    covering the gate the moment it moved.
+    """
+    workflow = _load("run-ops.yml")
+    triggers = workflow.get("on") or workflow.get(True) or {}
+    declared = {str(entry["cron"]) for entry in triggers["schedule"]}
+    gates = [
+        expression
+        for job in workflow["jobs"].values()
+        for step in job.get("steps", [])
+        for expression in [str(step.get("if", "")), *map(str, (step.get("env") or {}).values())]
+        if "github.event.schedule" in expression
+    ]
+    assert gates, "run-ops gates nothing on its schedule"
+    for gate in gates:
+        assert any(cron in gate for cron in declared), (
+            f"the gate {gate!r} names no cron run-ops declares: {sorted(declared)}"
+        )

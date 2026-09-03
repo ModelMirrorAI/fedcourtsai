@@ -271,11 +271,13 @@ jobs:
             if [ -s stranded-note.md ]; then
               # The note file is written only when the stranded-run guard
               # withheld EVERY cell, so its presence is the marker that this
-              # empty matrix is not a drained backlog. The guard writes its own
-              # summary section (above) with the run ids and the rerun command;
-              # this line only keeps the count from being read as "nothing
-              # owed", which is the opposite of what happened.
-              echo "This matrix is empty because the stranded-run guard withheld every cell, not because the backlog is drained — see the guard's section above for the uncollected run(s) to recover. Those events stay owed until their predictions are committed, so a recovered collect, not another round, is what clears them." >> "$GITHUB_STEP_SUMMARY"
+              # empty matrix is not a drained backlog — and its body is the
+              # guard's own account (the run ids and the remedy), so it is
+              # rendered rather than paraphrased: the annotations name what
+              # the census skipped, but only the note carries the whole story.
+              echo "This matrix is empty because the stranded-run guard withheld every cell, not because the backlog is drained. Those events stay owed until their predictions are committed, so a recovered collect, not another round, is what clears them." >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              cat stranded-note.md >> "$GITHUB_STEP_SUMMARY"
             else
               echo "The predict backlog is drained: no in-scope, funded, provisioned case with an open forecastable event is missing an enabled predictor's forecast (within this cycle's cap). Nothing to run; no spend — the run ends cleanly here. Anything held rather than owed is counted in this step's log, and re-derived next cycle." >> "$GITHUB_STEP_SUMMARY"
             fi
@@ -806,16 +808,7 @@ jobs:
         if: matrix.engine == 'codex' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         # Same buffer as the Claude step: trip this step, not the job, on overrun.
         timeout-minutes: 50
-        # Held at v1.12's predecessor: v1.12 treats its safety strategy as
-        # protected and rejects the `sandbox_workspace_write.network_access`
-        # override the cell requires for its live retrieval contract — the
-        # refusal fires in the action's validation layer before any model
-        # call (the bare CLI accepts the same override, so the engine smoke
-        # cannot see it). Dependabot is told to skip this action below its
-        # migration; moving forward again means adopting the action's
-        # profile-based network configuration deliberately, with a cell-path
-        # check beside it.
-        uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1.11
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
@@ -861,23 +854,32 @@ jobs:
             for a reply.
           model: ${{ matrix.model }}
           effort: high
-          sandbox: workspace-write
           safety-strategy: drop-sudo
-          # The workspace-write sandbox denies network to SPAWNED commands by
-          # default (the CLI's own MCP/model traffic is unsandboxed), which
-          # silently cut codex off from the localhost corpus service every
-          # other engine reaches. Subprocess network is the accepted
-          # cross-engine posture — claude and gemini run unsandboxed, the
-          # agent env is guard-asserted credential-free, and retrieval is
-          # logged — so grant it here rather than leave codex the accidental
-          # odd one out. The grant also makes the action's unauthenticated
-          # localhost model proxy reachable by spawned commands — a
-          # quota-spend surface, not a key exposure, and the same class the
-          # agent already controls through its own turn loop. The CLI version
-          # is pinned (the action installs whatever npm serves otherwise) so
-          # sandbox semantics change only on an explicit maintainer bump —
-          # keep it in lockstep with the evaluate step and the npm pins of the
-          # same CLI in run-backtest and integration-test.
+          # The cell's filesystem and network policy is one permission profile,
+          # `[permissions.fedcourts-cell]` in the `$CODEX_HOME/config.toml` the
+          # "Configure agent retrieval (MCP)" step above emits: it extends the
+          # built-in `:workspace` filesystem policy and sets `network.enabled`.
+          # The profile is named in `fedcourtsai.mcp` and selected here, and a
+          # test holds the two ends together.
+          #
+          # A workspace policy denies network to SPAWNED commands by default
+          # (the CLI's own MCP/model traffic is unsandboxed), which silently cut
+          # codex off from the localhost corpus service every other engine
+          # reaches. Subprocess network is the accepted cross-engine posture —
+          # claude and gemini run unsandboxed, the agent env is guard-asserted
+          # credential-free, and retrieval is logged — so grant it rather than
+          # leave codex the accidental odd one out. The grant also makes the
+          # action's unauthenticated localhost model proxy reachable by spawned
+          # commands — a quota-spend surface, not a key exposure, and the same
+          # class the agent already controls through its own turn loop. The
+          # profile and the legacy `sandbox:` input do not compose; the action
+          # refuses both together, and refuses a `sandbox_workspace_write`
+          # override in `codex-args` besides, which is why the grant lives in
+          # the trusted config file. The CLI version is pinned (the action
+          # installs whatever npm serves otherwise) so sandbox semantics change
+          # only on an explicit maintainer bump — keep it in lockstep with the
+          # evaluate step and the npm pins of the same CLI in run-backtest and
+          # integration-test.
           #
           # Web search defaults to `cached`, which registers a search tool
           # that cannot reach the open web, and `exec` carries no `--search`
@@ -890,8 +892,11 @@ jobs:
           # cell's obligation not to seek post-event material about its own
           # case is carried by the prompt and the harness-side retrieval log,
           # which records these hosted searches alongside shell and MCP calls.
+          permission-profile: fedcourts-cell
           codex-version: "0.144.1"
-          codex-args: '["-c","sandbox_workspace_write.network_access=true","-c","web_search=live"]'
+          # `web_search` is not one of the config roots a protected run guards,
+          # so this half of the surface stays an override.
+          codex-args: '["-c","web_search=live"]'
 
       # Install the Gemini CLI in its own SECRET-FREE step: only the top-level
       # version is exactly pinned (transitive dependencies resolve fresh at every
