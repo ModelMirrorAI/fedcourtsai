@@ -52,10 +52,10 @@ short article — *"We predicted the long conference — here's how we did"* —
 the calibration numbers attached, compared against the statpack's per-Term cert
 base rates.
 
-The counted record for this release opens at the `proc-v5` predictor freeze:
-promoted 2026-08-29 (`promotion/2026-08-29`), freeze instant
-2026-09-05T00:00:00Z ([freeze-record.md](freeze-record.md)) — so predictions
-stamped from that instant, under the blessed digests, are the release's
+The counted record for this release opens at the `proc-v6` freeze: the six
+blessed digests and the freeze instant 2026-09-05T00:00:00Z
+([freeze-record.md](freeze-record.md)) — so predictions
+stamped from that instant, under those digests, are the release's
 claimable population. It is small, datable, and end-to-end, and it defines the
 scope cleanly: the petitions on that conference list are SCOTUS dockets,
 exactly the gate the budget sizes for bootstrapping.
@@ -111,9 +111,9 @@ budget.md's *Scaling plan*; no release above depends on it.
 - Finish re-anchoring the budget once an evaluate-side per-run cost under the
   currently blessed grading digests is measured **at the cert stage**. The
   predict side is measured; the evaluate measurements so far are interim-stage
-  only — six events under the superseded `proc-v3` digests, plus a single
-  partial event under the blessed `proc-v4` ones ([budget.md](budget.md),
-  *Evaluate cost*).
+  only, and every one of them predates the currently blessed grading digests —
+  six events under `proc-v3`'s, plus a single partial event under `proc-v4`'s,
+  all since superseded ([budget.md](budget.md), *Evaluate cost*).
 - Re-anchor the per-predictor grading margin at the first `P = 4` fan-out.
 
 The last two are distinct triggers — one prices the evaluate half at today's

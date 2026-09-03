@@ -290,8 +290,13 @@ def identity_terms(config_root: Path, *, extra: Iterable[str] = ()) -> tuple[str
     ordinary legal prose (``pro se``, the U.S. Code), and scrubbing those would
     eat the substance the grade is formed from. Longest-first ordering is what
     makes the whole-identifier terms win: the alternation the pattern builds is
-    leftmost-first per position, so ``claude-fable-5`` must be offered before
+    leftmost-first per position, so ``claude-fable-5-1`` must be offered before
     ``claude`` or the model would be scrubbed in pieces and its tail left legible.
+    The sharper case is a **point release**, since ``MODEL_RATES`` prices a model
+    and its successor together and the shorter id is a strict prefix of the
+    longer: offered first, it would mask ``claude-fable-5`` and leave ``-1``
+    beside the redaction, which names the model as surely as the whole string.
+    A test in ``test_blinding.py`` walks the table's prefix pairs for exactly that.
     """
     terms: set[str] = {*ENGINE_TERMS, *extra, *DEFAULT_MODELS.values(), *MODEL_RATES}
     actors: list[PredictorConfig | EvaluatorConfig] = [

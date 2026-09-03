@@ -204,7 +204,7 @@ Three engines run the agentic stages, routed per registry entry
 
 | Engine | Used by | Billing | Rate (per 1M tokens) |
 |--------|---------|---------|----------------------|
-| Claude Code (`claude-fable-5`) | `claude-baseline`, `claude-judge` (predict/evaluate default) | Anthropic API (workflows); Max subscription for interactive local dev | Subscription: $200/mo flat (Max 20x — dev only, in floor #5). API: $10 in / $50 out |
+| Claude Code (`claude-fable-5-1`) | `claude-baseline`, `claude-judge` (predict/evaluate default) | Anthropic API (workflows); Max subscription for interactive local dev | Subscription: $200/mo flat (Max 20x — dev only, in floor #5). API: $10 in / $50 out |
 | Codex (`gpt-5.6-sol`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | $5 in / $30 out |
 | Gemini (`gemini-3.1-pro-preview`) | `gemini-baseline`, `gemini-judge` | Gemini API (pay-per-token) | $2 in / $12 out (≤200k context; steps up beyond) |
 
@@ -256,8 +256,11 @@ The first predict fan-out to land after the pre-registration freeze instant
 over 27 events — is the anchor measurement covering the arrival, interim, and
 merits moments rather than cert alone. ("Post-freeze" throughout this document
 names the August cohort stamped after the 2026-08-16 `proc-v3` instant; the
-`proc-v5` re-bless has since re-based the frozen partition, so these are
-measurement cohorts, not claimable-partition members.)
+`proc-v5` and `proc-v6` re-blesses have since re-based the frozen partition, so
+these are measurement cohorts, not claimable-partition members. Every measured
+Claude figure in this document was produced on `claude-fable-5`; the point
+release holds its rate, so the dollar figures carry to the current default and
+only the token volumes rest on the two being comparable.)
 
 | Predict stage (moment) | Events | `claude-baseline` | `codex-baseline` | `gemini-baseline` | Per event |
 |---|---:|---:|---:|---:|---:|
@@ -358,11 +361,12 @@ are attributable *to* is digests `proc-v4` retired over a batch of
 judge-prompt changes — the
 token-relevant one being the judge-workspace prune, which hides the committed
 `predictions/` and `evaluations/` trees from a judge cell's working tree.
-(`proc-v5` carries the `proc-v4` evaluator digests forward byte-identical, so
-proc-v4-labeled gradings are gradings under the currently blessed evaluator
-bytes.)
+(`proc-v5` carried those evaluator digests forward byte-identical; `proc-v6`
+moves the evaluate prompt's bytes for all three judges, so none of these
+gradings ran under the currently blessed evaluator process and every figure
+here is a measurement cohort.)
 
-**The first grading under the blessed digests has begun to land, and is too
+**The newest grading is one moment on since-superseded digests, and is too
 partial to re-price anything.** Run `20260829T040550Z` graded one interim
 moment under `proc-v4`: claude-judge **$4.91**, gemini-judge **$0.49**; the
 codex-judge cell failed there and again in its retry run (`20260829T080658Z`),
@@ -439,11 +443,11 @@ that holds a Term rate against one stage's measured cost, and interim is
 wider predict population says the rate may be slightly low, the interim
 gradings say the evaluate half may be high.
 
-**The re-anchor trigger is half met at most.** It waits on an evaluate fan-out
-under the currently blessed grading digests **reaching the cert stage** — the
-stage the Term is mostly made of. The blessed-digest half now has a first
-partial interim measurement (one event, incomplete grid, above); the cert-stage
-half has none. That run, not a fuller ledger, is what settles it — and
+**The re-anchor trigger is unmet on both halves.** It waits on an evaluate
+fan-out under the currently blessed grading digests **reaching the cert stage**
+— the stage the Term is mostly made of. No grading anywhere ran under a blessed
+evaluator digest: the partial interim measurement above is the closest, and its
+digests are superseded. That run, not a fuller ledger, is what settles it — and
 re-anchoring is deliberately a code change, not a document edit: the plan
 seams' per-cell rate table is a transcription of these figures and its
 per-event sums are pinned by test, so a re-anchor re-prices every plan
@@ -810,11 +814,13 @@ itself is the only bound.
 
 The per-case cost splits across the three API bills — one predict cell and one
 evaluate cell per provider per case — so at a cadence of `C` tournamented cases
-per month each provider's bill is its per-case line × `C`:
+per month each provider's bill is its per-case line × `C`. The Anthropic line
+was measured on `claude-fable-5` and carries to the current default unchanged:
+the point release holds that rate.
 
 | Provider (engine) | Predict $/case | Evaluate $/case | $/case | Share | At `C` = 60/mo |
 |-------------------|---------------:|----------------:|-------:|------:|---------------:|
-| Anthropic (`claude-fable-5`) | $4.27 | $5.70 | $9.97 | ≈68% | ≈$600 |
+| Anthropic (`claude-fable-5-1`) | $4.27 | $5.70 | $9.97 | ≈68% | ≈$600 |
 | OpenAI (`gpt-5.6-sol`) | $1.88 | $1.25 | $3.13 | ≈21% | ≈$188 |
 | Google (`gemini-3.1-pro-preview`) | $0.64 | $0.88 | $1.52 | ≈10% | ≈$91 |
 | **Total** | **$6.79** | **$7.84** | **≈$14.6** | | **≈$0.9K** |
@@ -871,7 +877,7 @@ rather than forecasting. Its model choices price off the same
 |---------------|------|----------------------|
 | Haiku 4.5 | the `label_model` default | $1 in / $5 out |
 | `claude-sonnet-4-6` | the step-up for a labeling pass the default reads poorly | $3 in / $15 out |
-| `claude-fable-5` | the predict/evaluate engine, available for a like-for-like read | $10 in / $50 out |
+| `claude-fable-5` | the frontier tier the dispatch offers, priced like a predict/evaluate cell's model | $10 in / $50 out |
 
 **Accounting.** Measured qp-topic spend to date is **zero on every ledger**: no
 `qp-topic-label` dispatch has produced an artifact yet, and the mode writes no
@@ -1040,9 +1046,12 @@ costs nothing here; adding an engine adds a probe.
 
 | Engine | Model | ≈ tokens / probe | Rate (in / out per Mtok) | ≈ $/day |
 | --- | --- | --- | --- | --- |
-| Claude Code | `claude-fable-5` | ~20K in (billed as a cache *write*, 1.25×), ~10 out | $10 / $50 | $0.25 |
+| Claude Code | `claude-fable-5-1` | ~20K in (billed as a cache *write*, 1.25×), ~10 out | $10 / $50 | $0.25 |
 | Codex | `gpt-5.6-sol` | ~15K in, ~500 out (`effort: high`) | $5 / $30 | $0.09 |
 | Gemini | `gemini-3.1-pro-preview` | ~12K in, ~10 out | $2 / $12 | $0.02 |
+
+The model column is what each probe resolves today; the Claude volumes carry
+from the measurement on the model before it, per the provenance note above.
 
 That sums to ≈$0.36/day — **≈$0.12/engine/day, so at most ≈$11/mo and ≈$135/yr
 at three engines**, "at most" because GitHub drops crons under load and a

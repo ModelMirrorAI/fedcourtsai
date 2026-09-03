@@ -8,7 +8,7 @@
 #   id:          unique, filesystem-safe; names the output directory
 #   engine:      claude-code | codex | gemini
 #   model:       optional model override (else the engine default in
-#                fedcourtsai.pricing.DEFAULT_MODELS, e.g. claude-fable-5)
+#                fedcourtsai.pricing.DEFAULT_MODELS, e.g. claude-fable-5-1)
 #   prompt:      repo-relative path to the prompt template
 #   enabled:     skipped when false
 #   mcp_servers: manifest ids (below) this predictor's cells get

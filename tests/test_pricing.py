@@ -55,11 +55,14 @@ def test_cheaper_tiers_are_priceable_at_their_published_rates() -> None:
 
 
 def test_claude_default_model_and_rate() -> None:
-    # Predict/evaluate default to Fable 5; claude-opus-4-8's rate must stay
-    # priceable too so earlier ledger records still price.
-    assert DEFAULT_MODELS["claude-code"] == "claude-fable-5"
-    rate = MODEL_RATES["claude-fable-5"]
+    # Predict/evaluate default to Fable 5.1. The point release holds the Fable
+    # 5 rate, and both rows are asserted rather than the newer one alone: two
+    # identical rates are also what a duplicated line looks like. claude-fable-5
+    # and claude-opus-4-8 stay priceable so earlier ledger records still price.
+    assert DEFAULT_MODELS["claude-code"] == "claude-fable-5-1"
+    rate = MODEL_RATES["claude-fable-5-1"]
     assert (rate.input_per_mtok, rate.output_per_mtok) == (10.0, 50.0)
+    assert MODEL_RATES["claude-fable-5"] == ModelRate(10.0, 50.0)
     assert "claude-opus-4-8" in MODEL_RATES
 
 

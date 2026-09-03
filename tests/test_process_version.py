@@ -423,8 +423,8 @@ def test_the_pending_window_prediction_is_ledgered_but_not_counted() -> None:
     """The live constants, against a cell stamped in today's open window.
 
     The real shape a predict round lands right now: a prediction under a
-    blessed proc-v5 predictor digest, stamped after the carrying promotion and
-    before the instant. It must pass the retroactive-blessing tripwire — its
+    currently blessed predictor digest, stamped after the carrying promotion
+    and before the instant. It must pass the retroactive-blessing tripwire — its
     process was already immutable on `main` when it ran — and must stay out of
     every frozen-scope figure until the instant. Read off the module, so the
     next freeze cutover moves it without an edit here.

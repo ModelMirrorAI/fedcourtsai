@@ -10594,7 +10594,7 @@ _PLANNING_USD_PER_CELL = 2.50
 #: Per-cell rates in USD, keyed (seam, engine), from ``docs/budget.md``. The
 #: predict row is the whole-run column of *Per-cell cost is keyed on the stage*
 #: — one stamped fan-out, 81 cells over 27 events, since re-based out of the
-#: frozen partition by the `proc-v5` instant. The evaluate row is
+#: frozen partition by the predictor re-blesses that followed it. The evaluate row is
 #: that section's evaluate-cohort table, ``proc-v2`` row (the better-matched of
 #: its two pre-freeze anchors), scaled by the whole predict move (x1.218)
 #: exactly as the doc's own per-case derivation does. The doc's stamped

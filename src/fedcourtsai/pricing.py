@@ -33,10 +33,11 @@ class ModelRate:
 
 
 # Keyed by the model id the engine actually ran. The production models are
-# claude-fable-5 (predict/evaluate), claude-opus-4-8 (earlier ledger records),
-# gpt-5.6-sol, and gemini-3.1-pro-preview (the Pro tier is the like-for-like
-# comparator against the other engines' frontier defaults); the Gemini Pro rate
-# is the standard <=200k-context tier (it steps up beyond that). The table is
+# claude-fable-5-1 (predict/evaluate), claude-opus-4-8 (earlier ledger
+# records), gpt-5.6-sol, and gemini-3.1-pro-preview (the Pro tier is the
+# like-for-like comparator against the other engines' frontier defaults); the
+# Gemini Pro rate is the standard <=200k-context tier (it steps up beyond
+# that). The table is
 # deliberately wider than what the registries route: the cheaper tier of each
 # engine is priced too — claude-sonnet-4-6 and claude-haiku-4-5, gpt-5.6-terra
 # and gpt-5.6-luna, gemini-3.7-flash (the newest stable Flash) and the
@@ -44,10 +45,16 @@ class ModelRate:
 # task that does not need a frontier model, and record-usage refuses a model it
 # cannot price rather than recording a zero. Both Flash rates are promotional;
 # re-check them after 2026-12-31, when the promotion is scheduled to end.
-# Superseded production models (gpt-5.5, gemini-3.5-flash) keep their rates for
-# the same reason: a re-recorded old cell (record-usage with an explicit
-# --model) must still price.
+# Superseded production models (claude-fable-5, gpt-5.5, gemini-3.5-flash) keep
+# their rates for the same reason: a re-recorded old cell (record-usage with an
+# explicit --model) must still price, and the committed ledger holds cells that
+# ran on each of them.
+#
+# The two Fable entries price identically, which is also what a duplicated line
+# looks like: the point release did not move the published rate, and a test
+# asserts both rows rather than the newer one alone.
 MODEL_RATES: Final[dict[str, ModelRate]] = {
+    "claude-fable-5-1": ModelRate(10.0, 50.0),
     "claude-fable-5": ModelRate(10.0, 50.0),
     "claude-opus-4-8": ModelRate(5.0, 25.0),
     "claude-sonnet-4-6": ModelRate(3.0, 15.0),
@@ -64,10 +71,14 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
 
 # The model each engine runs when a predictor/evaluator pins no explicit override
 # (registry ``model: null``). These are the predict/evaluate defaults the matrix
-# resolves into each cell (and record-usage falls back on); the
-# claude-opus-4-8 rate stays so earlier ledger records still price.
+# resolves into each cell (and record-usage falls back on); the claude-fable-5
+# and claude-opus-4-8 rates stay so earlier ledger records still price. No
+# registered actor pins an override, so this map *is* what the fleet runs — and
+# it is a process-digest input through ``process_version._resolved_model``, so
+# moving a value here de-blesses that engine's actors and needs a re-bless in
+# the same commit (``docs/process-version.md``).
 DEFAULT_MODELS: Final[dict[str, str]] = {
-    "claude-code": "claude-fable-5",
+    "claude-code": "claude-fable-5-1",
     "codex": "gpt-5.6-sol",
     "gemini": "gemini-3.1-pro-preview",
 }
