@@ -3,7 +3,7 @@ name: run-pull
 # Refresh tracked dockets — three writer jobs on one surface, at most one per
 # run: two scheduled forward writers and one dispatch-only enrichment pass.
 #
-# - `pull` (the `17 *` crons, dispatch mode=pull, or a `run:pull` label):
+# - `pull` (the `17 *` crons or dispatch mode=pull):
 #   targeted CourtListener *enrichment* for the tracked set —
 #   not the primary freshness mechanism. CourtListener discovery is off (`pull.
 #   discover_new_filings: false`): the live channel owns SCOTUS onboarding, and
@@ -58,8 +58,8 @@ name: run-pull
 # broke". The corpus commits use the GitHub App token so they reach `main`
 # through the deterministic-writer bypass; the logging writes (dashboard +
 # run-log issues) ride the ambient GITHUB_TOKEN instead — they must trigger
-# nothing, and their labels are deliberately NOT `run:*` trigger labels, so no
-# logging issue re-fires pull.
+# nothing, and no workflow in this repository keys on a label at all, so no
+# logging issue can re-fire anything.
 on:
   schedule:
     # Four pull windows/day, six hours apart (staggered off the hour from other
@@ -84,8 +84,6 @@ on:
         description: "enrich-opinions only: granted dockets to walk this run (~3 API requests each; ~100 exhausts the hourly tier ceiling)"
         type: string
         default: "50"
-  issues:
-    types: [labeled]
 
 permissions: {}
 
@@ -94,23 +92,20 @@ permissions: {}
 # write the single corpus.db pointer, so they run under ONE lock
 # to serialize corpus writers and prevent lost updates.
 # cancel-in-progress is false so a queued run waits rather than being dropped.
-# Only a run that will actually write the corpus joins the shared group: every
-# `issues: labeled` event spawns a run of this workflow (the label filter is the
-# job-level `if`, evaluated after concurrency), so a run that the `if` will skip
-# is given a unique throwaway group — otherwise it could cancel an in-flight
-# writer as the group's pending slot before ever being skipped.
+# Every run of this workflow runs exactly one writer job, so every run belongs
+# in the shared group — there is no event class here that spawns a run only to
+# skip it.
 concurrency:
-  group: ${{ (github.event_name != 'issues' || github.event.label.name == 'run:pull') && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+  group: corpus-write
   cancel-in-progress: false
 
 jobs:
   pull:
     # One writer job per run: the cron minute (17 = pull, 47 = live) or the
-    # dispatch `mode` input selects the job; a `run:pull` label always means pull.
+    # dispatch `mode` input selects the job.
     if: >-
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '17 ')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'pull') ||
-      (github.event_name == 'issues' && github.event.label.name == 'run:pull')
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'pull')
     runs-on: ubuntu-latest
     # A single window's refresh (≤ max_cases_per_run dockets ≈ a few dozen
     # CourtListener fetches + S3 corpus transfer) finishes well inside this; the cap
@@ -139,56 +134,17 @@ jobs:
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
     permissions:
       contents: write
-      issues: write
+      issues: write # the dashboard + failure-issue writes (non-triggering, ambient)
       id-token: write # assume the AWS role for the corpus S3 remote (read-write)
     steps:
-      # An issue *form* applies its declared labels on creation regardless of the
-      # submitter's permissions, so on a public repo anyone could fire this
-      # privileged run by filing a form that declares `run:pull`. Require the triggering actor to
-      # be the pipeline App or to hold write access; deny everyone else, failing
-      # closed. The decision — Bot handoff trusted, write required otherwise,
-      # bounded permission lookup — lives in the tested `authorize-trigger`
-      # command, the same gate every label-triggered fan-out runs — pinned, as
-      # at every gate, to the data App's own login, because an unpinned "Bot"
-      # means any admin-installed App; what stays specific to this job is that
-      # no step-layer check backs its gate up. It
-      # refuses BEFORE the App-token mint, the credentialed checkout, and the
-      # S3 role below. The command needs a working tree and a synced env, so a
-      # credential-free checkout precedes it; both run only on the label path
-      # this gate exists for, and neither carries anything the gate protects
-      # (setup-uv's default github-token input does see the ambient token, but
-      # both actions are SHA-pinned and that token's writes trigger nothing).
-      # Two accepted costs of that shape: the credentialed checkout below wipes
-      # this venv, so the label path pays `uv sync` twice (~1 min, against a
-      # 45-minute job), and an unauthorized label holds the shared
-      # corpus-write lock for that minute — bounded; per the concurrency note
-      # above, sustained label spam can evict a queued scheduled window from
-      # the group's one pending slot, costing that window's freshness (the
-      # rotation resumes next window), never its data.
-      # (The label name is already checked in the job `if:`.)
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name == 'issues'
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-python-env
-        if: github.event_name == 'issues'
-      - name: Authorize the trigger (label from the pipeline App or a maintainer)
-        id: authorize
-        if: github.event_name == 'issues'
-        # One retried permission lookup, worth up to 105s against a degraded
-        # API — bounded so a stalled check cannot draw on this job's 45-minute
-        # budget before refusing.
-        timeout-minutes: 3
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          ACTOR: ${{ github.actor }}
-          SENDER_TYPE: ${{ github.event.sender.type }}
-        run: |
-          uv run fedcourts authorize-trigger \
-            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO" \
-            --bot-actor "fedcourtsai-data[bot]"
-
+      # No authorization gate here, and none is missing: this workflow carries
+      # no trigger an outside actor can reach. A `schedule` fires only from the
+      # DEFAULT branch, so it can run only what a maintainer-merged promotion
+      # put on `main`; a `workflow_dispatch` is gated by GitHub on repository
+      # write; and this job binds `prod`, whose deployment branches are
+      # restricted to `main`, so a dispatch from any other ref is refused before
+      # a step runs. So the job goes straight to the App-token mint and the
+      # credentialed checkout, with no pre-flight checkout to pay for.
       - name: Mint app token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
@@ -400,21 +356,15 @@ jobs:
       # checkout needed) and on the ambient GITHUB_TOKEN (non-triggering write,
       # same doctrine as the dashboard step above), so it fires for any broken
       # window — including one whose App-token mint itself failed, and one
-      # whose pre-gate checkout or env sync broke (there the authorize step
-      # never runs, its conclusion stays empty, and the alarm fires — a window
-      # lost to infrastructure is a broken window). The one suppression is a
-      # failed authorize step: an unauthorized labeling attempt must stay
-      # fail-closed and file nothing (on schedule/dispatch runs the step is
-      # skipped, not failed, so those alarm normally). A gate killed at its
-      # own timeout lands in the same suppressed branch — GitHub records a
-      # timed-out step as failed (documented behavior, not exercised by any
-      # test here) — and stays silent by the same fail-closed rule.
-      # `cancelled()` is included because the shared lock never cancels an
-      # in-flight run (cancel-in-progress is false; a superseded run dies
-      # queued, before any step) — so an in-flight cancellation is the job
+      # whose checkout or env sync broke: a window lost to infrastructure is a
+      # broken window. No suppression, because every trigger this workflow
+      # carries is one the platform already authorized, so every failure here is
+      # a real one. `cancelled()` is included because the shared lock never
+      # cancels an in-flight run (cancel-in-progress is false; a superseded run
+      # dies queued, before any step) — so an in-flight cancellation is the job
       # timeout or a human's stop, and both are windows that did not complete.
       - name: Open the failure run-log issue
-        if: (failure() || cancelled()) && steps.authorize.conclusion != 'failure'
+        if: failure() || cancelled()
         # Three sequential `gh_retry` calls, up to 105s each against a degraded
         # API. This step already runs on a failed window, often one the job
         # timeout cancelled, so its retries get an explicit bound rather than
@@ -448,11 +398,10 @@ jobs:
             echo "::error::${what} failed after 3 attempts" >&2
             return 1
           }
-          # `pull-log` is a NON-triggering label by design: it is not a `run:*`
-          # label, so labeling this issue cannot re-fire the workflow
-          # (issues: labeled) in a loop — unlike run:pull, which is the trigger.
-          # Create it idempotently so a fresh repo's first failure does not
-          # fail on a missing label.
+          # `pull-log` triggers nothing, as every label in this repository does:
+          # no workflow keys on `issues: labeled` at all, so labeling this issue
+          # cannot re-fire a window in a loop. Create it idempotently so a fresh
+          # repo's first failure does not fail on a missing label.
           gh_retry gh label create pull-log --repo "$REPO" --force \
             --color b60205 --description "A run-pull refresh window failed (open until a human triages)"
           today=$(date -u +%Y-%m-%d)
@@ -485,10 +434,9 @@ jobs:
     # The SCOTUS live channel (docs/live-sources.md): `fedcourts live-poll`
     # probes supremecourt.gov docket JSON for newly docketed petitions and
     # re-polls the pending watchlist — no CourtListener token, no API budget.
-    # Same corpus-writer shape and privileges as `pull` (App token + the
-    # read-write corpus role), but schedule/dispatch only: there is no `run:live`
-    # label, so nothing an outside actor can file fires this job and no
-    # issue-form authorization gate is needed.
+    # Same corpus-writer shape, privileges (App token + the read-write corpus
+    # role) and trigger surface as `pull` — schedule and dispatch, both already
+    # gated by the platform, so this job needs no authorization step either.
     if: >-
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '47 ')) ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'live')

@@ -977,7 +977,7 @@ jobs:
             echo "::error::${what} failed after 3 attempts" >&2
             return 1
           }
-          # `pipeline-health` is a NON-triggering label by design (no run:* workflow
+          # `pipeline-health` is a NON-triggering label by design (no workflow
           # keys on it). Create it idempotently, as run-ops does for its label.
           # Non-fatal after retries: in steady state the label exists, and if it
           # truly does not, the issue write below fails loudly on its own. The

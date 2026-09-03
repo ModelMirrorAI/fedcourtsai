@@ -792,7 +792,7 @@
     },
     "OpenTriggerIssue": {
       "additionalProperties": false,
-      "description": "One still-open ``run:*`` trigger issue, surfaced on the ops dashboard.\n\nTrigger issues (predict / evaluate fan-outs) are transient by\ndesign: the run's ready PR closes them on merge, and an empty matrix closes\nthem with a note. One that stays open means its run stalled \u2014 failed\nwholesale, produced nothing, or was never picked up \u2014 so the dashboard lists\nthem with their age instead of letting them sit invisible.",
+      "description": "One open issue wearing a ``run:*`` fan-out label, on the ops dashboard.\n\nNothing keys on those labels \u2014 no workflow triggers on ``issues: labeled``,\nand a predict or evaluate round derives its cases from committed state \u2014 so\nan issue carrying one is a marker somebody left behind, never queued work.\nThe dashboard lists them with their age so a reader clears them instead of\nreading them as a round in flight.",
       "properties": {
         "created_at": {
           "description": "ISO-8601 creation time (age derives from this)",
@@ -800,7 +800,7 @@
           "type": "string"
         },
         "label": {
-          "description": "The run:* trigger label, e.g. run:predict",
+          "description": "The run:* fan-out label, e.g. run:predict",
           "title": "Label",
           "type": "string"
         },
@@ -1530,7 +1530,7 @@
         }
       ],
       "default": null,
-      "description": "Still-open run:* trigger issues (stalled fan-outs), oldest first; null on a report built before the field existed or without the issue feed",
+      "description": "Open issues wearing a run:* fan-out label (stale markers), oldest first; null on a report built before the field existed or without the issue feed",
       "title": "Open Triggers"
     },
     "schema_version": {

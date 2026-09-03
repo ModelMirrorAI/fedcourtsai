@@ -1,4 +1,4 @@
-"""The evaluate backlog deriver — what makes ``run:evaluate`` level-triggered.
+"""The evaluate backlog deriver — what makes ``run-evaluate`` level-triggered.
 
 The poll seams queue evaluate off *this cycle's* resolutions, and resolution
 latches closed, so a failed or paused evaluate run drops those gradings with no

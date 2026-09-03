@@ -1,6 +1,7 @@
-# Public forms: bug reports and feature/ideas. Data-production runs (pull)
-# are NOT public forms — a maintainer triggers them by applying a
-# `run:*` label to an issue, which is the pipeline's trust boundary. Blank issues
+# Public forms: bug reports and feature/ideas. No form here starts anything: no
+# workflow keys on an issue event, so the pipeline's trust boundary is its
+# trigger surface — a schedule that fires only from the default branch, and a
+# write-gated dispatch. Blank issues
 # stay enabled so maintainers can file dev/backlog/ops issues and label them.
 blank_issues_enabled: true
 contact_links:

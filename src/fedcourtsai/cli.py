@@ -5792,7 +5792,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     frontier = _read_best_effort(live_frontier, LiveFrontier)
     prior = _read_best_effort(previous, OpsReport)
     statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
-    # Open run:* trigger issues (stalled fan-outs), best-effort like the other feeds:
+    # Open issues wearing a run:* fan-out label, best-effort like the other feeds:
     # a missing/unreadable file just drops the section.
     open_triggers = None
     if trigger_issues is not None and trigger_issues.exists():
@@ -6664,7 +6664,7 @@ def refresh_dockets_cmd(
     not: a served record with no machine-readable disposition is reported and
     skipped (pending matters are the forward poller's charter), and one whose
     case carries an open, predicted event is left to the watchlist so its
-    resolution reaches the evaluate handoff this path never files.
+    resolution reaches the evaluate queue this path never writes.
 
     Dry-run by default: it resolves each number against the stored rows and
     fetches nothing, so the reading costs no upstream traffic. `--apply` does the
@@ -6732,7 +6732,7 @@ def refresh_dockets_cmd(
     if rep.left_to_watchlist:
         typer.echo(
             f"  left to the watchlist: {', '.join(rep.left_to_watchlist)} "
-            "(an open, predicted event — its re-poll files the evaluate handoff)"
+            "(an open, predicted event — its re-poll writes the evaluate queue)"
         )
     # An upstream error is not a result: the named docket was neither re-served
     # nor found absent, so the list this dispatch answered for is incomplete.
@@ -6791,7 +6791,7 @@ def historical_terms(
     number, raw JSON snapshotted, the resolved row + ``outcome.json`` recorded,
     and filed documents provisioned for OT``document_floor_term``+ — so they
     feed the statpack's per-Term base rates and replay/evaluation only.
-    **Writes no handoff queues**: these are decided historical matters and must
+    **Writes no queue files**: these are decided historical matters and must
     never queue forward prediction. The ``run-seed`` workflow loops this
     command, committing the corpus after each chunk.
     """
@@ -8827,7 +8827,7 @@ def pull_all(
         ),
     ] = None,
 ) -> None:
-    """Refresh the stalest tracked cases within budget; queue downstream handoffs.
+    """Refresh the stalest tracked cases within budget; write the downstream queues.
 
     The API-budget governor: rotation picks the oldest-``last_pulled``-first slice
     of the active set (skipping closed/resolved cases), capped at
@@ -8991,7 +8991,7 @@ def live_poll(
     predict for a changed, still-unresolved substantive application in scope
     (daily-debounced), ground truth for the rest. Resolution is detected from
     the proceedings text, so a decided petition or application lands
-    ``outcome.json`` deterministically. Writes the same three handoff queues
+    ``outcome.json`` deterministically. Writes the same three queue files
     as ``pull-all``.
     """
     settings = get_settings()
@@ -11473,7 +11473,7 @@ def authorize_trigger_cmd(
     sender_type: Annotated[
         str, typer.Option(help="github.event.sender.type (a 'Bot' sender is the App handoff).")
     ],
-    actor: Annotated[str, typer.Option(help="github.actor that applied the run:* label.")],
+    actor: Annotated[str, typer.Option(help="github.actor that triggered the run.")],
     repo: Annotated[str, typer.Option(help="github.repository, owner/name.")],
     bot_actor: Annotated[
         str | None,
@@ -11484,14 +11484,16 @@ def authorize_trigger_cmd(
         ),
     ] = None,
 ) -> None:
-    """Authorize a run:* label trigger, or refuse and exit non-zero (fail closed).
+    """Authorize a run's sender, or refuse and exit non-zero (fail closed).
 
-    The pipeline's trust boundary: a Bot sender is the trusted App handoff
-    (pinnable to one login via ``--bot-actor``), any other actor needs
-    write-or-higher collaborator access (looked up via ``gh api``). Every
-    label-triggered ``run:*`` workflow runs this *before* it mints a token,
-    assumes the S3 role, or runs an agent. Prints the authorization line and
-    exits 0 when allowed;
+    A Bot sender is the trusted App handoff (pinnable to one login via
+    ``--bot-actor``); any other actor needs write-or-higher collaborator access
+    (looked up via ``gh api``). No workflow calls this, because none carries a
+    trigger an outside actor can fire — every lane here is schedule- or
+    dispatch-only, both gated by the platform (see ``fedcourtsai.authz``). It is
+    what a workflow that gained such a trigger would run *before* it mints a
+    token, assumes the S3 role, or runs an agent. Prints the authorization line
+    and exits 0 when allowed;
     prints the refusal to stderr and exits 1 otherwise. Needs ``GH_TOKEN`` in
     the environment for the permission lookup.
     """

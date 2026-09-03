@@ -87,10 +87,10 @@ runbook, [docs/security.md](docs/security.md).
   and capped far below the heuristic's own minimum, so the skip can hide
   nothing the heuristic would convict standalone. A hit **withholds the branch** — nothing is pushed and no
   PR opens; a redacted file/rule/line report (never the matched text) lands on
-  the trigger issue and the files stay in the run's cell artifacts for
+  the run's step summary and the files stay in the run's cell artifacts for
   maintainer review. The scan fails closed: if its token env is missing, the
-  branch is likewise withheld, with a misconfiguration note on the trigger
-  issue in place of a findings report. The same command gates one surface
+  branch is likewise withheld, with a misconfiguration note on that summary
+  in place of a findings report. The same command gates one surface
   outside a run branch on its own terms: the `qp-topic-label` run's
   turn-by-turn engine transcript is scanned (`--transcript-file`) before it is
   uploaded as a run artifact, with every detector *except* the generic entropy
@@ -100,8 +100,8 @@ runbook, [docs/security.md](docs/security.md).
   the scan is given there — the engine's own API key — and the
   credential-shape patterns are that surface's whole gate, which is why it
   fails closed the same way: a hit, or a scan that could not run at all,
-  withholds the artifact, and with no trigger issue on a dispatch run the
-  run's warning and step summary are the record. Holding that key makes the
+  withholds the artifact, and the run's warning and step summary are the
+  record. Holding that key makes the
   scan's own **import path** part of the gate, and it follows an agent that
   writes freely in the tree the editable install resolves through — so the
   scanner is built from a checkout taken *after* the agent exits and fetched
@@ -139,7 +139,7 @@ runbook, [docs/security.md](docs/security.md).
   rotation (above), not a model key or a GitHub credential (the Claude cell's
   only token is comment-only; Codex and Gemini hold none).
 - **Agents get a least-privilege GitHub App token, never a static one.** The
-  Claude agent steps in `run:predict` / `run:evaluate` receive a short-lived
+  Claude agent steps in `run-predict` / `run-evaluate` receive a short-lived
   App installation token scoped **comment-only** (`contents: read` + `issues` +
   `pull-requests: write`); the Codex and Gemini cells get no GitHub token at
   all — their blocked-channel is `flags.json`, surfaced by the trusted
@@ -202,50 +202,45 @@ runbook, [docs/security.md](docs/security.md).
   buy is deliberately small: the corpus is public court data, neither principal
   can write or delete anything, and a billing alarm bounds egress abuse. See
   *Developer access* in [docs/data-pipeline.md](docs/data-pipeline.md).
-- **Label triggers are maintainer-gated, two ways.** Applying a `run:*` label is
-  the trust boundary for the pipeline. (1) No issue form auto-applies a `run:*`
-  label — a maintainer applies it after triage. (2) Each issue-triggered
-  privileged job re-checks, before any privileged work, that the triggering
-  actor has **write access** (failing closed), so a label applied by anyone
-  else is inert — nothing that mints a token, assumes a role, or reads the
-  corpus runs ahead of that check on any `run:*` **label** path. `run-evaluate`
-  also runs on a schedule and a dispatch, which are not label events and so do
-  not reach that gate; three platform facts stand in its place, and the spend
-  hold stands behind all of them. A `schedule` fires only from the **default
-  branch**, so a cron can only run what a maintainer-merged promotion put on
-  `main`. A `workflow_dispatch` is gated by GitHub on repository **write** —
-  the same bar the gate's non-Bot branch enforces. And the job binds `prod`,
-  whose deployment branches are restricted to `main` (below), so a dispatch
-  from any other ref is refused at the deployment-branch gate before a step
-  runs: no role, no secret, no agent. On every trigger alike the `review` hold
-  remains the thing between a plan and any spend. What does run ahead
-  of it is accepted and named in place: the gate is a tested command, so it
-  needs a working tree and a synced env, and on every label path a
-  credential-free checkout and an environment setup precede it — as, on the two
-  fan-outs, does binding the `prod` environment. None of those carries anything
-  the gate protects. Two costs ride the shape on `run-pull` specifically, both
-  stated at the step there: its later credentialed checkout discards that venv,
-  so the label path syncs twice, and the run is already holding the shared
-  corpus-write lock for the minute the refusal takes. Every `run:*` gate — the
-  three fan-outs and the deterministic
-  writer — treats the data App's `Bot` sender as the trusted App handoff
-  without a permission lookup. That allowance rests on two platform facts: installing a
-  GitHub App requires admin on the repository, and label writes made with the
-  default `GITHUB_TOKEN` do not fire workflows — so no unprivileged actor can
-  produce an `issues: labeled` event with a `Bot` sender. What those facts do
-  not cover is a *second* admin-installed App (the repo carries more than one):
-  its label writes are `Bot` senders too. Every gate closes that residue by
-  pinning its `Bot` allowance to the data App's own login (`--bot-actor`).
-  The claude/codex agent steps on `run-predict` / `run-evaluate` carry their
-  own narrowing to the same login (the claude action's `allowed_bots`, the
-  codex action's `allow-bot-users`) — not redundancy: those actions refuse a
-  bot actor by default, so the step-level grant is what lets an App-filed
-  label round reach the agent at all, and `tests/test_workflow_agent_bot.py`
-  locks it in. On `run-predict` that grant carries the standing pull handoff;
-  on `run-evaluate`, whose rounds normally arrive on its own schedule with a
-  human actor, it is held in reserve for the label path — pinned to the one
-  login either way, which is what makes keeping it cheap. The gemini steps and `run-backtest` have no step-layer check
-  and rely on the gate's pin alone.
+- **The trigger surface is the trust boundary, and the platform holds it.** No
+  **privileged** workflow — one that mints a token, assumes a role, or runs an
+  agent — keys on an `issues` event, or on any other trigger class an actor
+  outside the write boundary can fire, so nothing an outside actor files reaches
+  one at all. Every privileged lane enters one of two ways, and three platform
+  facts cover both. A `schedule`
+  fires only from the **default branch**, so a cron can run only what a
+  maintainer-merged promotion put on `main`. A `workflow_dispatch` is gated by
+  GitHub on repository **write**. And every privileged job binds a deployment
+  environment whose branch policy pins the ref it may run from — `prod` to
+  `main`, `staging` to `staging` (below) — so a dispatch from any other ref is
+  refused at the deployment-branch gate before a step runs: no role, no secret,
+  no agent. That is why no lane carries an actor gate of its own: there is no
+  trigger for one to judge.
+  Three workflows *do* take an outside-reachable trigger — `ci.yml`,
+  `lint-actions.yml` and `codeql.yml` on `pull_request`, which any fork
+  contributor fires — and they are the shape that makes the rule readable rather
+  than an exception to it: each carries top-level `permissions: {}`, binds no
+  environment, names no secret, and mints no token or role, so a fork PR's run
+  reaches nothing. Privilege and outside reachability are disjoint here, not
+  merely rare together.
+  `tests/test_workflow_auth_gate.py` sweeps the whole workflow
+  directory for a reachable trigger, pins the four privileged lanes to those
+  two, and requires every job that mints a token, assumes a role, or runs an
+  agent to bind one of the branch-policied environments — so a workflow added
+  later inherits the boundary. Behind all of it the `review` hold remains the
+  thing between a plan and any spend, on every round alike.
+  The claude/codex agent steps on `run-predict` / `run-evaluate` allow exactly
+  one bot login through their own actor checks (the claude action's
+  `allowed_bots`, the codex action's `allow-bot-users`), pinned to the data
+  App's own login and never `*`. Those actions refuse a bot actor by default,
+  and an unattended round's actor is not a requester at all — it is whatever
+  GitHub attributes the cron to, which on a repo whose deterministic writers
+  push to the default branch can be that login — so the grant is what keeps a
+  round from dying on an attribution it does not control.
+  `tests/test_workflow_agent_bot.py` locks the pin in. It grants nothing a
+  round could not already do: the round is running because a cron or a
+  write-gated dispatch started it, and it spends only if a reviewer releases
+  the hold. The gemini steps and `run-backtest` set no such allowance.
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
   is the sole bypass actor, so the deterministic writer jobs (`run-pull`,
@@ -284,17 +279,19 @@ runbook, [docs/security.md](docs/security.md).
   Self-review is deliberately permitted: with a single maintainer the hold is
   a deliberateness gate — an explicit, audit-logged reading of the plan before
   the spend — not two-person control, and blocking the run's own actor would
-  make a maintainer-labeled run unreleasable. Revisit if a second maintainer
+  make a maintainer-dispatched run unreleasable. Revisit if a second maintainer
   joins. The `staging` environment also carries the **staging read-write
   role**'s trust — the only credential in the system that can write a corpus
   store other than through the `prod` writers, read-only on production and
   read-write on the staging bucket pair alone, so production's single-writer
   discipline is unchanged and the worst a staging-bound write can corrupt is
   the re-seedable fixture the refresh lane rebuilds in one dispatch.
-- **Prompt-injection awareness.** Issue bodies are untrusted input. The agent
-  actions include actor-permission checks; matrix inputs are parsed from a
-  fixed JSON block rather than free text, and agents are instructed to treat
-  docket text as data, not instructions.
+- **Prompt-injection awareness.** Docket text is untrusted input, and it is the
+  input a cell actually reads: no round takes a case list from anything a
+  requester wrote, since the matrix is derived from committed corpus state.
+  Agents are instructed to treat docket text as data, not instructions, and the
+  cell's credential carries no `contents: write` — its output rides to `collect`
+  as an artifact, so injected text cannot push code.
 - **`persist-credentials: false`** on read-only checkouts.
 - **Secrets are never written to `data/` or logs.** The `validate` gate, the
   collect job's secret scan (which withholds a run branch rather than push

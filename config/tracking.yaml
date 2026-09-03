@@ -51,7 +51,7 @@ pull:
   # errors (e.g. a 404) never trip it; deferred cases keep their stalest-first
   # position, so the next window retries them.
   max_consecutive_transient_failures: 5
-  # Only trigger run-predict when a pull detects new docket activity.
+  # Only queue a case for predict when a pull detects new docket activity.
   predict_on_change_only: true
 
 # live = the SCOTUS live channel: supremecourt.gov per-docket JSON. Owns
@@ -103,8 +103,8 @@ live:
   # same distribution transition that queues predict; the cap bounds corpus
   # blob growth, and a truncated document is flagged in its provisioning manifest.
   document_text_cap: 150000
-  # Predict timing is not configured here: the live channel queues run:predict
-  # on a DISTRIBUTION TRANSITION — a petition newly distributed for a
+  # Predict timing is not configured here: the live channel stamps the predict
+  # queue on a DISTRIBUTION TRANSITION — a petition newly distributed for a
   # conference, or relisted to a new one — the cert-calendar analogue of
   # pull.predict_on_change_only. No separate refresh-rate spend guard is needed
   # because both queueing paths are already bounded: max_cases_per_run above
@@ -217,7 +217,7 @@ predict:
 evaluate:
   # Per-cycle cap on the evaluate backlog deriver — the path that re-derives owed
   # gradings from committed ledger state (resolved event + prediction + no
-  # evaluation), so a failed or paused run:evaluate self-heals instead of losing
+  # evaluation), so a failed or paused evaluate round self-heals instead of losing
   # those gradings. Unlike the selection sweep this costs no network (git ledger +
   # corpus only), so the cap bounds model spend and PR volume, not request rate:
   # each queued case fans out one cell per not-yet-graded evaluator. It bounds

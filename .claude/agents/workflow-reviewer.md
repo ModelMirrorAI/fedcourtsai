@@ -36,21 +36,28 @@ read the diff, run the linters, and report findings with a clear verdict. You do
 - **Least-privilege permissions.** A top-level `permissions: {}` and the *minimum*
   job-level scopes. Flag any `write` scope not clearly needed, and any `write-all`.
   `id-token: write` only when assuming an AWS/OIDC role.
-- **Fail-closed authorization.** A `run:*`-label-triggered workflow on a public repo
-  can be fired by anyone via an issue form, so it must authorize the trigger
-  (`fedcourts authorize-trigger`, Bot-handoff or write collaborator) **before** any
-  privileged step — minting an App token, assuming the S3 role, reading the corpus.
-  Checkout + env setup before the gate is fine (no secrets); credential-minting after
-  it is not.
+- **The trigger is the trust boundary.** A privileged workflow — one that mints an
+  App token, assumes the S3 role, or hands control to a coding agent — carries only
+  the two triggers the platform gates itself: `schedule` (fires from the default
+  branch alone, so it runs only what a maintainer-merged promotion put on `main`)
+  and `workflow_dispatch` (GitHub refuses it to anyone without repository write).
+  **Blocker** on any diff that adds `issues`, `issue_comment`, `pull_request_target`,
+  or another trigger an outside actor can fire to such a workflow: it would need a
+  fail-closed actor gate (`fedcourts authorize-trigger`) before every privileged
+  step, and `tests/test_workflow_auth_gate.py` fails on it either way. A dispatch is
+  write-gated but not *branch*-gated, so every privileged job must also bind a
+  deployment environment whose branch policy pins the ref it may run from.
 - **No expression injection.** Never interpolate attacker-controllable `${{ github.event.* }}`
   (issue/PR title or body, branch/ref names, comment text) directly into a `run:`
   script. Pass them through `env:` and reference `"$VAR"` quoted. `github.event.*.number`
   and similar integers are safe; free text is not.
-- **The handoff-token gotcha.** A step that must trigger another workflow (creating a
-  `run:*` issue) or open a PR that triggers CI uses a **GitHub App token**, not the
-  default `GITHUB_TOKEN` (which suppresses downstream triggers). Conversely, a
-  *non-triggering* post (e.g. latching a comment on a label that triggers nothing)
-  should use the ambient `GITHUB_TOKEN`, not a broader App token — least privilege.
+- **The token-choice gotcha.** A step that must start something downstream — opening
+  a PR that triggers CI — uses a **GitHub App token**, not the default
+  `GITHUB_TOKEN` (which suppresses downstream triggers). Every issue write here is
+  the other case: dashboards, run logs, flag latching must trigger nothing, and no
+  workflow keys on `issues: labeled`, so they ride the ambient `GITHUB_TOKEN` rather
+  than a broader App token — least privilege, and the App token is the one that
+  bypasses branch protection.
 - **Secrets.** Never `echo`/print/write a secret or token; `persist-credentials: false`
   on checkout; OIDC roles read-only unless a write is required and justified.
 - **Auto-merge blast radius.** If the PR a job opens auto-merges, confirm the required
@@ -64,9 +71,8 @@ read the diff, run the linters, and report findings with a clear verdict. You do
   answers a question or refreshes a derived artifact; the closest `run-*` workflow
   otherwise). GitHub scopes permissions and tokens per *job*, so a new job is
   exactly as least-privilege as a new file — a new file earns its place only for a
-  different **trigger class** (the `run:*` issue-label cascade vs
-  schedule/dispatch) or **risk class** (agentic fan-out, corpus writer,
-  destructive cleanup). Flag an unjustified new file as *recommended*: name the
+  different **trigger class** (a schedule of its own vs dispatch-only) or **risk
+  class** (agentic fan-out, corpus writer, destructive cleanup). Flag an unjustified new file as *recommended*: name the
   existing workflow it should join. Cite *Authoring or changing a workflow* in
   `docs/pipeline.md`.
 - **Logic in tested Python, bash only plumbs.** This is the house rule. Decision and
@@ -78,10 +84,11 @@ read the diff, run the linters, and report findings with a clear verdict. You do
   jobs (`collect-plan`) and the `cleanup` command as the model.
 - **Mirror the existing traps** documented in *Authoring or changing a workflow*:
   concurrency is evaluated before the job `if` (corpus writers join `corpus-write` only
-  when their own label matched); `git add data/` aborts when `data/` is absent (guard it);
+  when their own window is the one selected — the cron minute, or the `mode` input);
+  `git add data/` aborts when `data/` is absent (guard it);
   long jobs outlive 1h App-token / OIDC sessions (re-mint / raise `role-duration-seconds`);
   the ephemeral runner re-pays fixed per-run setup costs.
-- **Docs in step.** A new or changed `run:*` label/workflow updates `docs/pipeline.md`
+- **Docs in step.** A new or changed workflow updates `docs/pipeline.md`
   (the workflow table), `docs/security.md` if the trigger/permission model changed,
   `docs/cli.md` for any new `fedcourts` command it calls, and the README table if listed
   there.

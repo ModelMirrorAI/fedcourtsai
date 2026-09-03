@@ -186,8 +186,8 @@ jobs:
     permissions:
       contents: read
       actions: read
-      # Pull-request labels are issue labels; this is the read the waiver
-      # step below needs, and the gate script already needs it for quiescence.
+      # Pull-request labels are issue labels; this is the read the waiver step
+      # below needs. The gate script itself needs only Actions read.
       issues: read
     env:
       # Named once, and read by name everywhere below: the label, the warning,

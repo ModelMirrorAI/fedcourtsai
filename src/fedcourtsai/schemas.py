@@ -1603,7 +1603,7 @@ class Evaluation(_Strict):
 class ModelUsage(_Strict):
     """``usage.json`` — measured model token usage and estimated cost for one run.
 
-    Written per ``run:predict`` / ``run:evaluate`` matrix cell (predictor x event
+    Written per ``run-predict`` / ``run-evaluate`` matrix cell (predictor x event
     for predict, evaluator x event for evaluate) alongside that cell's prediction
     or evaluation output. Token buckets follow the Claude convention:
     ``input_tokens`` is fresh input, with cached reads and cache writes counted
@@ -6376,17 +6376,17 @@ class ToolingDigest(_Strict):
 
 
 class OpenTriggerIssue(_Strict):
-    """One still-open ``run:*`` trigger issue, surfaced on the ops dashboard.
+    """One open issue wearing a ``run:*`` fan-out label, on the ops dashboard.
 
-    Trigger issues (predict / evaluate fan-outs) are transient by
-    design: the run's ready PR closes them on merge, and an empty matrix closes
-    them with a note. One that stays open means its run stalled — failed
-    wholesale, produced nothing, or was never picked up — so the dashboard lists
-    them with their age instead of letting them sit invisible.
+    Nothing keys on those labels — no workflow triggers on ``issues: labeled``,
+    and a predict or evaluate round derives its cases from committed state — so
+    an issue carrying one is a marker somebody left behind, never queued work.
+    The dashboard lists them with their age so a reader clears them instead of
+    reading them as a round in flight.
     """
 
     number: int = Field(ge=1, description="The issue number")
-    label: str = Field(description="The run:* trigger label, e.g. run:predict")
+    label: str = Field(description="The run:* fan-out label, e.g. run:predict")
     title: str = ""
     created_at: str = Field(description="ISO-8601 creation time (age derives from this)")
 
@@ -6638,8 +6638,8 @@ class OpsReport(_Strict):
     )
     open_triggers: list[OpenTriggerIssue] | None = Field(
         default=None,
-        description="Still-open run:* trigger issues (stalled fan-outs), oldest first; "
-        "null on a report built before the field existed or without the issue feed",
+        description="Open issues wearing a run:* fan-out label (stale markers), oldest "
+        "first; null on a report built before the field existed or without the issue feed",
     )
 
 

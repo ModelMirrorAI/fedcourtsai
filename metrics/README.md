@@ -1045,8 +1045,8 @@ the rendered table) and
   rank against. Produced by the maintainer-triggered
   `run-backtest` workflow — a real-engine replay spends tokens, so it never
   runs on a schedule — and labeled retrospective like `backtest.json`. A run
-  is an explicit maintainer action: apply the `run:backtest` label to an
-  issue (the real engines, default set size) or dispatch the workflow
+  is an explicit maintainer action: `workflow_dispatch` is the only way in, and
+  GitHub gates it on repository write
   (`replay`, `engine`, `limit`, `terms`, `skip_engines`, `scope`, and `spread`
   inputs —
   ~one predict cell per petition per routable predictor; `engine: stub` is a

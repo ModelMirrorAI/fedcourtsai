@@ -13,9 +13,10 @@ name: run-predict
 # was declined, or never ran is simply re-derived next cycle, and no trigger has
 # to be re-filed for it.
 #
-# The trigger decides only *when* a round derives; it never names its cases. The
-# spend gate is unchanged: every run renders its plan report and waits on the
-# `review` environment's required reviewers before a cell spends a token.
+# The trigger decides only *when* a round derives; it never names its cases. What
+# decides whether it spends is the `review` hold: every run renders its plan
+# report and waits on that environment's required reviewers before a cell spends
+# a token.
 on:
   schedule:
     # Twice a day, each slot margined after one of run-pull's ingestion windows
@@ -112,8 +113,8 @@ jobs:
       # and this job binds `prod`, whose deployment branches are restricted to
       # `main`, so a dispatch from any other ref is refused before a step runs.
       # The `review` hold still stands between this plan and any spend, on both
-      # triggers alike. (SECURITY.md -> *Label triggers* carries the same
-      # carve-out for run-evaluate's scheduled lane.)
+      # triggers alike. (SECURITY.md -> *Trigger surface* carries the same
+      # reasoning for every lane.)
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -266,18 +267,22 @@ jobs:
           # `predict` and `collect` jobs are skipped (`needs` + `has_jobs`) and
           # nothing spends.
           if [ "$count" -eq 0 ]; then
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            if [ -s stranded-note.md ]; then
-              # The note file is written only when the stranded-run guard
-              # withheld EVERY cell, so its presence is the marker that this
-              # empty matrix is not a drained backlog. The guard writes its own
-              # summary section (above) with the run ids and the rerun command;
-              # this line only keeps the count from being read as "nothing
-              # owed", which is the opposite of what happened.
-              echo "This matrix is empty because the stranded-run guard withheld every cell, not because the backlog is drained — see the guard's section above for the uncollected run(s) to recover. Those events stay owed until their predictions are committed, so a recovered collect, not another round, is what clears them." >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "The predict backlog is drained: no in-scope, funded, provisioned case with an open forecastable event is missing an enabled predictor's forecast (within this cycle's cap). Nothing to run; no spend — the run ends cleanly here. Anything held rather than owed is counted in this step's log, and re-derived next cycle." >> "$GITHUB_STEP_SUMMARY"
-            fi
+            {
+              echo ""
+              if [ -s stranded-note.md ]; then
+                # The note file is written only when the stranded-run guard
+                # withheld EVERY cell, so its presence is the marker that this
+                # empty matrix is not a drained backlog — and its body is the
+                # guard's own account (the run ids and the remedy), so it is
+                # rendered rather than paraphrased: the annotations name what
+                # the census skipped, but only the note carries the whole story.
+                echo "This matrix is empty because the stranded-run guard withheld every cell, not because the backlog is drained. Those events stay owed until their predictions are committed, so a recovered collect, not another round, is what clears them."
+                echo ""
+                cat stranded-note.md
+              else
+                echo "The predict backlog is drained: no in-scope, funded, provisioned case with an open forecastable event is missing an enabled predictor's forecast (within this cycle's cap). Nothing to run; no spend — the run ends cleanly here. Anything held rather than owed is counted in this step's log, and re-derived next cycle."
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
       # The plan report the approval below is judged on: the tested plan
@@ -345,55 +350,44 @@ jobs:
       - name: Release the held fan-out
         run: echo "the review hold released — the matrix may spend."
 
-  # Any hold that did not release must not strand the trigger issue open:
-  # record the outcome where the request lives, pointing at the plan report
-  # the decision was made on. `!= 'success'` covers the whole class — the
-  # Reject button (a failed deployment), a cancelled or expired wait, and a
-  # plan job that died after minting the matrix (approval then skipped).
-  # Best-effort during a run cancellation, like any always() job: an expired
-  # hold whose runner was torn down may still need a manual close. Ambient
-  # token; closing triggers nothing.
+  # A hold that did not release still has to leave a durable record of what was
+  # declined, and the record is this job's step summary — rendered onto the same
+  # run page as the plan report the decision was made on, so the two read
+  # together. `!= 'success'` covers the whole class: the Reject button (a failed
+  # deployment), a cancelled or expired wait, and a plan job that died after
+  # minting the matrix (approval then skipped). No token and no permissions,
+  # because a step summary needs neither — which also means no API call to
+  # retry and nothing that can half-succeed. Best-effort during a run
+  # cancellation, like any always() job.
+  #
+  # A decline strands nothing: no request is left open anywhere, the plan report
+  # is already on this run, and the backlog this round declined to forecast is
+  # re-derived on the next cycle by construction — so a decline costs a cycle
+  # and nothing else.
   rejected:
     needs: [plan, approval]
-    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result != 'success' && github.event.issue.number }}
+    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result != 'success' }}
     runs-on: ubuntu-latest
-    # One retried close, worth up to 105s against a degraded API — the cap
-    # admits it with room for the runner's own setup.
+    # Nothing here but the summary write; the cap is the runner's own setup
+    # with room.
     timeout-minutes: 5
-    permissions:
-      issues: write
+    permissions: {}
     steps:
-      - name: Close the trigger issue when the hold did not release
+      - name: Record that the hold did not release
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          ISSUE: ${{ github.event.issue.number }}
+          RESULT: ${{ needs.approval.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          # Inline copy of scripts/gh_retry.sh's gh_retry — this job exists only
-          # to keep a declined request from stranding its issue open, so it
-          # takes no checkout to source the file from: adding one would add the
-          # very failure mode the job is here to remove. The workflow-invariants
-          # test pins the copies identical; contract and rationale live in that
-          # script's header.
-          gh_retry() {
-            local attempt out what
-            what="${1:-} ${2:-} ${3:-}"
-            for attempt in 1 2 3; do
-              if out=$(timeout 30 "$@"); then
-                printf '%s\n' "$out"
-                return 0
-              fi
-              if [ "$attempt" -lt 3 ]; then
-                echo "::warning::${what} failed (attempt ${attempt}/3) — retrying" >&2
-                sleep $((attempt * 5))
-              fi
-            done
-            echo "::error::${what} failed after 3 attempts" >&2
-            return 1
-          }
-          gh_retry gh issue close "$ISSUE" --repo "$REPO" --comment "The review hold did not release — rejected, cancelled, expired, or the plan failed — so no cell ran and nothing was spent. The plan report above is the record of what was declined; if no report appears above, the plan failed before posting one: ${RUN_URL}. Re-label to re-queue with a fresh plan."
+          {
+            echo "## run-predict — the review hold did not release"
+            echo ""
+            echo "The \`review\` hold ended as \`${RESULT}\` — rejected, cancelled, expired, or the plan failed before the hold — so no cell ran and nothing was spent."
+            echo ""
+            echo "The plan report on the \`plan\` job of this run is the record of what was declined; if no report appears there, the plan failed before rendering one: ${RUN_URL}"
+            echo ""
+            echo "Nothing has to be re-filed: the forecasts this round would have produced are still missing from committed state, so the next scheduled round derives them again. A \`workflow_dispatch\` runs one now."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   predict:
     needs: [plan, approval]
@@ -1257,9 +1251,11 @@ jobs:
         # A round with no trigger issue has nothing to orphan, but the stall
         # itself still has to be visible, so the report falls back to the step
         # summary rather than being skipped — a silent stall is exactly what this
-        # step exists to stop. Every round here takes that branch: this workflow
-        # has no issue trigger, and the collect job is held byte-identical to
-        # run-evaluate's, where the issue branch still runs for its label lane.
+        # step exists to stop. Every round takes that branch: no lane in this
+        # repository has an issue trigger, so the issue number is always empty.
+        # The issue arm is kept because `collect-run`'s contract still admits an
+        # issue number and this job is held structurally identical to
+        # run-evaluate's — not because a round here can supply one.
         if: ${{ always() }}
         # Two retried gh calls inside the deduped issue-comment command,
         # each worth up to 105s against a degraded API — bounded per step so a
@@ -1275,14 +1271,12 @@ jobs:
           set -euo pipefail
           [ -s stall-comment.md ] || exit 0
           if [ -z "$ISSUE" ]; then
-            # The rendered comment is addressed to a trigger issue, so its closing
-            # retry line does not apply to a round that has none. Say what does
-            # before replaying it, rather than leaving the contradiction to be
-            # untangled during an incident.
+            # No issue to comment on, so the run's own summary is the report.
+            # The rendered comment reads correctly there: it addresses the round
+            # rather than a request, and its retry line is the lane's next
+            # derivation, which needs nothing filed.
             {
               echo '## stalled run'
-              echo ''
-              echo 'This round had no trigger issue, so the retry advice below does not apply: there is nothing to re-label and nothing left open. The cells it failed to produce are still owed, so the next scheduled derivation picks them up; `workflow_dispatch` runs one now.'
               echo ''
               cat stall-comment.md
             } >> "$GITHUB_STEP_SUMMARY"
