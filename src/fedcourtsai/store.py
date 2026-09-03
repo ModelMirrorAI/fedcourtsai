@@ -490,15 +490,15 @@ def unforecastable_listed_events(
 
     The re-check for events a caller *lists* rather than selects: queue
     selection (:func:`forecastable_events`) applies every forecastability rule,
-    but a trigger issue names its event ids, and replaying an old one bypasses
-    selection entirely. This is the same refusal read back from the corpus at
-    fan-out time, in the two classes that turn a queued event unforecastable
-    while the issue waits:
+    but a named case list carries its own event ids, and replaying an old one
+    bypasses selection entirely. This is the same refusal read back from the
+    corpus at fan-out time, in the two classes that turn a listed event
+    unforecastable while the round waits:
 
-    * **Resolved since queueing** — the event carries ``resolved = 1``. A
-      trigger issue is written when its events are open and fanned out whenever
-      the workflow runs, and a pipeline pause can put an arbitrary gap between
-      the two.
+    * **Resolved since listing** — the event carries ``resolved = 1``. A case
+      list is composed when its events are open and fanned out whenever the
+      round that reads it runs, and a review hold can put an arbitrary gap
+      between the two.
     * **Merits proceeding no longer forecastable** — the row fails one of the
       row-level arms of the selection predicate (:func:`_merits_forecastable`):
       the grant no longer opens a merits proceeding (a docket re-resolved to

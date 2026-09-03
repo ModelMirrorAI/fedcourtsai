@@ -753,7 +753,7 @@ def _matrix(tmp_path: Path, *actors: str) -> Path:
 
 def test_collect_plan_matrix_file_names_cells_that_uploaded_nothing(tmp_path: Path) -> None:
     """The CLI wiring for the queued-cell census: a matrix entry with no
-    corresponding status.json is reported and holds the trigger issue open."""
+    corresponding status.json is reported and withholds the close."""
     cells = tmp_path / "cells"
     _write_cell(cells, "cell-a", actor="claude-baseline", **_CELL, **_READY)
     result = runner.invoke(

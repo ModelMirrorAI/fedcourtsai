@@ -122,7 +122,7 @@ def test_post_once_comments_when_the_marker_is_absent() -> None:
 def test_post_once_is_silent_when_the_marker_is_already_there() -> None:
     """Rerunning collect is the documented recovery for a transfer failure, so
     without this every recovery attempt stacks another copy of the same warning
-    on the trigger issue and buries the signal it exists to raise."""
+    on the issue and buries the signal it exists to raise."""
     gh = FakeGh(issues=[], comments=[f"{_STALL_MARKER}\nthe run stalled"])
     assert post_once(repo="o/r", issue=7, marker=_STALL_MARKER, body="x", runner=gh) == (
         "already posted on #7"

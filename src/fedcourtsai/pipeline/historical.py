@@ -46,7 +46,7 @@ forward frontier prober:
   The complement of that
   guarantee: a decided petition whose existing case carries an open,
   **predicted** event is left to the watchlist rather than ingested (see
-  :meth:`_Walk.ingest`), so the resolution reaches the evaluate handoff this
+  :meth:`_Walk.ingest`), so the resolution reaches the evaluate queue this
   walker never files.
 - **Documents follow the probe's floor.** An ingested petition from
   ``document_floor_term`` (~OT2021) onward gets its filed documents provisioned
@@ -132,7 +132,7 @@ class HistoricalReport(BaseModel):
     forward poller; never ingested here)."""
     left_to_watchlist: int = 0
     """Decided records whose existing case carries an open, predicted event —
-    left to the watchlist so its resolution queues the evaluate handoff the
+    left to the watchlist so its resolution writes the evaluate queue the
     walker never files."""
     documents: int = 0
     """Filed documents provisioned for OT``document_floor_term``+ ingests."""
@@ -325,7 +325,7 @@ class _Walk:
 
         One guard first: a serial that resolves to an existing case with an
         **open, predicted** event is left to the watchlist instead of ingested.
-        The walker files no evaluate handoffs by charter, so ingesting such a
+        The walker writes no evaluate queue by charter, so ingesting such a
         case here would land its outcome without ever queuing the committed
         prediction for scoring — and the resolved row would leave the live
         rotation, so the forward poller would never see the transition either.
@@ -609,7 +609,7 @@ def render_markdown(report: HistoricalReport) -> str:
         lines += [
             "",
             f"{report.left_to_watchlist} decided petition(s) with an open predicted "
-            "event left to the watchlist (its re-poll queues the evaluate handoff).",
+            "event left to the watchlist (its re-poll writes the evaluate queue).",
         ]
     if report.failed:
         lines += ["", f"⚠️ {len(report.failed)} stream error(s); those cursors will retry."]

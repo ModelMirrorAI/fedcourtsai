@@ -278,7 +278,7 @@ def test_decided_petition_with_open_predicted_event_is_left_to_the_watchlist(
     tmp_path: Path,
 ) -> None:
     """A serial resolving to an existing case with an open, predicted event is
-    never ingested here: the walker files no evaluate handoffs, so recording the
+    never ingested here: the walker writes no evaluate queue, so recording the
     outcome would strand the committed prediction unscored — the watchlist's
     re-poll owns that resolution. The cursor still advances (never re-probed)."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
@@ -917,7 +917,7 @@ def test_refresh_dockets_names_the_docket_it_left_to_the_watchlist(tmp_path: Pat
     """The one outcome a maintainer must be able to name. Asking for a docket by
     number and getting a bare count back leaves them unable to tell which of the
     list the seam declined — and this is the decline that matters, because the
-    resolution it defers is what files the evaluate handoff."""
+    resolution it defers is what writes the evaluate queue."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
     with corpus.connect(db) as conn:

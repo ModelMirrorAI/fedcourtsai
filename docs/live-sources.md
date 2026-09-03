@@ -294,13 +294,20 @@ same reason (verified live at implementation).
 Measured on the blob the corpus pointer named on 2026-08-28 (`b16b856f…` — the
 pointer is a content digest, which `corpus-info` does not print; its freshness
 pair is a 2026-08-28 pull stamp and a 2026-07-13 newest stored snapshot, and
-the documents were served by the per-case content store). Of the 9,231 stored
+the documents were served by the per-case content store). Every figure below
+taken over the queued population is on the **stamp-only** denominator — the
+rows carrying a `predict_queued_at` — which is what the report counted at the
+time. It now counts the union of that with the cases the git ledger holds a
+committed prediction for, because a schedule-derived mint leaves no stamp, so a
+re-run today reports a wider denominator than these numbers were taken over. Of the 9,231 stored
 petitions, 271 carry no text: **2.94%** over both segments pooled, and **2.90%**
 (192 of 6,613) over the cut the salience gate scores replay candidates on.
 Those are stored documents, not cells. On the 242 cases queued for prediction —
 where a missing petition costs a forward cell — **6** hold a petition that read
-back empty, which the report does not print but its case-id ledger gives when
-intersected with the rows carrying a `predict_queued_at`. Of the 271, 270 have
+back empty, which the report did not print but its case-id ledger gave when
+intersected with the rows carrying a `predict_queued_at` (the reconstruction
+that the widened denominator retires: it is the ledger's predicted set the
+count now also spans). Of the 271, 270 have
 a page count and no text layer, the class optical character recognition can
 repair, and one is a PDF the extractor could not open at all, which it cannot.
 The 270 is an upper bound: a document whose text leaf never mirrored to the

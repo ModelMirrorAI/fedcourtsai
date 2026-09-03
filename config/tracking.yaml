@@ -311,7 +311,9 @@ salience:
   # derivation — so it is the same per-lane ceiling in both readers, not one
   # shared global budget.
   sweep_cases_per_cycle: 25
-  # A relist inside this many days of a petition's last predict queue is
+  # A relist inside this many days of a petition's last prediction — the later
+  # of the pull lane's `predict_queued_at` stamp and the newest committed
+  # prediction run in the ledger, so a stamp-free scheduled mint counts too — is
   # treated as administrative churn rather than re-tournamented; 1 suppresses
   # only a same-day repeat. 0 disables suppression.
   relist_requeue_cooldown_days: 1

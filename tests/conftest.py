@@ -152,20 +152,25 @@ def seed_prediction(
     *,
     predictor_id: str = "claude-baseline",
     frozen: bool = False,
+    run_id: str = "20260101T000000Z",
 ) -> None:
     """Commit one minimal valid prediction into the ledger under ``data_root``.
 
     The evaluate paths now gate on a committed prediction existing for an event
     (nothing to score = no evaluator cell); tests asserting the evaluate
-    handoff seed one with this instead of hand-rolling the layout.
+    queue seed one with this instead of hand-rolling the layout.
 
     ``frozen`` stamps it into the frozen process partition. The default leaves
     it unstamped — a shakedown cell, which is what the pre-freeze ledger holds —
     so a gate that asks whether a claimable board counts the cohort
     (:func:`fedcourtsai.store.event_has_claimable_prediction`) sees the harder
     case unless a test asks for the easier one.
+
+    ``run_id`` is the committed run directory's name, which is where the ledger
+    carries the *date* a case was minted for prediction
+    (:func:`fedcourtsai.matrix.last_predicted_dates`) — so a test about that
+    date sets it rather than reaching into the layout.
     """
-    run_id = "20260101T000000Z"
     write_json(
         CasePaths(data_root, court, docket).event(event_id).prediction(predictor_id, run_id),
         Prediction(
