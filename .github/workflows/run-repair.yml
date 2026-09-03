@@ -306,13 +306,16 @@ jobs:
     runs-on: ubuntu-latest
     # Headroom over the longest chain of capped steps a dispatch can run, which
     # is the OCR recovery's: the dedupe prerequisite (10m), its own binary
-    # install (5m) and the pass (30m), leaving the setup, the corpus pull and
-    # the trailing verdict inside the remainder. A hit here cancels the run,
-    # which no failure handling absorbs; kept under the App token's 1h life so
-    # one token covers the whole run, which is why the pass's cap is what gives
-    # when this arithmetic tightens — and the OCR slice deadline is derived from
-    # that 30-minute step cap, so it moves with it.
-    timeout-minutes: 55
+    # install (5m), the fresh credential pair (the assume-role's own 120s
+    # bound) and the pass (45m), leaving the setup, the corpus pull and the
+    # trailing verdict inside the remainder. A hit here cancels the run,
+    # which no failure handling absorbs. Every pass but the OCR one still runs
+    # entirely inside the opening credentials' 1h lives; the OCR pass alone
+    # sits too deep in the chain for that, so a fresh App token and AWS session
+    # are minted right before it and the arithmetic here answers to this cap
+    # only — the OCR slice deadline is derived from that 45-minute step cap,
+    # so it moves with it.
+    timeout-minutes: 72
     environment: prod
     # Corpus-split flags (see run-pull): dual-write off unless CASESTORE_URL is
     # set; FEDCOURTS_CORPUS_SPLIT is the go-live switch (unset → '0' → off).
@@ -329,10 +332,12 @@ jobs:
       contents: read
       id-token: write # assume the AWS role for the corpus S3 remote (read-write)
     steps:
-      # One token up front: the whole run stays inside its 1h life, so no
-      # mid-run re-mint is needed. Scoped to contents:write only (the corpus
-      # pushes) — progress goes to the Actions step summary, not an issue, so
-      # no issues:write is needed.
+      # One token up front: on every pass but the OCR recovery the whole run
+      # stays inside its 1h life. The OCR pass and anything after it can end
+      # past that hour, so a fresh token is minted just before that step and
+      # the trailing verdict rides whichever mint is newest. Scoped to
+      # contents:write only (the corpus pushes) — progress goes to the Actions
+      # step summary, not an issue, so no issues:write is needed.
       - name: Mint app token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
@@ -370,7 +375,9 @@ jobs:
 
       # Same read-write (append-only) role as run-pull's and run-seed's
       # writers: a pass adds and rewrites rows in the corpus blob but can never
-      # wipe remote objects. The 1h session outlasts the job's own cap.
+      # wipe remote objects. The 1h session outlasts the whole run on every
+      # pass but the OCR recovery, which re-assumes the role just before its
+      # own step runs.
       - name: Configure AWS credentials (corpus S3 remote, read-write)
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
@@ -893,6 +900,33 @@ jobs:
             pdftoppm -v 2>&1 | head -n 1 || true
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Fresh credentials for the OCR pass alone. Both opening grants live 1h
+      # from job start, and this pass's step is the one whose worst case —
+      # behind the dedupe's and the install's own caps — can still be running
+      # (and committing) past that hour. Re-minting immediately before the
+      # step means the pass starts each grant's clock at zero, so its 45-minute
+      # cap fits with room to spare; every other pass keeps the opening pair.
+      # Conditions mirror the pass step's own, so the grants are refreshed
+      # exactly when they will be used.
+      - name: Mint app token (OCR pass)
+        if: ${{ inputs.repair == 'ocr-recovery' && steps.dedupe-live-rows.outcome == 'success' }}
+        id: app-token-ocr
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Configure AWS credentials (corpus S3 remote, read-write, OCR pass)
+        if: ${{ inputs.repair == 'ocr-recovery' && steps.dedupe-live-rows.outcome == 'success' }}
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 3600 # 1h
+          # See the opening credentials step for what this bound buys and costs.
+          action-timeout-s: 120
+
       # Read the scanned petitions off their page images. A petition filed on
       # paper reaches the corpus with no text layer, so the extractor stored
       # nothing for it and every cell minted over that case reads an empty
@@ -927,11 +961,12 @@ jobs:
         # is the slice deadline below, not `repair_bound`: page counts across
         # the class vary several-fold, so no fixed number of cases is both safe
         # against this cap and worth dispatching. This cap is the backstop
-        # behind that deadline rather than the thing a heavy slice hits. It
-        # stays inside the job's so one App token still covers the whole run.
-        timeout-minutes: 30
+        # behind that deadline rather than the thing a heavy slice hits. It is
+        # what the pass's fresh credentials above are sized against: 45 minutes
+        # from a mint moments earlier sits well inside both grants' 1h lives.
+        timeout-minutes: 45
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token-ocr.outputs.token }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
@@ -980,8 +1015,8 @@ jobs:
           # after, so the reader loses nothing.
           #
           # The slice's wall clock, measured from the moment the command starts
-          # so its own population walk is charged to it. The step has 30 minutes
-          # (1800 s) and everything below still has to land inside them, so the
+          # so its own population walk is charged to it. The step has 45 minutes
+          # (2700 s) and everything below still has to land inside them, so the
           # pass gets what is left after that tail is reserved:
           #
           #   witness re-read     300 s  one full-population content-store walk,
@@ -1008,13 +1043,13 @@ jobs:
           #                              the walk reserve's own slack over the
           #                              133-162 s it measures
           #   ------------------------
-          #   reserve             660 s  →  1800 - 660 = 1140
+          #   reserve             660 s  →  2700 - 660 = 2040
           #
           # A candidate is admitted only where what is left holds its whole
           # estimate, and no candidate estimates above the per-document
           # recognition budget plus the fixed per-case overhead (630 s), so even
-          # against the walk's full reserve 1140 still admits the most expensive
-          # filing the class can hold (1140 - 300 = 840): the head of the class
+          # against the walk's full reserve 2040 still admits the most expensive
+          # filing the class can hold (2040 - 300 = 1740): the head of the class
           # cannot be starved by the deadline. Candidates it declines are
           # reported unreached — untouched, still in the class, and first next
           # dispatch.
@@ -1027,7 +1062,7 @@ jobs:
           # heavy slice off it, is the point of the deadline.
           uv run fedcourts ocr-recover-petitions --apply \
             --max-cases "${REPAIR_BOUND}" \
-            --deadline-seconds 1140 > /tmp/ocr-apply.txt
+            --deadline-seconds 2040 > /tmp/ocr-apply.txt
           tee -a "$GITHUB_STEP_SUMMARY" < /tmp/ocr-apply.txt
           # The witness. The apply's ledger states the class it expects to leave
           # behind, and a re-read of the corpus must find exactly that: a
@@ -1479,7 +1514,13 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/publish-corpus-verdict
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          # On the OCR path this step can start past the opening token's 1h
+          # life, and every failure mode below it is swallowed (the fetch, the
+          # push retries, and this step's own continue-on-error) — an expired
+          # token here publishes nothing and looks green. Ride the fresh OCR
+          # mint where it exists; a skipped step's output is the empty string,
+          # so every other pass falls through to the opening token.
+          token: ${{ steps.app-token-ocr.outputs.token || steps.app-token.outputs.token }}
 
   # The ledger-only pass, in its own job because its credentials are a strict
   # subset: it recomputes graded fields out of committed artifacts and writes

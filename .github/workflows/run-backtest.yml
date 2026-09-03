@@ -8,21 +8,20 @@ name: run-backtest
 # claimable performance (see metrics/README.md).
 #
 # Replaying agentic engines SPENDS MODEL TOKENS (~one cell per predictor per
-# petition), so every run is an explicit maintainer decision: a `run:backtest`
-# label on an issue (fail-closed authorization below) runs the real thing with
-# the defaults, and a workflow_dispatch chooses the parameters — its `engine`
-# defaults to the free offline `stub` so an accidental dispatch spends nothing;
-# pick `auto` deliberately to route each predictor through its real engine.
+# petition), so every run is an explicit maintainer decision. `workflow_dispatch`
+# is the only way in, and GitHub gates it on repository write; nothing schedules
+# this workflow, because a back-test is a question someone asks, not a backlog
+# that drains. The `engine` input defaults to the free offline `stub` so an
+# accidental dispatch spends nothing; pick `auto` deliberately to route each
+# predictor through its real engine.
 #
-# Dispatch also selects WHAT is replayed: `replay: cert` (the default, and the
-# only thing a label run does) replays the predictors; `replay: salience-gate`
-# replays the deterministic salience gate over past Terms instead (`fedcourts
-# salience-replay` into `metrics/salience-replay.json`) — offline over the
-# pulled corpus, no model tokens, no engine credential, no agent CLI — landing
-# its report through the same reviewed-PR path.
+# Dispatch also selects WHAT is replayed: `replay: cert` (the default) replays
+# the predictors; `replay: salience-gate` replays the deterministic salience
+# gate over past Terms instead (`fedcourts salience-replay` into
+# `metrics/salience-replay.json`) — offline over the pulled corpus, no model
+# tokens, no engine credential, no agent CLI — landing its report through the
+# same reviewed-PR path.
 on:
-  issues:
-    types: [labeled]
   workflow_dispatch:
     inputs:
       replay:
@@ -60,26 +59,15 @@ on:
 permissions: {}
 
 # One back-test at a time; a queued run waits (a superseded parameter choice is
-# the maintainer's to cancel, never silently dropped). Concurrency is evaluated
-# before the job `if`, and every `issues: labeled` event on the repo spawns a
-# to-be-skipped run of this workflow — so only a run this workflow will
-# actually perform joins the real group; everything else gets a throwaway
-# group (the run-pull pattern), or an unrelated label could supersede a queued
-# back-test. Apply the label to a dedicated issue: a `run:backtest` label on a
-# live predict/evaluate trigger issue would contend with that issue's own
-# concurrency group.
+# the maintainer's to cancel, never silently dropped). A per-workflow group,
+# because a dispatch carries nothing to key on and every run of this workflow
+# is one someone asked for.
 concurrency:
-  group: ${{ (github.event_name != 'issues' || github.event.label.name == 'run:backtest') && 'run-backtest' || format('run-backtest-skip-{0}', github.run_id) }}
+  group: run-backtest
   cancel-in-progress: false
 
 jobs:
   backtest:
-    # A label run is the real thing with the defaults (labeling IS the explicit
-    # spend decision); dispatch parameterizes it. Every other label event on
-    # this repo skips here.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event.label.name == 'run:backtest'
     runs-on: ubuntu-latest
     # Headroom for ~25 petitions x 3 routable predictors of real agent cells
     # (claude-code, codex, gemini), run strictly sequentially, plus the corpus
@@ -90,37 +78,20 @@ jobs:
     environment: prod
     permissions:
       contents: read
-      issues: write # comment the run/PR link back on the trigger issue
       id-token: write # assume the read-only AWS role to pull the corpus
     steps:
+      # No authorization gate here, and none is missing: this workflow carries
+      # no trigger an outside actor can reach. `workflow_dispatch` is gated by
+      # GitHub on repository write, and this job binds `prod`, whose deployment
+      # branches are restricted to `main`, so a dispatch from any other ref is
+      # refused before a step runs — and the spend is the dispatcher's own
+      # deliberate parameter choice, `engine` defaulting to the free stub.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
-
-      # An issue label can be applied by any actor with triage on a public repo,
-      # and this run spends model tokens — so the label path requires the actor
-      # to be the pipeline App or a maintainer with write access, fail closed,
-      # BEFORE any token is minted or the corpus is read. The decision lives in
-      # the tested `authorize-trigger` command. (Dispatch is already write-gated
-      # by GitHub, so it skips this.)
-      - name: Authorize the trigger (label from the pipeline App or a maintainer)
-        if: github.event_name == 'issues'
-        # One retried permission lookup, worth up to 105s against a degraded
-        # API — bounded so a stalled check cannot draw on this job's replay
-        # budget before refusing.
-        timeout-minutes: 3
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          ACTOR: ${{ github.actor }}
-          SENDER_TYPE: ${{ github.event.sender.type }}
-        run: |
-          uv run fedcourts authorize-trigger \
-            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO" \
-            --bot-actor "fedcourtsai-data[bot]"
 
       # The real-engine replay shells out to the agent CLIs through the tested
       # runner seam — the same binaries the devcontainer ships. Installed only
@@ -135,7 +106,7 @@ jobs:
       # read-only role: the one script it executes on purpose must see a
       # credential-free environment.
       - name: Install the agent CLIs
-        if: github.event_name == 'issues' || (inputs.engine == 'auto' && inputs.replay != 'salience-gate')
+        if: inputs.engine == 'auto' && inputs.replay != 'salience-gate'
         # zizmor: ignore[adhoc-packages] — top-level exact-version pins,
         # transitive scripts disabled, and a credential-free step environment
         # are the practical controls for global CLIs; a lockfile is not
@@ -199,7 +170,7 @@ jobs:
       # MCP or telemetry block here: unlike the live workflows, the back-test
       # configures no MCP servers and parses no telemetry.
       - name: Configure the Gemini cell env allowlist
-        if: github.event_name == 'issues' || (inputs.engine == 'auto' && inputs.replay != 'salience-gate')
+        if: inputs.engine == 'auto' && inputs.replay != 'salience-gate'
         run: |
           set -euo pipefail
           mkdir -p .gemini
@@ -216,7 +187,7 @@ jobs:
       # before writing, as upstream does: a kernel without the knob has
       # nothing to loosen.
       - name: Enable unprivileged user namespaces for the codex sandbox
-        if: github.event_name == 'issues' || (inputs.engine == 'auto' && inputs.replay != 'salience-gate')
+        if: inputs.engine == 'auto' && inputs.replay != 'salience-gate'
         run: |
           set -euo pipefail
           if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
@@ -227,7 +198,7 @@ jobs:
           fi
 
       - name: Run the cert back-test
-        if: github.event_name == 'issues' || inputs.replay != 'salience-gate'
+        if: inputs.replay != 'salience-gate'
         env:
           # Engine credentials for the replay cells; unused by the stub backend.
           # One per routable engine — claude, codex, gemini — so `auto` runs the
@@ -242,21 +213,20 @@ jobs:
           # come from the per-case content store instead. Inert while off.
           FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
           FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
-          # A label run uses the real engines with the default set size;
-          # dispatch chooses. `--limit` IS the set-size cap (there is no higher
-          # ceiling to lower), so a large dispatch value is a deliberate,
-          # write-gated spend decision — the PR body echoes what ran.
-          ENGINE: ${{ github.event_name == 'issues' && 'auto' || inputs.engine }}
-          LIMIT: ${{ github.event_name == 'issues' && '25' || inputs.limit }}
-          # A label run runs every engine; dispatch may opt one out. `inputs` is
-          # empty on the issues event, so this reads '' there with no ternary. An
-          # unknown engine name simply matches no predictor.
+          # The dispatcher chooses the backend and the set size. `--limit` IS the
+          # set-size cap (there is no higher ceiling to lower), so a large value
+          # is a deliberate, write-gated spend decision — the PR body echoes what
+          # ran.
+          ENGINE: ${{ inputs.engine }}
+          LIMIT: ${{ inputs.limit }}
+          # Empty runs every engine; a dispatch may opt one out. An unknown
+          # engine name simply matches no predictor.
           SKIP_ENGINES: ${{ inputs.skip_engines }}
-          # A label run takes the defaults (whole modern-cert population, recency
-          # order); dispatch may scope to the live-comparable slice and spread it
+          # The defaults are the whole modern-cert population in recency order;
+          # a dispatch may scope to the live-comparable slice and spread it
           # across conferences.
-          SCOPE: ${{ github.event_name == 'issues' && 'all' || inputs.scope }}
-          SPREAD: ${{ github.event_name == 'issues' && 'false' || inputs.spread }}
+          SCOPE: ${{ inputs.scope }}
+          SPREAD: ${{ inputs.spread }}
         run: |
           set -euo pipefail
           if [ ! -f corpus/corpus.db ]; then
@@ -277,7 +247,7 @@ jobs:
       # carries none, and the CLI-install/sandbox steps above are skipped for
       # this mode.
       - name: Run the salience-gate replay
-        if: github.event_name == 'workflow_dispatch' && inputs.replay == 'salience-gate'
+        if: inputs.replay == 'salience-gate'
         env:
           # Corpus-split read side, exactly as the cert step wires it: under
           # the split the pulled corpus.db is a payload-free index and the
@@ -322,9 +292,9 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
-          ENGINE: ${{ github.event_name == 'issues' && 'auto' || inputs.engine }}
-          LIMIT: ${{ github.event_name == 'issues' && '25' || inputs.limit }}
-          REPLAY: ${{ github.event_name == 'issues' && 'cert' || inputs.replay }}
+          ENGINE: ${{ inputs.engine }}
+          LIMIT: ${{ inputs.limit }}
+          REPLAY: ${{ inputs.replay }}
           TERMS: ${{ inputs.terms }}
         run: |
           set -euo pipefail
@@ -373,59 +343,3 @@ jobs:
               --title "$title" --body-file pr-body.md
           fi
           cat pr-body.md >> "$GITHUB_STEP_SUMMARY"
-
-      # Close the loop on the label path: the trigger issue gets the run and
-      # review-PR links (the ambient token is non-triggering by design, so this
-      # comment cannot re-fire anything). The issue stays open — whether it is a
-      # one-shot trigger or a standing back-test tracker is the maintainer's
-      # call. Best-effort: a comment hiccup must not fail a run that already
-      # landed its PR.
-      - name: Comment the result on the trigger issue
-        if: always() && github.event_name == 'issues'
-        continue-on-error: true
-        # Bound the retries explicitly rather than letting them run into the
-        # job budget: two sequential `gh_retry` calls, each worth up to 105s
-        # when every attempt times out. Past that the comment is not worth the
-        # run's remaining minutes — `continue-on-error` means giving up on it
-        # costs only the back-link, the PR itself having already landed.
-        timeout-minutes: 5
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          ISSUE: ${{ github.event.issue.number }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          OUTCOME: ${{ job.status }}
-        run: |
-          set -euo pipefail
-          # Inline copy of scripts/gh_retry.sh's gh_retry — the replay cells run
-          # their agents in this job's own checkout, so by this step every file
-          # in the workspace is agent-writable and sourcing one would run
-          # agent-authored shell against this job's issue-write token. The
-          # workflow-invariants test pins the copies identical; contract and
-          # rationale live in that script's header.
-          gh_retry() {
-            local attempt out what
-            what="${1:-} ${2:-} ${3:-}"
-            for attempt in 1 2 3; do
-              if out=$(timeout 30 "$@"); then
-                printf '%s\n' "$out"
-                return 0
-              fi
-              if [ "$attempt" -lt 3 ]; then
-                echo "::warning::${what} failed (attempt ${attempt}/3) — retrying" >&2
-                sleep $((attempt * 5))
-              fi
-            done
-            echo "::error::${what} failed after 3 attempts" >&2
-            return 1
-          }
-          # The lookup lands in a variable and `--jq` filters inside the same
-          # command, so an exhausted retry is the assignment's own failure
-          # rather than an empty result that silently drops the PR back-link.
-          pr_url=$(gh_retry gh pr list --repo "$REPO" --state open --head metrics/cert-backtest \
-            --json url --jq '.[0].url // empty')
-          body="Cert back-test run finished (${OUTCOME}): ${RUN_URL}"
-          if [ -n "$pr_url" ]; then
-            body=$(printf '%s\nReview PR: %s' "$body" "$pr_url")
-          fi
-          gh_retry gh issue comment "$ISSUE" --repo "$REPO" --body "$body"

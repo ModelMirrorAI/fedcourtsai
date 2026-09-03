@@ -204,7 +204,9 @@ def test_uncovered_cells_are_warned_in_step_not_only_in_the_pr_body() -> None:
     assert ".uncovered_cells[]" in aggregate["run"], (
         "warn per uncovered cell in-step, or a no-ready-PR run reports none of them"
     )
-    assert "needs a re-queue" in aggregate["run"], "name the remedy, which a rerun cannot supply"
+    assert "the next scheduled round re-derives" in aggregate["run"], (
+        "name the remedy, which a rerun cannot supply"
+    )
 
 
 def test_a_truncated_download_is_cleared_before_retry() -> None:
@@ -232,8 +234,8 @@ def test_the_reporting_steps_stay_job_level_so_cancellation_still_reports() -> N
     """A cancelled or timed-out collect must still leave a trace.
 
     Job-level `always()` steps run on cancellation; a composite step's remaining
-    inner steps are not guaranteed to. These three exist so a dead collect does
-    not leave a silently orphaned trigger issue, so they belong in the caller.
+    inner steps are not guaranteed to. These three exist so a dead collect still
+    says so somewhere a reader lands, so they belong in the caller.
     """
     for workflow in FAN_OUTS:
         steps = _steps(_collect_job(workflow))
@@ -302,7 +304,7 @@ def test_the_plan_matrix_is_threaded_into_collect() -> None:
         s for s in _load(COLLECT_ACTION)["runs"]["steps"] if s["name"].startswith("Aggregate")
     )
     # Via env, never interpolated into the shell body: the matrix carries ids
-    # parsed from the trigger issue.
+    # the plan derived.
     assert aggregate["env"]["PLAN_MATRIX"] == "${{ inputs.matrix }}"
     assert "${{ inputs.matrix }}" not in aggregate["run"]
     assert "--matrix-file" in aggregate["run"]
@@ -329,25 +331,24 @@ def test_the_run_pr_loop_is_safe_to_repeat() -> None:
     assert "gh pr ready" in body
 
 
-def test_the_trigger_issue_reports_are_marker_deduped() -> None:
-    """Every trigger-issue report is posted by a step that reruns with its
+def test_the_collect_reports_are_marker_deduped() -> None:
+    """Each collect report is posted by a step that reruns with its
     job, so a plain comment would stack one copy per recovery attempt."""
-    # Both carry a third marker-deduped poster: the plan-and-hold approval
-    # report, keyed on the fan-out's own run id — and each fan-out's marker
-    # names its own stage, or two holds on one issue would dedupe against
-    # each other.
-    approval_markers = {
-        "run-predict.yml": "<!-- predict-plan: ${PLAN_RUN_ID} -->",
-        "run-evaluate.yml": "<!-- evaluate-plan: ${PLAN_RUN_ID} -->",
-    }
+    # Exactly two per fan-out — the stall report and the secret-scan report,
+    # both inside the collect job. Neither lane has an approval-report poster:
+    # every round derives its own backlog from committed state, so there is no
+    # trigger issue to report to and the plan report goes to the step summary
+    # the pending deployment review links.
     for workflow in FAN_OUTS:
         body = (WORKFLOWS / workflow).read_text()
-        assert body.count("post-issue-comment") == 3, (
-            f"{workflow}: every trigger-issue report posts through the deduped command"
+        assert body.count("post-issue-comment") == 2, (
+            f"{workflow}: every collect report posts through the deduped command"
         )
         assert "<!-- collect-stall: ${GITHUB_RUN_ID} -->" in body
         assert "<!-- collect-secret-scan: ${GITHUB_RUN_ID}-${digest} -->" in body
-        assert approval_markers[workflow] in body
+        assert "plan-report.md" in body and "GITHUB_STEP_SUMMARY" in body, (
+            f"{workflow}: the plan report must still reach the approver somewhere"
+        )
         # The old unconditional form must not come back.
         assert "gh issue comment" not in body
 

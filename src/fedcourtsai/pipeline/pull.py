@@ -138,7 +138,7 @@ def pull_case(
 
 @dataclass
 class PullQueues:
-    """The three downstream handoffs a ``pull-all`` run produces.
+    """The three downstream queues a ``pull-all`` run produces.
 
     Each entry is a JSON-serializable mapping shaped exactly as the ``run-pull``
     workflow consumes it (the ``jq`` fields in ``run-pull.yml``): ``predict`` and
@@ -159,8 +159,11 @@ class PullQueues:
     predict_skipped_decided: list[dict[str, object]] = field(default_factory=list)
     # Live-channel only: changed cases with open events that were NOT queued
     # forward because the case relisted inside the salience config's
-    # `relist_requeue_cooldown_days` of its last predict queue — administrative
+    # `relist_requeue_cooldown_days` of its last prediction — administrative
     # churn, not a materially different posture, while capacity is enforced.
+    # "Last prediction" spans both minting lanes (`live._last_predict_mint`):
+    # this lane's `predict_queued_at` stamp, and the newest committed prediction
+    # run in the ledger, which is all a stamp-free backlog derivation leaves.
     # Surfaced for triage, never silently dropped. The divert re-stamps
     # `predict_queued_at` to today (same as a decided-skip divert), which both
     # anchors the next cooldown check and keeps the same-cycle selection sweep
@@ -518,8 +521,8 @@ def evaluate_backlog(
     The pull lane's consumption of :func:`derive_evaluate_backlog`: it appends
     to ``queues.evaluate`` (the same list the poll seams feed, so the workflow
     consumes one queue) and counts the additions in ``evaluate_from_backlog``.
-    The queue is a run-log count, nothing more — no trigger issue is filed and
-    no ``evaluate_queued_at`` stamp is written. Deliberately so: the scheduled
+    The queue is a run-log count, nothing more — nothing downstream reads it
+    and no ``evaluate_queued_at`` stamp is written. Deliberately so: the scheduled
     evaluate lane holds off a case stamped *today*, and it is the only actor
     that grades, so a pull-lane stamp here would rotate owed gradings away
     from the one lane that can clear them (a pull window precedes the evaluate
@@ -722,7 +725,7 @@ def derive_predict_backlog(
     does for grading. A case is owed a forecast when it is in predict scope,
     funded, and some enabled predictor is missing a prediction for some open
     forecastable event of it — a condition on committed state, so it survives a
-    run dropped on the floor, a paused lane, or a handoff that never fired. Two
+    run dropped on the floor, a paused lane, or a round that never ran. Two
     further conditions gate *minting* rather than owing, and the difference is
     load-bearing: a case can be owed and still held.
 

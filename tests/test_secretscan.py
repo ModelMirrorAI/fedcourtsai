@@ -307,7 +307,7 @@ def test_cli_unset_known_secret_env_fails_closed(
     )
     assert result.exit_code == 2
     assert "::error::secret-scan: $ABSENT_SECRET_SOURCE" in result.output
-    # Withholding is never silent on the trigger issue, even with no findings.
+    # Withholding is never silent on the run's report, even with no findings.
     text = issue_file.read_text()
     assert "could not run" in text
     assert "https://example.invalid/run/1" in text

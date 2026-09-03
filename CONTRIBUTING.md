@@ -2,7 +2,7 @@
 
 Thanks for your interest in FedCourtsAI. This is an experimental research project
 with an unusual shape: most feature work is done by AI coding agents driven by a
-**label-driven pipeline of GitHub Actions**, and the data is produced by the
+**scheduled pipeline of GitHub Actions**, and the data is produced by the
 pipeline rather than by hand.
 
 The canonical, complete instructions — the branch-and-PR workflow, the local
@@ -12,11 +12,15 @@ opening a PR; this page only covers what is specific to outside contributors.
 
 ## The model in one minute
 
-- Work is represented as **GitHub issues**. Applying a `run:*` label triggers
-  the matching workflow (see the table in the [README](README.md) and
-  [`docs/pipeline.md`](docs/pipeline.md)). Applying those labels is
-  **maintainer-gated** and is the pipeline's trust boundary (see
-  [SECURITY.md](SECURITY.md)).
+- **Each stage wakes on its own schedule and derives its own work** from
+  committed state and the corpus; nothing an outside actor files starts a run
+  (see the table in the [README](README.md) and
+  [`docs/pipeline.md`](docs/pipeline.md)). The trigger is the trust boundary: a
+  `schedule` fires only from the default branch, so it can start only what a
+  maintainer-merged promotion put on `main`, and the `workflow_dispatch` twin
+  that runs a lane on demand needs repository write (see
+  [SECURITY.md](SECURITY.md)). Issues are how work gets *described* and
+  discussed — never how it gets started.
 - **Never commit to `main` or `staging`.** Every change lands through a focused
   pull request against `staging` (name it explicitly — `gh pr create` defaults
   to `main`) that must pass the `gate` check, and reaches `main` in reviewed
@@ -30,9 +34,11 @@ opening a PR; this page only covers what is specific to outside contributors.
 - **Found a bug or have an idea?** Use the *Bug report* or *Feature / idea* form on
   the [new-issue page](../../issues/new/choose).
 - **Want a data run** (e.g. refresh a case)? Open a regular issue describing it.
-  Triggering the run is maintainer-only — a maintainer applies the `run:*`
-  label, the trust boundary for anything that spends compute or writes the
-  corpus.
+  The issue is a request for attention, not a trigger: the pull lane's own
+  windows may reach the case on their own, and starting a lane early takes a
+  maintainer's `workflow_dispatch`. A predict or evaluate round waits on a
+  second gate besides — the `review` hold, which a named reviewer must release
+  before a single cell spends a token.
 
 ## Ground rules
 

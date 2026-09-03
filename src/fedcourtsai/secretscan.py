@@ -9,7 +9,7 @@ have it published. This module is the third producer-side gate beside the path
 jail and the schema check, and the only one that must act *before* the push:
 a hit **withholds the branch entirely** — nothing is pushed and no PR opens,
 because the push itself would be the exposure — and a redacted report rides to
-the trigger issue while the flagged files stay reviewable in the run's cell
+the run's own record while the flagged files stay reviewable in the run's cell
 artifacts. It lives here as small pure functions the CLI wraps, so the
 workflow YAML only plumbs files (the logic-in-tested-Python rule).
 
@@ -809,14 +809,14 @@ def _findings_table(findings: Sequence[Finding]) -> str:
 
 
 def render_misconfigured_comment(run_url: str) -> str:
-    """The trigger-issue comment when the scan itself could not run.
+    """The withholding report when the scan itself could not run.
 
     A misconfigured gate (a missing token env, a missing rendered file) fails
-    closed — the run's output is withheld — and that must be as loud on the
-    issue as a real hit would be, or a broken gate silently swallows runs.
+    closed — the run's output is withheld — and that must be as loud as a real
+    hit would be, or a broken gate silently swallows runs.
     """
     return (
-        "🔒 The **secret scan could not run** for a run on this issue (a "
+        "🔒 The **secret scan could not run** for this round (a "
         "misconfigured gate, not a finding), so its output was withheld — "
         "nothing was pushed and no PR opened. The cells' artifacts remain on "
         f"the run for review.\n\nRun log: {run_url}"
@@ -824,11 +824,11 @@ def render_misconfigured_comment(run_url: str) -> str:
 
 
 def render_issue_comment(findings: Sequence[Finding], run_url: str) -> str:
-    """The trigger-issue comment for a run whose output the scan withheld."""
+    """The withholding report for a run whose output the scan withheld."""
     if not findings:
         return ""
     return (
-        "🔒 A run for this issue tripped the **secret scan**: the flagged "
+        "🔒 This round tripped the **secret scan**: the flagged "
         "output was **withheld** — nothing was pushed and no PR opened for "
         "it. The files remain in the run's cell artifacts for maintainer "
         "review.\n\n"

@@ -51,7 +51,7 @@ pull:
   # errors (e.g. a 404) never trip it; deferred cases keep their stalest-first
   # position, so the next window retries them.
   max_consecutive_transient_failures: 5
-  # Only trigger run-predict when a pull detects new docket activity.
+  # Only queue a case for predict when a pull detects new docket activity.
   predict_on_change_only: true
 
 # live = the SCOTUS live channel: supremecourt.gov per-docket JSON. Owns
@@ -103,8 +103,8 @@ live:
   # same distribution transition that queues predict; the cap bounds corpus
   # blob growth, and a truncated document is flagged in its provisioning manifest.
   document_text_cap: 150000
-  # Predict timing is not configured here: the live channel queues run:predict
-  # on a DISTRIBUTION TRANSITION — a petition newly distributed for a
+  # Predict timing is not configured here: the live channel stamps the predict
+  # queue on a DISTRIBUTION TRANSITION — a petition newly distributed for a
   # conference, or relisted to a new one — the cert-calendar analogue of
   # pull.predict_on_change_only. No separate refresh-rate spend guard is needed
   # because both queueing paths are already bounded: max_cases_per_run above
@@ -181,8 +181,8 @@ predict:
   # engines) in a deterministic, salience-independent order; a deferred case stays
   # in the predict queue and re-runs next cycle, so the cap defers, never
   # destroys. 240 = 80 fully-tournamented cases x 3 engines, 16 under the 256
-  # ceiling. This is the numeric backstop; PREDICT_HANDOFF_ENABLED is the separate
-  # coarse on/off pause.
+  # ceiling. This is the numeric backstop; the per-round stop is the `review`
+  # hold every fan-out waits on, and the coarse one is disabling the workflow.
   max_predict_cells_per_run: 240
   # Per-cell poison-pill cap for the durable failure queue — the committed
   # per-run `attempt.json` facts the collect job writes, counted by
@@ -217,7 +217,7 @@ predict:
 evaluate:
   # Per-cycle cap on the evaluate backlog deriver — the path that re-derives owed
   # gradings from committed ledger state (resolved event + prediction + no
-  # evaluation), so a failed or paused run:evaluate self-heals instead of losing
+  # evaluation), so a failed or paused evaluate round self-heals instead of losing
   # those gradings. Unlike the selection sweep this costs no network (git ledger +
   # corpus only), so the cap bounds model spend and PR volume, not request rate:
   # each queued case fans out one cell per not-yet-graded evaluator. It bounds
@@ -311,7 +311,9 @@ salience:
   # derivation — so it is the same per-lane ceiling in both readers, not one
   # shared global budget.
   sweep_cases_per_cycle: 25
-  # A relist inside this many days of a petition's last predict queue is
+  # A relist inside this many days of a petition's last prediction — the later
+  # of the pull lane's `predict_queued_at` stamp and the newest committed
+  # prediction run in the ledger, so a stamp-free scheduled mint counts too — is
   # treated as administrative churn rather than re-tournamented; 1 suppresses
   # only a same-day repeat. 0 disables suppression.
   relist_requeue_cooldown_days: 1

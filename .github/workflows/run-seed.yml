@@ -828,6 +828,66 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "attribution-repair pointer"
 
+      # A denied petition terminates on the order that denies it, so its
+      # `date_decided` is its own `date_cert_denied`; the live channel's
+      # resolution parse dates both, and this converges the rows written before
+      # that default reached them. A fill-in of a date the row already holds,
+      # never a derivation of one it does not — the grant side stays out,
+      # because a granted docket terminates at a later merits judgment no
+      # column carries. Corpus-only, so a pointer-only commit. Idempotent — a
+      # converged row leaves the population, so a converged window's cost is
+      # one scan of the cases table.
+      #
+      # No blast-radius bound, unlike the two sweeps beside it, and the reason
+      # is the shape of the write rather than an omission: this copies a value
+      # from a column on the same row, so a widened predicate can only copy a
+      # date that is already there — it can never null a field or invent one,
+      # which is what those caps exist to bound. A bound would also have
+      # nothing to be sized against: the first run's population is the whole
+      # historic denied slice, so any "just over the measured slice" number
+      # would be arbitrary.
+      #
+      # After the dedupe, deliberately: the merge compares `date_decided` before
+      # it drops a duplicate twin and reads a null as agreement, so filling the
+      # column first would hand the same window a pair whose denial dates
+      # disagree as a fresh conflict. The disagreement is reported either way —
+      # the dedupe never drops such a pair — so the order buys a cleaner triage
+      # list, not a correctness guarantee.
+      - name: Converge denied petitions' decision dates
+        if: github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'
+        continue-on-error: true
+        # Bounded for the same reason as the sibling sweeps — a cap hit
+        # cancels the whole run, which continue-on-error cannot absorb — and
+        # tightly: one UPDATE against the pulled blob, then the blob push the
+        # walk pays on every window anyway. The bound is a per-step worst case
+        # only a non-converged window can pay; the sweeps' bounds sum past the
+        # job cap and always have, because a converged corpus spends seconds in
+        # each and the 02:31 window's own walk budget is cut to fund them.
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to converge.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping decision-date convergence"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # One apply, its count line mirrored into the run summary: a separate
+          # dry run would repeat the same scan for a report the apply prints.
+          uv run fedcourts converge-decision-dates --apply | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Decision dates already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (denial decision dates)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "decision-date pointer"
+
       # The stored circuit slice still carries the bulk export's misjoined
       # cluster fields; the ingest projection withholds them from a re-served
       # bulk row, and this converges the rows nothing re-serves. Detection is
@@ -977,7 +1037,7 @@ jobs:
             echo "::error::${what} failed after 3 attempts" >&2
             return 1
           }
-          # `pipeline-health` is a NON-triggering label by design (no run:* workflow
+          # `pipeline-health` is a NON-triggering label by design (no workflow
           # keys on it). Create it idempotently, as run-ops does for its label.
           # Non-fatal after retries: in steady state the label exists, and if it
           # truly does not, the issue write below fails loudly on its own. The

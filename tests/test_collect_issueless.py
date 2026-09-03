@@ -1,15 +1,15 @@
-"""The issue-less collect path — the scheduled lane's half of the collect seam.
+"""The issue-less collect path — the only path the collect seam takes.
 
-Every collect the fan-out workflows run is issue-triggered, so `--issue` always
-carries a real number there. The **scheduled** evaluate lane has no trigger
-issue: `issue: ${{ github.event.issue.number }}` evaluates to the empty string,
-and `collect-plan --issue ""` exits 2 because the option is an `int`. The
+No fan-out round has a trigger issue: `issue: ${{ github.event.issue.number }}`
+evaluates to the empty string on every round, and
+`collect-plan --issue ""` exits 2 because the option is an `int`. The
 composite absorbs that with an Actions-expression fallback to `collect-plan`'s
 own no-issue sentinel — one expression, in one `env:` key, standing between a
-scheduled round and a collect job that aborts under `set -euo pipefail` with the
+round and a collect job that aborts under `set -euo pipefail` with the
 run's only copy of its agent output still on the runner.
 
-Nothing executed that path until a scheduled round first ran it. These tests do,
+That makes it the hottest path in the seam and the one an Actions expression
+alone would leave unexercised by any Python test. These tests exercise it,
 from both ends: the sentinel the composite normalizes to is read back out of the
 action, and the `collect-plan` command line is read back out of the same step
 and executed with it — so the two halves are checked against each other rather

@@ -900,32 +900,25 @@ def test_the_staging_seed_accepts_the_only_list_shape_its_form_can_produce() -> 
 # to; every other one carries an inline copy instead — pinned identical below.
 SOURCING_OPS_STEPS = (
     "Collect recent workflow runs",
-    "Collect open trigger issues",
+    "Collect issues wearing a stale fan-out label",
     "Post or update the ops dashboard issue",
     "Escalate a failing data-validation verdict",
 )
-BACKTEST_REPORT_STEP = (
-    "run-backtest.yml",
-    "backtest",
-    "Comment the result on the trigger issue",
-)
-# `(workflow, job, step name)` for the handoff writes that source the script:
-# each runs after its own job's checkout, in a workspace no agent has touched.
-SOURCING_HANDOFF_STEPS = (
-    ("run-predict.yml", "plan", "Close the trigger issue when nothing is in scope"),
-    ("run-evaluate.yml", "plan", "Close the trigger issue when nothing is in scope"),
-)
+# `(workflow, job, step name)` for the record-keeping writes that source the
+# script: each runs after its own job's checkout, in a workspace no agent has
+# touched. Empty on the run surfaces — the fan-outs' own records go to the step
+# summary, which needs no API call and so no retry — and kept as a table rather
+# than deleted, because the next such write belongs here and the tests below
+# already scan whatever it holds.
+SOURCING_HANDOFF_STEPS: tuple[tuple[str, str, str], ...] = ()
 # The composites, whose `uses: ./.github/actions/...` resolution already proves
 # a workspace checkout put `scripts/` on disk.
-SOURCING_COMPOSITES = ("run-log-dashboard", "open-run-handoff")
+SOURCING_COMPOSITES = ("run-log-dashboard",)
 # `(workflow, job, step name)` for each step that inlines its own copy.
 INLINE_GH_RETRY_STEPS = (
     ("run-pull.yml", "pull", "Open the failure run-log issue"),
     ("run-pull.yml", "live", "Open the failure run-log issue"),
     ("run-seed.yml", "guard", "Escalate a cancelled or failed seed walk"),
-    ("run-predict.yml", "rejected", "Close the trigger issue when the hold did not release"),
-    ("run-evaluate.yml", "rejected", "Close the trigger issue when the hold did not release"),
-    BACKTEST_REPORT_STEP,
 )
 # The find-or-create alarms, where an exhausted listing that reads as an empty
 # result opens a second thread for the same broken day.
@@ -933,14 +926,10 @@ FIND_OR_CREATE_ALARM_STEPS = (
     ("run-pull.yml", "pull", "Open the failure run-log issue"),
     ("run-pull.yml", "live", "Open the failure run-log issue"),
 )
-# The handoff writes that decide whether a queued round runs at all: retried,
-# never tolerated. An exhausted retry must still fail its step.
-FATAL_HANDOFF_STEPS = (
-    ("run-predict.yml", "plan", "Close the trigger issue when nothing is in scope"),
-    ("run-evaluate.yml", "plan", "Close the trigger issue when nothing is in scope"),
-    ("run-predict.yml", "rejected", "Close the trigger issue when the hold did not release"),
-    ("run-evaluate.yml", "rejected", "Close the trigger issue when the hold did not release"),
-)
+# The writes that decide whether a queued round runs at all: retried, never
+# tolerated. An exhausted retry must still fail its step. Empty for the same
+# reason `SOURCING_HANDOFF_STEPS` is, and kept for the same reason.
+FATAL_HANDOFF_STEPS: tuple[tuple[str, str, str], ...] = ()
 # Any `gh` invocation, with the `gh_retry` prefix when it carries one — the
 # assertion below is that every match has the prefix. `\b` anchors the prefix so
 # a name merely *ending* in `gh_retry` cannot pass as the wrapper, and `\s+`
@@ -1362,11 +1351,23 @@ def test_no_retried_step_makes_an_unretried_github_api_call() -> None:
 def test_the_handoff_writes_stay_fatal_on_exhaustion() -> None:
     """A retry absorbs a blip; it must never turn a real outage into a pass.
 
-    These writes *are* the work — the trigger issue a queued round runs from,
-    and the closes that keep a finished or declined round from reading as a
-    stalled fan-out. So none of them may tolerate an exhausted retry: no
-    `continue-on-error` on the step, and no `|| true` swallowing the non-zero
-    return the wrapper exists to deliver at the end of three attempts.
+    A write on `FATAL_HANDOFF_STEPS` *is* the work — the record that keeps a
+    finished or declined round from reading as a stalled fan-out — so none of
+    them may tolerate an exhausted retry: no `continue-on-error` on the step, and
+    no `|| true` swallowing the non-zero return the wrapper exists to deliver at
+    the end of three attempts. The set is empty while every such record is a step
+    summary, which no API call can lose; the assertion stands ready for the next
+    one rather than being a rule someone has to remember to reinstate.
+
+    The other half of the invariant is an absence, and it is the load-bearing
+    half. No stage may hand work to another by filing a labelled issue:
+    run-predict and run-evaluate each derive their own backlog from committed
+    state on their own schedule, and nothing keys on `issues: labeled` to receive
+    such a handoff anyway (`tests/test_workflow_auth_gate.py` sweeps the trigger
+    side). The coupling would come back as a step that *applies* a fan-out label,
+    so that is what is asserted absent across every workflow — a mention is fine,
+    since run-ops reads those labels to report on them; applying one is the
+    coupling. A lost round is then impossible rather than merely fatal.
     """
     for site in FATAL_HANDOFF_STEPS:
         step = _named_step(*site)
@@ -1375,34 +1376,18 @@ def test_the_handoff_writes_stay_fatal_on_exhaustion() -> None:
             if "gh_retry gh" in line:
                 assert "||" not in line, f"{site} swallows an exhausted retry: {line.strip()}"
 
-    handoff = _composite_run("open-run-handoff")
-    for line in _uncommented(handoff):
-        if "gh_retry gh" in line:
-            assert "||" not in line, f"open-run-handoff swallows an exhausted retry: {line.strip()}"
-    # And no caller may absorb it either: a held or empty queue files nothing
-    # and exits 0, so a failure here means the window really did lose its round.
-    #
-    # Predict is the only channel a pull window hands off. Evaluate is not a
-    # handoff at all — run-evaluate derives its own backlog on its own schedule —
-    # so the assertion is exact rather than "at least one": a second caller here
-    # would mean a stage is coupled to the pull window, which is what this
-    # assertion exists to catch.
-    for job in ("pull", "live"):
-        callers = [
-            step
-            for step in _load("run-pull.yml")["jobs"][job]["steps"]
-            if str(step.get("uses") or "").endswith("open-run-handoff")
-        ]
-        assert len(callers) == 1, (
-            f"run-pull {job!r} should file exactly the predict handoff, found {len(callers)}"
-        )
-        step = callers[0]
-        assert step["with"]["label"] == "run:predict", (
-            f"run-pull {job!r} files a handoff for {step['with']['label']!r}"
-        )
-        assert "continue-on-error" not in step, (
-            f"run-pull {job!r} handoff must fail the window, not absorb it"
-        )
+    fan_out_labels = ("run:predict", "run:evaluate", "run:pull", "run:backtest")
+    # `gh` spells label application four ways; each is a write that would restore
+    # a stage-to-stage handoff, and a mention on any other line is a read.
+    applying = ("--label", "--add-label", "label create", "labels:")
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        for line in _uncommented(path.read_text()):
+            if not any(label in line for label in fan_out_labels):
+                continue
+            assert not any(verb in line for verb in applying), (
+                f"{path.name} applies a fan-out label: {line.strip()} — nothing triggers "
+                "on a label, and each stage derives its own backlog from committed state"
+            )
 
 
 def test_the_list_of_retried_ops_steps_is_complete() -> None:
@@ -1450,12 +1435,6 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
     composite = _composite_run("run-log-dashboard")
     assert "body=$(gh_retry gh issue view" in composite
     assert "dashboard-body.md" in composite
-
-    # The back-test comment's PR lookup is the same shape: assigned, filtered
-    # by `gh`'s own `--jq`, so an exhausted retry fails the assignment instead
-    # of silently dropping the review-PR back-link from the comment.
-    report = str(_named_step(*BACKTEST_REPORT_STEP)["run"])
-    assert "pr_url=$(gh_retry gh pr list" in report
 
 
 # The codex invocation surface, described in six places that certify each
