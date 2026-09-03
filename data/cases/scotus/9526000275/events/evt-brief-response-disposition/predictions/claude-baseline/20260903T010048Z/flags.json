@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9526000275",
+  "run_id": "20260903T010048Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-brief-response-disposition",
+      "message": "This cell's moment is response-filed, but record/documents/ carries only the application text — the September 2 response (the docket entry that opened this event) was not provisioned, so the moment's distinguishing evidence was predicted from the docket entry alone, not its content."
+    }
+  ]
+}

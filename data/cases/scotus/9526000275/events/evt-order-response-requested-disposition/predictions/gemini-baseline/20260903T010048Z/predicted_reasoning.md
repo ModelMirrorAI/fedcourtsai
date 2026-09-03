@@ -1,0 +1,1 @@
+The Court has requested a response to the application. I expect no further request for response since one was already made. The application has a 20% chance of being referred to the full Court given the election context, and a 10% chance of further amicus activity. Ultimately, the application is likely to be denied (90% probability) rather than granted.
