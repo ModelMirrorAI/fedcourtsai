@@ -828,7 +828,7 @@ jobs:
         # executing the agent itself carries.
         run: |
           set -euo pipefail
-          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.207
+          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.259
           # Claude's native binary is placed by its postinstall, which
           # --ignore-scripts suppresses; run the pinned package's own
           # installer explicitly.

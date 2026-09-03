@@ -824,7 +824,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$ENGINE" in
-            claude-code) package="@anthropic-ai/claude-code@2.1.207" binary=claude ;;
+            claude-code) package="@anthropic-ai/claude-code@2.1.259" binary=claude ;;
             codex) package="@openai/codex@0.144.1" binary=codex ;;
             gemini) package="@google/gemini-cli@0.49.0" binary=gemini ;;
           esac
