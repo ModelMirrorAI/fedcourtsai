@@ -537,10 +537,12 @@ freeze record states the exposure.
 counted cells** is the third supersession shape, and the only one that
 de-counts: the predictor digests are the enforced filter, so replacing them in
 `FROZEN_PROCESS_DIGESTS` removes every cell stamped under the retired digests
-from every frozen-scope artifact at once — and moving `FROZEN_SINCE` past the
+from every frozen-scope artifact at once — and `FROZEN_SINCE` sitting past the
 carrying promotion, the ordinary step-4 rule (the held-instant exception above
-is scoped to byte-identical predictor digests and cannot apply), independently
-drops every evaluation stamped before the new instant via
+is scoped to byte-identical predictor digests and cannot apply, so the instant
+is either moved there or already sits there, which satisfies the same rule
+without a move), independently
+drops every evaluation stamped before the instant via
 `graded_post_freeze`, blessed evaluator digests or not, so the boundary is
 total in both halves rather than incidental to one. That is a
 retroactive-looking move, and what makes it pre-registered
