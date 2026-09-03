@@ -2167,3 +2167,90 @@ freeze commit is recorded here.
   `evaluation.json` carrying `process_version.label` `proc-v6` and a digest
   from the table above, with the claude cells' `usage.json` recording
   `"model": "claude-fable-5-1"`.
+
+- *The interim arrival repair moves a provisioning boundary a second time, and
+  its instant is a dispatch rather than a promotion, 2026-09-03.* Registered
+  **ahead of** the repair that carries it, because the thing that needs
+  registering is a rule about when the boundary moves, and the rule has to be on
+  the record before the move rather than after.
+
+  **What moves.** The `arrival-backfill` maintenance pass re-derives
+  `events.opened_at` on SCOTUS interim baseline events (`evt-motion-disposition`,
+  not entry-pinned) whose stamp shows either shape of the pre-arrival-read
+  defect: no stamp at all, or the docketing date. `provision.moment_cutoff`
+  takes that stamp, so a repaired event's cells are cut at a different — always
+  earlier, or newly bounded — instant than the same event's cells were before,
+  and `provision.documents_before` takes the same cutoff, so which filed
+  documents an interim cell reads moves with it.
+
+  **No digest moves, and the reason is already registered.** The provisioning
+  cutoff is on the list in `docs/process-version.md` of things that change what
+  a predictor is conditioned on without touching a prompt byte. Corpus data is
+  not a digest input; the pass adds no capability and opens no retrieval
+  channel — it re-parses stored payloads with the parsers ingest already uses —
+  so no `ENGINE_RETRIEVAL` entry is owed and no canonical-config field changes.
+
+  **What this entry registers instead, in three parts.**
+
+  *The instant is the apply dispatch, not the promotion.* The boundary rule
+  registered for the arrival read takes effect for cells provisioned after the
+  promotion carrying it. For the population this pass exists for — rows the live
+  rotation never re-polls — that is false in fact: the promotion moves no stamp,
+  the apply does. So a figure over interim arrival cells may not pool across the
+  apply dispatch, and the dispatch's own date is the boundary instant to quote.
+  It matters more here than at the read's own boundary, because `context.cutoff`
+  is non-null on both sides of this one: the two conditionings are not separable
+  from the artifact alone.
+
+  *It may straddle the counting instant.* `FROZEN_SINCE` is `2026-09-05`. If the
+  apply lands on or after it, frozen-counted interim arrival cells exist on both
+  sides of the boundary and a figure over them may not pool across it. If it
+  lands before, nothing counted re-bases.
+
+  *The pre-repair stamps survive only if they are written down.* After the apply
+  the corpus holds the new stamp and each event's committed `event.yaml` is
+  rewritten with it the next time any cell runs over that event, so the pass's
+  own `filled` list is the sole record of what a committed interim cell's cutoff
+  had been derived from. The apply owes an entry here carrying it, along with
+  the dispatch date, the corpus vintage it was measured against, and the
+  ledger's `events_seen` / `candidates` / `candidates_resolved` / `stamped` /
+  `moved` / move histogram / `over_admitted_entries` /
+  `admitted_the_disposition` / `unrepaired` / `unrepaired_resolved` counts.
+
+  **What the repair can and cannot be said to remove.** The defect is that
+  resolution status decides which stamp a row carries — the poller re-polls only
+  unresolved applications — which is an outcome-correlated conditioning rule on
+  any retrospective interim cohort. The pass removes that correlation on the
+  slice carrying a readable live-shaped snapshot with a parseable arrival, and
+  no further: a candidate with no stored snapshot, no proceedings list, no dated
+  submission entry, or a reading the direction guard refused keeps its
+  pre-repair stamp. Late is the safe direction for *leakage* and is the defect
+  itself for *conditioning*, so those rows are the still-conditioned remainder
+  rather than a safe fallback — and the residue has a structural reason to
+  concentrate on the decided side, since a stored live snapshot exists because a
+  channel polled the case. The ledger therefore splits the class, the repairs
+  and the residue by resolution, and the apply's entry states that split.
+
+  **The reading rule for the move sizes.** The day-delta histogram is the
+  *window* the pre-repair cut spanned — an upper bound on what could have been
+  admitted, not a measure of what was. A one-day move on a docket disposed of
+  that day admits the outcome; a month over a quiet docket admits nothing. The
+  claimable figures are the entries-admitted counts beside it and the named rows
+  whose own disposition fell inside the band, which is the form the arrival
+  read's own boundary measurement took.
+
+  **The provenance mix moves with it.** The repair takes rows from `as-stored`
+  to placed (the unstamped arm, whose cells took no cut at all and read the
+  latest snapshot) and shifts placed rows from `dated` toward `truncated`, since
+  an earlier cutoff is less likely to find a stored pre-cutoff snapshot. Any
+  figure pooling cells on these events states the mix under the reading rules
+  already registered for it.
+
+  **The runnable effect check, for the promotion carrying this.** The promotion
+  moves no stamp — this pass is dispatch-gated — so the check is that the pass
+  is dispatchable and reports a class:
+  `gh workflow run run-repair.yml --repo ModelMirrorAI/fedcourtsai --ref main -f
+  repair=arrival-backfill -f repair_mode=dry-run`, green, with the run summary
+  carrying a ledger whose `events_seen` is non-zero. The apply is a separate
+  decision taken against that ledger, and it is the event this entry's
+  successor records.

@@ -28,7 +28,8 @@ The passes' own semantics are pinned at their unit seams
 `tests/test_docket_marking_migration.py`, `tests/test_response_backfill.py`,
 `tests/test_attribution_migration.py`, `tests/test_disposition_convergence.py`,
 `tests/test_sampled_frame_repair.py`, `tests/test_documents.py`,
-`tests/test_document_backfill.py` and
+`tests/test_document_backfill.py`,
+`tests/test_arrival_backfill.py` and
 `tests/test_cli_stamp.py`), which is why a
 near-empty fixture corpus is enough here — a pass with nothing to do still
 parses every flag it was given.

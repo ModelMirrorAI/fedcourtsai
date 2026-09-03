@@ -610,22 +610,31 @@ and the day provisioning cuts on. What it repairs is a stamp rule **correlated
 with the outcome**: the live poller serves the unresolved slice, so a decided
 application has left the rotation and is never re-polled, and an event last
 polled before the arrival read existed keeps the docketing date or nothing at
-all. Resolution status therefore decides which reading a row carries. Forward
-cells are unresolved by construction and unaffected, but any retrospective
-interim population drawn from these events inherits that conditioning. It is
-deliberately *not* predicated on resolution for the same reason — repairing only
-the decided half would condition the class all over again. Route and shape are
-the response back-fill's: re-parse each row's newest stored live-shaped snapshot
-with the same pure parsers ingest uses, reaching no network, and write a direct
-`UPDATE` of the index, so the pointer is its own witness. Direction is the
+all. Resolution status therefore decides which reading a row carries, and any
+retrospective interim population drawn from these events inherits that
+conditioning. A forward cell is unaffected *once its row has been re-polled* —
+not by construction: a queued row that has not been polled since the arrival read
+shipped still carries the docketing stamp, and closing that gap is part of what
+this pass is for. It is deliberately *not* predicated on resolution — repairing
+only the decided half would condition the class all over again. Route and shape
+are the response back-fill's: re-parse each row's newest stored live-shaped
+snapshot with the same pure parsers ingest uses, with no upstream fetch, and
+write a direct `UPDATE` of the index, so the pointer is its own witness. Direction is the
 safety property. The cut keeps everything filed strictly before the day after
 the stamp, so an earlier stamp admits less docket and a later one admits more,
 and docketing is systematically the later of the two readings — the pass
 therefore only ever moves a stamp earlier or supplies a missing one, and a parse
-that would move one later is refused and named. Its ledger states how many
-stamps moved and by how much, as a day-delta histogram: that is the size of the
-window each repaired row had been over-admitting by, and it is the number a
-retrospective interim cohort's conditioning turns on. It writes events rather
+that would move one later is refused and named. Its ledger states how many stamps
+moved and by how much, as a day-delta histogram — but that is the *window*, an
+upper bound on what could have been admitted rather than what was, so beside it
+the ledger counts the **entries** the pre-repair cut admitted and names the rows
+whose own **disposition** fell inside that band. A one-day move on a docket
+disposed of that day admits the outcome; a month over a quiet docket admits
+nothing, and only the second reading tells them apart. It also splits the class,
+the repairs and the residue by **resolution**, because what it removes is the
+correlation on the slice carrying a readable snapshot: every other arm keeps the
+pre-repair stamp, and a residue that is entirely decided rows is a correlation
+shrunk rather than removed. It writes events rather
 than a `cases` column, so unlike the response back-fill it re-mirrors the
 touched cases — provisioning reads events back through the content store, and a
 stale mirror would hand a cell the very stamp the pass replaced.

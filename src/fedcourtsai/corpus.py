@@ -1955,6 +1955,17 @@ def is_live_slice(row: CorpusRow) -> bool:
 LIVE_SLICE_SQL = "last_live_polled IS NOT NULL"
 
 
+def live_slice_sql(alias: str = "") -> str:
+    """:data:`LIVE_SLICE_SQL`, qualified for a query that joins another table.
+
+    The bare constant resolves only because no other table carries the column;
+    the day one does, every unqualified use starts raising *ambiguous column
+    name* from a module that never mentions it. A join passes its ``cases``
+    alias here instead.
+    """
+    return f"{alias}.{LIVE_SLICE_SQL}" if alias else LIVE_SLICE_SQL
+
+
 class ResolutionDatedRow(Protocol):
     """The fields resolution timing reads — satisfied by both the storage row
     (:class:`CorpusRow`) and the ingestion row, which carry the same date facts."""

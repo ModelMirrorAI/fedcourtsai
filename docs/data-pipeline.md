@@ -1302,14 +1302,16 @@ gh workflow run run-repair.yml --ref main \
   -f repair=document-backfill -f repair_mode=apply -f repair_bound=15
 
 # The arrival back-fill's bound is an ordinary refusal threshold, so the number
-# is the fill count its dry run printed. Read the move histogram beside that
-# count before applying: it says how much docket each repaired row had been
-# admitting past its declared moment, which is what decides whether the
-# pre-repair interim population was merely late.
+# is the fill count its dry run printed — a five-figure class is expected, and
+# the number below is a placeholder rather than a measurement. Read three things
+# off that dry run before applying: the entries the pre-repair cut admitted and
+# the rows whose own disposition was among them (the day histogram is only the
+# window, not what was in it), and the resolution split of the residue, which
+# says whether the correlation was removed or merely shrunk.
 gh workflow run run-repair.yml --ref main \
   -f repair=arrival-backfill -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
-  -f repair=arrival-backfill -f repair_mode=apply -f repair_bound=11228
+  -f repair=arrival-backfill -f repair_mode=apply -f repair_bound=<the dry run's fill count>
 
 # A pass with an option. `include-scored` demands the bound in BOTH modes, so
 # the dry run that decides the widening states it too.

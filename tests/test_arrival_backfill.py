@@ -359,6 +359,232 @@ def test_a_payload_that_is_not_live_shaped_is_no_snapshot_at_all(tmp_path: Path)
     assert result.no_proceedings == 0
 
 
+# --- What the pre-repair cut actually admitted --------------------------------
+
+
+def test_the_ledger_counts_the_entries_the_old_cut_admitted(tmp_path: Path) -> None:
+    """The day delta bounds the window; this is what was inside it.
+
+    The distinction the ledger has to carry: a one-day move on a docket disposed
+    of that day admits the outcome, while a month-long move over a quiet docket
+    admits nothing. Only the second reading says whether a pre-repair interim
+    population was merely late.
+    """
+    with _seeded(
+        tmp_path / "corpus",
+        [_row()],
+        [_event(opened_at=_DOCKETED)],
+        {
+            _CASE: (
+                date(2026, 7, 1),
+                # Submitted Jun 05, docketed Jun 10 — so the band the repair
+                # closes is (Jun 05, Jun 10]. One entry sits inside it; the
+                # disposition on Jun 25 sits outside and is not counted.
+                _payload(
+                    _submission(),
+                    {"Text": "Response requested.", "Date": "Jun 08 2026"},
+                    _disposition(),
+                ),
+            )
+        },
+    ) as conn:
+        result = backfill_arrival_stamps(conn, apply=False)
+    (fill,) = result.filled
+    assert fill.moved_days == 5
+    assert fill.over_admitted == 1
+    assert result.over_admitted_rows == 1 and result.over_admitted_entries == 1
+    # The disposition landed after the old cut too, so it was never admitted.
+    assert not result.admitted_the_disposition
+
+
+def test_a_disposition_inside_the_old_window_is_named(tmp_path: Path) -> None:
+    """The sharpest reading here: a cell that could see the outcome it forecast.
+
+    Named rather than counted, because these are the cases a retrospective
+    cohort has to be checked against one by one.
+    """
+    with _seeded(
+        tmp_path / "corpus",
+        # Disposed of Jun 08 — inside (Jun 05, Jun 10], the band the repair closes.
+        [_row(date_decided=date(2026, 6, 8))],
+        [_event(opened_at=_DOCKETED)],
+        {_CASE: (date(2026, 7, 1), _payload(_submission()))},
+    ) as conn:
+        result = backfill_arrival_stamps(conn, apply=False)
+    assert result.admitted_the_disposition == [_CASE]
+    assert result.filled[0].admitted_the_disposition
+
+
+def test_a_quiet_docket_moves_days_and_admits_nothing(tmp_path: Path) -> None:
+    """The case the day histogram alone would misreport as the worse one."""
+    with _seeded(
+        tmp_path / "corpus",
+        [_row(date_filed=_SUBMITTED + timedelta(60), date_decided=date(2026, 9, 1))],
+        [_event(opened_at=_SUBMITTED + timedelta(60))],
+        {_CASE: (date(2026, 9, 5), _payload(_submission()))},
+    ) as conn:
+        result = backfill_arrival_stamps(conn, apply=False)
+    (fill,) = result.filled
+    assert fill.moved_days == 60
+    # Sixty days of window, and nothing in it: the submission entry is the only
+    # dated entry on the docket and it is on the arrival day itself.
+    assert fill.over_admitted == 0
+    assert result.over_admitted_rows == 0
+    assert not result.admitted_the_disposition
+
+
+def test_the_unstamped_arm_counts_the_whole_tail(tmp_path: Path) -> None:
+    """A row that carried no stamp took no cut, so everything after arrival was in.
+
+    Not a window but an open half-line — which is why the arm is reported apart
+    from the moved one and carries no day delta.
+    """
+    with _seeded(
+        tmp_path / "corpus",
+        [_row(date_decided=date(2026, 6, 25))],
+        [_event(opened_at=None)],
+        {_CASE: (date(2026, 7, 1), _payload(_submission(), _disposition()))},
+    ) as conn:
+        result = backfill_arrival_stamps(conn, apply=False)
+    (fill,) = result.filled
+    assert fill.previous is None and fill.moved_days is None
+    assert fill.over_admitted == 1
+    assert result.admitted_the_disposition == [_CASE]
+
+
+def test_the_admitted_band_is_open_on_the_left_and_closed_on_the_right(
+    tmp_path: Path,
+) -> None:
+    """Exactly the days the pre-repair cut kept and the repaired one drops.
+
+    Both cuts are "on or before the stamp", so the band the repair closes is
+    `(arrival, previous]` — an entry on the arrival day itself was always kept
+    and is not admitted-in-error, while one on the docketing day was kept only
+    by the defect and is.
+    """
+    with _seeded(
+        tmp_path / "corpus",
+        [_row()],
+        [_event(opened_at=_DOCKETED)],
+        {
+            _CASE: (
+                date(2026, 7, 1),
+                _payload(
+                    _submission(),  # Jun 05, the arrival day — outside, on the left
+                    {"Text": "Certificate of service filed.", "Date": "Jun 04 2026"},  # before
+                    {"Text": "Letter filed.", "Date": "Jun 06 2026"},  # inside
+                    {"Text": "Motion filed.", "Date": "Jun 10 2026"},  # the closed right edge
+                    {"Text": "Order entered.", "Date": "Jun 11 2026"},  # outside, on the right
+                    {"Text": "Undated filing.", "Date": None},  # never counted
+                ),
+            )
+        },
+    ) as conn:
+        result = backfill_arrival_stamps(conn, apply=False)
+    assert result.filled[0].over_admitted == 2
+
+
+def test_a_null_stamp_takes_an_arrival_that_postdates_the_docketing_date(
+    tmp_path: Path,
+) -> None:
+    """The one branch where the direction guard is deliberately skipped.
+
+    A row carrying no stamp took no cut at all, so there is no enlarging
+    direction to refuse: any date bounds a window that was unbounded, even one
+    later than the docketing date the row never used.
+    """
+    late = date(2026, 6, 15)
+    with _seeded(
+        tmp_path / "corpus",
+        [_row()],
+        [_event(opened_at=None)],
+        {_CASE: (date(2026, 7, 1), _payload(_submission(day="Jun 15 2026")))},
+    ) as conn:
+        result = backfill_arrival_stamps(conn, apply=True, max_fills=5)
+        stored = _stored(conn)
+    assert not result.later_refused
+    assert stored == late > _DOCKETED
+    assert result.stamped == 1
+
+
+# --- The resolution split -----------------------------------------------------
+
+
+def test_the_ledger_splits_the_class_and_the_residue_by_resolution(tmp_path: Path) -> None:
+    """Whether the correlation was removed or only shrunk.
+
+    Resolution is the axis the defect runs along, and the residue has a
+    structural reason to concentrate on the same side: a stored live snapshot
+    exists because a channel polled the case, and the poller serves the
+    unresolved slice. A residue that is entirely decided rows is a correlation
+    this pass did not reach, and only the split says so.
+    """
+    rows = [_row("scotus/1"), _row("scotus/2"), _row("scotus/3")]
+    events = [
+        _event("scotus/1", opened_at=_DOCKETED, resolved=True),
+        # Decided and unreadable: the still-conditioned residue.
+        _event("scotus/2", opened_at=_DOCKETED, resolved=True),
+        _event("scotus/3", opened_at=_DOCKETED, resolved=False),
+    ]
+    snapshots = {
+        "scotus/1": (date(2026, 7, 1), _payload(_submission())),
+        "scotus/3": (date(2026, 7, 1), _payload(_submission())),
+    }
+    with _seeded(tmp_path / "corpus", rows, events, snapshots) as conn:
+        result = backfill_arrival_stamps(conn, apply=False)
+    assert result.candidates == 3 and result.candidates_resolved == 2
+    assert len(result.filled) == 2 and result.filled_resolved == 1
+    assert result.no_snapshot == 1
+    assert result.unrepaired == 1 and result.unrepaired_resolved == 1
+
+
+def test_every_unrepairable_arm_is_counted_in_the_residue(tmp_path: Path) -> None:
+    """The residue is every arm that keeps the pre-repair stamp, and only those.
+
+    `unchanged` is excluded because that row is already correct; a refused later
+    reading is not, because it keeps the stamp the repair exists to move.
+    """
+    rows = [_row(f"scotus/{n}") for n in range(1, 6)]
+    events = [_event(f"scotus/{n}", opened_at=_DOCKETED, resolved=True) for n in range(1, 6)]
+    snapshots = {
+        # 1: no snapshot at all (absent from this dict).
+        "scotus/2": (date(2026, 7, 1), _payload()),  # no proceedings
+        "scotus/3": (date(2026, 7, 1), _payload(_renewal())),  # unparsed
+        "scotus/4": (date(2026, 7, 1), _payload(_submission(day="Jun 15 2026"))),  # later
+        "scotus/5": (date(2026, 7, 1), _payload(_submission())),  # repaired
+    }
+    with _seeded(tmp_path / "corpus", rows, events, snapshots) as conn:
+        result = backfill_arrival_stamps(conn, apply=False)
+    assert (result.no_snapshot, result.no_proceedings, result.unparsed) == (1, 1, 1)
+    assert result.later_refused == ["scotus/4"]
+    assert len(result.filled) == 1
+    assert result.unrepaired == 4 and result.unrepaired_resolved == 4
+
+
+def test_an_already_correct_row_is_not_residue(tmp_path: Path) -> None:
+    """`unchanged` is not a failure to repair — the stamp is already the arrival."""
+    with _seeded(
+        tmp_path / "corpus",
+        [_row(date_filed=_SUBMITTED)],
+        [_event(opened_at=_SUBMITTED)],
+        {_CASE: (date(2026, 7, 1), _payload(_submission()))},
+    ) as conn:
+        result = backfill_arrival_stamps(conn, apply=False)
+    assert result.unchanged == 1
+    assert result.unrepaired == 0
+
+
+def test_a_row_on_another_court_is_out_of_the_population(tmp_path: Path) -> None:
+    """The predicate's other limb, which nothing else pins."""
+    rows = [_row("scotus/1"), _row("ca9/2")]
+    events = [_event("scotus/1"), _event("ca9/2")]
+    events[1] = events[1].model_copy(update={"court": "ca9"})
+    with _seeded(tmp_path / "corpus", rows, events) as conn:
+        candidates, seen = arrival_candidates(conn)
+    assert [candidate.case_id for candidate in candidates] == ["scotus/1"]
+    assert seen == 1
+
+
 # --- The bound and the write --------------------------------------------------
 
 
@@ -509,7 +735,29 @@ def test_cli_prints_the_move_histogram_and_the_ledger(
     assert "4-7d: 1" in result.output
     assert "would stamp scotus/1" in result.output
     assert '"moved":1' in result.output
-    assert set(ArrivalBackfillResult.model_fields) <= set(result.output.split('"'))
+    # Structural, not quote-splitting: a field name appearing as a *value*
+    # would satisfy a substring check, and any future `indent=` would break it.
+    ArrivalBackfillResult.model_validate_json(result.output.splitlines()[-1])
+
+
+def test_cli_applies_and_names_what_the_old_cut_admitted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The apply path at the command surface, and the line that matters most on it."""
+    with _seeded(
+        tmp_path / "corpus",
+        [_row(date_decided=date(2026, 6, 8))],
+        [_event(opened_at=_DOCKETED)],
+        {_CASE: (date(2026, 7, 1), _payload(_submission()))},
+    ):
+        pass
+    result = _cli(tmp_path, monkeypatch, "--apply", "--max-fills", "5")
+    assert result.exit_code == 0
+    assert "stamped scotus/1" in result.output
+    assert "ADMITTED ITS OWN DISPOSITION" in result.output
+    assert '"applied":true' in result.output
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        assert _stored(conn) == _SUBMITTED
 
 
 def test_cli_refuses_above_the_bound(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -42,11 +42,25 @@ the kind of rule a cohort must not be built on.
   parse that would move one **later** is refused rather than written: that is
   the enlarging direction, and this pass exists to remove enlargement rather
   than to introduce it. Refused rows are named.
-- **What the ledger has to state.** How many rows changed stamp and by how much.
-  A retrospective interim cohort's conditioning depends on that number: it is
-  the size of the window each repaired row had been over-admitting by, so a
-  histogram of the day deltas is what says whether the pre-repair population was
-  merely late or was seeing its own disposition.
+- **What the ledger has to state, and in what terms.** How many rows changed
+  stamp and by how much — a histogram of the day deltas — but that is the
+  *window*, not what was in it. A one-day move on a docket disposed of that day
+  admits the outcome; a month-long move over a quiet docket admits nothing. So
+  the day histogram is reported as an upper bound and the **entries the
+  pre-repair cut admitted** are reported beside it, with the two readings that
+  decide the question named rather than counted: whether the row's own
+  disposition fell inside that band, and whether the Court's response request
+  did.
+- **What it can and cannot claim to have removed.** It removes the correlation
+  on the slice carrying a readable live-shaped snapshot with a parseable
+  arrival. Every other arm — no snapshot, no proceedings, no dated submission
+  entry, a refused later reading — keeps the pre-repair stamp, and that is a
+  still-conditioned row rather than a safe fallback: late is the safe direction
+  for *leakage*, but it is the defect itself for *conditioning*. Whether the
+  residue is itself resolution-skewed is the question, and it has a structural
+  reason to be — a stored live snapshot exists because a channel polled the
+  case, and the poller serves the unresolved slice — so the ledger splits the
+  class, the repairs and the residue by resolution and lets the reader see it.
 
 One limitation this pass cannot fix and must not hide: ``events.opened_at``
 carries no fill-in latch on the upsert path (every event column but ``resolved``
@@ -68,8 +82,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus, ids
 from ..schemas import EventKind
-from .cert_signals import proceedings_entries
-from .interim_signals import application_arrival_date
+from .cert_signals import entry_date, proceedings_entries
+from .interim_signals import application_arrival_date, response_requested_date
 from .prefetch import prefetch_by_case
 
 #: The interim baseline's identity — the event every application docket mints,
@@ -105,6 +119,29 @@ class ArrivalFill(BaseModel):
         description="The stamp being replaced — the docketing date, or null where "
         "the row carried none. What separates a fill from a move, which the "
         "histogram counts apart",
+    )
+
+    over_admitted: int = Field(
+        ge=0,
+        default=0,
+        description="Docket entries the pre-repair cut admitted that the repaired "
+        "one does not — the entries-admitted reading beside the day delta, and the "
+        "one that actually bears on leakage: a one-day move on a same-day "
+        "disposition admits the outcome, and a month-long move over a quiet docket "
+        "admits nothing. On a row that carried no stamp the pre-repair cut was no "
+        "cut at all, so this counts the whole tail rather than a window",
+    )
+    admitted_the_disposition: bool = Field(
+        default=False,
+        description="Whether the row's own disposition date fell inside what the "
+        "pre-repair cut admitted. The sharpest reading in this ledger: a cell "
+        "conditioned this way could see the outcome it was forecasting",
+    )
+    admitted_the_response_request: bool = Field(
+        default=False,
+        description="Whether the Court's request for a response fell inside what "
+        "the pre-repair cut admitted — an escalation signal the arrival moment "
+        "had not yet seen",
     )
 
     @property
@@ -163,6 +200,64 @@ class ArrivalBackfillResult(BaseModel):
         description="The largest single move, in days — the worst case the "
         "histogram's open bucket hides",
     )
+    over_admitted_rows: int = Field(
+        ge=0,
+        default=0,
+        description="Of `filled`, the rows whose pre-repair cut admitted at least "
+        "one docket entry the repaired cut does not. The day histogram bounds the "
+        "*window*; this counts what was actually in it, which is the reading that "
+        "bears on leakage — a day delta over a quiet docket admits nothing",
+    )
+    over_admitted_entries: int = Field(
+        ge=0,
+        default=0,
+        description="Those entries, summed across `filled`",
+    )
+    admitted_the_disposition: list[str] = Field(
+        default_factory=list,
+        description="The cases whose own disposition date fell inside what the "
+        "pre-repair cut admitted, in class order. The sharpest reading this ledger "
+        "carries and the one that decides whether the pre-repair interim population "
+        "was merely late or could see the outcome it was forecasting. Named rather "
+        "than counted, because these are the cases a cohort has to be checked against",
+    )
+    admitted_the_response_request: int = Field(
+        ge=0,
+        default=0,
+        description="Rows whose response-request entry fell inside what the "
+        "pre-repair cut admitted — an escalation signal the arrival moment had not "
+        "yet seen, and the other reading the registered boundary measurement took",
+    )
+    candidates_resolved: int = Field(
+        ge=0,
+        default=0,
+        description="Of `candidates`, the resolved (decided) rows. Resolution is "
+        "the axis the defect runs along — the poller re-polls only unresolved rows "
+        "— so the class is expected to be overwhelmingly resolved, and a split that "
+        "is not says the defect has a second source",
+    )
+    filled_resolved: int = Field(
+        ge=0,
+        default=0,
+        description="Of `filled`, the resolved rows",
+    )
+    unrepaired: int = Field(
+        ge=0,
+        default=0,
+        description="Candidates this pass could not repair — every residue arm "
+        "together, `unchanged` excluded, since that arm is already correct. These "
+        "keep the pre-repair stamp, so they are the still-conditioned remainder "
+        "rather than a safe fallback",
+    )
+    unrepaired_resolved: int = Field(
+        ge=0,
+        default=0,
+        description="Of `unrepaired`, the resolved rows — the number that says "
+        "whether this pass removed the outcome correlation or only shrank it. A "
+        "residue that is entirely decided rows is a correlation the repair did not "
+        "reach; one that splits like the class did is a residue the correlation "
+        "does not run through",
+    )
     unchanged: int = Field(
         ge=0,
         default=0,
@@ -209,8 +304,10 @@ class ArrivalBackfillResult(BaseModel):
     )
     bound: int | None = Field(
         default=None,
-        description="The blast-radius bound this run was checked against — the "
-        "rows actually written, not the `candidates` denominator beside them",
+        description="The blast-radius bound this run carried, counted against the "
+        "rows actually written rather than the `candidates` denominator beside "
+        "them. Reported in both modes and *checked* only on an apply, since a dry "
+        "run writes nothing there is anything to refuse",
     )
     refused: bool = Field(
         default=False,
@@ -228,6 +325,13 @@ class _Candidate:
     event_id: str
     docket_number: str
     opened_at: date | None
+    #: Whether the event is closed. Carried because resolution is the axis the
+    #: defect runs along, so the ledger has to be able to split on it: a residue
+    #: that is all decided rows is a correlation shrunk, not one removed.
+    resolved: bool
+    #: The row's own disposition date, for the sharpest reading of what the old
+    #: cut admitted — whether the outcome itself was inside the window.
+    date_decided: date | None
 
 
 @dataclass
@@ -240,6 +344,17 @@ class _Tally:
     no_proceedings: int = 0
     unparsed: int = 0
     unchanged: int = 0
+    #: Of the candidates this pass could not repair, how many were resolved —
+    #: accumulated as they are attributed, so no arm can be added to without the
+    #: split following it.
+    unrepaired: int = 0
+    unrepaired_resolved: int = 0
+    filled_resolved: int = 0
+
+    def record_unrepairable(self, candidate: _Candidate) -> None:
+        """Record a candidate that keeps its pre-repair stamp."""
+        self.unrepaired += 1
+        self.unrepaired_resolved += int(candidate.resolved)
 
 
 def _stored_date(record: sqlite3.Row, column: str) -> date | None:
@@ -285,18 +400,22 @@ def arrival_candidates(conn: sqlite3.Connection) -> tuple[list[_Candidate], int]
     for it.
 
     The denominator returned beside the class is every baseline interim event in
-    the live slice, which is what tells a converged corpus apart from one this
-    process cannot read.
+    the live slice, entry-pinned rows included — deliberately looser than the
+    class, because its job is to say whether this process can read the
+    population at all, and a blob that serves no interim event is the wrong blob
+    whether or not any of them were this route's subject.
     """
     seen = conn.execute(
         "SELECT COUNT(*) FROM events e JOIN cases c ON c.case_id = e.case_id "
-        f"WHERE e.event_id = ? AND e.court = 'scotus' AND {corpus.LIVE_SLICE_SQL}",
+        f"WHERE e.event_id = ? AND e.court = 'scotus' AND {corpus.live_slice_sql('c')}",
         (MOTION_BASELINE_EVENT_ID,),
     ).fetchone()[0]
     rows = conn.execute(
         "SELECT e.case_id AS case_id, e.event_id AS event_id, e.opened_at AS opened_at, "
-        "c.docket_number AS docket_number FROM events e JOIN cases c ON c.case_id = e.case_id "
-        f"WHERE e.event_id = ? AND e.court = 'scotus' AND {corpus.LIVE_SLICE_SQL} "
+        "e.resolved AS resolved, c.docket_number AS docket_number, "
+        "c.date_decided AS date_decided "
+        "FROM events e JOIN cases c ON c.case_id = e.case_id "
+        f"WHERE e.event_id = ? AND e.court = 'scotus' AND {corpus.live_slice_sql('c')} "
         # An entry-pinned motion event names one specific filing rather than the
         # docket's arrival, so the arrival derivation is the wrong reading for it.
         "AND e.docket_entry_id IS NULL "
@@ -310,6 +429,8 @@ def arrival_candidates(conn: sqlite3.Connection) -> tuple[list[_Candidate], int]
             event_id=str(record["event_id"]),
             docket_number=str(record["docket_number"] or ""),
             opened_at=_stored_date(record, "opened_at"),
+            resolved=bool(record["resolved"]),
+            date_decided=_stored_date(record, "date_decided"),
         )
         for record in rows
     ], int(seen)
@@ -365,6 +486,21 @@ def backfill_arrival_stamps(
     result.moved = len(tally.filled) - result.stamped
     result.move_histogram = counts
     result.move_days_max = largest
+    # What the pre-repair cut actually admitted, beside the window it spanned.
+    result.over_admitted_rows = sum(1 for fill in tally.filled if fill.over_admitted)
+    result.over_admitted_entries = sum(fill.over_admitted for fill in tally.filled)
+    result.admitted_the_disposition = [
+        fill.case_id for fill in tally.filled if fill.admitted_the_disposition
+    ]
+    result.admitted_the_response_request = sum(
+        1 for fill in tally.filled if fill.admitted_the_response_request
+    )
+    # The resolution split, which is what says whether the correlation was
+    # removed or only shrunk.
+    result.candidates_resolved = sum(1 for candidate in candidates if candidate.resolved)
+    result.filled_resolved = tally.filled_resolved
+    result.unrepaired = tally.unrepaired
+    result.unrepaired_resolved = tally.unrepaired_resolved
     result.unchanged = tally.unchanged
     result.later_refused = tally.later_refused
     result.no_snapshot = tally.no_snapshot
@@ -382,6 +518,38 @@ def backfill_arrival_stamps(
     return result
 
 
+def _inside(when: date | None, *, arrival: date, previous: date | None) -> bool:
+    """Whether ``when`` is a day the pre-repair cut admitted and the repair does not.
+
+    The cut keeps everything dated on or before the stamp, so the band the repair
+    closes is ``(arrival, previous]``. ``previous`` of ``None`` is the unstamped
+    arm, where the pre-repair cut was **no cut at all** — so the band is open to
+    the right and every day after the arrival was admitted.
+    """
+    if when is None or when <= arrival:
+        return False
+    return previous is None or when <= previous
+
+
+def _over_admitted(
+    entries: list[tuple[str, str | None]], *, arrival: date, previous: date | None
+) -> list[date]:
+    """The dated docket entries the pre-repair cut admitted and the repair does not.
+
+    The reading that bears on leakage, which the day delta only bounds: a
+    one-day move on a docket disposed of that day admits the outcome, and a
+    month-long move over a quiet docket admits nothing. Undated entries are not
+    counted — the same strictness the cut itself applies, since a partial date
+    cannot decide which side of a boundary an entry is on.
+    """
+    return [
+        when
+        for _, raw in entries
+        if (when := entry_date(raw)) is not None
+        and _inside(when, arrival=arrival, previous=previous)
+    ]
+
+
 def _read_candidate(
     candidate: _Candidate,
     snapshot: tuple[date, dict[str, object]] | None,
@@ -397,6 +565,7 @@ def _read_candidate(
     """
     if snapshot is None:
         tally.no_snapshot += 1
+        tally.record_unrepairable(candidate)
         return
     _, payload = snapshot
     entries = proceedings_entries(payload)
@@ -404,22 +573,38 @@ def _read_candidate(
         # An absent or empty proceedings list makes the arrival unobservable from
         # this payload, not absent from the docket.
         tally.no_proceedings += 1
+        tally.record_unrepairable(candidate)
         return
     arrival = application_arrival_date(candidate.docket_number, entries)
     if arrival is None:
         tally.unparsed += 1
+        tally.record_unrepairable(candidate)
         return
     if arrival == candidate.opened_at:
         tally.unchanged += 1
         return
     if candidate.opened_at is not None and arrival > candidate.opened_at:
         tally.later_refused.append(candidate.case_id)
+        tally.record_unrepairable(candidate)
         return
+    # The direction guard is skipped on the null arm above, and the asymmetry is
+    # safe rather than an oversight: a row carrying no stamp takes *no cut at
+    # all*, so any date is a tightening and there is no enlarging direction to
+    # refuse. What it gains is a window, not a shorter one.
+    admitted = _over_admitted(entries, arrival=arrival, previous=candidate.opened_at)
     tally.filled.append(
         ArrivalFill(
             case_id=candidate.case_id,
             event_id=candidate.event_id,
             opened_at=arrival,
             previous=candidate.opened_at,
+            over_admitted=len(admitted),
+            admitted_the_disposition=_inside(
+                candidate.date_decided, arrival=arrival, previous=candidate.opened_at
+            ),
+            admitted_the_response_request=_inside(
+                response_requested_date(entries), arrival=arrival, previous=candidate.opened_at
+            ),
         )
     )
+    tally.filled_resolved += int(candidate.resolved)

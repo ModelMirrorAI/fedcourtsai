@@ -2848,12 +2848,26 @@ def backfill_arrival_stamps_cmd(
     A parse that would move a stamp **later** is refused rather than written, and
     those cases are named.
 
-    Prints the day-delta histogram of every stamp that moved, which is the
-    reading a retrospective interim cohort's conditioning depends on: it is how
-    much docket each repaired row had been over-admitting beyond its declared
-    moment. Idempotent, and convergent rather than terminal — `events.opened_at`
-    carries no fill-in latch, so a non-live re-extraction can write the docketing
-    date back and the sweep re-selects the row.
+    Prints the day-delta histogram of every stamp that moved — but that is the
+    *window*, an upper bound on what could have been admitted rather than what
+    was, so beside it the ledger counts the entries the pre-repair cut admitted
+    and names the rows whose own disposition, or the Court's response request,
+    fell inside that band. A one-day move on a docket disposed of that day
+    admits the outcome; a month over a quiet docket admits nothing. The rows
+    that carried no stamp are reported apart and are the *larger* change: an
+    unstamped interim event takes no cut at all, so its cell read the latest
+    snapshot and what it gains is the window itself.
+
+    It also splits the class, the repairs and the residue by resolution, because
+    what it removes is the correlation on the slice carrying a readable snapshot
+    with a parseable arrival. Every other arm keeps the pre-repair stamp — late
+    is safe for leakage and is the conditioning defect itself — so a residue
+    that is entirely decided rows is a correlation shrunk rather than removed.
+
+    Idempotent, and convergent rather than terminal — `events.opened_at` carries
+    no fill-in latch, so a non-live re-extraction can write the docketing date
+    back and the sweep re-selects the row, provided that write leaves the stamp
+    equal to the docketing date the predicate matches on.
 
     Run where the corpus is pulled — a dev checkout dry-runs it, and the apply
     half belongs in run-repair's `arrival-backfill` pass, which holds the
@@ -2906,14 +2920,48 @@ def backfill_arrival_stamps_cmd(
         f"{result.no_proceedings} whose snapshot discloses no proceedings; "
         f"{result.unparsed} naming no dated submission entry"
     )
+    # The `stamped` arm is a much larger change than any move, and the caveat has
+    # to travel with the number: those cells took NO cut at all — a null
+    # `opened_at` makes `moment_cutoff` return None, so the cell reads the latest
+    # snapshot — which is an unbounded window closed rather than a late one
+    # tightened. The histogram covers the `moved` arm alone.
+    worst = f"worst {result.move_days_max} day(s)" if result.moved else "no move to size"
     typer.echo(
-        f"  {result.stamped} row(s) had no stamp at all; {result.moved} moved earlier "
-        f"(worst {result.move_days_max} day(s)) — "
+        f"  {result.stamped} row(s) had no stamp at all — those cells took no cut, "
+        "reading the latest snapshot, so this closes an unbounded window rather "
+        f"than tightening a late one. {result.moved} moved earlier ({worst}); the "
+        "histogram below is the moved arm only: "
         + ", ".join(f"{bucket}d: {count}" for bucket, count in result.move_histogram.items())
+    )
+    # And what was actually inside those windows, which is the reading that bears
+    # on leakage — a day delta over a quiet docket admits nothing.
+    typer.echo(
+        f"  admitted: {result.over_admitted_entries} docket entr(ies) across "
+        f"{result.over_admitted_rows} row(s) that the repaired cut does not; "
+        f"{len(result.admitted_the_disposition)} row(s) admitted their own disposition, "
+        f"{result.admitted_the_response_request} the response request"
+    )
+    # The resolution split: whether the correlation was removed or only shrunk.
+    typer.echo(
+        f"  resolution: {result.candidates_resolved} of {result.candidates} candidate(s) "
+        f"decided, {result.filled_resolved} of {len(result.filled)} repair(s); "
+        f"{result.unrepaired_resolved} of {result.unrepaired} unrepaired row(s) are "
+        "decided — a residue that is entirely decided is a correlation this pass "
+        "shrank rather than removed"
     )
     for fill in result.filled:
         moved = f" (was {fill.previous.isoformat()}, {fill.moved_days}d)" if fill.previous else ""
-        typer.echo(f"  {verb} {fill.case_id} {fill.event_id}: {fill.opened_at.isoformat()}{moved}")
+        admitted = (
+            f", {fill.over_admitted} entr(ies) no longer admitted" if fill.over_admitted else ""
+        )
+        typer.echo(
+            f"  {verb} {fill.case_id} {fill.event_id}: "
+            f"{fill.opened_at.isoformat()}{moved}{admitted}"
+        )
+    for case_id in result.admitted_the_disposition:
+        # The sharpest line in this ledger: a cell conditioned that way could see
+        # the outcome it was forecasting, so these are named rather than counted.
+        typer.echo(f"  {case_id}: the pre-repair cut ADMITTED ITS OWN DISPOSITION")
     for case_id in result.later_refused:
         # Named, not counted: the parser anchors on the submission entry, which
         # precedes docketing on every docket sampled for the rule, so a later

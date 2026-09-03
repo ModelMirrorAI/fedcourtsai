@@ -1373,21 +1373,40 @@ jobs:
           fi
           gh auth setup-git # persist-credentials is false on checkout
           # Dry-run first, into the summary: this pass's ledger is the reading
-          # the apply's bound comes from, and it must outlive the step log. What
-          # a maintainer weighs there is not only the count but the **move
-          # histogram** — how many days of extra docket each repaired row had
-          # been admitting past its declared moment — since that is what says
-          # whether the pre-repair interim population was merely late or was
-          # seeing its own disposition. (On an apply this run is a receipt, not
-          # a reading.)
-          uv run fedcourts backfill-arrival-stamps 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          # the apply's bound comes from, and it must outlive the step log. Three
+          # things a maintainer weighs there beyond the count. The **entries the
+          # pre-repair cut admitted**, and the rows whose own disposition was
+          # among them — the move histogram beside it is only the *window*, an
+          # upper bound on what could have been admitted rather than what was,
+          # and a one-day move on a docket disposed of that day is worse than a
+          # month over a quiet one. The **resolution split** of the residue,
+          # which says whether the correlation was removed or merely shrunk. And
+          # the per-row fill list, which after the apply is the only record of
+          # what each repaired cell's cutoff had been derived from — the corpus
+          # holds the new stamp, and `event.yaml` is rewritten with it the next
+          # time any cell runs over that event. That record belongs in the
+          # freeze-record entry the apply owes, not only in a run summary that
+          # expires with the run and is capped at 1 MiB.
+          # (On an apply this run is a receipt, not a reading.)
+          # Bounded into the summary rather than tee'd whole. GitHub caps a step
+          # summary at 1 MiB and discards it ENTIRELY above that, warning only —
+          # and this pass's per-row lines plus its JSON ledger run to megabytes
+          # over a five-figure class, so an untruncated tee would drop the one
+          # surface the ledger was meant to outlive the run on. The full output
+          # stays in the step log either way.
+          summarize() {
+            head -c 900000 "$1" >> "$GITHUB_STEP_SUMMARY"
+            cat "$1"
+          }
+          uv run fedcourts backfill-arrival-stamps > /tmp/arrival-dry.txt 2>&1
+          summarize /tmp/arrival-dry.txt
           if [ "${REPAIR_MODE}" != "apply" ]; then
             echo "dry-run only; nothing written."
             exit 0
           fi
           uv run fedcourts backfill-arrival-stamps --apply \
-            --max-fills "${REPAIR_BOUND}" 2>&1 \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+            --max-fills "${REPAIR_BOUND}" > /tmp/arrival-apply.txt 2>&1
+          summarize /tmp/arrival-apply.txt
           # Blob before pointer commit, as everywhere. The index is where
           # `events.opened_at` lives, so unlike the two document passes the
           # pointer moving IS the witness that the write landed.
