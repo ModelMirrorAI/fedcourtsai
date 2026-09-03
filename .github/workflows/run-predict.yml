@@ -1,36 +1,102 @@
 name: run-predict
 
-# Triggered by `run:predict` (created by run-pull, or applied manually). Fans out
-# over every enabled predictor x open event and runs the matching coding agent.
-# The agent only writes files; each cell uploads its output as an artifact and the
-# `collect` job aggregates the whole run into one auto-merged PR (plus a draft PR
-# for any partial output). See docs/pipeline.md.
+# The predict stage's own lane. Fans out over every enabled predictor x open
+# event and runs the matching coding agent. The agent only writes files; each
+# cell uploads its output as an artifact and the `collect` job aggregates the
+# whole run into one auto-merged PR (plus a draft PR for any partial output).
+# See docs/pipeline.md.
+#
+# One way in, and it names no cases: the **schedule** (and its on-demand
+# `workflow_dispatch` twin) derives its own fan-out from the corpus-level
+# predict backlog — the forecasts committed state still owes. Level-triggered by
+# construction: the scan reads committed ledger state, so a round that failed,
+# was declined, or never ran is simply re-derived next cycle, and no trigger has
+# to be re-filed for it.
+#
+# The trigger decides only *when* a round derives; it never names its cases. The
+# spend gate is unchanged: every run renders its plan report and waits on the
+# `review` environment's required reviewers before a cell spends a token.
 on:
-  issues:
-    types: [labeled]
+  schedule:
+    # Twice a day, each slot margined after one of run-pull's ingestion windows
+    # so a round reads a corpus the day's writer has finished with. The pull
+    # windows run at :17 past 01/07/13/19 capped at 45 minutes (13:17 -> 14:02)
+    # and the live windows at :47 past 04/10/16/22 capped at 35 (16:47 ->
+    # 17:22), so :12 past 14 and :32 past 17 each open after a window has
+    # committed. This job only ever *reads* the corpus and takes no
+    # `corpus-write` lock, so an overlap would cost nothing but a staler read;
+    # the slots open clear of one, though a slow pull inside this job's own
+    # 30-minute cap can still run into run-seed's 14:31 walk. The minutes are off
+    # every other workflow's (:00, :13, :17, :27, :30, :31, :39, :41, :47, :53)
+    # so the repo's offset grid stays legible.
+    #
+    # Two slots, not eight — one per ingestion channel's freshest window rather
+    # than one per window. Two things size the lane and neither is the cron:
+    # the derivation's per-cycle cap, and the serializing group below, which
+    # queues a round behind one still holding the review hold — so a faster
+    # cadence buys drain rate only while a human releases holds at the same rate.
+    #
+    # GitHub delivers `schedule` events best-effort: a slot can be delayed or
+    # dropped with no record, and a newly registered cron sometimes never
+    # indexes until the file changes again on the default branch. A missed slot
+    # costs half a day's drain, nothing else (the backlog is level-triggered);
+    # the input-less dispatch below is the manual twin that drains it on demand.
+    - cron: "12 14 * * *"
+    - cron: "32 17 * * *"
+  # The same derivation, on demand — for a backlog that should drain now rather
+  # than at the next window. Deliberately input-less: the backlog is the only
+  # case list this workflow has, and a run that wants to spend on hand-picked
+  # cases is a `predict-plan` reading plus a maintainer's judgement, not a
+  # trigger input that would reintroduce an unauthenticated case list.
+  workflow_dispatch:
 
 permissions: {}
 
+# One predict round at a time, across both triggers — a per-workflow group,
+# because neither a schedule nor a dispatch carries anything to key on.
+#
+# Serializing is load-bearing, not tidiness: two concurrent rounds would derive
+# overlapping backlogs. The already-predicted gate that makes the fan-out
+# idempotent reads *committed* state, so it cannot see a round whose collect PR
+# has not merged yet, and this group — not that gate — is what keeps a second
+# derivation out of that window.
+#
+# `cancel-in-progress: false` protects the *running* round, not the queue behind
+# it: GitHub holds at most one pending run per group, and a third arrival
+# supersedes the one that was waiting. Read that against the review hold, which
+# can park a round for days — every round here is level-triggered and loses
+# nothing when its successor replaces it in the queue, since the backlog it
+# would have drained is re-derived by whichever round does run.
 concurrency:
-  group: run-predict-${{ github.event.issue.number }}
+  group: run-predict
   cancel-in-progress: false
 
 jobs:
   plan:
-    if: github.event.label.name == 'run:predict'
     runs-on: ubuntu-latest
+    # The job pulls the whole corpus and then walks every open SCOTUS event
+    # TWICE — once to mint the matrix and once for the plan report the hold is
+    # judged on — unattended, holding the serializing group throughout. So a
+    # hung pull would otherwise burn the six-hour job default *and* block the
+    # next round behind it. This is a bound on that hang, not a performance
+    # budget: the walk is minutes rather than seconds on a corpus this size, and
+    # killing a round that is legitimately still deriving costs a cycle for no
+    # gain. 45 minutes admits pull-plus-two-walks with room, and still sits
+    # inside the read-only role's default one-hour credential — which only the
+    # pull needs, since both walks read the pulled file locally.
+    timeout-minutes: 45
     environment: prod
     # Corpus-split read side for the matrix scope backstop: the bare-opinion-
     # import exclusion fetches the case's latest snapshot, which under
     # FEDCOURTS_CORPUS_SPLIT=1 lives only in the per-case content store (the
-    # ranged-read index carries no snapshots). Unset variable -> '0' -> off.
+    # pulled index carries no snapshots) — and the backlog derivation's
+    # provisioning probe reads the same store. Unset variable -> '0' -> off.
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
     permissions:
       contents: read
-      id-token: write # assume the AWS role for ranged corpus reads (scope gating)
-      issues: write # post the plan report; close the trigger issue when the matrix is empty
+      id-token: write # assume the AWS role for the corpus pull (read-only)
       # List recent runs and their cell artifacts for the stranded-run guard below
       # (repo-wide read of run metadata and artifact *names*; the plan job runs no
       # agent code and downloads no artifact).
@@ -39,50 +105,32 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
     steps:
-      # An issue *form* applies its declared labels on creation regardless of the
-      # submitter's permissions, so on a public repo anyone could fire this agent
-      # run by filing a form that declares `run:predict`. Require the trigger to
-      # come from the pipeline App (run-pull files predict issues automatically) or
-      # a maintainer with write access; deny everyone else. Fail closed otherwise.
-      # claude-code-action re-checks the actor before it spends model tokens, but
-      # this pre-flight step refuses *before* the downstream `predict` job (which
-      # `needs: plan`) mints any token, assumes the S3 role, or reads the corpus —
-      # matching the deterministic writer (run-pull).
-      # (The label name is already checked in the job `if:`.)
+      # No authorization gate here, and none is missing: this workflow carries no
+      # trigger an outside actor can reach. A `schedule` fires only from the
+      # DEFAULT branch, so it can run only what a maintainer-merged promotion put
+      # on `main`; a `workflow_dispatch` is gated by GitHub on repository write;
+      # and this job binds `prod`, whose deployment branches are restricted to
+      # `main`, so a dispatch from any other ref is refused before a step runs.
+      # The `review` hold still stands between this plan and any spend, on both
+      # triggers alike. (SECURITY.md -> *Label triggers* carries the same
+      # carve-out for run-evaluate's scheduled lane.)
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python-env
 
-      # Only a maintainer-installed App can apply a `run:*` label that triggers a
-      # workflow (events from the default GITHUB_TOKEN do not), so a Bot sender
-      # matching the pinned data-App login is the trusted run-pull handoff (any
-      # other Bot is refused); any other actor must hold write access. The
-      # decision (and its fail-closed default) lives in the tested `authorize-trigger`
-      # command. It refuses *before* the downstream `predict` job (which `needs: plan`)
-      # mints any token, assumes the S3 role, or reads the corpus. (The label name is
-      # already checked in the job `if:`.)
-      - name: Authorize the trigger (label from the pipeline App or a maintainer)
-        # One retried permission lookup, worth up to 105s against a degraded
-        # API; the plan job declares no cap, so bound the retries here rather
-        # than leaving them to the six-hour default.
-        timeout-minutes: 3
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          ACTOR: ${{ github.actor }}
-          SENDER_TYPE: ${{ github.event.sender.type }}
-        run: |
-          uv run fedcourts authorize-trigger \
-            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO" \
-            --bot-actor "fedcourtsai-data[bot]"
-
-      # The scope gate (predict.scope=scotus_docket) reads each case's corpus
-      # row (court + exclusion reasons) for the *specific* cases the trigger
-      # issue names -- point lookups, not a scan -- so it reads the committed
-      # corpus pointer in place over the ranged backend (KBs) instead of
-      # pulling the whole index. The cell jobs below use the same backend.
-      - uses: ./.github/actions/corpus-ranged
+      # The backlog derivation is a whole-court read shape — one pass over every
+      # open event plus a row per candidate case, tens of thousands of them —
+      # which a pulled corpus serves in seconds and a read-in-place backend would
+      # serve as a range-request storm. So pull the whole index. The default
+      # role duration is right, and stays right at the 45-minute job cap: the
+      # walks that follow read the pulled file locally, so nothing needs the
+      # credential after this step returns. `predict-matrix` refuses a non-local
+      # backend for this scan rather than performing it slowly, so getting this
+      # step wrong fails the plan loudly instead of quietly costing an hour.
+      # (The cell jobs below read ranged, through their own sidecar: point
+      # lookups for one case are the opposite shape.)
+      - uses: ./.github/actions/corpus-readonly
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -92,10 +140,10 @@ jobs:
       # `collect`, the run's single durability step, so a collect that fails
       # after a full-width fan-out leaves every prediction sitting in a cell
       # artifact and nothing in the ledger — and the ledger is what the matrix's
-      # already-predicted gate reads, so the next live cycle re-derives the same
-      # events and re-spends the identical run. This lists the cell artifacts of
-      # recent runs whose `collect` did not conclude success; the matrix step
-      # below withholds those cells and names the recovery instead.
+      # already-predicted gate reads, so the next scheduled round re-derives the
+      # same events and re-spends the identical run. This lists the cell
+      # artifacts of recent runs whose `collect` did not conclude success; the
+      # matrix step below withholds those cells and names the recovery instead.
       #
       # Fetch and filter only — the decision lives in the tested `predict-matrix`
       # command. Fail-open by construction, at two grains (see the shell below):
@@ -182,19 +230,22 @@ jobs:
 
       - name: Build predictor x case x event matrix
         id: plan
-        env:
-          ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          python -c "import os, pathlib; pathlib.Path('issue-body.md').write_text(os.environ.get('ISSUE_BODY', ''))"
+          set -euo pipefail
           run_id=$(date -u +%Y%m%dT%H%M%SZ)
+          # No case list is passed, and that is the request: given no --body-file
+          # and no --court/--docket, `predict-matrix` derives the cases from the
+          # corpus-level predict backlog itself.
           # --stranded-file: withhold any cell whose output already sits in an
           # uncollected run (the census above; an empty or absent file is the
-          # guard off). --stranded-note-file: when that withholds *every* cell,
-          # the command writes the close note the step below posts, so the issue
-          # says "recover that run", not the generic out-of-scope line.
-          matrix=$(uv run fedcourts predict-matrix --body-file issue-body.md --run-id "$run_id" \
+          # guard off). --stranded-note-file: the command writes it only when
+          # that withholds *every* cell, so the file is the marker the summary
+          # below branches on — an empty matrix must say "recover that run"
+          # rather than read as a drained backlog, and the two are identical
+          # from the count alone.
+          matrix=$(uv run fedcourts predict-matrix --run-id "$run_id" \
             --stranded-file stranded-artifacts.json \
-            --stranded-note-file stranded-close.md)
+            --stranded-note-file stranded-note.md)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           # The report step re-derives the plan under this same id: the run id
           # is the join key between the approval record and the committed
@@ -208,71 +259,57 @@ jobs:
           fi
           # Ops analytics: record the planned fan-out in the Actions UI.
           echo "## run-predict — queued ${count} prediction job(s)" >> "$GITHUB_STEP_SUMMARY"
-
-      # An empty matrix usually means every queued case was out of scope (or
-      # already predicted): the `predict`/`collect` jobs are skipped (`needs` +
-      # `has_jobs`), so nothing would otherwise close the trigger issue. Close it
-      # here with a note rather than leave it orphaned open. The stranded-run
-      # guard is the one cause the note can name exactly, because its remedy is
-      # the opposite of a re-queue. Uses the ambient GITHUB_TOKEN (closing
-      # triggers nothing) — least privilege, no App token.
-      - name: Close the trigger issue when nothing is in scope
-        if: ${{ steps.plan.outputs.has_jobs == 'false' && github.event.issue.number }}
-        # One retried close, worth up to 105s against a degraded API; the job
-        # itself declares no cap, so bound the retries here rather than leaving
-        # them to the six-hour default.
-        timeout-minutes: 3
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          ISSUE: ${{ github.event.issue.number }}
-        run: |
-          set -euo pipefail
-          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
-          comment="No predictable cases in scope this run — every queued case was dropped by the predict-scope gate (out of scope, or already predicted). Closing; nothing to predict."
-          # The stranded-run guard writes its own note when it withheld every
-          # cell, because the honest instruction there is the opposite of a
-          # re-queue: the events are already predicted in a run whose collect
-          # never landed, so recover that run. Absent for every other cause of
-          # an empty matrix, which keeps the line above.
-          if [ -s stranded-close.md ]; then
-            comment=$(cat stranded-close.md)
+          # The step summary is the whole record — there is no trigger issue to
+          # close with a note — so say what an empty matrix means rather than
+          # leaving a bare zero. A drained backlog is the ordinary resting state
+          # of a healthy lane, not a fault, and the run ends cleanly on it: the
+          # `predict` and `collect` jobs are skipped (`needs` + `has_jobs`) and
+          # nothing spends.
+          if [ "$count" -eq 0 ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            if [ -s stranded-note.md ]; then
+              # The note file is written only when the stranded-run guard
+              # withheld EVERY cell, so its presence is the marker that this
+              # empty matrix is not a drained backlog. The guard writes its own
+              # summary section (above) with the run ids and the rerun command;
+              # this line only keeps the count from being read as "nothing
+              # owed", which is the opposite of what happened.
+              echo "This matrix is empty because the stranded-run guard withheld every cell, not because the backlog is drained — see the guard's section above for the uncollected run(s) to recover. Those events stay owed until their predictions are committed, so a recovered collect, not another round, is what clears them." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "The predict backlog is drained: no in-scope, funded, provisioned case with an open forecastable event is missing an enabled predictor's forecast (within this cycle's cap). Nothing to run; no spend — the run ends cleanly here. Anything held rather than owed is counted in this step's log, and re-derived next cycle." >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
-          # One atomic call: close with the explanatory comment, so there's no
-          # commented-but-still-open state if a separate close were to fail.
-          # Retried because an issue left open by a blip is what run-ops reads
-          # as a stalled fan-out — a false alarm over a run that finished. Three
-          # attempts, and exhaustion still fails the step: a close that never
-          # lands is a real stall, and should look like one.
-          gh_retry gh issue close "$ISSUE" --repo "$REPO" --comment "$comment"
 
       # The plan report the approval below is judged on: the tested plan
       # command re-derives the same fan-out the matrix step just minted (same
       # helpers, zero spend) and renders per-step counts, the would-mint cell
-      # list, and the seam- and engine-conditioned spend estimate. Posted to
-      # the trigger issue and the step summary BEFORE the hold, so the record
-      # of what was approved exists whether or not the release ever comes.
-      - name: Post the plan report for approval
-        if: ${{ steps.plan.outputs.has_jobs == 'true' && github.event.issue.number }}
-        # Two retried gh calls inside the marker-deduped issue-comment
-        # command (the marker read, then the comment), each worth up to 105s
-        # against a degraded API, on top of the plan render; the plan job
-        # declares no cap, so bound the step rather than leaving it to the
-        # six-hour default.
-        timeout-minutes: 10
+      # list, and the seam- and engine-conditioned spend estimate. Written to
+      # the step summary BEFORE the hold, so the record of what was approved
+      # exists whether or not the release ever comes — the pending deployment
+      # review links this run, so the summary is the page an approver lands on.
+      #
+      # This step runs on EVERY round that queued jobs. The report is what the
+      # review hold is judged on, so a round that skipped it would ask a
+      # maintainer to release a spend with nothing to read.
+      - name: Report the plan for approval
+        if: ${{ steps.plan.outputs.has_jobs == 'true' }}
+        # A second full walk of the backlog, so this is sized like the first
+        # rather than like a render: bounded on its own so a wedged step names
+        # itself, but left wide enough that the job cap above — not this — is
+        # what stops a slow round, which is where the honest message is. One
+        # walk measured 14 minutes on a contended developer box against the
+        # shipped corpus, so both numbers are sized from that with room, and the
+        # first scheduled round's step timings are what confirm them.
+        timeout-minutes: 25
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          ISSUE: ${{ github.event.issue.number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PLAN_RUN_ID: ${{ steps.plan.outputs.run_id }}
         run: |
           set -euo pipefail
-          # The report body is rendered by the tested command (bounded by
-          # construction — a full-width plan cannot outgrow the comment limit);
-          # this step only plumbs it. The full plan JSON goes to the step
-          # summary, the durable sibling of the comment.
-          plan_json=$(uv run fedcourts predict-plan --body-file issue-body.md \
+          # No case list, exactly as the matrix step above passed none: the plan
+          # must re-derive the fan-out that was actually minted, or the plan a
+          # maintainer approves is not the run.
+          plan_json=$(uv run fedcourts predict-plan \
             --stranded-file stranded-artifacts.json \
             --run-id "$PLAN_RUN_ID" \
             --approval-report plan-report.md \
@@ -288,12 +325,6 @@ jobs:
             echo '```'
             echo '</details>'
           } >> "$GITHUB_STEP_SUMMARY"
-          # The report must exist where the approver reads before the hold
-          # releases: the marker-deduped comment command posts exactly once
-          # per run and makes a plan-job re-run safe, and a sustained API
-          # fault fails the plan job loudly, so nothing spends unreported.
-          uv run fedcourts post-issue-comment --issue "$ISSUE" --repo "$REPO" \
-            --marker "<!-- predict-plan: ${PLAN_RUN_ID} -->" --body-file plan-report.md
 
   # The hold. This job carries no code, no token, and no permissions — its one
   # purpose is the deployment environment: the `review` environment's required
@@ -680,10 +711,13 @@ jobs:
         if: matrix.engine == 'claude-code' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         # Minted after provisioning so the refusal gate above can actually
         # withhold it — a step cannot be gated on the output of a later step.
-        # Least-privilege token the agent itself uses to comment on the triggering
-        # issue/PR. No contents:write — the agent only writes files locally, which
-        # ride to the collect job as an artifact; that job (its own token) does the
-        # commit/PR, so a prompt injection in docket text cannot push code here.
+        # The least-privilege credential claude-code-action requires. No round
+        # here has a triggering issue or PR to comment on, so the issue and
+        # pull-request scopes buy the agent nothing it can reach; what matters is
+        # the absence of contents:write — the agent only writes files locally,
+        # which ride to the collect job as an artifact, and that job (its own
+        # token) does the commit/PR, so a prompt injection in docket text cannot
+        # push code here.
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           client-id: ${{ vars.DEV_APP_CLIENT_ID }}
@@ -718,11 +752,13 @@ jobs:
           # processes adversarial docket text. If MCP is down the agent degrades
           # to corpus tooling + provisioned inputs.
         with:
-          # run-pull files this predict issue as the trusted pipeline App
-          # (`fedcourtsai-data[bot]`), which the plan job's authorize-trigger gate
-          # already approved. claude-code-action runs its own actor check and
-          # refuses a bot by default, so allow exactly that one bot through (never
-          # `*`) — otherwise the automated handoff never reaches the agent.
+          # claude-code-action runs its own actor check and refuses a bot by
+          # default. This workflow's rounds are unattended, so their actor is not
+          # a requester at all — it is whatever GitHub attributes the cron to,
+          # which on a repo whose deterministic writers push to the default
+          # branch can be the pipeline App's own login. Allow exactly that one
+          # login (never `*`) so a round cannot die on an attribution it does not
+          # control; what gates the spend is the `review` hold, not this setting.
           allowed_bots: "fedcourtsai-data[bot]"
           # Auth is the Anthropic API key (pay-per-token): automated pipeline
           # inference is API-metered by design (see docs/budget.md), and per
@@ -796,9 +832,9 @@ jobs:
           # Pin the session log to a known dir so the usage-capture step can read it.
           CODEX_HOME: ${{ github.workspace }}/.codex
         with:
-          # As with the Claude step: let the trusted run-pull bot handoff
-          # (`fedcourtsai-data[bot]`, already authorized by the plan job) past
-          # codex-action's write-access check, which a bot installation fails.
+          # As with the Claude step: let a round GitHub attributes to the
+          # pipeline App's login (`fedcourtsai-data[bot]`) past codex-action's
+          # write-access check, which a bot installation fails.
           allow-bot-users: "fedcourtsai-data[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           # The same kickoff prompt as the Claude and Gemini steps (identifiers
@@ -1131,7 +1167,7 @@ jobs:
   collect:
     # Defence in depth only. Both attempts of a re-run share `run_id`, so this
     # groups them — but GitHub refuses to re-run a run that is still in
-    # progress, and the workflow-level per-issue group already serializes runs.
+    # progress, and the workflow-level group already serializes rounds.
     # Note the run PR's branch is keyed on the *plan-time* run id from the
     # cells' status.json, not `github.run_id`, so this group does not itself
     # guard the branch; it is cheap insurance behind those two, not the thing
@@ -1221,9 +1257,9 @@ jobs:
         # A round with no trigger issue has nothing to orphan, but the stall
         # itself still has to be visible, so the report falls back to the step
         # summary rather than being skipped — a silent stall is exactly what this
-        # step exists to stop. This workflow triggers on `issues` alone, so that
-        # branch is unreachable here and kept for symmetry: the collect job is
-        # held byte-identical to run-evaluate's, where the branch does run.
+        # step exists to stop. Every round here takes that branch: this workflow
+        # has no issue trigger, and the collect job is held byte-identical to
+        # run-evaluate's, where the issue branch still runs for its label lane.
         if: ${{ always() }}
         # Two retried gh calls inside the deduped issue-comment command,
         # each worth up to 105s against a degraded API — bounded per step so a

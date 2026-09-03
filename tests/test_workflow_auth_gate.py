@@ -17,12 +17,23 @@ WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 # Each privileged label trigger and the job that carries (or gates) its work.
 # For the fan-out agents the entry point is the `plan` job, which the privileged
 # matrix job `needs:`; for the rest the entry job is the privileged job itself.
+# run-predict is deliberately absent — it carries no label trigger at all; see
+# LABEL_FREE_FAN_OUTS below, which asserts that rather than assuming it.
 RUN_LABELS = {
     "run-pull.yml": ("run:pull", "pull"),
-    "run-predict.yml": ("run:predict", "plan"),
     "run-evaluate.yml": ("run:evaluate", "plan"),
     "run-backtest.yml": ("run:backtest", "backtest"),
 }
+
+# The fan-outs that no label can reach: their rounds derive their own case list
+# from committed corpus state on a schedule (or an input-less dispatch), so the
+# platform is the whole trust boundary — a cron fires only from the default
+# branch, a dispatch needs repository write, and the `prod` environment's
+# deployment branches refuse any other ref. There is no actor gate to assert
+# here, so what is asserted is that the label path stays gone: a reinstated
+# `issues` trigger with no authorize step beside it would otherwise pass every
+# test in this file by simply not being listed in RUN_LABELS.
+LABEL_FREE_FAN_OUTS = ("run-predict.yml",)
 
 # Step markers that mean "privileged work has started": minting an App token,
 # assuming the S3 role, or handing control to a coding agent.
@@ -71,6 +82,26 @@ def test_every_run_label_workflow_triggers_on_issue_label() -> None:
         assert isinstance(on, dict), f"{name} has no `on:` block"
         assert "issues" in on, f"{name} must trigger on issues events"
         assert "labeled" in on["issues"]["types"], f"{name} must trigger on labeled"
+
+
+def test_the_label_free_fan_outs_keep_no_issue_trigger() -> None:
+    for name in LABEL_FREE_FAN_OUTS:
+        wf = _load(name)
+        on = wf.get("on") or wf.get(True)
+        assert isinstance(on, dict), f"{name} has no `on:` block"
+        # A subset test, not an `issues`-only ban: every trigger class that can
+        # be reached from outside the default branch — `issue_comment`,
+        # `pull_request_target`, `repository_dispatch` — would leave this
+        # workflow unguarded exactly as a label would, and each would pass a ban
+        # written against one event name.
+        assert set(on) <= {"schedule", "workflow_dispatch"}, (
+            f"{name} gained a trigger beyond the platform-gated two: {sorted(on)} — "
+            "a reachable trigger needs an authorize-trigger gate and an entry in "
+            "RUN_LABELS with it"
+        )
+        assert "schedule" in on and "workflow_dispatch" in on, (
+            f"{name} must keep the platform-gated triggers its rounds run on"
+        )
 
 
 def test_entry_job_authorizes_before_any_privileged_step() -> None:

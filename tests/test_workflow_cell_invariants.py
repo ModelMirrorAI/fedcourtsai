@@ -901,12 +901,11 @@ BACKTEST_REPORT_STEP = (
 # `(workflow, job, step name)` for the handoff writes that source the script:
 # each runs after its own job's checkout, in a workspace no agent has touched.
 SOURCING_HANDOFF_STEPS = (
-    ("run-predict.yml", "plan", "Close the trigger issue when nothing is in scope"),
     ("run-evaluate.yml", "plan", "Close the trigger issue when nothing is in scope"),
 )
 # The composites, whose `uses: ./.github/actions/...` resolution already proves
 # a workspace checkout put `scripts/` on disk.
-SOURCING_COMPOSITES = ("run-log-dashboard", "open-run-handoff")
+SOURCING_COMPOSITES = ("run-log-dashboard",)
 # `(workflow, job, step name)` for each step that inlines its own copy.
 INLINE_GH_RETRY_STEPS = (
     ("run-pull.yml", "pull", "Open the failure run-log issue"),
@@ -925,7 +924,6 @@ FIND_OR_CREATE_ALARM_STEPS = (
 # The handoff writes that decide whether a queued round runs at all: retried,
 # never tolerated. An exhausted retry must still fail its step.
 FATAL_HANDOFF_STEPS = (
-    ("run-predict.yml", "plan", "Close the trigger issue when nothing is in scope"),
     ("run-evaluate.yml", "plan", "Close the trigger issue when nothing is in scope"),
     ("run-predict.yml", "rejected", "Close the trigger issue when the hold did not release"),
     ("run-evaluate.yml", "rejected", "Close the trigger issue when the hold did not release"),
@@ -1351,11 +1349,19 @@ def test_no_retried_step_makes_an_unretried_github_api_call() -> None:
 def test_the_handoff_writes_stay_fatal_on_exhaustion() -> None:
     """A retry absorbs a blip; it must never turn a real outage into a pass.
 
-    These writes *are* the work — the trigger issue a queued round runs from,
-    and the closes that keep a finished or declined round from reading as a
-    stalled fan-out. So none of them may tolerate an exhausted retry: no
-    `continue-on-error` on the step, and no `|| true` swallowing the non-zero
-    return the wrapper exists to deliver at the end of three attempts.
+    These writes *are* the work — the closes that keep a finished or declined
+    round from reading as a stalled fan-out. So none of them may tolerate an
+    exhausted retry: no `continue-on-error` on the step, and no `|| true`
+    swallowing the non-zero return the wrapper exists to deliver at the end of
+    three attempts.
+
+    The other half of the invariant is an absence. No ingestion window may
+    trigger a tournament stage: run-predict and run-evaluate each derive their
+    own backlog from committed state on their own schedule, so a pull or live
+    window writes queues and counts them and files nothing. The coupling would
+    come back as a step that creates a `run:*`-labelled issue, so that is what
+    is asserted absent — a lost round is then impossible rather than merely
+    fatal.
     """
     for site in FATAL_HANDOFF_STEPS:
         step = _named_step(*site)
@@ -1364,34 +1370,14 @@ def test_the_handoff_writes_stay_fatal_on_exhaustion() -> None:
             if "gh_retry gh" in line:
                 assert "||" not in line, f"{site} swallows an exhausted retry: {line.strip()}"
 
-    handoff = _composite_run("open-run-handoff")
-    for line in _uncommented(handoff):
-        if "gh_retry gh" in line:
-            assert "||" not in line, f"open-run-handoff swallows an exhausted retry: {line.strip()}"
-    # And no caller may absorb it either: a held or empty queue files nothing
-    # and exits 0, so a failure here means the window really did lose its round.
-    #
-    # Predict is the only channel a pull window hands off. Evaluate is not a
-    # handoff at all — run-evaluate derives its own backlog on its own schedule —
-    # so the assertion is exact rather than "at least one": a second caller here
-    # would mean a stage is coupled to the pull window, which is what this
-    # assertion exists to catch.
     for job in ("pull", "live"):
-        callers = [
-            step
-            for step in _load("run-pull.yml")["jobs"][job]["steps"]
-            if str(step.get("uses") or "").endswith("open-run-handoff")
-        ]
-        assert len(callers) == 1, (
-            f"run-pull {job!r} should file exactly the predict handoff, found {len(callers)}"
-        )
-        step = callers[0]
-        assert step["with"]["label"] == "run:predict", (
-            f"run-pull {job!r} files a handoff for {step['with']['label']!r}"
-        )
-        assert "continue-on-error" not in step, (
-            f"run-pull {job!r} handoff must fail the window, not absorb it"
-        )
+        for step in _load("run-pull.yml")["jobs"][job]["steps"]:
+            rendered = yaml.safe_dump(step)
+            for label in ("run:predict", "run:evaluate"):
+                assert label not in rendered, (
+                    f"run-pull {job!r} step {step.get('name')!r} triggers {label} — "
+                    "the tournament stages derive their own backlogs"
+                )
 
 
 def test_the_list_of_retried_ops_steps_is_complete() -> None:

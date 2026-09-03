@@ -4,10 +4,10 @@
 # calls that feed it, the weekly digest, the data-validation escalation, the
 # per-day pull-log / live-log alarms, the pipeline-runs dashboard, the seed
 # guard, and run-backtest's result comment. The **handoff writes**, which are
-# the work rather than a record of it: open-run-handoff's trigger-issue create
-# and the trigger-issue closes in run-predict / run-evaluate. Calls outside
-# both lists — the collect jobs' own PR plumbing, ci.yml's label read — are
-# left bare; a repo-wide rule would be one nobody could keep.
+# the work rather than a record of it: the trigger-issue closes in run-evaluate
+# and the two fan-outs' `rejected` jobs. Calls outside both lists — the collect
+# jobs' own PR plumbing, ci.yml's label read — are left bare; a repo-wide rule
+# would be one nobody could keep.
 #
 # The contract. A transient 5xx at any of them costs something the run never
 # earned — and what it costs differs by site, which is why they all get the
@@ -18,12 +18,12 @@
 # fire only on an already-failed window), and the back-test comment
 # (`continue-on-error` too), nothing turns red: the loss is the record itself —
 # a missing dashboard row, or no incident issue for a day that broke. At the
-# handoff writes the loss is the work: a blip at open-run-handoff costs the
-# whole predict/evaluate round, and a lost trigger-issue close leaves an issue
-# that run-ops reports as a stalled fan-out. Three attempts absorb the blip; a
-# sustained outage still exhausts and returns non-zero, which is the right
-# residue when the API itself is down — retrying changes when a call fails,
-# never what its failure means, so the handoff writes stay fatal.
+# handoff writes the loss is the work: a lost trigger-issue close leaves an
+# issue that run-ops reports as a stalled fan-out — a false alarm over a round
+# that finished. Three attempts absorb the blip; a sustained outage still
+# exhausts and returns non-zero, which is the right residue when the API itself
+# is down — retrying changes when a call fails, never what its failure means,
+# so the handoff writes stay fatal.
 #
 # Shape matters as much as the retry at the find-or-create lookups, where an
 # empty result is silently meaningful: an empty `num` reads as "no issue yet"
@@ -45,11 +45,9 @@
 # a >30s write that still succeeds is far rarer than the transient failure
 # being absorbed, and the find-or-create at every such site converges on one
 # issue at the next window. What the sites without a find-or-create accept
-# instead: at open-run-handoff a duplicate is a second trigger issue for the
-# same queue, costing a duplicate plan job and a second approval prompt, with
-# no cell spending before the review hold releases; at the trigger-issue closes
-# and the back-test comment it is at worst a repeated comment on an issue that
-# still ends in the state the close was for.
+# instead: at the trigger-issue closes and the back-test comment a duplicate is
+# at worst a repeated comment on an issue that still ends in the state the close
+# was for.
 #
 # Why each attempt is bounded (`timeout 30`). `gh` sets no client-side request
 # timeout, so a stalled connect against a degraded API hangs until the job's own
@@ -74,10 +72,9 @@
 #
 # Two consumption modes:
 #   * `source scripts/gh_retry.sh` — wherever the step runs after a checkout
-#     into a workspace no agent has written to (the run-ops jobs; the
-#     run-predict / run-evaluate plan jobs; the run-log-dashboard and
-#     open-run-handoff composites, whose own presence on disk already proves
-#     the checkout succeeded).
+#     into a workspace no agent has written to (the run-ops jobs; run-evaluate's
+#     plan job; the run-log-dashboard composite, whose own presence on disk
+#     already proves the checkout succeeded).
 #   * an inline copy of the function below — for the steps with no checkout to
 #     source it from: run-pull's two failure alarms and run-seed's guard, which
 #     must fire even when the checkout or the App-token mint failed, and the
