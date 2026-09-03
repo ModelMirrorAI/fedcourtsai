@@ -879,6 +879,20 @@ pattern rather than rediscovering it:
   only bound available inside one. The same question is worth asking of any step
   that talks to an external service: what is its worst case, and is it shorter
   than the job budget?
+- **A step-level `timeout-minutes` does not guarantee the step ends.** The
+  runner asks a timed-out step to stop; a process tree that ignores the request
+  keeps the step `in_progress` until the *job* cap cancels the runner — which
+  skips the salvage tail and leaves GitHub no logs to serve, so the failure
+  erases its own evidence and spends the whole budget. Where the wedged process
+  sits inside a third-party action with no timeout input of its own, the bound
+  is a **runner-level watchdog**: a detached shell armed immediately before the
+  step under the same condition and killed immediately after it (the codex
+  cells' arm/disarm pair around `scripts/codex-watchdog.sh`), which at its
+  deadline captures the runner's state and kills the process itself, turning a
+  job-cap cancellation into an ordinary step failure the salvage path already
+  handles. A background process launched in one step survives into the later
+  ones — the sidecars rely on the same property — so the disarm half is what
+  keeps the killer from outliving its window.
 - **The CI uv pin and the lockfile format are coupled.** `setup-python-env`
   installs with `uv sync --locked`, which refuses a lock it cannot read as
   current — so a lock written by a *newer* uv than the action's pin fails every
@@ -1713,6 +1727,25 @@ Agent steps (predict, evaluate) are bounded by a step-level
 not the job. A step timeout (or a max-turns stop) fails only that step and leaves
 the runner alive, so the salvage step still runs (`if: !cancelled()`) and the
 agent's partial work survives instead of being discarded with the cancelled job.
+
+One engine needs more than that bound. A wedged `codex exec` has held its step
+`in_progress` straight through the step timeout until the *job* cap cancelled
+the runner — and a cancelled job runs none of the salvage tail and has its logs
+dropped by GitHub, so the hang erases its own evidence while spending the whole
+budget. The pinned codex-action carries no timeout input of its own, so both
+codex cell steps are bracketed by an **arm/disarm pair** around a runner-level
+watchdog (`scripts/codex-watchdog.sh`): armed with the same condition as the
+step it guards, disarmed the moment that step ends however it ended. At its
+deadline — set well inside the job cap, with the arithmetic at the arm step —
+it captures the runner user's process tree, the socket table and a listing of
+the codex home, then kills the engine, which fails the *step* and hands the
+cell back to the salvage path above — which is also what makes the sidecar-log
+step run, so those logs land in a job log that now survives. The bundle rides the cell's
+artifact under `codex-watchdog/`, which every logged-in GitHub user can
+download for its retention window, so it carries shapes and metadata only: the
+session rollout stays on the runner and the disarm step distils its item shapes
+(`codex-item-shapes`) in its place. The `collect` job commits `data/` alone, so
+none of it reaches the ledger.
 
 What salvage looks like is uniform across **`run:predict`** and
 **`run:evaluate`**: each cell records its status and uploads its output
