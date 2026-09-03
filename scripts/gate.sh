@@ -12,7 +12,9 @@
 #   scripts/gate.sh lock     uv lock --check (the lockfile matches pyproject)
 #   scripts/gate.sh lint     ruff format --check + ruff check
 #   scripts/gate.sh types    mypy
-#   scripts/gate.sh test     pytest  (set GATE_COV=1 for coverage, as CI does)
+#   scripts/gate.sh test     pytest, fanned across cores (set GATE_COV=1 for
+#                            coverage, as CI does; GATE_TEST_WORKERS=1 for a
+#                            serial run when debugging)
 #   scripts/gate.sh data     validate data + corpus-status
 #   scripts/gate.sh schemas  export-schemas + schema-drift check
 #
@@ -39,11 +41,36 @@ types() {
 
 # Named test_stage, not test: `test` is a shell builtin, and shadowing it is a
 # footgun. The CLI stage name stays `test` (see the case below).
+#
+# The suite is a few thousand offline, independent tests and the gate runs on
+# every PR, so it fans out across the machine's CPUs with pytest-xdist. No test
+# depends on state another left behind — the process-wide caches are reset per
+# test by autouse fixtures in tests/conftest.py, and corpus, data root, cwd and
+# environment are built per test under `tmp_path` / `monkeypatch` — so any test
+# may land on any worker. `loadgroup` distributes per test as the default `load`
+# does, and additionally honours `@pytest.mark.xdist_group`, so tests that ever
+# do need to share one worker can say so where they live rather than needing
+# this stage changed underneath them. pytest-cov measures per worker and
+# combines into the single `.coverage` file CI's summary step reads.
+#
+# GATE_TEST_WORKERS overrides the count: `auto` (the default) is one worker per
+# available CPU, a number pins it, and 1 drops xdist entirely — which is what a
+# debugging session wants, since a worker has no terminal for `breakpoint()` and
+# output interleaves.
 test_stage() {
+  local workers="${GATE_TEST_WORKERS:-auto}"
+  local fanout=()
+  if [ "$workers" != "1" ]; then
+    fanout=(-n "$workers" --dist loadgroup)
+  fi
+  # `${a[@]+"${a[@]}"}` rather than a bare `"${a[@]}"`: under `set -u` the bare
+  # form is an unbound-variable error on an empty array before bash 4.4, which
+  # would break the serial path — the one this script promises a debugger — on a
+  # Mac's system bash while leaving the default path working.
   if [ "${GATE_COV:-0}" = "1" ]; then
-    uv run pytest --cov --cov-report=term-missing
+    uv run pytest ${fanout[@]+"${fanout[@]}"} --cov --cov-report=term-missing
   else
-    uv run pytest
+    uv run pytest ${fanout[@]+"${fanout[@]}"}
   fi
 }
 
