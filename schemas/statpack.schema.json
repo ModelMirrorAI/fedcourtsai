@@ -929,7 +929,7 @@
     },
     "TimingStats": {
       "additionalProperties": false,
-      "description": "Duration stats over the resolved cases carrying a usable date pair.\n\nThe pack-level timing keys on ``date_filed`` \u2192 ``date_decided``; the per-Term\nstatistics key on the cert-stage resolution date and weight each row by its\n``sample_weight`` (each use states which). Rows missing either date are\nexcluded rather than guessed, so ``cases`` doubles as the coverage\ndenominator \u2014 a raw count in unweighted uses, the weighted estimate in\nweighted ones. Percentiles use the deterministic nearest-rank method, so the\nsame corpus reproduces the same stats.",
+      "description": "Duration stats over the resolved cases carrying a usable date pair.\n\nThe pack-level timing keys on ``date_filed`` \u2192 ``date_decided`` \u2014 docket\n*termination*, pooled across courts and both SCOTUS docket forms, so its\nmixture follows which rows carry a termination date at all; the per-Term\nstatistics key on the cert-stage resolution date, which is the petition's own\nmoment, and weight each row by its\n``sample_weight`` (each use states which). The two keys agree on a denied\npetition and diverge on a granted one, whose termination is the merits\njudgment months later. Rows missing either date are\nexcluded rather than guessed, so ``cases`` doubles as the coverage\ndenominator \u2014 a raw count in unweighted uses, the weighted estimate in\nweighted ones. Percentiles use the deterministic nearest-rank method, so the\nsame corpus reproduces the same stats.",
       "properties": {
         "cases": {
           "default": 0,

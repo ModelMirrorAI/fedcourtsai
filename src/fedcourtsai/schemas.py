@@ -4783,9 +4783,14 @@ class StatPackSection(_Strict):
 class TimingStats(_Strict):
     """Duration stats over the resolved cases carrying a usable date pair.
 
-    The pack-level timing keys on ``date_filed`` → ``date_decided``; the per-Term
-    statistics key on the cert-stage resolution date and weight each row by its
-    ``sample_weight`` (each use states which). Rows missing either date are
+    The pack-level timing keys on ``date_filed`` → ``date_decided`` — docket
+    *termination*, pooled across courts and both SCOTUS docket forms, so its
+    mixture follows which rows carry a termination date at all; the per-Term
+    statistics key on the cert-stage resolution date, which is the petition's own
+    moment, and weight each row by its
+    ``sample_weight`` (each use states which). The two keys agree on a denied
+    petition and diverge on a granted one, whose termination is the merits
+    judgment months later. Rows missing either date are
     excluded rather than guessed, so ``cases`` doubles as the coverage
     denominator — a raw count in unweighted uses, the weighted estimate in
     weighted ones. Percentiles use the deterministic nearest-rank method, so the
@@ -5711,6 +5716,33 @@ class ScopeReconcileResult(_Strict):
     )
     sample_excluded: list[str] = Field(default_factory=list)
     sample_released: list[str] = Field(default_factory=list)
+
+
+class DecisionDateConvergenceResult(_Strict):
+    """``converge-decision-dates`` result: what the decision-date sweep filled in.
+
+    A denied SCOTUS petition terminates on the order that denies it, so its
+    ``date_decided`` is its ``date_cert_denied``; the sweep fills that in on rows
+    written before the ingest default carried the date across. Population is the
+    denial side only — a granted docket's termination is its later merits
+    judgment, which no column on the row holds. ``applied`` is False on a dry run
+    (the write set is planned, nothing is written).
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    applied: bool = Field(default=False, description="False on a dry run (no corpus write)")
+    candidates: int = Field(
+        default=0,
+        ge=0,
+        description="Denied SCOTUS petitions carrying a denial date but no `date_decided` — "
+        "the planned write set, on both a dry run and an apply",
+    )
+    converged: int = Field(
+        default=0, ge=0, description="Rows whose `date_decided` was written; 0 on a dry run"
+    )
+    sample: list[str] = Field(
+        default_factory=list, description="A bounded, id-ordered sample of the write set"
+    )
 
 
 class SalienceSelectionResult(_Strict):

@@ -49,10 +49,15 @@ only logs (it never breaks the SQLite write that is the phase-1 system of record
 ``set_event_resolved`` also re-mirrors, so a resolved event's ``events.json`` stays
 current. **Known gap:** the direct-``UPDATE`` writers on ``cases`` columns — scope
 reconcile (``set_predict_excluded`` / ``normalize_predict_eligible``),
-``backfill_live_signals``, and the bulk-cluster scrub
+``backfill_live_signals``, the bulk-cluster scrub
 (``pipeline.bulk_scrub``, which nulls case-fact columns a store browser
-reads) — are *not* mirrored, so ``case.json`` can lag the corpus
-until the case is next re-ingested. Provisioning does not read ``case.json`` (only
+reads), and the decision-date convergence
+(``converge_denial_termination_dates``, which fills a denied petition's
+``date_decided``) — are *not* mirrored, so ``case.json`` can lag the corpus
+until the case is next re-ingested. The lag is longest on the decision-date
+convergence's population: nothing on the pull or live rotations re-serves a
+resolved denied row, so only the walker's next pass over that Term rewrites it
+through the upsert. Provisioning does not read ``case.json`` (only
 snapshot/documents/events), so this does not affect the phase-3 casestore
 provisioning parity; a later phase that builds the index from the store will close
 it.

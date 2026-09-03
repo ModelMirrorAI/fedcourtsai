@@ -190,6 +190,7 @@ from .pipeline.cert_signals import (
     match_disposition_signal,
 )
 from .pipeline.claims import score_claims
+from .pipeline.decision_dates import converge_decision_dates
 from .pipeline.discover import discover_cases
 from .pipeline.distribution_rederive import rederive_distribution_counts
 from .pipeline.documents import (
@@ -552,6 +553,48 @@ def reconcile_scope_cmd(
     typer.echo(
         f"reconcile-scope ({'applied' if apply else 'dry-run'}): {verb} "
         f"{result.excluded} / {result.released} of {result.eligible_cases} eligible case(s)"
+    )
+    typer.echo(result.model_dump_json())
+
+
+@app.command("converge-decision-dates")
+def converge_decision_dates_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply", help="Write the decision dates; omit for a dry-run that only plans."
+        ),
+    ] = False,
+) -> None:
+    """Fill a denied petition's `date_decided` from its own cert-denial date.
+
+    The order refusing the writ ends the docket, so on a denied SCOTUS petition
+    the petition-stage decision and the termination are one moment; this
+    converges the rows written before the live channel's parse carried the date
+    across. Denial side only — a granted docket terminates at its later merits
+    judgment, a date no column on the row holds. Dry-run by default; `--apply`
+    writes (the run-seed walk then pushes the corpus). Prints a
+    `DecisionDateConvergenceResult`. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the decision-date convergence.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = converge_decision_dates(conn, apply=apply)
+    # On an apply the number a maintainer reads off the run summary is the one
+    # the UPDATE confirmed, not the one the plan plurality expected.
+    verb, count = (
+        ("converged", result.converged) if apply else ("would converge", result.candidates)
+    )
+    typer.echo(
+        f"converge-decision-dates ({'applied' if apply else 'dry-run'}): {verb} "
+        f"{count} denied petition(s) missing a decision date"
     )
     typer.echo(result.model_dump_json())
 
