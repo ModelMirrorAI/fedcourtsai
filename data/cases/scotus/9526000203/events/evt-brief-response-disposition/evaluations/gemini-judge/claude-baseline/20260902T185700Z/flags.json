@@ -1,0 +1,15 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000203",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-brief-response-disposition",
+      "message": "Both claude-baseline and codex-baseline noted that the amicus_briefs counter frozen context is 0 because the docket entries say 'Amicus brief of X submitted' rather than 'amicus curiae'. As evaluator, I am surfacing this data quality issue.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260902T185700Z",
+  "schema_version": "1.0"
+}

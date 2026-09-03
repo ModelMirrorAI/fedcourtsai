@@ -191,11 +191,56 @@ actually turns on. Two rules govern their use:
   RECAP archive when already liberated, else the RECAP Fetch API purchases them
   from PACER at PACER prices — a later, costed extension.
 
-**Implemented:** the live poller fetches the petition and the brief in
-opposition on the same **distribution transition** that queues prediction (the
+**What is selected, and under which kind.** Selection reads the *filing*, not
+the docket form, so one function serves both lanes:
+
+- **`petition`** — the case-opening filing, whichever writ it seeks. The Court
+  opens a cert-form docket on any of seven entry shapes: a petition for a
+  writ of certiorari, for certiorari *before judgment*, for *mandamus*, for
+  *prohibition*, for *mandamus and/or prohibition*, for
+  *habeas corpus* (whose entry omits the article — "Petition for writ of habeas
+  corpus filed."), and a direct appeal's *statement as to jurisdiction*. They
+  are one kind because they are one role — the document that asks the Court to
+  take the case, fronting the questions presented under Rule 14.1(a), Rule 20.2
+  or Rule 18.3 — and a kind per writ would fracture the coverage metric, the
+  questions-presented derivation and the cell manifest across seven names for
+  one thing. The match is anchored at the entry's start, because the same phrase
+  runs mid-sentence in a motion *about* the petition. The link is taken by
+  label, `Petition` or `Jurisdictional
+  Statement`, since a direct appeal posts its opening filing under the second;
+  an entry whose label is neither falls back to its first link, so an
+  unforeseen spelling stays fetchable rather than being dropped.
+- **`application`** — the **substantive** interim relief an application asks
+  for, taken from the `Main Document` link on the entry submitting it to a
+  Justice and from no other, since the covering `Written Request` and `Proof of
+  Service` ride the same entry. Entry-keyed like the rest, so an application
+  filed *into* a cert
+  docket is selected there too, which is the right reading: the filing is real
+  and the cell should read it. A separate kind, because an application is a
+  different ask: it seeks
+  relief rather than review and carries no questions-presented section, so
+  folding it into `petition` would make the coverage metric mean two things and
+  the QP derivation run over a document that has none. The ask is read
+  **positively**, by the same predicate that gates the interim predict queue, so
+  the selector fetches exactly the class that mints cells: an administrative
+  application — more time ("to extend *further* the time", the renewal wording
+  a plain extension phrase misses), more pages, more words — is not selected,
+  and neither is an ask the classifier cannot read, which costs no cell because
+  the same reading keeps that docket out of the queue.
+- **`brief-in-opposition`** — every non-amicus opposition brief, combined into
+  one document.
+- **`questions-presented`** — derived from the `petition` text alone, never
+  fetched and never derived from an `application`.
+
+**Implemented:** each lane fetches at the moment it queues prediction, which is
+not the same moment for both. On a cert docket that is the **distribution
+transition** (the
 record-complete moment, and near filing time — links are a rolling ~5-Term
 window upstream); a gate-deferred petition's transition fetches nothing, and
-the selection sweep provisions its documents if it is ever latched. Text is extracted with pypdf (born-digital filings under the
+the selection sweep provisions its documents if it is ever latched. An
+application docket is never distributed for conference, so its lane fetches on
+**any change while the application is still pending, in scope, and substantive**
+— the application rotation's own queue condition. Text is extracted with pypdf (born-digital filings under the
 e-filing mandate; a scanned paper filing degrades to empty text), capped at
 `live.document_text_cap` per document, and stored in the access-gated corpus's
 `documents` table — never the git ledger. `provision-snapshot` materializes it
@@ -219,13 +264,25 @@ population is enumerated over the queued rows, not only counted: a petition can
 be missing by several routes — a case that reached the queue without its
 documents ever being provisioned, a fetch that failed, a link upstream no
 longer serves — and only the case ids let a given case be assigned to one. The
-interim application dockets are held out of the count and reported beside it,
-since an application is not a cert petition: no petition is ever selected for
-one, so its absence is the docket form rather than a gap. On the fetch side the
-routes are recorded as they happen — `documents.document_fetch_losses` counts
-every dropped document by reason (a transport failure, a link the upstream did
-not serve, an opposition whose every brief failed) and each one is warned into
-the run log — so those causes stop leaving the same trace, which is none.
+queued gap is **keyed on the docket form's own primary document** and reported
+as two counts with two ledgers, each against its own form's denominator: a
+cert-form row against its `petition`, an
+application-form row against its `application`. Neither is a floor — an
+application docket that holds its application is as complete as a cert docket
+that holds its petition — so the second count drains as the documents store
+rather than standing forever as a structural exclusion, which is exactly why it
+needs a denominator: a gap that drains says nothing without the population it
+drains from. The wide `distributed`
+stock stays petition-keyed and unfiltered, matching what it is. On the fetch
+side the routes are recorded as they happen —
+`documents.document_fetch_losses` counts every dropped document by reason (a
+transport failure, a link the upstream did not serve, an opposition whose every
+brief failed) and each one is warned into the run log — so those causes stop
+leaving the same trace, which is none. A fourth reason sits one step earlier
+and is the one loss those three cannot see: `not-selected`, recorded per
+case where the docket JSON nominated no document, so the class an upstream that
+publishes no PDF (a Rule 34.6 paper filing) and a selector with no arm for the
+filing type both land in is counted rather than silent.
 **The questions presented
 are derived from the petition PDF, never from `QPLink`:** the `/qp/` page is
 generated when certiorari is *granted* and opens with the grant order, so the
@@ -256,10 +313,10 @@ written only where the petition has text.
 The larger gap on the queued population is a different one: 29 of those 242
 cases hold no stored petition at all — itself the recoverable-now cut of a much
 wider stock of distributed rows nothing was ever fetched for. That 29 is
-undifferentiated: it pools the provisioning gap with the interim application
-dockets, which hold no petition by their form. The report counts those apart
-and enumerates the rest, so a read of the same population prints a smaller gap
-and names the cases in it. No extraction fix reaches any of them; that is a
+undifferentiated, and the report is not: it measures each docket form against
+the document that opens it, counts the two classes apart and enumerates both,
+so a read of the same population prints a cert-form gap, an application-form
+gap, and the case ids in each. No extraction fix reaches any of them; that is a
 fetch question, repaired in the fetch path or not at all.
 
 So the scanned-petition class is small on every population, and on this blob it
@@ -275,8 +332,12 @@ contracted below. Local tesseract only — at this share a metered OCR service
 cannot be justified, and the pass's own cost is held down by the per-dispatch
 bound in the contract rather than by a service bill.
 
-Three residuals stay open by design. The unopenable PDF is not OCR's to repair
-and stays counted as empty. The empty briefs in opposition stay out for a
+Four residuals stay open by design. The unopenable PDF is not OCR's to repair
+and stays counted as empty. An empty `application` stays out for the reason its
+kind is counted at all — an application filed on paper stores empty exactly as a
+paper petition does — but the pass's population is stored *petitions*, so an
+application that arrives as a scan is measured with no repair path behind it.
+The empty briefs in opposition stay out for a
 structural reason rather than their share: a multi-respondent opposition is
 stored as one combined row keyed on the whole set of fetched URLs, so text
 recovered there is discarded the next time any co-respondent's brief is added
@@ -307,7 +368,18 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   implicated. Both binaries are installed by that step alone, so no scheduled
   lane grows the dependency. Dry run by
   default, and bounded through `repair_bound` so a backlog clears in slices
-  rather than in one long job; runner minutes are the whole cost.
+  rather than in one long job; runner minutes are the whole cost. That bound is
+  the *spend* cap. What keeps a slice inside the step's own wall clock is a
+  **slice deadline** the step passes with it, sized from everything that must
+  still fit inside that cap once the pass stops taking work — the writes it has
+  in flight, the witness re-read, the blob push and the pointer commit. Before
+  each candidate the pass estimates its cost from the stored page count and
+  stops taking new ones once what is left will not hold it. Page counts across
+  the class vary several-fold, so a fixed bound cannot do that job — a slice
+  that draws three long filings is the same dispatch as one that draws three
+  short ones. The estimate is a high reading of the ordinary cost rather than a
+  ceiling on the possible one, so the step's cap stays the backstop for what
+  runs past it.
 - **What it reads.** Stored **petitions** whose text is empty or
   whitespace-only and whose page count is above zero. A zero-page row is either
   a PDF the extractor could not open or a derived section — `pages` carries
@@ -355,12 +427,18 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   recovered ones leave, not that a later slice starts further along. The ledger
   reports them apart from the candidates a slice never reached for exactly that
   reason — a class whose head is permanently unreadable makes a small bound a
-  no-op, and the ledger is what shows it. Three bounds keep one filing from costing the rest: a stored
+  no-op, and the ledger is what shows it. The candidates a slice never reached
+  are named there too, one by one, because the slice deadline is what leaves
+  them: unreached is not failed, and a maintainer reading the ledger should see
+  which of the two a dispatch produced. Three bounds keep one filing from
+  costing the rest: a stored
   URL is refused unless it is HTTPS on the Court's own host (`DocumentUrl` is
   upstream text, and this pass is the only thing that GETs one back), a body
   past a size ceiling is refused as not-a-filing, and a document that outlives
   its recognition budget is abandoned unread — each costing its own candidate,
-  which stays in the class. Each recovery is written as it is made rather than
+  which stays in the class. The slice deadline is the fourth and the only one
+  above the filing: it costs no candidate at all, since it declines before the
+  fetch. Each recovery is written as it is made rather than
   batched at the end, so a step that hits its wall-clock cap has banked what it
   recovered — under the corpus split, where the content-store write is itself
   the durable one; on a self-contained blob the pointer push at the end of the
@@ -389,7 +467,13 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   lands beside `empty_text`. Still outstanding: the predict prompt's reading
   rule, which pairs with the manifest key — a bare key teaches an agent nothing
   — and moves the pre-registered prompt digest, so it rides a re-bless; and the
-  coverage read's count of what was repaired.
+  coverage read's count of what was repaired. **A second reading rule rides the
+  same re-bless**, for the same reason and with the same shape: an interim cell
+  is now provisioned with `application.txt` — the text of the very filing it is
+  forecasting on — while the prompt's interim section tells it to read the
+  escalation ladder off the docket and says nothing about the document. The
+  input arrives before the instruction does, which is the argument for pairing
+  them on the next bless rather than letting either land alone.
 - **What follows a recovery.** A recovered petition re-derives its
   questions-presented row through the existing deriver, in the same write rather
   than a second dispatch — the ingest path derives it inline for the same

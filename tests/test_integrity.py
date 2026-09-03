@@ -1,4 +1,4 @@
-"""The clock and forward-claim rules every scoring surface shares."""
+"""The clock, forward-claim and leakage rules every scoring surface shares."""
 
 from datetime import UTC, date, datetime
 
@@ -13,6 +13,8 @@ from fedcourtsai.integrity import (
     forward_claim_breach,
     forward_claim_record,
     latest_evaluations,
+    leakage_excluded,
+    leakage_record,
 )
 from fedcourtsai.schemas import (
     Disposition,
@@ -325,3 +327,36 @@ def test_survivors_come_back_in_input_order() -> None:
 
     assert [ev.evaluator_id for ev in kept] == ["eval-a", "eval-b", "eval-c"]
     assert [ev.run_id for ev in kept] == ["20260101T000000Z", "r2", "20260101T000000Z"]
+
+
+def test_leakage_excluded_turns_only_on_an_explicit_true() -> None:
+    # A null bit is "not assessed", not a suspicion: excluding on it would
+    # empty the board of every cell no judge graded for leakage.
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    assert leakage_excluded(_evaluation(created_at=base)) is False
+    assert (
+        leakage_excluded(
+            _evaluation(created_at=base).model_copy(update={"leakage_suspected": False})
+        )
+        is False
+    )
+    assert (
+        leakage_excluded(
+            _evaluation(created_at=base).model_copy(update={"leakage_suspected": True})
+        )
+        is True
+    )
+
+
+def test_leakage_record_splits_the_count_by_predictor() -> None:
+    record = leakage_record([("alpha", "r"), ("alpha", "r"), ("beta", "r")], 7)
+    assert record.excluded == 3
+    assert record.assessed == 7
+    assert record.by_predictor == {"alpha": 2, "beta": 1}
+
+
+def test_leakage_record_accepts_a_bare_count() -> None:
+    # The caller with no per-predictor split still publishes the pair, so a
+    # zero over a null-bit ledger stays distinguishable from a clean one.
+    record = leakage_record(0, 0)
+    assert (record.excluded, record.assessed, record.by_predictor) == (0, 0, {})

@@ -4,8 +4,9 @@ The append-only record of process-version freezes and their supersessions, of
 the **masking-surface** changes that move what reaches an evaluator's
 information set under an unchanged digest, of the **scoring-baseline** changes
 that move a measured number the same way, of the **provisioning cutoff** that
-moves what a predictor is conditioned on, and of the boundaries a published
-figure may not be pooled across.
+moves what a predictor is conditioned on, of the **membership rules** that move
+which cells a published figure is computed over while moving no value, and of
+the boundaries a published figure may not be pooled across.
 
 Each entry is dated evidence rather than description, and two sets of timestamps
 carry it. The commit that added an entry is when its assertion was made — that
@@ -1515,3 +1516,390 @@ freeze commit is recorded here.
   `uv run pytest tests/test_legacy_denial_weight.py` green, and — where the
   corpus is pulled — the population reproduced by the shipped rule under the
   membership predicate above before the writer-lane pass, and empty after it.
+
+- **The interim arrival moment is dated from the docket's own submission entry,
+  2026-09-02.** A **provisioning-cutoff** entry on the pattern of *The moment
+  cutoff on forward provisioning, 2026-08-17* above, and a second boundary
+  inside that one rather than a restatement of it: that entry registered
+  *whether* a declared moment is cut, and named the interim application
+  baseline among the placed moments; this one moves **where** the interim
+  arrival cut falls. No freeze commit and no digest movement — no prompt byte
+  changes — and the data-visible marker is the same `context.cutoff`, so an
+  auditor reading only the 2026-08-17 entry would pool interim arrival cells
+  across a real boundary. They may not be pooled.
+
+  **What changed.** `evt-motion-disposition` opened at the row's docketing date
+  — the `cases.date_filed` column, which the live channel fills from the
+  payload's `DocketedDate` — where it opened at all. It now opens at the date of
+  the entry in which the application was submitted
+  (`interim_signals.application_arrival_date`), falling back to `date_filed`
+  where no submission entry can be dated. `provision.moment_cutoff` is unchanged
+  and still returns `opened_at + 1 day`; what moves is the date it is given.
+
+  **The corpus this entry's figures are read against** is the blob whose newest
+  pull stamp is `2026-09-02` (newest stored snapshot `2026-07-13`). Two of the
+  three measurements below are re-runnable against it from the index alone; the
+  third is a payload read, and its predicate is stated so it can be repeated.
+
+  **Index-only, and the half that needs no payload.** Of the **340** rows with
+  `application_kind = 'substantive'`, **85** carry no `date_filed` at all — a
+  quarter of the substantive interim population, for which the submission entry
+  is not the better stamp but the *only* one. Those are the cells that were
+  provisioned `as-stored` with `cutoff: null`, the shape this change closes
+  outright.
+
+  **The direction, from a payload read.** Over the **60** substantive
+  application dockets whose live `supremecourt.gov` payloads were read for the
+  stats review of this change — a sample of that 340, not the whole of it, and
+  the figures below are that review's measurement rather than a re-derivation
+  here — the submission entry **precedes** docketing on 34, by a median 5 days
+  and a maximum of 64, and **follows** it on **none**. So the old stamp ran
+  systematically late, and late is the enlarging direction: the cut admits
+  filings the arrival moment never saw. Two moment-collapses are what that
+  bought, on the same sample: the old cut admitted the **response-request**
+  entry on 5 of the 7 dockets that have one — the trigger of a *different*
+  declared moment (`evt-order-response-requested-disposition`), so the arrival
+  cell was conditioned on the thing that defines the moment after it — and
+  admitted the **disposition itself** on 4 of the 55 that had been disposed of.
+  A second read, of 150 live application dockets, is what the parser rests on:
+  the submission clause matched the head entry of all 150 and matched no
+  disposing entry on any of them.
+
+  **The cohort split, on the 12 rows that are `salience_selected` with an
+  `application_kind` at this entry's date.** Two (`scotus/9526000256`,
+  `scotus/9526000273`) move from `as-stored` — no cutoff at all — to placed;
+  six keep a cutoff that moves **earlier**; four are unchanged, their submission
+  and docketing dates falling on the same day. Ten of the twelve carry a
+  committed prediction. A figure over interim arrival cells may not pool across
+  the promotion carrying this, and — the 2026-08-17 entry's rule, which applies
+  here unchanged — a figure over the placed ones owes the `dated`/`truncated`
+  counts beside it.
+
+  **One residual the boundary cannot remove.** On 2 of the 60 — both capital
+  applications — the application is submitted and disposed of on the **same
+  day**, so a cutoff of arrival + 1 necessarily keeps the disposing entry. The
+  cut is exclusive at day granularity and the docket records no finer time, so
+  this is a floor of the reconstruction rather than a defect of the rule; such
+  a cell is refused by the forward terminal gate rather than placed, and a
+  replay of one is reading a docket that was over before the day ended.
+
+  **The boundary takes effect for cells provisioned after the promotion
+  carrying it**, which is the 2026-08-17 entry's rule and matters more here
+  because the counting instant is close. `process_version.FROZEN_SINCE` is
+  `2026-09-05T00:00:00Z`, and the interim predict trigger is the live channel's
+  docket-change queue, which mints arrival cells continuously. So **nothing
+  counted re-bases provided this promotes before that instant**, and the
+  condition is registered rather than assumed: an interim arrival cell stamped
+  in a gap between the instant and the carrying promotion would be counted *and*
+  provisioned under the old boundary, and would need its own entry.
+
+  **What the existing cells are, and on what ground they are excluded.** The 30
+  committed `evt-motion-disposition` predictions sit on 10 application
+  baselines and partition 18 `proc-v3` + 2 `proc-v4` + 10 `proc-v5`. The
+  2026-08-29 shakedown declaration above covers the first 20; it does **not**
+  reach the 10, which carry the currently blessed `proc-v5` predictor digests.
+  Those are excluded on the instant alone — stamped `2026-09-01`, before
+  `FROZEN_SINCE` — so the coverage rests on two grounds for 20 cells and one for
+  10, not on the declaration for all 30.
+
+  No interim base rate re-prices either: `pipeline.base_rates` keys the interim
+  section on `application_term` and carries no provisioning version, so it is a
+  function of realized outcomes and is untouched by what a cell was conditioned
+  on. This is a **conditioning** change and nothing else.
+
+  **One amendment debt, named here because it cannot be paid in the same
+  commit.** The frozen predict prompt tells an interim arrival cell its event
+  was "opened when the application was docketed", which this change makes false
+  — it is now opened at the submission entry. The prompt bytes are an input to
+  the process digest, so correcting that sentence moves all three `proc-v5`
+  predictor digests; it is therefore owed to the next re-bless rather than taken
+  here, and until then an arrival cell is told a slightly wrong thing about why
+  its snapshot ends where it does. This is the same shape as the 2026-08-17
+  entry's own caveat, that its cells were placed under a frozen prompt still
+  describing the snapshot as the latest.
+
+  **The expected-skill corollary, registered now so a decline cannot be read as
+  a regression.** `context.response_requested` flips `True` → `False`/`None` on
+  5 of the 7 sampled dockets that have a request, and the frozen escalation trio
+  is part of what an interim cell reads. So a post-fix `interim@arrival` cell
+  sees **strictly less** than a pre-fix one, against an unchanged realized
+  baseline. Expected interim skill should therefore **decline**, and a drop
+  across this boundary is the change working. A *rise* would be the surprising
+  result and would want explaining.
+
+  The runnable effect check, for the promotion carrying this:
+  `uv run pytest tests/test_interim_signals.py` green, and — on the next
+  interim arrival cell provisioned after it — `record/context.json` carrying a
+  non-null `cutoff` equal to the day after the case's own
+  `Application (…) … submitted` entry, with that entry the last one surviving
+  in the provisioned snapshot.
+
+- **An amendment debt for the merits pool-guard prompt wording, 2026-09-02**
+  (no digest added or retired, no instant moved; a debt recorded, on the
+  pattern of the arrival-stamp entry above). The statpack's merits section now
+  states that `cert_order_excluded` sits **outside** `granted` — the two
+  columns partition the pre-guard population — and corrects the guard's
+  description everywhere it was wrong: the guard removes a row whose parsed
+  judgment is dated **on or before** its own grant (`merits_decided <=
+  date_cert_granted`), and an **undated** parse is *not* removed — it stays in
+  `granted` as a coverage gap. Two frozen surfaces still carry the old,
+  incorrect description and cannot be corrected here, because their bytes are
+  process-digest inputs and the edit would move all six enabled actors'
+  digests:
+
+  - `.github/prompts/predict.md`, the merits-section paragraph: claims the
+    guard excludes a row with "no date the gap could be tested on". False —
+    the undated row goes to `granted`.
+  - `.github/prompts/evaluate.md`, the same paragraph shape: the same undated
+    arm, plus a parenthetical that mislabels an untestable row as a cert-order
+    rider.
+  - Neither prompt carries the reading rule that `excluded` sits outside
+    `granted` — the omission that produced the misreading this entry's change
+    corrects, and the one a cell agent is most likely to reproduce in its own
+    prose.
+
+  All three corrections are owed to the next re-bless, together with the
+  arrival-stamp entry's debt above; until paid, a cell reads a slightly wrong
+  account of the pool guard while every non-frozen surface states the correct
+  one.
+
+  The runnable effect check, for the promotion carrying the relabel: after the
+  next `metrics-refresh`, `rg -n "excluded \(not in granted\)"
+  metrics/statpack.md` matches, and the OT2024 row renders `| 2024 | 75 | 34 |
+  73 |` under the qualified header — until that refresh the committed statpack
+  keeps the old header, which is the regeneration lag and not a defect.
+
+- **`leakage_suspected` becomes an exclusion: a flagged grading leaves every
+  rank key and every scored aggregate, 2026-09-02** (no digest moves, no
+  committed number moves, no score value changes anywhere). Registered here
+  because it changes **which cells a published figure is computed over**, and
+  nothing in any actor's canonical config carries the rule, so no digest moves
+  and the change is invisible to the frozen/shakedown partition. It is the
+  membership counterpart of the **scoring baseline**
+  ([process-version.md](process-version.md#harness-code-is-outside-the-digest-and-one-case-of-that-has-teeth)),
+  which is recorded here because it moves a measured number under unchanged
+  digests: this moves no number and moves the population instead, and a figure
+  is as unreadable across an unrecorded population change as across an
+  unrecorded re-basing.
+
+  **The state this replaces.** `Evaluation.leakage_suspected` was recorded as
+  advisory and read by no aggregation: `store.stratify` handed every graded
+  cell to the boards whatever the bit said. The 18 flagged gradings on
+  `scotus/73129750` and `scotus/73275185` (2 cases × 3 predictors × 3
+  evaluators, all stamped `proc-v2` on `2026-08-14`), whose recorded
+  `brier_skill_score` runs to 0.9988 because the prediction read the
+  disposition out of a mis-provisioned snapshot, stayed out of the forward
+  stratum only because `integrity.classify_stratum` compares the outcome's
+  `resolved_at` to the prediction's harness clock and those outcomes predate
+  those runs. That is a property of those cells, not of the rule.
+
+  **The rule this entry registers.** A grading carrying `leakage_suspected:
+  true` excludes its cell from **every scored stratum and every rank key** on
+  every surface built from the `store.stratify` join — the ranked cert board
+  and its `stages` blocks, `claim-scores.json`, the dashboard's substance
+  funnel, and the semantic census. It is independent of the timing split and of
+  the forward-claim rule, and that independence is the whole of it: a leaked
+  cell whose outcome resolves *after* its prediction's harness clock classifies
+  **forward** on the clock alone and would be published as claimable
+  forecasting performance, and the retrospective pair is itself a rank key, so
+  near-perfect leaked numbers could order predictors that have no forward
+  cells. `classify_stratum` is unchanged — this is an exclusion, never a
+  stratum reassignment. A **null** bit is "not assessed", not "clean", and such
+  cells are scored; a cell both this rule and the forward-claim rule catch is
+  counted in both ledgers and the two counts are never summed. The boards
+  publish `leakage_exclusion` — the count, the `assessed` denominator, and the
+  per-predictor split — beside their figures, the board builders name each
+  dropped cell on stderr, and the refresh PR body carries the count. The
+  reading rules are `metrics/README.md`, *The leakage exclusion*.
+
+  **What is deliberately outside it**, on the same terms as the forward-claim
+  exclusion, which these surfaces also do not apply: the board's `big_case` and
+  `evaluator_agreement` views, which read the ledger by their own path and
+  measure stakes reads and grader latitude rather than scored performance, and
+  the tool-usefulness figures, which declare themselves a superset. A figure
+  there that differs from a board figure is two populations rather than an error
+  in either.
+
+  **One stale contract, deferred on purpose and named here so it is a recorded
+  deferral rather than an oversight.** The frozen evaluate prompt still tells
+  the grader that the leakage assessment "is advisory and segments scores — it
+  never changes `correct`, `brier_score`, or the other quantitative fields",
+  which is now false in its first clause: the bit does not segment, it removes
+  the cell. The prompt bytes are hashed into the process digest, so correcting
+  that sentence retires all three blessed **evaluator** digests and needs a
+  re-bless — which this change deliberately does not take three days before the
+  counting instant. Until that re-bless, every grading is produced by a grader
+  who was told the bit is inert, and the 18 already in the ledger were. That is
+  a fact about how `excluded` should be read, not a defect in the count: the
+  bit is the grader's assessment either way. Which way the old contract biases
+  a grader is **not established** — a costless flag might be set more freely,
+  an inert one less carefully, and nothing here can tell those apart on 18
+  cells from one unanimous panel — so `excluded` is read as a count taken
+  under the old contract rather than as a bound in either direction, and a
+  count taken after the re-bless is not poolable with one taken before.
+  Correcting the prompt is owed to the next digest-moving
+  freeze, on the same terms as the arrival-cutoff prompt amendment the entry
+  above defers.
+
+  **Nothing counted moves.** All 18 flagged gradings are stamped before
+  `process_version.FROZEN_SINCE` (`2026-09-05T00:00:00Z`), so
+  `graded_post_freeze` already keeps every one of them off every frozen board;
+  the committed `metrics/leaderboard.json` is empty (`entries: []`,
+  `events_scored: 0`) and `metrics/claim-scores.json` fully suppressed at this
+  entry's date. The measured effect is therefore confined to the
+  `--all-versions` diagnostic view, and there it is total: on the pooled cert
+  board the 18 **are** the whole retrospective stratum. Measured over the
+  committed ledger at this entry's date, before → after: `evaluations_total`
+  36 → 18, `retrospective_evaluations` 18 → 0, `events_scored` 4 → 2,
+  `predictors_ranked` 3 → 3, `forward_evaluations` 18 → 18 (unmoved — no
+  forward cell carries the bit), and every entry's whole `retrospective` block
+  goes from a populated aggregate to `null`: `claude-baseline` n=6, accuracy
+  0.5, mean Brier 0.0242, population skill 0.9427; `codex-baseline` n=6, 0.5,
+  0.0410, 0.8947; `gemini-baseline` n=6, 0.5, 0.0613, 0.8553. The three
+  `interim@*` stage blocks are untouched (24/18/18 evaluations), the flagged
+  cells being cert-stage. The published `assessed` denominator reads 96 over
+  that scope — stage-blind and taken before either exclusion, like
+  `claimed_forward` beside it, so it spans the cert board and every stage block
+  at once and must never be netted against the cert-scoped 36. What it
+  establishes is that the count is against a real denominator rather than an
+  unchecked ledger. Those
+  three near-0.9 skill figures were the retrospective rank key's entire input,
+  which is the concrete form of the hazard: they are what a leaked snapshot
+  scores, not what an engine forecast. Every figure here is a diagnostic, not a
+  claim about any engine.
+
+  **The entry is dated before the instant deliberately.** Landing it before
+  `2026-09-05T00:00:00Z` means the counting window opens with the rule already
+  in force, so no published figure ever straddles the change and no board built
+  under the old reading has to be pooled with one built under the new. The
+  runnable effect check for the promotion carrying this: `uv run fedcourts
+  leaderboard --all-versions --out /tmp/lb.json`, whose stderr names each
+  dropped cell and whose artifact carries a `leakage_exclusion` block reading
+  `excluded: 18` over `assessed: 96`. Run against this entry's ledger it emits
+  18 `::warning::leakage exclusion:` lines and writes
+  `by_predictor: {claude-baseline: 6, codex-baseline: 6, gemini-baseline: 6}` —
+  the exclusion falls evenly across the three engines, so it is not a
+  differential-coverage event, which is the reason the split is published at all.
+
+- **The document selector reaches the whole case-opening filing family and the
+  application, 2026-09-02.** A **conditioning** entry with no digest movement —
+  no prompt byte and no registry field changes — and, unlike the
+  provisioning-cutoff entries above, **no data-visible boundary at all**: which
+  documents a cell was provisioned with lives in its gitignored
+  `record/documents/`, and `prediction.json` carries no *semantic* field
+  separating a cell that read its petition from one that did not. So this
+  boundary exists only here, and cells minted on the affected dockets before and
+  after it may not be pooled. It is nevertheless **mechanically checkable**
+  rather than a matter of trusting this record: every stamped cell carries
+  `process_version.pipeline_sha`, so a cell resolves to a side of this boundary
+  by asking whether that sha is an ancestor of the carrying promotion's merge
+  commit. The population is named below so the check has something to run over.
+
+  **What changed.** `pipeline.documents.select_documents` matched one
+  case-opening entry, "petition for a writ of certiorari … filed", and had no
+  arm for an application at all. It now matches the seven entry shapes the Court
+  actually opens a cert-form docket with — certiorari, certiorari *before
+  judgment*, *mandamus*, *prohibition*, *mandamus and/or prohibition*, *habeas
+  corpus* (whose entry omits the article), and a
+  direct appeal's *statement as to jurisdiction* — all stored under the
+  unchanged `petition` kind, and selects a docket's own
+  `Application (…) … submitted to Justice …` entry under a new `application`
+  kind whenever the ask reads **substantive** to the same predicate that gates
+  the interim predict queue. An administrative application — more time, more
+  pages, more words — is not selected, and neither is an ask that predicate
+  cannot read.
+
+  **The population it moves, and what it has already cost.** The census is
+  quoted from the per-case route walk that motivated the change — `fedcourts
+  corpus-info --text-coverage` run store-configured against the blob whose
+  newest pull stamp is `2026-09-02` (newest stored snapshot `2026-07-13`),
+  plus a per-case read of each named docket's live JSON: of 249 cases queued
+  for prediction, 33 held no primary document, and 19 of those carry a
+  first-filing entry with a live document link — 8 cert-form dockets in the
+  filing family this arm now matches, and 11 application dockets. **That 19 is
+  a reading of the entries and links, not an executed run of the new
+  selector**: the walk probed three of them end to end (25-1290, 26-40,
+  26A203 — all HTTP 200 with real extracted text) and read the entry text and
+  link label on the rest. The effect check below is what settles it, and it is
+  the figure that check will falsify first if the reading is wrong.
+
+  **What the new selector does read, run over the same blob.** The class is
+  defined by the filing family rather than by that census, so the arms were
+  also run — the real `select_documents`, not a re-implementation — over all
+  1,567 stored SCOTUS payloads carrying proceedings. The case-opening arm
+  newly reaches **51** of them, none of which it previously did and **none
+  lost**: 16 habeas-plus-IFP, 10 mandamus-plus-IFP, 5 certiorari before
+  judgment, 5 mandamus, 4 mandamus and/or prohibition, 2 bare habeas, 2
+  jurisdictional statements, 1 prohibition, and the remainder further IFP
+  pairings. The application arm selects **22**, every one of them substantive
+  (a stay, a stay of execution, an injunction). Those two numbers are the
+  measured shape of what this entry moves; the queued census above is the
+  subset of it that costs cells.
+
+  **The cases, named, because the ledgers that hold them today are the ledgers
+  this change drains.** Of the 19, **14** already carry committed prediction
+  cells that ran docket-only — **66 cells** in all. Four cert-form dockets, 3
+  cells each (12): `scotus/73275185`, `scotus/73299074`, `scotus/73358839`,
+  `scotus/73500218`. Ten application dockets (54): `scotus/73279700`,
+  `scotus/9526000124`, `scotus/9526000139`, `scotus/9526000163`,
+  `scotus/9526000203`, `scotus/9526000245`, `scotus/9526000256`,
+  `scotus/9526000273`, `scotus/9526000274`, `scotus/9526000275` — four of them
+  at 9 cells and six at 3. Prospectively
+  this entry closes the class at the trigger; the committed cells stay as they
+  were minted, and a cell minted on one of these cases after this lands read
+  strictly **more** than one minted before it.
+
+  **None of the 66 has ever been counted, and the condition is registered
+  rather than assumed.** Partitioned by their own stamps: 11 are unstamped (an
+  unstamped cell is never frozen), 39 carry digests outside
+  `FROZEN_PROCESS_DIGESTS` and are de-counted by the membership filter, and 16
+  carry blessed `proc-v5` predictor digests but are stamped before
+  `FROZEN_SINCE` = `2026-09-05T00:00:00Z`, so they are de-counted by timing.
+  **That holds provided this promotes before that instant.** If it promotes
+  after it, a cell minted on this population in the gap would be counted *and*
+  provisioned under the old selector, and would need its own entry — and the
+  interim lane is the one that mints continuously, since its predict trigger is
+  the live channel's docket-change queue rather than a conference calendar.
+
+  **The expected-skill corollary, registered so a rise cannot be read as more
+  than it is.** A post-change cell on an affected docket reads its primary
+  filing where a pre-change one read the docket entries alone, against an
+  unchanged realized baseline. Expected skill on that population should
+  therefore **rise** — and a rise across this boundary **may not be read as a
+  model improvement**. That is the negative form deliberately: the design
+  supports excluding one reading, not asserting a cause, and 14 cell-bearing
+  cases support no pooled figure either way. The class is defined by the filing
+  family and the docket form, not by that count, so a docket entering the gap
+  between now and the carrying promotion joins it.
+
+  **No base rate re-prices.** `pipeline.salience` and `pipeline.base_rates` read
+  no document text, so no band assignment and no segment base rate moves. This
+  is a conditioning change and a measurement change, and nothing else.
+
+  **The measurements this moves.** `corpus-info --text-coverage`'s queued gap
+  becomes **form-keyed**: a cert-form
+  row is measured against its `petition`, an application-form row against its
+  `application`, each against its own form's denominator. The application-form
+  gap therefore stops being a structural floor — "an application is not a cert
+  petition, so nothing was ever selected" — and becomes a provisioning gap that
+  drains as the documents store; it is reported as `queued_without_application`,
+  named for its predicate, while `queued_application_forms` keeps its name for
+  the population it is now the denominator over. Three more move at the same
+  instant. The `petition` kind's own denominator widens, since four further
+  filing types now store under it. `cases_read` and the `text frame:` reach line
+  rise because `TEXT_COVERAGE_KINDS` gained a kind, which is the kind list
+  widening and not more reach. And `metrics/live-frontier.json`'s
+  `documents_provisioned` — the one moved figure with a committed downstream
+  surface — counts watchlist cases holding any document over a watchlist keyed
+  on `is_modern_cert`, so the mandamus, habeas, certiorari-before-judgment and
+  jurisdictional-statement dockets on it start counting.
+
+  The runnable effect check, for the promotion carrying this:
+  `uv run pytest tests/test_documents.py` green, and — on the next `run-pull`
+  window that provisions one of the named dockets — `fedcourts corpus-info
+  --text-coverage` showing a `no application, queued` ledger shorter than the
+  11 it starts at, with the recovered case holding an `application` row. This
+  entry registers the prospective half only. The retrospective half — a bounded
+  corpus pass applying the same selector to the cases already past their trigger
+  — is not built, and will carry its own entry when it is: without it the 14
+  cases whose cells already ran keep the record they were minted with.

@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9526000275",
+  "run_id": "20260903T010048Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned application text"],
+  "helpful": [
+    "Full application text extracted cleanly (43 pages) — the argument structure and the Board's on-record concessions were the core evidence.",
+    "Statpack interim section now carries two strictly-prior resolved Terms, so a pooled scored baseline (31/296) actually exists for a Term-2026 cell.",
+    "Frozen context's escalation-ladder fields (response_requested, referred_to_court, amicus_briefs) made the as-at-prediction state unambiguous."
+  ],
+  "gaps": [
+    "fedcourts query has no free-text or application-kind/ask filter, so I could not pull 'injunction pending appeal' or election-adjacent interim priors specifically; an --ask or --application-kind filter (or escalation-signal filters like --response-requested) would make the interim prior pull far more targeted.",
+    "No conditioned interim cuts (grant rate given response-requested) exist anywhere; the increment claims bank against nothing and the disposition adjustment from the ladder is pure judgment.",
+    "The respondents' filed response (the event's own moment marker) was not provisioned under record/documents/, so I predicted a response-filed cell without the response's text."
+  ],
+  "notes": "Deliberately avoided live CourtListener/web retrieval because the requested disposition date equals the run date; a time-bounded live-search mode would let a forward cell near its disposition retrieve safely."
+}

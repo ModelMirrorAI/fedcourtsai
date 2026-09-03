@@ -156,9 +156,13 @@ FROZEN_SINCE: datetime | None = datetime(2026, 9, 5, 0, 0, 0, tzinfo=UTC)
 # the digest that blessed the runs made before it.
 #
 # The engines are configured in `CodexRunner.build_command` and the engine steps
-# of run-predict / run-evaluate. Indexed rather than `.get`, so a new engine
+# of run-predict / run-evaluate — plus, for codex's subprocess-network half, the
+# permission profile `fedcourtsai.mcp` emits into the config.toml those steps
+# select by name (codex-action refuses a sandbox override in `codex-args`, so
+# the grant cannot ride on the step). Indexed rather than `.get`, so a new engine
 # fails loudly here instead of defaulting to a surface nobody declared; the
-# codex row is pinned to the runner's own argv by a test in `test_runner.py`.
+# codex row is pinned to the runner's own argv by a test in `test_runner.py` and
+# to the cells' profile by one in `test_process_version.py`.
 ENGINE_RETRIEVAL: dict[str, tuple[str, ...]] = {
     "claude-code": ("web",),
     # Codex additionally needs the subprocess-network grant to reach the
