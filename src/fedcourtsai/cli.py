@@ -1402,6 +1402,26 @@ def backfill_questions_presented_cmd(
     typer.echo(result.model_dump_json())
 
 
+def _slice_bound(value: int | None, *, command: str) -> int | None:
+    """The slice size a bounded fetching pass was given, refusing a non-bound.
+
+    A slice is taken as ``candidates[:value]``, and Python reads a negative index
+    from the other end — ``[:-5]`` is *every candidate but the last five*, which
+    is a near-unbounded fetch campaign wearing the argument that exists to
+    prevent one. Zero is legitimate and means exactly what it says: an empty
+    slice, which walks the population and starts nothing.
+    """
+    if value is None or value >= 0:
+        return value
+    typer.echo(
+        f"{command}: --max-cases must be zero or a positive number of cases "
+        f"(got {value}); a negative slice reads from the other end of the class "
+        "and would take nearly all of it.",
+        err=True,
+    )
+    raise typer.Exit(code=2)
+
+
 def _slice_deadline(started: float, seconds: float | None, *, command: str) -> float | None:
     """The monotonic instant a bounded slice may no longer start new work at.
 
@@ -1562,6 +1582,7 @@ def ocr_recover_petitions_cmd(
             err=True,
         )
         raise typer.Exit(code=2)
+    max_cases = _slice_bound(max_cases, command="ocr-recover-petitions")
     deadline = _slice_deadline(started, deadline_seconds, command="ocr-recover-petitions")
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
@@ -2871,6 +2892,7 @@ def backfill_documents_cmd(
             err=True,
         )
         raise typer.Exit(code=2)
+    max_cases = _slice_bound(max_cases, command="backfill-documents")
     deadline = _slice_deadline(started, deadline_seconds, command="backfill-documents")
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
@@ -2912,7 +2934,12 @@ def backfill_documents_cmd(
         )
         raise typer.Exit(code=1)
     verb = "recovered" if apply else "would fetch for"
-    counted = len(result.documents) if apply else len(result.selected)
+    # The *recovered* count, not the number of cases anything was written for: a
+    # candidate whose primary filing was selected and then did not serve can
+    # still store the opposition briefs beside it, and headlining those together
+    # would report a slice as having recovered cases it left exactly where they
+    # were — which the `remaining` on the same line would then contradict.
+    counted = result.recovered if apply else len(result.selected)
     typer.echo(
         f"backfill-documents ({'applied' if apply else 'dry-run'}): "
         f"{result.candidates} addressable candidate(s) in a population of "
@@ -2921,9 +2948,18 @@ def backfill_documents_cmd(
         f"{verb} {counted}, {result.remaining} left for the next slice"
     )
     typer.echo(
-        f"  attempted {result.attempted} (bound {result.bound}); "
+        f"  attempted {result.attempted} "
+        f"(bound {'none' if result.bound is None else result.bound}); "
         f"{result.unaddressable} unaddressable row(s) outside the class"
     )
+    if apply and len(result.documents) > result.recovered:
+        # The gap between the two counts, said out loud: these cases gained a
+        # document and stayed in the class, which is the one shape of this pass
+        # that reads like a recovery on a per-case line and is not one.
+        typer.echo(
+            f"  {len(result.documents) - result.recovered} case(s) stored a "
+            "secondary document without their primary one and stay in the class"
+        )
     typer.echo(
         f"  floors: {result.no_link} with no link behind the opening entry "
         f"(Rule 34.6 paper filings), {result.no_entry} with no opening entry at all"
@@ -6528,6 +6564,18 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
         "primary filing, not the petition an application docket never has. The "
         "two form counts partition the "
         f"{coverage.queued} queued case(s).)"
+    )
+    # And how much of each gap is a floor rather than a backlog. Without this the
+    # residue a successful back-fill leaves reads as an unexplained provisioning
+    # gap forever, and the number stops meaning anything a reader can act on.
+    typer.echo(
+        f"  ({coverage.queued_without_petition_floor} of the queued cert-form gap "
+        f"and {coverage.queued_without_application_floor} of the application one "
+        "are a structural floor: their stored docket carries the opening entry "
+        "with no document behind it — a paper filing the Court posted no PDF for, "
+        "which no fetch reaches. The rest is what the document back-fill drains. "
+        "Read off the stored payload, so a case upstream has since posted a link "
+        "for is counted here until that pass fetches it.)"
     )
     typer.echo(
         f"text frame: the pass read documents for {coverage.cases_read} of the "

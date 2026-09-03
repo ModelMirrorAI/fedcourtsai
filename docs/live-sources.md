@@ -319,7 +319,15 @@ so a read of the same population prints a cert-form gap, an application-form
 gap, and the case ids in each. No extraction fix reaches any of them; that is a
 fetch question, and the document back-fill contracted below is the fetch-path
 answer to it — bounded, form-keyed, and reporting apart the part of the class no
-fetch reaches.
+fetch reaches. The report draws that second line itself, beside each gap: of the
+cases in it, how many hold a stored docket carrying the opening entry with **no
+document behind it**, which is a paper filing the Court posted no PDF for and a
+structural floor. The rest is what the back-fill drains, so the headline stops
+reading as an unexplained provisioning gap the moment it has been worked. A case
+matching *no* opening entry is deliberately outside that floor and stays in the
+unexplained remainder — on a modern docket it is a filing shape the selector
+cannot see, which is a defect to fix rather than a floor to accept, and the
+back-fill's own ledger names those cases.
 
 So the scanned-petition class is small on every population, and on this blob it
 is a bounded 270 documents, each named in the report's case-id ledger alongside

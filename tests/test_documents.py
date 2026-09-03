@@ -1974,6 +1974,70 @@ def test_document_text_coverage_counts_empty_text_by_kind_and_segment(tmp_path: 
     assert coverage.queued_without_application_cases == ["scotus/16"]
 
 
+def test_document_text_coverage_separates_the_structural_floor_from_the_backlog(
+    tmp_path: Path,
+) -> None:
+    """Of each gap, how much no fetch reaches — and what deliberately stays out.
+
+    Without the annotation the residue a successful back-fill leaves reads as an
+    unexplained provisioning gap forever. The line it draws is the one that
+    matters: a docket carrying the opening entry with *no link* behind it is a
+    paper filing the Court posted no PDF for and is a floor, while one matching
+    *no entry at all* is a filing shape the selector cannot see — a defect, which
+    must stay in the unexplained remainder rather than being absorbed as a floor.
+    """
+    db = _seed_text_coverage_corpus(tmp_path / "corpus")
+    paper = {
+        "ProceedingsandOrder": [
+            {"Text": "Petition for a writ of certiorari filed.", "Date": "Jun 01 2026"}
+        ]
+    }
+    with corpus.connect(db) as conn:
+        # scotus/14 is the queued cert-form gap: its docket carries the entry and
+        # posts nothing behind it, which is the floor.
+        corpus.upsert_snapshot(conn, "scotus/14", date(2026, 6, 2), paper)
+        # scotus/16 is the queued application-form gap, and its stored payload
+        # matches no submission entry at all — the shape that is not a floor.
+        corpus.upsert_snapshot(conn, "scotus/16", date(2026, 6, 2), {"ProceedingsandOrder": []})
+        conn.commit()
+        floored = document_text_coverage(conn)
+    assert (floored.queued_without_petition, floored.queued_without_application) == (1, 1)
+    assert floored.queued_without_petition_floor == 1
+    assert floored.queued_without_application_floor == 0
+
+    # And the link case, which is neither: the back-fill drains it, so counting
+    # it as a floor would report a recoverable case as permanent.
+    linked = {
+        "ProceedingsandOrder": [
+            {
+                "Text": "Petition for a writ of certiorari filed.",
+                "Date": "Jun 01 2026",
+                "Links": [{"Description": "Petition", "DocumentUrl": "https://x/p.pdf"}],
+            }
+        ]
+    }
+    with corpus.connect(db) as conn:
+        corpus.upsert_snapshot(conn, "scotus/14", date(2026, 6, 3), linked)
+        conn.commit()
+        drainable = document_text_coverage(conn)
+    assert drainable.queued_without_petition == 1
+    assert drainable.queued_without_petition_floor == 0
+
+
+def test_document_text_coverage_claims_no_floor_for_a_case_it_cannot_read(
+    tmp_path: Path,
+) -> None:
+    """No stored snapshot is an unread case, not a floor — the corpus cannot say."""
+    db = _seed_text_coverage_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        coverage = document_text_coverage(conn)
+    assert coverage.queued_without_petition == 1
+    assert (coverage.queued_without_petition_floor, coverage.queued_without_application_floor) == (
+        0,
+        0,
+    )
+
+
 def test_document_text_coverage_reach_counts_only_the_counted_kinds(tmp_path: Path) -> None:
     # `cases_read` is the population the cuts are computed over, so a case
     # serving only an uncounted kind must not inflate it — otherwise the reach

@@ -502,12 +502,43 @@ def test_an_application_docket_is_recovered_against_its_own_filing(tmp_path: Pat
     assert result.remaining == 0
 
 
-def test_a_case_that_gained_only_a_secondary_kind_stays_in_the_class(tmp_path: Path) -> None:
-    """The class is the *primary* document's, so a stored BIO does not drain it.
+def test_a_case_that_gained_only_a_secondary_kind_is_not_a_recovery(tmp_path: Path) -> None:
+    """A stored BIO does not drain a class keyed on the primary document.
 
-    The shape that would otherwise look like a recovery on the ledger and like a
-    permanent gap on the coverage report — the two must agree.
+    The one shape of an apply that reads like a recovery on a per-case line and
+    is not one: the petition link *was* selected, its PDF did not serve, and the
+    opposition brief landed beside it. `documents` names the case, `recovered`
+    does not, and `remaining` is the complement of `recovered` — a headline taken
+    off `documents` would contradict the number printed next to it. The fetch
+    loss is attributed too, which is the ledger's own claim about this path.
     """
+    petition_url = "https://www.supremecourt.gov/pet.pdf"
+    bio_url = "https://www.supremecourt.gov/bio.pdf"
+    with (
+        _seeded(tmp_path / "corpus", [_row("scotus/1", "25-100")]) as conn,
+        # The petition entry carries its link, so selection nominates it — but
+        # only the BIO is served, which is the fetch loss rather than a floor.
+        _client(
+            {"25-100": _payload(_petition_entry(url=petition_url), _bio_entry(bio_url))},
+            pdfs={bio_url: _pdf("Respondent opposes.")},
+        ) as client,
+    ):
+        result = _run(conn, client, apply=True, max_cases=5)
+        stored = {d.kind for d in corpus.documents_for_case(conn, "scotus/1")}
+    assert stored == {KIND_BRIEF_IN_OPPOSITION}
+    assert result.documents == {"scotus/1": [KIND_BRIEF_IN_OPPOSITION]}
+    assert result.recovered == 0
+    assert result.remaining == 1
+    # Neither floor: the docket nominated a link, so this is a loss and has to be
+    # attributable as one.
+    assert result.no_link == result.no_entry == 0
+    assert result.fetch_losses["unavailable"] == 1
+
+
+def test_a_docket_that_nominated_nothing_is_a_floor_and_fetches_nothing(
+    tmp_path: Path,
+) -> None:
+    """The neighbouring shape, told apart: no link selected means no fetch at all."""
     bio_url = "https://www.supremecourt.gov/bio.pdf"
     with (
         _seeded(tmp_path / "corpus", [_row("scotus/1", "25-100")]) as conn,
@@ -518,36 +549,42 @@ def test_a_case_that_gained_only_a_secondary_kind_stays_in_the_class(tmp_path: P
     ):
         result = _run(conn, client, apply=True, max_cases=5)
         stored = {d.kind for d in corpus.documents_for_case(conn, "scotus/1")}
-    # Nothing was fetched at all: selection nominated no petition, so the
-    # candidate went to its floor rather than to the fetch.
     assert result.no_link == 1
     assert not stored
+    assert result.recovered == 0
     assert result.remaining == 1
 
 
 def test_the_apply_is_written_per_case_as_it_goes(tmp_path: Path) -> None:
-    """A slice that dies mid-way has banked what it already recovered.
+    """A slice killed mid-way has banked what it already recovered.
 
-    Driven by making the *second* candidate's docket fetch raise: the first
-    case's documents must be in the corpus even though the run never finished
-    the class, because under the corpus split the per-case content-store write
-    is itself the durable one.
+    The claim is about *when* the write happens, so the run has to actually die
+    between two candidates rather than merely fail one of them: a batched write
+    would pass any test the pass returns normally from. The second candidate's
+    fetch raises something the pass does not catch, and the first case's
+    documents must still be in the corpus — under the corpus split the per-case
+    content-store write is itself the durable one.
     """
     rows = [_row("scotus/1", "25-100"), _row("scotus/2", "25-101")]
     url = "https://www.supremecourt.gov/pet.pdf"
+
+    def _die_on_the_second(fetched: str) -> None:
+        if fetched.endswith("25-101.json"):
+            raise KeyboardInterrupt("the step's cap, mid-slice")
+
     with (
         _seeded(tmp_path / "corpus", rows) as conn,
         _client(
-            {"25-100": _payload(_petition_entry())},
+            {"25-100": _payload(_petition_entry()), "25-101": _payload(_petition_entry())},
             pdfs={url: _pdf(_PETITION_TEXT)},
-            errors=frozenset({"25-101"}),
+            on_request=_die_on_the_second,
         ) as client,
+        pytest.raises(KeyboardInterrupt),
     ):
-        result = _run(conn, client, apply=True, max_cases=5)
+        _run(conn, client, apply=True, max_cases=5)
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         first = {d.kind for d in corpus.documents_for_case(conn, "scotus/1")}
     assert KIND_PETITION in first
-    assert result.docket_errors == 1
-    assert result.remaining == 1
 
 
 def test_the_apply_is_idempotent_against_what_is_already_stored(tmp_path: Path) -> None:
@@ -711,6 +748,18 @@ def test_cli_refuses_a_deadline_that_is_not_a_budget(
     result = _cli(tmp_path, monkeypatch, "--deadline-seconds", seconds)
     assert result.exit_code == 2
     assert "backfill-documents: --deadline-seconds must be a finite" in result.output
+
+
+def test_cli_refuses_a_negative_slice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A slice is `candidates[:n]`, and Python reads a negative n from the other end.
+
+    `--max-cases -5` would take *every candidate but the last five* — a nearly
+    unbounded fetch campaign wearing the argument that exists to prevent one.
+    Zero is legitimate and stays so: an empty slice that walks and fetches nothing.
+    """
+    result = _cli(tmp_path, monkeypatch, "--max-cases", "-5")
+    assert result.exit_code == 2
+    assert "backfill-documents: --max-cases must be zero or a positive" in result.output
 
 
 def test_cli_fails_loud_when_the_corpus_is_absent(

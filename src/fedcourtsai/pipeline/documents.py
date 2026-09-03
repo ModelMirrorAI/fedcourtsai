@@ -1330,22 +1330,24 @@ class TextCoverage(BaseModel):
         default=0,
         ge=0,
         description="Of the `queued_without_petition` cases, the ones whose newest "
-        "stored docket payload nominates no case-opening document at all — the "
-        "**structural floor**: a paper filing the Court posted no PDF behind, or a "
-        "legacy docket whose proceedings list carries no document links. Without "
-        "it a successful back-fill still reports its residue as an unexplained "
-        "provisioning gap forever. Read off the *stored* payload, so it is the "
-        "floor as the corpus holds it: a case counted here can still recover if "
-        "upstream has since posted the link, which is what the fresh-fetch "
-        "back-fill pass finds out",
+        "stored docket payload carries the case-opening entry with no document "
+        "behind it — the **structural floor**: a paper filing the Court posted no "
+        "PDF for. Without it a successful back-fill still reports its residue as "
+        "an unexplained provisioning gap forever. A case whose payload matches no "
+        "opening entry at all is deliberately *not* counted here: on a modern "
+        "docket that is a filing shape the selector cannot see, which is a defect "
+        "rather than a floor. Read off the *stored* payload, so it is the floor as "
+        "the corpus holds it: a case counted here can still recover if upstream "
+        "has since posted the link, which is what the fresh-fetch back-fill pass "
+        "finds out",
     )
     queued_without_application_floor: int = Field(
         default=0,
         ge=0,
         description="The same reading on the application-form gap: candidates whose "
-        "stored payload nominates no application document. Expected to be zero — "
-        "an application docket posts its filing — so a non-zero value is a reading "
-        "to chase rather than a floor to accept",
+        "stored payload carries the submission entry with no main document behind "
+        "it. Expected to be zero — an application docket posts its filing — so a "
+        "non-zero value is a reading to chase rather than a floor to accept",
     )
     unopened_petitions: int = Field(
         ge=0,
@@ -1391,21 +1393,32 @@ class TextCoverage(BaseModel):
         return sum(c.documents for c in cells), sum(c.empty for c in cells)
 
 
-def _stored_payload_selects_none(conn: corpus.ReadConnection, case_id: str, *, kind: str) -> bool:
-    """Whether this case's stored docket payload nominates no ``kind`` at all.
+def _stored_payload_floor(conn: corpus.ReadConnection, case_id: str, *, kind: str) -> bool:
+    """Whether this case's stored docket payload puts it at a structural floor.
 
     The floor test behind ``queued_without_*_floor``: a gap the selector can see
-    a link for is a provisioning gap that a re-run drains, while one whose own
-    docket payload nominates nothing is a filing the Court posted no PDF for or a
-    docket carrying no links at all — and no repair reaches either. False where
-    no live-shaped snapshot is stored, which is not a floor but an unread case:
-    the corpus cannot say, so the annotation does not claim.
+    a link for is a provisioning gap that a re-run drains, while a filing the
+    Court posted no PDF for, or a docket carrying no document links at all, is
+    one no repair reaches. False where no live-shaped snapshot is stored, which
+    is not a floor but an unread case: the corpus cannot say, so the annotation
+    does not claim.
+
+    **Two conditions, not one.** Selecting nothing is necessary but not
+    sufficient — a docket carrying no entry the selector recognizes *at all*
+    reads the same way whether its proceedings hold no links or the selector
+    holds no arm for its filing type, and the second is a defect being counted as
+    a floor on the report a maintainer reads first. So the entry must be there
+    (:func:`primary_entry_matched`) and the link must not: that is the paper
+    filing and the link-free legacy docket, and a filing shape the selector
+    cannot see stays in the unexplained gap where it belongs.
     """
     snapshot = corpus.latest_live_snapshot(conn, case_id)
     if snapshot is None:
         return False
     _, payload = snapshot
-    return not any(ref.kind == kind for ref in select_documents(payload))
+    if any(ref.kind == kind for ref in select_documents(payload)):
+        return False
+    return primary_entry_matched(payload, kind=kind)
 
 
 def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
@@ -1470,15 +1483,18 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
     and not only counted.
 
     Each gap also carries its **floor**: of the cases in it, how many hold a
-    stored docket payload that nominates no such document at all
-    (:func:`_stored_payload_selects_none`). A gap the selector can see a link for
-    is a provisioning gap and drains; one whose own docket posts no PDF — a Rule
-    34.6 paper filing — or carries no document links at all does not, and reading
-    the two as one number reports a converged corpus as a permanent defect. Read
-    off the stored payload rather than a fresh fetch, so it is the floor as the
-    corpus holds it and the fetching repair is what settles a case upstream has
-    since posted a link for; and read only over the gap lists, so it costs one
-    extra content-store read per gap case rather than per row of the frame.
+    stored docket payload that carries the opening entry with no document behind
+    it (:func:`_stored_payload_floor`). A gap the selector can see a link for is
+    a provisioning gap and drains; a Rule 34.6 paper filing, and a legacy docket
+    carrying no document links, do not — and reading the two as one number
+    reports a converged corpus as a permanent defect. A case matching *no*
+    opening entry is deliberately outside the floor and stays in the unexplained
+    remainder, because on a modern docket that is a filing shape the selector
+    cannot see rather than one the Court did not post. Read off the stored
+    payload rather than a fresh fetch, so it is the floor as the corpus holds it
+    and the fetching repair is what settles a case upstream has since posted a
+    link for; and read only over the gap lists, so it costs one extra
+    content-store read per gap case rather than per row of the frame.
 
     Split-aware by construction: every read goes through
     :func:`corpus.documents_for_case`, which the registered payload source
@@ -1580,11 +1596,11 @@ def document_text_coverage(conn: corpus.ReadConnection) -> TextCoverage:
     # Serial for the same reason: the pool exists for a per-case read of the
     # whole population, and this is not one.
     petition_floor = sum(
-        _stored_payload_selects_none(conn, case_id, kind=KIND_PETITION)
+        _stored_payload_floor(conn, case_id, kind=KIND_PETITION)
         for case_id in queued_without_petition_cases
     )
     application_floor = sum(
-        _stored_payload_selects_none(conn, case_id, kind=KIND_APPLICATION)
+        _stored_payload_floor(conn, case_id, kind=KIND_APPLICATION)
         for case_id in queued_without_application_cases
     )
     return TextCoverage(

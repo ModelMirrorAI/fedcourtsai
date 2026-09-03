@@ -183,10 +183,21 @@ class DocumentBackfillResult(BaseModel):
         "primary one: the case was provisioned by the same call the poller makes, "
         "so the opposition briefs and the derived questions-presented row land with it",
     )
+    recovered: int = Field(
+        ge=0,
+        default=0,
+        description="Candidates that gained their **primary** document and so left "
+        "the class (apply only) — the count `remaining` is the complement of. Not "
+        "`len(documents)`: a candidate whose petition link was selected and then "
+        "did not serve can still store the opposition briefs beside it, which is a "
+        "write but not a recovery, and reporting those together would headline a "
+        "slice as having recovered cases it left exactly where they were",
+    )
     documents: dict[str, list[str]] = Field(
         default_factory=dict,
         description="case_id -> the kinds written for it, in `case_id` order "
-        "(apply only): the record of which cases an applied slice actually recovered",
+        "(apply only): every case an applied slice stored anything for, which is a "
+        "superset of the recovered ones",
     )
     selected: dict[str, list[str]] = Field(
         default_factory=dict,
@@ -236,8 +247,9 @@ class DocumentBackfillResult(BaseModel):
     refused: bool = Field(
         default=False,
         description="True when an apply was asked for with no slice bound. Nothing "
-        "is fetched or written in that case — reported as a field and not only as "
-        "an exit code, so a witness reading the ledger sees the refusal",
+        "is fetched or written in that case, and the population is not even walked. "
+        "The command refuses ahead of this, so the field is the API caller's copy of "
+        "that refusal rather than a line a dispatch ledger carries",
     )
 
 
@@ -277,9 +289,12 @@ def _primary_kind(row: corpus.CorpusRow) -> str:
     """The document that opens this docket, keyed on its form.
 
     The tolerant recognizer, matching the coverage report's own reading
-    (:func:`~fedcourtsai.pipeline.documents.document_text_coverage`), so the gap
-    this pass drains and the gap that report prints are the same population. The
-    *strict* parser addresses the fetch (:func:`_address`); a row the tolerant
+    (:func:`~fedcourtsai.pipeline.documents.document_text_coverage`), so a case
+    counted as a gap there and a case in this class are measured against the same
+    kind. The *populations* are not identical and deliberately so: that report
+    frames on the predict queue alone, while this pass adds the salience-selected
+    arm, which is where a reserve-funded application reaches the predict path.
+    The *strict* parser addresses the fetch (:func:`_address`); a row the tolerant
     recognizer calls an application and the strict one cannot address is
     unaddressable, not misclassified.
     """
@@ -546,6 +561,7 @@ def backfill_documents(
         bound=max_cases,
         attempted=len(slice_) - len(unreached),
         unreached=unreached,
+        recovered=len(tally.recovered),
         remaining=len(candidates) - len(tally.recovered),
         stored=dict(sorted(tally.stored.items())),
         documents=dict(sorted(tally.documents.items())),

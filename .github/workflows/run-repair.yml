@@ -143,6 +143,7 @@ jobs:
           # meant for one pass silently reaches another.
           bound_flag=""
           bound_required_on_apply=0
+          bound_read_on_dry_run=0
           target_kind=""
           accepted_options=""
           case "${REPAIR}" in
@@ -157,7 +158,8 @@ jobs:
             ocr-recovery)
               bound_flag="--max-cases"; bound_required_on_apply=1 ;;
             document-backfill)
-              bound_flag="--max-cases"; bound_required_on_apply=1 ;;
+              bound_flag="--max-cases"; bound_required_on_apply=1
+              bound_read_on_dry_run=1 ;;
             merits-phantom-removal)
               bound_flag="--max-removals"; bound_required_on_apply=1
               accepted_options="include-failed-attempts" ;;
@@ -214,6 +216,19 @@ jobs:
           if [ "$bound_required_on_apply" -eq 1 ] && [ "${REPAIR_MODE}" = "apply" ] \
             && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # The one pass whose DRY RUN also consumes the bound, because its dry
+          # run fetches a docket per candidate and the number is load-bearing in
+          # both modes. A field a pass reads must satisfy the grammar wherever it
+          # is set, not only on an apply: the CLI's own parse takes a negative
+          # integer, and a slice of `candidates[:-5]` means "every candidate but
+          # the last five" — a near-unbounded fetch campaign wearing a bound.
+          # Refused here so a typo dies before an App token is minted and before
+          # the dedupe prerequisite writes anything.
+          if [ "$bound_read_on_dry_run" -eq 1 ] && [ -n "${REPAIR_BOUND}" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} reads repair_bound in BOTH modes, so it must be a positive integer wherever it is set — a bound its dry run would also spend. Clear the field or correct the number."
             exit 1
           fi
           # `include-scored` widens the disposition sweep onto events already
@@ -1133,6 +1148,16 @@ jobs:
             echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
             exit 1
           fi
+          # And the every-mode half, because this pass's dry run spends the bound
+          # too — a field it reads must satisfy the grammar wherever it is set,
+          # or a negative integer reaches the slice as "every candidate but the
+          # last five". Copied word for word from `Validate the repair selector`
+          # like the refusal above it; this copy is the one of record.
+          if [ -n "${REPAIR_BOUND}" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} reads repair_bound in BOTH modes, so it must be a positive integer wherever it is set — a bound its dry run would also spend. Clear the field or correct the number."
+            exit 1
+          fi
           # No committed pointer means no corpus — nothing to provision from.
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping the document backfill"; exit 0
@@ -1145,6 +1170,26 @@ jobs:
           # apply. `repair_bound` is optional here and honored when set; the
           # deadline below is the bound that is always present, and it is what
           # holds either mode inside this step's wall clock.
+          # Read off the machine-readable ledger each run prints last, rather
+          # than off the prose above it: the field name is passed as an argument
+          # so nothing from a file is interpolated into the program. Defined
+          # ahead of both modes because the dry run reads its alarm this way too.
+          ledger_field() {
+            grep -h '^{"applied"' "$1" | tail -n 1 \
+              | uv run python -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$2"
+          }
+          # A modern docket whose opening filing matched no entry is not a floor
+          # but a selector regression — the class this pass exists to stop
+          # producing rather than to absorb. Raised as an annotation in BOTH
+          # modes: the dry run is the reading a maintainer does first and where
+          # the decision to apply is actually made, so an alarm that fired only
+          # on the apply would arrive a dispatch after it was wanted.
+          alarm_on_regression() {
+            modern="$(ledger_field "$1" no_entry_modern_cases)"
+            if [ "${modern}" != "[]" ]; then
+              echo "::warning::selector regression: ${modern} matched no opening entry on a modern docket. The selector has no arm for their filing type; widen it rather than re-dispatching this pass."
+            fi
+          }
           dry_args=()
           if [ -n "${REPAIR_BOUND}" ]; then
             dry_args+=(--max-cases "${REPAIR_BOUND}")
@@ -1155,9 +1200,15 @@ jobs:
             # so the reserve is the overshoot of a candidate already started
             # (one docket GET, and the client's one retry on a transport
             # failure) rather than a write tail.
+            #
+            # Its stdout goes to a file for the reason the apply's does: the
+            # ledger's last line is JSON read back as data, and a merged stream
+            # can interleave a log line into it once the untruncated per-case
+            # lists run past a pipe buffer.
             uv run fedcourts backfill-documents "${dry_args[@]}" \
-              --deadline-seconds 1680 2>&1 \
-              | tee -a "$GITHUB_STEP_SUMMARY"
+              --deadline-seconds 1680 > /tmp/document-dry.txt
+            tee -a "$GITHUB_STEP_SUMMARY" < /tmp/document-dry.txt
+            alarm_on_regression /tmp/document-dry.txt
             echo "dry-run only; nothing written."
             exit 0
           fi
@@ -1174,9 +1225,13 @@ jobs:
           # pass gets what is left after that tail is reserved:
           #
           #   witness re-walk     180 s  one walk of the predict-relevant
-          #                              population's stored documents, which is
-          #                              hundreds of pooled content-store reads
-          #                              rather than the whole distributed stock
+          #                              population's stored documents. A strict
+          #                              subset of the OCR recovery's own walk —
+          #                              the same live-slice row iteration, then
+          #                              filtered to the queued-or-selected rows
+          #                              — so it is bounded above by the 133-162 s
+          #                              that one measures, and this is roughly
+          #                              twice that ceiling
           #   corpus-push          60 s  the blob comes back byte-identical
           #                              where only documents moved; reserved
           #                              for a run where it does not
@@ -1199,6 +1254,14 @@ jobs:
           # so even against the walk's full reserve the head of the class cannot
           # be starved by the deadline. Candidates it declines are reported
           # unreached — untouched, still in the class, and first next dispatch.
+          #
+          # Two things this arithmetic does not cover, both of which the step's
+          # own cap is the backstop for: a docket nominating far more filings
+          # than the estimate charges for (selection returns every distinct-URL
+          # opposition brief with no per-case cap, so a many-respondent docket
+          # can run several times the charge), and a run of downloads that each
+          # time out and take the client's retry. Keeping those on the timeout,
+          # and the ordinary heavy slice off it, is the point of the deadline.
           uv run fedcourts backfill-documents --apply \
             --max-cases "${REPAIR_BOUND}" \
             --deadline-seconds 1260 > /tmp/document-apply.txt
@@ -1212,13 +1275,6 @@ jobs:
           # all, and what it reports is the class as the corpus now holds it.
           uv run fedcourts backfill-documents --max-cases 0 > /tmp/document-verify.txt
           tee -a "$GITHUB_STEP_SUMMARY" < /tmp/document-verify.txt
-          # Read off the machine-readable ledger each run prints last, rather
-          # than off the prose above it: the field name is passed as an argument
-          # so nothing from a file is interpolated into the program.
-          ledger_field() {
-            grep -h '^{"applied"' "$1" | tail -n 1 \
-              | uv run python -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$2"
-          }
           expected="$(ledger_field /tmp/document-apply.txt remaining)"
           found="$(ledger_field /tmp/document-verify.txt candidates)"
           # A slice that started nothing converges, pushes nothing and exits
@@ -1236,14 +1292,7 @@ jobs:
             echo "::error::apply did not converge — the re-read finds ${found} case(s) without their primary document where the apply's ledger left ${expected} (a content-store write may have failed; see the warnings above)"
             exit 1
           fi
-          # A modern docket whose opening filing matched no entry is not a floor
-          # but a selector regression — the class this pass exists to stop
-          # producing rather than to absorb — so it is raised where a maintainer
-          # reading a green run still sees it.
-          modern="$(ledger_field /tmp/document-apply.txt no_entry_modern_cases)"
-          if [ "${modern}" != "[]" ]; then
-            echo "::warning::selector regression: ${modern} matched no opening entry on a modern docket. The selector has no arm for their filing type; widen it rather than re-dispatching this pass."
-          fi
+          alarm_on_regression /tmp/document-apply.txt
           # Blob before pointer commit, as everywhere. Under the corpus split
           # the recovered documents land in the content store and the blob may
           # come back byte-identical, which is why the pointer is not the witness
