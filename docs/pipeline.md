@@ -604,6 +604,32 @@ which under the corpus split live in the content store, so the step re-walks the
 class afterwards — an empty slice, which costs no round trip — and requires
 exactly what the apply's ledger said it would leave behind.
 
+`arrival-backfill` re-derives the interim baseline's arrival stamp — the day an
+application was submitted to a Justice, which is the moment that event declares
+and the day provisioning cuts on. What it repairs is a stamp rule **correlated
+with the outcome**: the live poller serves the unresolved slice, so a decided
+application has left the rotation and is never re-polled, and an event last
+polled before the arrival read existed keeps the docketing date or nothing at
+all. Resolution status therefore decides which reading a row carries. Forward
+cells are unresolved by construction and unaffected, but any retrospective
+interim population drawn from these events inherits that conditioning. It is
+deliberately *not* predicated on resolution for the same reason — repairing only
+the decided half would condition the class all over again. Route and shape are
+the response back-fill's: re-parse each row's newest stored live-shaped snapshot
+with the same pure parsers ingest uses, reaching no network, and write a direct
+`UPDATE` of the index, so the pointer is its own witness. Direction is the
+safety property. The cut keeps everything filed strictly before the day after
+the stamp, so an earlier stamp admits less docket and a later one admits more,
+and docketing is systematically the later of the two readings — the pass
+therefore only ever moves a stamp earlier or supplies a missing one, and a parse
+that would move one later is refused and named. Its ledger states how many
+stamps moved and by how much, as a day-delta histogram: that is the size of the
+window each repaired row had been over-admitting by, and it is the number a
+retrospective interim cohort's conditioning turns on. It writes events rather
+than a `cases` column, so unlike the response back-fill it re-mirrors the
+touched cases — provisioning reads events back through the content store, and a
+stale mirror would hand a cell the very stamp the pass replaced.
+
 `merits-phantom-removal` drops open merits events whose docket carries no cert
 grant — the shape a live re-poll leaves when it stops reading a grant out of the
 proceedings and overwrites the stored date with NULL. Nothing re-mints one and

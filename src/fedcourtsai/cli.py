@@ -179,6 +179,7 @@ from .ops import (
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import cell_context, historical, liveprobe, moments, qp_topics, semantic
+from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.asof import CutoffPolicy
 from .pipeline.base_rates import interim_base_rate, merits_base_rate
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
@@ -2802,6 +2803,123 @@ def backfill_response_fields_cmd(
             if value is not None
         )
         typer.echo(f"  {verb} {fill.case_id}: {gained}")
+
+
+@app.command("backfill-arrival-stamps")
+def backfill_arrival_stamps_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the arrival stamps; omit for a dry-run report."),
+    ] = False,
+    max_fills: Annotated[
+        int | None,
+        typer.Option(
+            "--max-fills",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
+        ),
+    ] = None,
+) -> None:
+    """Re-derive the interim baseline's arrival stamp from each row's newest snapshot.
+
+    An interim event's `opened_at` is the moment it declares — the day the
+    application was submitted to a Justice — and it is where provisioning cuts,
+    so what is stamped there decides what a cell for that moment may see. The
+    arrival is read off the docket's own submission entry on the live ingest
+    branch, with the docketing date as the fallback.
+
+    The defect this repairs is a stamp rule **correlated with the outcome**. The
+    live poller serves the unresolved slice, so a decided application has left
+    the rotation and is never re-polled: an event last polled before the arrival
+    read existed keeps the docketing date or nothing at all, and resolution
+    status therefore decides which reading a row carries. Forward cells are
+    unresolved by construction and unaffected, but any retrospective interim
+    population drawn from these events inherits that conditioning.
+
+    The population is SCOTUS interim baseline events — entry-pinned motion events
+    are excluded, since the arrival derivation is the wrong reading for one —
+    whose stamp shows either shape of the defect: no stamp, or the docketing
+    date. Not predicated on resolution, even though the class is overwhelmingly
+    decided rows: repairing only the decided half would condition the population
+    on resolution all over again.
+
+    Direction is a safety property. The cut keeps everything filed strictly
+    before the day after `opened_at`, so an earlier stamp admits less and a later
+    one admits more; docketing is systematically the later of the two readings.
+    A parse that would move a stamp **later** is refused rather than written, and
+    those cases are named.
+
+    Prints the day-delta histogram of every stamp that moved, which is the
+    reading a retrospective interim cohort's conditioning depends on: it is how
+    much docket each repaired row had been over-admitting beyond its declared
+    moment. Idempotent, and convergent rather than terminal — `events.opened_at`
+    carries no fill-in latch, so a non-live re-extraction can write the docketing
+    date back and the sweep re-selects the row.
+
+    Run where the corpus is pulled — a dev checkout dry-runs it, and the apply
+    half belongs in run-repair's `arrival-backfill` pass, which holds the
+    corpus-write credentials. `--apply` refuses above `--max-fills`, which counts
+    the rows actually written. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_fills is None:
+        typer.echo(
+            "backfill-arrival-stamps: --apply requires an explicit --max-fills. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the arrival back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = backfill_arrival_stamps(conn, apply=apply, max_fills=max_fills)
+    if not result.events_seen:
+        # Zero candidates has two causes and they are not the same run: a corpus
+        # whose interim events all carry their arrival, and one holding no
+        # interim events at all. The denominator is what tells them apart.
+        typer.echo(
+            f"backfill-arrival-stamps: no SCOTUS interim baseline events in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if result.refused:
+        typer.echo(
+            f"backfill-arrival-stamps: refusing to apply {len(result.filled)} stamp(s) "
+            f"(--max-fills {max_fills}). Read the dry run's own count rather than raising "
+            "the bound past it: this pass rewrites the moment provisioning cuts on.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "stamped" if apply else "would stamp"
+    typer.echo(
+        f"backfill-arrival-stamps ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.filled)} of {result.candidates} candidate(s) in a population "
+        f"of {result.events_seen} interim baseline event(s); "
+        f"{result.unchanged} already carrying their arrival; "
+        f"{result.no_snapshot} with no stored snapshot; "
+        f"{result.no_proceedings} whose snapshot discloses no proceedings; "
+        f"{result.unparsed} naming no dated submission entry"
+    )
+    typer.echo(
+        f"  {result.stamped} row(s) had no stamp at all; {result.moved} moved earlier "
+        f"(worst {result.move_days_max} day(s)) — "
+        + ", ".join(f"{bucket}d: {count}" for bucket, count in result.move_histogram.items())
+    )
+    for fill in result.filled:
+        moved = f" (was {fill.previous.isoformat()}, {fill.moved_days}d)" if fill.previous else ""
+        typer.echo(f"  {verb} {fill.case_id} {fill.event_id}: {fill.opened_at.isoformat()}{moved}")
+    for case_id in result.later_refused:
+        # Named, not counted: the parser anchors on the submission entry, which
+        # precedes docketing on every docket sampled for the rule, so a later
+        # reading is a payload to look at rather than a stamp to write.
+        typer.echo(f"  {case_id}: REFUSED — the parsed arrival postdates the stored stamp")
+    typer.echo(result.model_dump_json())
 
 
 @app.command("backfill-documents")
