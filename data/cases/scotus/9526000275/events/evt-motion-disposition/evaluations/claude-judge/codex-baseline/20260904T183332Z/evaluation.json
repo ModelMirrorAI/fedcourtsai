@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "Emergency application to the Circuit Justice to force a statewide proof-of-citizenship constitutional amendment (700k+ signatures) onto Michigan's November 2026 ballot after a 2-2 canvassers deadlock. Politically salient nationally and consequential for one state's ballot, but the federal hook is a due-process/equal-protection gloss on a state signature-sampling dispute with no final state-court judgment; disposed by a one-line single-Justice denial, unreferred, no noted dissent, no opinion. High public interest, minimal doctrinal footprint."
+  },
+  "brier_score": 0.016900000000000002,
+  "brier_skill_score": -0.5408016649323624,
+  "case_id": "scotus/9526000275",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.13,
+        "score": -0.005931683710737767
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 1,
+        "probability": 0.66,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.78,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.32,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.005931683710737767,
+    "total": -0.005931683710737767
+  },
+  "correct": 1,
+  "created_at": "2026-09-04T18:45:00Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; application denied 2026-09-03. All ten logged calls are timestamped 2026-09-01T02:52Z, before any disposition existed; result_capture_coverage 0.6. The captured rows are shell reads of metrics/statpack.md and statpack.json; two rows are harness-redacted credential-shaped runs ([redacted:fernet-token]) - removed text, not outcome material. The three CourtListener opinion searches and the application-PDF fetch the candidate describes in retrieval.md do not appear in the log at all (a capture gap, not a mark against the cell); by the candidate's account they returned no case-specific opinions and the 43-page application filed 2026-08-31, which predates the event. No query or prose names a disposition of this application; the reasoning forecasts the denial rather than presupposing it.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260901T014205Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:e84e8e5fbf47002aa9ed867db60f3f5eee82dcc3bfdd76e44a0b4aac09d5e631",
+    "label": "proc-v6",
+    "pipeline_sha": "061496cebcd611480aecaca2235d462cb1329371",
+    "stamped_at": "2026-09-04T18:48:45.889366Z"
+  },
+  "reasoning_quality": 0.7,
+  "run_id": "20260904T183332Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
