@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000275",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "outcome.json records interim_signals.amicus_briefs = 0, but the 2026-09-04 snapshot shows an amicus brief (Initiative and Referendum Institute) submitted Sep 03 2026, the same day as the denial. The docket lists the denial entry before the amicus entry, so a count cut at the order plausibly gives 0; worth a look because the interim-v1 amicus-increment claim resolves on this field for all three candidates. Not corrected here - the outcome is not mine to edit.",
+      "severity": "info"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-motion-disposition",
+      "message": "codex-baseline's retrieval.md describes three CourtListener MCP opinion searches and a fetch of the 43-page application PDF; its retrieval_log.json (coverage 0.6, 10 rows) carries none of those calls, only statpack shell reads and two harness-redacted credential-shaped rows. Graded as a telemetry capture gap, not against the candidate; noting it so the capture profile for that engine's MCP and fetch calls can be checked.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260904T183332Z",
+  "schema_version": "1.0"
+}

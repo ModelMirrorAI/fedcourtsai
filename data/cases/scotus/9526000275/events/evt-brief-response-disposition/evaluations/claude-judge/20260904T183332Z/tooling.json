@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000275",
+  "run_id": "20260904T183332Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads of the blinded staging area and the event/record files",
+    "metrics/statpack.md (interim docket section)",
+    "python3 one-liners to dump retrieval_log.json and the snapshot"
+  ],
+  "helpful": [
+    "The staged retrieval_log.json with per-call result_capture markers made the forward-mode timing check concrete: call timestamps against the docket entry date settled that the case was unresolved when both cells ran.",
+    "The snapshot's ProceedingsandOrder entries gave the in-chambers denial and the pre-acceptance amicus entry directly, so the outcome fields could be read against the docket."
+  ],
+  "gaps": [
+    "Docket entries carry a date but no time; the timing check relied on the fact that a Sep 3 order cannot predate a Sep 2 evening prediction. A same-day case would be undecidable from the record.",
+    "The big_case_score sits in the staged prediction.json, so it is read before the evaluator can form its own read — the anchoring the prompt asks to avoid cannot be avoided by reading order alone."
+  ],
+  "notes": "Interim cell, two candidates, both forward and clean. No flags.json written: the interim shape takes no flag, both cells were correctly provisioned forward, and the outcome's amicus_briefs: 0 against a 'submitted' entry is the outcome writer's documented rule."
+}

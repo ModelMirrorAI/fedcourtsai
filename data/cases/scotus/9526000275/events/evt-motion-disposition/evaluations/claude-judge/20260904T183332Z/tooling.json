@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000275",
+  "run_id": "20260904T183332Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads of the blinded staging area and the event record",
+    "metrics/statpack.md (interim docket section)",
+    "record/documents/application.txt"
+  ],
+  "helpful": [
+    "The provisioned application text let me verify each candidate's factual claims (three-signature shortfall, nine rejected affidavits, constructive-denial posture) against the filing itself.",
+    "retrieval_log.json's per-call timestamps and result_capture markers made the forward leakage check mechanical: every call predates the 2026-09-03 order.",
+    "The statpack's interim section made the candidates' 31/296 anchor checkable in one read."
+  ],
+  "gaps": [
+    "The staged prediction.json carries the predictor's big_case_score in the same document as the fields an evaluator must read first, so the independent big-case read cannot actually be formed before seeing it; staging that field separately (or masking it until after the read) would make the independence real.",
+    "One candidate's retrieval.md describes MCP and PDF-fetch calls that its retrieval_log.json does not contain; a per-log note of which call classes the engine's telemetry can capture would let a grader distinguish an unlogged call from an unmade one."
+  ],
+  "notes": "Interim cell, three forward candidates, all clean on leakage. Nothing required corpus lookup; the record and statpack were sufficient."
+}
