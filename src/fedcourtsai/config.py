@@ -161,6 +161,32 @@ class Settings(BaseSettings):
             return None
         return value
 
+    @model_validator(mode="before")
+    @classmethod
+    def _split_mode_inputs_are_heard_or_refused(cls, data: object) -> object:
+        """Make both ways of naming the split mode land, or say they did not.
+
+        ``extra="ignore"`` silently swallows an unrecognized keyword, and these
+        two are the ones a caller reaches for: ``corpus_split`` is derived and
+        can never be an input, so passing it is refused rather than dropped;
+        ``corpus_split_flag`` is a real setting whose validation alias replaces
+        its field name, so a keyword under the field name is routed to the alias
+        instead of vanishing. Either way the caller's intent takes effect or
+        raises — never the opposite of what was asked for, quietly.
+        """
+        if not isinstance(data, dict):
+            return data
+        if "corpus_split" in data:
+            raise ValueError(
+                "corpus_split is derived from whether a content store is addressed; "
+                "pass corpus_split_flag to state the mode outright"
+            )
+        if "corpus_split_flag" in data:
+            routed = dict(data)
+            routed["FEDCOURTS_CORPUS_SPLIT"] = routed.pop("corpus_split_flag")
+            return routed
+        return data
+
     @field_validator("corpus_base_url", mode="before")
     @classmethod
     def _base_url_without_an_address_is_unset(cls, value: object) -> object:
@@ -208,6 +234,8 @@ class Settings(BaseSettings):
         ``corpus_split_flag`` overrides in both directions, for an environment
         that states the mode as its own setting — which is how every
         corpus-reading job wires it, so there the address is not consulted.
+        Derived, so it is not a constructor keyword: passing one is refused
+        rather than ignored.
         """
         if self.corpus_split_flag is not None:
             return self.corpus_split_flag

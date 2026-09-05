@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from fedcourtsai.config import (
     PredictConfig,
@@ -301,6 +302,19 @@ def test_the_split_follows_the_content_store_address(monkeypatch: pytest.MonkeyP
     monkeypatch.delenv("CASESTORE_URL")
     monkeypatch.setenv("CORPUS_BASE_URL", "s3://estate")
     assert Settings().corpus_split is True
+
+
+@pytest.mark.usefixtures("clean_store_env")
+def test_naming_the_split_mode_takes_effect_or_raises() -> None:
+    # `extra="ignore"` drops an unrecognized keyword, so both ways a caller
+    # reaches for the mode have to be answered: the derived name can never be an
+    # input, and the setting's own name is routed to the alias that replaced it.
+    # The failure this closes is a model whose mode is the opposite of what was
+    # asked for, with nothing said.
+    assert Settings(corpus_split_flag=True).corpus_split is True
+    assert Settings(corpus_split_flag=False, casestore_url="s3://named/store").corpus_split is False
+    with pytest.raises(ValidationError, match="corpus_split is derived"):
+        Settings(corpus_split=True)
 
 
 @pytest.mark.usefixtures("clean_store_env")

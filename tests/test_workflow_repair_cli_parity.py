@@ -244,7 +244,7 @@ def _run(argv: list[str], tmp_path: Path) -> None:
         # pass that reached for the upstream or the content store finds no
         # credential and no endpoint, and fails loudly rather than quietly
         # running against whatever the invoking shell was configured for. The
-        # backend is pinned for the same reason `_clear_pointer_override` is
+        # backend is pinned for the same reason `_clear_ambient_corpus_addressing` is
         # autouse in conftest — an ambient `ranged` would send every dry run at
         # the real remote instead of the fixture built two lines above.
         "FEDCOURTS_COURTLISTENER_API_TOKEN": "",

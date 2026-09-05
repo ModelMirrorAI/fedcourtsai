@@ -211,13 +211,13 @@ class Destination:
         if not self.remote_url:
             raise SeedSliceError(
                 "refusing to seed: the destination corpus remote URL is empty "
-                "(--dest-remote) — an unset destination variable is a "
+                "(--dest-base-url, or --dest-remote) — an unset destination variable is a "
                 "misconfiguration, not a default; see docs/security.md."
             )
         if not self.casestore_url:
             raise SeedSliceError(
                 "refusing to seed: the destination content-store URL is empty "
-                "(--dest-casestore) — an unset destination variable is a "
+                "(--dest-base-url, or --dest-casestore) — an unset destination variable is a "
                 "misconfiguration, not a default; see docs/security.md."
             )
 
@@ -266,14 +266,14 @@ class Source:
         if not self.remote_url:
             raise SeedSliceError(
                 "refusing to seed: the source corpus remote URL is not pinned "
-                "(--source-remote), so the rail cannot tell a staging "
+                "(--source-base-url, or --source-remote), so the rail cannot tell a staging "
                 "destination from its source. Pin it to the production value "
                 "(the workflow does) — see docs/security.md."
             )
         if not self.casestore_url:
             raise SeedSliceError(
                 "refusing to seed: the source content-store URL is not pinned "
-                "(--source-casestore). The rail cannot tell a staging "
+                "(--source-base-url, or --source-casestore). The rail cannot tell a staging "
                 "destination from its source without it, and it is the "
                 "slice's payload source — see docs/security.md."
             )
