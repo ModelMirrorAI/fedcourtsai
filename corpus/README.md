@@ -22,13 +22,12 @@ The corpus has two halves:
   sidecars are gitignored). Every push adds a version and none is ever removed,
   so any commit's pointer stays pullable — the retention contract and the
   storage-class rule that pays for it are *Index retention: keep every version*
-  in [docs/data-pipeline.md](../docs/data-pipeline.md). In production (the
-  corpus-split mode,
-  `FEDCOURTS_CORPUS_SPLIT=1` on the prod environment) the writers keep it
-  **payload-free**: the `snapshots`/`documents` tables stay empty and
+  in [docs/data-pipeline.md](../docs/data-pipeline.md). Under the corpus-split
+  mode — an environment with the per-case content store configured — the
+  writers keep it **payload-free**: the `snapshots`/`documents` tables stay empty and
   `cases.opinion_text` stays NULL (a `has_opinion` presence bit is retained),
   so the blob stays a small metadata index and its per-run push does not
-  grow with the bulk. With the mode off (the default — dev environments, the
+  grow with the bulk. With no store configured (dev environments, the
   fixture loop, offline tests) the same schema holds the payloads inline in a
   single self-contained blob.
 - **The per-case content store** ([`fedcourtsai.casestore`](../src/fedcourtsai/casestore.py))
@@ -51,7 +50,9 @@ The corpus has two halves:
   extractor can be carried onto rows already stored (`fedcourts
   backfill-questions-presented`) under that same rule: the re-derivation writes
   a new leaf and re-points the manifest, and the superseded text stays
-  readable. Its location comes from `FEDCOURTS_CASESTORE_URL`.
+  readable. Its address is the casestore segment under the environment's
+  corpus base URL ([`fedcourtsai.paths`](../src/fedcourtsai/paths.py)), or a
+  content-store URL named on its own.
 
 SQLite keeps the index a single artifact — one pointer, queryable with
 plain SQL. The format is internal; the stable contract is the **row schema**
@@ -291,7 +292,9 @@ this table stays empty; with the split mode off they live inline:
 ## Working with it locally
 
 ```bash
-export CORPUS_REMOTE_URL="<your bucket url>"   # out of band, see SECURITY.md
+export CORPUS_BASE_URL="<the corpus estate's base url>"   # out of band, see SECURITY.md
+# The index remote sits one segment below it. Where you hold that half's own
+# URL instead, export CORPUS_REMOTE_URL with it and skip the base.
 fedcourts corpus-pull    # fetch corpus.db from the remote (checksum-verified)
 fedcourts corpus-info    # show the location, row count, and how fresh the blob is
 fedcourts corpus-info --text-coverage   # also: which stored documents carry no text, per kind

@@ -9,8 +9,8 @@ description: >-
   `corpus-sidecar`, which keeps the credentials step-scoped, and the
   scan-heavy consumers (analytics, the metrics refresh) keep `corpus-readonly`
   for their full pulls. The calling job must grant
-  `id-token: write` and run in the `prod` environment so the role and remote
-  variables are available to pass in.
+  `id-token: write` and run in the `prod` environment so the role and the
+  corpus base URL are available to pass in.
 
 inputs:
   role-to-assume:
@@ -19,9 +19,12 @@ inputs:
   aws-region:
     description: AWS region for the role/remote (pass vars.AWS_REGION).
     required: true
-  corpus-remote-url:
+  corpus-base-url:
     description: >-
-      The corpus remote's bucket URL (pass vars.CORPUS_REMOTE_URL).
+      The corpus estate's base URL for this environment (pass
+      vars.CORPUS_BASE_URL). The index remote the ranged reads address and the
+      per-case content store the payload reads address are fixed segments
+      beneath it (fedcourtsai.paths).
     required: true
 
 runs:
@@ -42,17 +45,19 @@ runs:
     - name: Select the ranged corpus backend
       shell: bash
       env:
-        CORPUS_REMOTE_URL: ${{ inputs.corpus-remote-url }}
+        FEDCOURTS_CORPUS_BASE_URL: ${{ inputs.corpus-base-url }}
       run: |
         set -euo pipefail
         # Job-wide env for every later step: the read seam resolves the
-        # committed corpus pointer against the remote URL and serves reads via
-        # ranged GETs (see "The ranged read backend" in docs/data-pipeline.md).
+        # committed corpus pointer against the index remote derived from the
+        # base URL and serves reads via ranged GETs (see "The ranged read
+        # backend" in docs/data-pipeline.md); the payload reads follow the
+        # content store the same base derives.
         # The heredoc form keeps the write line-safe: a multiline value cannot
         # smuggle extra NAME=value pairs into the job env.
         {
           echo "FEDCOURTS_CORPUS_BACKEND=ranged"
-          echo "CORPUS_REMOTE_URL<<__FEDCOURTS_EOF__"
-          echo "$CORPUS_REMOTE_URL"
+          echo "FEDCOURTS_CORPUS_BASE_URL<<__FEDCOURTS_EOF__"
+          echo "$FEDCOURTS_CORPUS_BASE_URL"
           echo "__FEDCOURTS_EOF__"
         } >> "$GITHUB_ENV"

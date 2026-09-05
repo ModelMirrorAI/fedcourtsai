@@ -144,9 +144,9 @@ read set — a point lookup, a priors retrieval, a snapshot provisioning —
 against the real remote blob for that case, asserting every read comes back
 non-empty, reporting per-read GET/byte counters to the run summary, and
 exiting non-zero on a blown wall-clock budget. `corpus-service` launches the
-same corpus sidecar composite the cell workflows use — with the same
-corpus-split inputs, so under the split the sidecar hydrates from the content
-store exactly as the fleet's does — and probes it through the exact CLI
+same corpus sidecar composite the cell workflows use — with the same corpus
+base URL, so the sidecar hydrates from the content store that address derives
+exactly as the fleet's does — and probes it through the exact CLI
 surface a cell retrieves with. `stub-cascade` first runs the production
 `provision-snapshot --mode forward --refuse-terminal` command against the
 settled case in an isolated data root, failing the leg on a refusal (the same
@@ -271,9 +271,9 @@ maintainer-gated surfaces, so that batch is a maintainer-merged one by
 construction.
 
 The `deploy-environment` input names which deployment environment supplies the
-role and remote variables, and by default resolves from the dispatching branch:
+role and corpus base URL, and by default resolves from the dispatching branch:
 `main` dispatches use `prod`, and dispatches from `staging` use the `staging`
-environment, which holds the same read-only role and remote variables plus its
+environment, which holds the same read-only role and corpus base URL plus its
 own engine keys; any other branch resolves its own name — an unconfigured,
 empty environment with no role variables and no keys — and an explicit choice
 (the input is a closed `auto`/`prod`/`staging` vocabulary) still wins. Each
@@ -416,9 +416,11 @@ job waits on the `review` hold), the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants
-(`test_workflow_cell_invariants`: the qp-topics oracle fence, the corpus-split
-env pair, the forward leakage guard, the arm/disarm bracket and deadline of the
-codex hang watchdog, the run-surface retry with its inline copies, the absence
+(`test_workflow_cell_invariants`: the qp-topics oracle fence, the corpus base
+URL, the forward leakage guard, the arm/disarm bracket and deadline of the
+codex hang watchdog — whose escalation knobs stay inside the script, so the
+bracket's env set is the fixed three the test pins — the run-surface retry with
+its inline copies, the absence
 of any step that applies a fan-out label, the 10-input `workflow_dispatch`
 cap the UI enforces silently, the fail-closed shape every input gate must have
 on a scheduled workflow, and the word-for-word pairing between each fail-fast
@@ -440,9 +442,17 @@ the one coupling that lives in output wording rather than argv); and
 call with the sentinel it normalizes an absent issue number to, which is the
 path every round takes, since no lane supplies one. `test_codex_watchdog` does
 the same for the codex cells' hang bound: it runs `scripts/codex-watchdog.sh`
-against a process whose command line stands in for the wedged engine, because
-every claim about that guard is a claim about process matching and signals on
-a live runner, and a wedge otherwise destroys its own evidence. For a heavier
+against processes whose command lines and parentage stand in for a wedged
+engine, for the step that outlives its engine's death, and for the step that
+never spawned one at all, because every claim about that guard is a claim about
+process matching and signals on a live runner, and a wedge otherwise destroys
+its own evidence. Its safety half is the part worth reading: each discovery
+route is pointed, in its own test, straight at a fixture wearing
+runner-infrastructure arguments, which must survive — signalling the runner's
+own worker force-kills the job the watchdog exists to save — and two more pin
+the ends of the window that decides *which* step is the guarded one. Every
+process the suite signals is one it spawned: the discovery patterns are
+fixture-scoped and asserted to be, so it cannot reach the step running it. For a heavier
 local check of the
 deterministic jobs (the `plan` job, matrix generation, the collect seam),
 [`nektos/act`](https://github.com/nektos/act) can run them in Docker — useful for

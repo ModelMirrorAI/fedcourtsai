@@ -30,11 +30,63 @@ one blinding artifact that does *not* live here: the grader is sent into
 The ``flags.json`` files are optional: a cell writes one only when it has a
 durable, structured note to surface for maintainer triage (see
 :class:`fedcourtsai.schemas.AgentFlags`).
+
+The corpus's own two halves are addressed here too — see *Corpus store
+addressing* below. They are not on-disk paths, but they are the same kind of
+thing this module exists for: a layout derived in one place rather than
+hand-assembled per call site.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+
+# --- Corpus store addressing --------------------------------------------------
+#
+# One **base URL** names an environment's whole corpus estate
+# (``s3://<bucket>[/<prefix>]``, supplied out of band — see SECURITY.md). The two
+# halves the corpus has sit at fixed segments beneath it: the index remote that
+# `fedcourtsai.corpus_remote` publishes the blob to, and the per-case content
+# store `fedcourtsai.casestore` mirrors payloads to. Deriving both from one
+# address is what makes an environment a single setting: one base URL cannot
+# point the index at one environment while the store answers from another, and a
+# new environment costs one variable rather than a pair that can disagree.
+#
+# The content store's segment carries the store layout's **version**, and it
+# belongs here — beside the code that reads that layout — rather than inside a
+# configured URL. A store-format migration then rides a promotion, where the
+# reader and the address it reads move together, instead of being a settings
+# edit racing one.
+
+#: The index remote's segment under an environment's base URL.
+CORPUS_INDEX_SEGMENT = "store"
+
+#: The per-case content store's segment, layout version included.
+CASESTORE_SEGMENT = "casestore/v1"
+
+
+def _under_base(base_url: str, segment: str) -> str:
+    """``<base_url>/<segment>``, tolerating padding and a trailing slash.
+
+    Refuses a blank base outright: the alternative is a bare ``/<segment>``
+    relative-looking URL that no parser rejects for the reason it is wrong, so
+    a store address would silently become nonsense instead of failing where the
+    configuration is missing.
+    """
+    base = base_url.strip().rstrip("/")
+    if not base:
+        raise ValueError("corpus base URL is empty; nothing to derive a store address from")
+    return f"{base}/{segment}"
+
+
+def corpus_index_url(base_url: str) -> str:
+    """The corpus index remote's URL under an environment's base URL."""
+    return _under_base(base_url, CORPUS_INDEX_SEGMENT)
+
+
+def casestore_url(base_url: str) -> str:
+    """The per-case content store's URL under an environment's base URL."""
+    return _under_base(base_url, CASESTORE_SEGMENT)
 
 
 class EventPaths:

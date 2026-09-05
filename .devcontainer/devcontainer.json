@@ -40,14 +40,20 @@
     "AWS_SECRET_ACCESS_KEY": {
       "description": "Read-only corpus IAM user's secret access key (contributor path)"
     },
+    "CORPUS_BASE_URL": {
+      "description": "Corpus base S3 URL — one address the index remote and content store both derive from (optional, corpus access only; preferred over CORPUS_REMOTE_URL)"
+    },
     "CORPUS_REMOTE_URL": {
-      "description": "Corpus remote S3 URL (optional, corpus access only)"
+      "description": "Corpus index remote S3 URL, for an environment naming that half on its own (optional, corpus access only)"
+    },
+    "STAGING_CORPUS_BASE_URL": {
+      "description": "Staging corpus base S3 URL, read via scripts/corpus-env (optional; preferred over the STAGING_*_URL pair)"
     },
     "STAGING_CORPUS_REMOTE_URL": {
-      "description": "Staging corpus remote S3 URL, read via scripts/corpus-env (optional; set both STAGING_* or neither)"
+      "description": "Staging corpus index remote S3 URL, read via scripts/corpus-env (optional; set both halves or neither)"
     },
     "STAGING_CASESTORE_URL": {
-      "description": "Staging content-store S3 URL, read via scripts/corpus-env (optional; set both STAGING_* or neither)"
+      "description": "Staging content-store S3 URL, read via scripts/corpus-env (optional; set both halves or neither)"
     },
     "STAGING_CORPUS_POINTER": {
       "description": "Staging corpus index pointer JSON (the seed run's published pointer, verbatim), read via scripts/corpus-env (optional; without it staging index reads fail on the committed production digest)"

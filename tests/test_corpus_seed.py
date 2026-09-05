@@ -279,6 +279,51 @@ def test_an_empty_destination_fails_closed_by_name(slot: str) -> None:
         corpus_seed.Destination(remote_url=remote, casestore_url=store)
 
 
+def test_a_base_url_pins_both_halves_of_a_side() -> None:
+    """One address per environment: both halves derive, so a seed cannot read
+    one environment's index against another's store."""
+    source = corpus_seed.resolve_source(base_url="s3://prod-estate")
+    assert source.remote_url == "s3://prod-estate/store"
+    assert source.casestore_url == "s3://prod-estate/casestore/v1"
+    destination = corpus_seed.resolve_destination(base_url="s3://staging-estate/pfx")
+    assert destination.remote_url == "s3://staging-estate/pfx/store"
+    assert destination.casestore_url == "s3://staging-estate/pfx/casestore/v1"
+
+
+def test_halves_named_individually_still_pin_a_side() -> None:
+    """The other accepted form: each half stated on its own."""
+    source = corpus_seed.resolve_source(remote_url=PROD_REMOTE, casestore_url=PROD_CASESTORE)
+    assert (source.remote_url, source.casestore_url) == (PROD_REMOTE, PROD_CASESTORE)
+
+
+@pytest.mark.parametrize("slot", ["remote_url", "casestore_url"])
+def test_a_base_url_and_a_half_together_are_refused(slot: str) -> None:
+    """Two ways of saying one thing, said at once: a base and a half that
+    disagree name two different stores, so neither wins."""
+    half = {slot: PROD_REMOTE if slot == "remote_url" else PROD_CASESTORE}
+    with pytest.raises(corpus_seed.SeedSliceError, match=r"--source-base-url already names"):
+        corpus_seed.resolve_source(base_url="s3://prod-estate", **half)
+    with pytest.raises(corpus_seed.SeedSliceError, match=r"--dest-base-url already names"):
+        corpus_seed.resolve_destination(base_url="s3://staging-estate", **half)
+
+
+def test_a_blank_half_beside_a_base_url_is_not_a_conflict() -> None:
+    """An unset workflow variable arrives as the empty string; blank is unset
+    everywhere, so wiring that still mentions a half does not refuse the base."""
+    source = corpus_seed.resolve_source(
+        base_url="s3://prod-estate", remote_url="", casestore_url="   "
+    )
+    assert source.remote_url == "s3://prod-estate/store"
+
+
+def test_naming_no_address_at_all_still_fails_closed_by_name() -> None:
+    """The empty-slot refusals stay the one place a missing address is reported."""
+    with pytest.raises(corpus_seed.SeedSliceError, match="not pinned"):
+        corpus_seed.resolve_source(base_url="", remote_url="", casestore_url="")
+    with pytest.raises(corpus_seed.SeedSliceError, match="refusing to seed: the destination"):
+        corpus_seed.resolve_destination()
+
+
 def test_a_padded_source_url_is_normalized_at_construction() -> None:
     """A whitespace-padded pin must not pass the rail and then reach a
     URL-echoing parser downstream — construction strips, so the rail and
@@ -905,6 +950,48 @@ def test_the_command_refuses_an_empty_pinned_source(
     )
     assert result.exit_code == 2
     assert "not pinned" in result.output
+
+
+def test_the_command_takes_one_base_url_per_side(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Two options replace four: each side is one address, and the rail still
+    sees a destination distinct from the pinned source.
+
+    The discriminator is the same as the flipped-environment test's — a run
+    that reaches the unrelated no-corpus check (exit 1) got past both rails, so
+    the derived pair is what the rail compared; a destination derived from the
+    *source's* base URL is refused at the rail (exit 2).
+    """
+    _prod_env(monkeypatch, tmp_path)
+    accepted = runner.invoke(
+        app,
+        [
+            "corpus-seed-slice",
+            "--source-base-url",
+            "s3://prod-estate",
+            "--dest-base-url",
+            "s3://staging-estate",
+            "--dockets",
+            SLICE_CASES[0],
+        ],
+    )
+    assert accepted.exit_code == 1, accepted.output
+    assert "no corpus at" in accepted.output
+    refused = runner.invoke(
+        app,
+        [
+            "corpus-seed-slice",
+            "--source-base-url",
+            "s3://prod-estate",
+            "--dest-base-url",
+            "s3://prod-estate",
+            "--dockets",
+            SLICE_CASES[0],
+        ],
+    )
+    assert refused.exit_code == 2
+    assert "names the pinned source" in refused.output
 
 
 def test_the_command_ignores_a_flipped_environment(

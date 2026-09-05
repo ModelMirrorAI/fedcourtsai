@@ -28,15 +28,30 @@ from fedcourtsai.serialize import write_json
 
 
 @pytest.fixture(autouse=True)
-def _clear_pointer_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep an ambient corpus-pointer override out of every test's settings.
+def _clear_ambient_corpus_addressing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the invoking shell's corpus settings out of every test's settings.
 
-    ``eval "$(scripts/corpus-env staging)"`` exports the override into an
-    interactive shell, and any test that touches ``get_settings()`` would
-    inherit that live redirection — a gate result must not depend on which
-    pair the invoking shell was flipped to.
+    ``eval "$(scripts/corpus-env staging)"`` exports all of these into an
+    interactive shell, and the devcontainer hook exports the estate's address
+    into every one — so any test that touches ``get_settings()`` would inherit
+    a live redirection. A gate result must not depend on which environment the
+    invoking shell was flipped to.
+
+    The addresses matter as much as the pointer, because the corpus-split mode
+    follows from whether a content store is addressed: an ambient base URL
+    would put the *writers* in split mode for the whole session, leaving the
+    fixture blobs these tests build payload-free. A test that wants the mode
+    says so itself.
     """
-    for name in ("FEDCOURTS_CORPUS_POINTER", "CORPUS_POINTER"):
+    for name in (
+        "FEDCOURTS_CORPUS_POINTER",
+        "CORPUS_POINTER",
+        "FEDCOURTS_CORPUS_BASE_URL",
+        "CORPUS_BASE_URL",
+        "FEDCOURTS_CASESTORE_URL",
+        "CASESTORE_URL",
+        "FEDCOURTS_CORPUS_SPLIT",
+    ):
         monkeypatch.delenv(name, raising=False)
 
 

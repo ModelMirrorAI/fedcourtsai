@@ -10,7 +10,7 @@ description: >-
   step-scoped env. The cell-job successor to `corpus-ranged`, which the
   agentless plan jobs keep (job-wide credentials are fine where no agent
   runs). The calling job must grant `id-token: write` and run in the `prod`
-  environment so the role and remote variables are available to pass in.
+  environment so the role and the corpus base URL are available to pass in.
 
 inputs:
   role-to-assume:
@@ -19,36 +19,26 @@ inputs:
   aws-region:
     description: AWS region for the role/remote (pass vars.AWS_REGION).
     required: true
-  corpus-remote-url:
+  corpus-base-url:
     description: >-
-      The corpus remote's bucket URL (pass vars.CORPUS_REMOTE_URL).
+      The corpus estate's base URL for this environment (pass
+      vars.CORPUS_BASE_URL). Both halves of the sidecar's read configuration
+      are fixed segments beneath it (fedcourtsai.paths): the index remote the
+      ranged reads address, and the per-case content store the sidecar
+      hydrates `full` query bodies from server-side — the sidecar is the
+      credentialed process, so a sidecar without the store returns bodiless
+      rows to every cell. An explicit input, not job-env inheritance, so every
+      call site shows the sidecar's read configuration.
     required: true
-  casestore-url:
-    description: >-
-      The per-case content store URL (pass vars.CASESTORE_URL). Under the
-      corpus-split mode the sidecar hydrates `full` query bodies from the
-      store server-side — the sidecar is the credentialed process, so
-      omitting this under the split silently returns bodiless rows to every
-      cell. Explicit inputs, not job-env inheritance, so every call site
-      shows the sidecar's read configuration.
-    required: false
-    default: ""
-  corpus-split:
-    description: >-
-      The corpus-split go-live switch (pass
-      `vars.FEDCOURTS_CORPUS_SPLIT || '0'`). Off, the sidecar serves every
-      payload from the blob and casestore-url is inert.
-    required: false
-    default: "0"
   corpus-pointer:
     description: >-
       The out-of-band corpus index pointer (pass
       `vars.FEDCOURTS_CORPUS_POINTER`). Empty resolves the committed
       `corpus/corpus.db.ref`, whose digest names the production blob; a pair
       publishing its own index — the staging pair — supplies its pointer JSON
-      here instead. Explicit, like the other two halves of the read
-      configuration, so a call site cannot serve one store's index against
-      another store's pointer by inheriting half of it.
+      here instead. Explicit, like the base URL above, so a call site cannot
+      serve one estate's index against another estate's pointer by inheriting
+      half of its read configuration.
     required: false
     default: ""
 
@@ -99,9 +89,7 @@ runs:
         AWS_SECRET_ACCESS_KEY: ${{ steps.creds.outputs.aws-secret-access-key }}
         AWS_SESSION_TOKEN: ${{ steps.creds.outputs.aws-session-token }}
         AWS_REGION: ${{ inputs.aws-region }}
-        CORPUS_REMOTE_URL: ${{ inputs.corpus-remote-url }}
-        FEDCOURTS_CASESTORE_URL: ${{ inputs.casestore-url }}
-        FEDCOURTS_CORPUS_SPLIT: ${{ inputs.corpus-split }}
+        FEDCOURTS_CORPUS_BASE_URL: ${{ inputs.corpus-base-url }}
         FEDCOURTS_CORPUS_POINTER: ${{ inputs.corpus-pointer }}
       run: |
         set -euo pipefail

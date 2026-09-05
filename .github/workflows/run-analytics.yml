@@ -166,7 +166,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
 
       - name: Aggregate corpus base-rates
         env:
@@ -180,16 +180,14 @@ jobs:
           # Not `TERM`: that name is the standard terminal-type variable, which
           # every subprocess consults — an avoidable namespace collision.
           TERM_YEAR: ${{ inputs.term }}
-          # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the
-          # clean-slate cutover switch; unset variable -> '0' -> off) the pulled
-          # corpus.db is a payload-free index and payload reads come from the
-          # per-case content store instead. The base-rates aggregate row columns,
-          # so the pair is inert for today's groupings — it is set because this
-          # job's read path is the shared corpus reader, and a grouping that
-          # reaches a payload must not be the thing that discovers the store was
-          # never wired here.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+          # The corpus estate's base URL: the pulled corpus.db is a payload-free
+          # index and payload reads come from the per-case content store the
+          # same base derives (addressing the store is the split mode). The
+          # base-rates aggregate row columns, so the store is inert for today's
+          # groupings — it is addressed because this job's read path is the
+          # shared corpus reader, and a grouping that reaches a payload must not
+          # be the thing that discovers the store was never wired here.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
         run: |
           set -euo pipefail
           # Prints the machine AnalyticsReport JSON to stdout (the run log) and appends
@@ -249,7 +247,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
           # Covers the census step's cap below plus everything before it —
           # checkout, env sync, up to 120s of assume-role retry, and the
           # composite's own uncapped corpus pull — so the step cap, not the
@@ -269,16 +267,15 @@ jobs:
           # registered set printed.
           BASELINE_PARSE: ${{ inputs.census_baseline_parse }}
           CANDIDATE_PARSE: ${{ inputs.census_candidate_parse }}
-          # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the
-          # clean-slate cutover switch; unset variable -> '0' -> off) the pulled
+          # The corpus estate's base URL: the pulled
           # corpus.db is a payload-free index and each case's latest live
-          # snapshot comes from the per-case content store instead. This pair is
-          # load-bearing here, not defensive: the census reads a snapshot per
-          # case, so a split-blind read of a payload-free blob finds no snapshot
-          # anywhere and reports the whole frame `unobservable` — a census that
-          # is silently empty rather than one that fails.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+          # snapshot comes from the per-case content store the same base
+          # derives. Load-bearing here, not defensive: the census reads a
+          # snapshot per case, so an unaddressed store leaves a payload-free
+          # blob with no snapshot anywhere and reports the whole frame
+          # `unobservable` — a census that is silently empty rather than one
+          # that fails.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/distribution-census.json"
@@ -416,7 +413,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
           # Covers the walk's cap below plus everything before it — checkout,
           # env sync, up to 120s of assume-role retry, and the composite's own
           # uncapped corpus pull — the census's sizing, for the census's
@@ -427,17 +424,14 @@ jobs:
       - name: Enumerate document text coverage
         timeout-minutes: 110
         env:
-          # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the
-          # clean-slate cutover switch; unset variable -> '0' -> off) the
-          # pulled corpus.db is a payload-free index and every document read
-          # comes from the per-case content store instead. The pair is
-          # load-bearing here, not defensive: the report leads with a
-          # `text source:` line naming which side served it precisely because a
-          # split-blind read of a payload-free blob counts every document as
-          # absent — a coverage report that is silently wrong rather than one
-          # that fails.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+          # The corpus estate's base URL: the pulled corpus.db is a payload-free
+          # index and every document read comes from the per-case content store
+          # the same base derives. Load-bearing here, not defensive: the report
+          # leads with a `text source:` line naming which side served it
+          # precisely because an unaddressed store counts every document in a
+          # payload-free blob as absent — a coverage report that is silently
+          # wrong rather than one that fails.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/text-coverage.txt"
@@ -540,7 +534,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
           missing-pointer: warn
 
       # The tested stage commands, run directly; each is deterministic, so an
@@ -647,21 +641,22 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
 
       - name: Extract the stored questions-presented texts
         env:
-          # Corpus-split read side, the same pair and the same spelling every
-          # corpus-reading step in this file declares (FEDCOURTS_CORPUS_SPLIT=1 is
-          # the clean-slate cutover switch; unset variable -> '0' -> off). Inert
-          # for this step: `qp-corpus` opens the pulled blob directly rather than
-          # through the shared payload reader, so on a split blob it finds no
+          # The corpus estate's base URL, in the same spelling every
+          # corpus-reading step in this file declares. Inert for this step:
+          # `qp-corpus` opens the pulled blob directly rather than through the
+          # shared payload reader, so on a payload-free blob it finds no
           # document text and exits non-zero either way — a labeling run that
           # cannot read its input says so rather than handing the labeler an
-          # empty extract. The pair is here so one spelling covers every step
-          # that reads the corpus, and no step is silently the exception.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+          # empty extract. It is here so one spelling covers every step in this
+          # file that reads case payloads, and none of them is silently the
+          # exception. (The metrics refresh is not one: its artifacts are a pure
+          # function of the pulled index and the committed trees, so that job
+          # declares no corpus address at all.)
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
         run: |
           set -euo pipefail
           # Under $RUNNER_TEMP, never the work tree: the extract republishes

@@ -21,6 +21,8 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from . import paths
+
 # The corpus read backends, defined here because `corpus` imports this module.
 # One definition, so the setting, the type hints, and the CLI help cannot drift.
 CorpusBackend = Literal["local", "ranged", "casestore", "service"]
@@ -57,14 +59,29 @@ class Settings(BaseSettings):
     # localhost (see fedcourtsai.corpus_service) so the caller needs no cloud
     # credentials at all. Writers always open local.
     corpus_backend: CorpusBackend = "local"
+    # The corpus estate's base URL for this environment
+    # (``s3://<bucket>[/<prefix>]``), supplied out of band (never committed; see
+    # SECURITY.md). **One address per environment**: both store halves below are
+    # fixed segments beneath it (`fedcourtsai.paths.corpus_index_url` /
+    # `fedcourtsai.paths.casestore_url`), so one base URL cannot name two
+    # environments, and the split mode follows from the address rather than from
+    # an independent flag. A half named on its own outranks the derived one, so
+    # an environment naming each half individually can still pair them however
+    # it likes — the seeder, whose sides are a single invocation's options,
+    # refuses that combination outright instead (`corpus_seed`).
+    corpus_base_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("FEDCOURTS_CORPUS_BASE_URL", "CORPUS_BASE_URL"),
+    )
     # The corpus remote's bucket URL, supplied out of band (never committed;
     # see SECURITY.md). corpus-pull/corpus-push and the ranged backend resolve
     # the corpus pointer against it — which pointer a read resolves is
-    # `corpus_pointer` below; a push resolves only the committed one. The
-    # bare workflow variable names
-    # are accepted as aliases so the same runner env serves both. The workflow
-    # variable is CORPUS_REMOTE_URL; the DVC_* aliases exist for the Codespaces
-    # devcontainer secret, which is spelled DVC_REMOTE_URL (see
+    # `corpus_pointer` below; a push resolves only the committed one. Unset,
+    # it is the index segment under `corpus_base_url` — which is how every job
+    # addresses it, so naming this half on its own is a dev-shell surface
+    # (`scripts/corpus-env`, `.devcontainer/`) rather than a CI one. The bare
+    # names are accepted as aliases so the same shell serves both; the DVC_*
+    # ones spell the Codespaces devcontainer secret, DVC_REMOTE_URL (see
     # .devcontainer/) — new names win when both are set, and the aliases can
     # retire once that secret is renamed too.
     corpus_remote_url: str | None = Field(
@@ -91,12 +108,12 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("FEDCOURTS_CORPUS_POINTER", "CORPUS_POINTER"),
     )
-    # Corpus split (phase 1): points the per-case content store (see
-    # fedcourtsai.casestore) at ``s3://<bucket>[/<prefix>]``. When set, the writer
-    # channels dual-write each mutated case there alongside the corpus blob;
-    # unset/empty = off (the default), so the pipeline is unchanged. Best-effort —
-    # a mirror failure only logs. Reads land in phases 3-4 (the casestore
-    # provisioning backend, and `corpus_split` below).
+    # The per-case content store (see fedcourtsai.casestore) at
+    # ``s3://<bucket>[/<prefix>]``. Unset, it is the casestore segment under
+    # `corpus_base_url`; with neither configured the store is off and the corpus
+    # is one self-contained blob (the offline fixture loop). Its presence is what
+    # puts the pipeline in the split mode — see `corpus_split` below. Writer
+    # mirroring is best-effort: a mirror failure only logs.
     casestore_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("FEDCOURTS_CASESTORE_URL", "CASESTORE_URL"),
@@ -113,47 +130,119 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("FEDCOURTS_CORPUS_SERVICE_URL"),
     )
-    # Corpus split (phase 4): the mode switch that moves the go-forward system onto
-    # the per-case content store. When on, the payload reads default to the casestore
-    # (this phase routes the forward-cell provisioners there without an explicit
-    # ``--corpus-backend casestore``) and a later step stops writing payloads into the
-    # blob so ``corpus.db`` collapses to a small metadata index. Off by default, so the
-    # pipeline is byte-for-byte unchanged until it is flipped on (at the clean-slate
-    # cutover). Needs the store populated — i.e. ``casestore_url`` set.
-    corpus_split: bool = False
+    # The corpus-split mode stated explicitly, overriding the inference in
+    # `corpus_split` below. For a dev shell or a test that pins the mode
+    # outright — no job wires it, and a workflow test refuses one that does;
+    # unset (or empty) leaves the mode to the store's address.
+    corpus_split_flag: bool | None = Field(
+        default=None,
+        validation_alias=AliasChoices("FEDCOURTS_CORPUS_SPLIT"),
+    )
 
-    @field_validator("corpus_pointer", mode="before")
+    @field_validator(
+        "corpus_base_url",
+        "corpus_remote_url",
+        "casestore_url",
+        "corpus_pointer",
+        "corpus_split_flag",
+        mode="before",
+    )
     @classmethod
-    def _empty_corpus_pointer_is_unset(cls, value: object) -> object:
-        """An empty pointer override reads as unset, not as malformed JSON.
+    def _blank_reads_as_unset(cls, value: object) -> object:
+        """An empty string is an absent setting, never a value or a parse error.
 
-        The same degradation ``_empty_corpus_split_is_off`` gives the split
-        flag, for the same wiring: an env layer that passes an unset variable
-        through raw (``scripts/corpus-env``'s prod restore, a workflow's
-        ``${{ vars.… }}`` fallback) lands here as the empty string, which must
-        mean "the committed pointer, unchanged" rather than fail every
-        ``get_settings()`` call.
+        Every env layer that forwards a possibly-unset variable through raw — a
+        workflow's ``${{ vars.… }}``, ``scripts/corpus-env``'s prod restore, an
+        empty ``.env`` entry — lands here as the empty string. One rule for all
+        of them, so the empty case cannot mean "off" in one field, "malformed
+        JSON" in another, and "defeats the base URL" in a third: blank is unset,
+        and each field's own unset behavior takes over.
         """
         if isinstance(value, str) and not value.strip():
             return None
         return value
 
-    @field_validator("corpus_split", mode="before")
+    @model_validator(mode="before")
     @classmethod
-    def _empty_corpus_split_is_off(cls, value: object) -> object:
-        """An empty ``FEDCOURTS_CORPUS_SPLIT`` reads as off, not as a parse error.
+    def _split_mode_inputs_are_heard_or_refused(cls, data: object) -> object:
+        """Make both ways of naming the split mode land, or say they did not.
 
-        Any env wiring that passes the ``prod``-environment variable (or its
-        repo-level fallback) through raw — or an empty ``.env`` entry — lands
-        here as the empty string, which pydantic's
-        bool parser rejects. Empty must degrade to the default (off), matching
-        ``casestore_url``'s documented "unset/empty = off", instead of failing
-        every ``get_settings()`` call. The workflows' ``|| '0'`` fallback is
-        the belt; this tested validator is the braces.
+        ``extra="ignore"`` silently swallows an unrecognized keyword, and these
+        two are the ones a caller reaches for: ``corpus_split`` is derived and
+        can never be an input, so passing it is refused rather than dropped;
+        ``corpus_split_flag`` is a real setting whose validation alias replaces
+        its field name, so a keyword under the field name is routed to the alias
+        instead of vanishing. Either way the caller's intent takes effect or
+        raises — never the opposite of what was asked for, quietly.
         """
-        if isinstance(value, str) and not value.strip():
-            return False
+        if not isinstance(data, dict):
+            return data
+        if "corpus_split" in data:
+            raise ValueError(
+                "corpus_split is derived from whether a content store is addressed; "
+                "pass corpus_split_flag to state the mode outright"
+            )
+        if "corpus_split_flag" in data:
+            routed = dict(data)
+            routed["FEDCOURTS_CORPUS_SPLIT"] = routed.pop("corpus_split_flag")
+            return routed
+        return data
+
+    @field_validator("corpus_base_url", mode="before")
+    @classmethod
+    def _base_url_without_an_address_is_unset(cls, value: object) -> object:
+        """A base that is only separators names nothing, so it reads as unset.
+
+        ``"/"`` survives the blank rule above and would reach the derivation,
+        where the refusal raises *inside* model validation — and pydantic's
+        error repr is the whole settings mapping, which in a job carries the
+        CourtListener token. Deriving nothing from a base that addresses nothing
+        keeps that failure on the loud, value-free path the CLI already has for
+        an unconfigured remote.
+        """
+        if isinstance(value, str) and not value.strip().rstrip("/"):
+            return None
         return value
+
+    @model_validator(mode="after")
+    def _derive_unset_store_halves_from_the_base(self) -> Self:
+        """Fill each unconfigured store half from the environment's base URL."""
+        if self.corpus_base_url is None:
+            return self
+        if self.corpus_remote_url is None:
+            self.corpus_remote_url = paths.corpus_index_url(self.corpus_base_url)
+        if self.casestore_url is None:
+            self.casestore_url = paths.casestore_url(self.corpus_base_url)
+        return self
+
+    @property
+    def corpus_split(self) -> bool:
+        """Whether the corpus-split read/write paths are active.
+
+        On exactly when a content store is configured, because under the split
+        the bulk payloads — dated snapshots, extracted document text, opinion
+        bodies — live *only* in that store: the writer leaves the blob's payload
+        columns empty so ``corpus.db`` stays a small metadata index, and the
+        reads follow the payloads. So the store's address is the mode, and the
+        two states an independent flag admits are unrepresentable here: a store
+        configured but read past (payload reads answering empty from an index
+        that no longer carries them), and the mode on with nowhere to read.
+
+        Off with no store configured, which is the self-contained single-blob
+        corpus the offline fixture loop and the stub cascade run on — every
+        payload read is then the plain SQLite path.
+
+        ``corpus_split_flag`` overrides in both directions, for a dev shell or
+        a test that states the mode outright (``scripts/corpus-env``, the
+        offline fixtures). No job wires it — a workflow forwarding a falsy mode
+        beside an addressed store would turn the split off and answer every
+        payload read empty — so in CI the address always decides.
+        Derived, so it is not a constructor keyword: passing one is refused
+        rather than ignored.
+        """
+        if self.corpus_split_flag is not None:
+            return self.corpus_split_flag
+        return self.casestore_url is not None
 
 
 def get_settings() -> Settings:
