@@ -3546,11 +3546,16 @@ def corpus_status(
 
 
 def _require_corpus_remote_url() -> str:
-    """The out-of-band corpus remote URL, or a loud CLI exit when unset."""
+    """The out-of-band corpus index remote URL, or a loud CLI exit when unset.
+
+    Derived from the environment's corpus base URL where one is set; an
+    index-remote URL named on its own serves too.
+    """
     remote_url = get_settings().corpus_remote_url
     if remote_url is None or not remote_url.strip():
         typer.echo(
-            "corpus remote URL is not configured; set CORPUS_REMOTE_URL "
+            "corpus remote URL is not configured; set CORPUS_BASE_URL "
+            "(one address per environment) or CORPUS_REMOTE_URL "
             "(the same out-of-band value the workflows use — see SECURITY.md)",
             err=True,
         )
@@ -3662,37 +3667,53 @@ def corpus_push() -> None:
 
 @app.command("corpus-seed-slice")
 def corpus_seed_slice(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
+    source_base_url: Annotated[
+        str | None,
+        typer.Option(
+            help="The PRODUCTION corpus base URL — one address naming both halves "
+            "of the pinned source (the index remote and the content store). "
+            "Pinned here rather than read from the environment, so repointing "
+            "the environment's corpus variables cannot move it. Either this or "
+            "the two --source-* halves, never both."
+        ),
+    ] = None,
+    dest_base_url: Annotated[
+        str | None,
+        typer.Option(
+            help="The STAGING corpus base URL — one address naming both halves of "
+            "the destination; neither half may be a pinned source store. Either "
+            "this or the two --dest-* halves, never both."
+        ),
+    ] = None,
     source_remote: Annotated[
-        str,
+        str | None,
         typer.Option(
-            help="The PRODUCTION corpus remote the slice is read from, and the "
-            "destination rail's comparison basis. Pinned here rather than read "
-            "from the environment, so repointing the environment's corpus "
-            "variables cannot move it."
+            help="The pinned source's corpus remote named on its own, for a "
+            "source whose halves are not one base URL's segments."
         ),
-    ],
+    ] = None,
     source_casestore: Annotated[
-        str,
+        str | None,
         typer.Option(
-            help="The PRODUCTION content store the slice's payloads are read "
-            "from — the other half of the pinned source the rail compares "
-            "destinations against."
+            help="The pinned source's content store named on its own — the "
+            "slice's payload source, and the other half of the rail's "
+            "comparison basis."
         ),
-    ],
+    ] = None,
     dest_remote: Annotated[
-        str,
+        str | None,
         typer.Option(
-            help="Destination corpus remote as an s3 bucket URL with an optional "
-            "prefix; must NOT be the pinned source remote."
+            help="Destination corpus remote named on its own, as an s3 bucket URL "
+            "with an optional prefix; must NOT be the pinned source remote."
         ),
-    ],
+    ] = None,
     dest_casestore: Annotated[
-        str,
+        str | None,
         typer.Option(
-            help="Destination content store as an s3 bucket URL with an optional "
-            "prefix; must NOT be the pinned source store."
+            help="Destination content store named on its own, as an s3 bucket URL "
+            "with an optional prefix; must NOT be the pinned source store."
         ),
-    ],
+    ] = None,
     dockets: Annotated[
         list[str] | None,
         typer.Option(
@@ -3736,9 +3757,10 @@ def corpus_seed_slice(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
     documents manifest lands after the leaves it names.
 
     Reads the source stores read-only, and the source is **pinned by
-    `--source-remote` / `--source-casestore`** — never resolved from the
-    environment, so a shell or Actions environment repointed at the staging
-    pair cannot move what the seeder reads or what its rail compares against.
+    `--source-base-url`** (or by its two halves named individually) — never
+    resolved from the environment, so a shell or Actions environment repointed
+    at the staging pair cannot move what the seeder reads or what its rail
+    compares against. Each side is one address or two, never a mix.
     The ranged backend resolves the checkout's committed pointer against the
     pinned remote (no pull — a bounded slice is a handful of point lookups);
     under the `local` backend the source blob is whatever pulled file is on
@@ -3767,10 +3789,19 @@ def corpus_seed_slice(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
     staged = stage_db if stage_db is not None else settings.corpus_root / "staging-slice.db"
     try:
         # Both store pairs fail closed at construction on an empty slot, so an
-        # unset workflow variable — which resolves to an empty string — is
-        # refused here, before anything else runs.
-        source = corpus_seed.Source(remote_url=source_remote, casestore_url=source_casestore)
-        destination = corpus_seed.Destination(remote_url=dest_remote, casestore_url=dest_casestore)
+        # unset workflow variable — which resolves to an empty string, whether
+        # it carried a base URL or one half — is refused here, before anything
+        # else runs.
+        source = corpus_seed.resolve_source(
+            base_url=source_base_url,
+            remote_url=source_remote,
+            casestore_url=source_casestore,
+        )
+        destination = corpus_seed.resolve_destination(
+            base_url=dest_base_url,
+            remote_url=dest_remote,
+            casestore_url=dest_casestore,
+        )
         case_ids = corpus_seed.parse_case_ids(dockets or [], path=dockets_file)
         # Every rail runs before a client is built or a store is opened, so a
         # dispatch aimed at its own source — or at the checkout's own corpus

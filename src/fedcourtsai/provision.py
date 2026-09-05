@@ -91,7 +91,7 @@ class CasestoreSource:
 
 
 def casestore_source_from_settings() -> CasestoreSource:
-    """Build a :class:`CasestoreSource` from ``FEDCOURTS_CASESTORE_URL``.
+    """Build a :class:`CasestoreSource` from the environment's store address.
 
     Raises :class:`ProvisionError` when the store is not configured — the casestore
     backend cannot serve reads without it.
@@ -99,7 +99,9 @@ def casestore_source_from_settings() -> CasestoreSource:
     transport = casestore.transport_from_settings()
     if transport is None:
         raise ProvisionError(
-            "the casestore backend needs FEDCOURTS_CASESTORE_URL (s3://<bucket>[/<prefix>])"
+            "the casestore backend needs the content store addressed: set "
+            "CORPUS_BASE_URL (one address per environment, both halves derived) "
+            "or FEDCOURTS_CASESTORE_URL (s3://<bucket>[/<prefix>])"
         )
     return CasestoreSource(transport)
 

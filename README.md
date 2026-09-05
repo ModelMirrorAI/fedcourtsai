@@ -270,9 +270,10 @@ State lives in two stores, split by **kind of data**:
   bodies — keyed to mirror the ledger's `data/cases/<court>/<docket>/` shape.
   Only changed cases upload, so storage scales with case churn, not run count,
   and forward predict/evaluate cells provision their case record from the
-  store. (The `FEDCOURTS_CORPUS_SPLIT` flag selects these split read/write
-  paths; it is on in the `prod` environment and defaults off, so
-  a dev environment without the store works against a self-contained blob.)
+  store. (Configuring the store is what selects these split read/write paths —
+  under the split the payloads live only there, so the store's address is the
+  mode, which an environment may also state outright as its own setting. A dev
+  environment with no store configured works against a self-contained blob.)
 - **Derived judgments → the git ledger.** Outcomes, predictions, and
   evaluations under `data/`, organized **case-centrically** so everything
   concluded about a single predictable event lives in one subtree:

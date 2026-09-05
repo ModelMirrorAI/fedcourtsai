@@ -174,8 +174,10 @@ runbook, [docs/security.md](docs/security.md).
   visibly against the disposable staging pair before promotion instead of
   succeeding first in production. No
   committed file carries credentials or the bucket URL — each job (and
-  operator) supplies the URL out of band as the `CORPUS_REMOTE_URL`
-  environment variable, and boto3 reads its credentials from the environment.
+  operator) supplies the corpus address out of band — a base URL, one per
+  environment, from which both stores' addresses derive (`fedcourtsai.paths`),
+  or a store named on its own — and boto3 reads its credentials from the
+  environment.
   Per-workflow role assignments and policies:
   [docs/security.md](docs/security.md).
 - **No agent process holds a cloud credential.** An agent runs over

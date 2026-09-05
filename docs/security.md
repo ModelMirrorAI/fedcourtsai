@@ -738,9 +738,11 @@ same-user parent-process residual above already dominates what reachable
 sudo adds, and the other engines have always run unsandboxed in these jobs.
 
 **The corpus-split mode constrains the read-only role's policy.**
-**`FEDCOURTS_CORPUS_SPLIT=1`** (`Settings.corpus_split`) is set on the `prod`
-environment: the entire forward predict/evaluate fleet provisions from the
-casestore path (it overrides the env-configured `ranged` backend; an explicit
+The mode is on wherever the per-case content store is addressed, or where an
+environment states the mode outright (`Settings.corpus_split`) — as the `prod`
+environment does: the entire forward
+predict/evaluate fleet provisions from the casestore path (it overrides the
+env-configured `ranged` backend; an explicit
 per-command `--corpus-backend` is the only thing that still wins), and the
 casestore read path *does* list (`s3:ListBucket`) — a latest-snapshot-style
 read lists a case's `snapshots/` to find the newest (`provision-snapshot`, the

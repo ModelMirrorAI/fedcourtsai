@@ -14,8 +14,9 @@ of them while every gate stays green:
   staging step finds nothing to stage, a hide that never runs grades with every
   predictor name in view, and a late restore meets a consumer of the trees it
   has not put back;
-* the **corpus-split env pair** — `FEDCOURTS_CORPUS_SPLIT` is inert without
-  `FEDCOURTS_CASESTORE_URL`, and both must carry the same repo-variable
+* the **corpus-split env pair** — an explicit `FEDCOURTS_CORPUS_SPLIT` decides
+  the mode outright, so one wired without `FEDCOURTS_CASESTORE_URL` leaves the
+  reads with nowhere to go; both must carry the same repo-variable
   expressions everywhere or one surface reads the blob while another reads the
   content store;
 * the **forward leakage guard** — `run-predict`'s provisioning step is the one
