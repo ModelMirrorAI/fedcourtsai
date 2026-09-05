@@ -26,7 +26,7 @@ from fedcourtsai.cert_backtest import (
     truncate_snapshot,
 )
 from fedcourtsai.cli import app
-from fedcourtsai.pipeline import cell_context, cert_signals, ingest
+from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest
 from fedcourtsai.pipeline.asof import replay_cutoff
 from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner
 from fedcourtsai.registry import enabled_predictors
@@ -1000,6 +1000,32 @@ def test_a_truncated_docket_still_discloses_its_own_band() -> None:
     # Wholesale deletion — the previous behaviour — disclosed nothing at all.
     blind, _ = truncate_snapshot(_TRAJECTORY, None)
     assert cell_context.build("scotus/305", date(2025, 2, 24), blind, "replay").band is None
+
+
+def test_a_replay_cell_records_which_rule_bounded_it() -> None:
+    """`cutoff` non-null implies `cut_kind` non-null, on every provisioner.
+
+    The evaluate prompt's leakage clock keys on `cut_kind` — under `date` the
+    cutoff is the clock, under `arrival-position` the boundary is tighter — so a
+    cell carrying a cutoff with no kind gives the grader neither branch. The
+    replay backtest population is the leakage-sensitive one, which is exactly
+    where a null would have gone unnoticed.
+    """
+    kept, _ = truncate_snapshot(_TRAJECTORY, date(2025, 2, 25))
+    context = cell_context.build(
+        "scotus/305",
+        date(2025, 2, 24),
+        kept,
+        "replay",
+        provenance="truncated",
+        cutoff=date(2025, 2, 25),
+        boundary=arrival_cut.CutBoundary(kind="date"),
+    )
+    assert context.cutoff is not None
+    assert context.cut_kind == "date"
+    # The cert baseline's trigger is a conference, not a docket entry, so there
+    # is no intra-day tail to exclude and no anchor to record.
+    assert context.cut_anchor_index is None
 
 
 def test_truncating_a_decided_payload_reproduces_the_real_pre_decision_snapshot() -> None:

@@ -603,7 +603,9 @@ candidate:
    the prediction's `context.cutoff` — is legitimate forward signal, not
    leakage. A forward cell's `cutoff`, non-null wherever its event's declared
    moment fixed one, is not a retrieval clock: a placed cell's snapshot stops
-   at that moment, so the cutoff bounds only the provisioned **baseline**,
+   at its own boundary — the cutoff, or the opening entry inside it where
+   `cut_kind` says `arrival-position` — so the cutoff bounds only the
+   provisioned **baseline**,
    and what it means for retrieval is keyed on `mode` — an open case's cell
    retrieves without restriction, and material later than its own baseline is
    the ordinary forward shape, not a breach. A predictor's own honest
@@ -620,6 +622,22 @@ candidate:
    nothing about the replay. Where the prediction carries no `context`, the cutoff
    is unavailable and the honest grade falls back to the event's resolution date;
    say so in `evaluation.md` rather than substituting a date that is later.
+
+   **Read the boundary, not the date alone.** `context.cut_kind` says which rule
+   bounded the prediction's baseline. Under `date` the cutoff *is* the clock, as
+   above. Under `arrival-position` the baseline stopped **earlier**: at the docket
+   entry that opened the event (`context.cut_anchor_index`), so the opening day's
+   own later entries — a same-day referral, response request, amicus or
+   disposition — were outside the cell's information set even though the cutoff
+   date admits them. A prediction citing one of those is reading material it was
+   not given, and grading it clean because its date precedes the cutoff would
+   apply the looser rule the boundary fields exist to replace. Grade it from the
+   two stamped fields and nothing else: on such a cell, material dated on the day
+   before `cutoff` is inside the set only if it is the opening entry itself.
+   **Your own `record/` is not the check** — it is provisioned from the decided
+   docket with no cut at all, and the prediction's own snapshot is not staged for
+   you, so a docket entry's presence there says nothing about whether the
+   prediction was given it.
 
    `retrieved_outcome_material` is a **boolean** — write `true` or `false`
    (`null` only where the record supports no answer at all), never a word:

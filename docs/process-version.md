@@ -122,19 +122,44 @@ later window change belongs in the freeze record
 ([freeze-record.md](freeze-record.md)) beside the masking changes, never in a
 commit message alone.
 
-The **provisioning cutoff** is the list's predictor-side member: where a forward
-cell's event declares a moment, provisioning places the cell at that moment
+The **provisioning cutoff** is the list's predictor-side member: where a cell's
+event declares a moment, provisioning places the cell at that moment
 rather than at the corpus's latest snapshot, which moves what the predictor is
 conditioned on without touching a prompt byte and so without moving a digest.
 It does carry a data-visible boundary — `context.cutoff`, non-null exactly on a
 placed cell — so the placed/unplaced transition is separable in the record
 rather than pooled silently, which is the property the scoring baseline lacks.
-The visibility stops there: a change of cutoff *value* on an already-placed
-cell leaves `context.cutoff` non-null on both sides, so nothing in the artifact
-separates the two conditionings, and the freeze-record entry registering such a
-move must itself carry what makes the affected set reconstructable — the moved
-rows or a pointer that re-derives them. It belongs in the freeze record on the
-same terms as the rest.
+The visibility stops there for a change of cutoff *value*: on an already-placed
+cell that leaves `context.cutoff` non-null on both sides, so nothing in the
+artifact separates the two conditionings, and the freeze-record entry
+registering such a move must itself carry what makes the affected set
+reconstructable — the moved rows or a pointer that re-derives them. It belongs
+in the freeze record on the same terms as the rest.
+
+A change to the *rule* that bounds the entries inside the cutoff is separable
+**where it mints a new value of the field that names the rule** — and only there.
+`context.cut_kind` names the rule
+— `date`, everything filed strictly before the cutoff, or `arrival-position`,
+that rule and a stop at the docket entry which opened the event — and
+`cut_anchor_index` locates the boundary the second one takes. So the interim
+arrival moment's two conditionings are distinguishable in the record rather than
+pooled behind one date, which is what makes such a move registrable by freeze
+record alone; a move that left the artifact byte-identical would not be. The
+same field is what the replay leakage clock reads, so a boundary tighter than
+the cutoff cannot be graded under the looser rule.
+
+Two limits on that, both of which a later entry must check rather than assume. A
+redefinition of what an *existing* value means — moving where `arrival-position`
+stops, rather than adding a kind — leaves the artifact byte-identical on both
+sides, which is exactly the shape the cutoff-value paragraph above refuses; it
+is registrable only on those terms, carrying what makes the affected set
+reconstructable. And the *earlier* arm of the first such change carries no
+positive marker: cells provisioned before the field existed have no `cut_kind`
+at all, so the split is `absent` → the new value, and reading the null arm means
+knowing that a non-null `cutoff` with no `cut_kind` on an interim arrival event
+is the older conditioning. Registering the move is still
+required: separability says a reader *can* split the two populations, not that
+any published figure has.
 
 **What the pipeline provisions** is the fourth member, and the second with no
 data-visible boundary. A change to which filed documents `select_documents`

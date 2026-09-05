@@ -26,6 +26,7 @@ from typing import Any, Literal
 
 from .. import corpus
 from ..schemas import PredictionContext
+from . import arrival_cut
 from .asof import project_row
 from .salience import SALIENCE_VERSION, salience_band, scorer
 
@@ -38,6 +39,7 @@ def build(
     *,
     provenance: Literal["as-stored", "dated", "truncated", "blind"] = "as-stored",
     cutoff: date | None = None,
+    boundary: arrival_cut.CutBoundary | None = None,
     decided_before: str | None = None,
 ) -> PredictionContext:
     """The conditioning state ``payload`` discloses, as at ``snapshot_date``.
@@ -144,6 +146,8 @@ def build(
         snapshot_date=snapshot_date,
         snapshot_provenance=provenance,
         cutoff=cutoff,
+        cut_kind=boundary.kind if boundary else None,
+        cut_anchor_index=boundary.anchor_index if boundary else None,
         decided_before=decided_before,
         signals_observable=observable,
         distribution_count=count,

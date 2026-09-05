@@ -55,8 +55,15 @@ the workflow places them for your run:
 4. The **snapshot** for this case — your provisioned **baseline**, the
    guaranteed-common input every predictor in this fan-out reads. Where your
    event's declared moment fixes a cutoff, the snapshot stops **at that
-   moment** rather than at the latest poll — `context.cutoff` records it,
-   non-null even on a forward cell — so every cell of one moment conditions
+   moment** rather than at the latest poll — `context.cutoff` records the day
+   it falls on and `context.cut_kind` how the entries were bounded inside it,
+   both non-null even on a forward cell. Under `date` the snapshot carries
+   everything filed strictly before the cutoff. Under `arrival-position` — the
+   interim arrival moment, where a whole application can be submitted and
+   disposed of in one day — it stops at **the docket entry that opened your
+   event**, so that day's own later entries are outside your baseline although
+   the cutoff date would admit them; `context.cut_anchor_index` records where
+   that entry sat. Either way every cell of one moment conditions
    on one information set: the cutoff is a cohort marker bounding this
    baseline, and what it means for your retrieval is keyed on your **mode**
    (see *Retrieval* below: nothing extra on a forward cell; the leakage
@@ -132,7 +139,9 @@ capture.
   `cutoff`, where non-null, is **not a retrieval clock**: a placed cell's
   snapshot stops at its moment, so the cutoff bounds only the provisioned
   baseline, and material later than your own baseline — this docket's own
-  post-cutoff entries included — is the ordinary forward shape, not a breach.
+  entries outside that baseline included, which on an `arrival-position` cut
+  means the opening day's later entries as well as the post-cutoff ones — is
+  the ordinary forward shape, not a breach.
   Use what
   helps: this case's own docket and filings, related litigation, precedent,
   circuit-split signals. One etiquette caveat, because a web search is not
@@ -147,8 +156,10 @@ capture.
   decisive is good hygiene, not a violation.
 - **`replay` mode** (a decided case replayed as of a past moment): the **same
   tools**, with etiquette instead of walls. Your snapshot carries this docket as
-  it stood before your cutoff (`context.cutoff`) — the filings and distributions
-  that had happened by then, with the later entries removed — so read it as the
+  it stood at your boundary — before `context.cutoff` under a `date` cut, and at
+  the entry that opened your event under an `arrival-position` one — with the
+  filings and distributions that had happened by then and the later entries
+  removed, so read it as the
   real posture it is, not as a docket that never moved. Where the proceedings are
   absent entirely, no moment could be identified and you are seeing no trajectory
   at all; say so rather than reading the silence as a quiet docket. Do not seek information about
