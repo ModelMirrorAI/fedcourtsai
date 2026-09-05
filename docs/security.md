@@ -272,7 +272,7 @@ retrieval over localhost, the cells having no REST fallback, so no agent step
 carries the token and no client config file does either; unset degrades the
 agents to anonymous rate limits; and by the collect jobs' secret scan, which
 needs the live value to search the run's output for it), the AWS role ARNs
-and region, and the corpus remote URL (referenced by role, never committed). Every job that needs any of
+and region, and the corpus estate's base URL (referenced by role, never committed). Every job that needs any of
 them declares an environment, and every job outside `integration-test` declares
 `prod` — with two deliberate exceptions, by environment. The `approval` jobs of run-predict
 and run-evaluate declare
@@ -738,9 +738,9 @@ same-user parent-process residual above already dominates what reachable
 sudo adds, and the other engines have always run unsandboxed in these jobs.
 
 **The corpus-split mode constrains the read-only role's policy.**
-The mode is on wherever the per-case content store is addressed, or where an
-environment states the mode outright (`Settings.corpus_split`) — as the `prod`
-environment does: the entire forward
+The mode is on wherever the per-case content store is addressed
+(`Settings.corpus_split`) — as it is in every environment, since each names
+one base URL and the store is a fixed segment beneath it: the entire forward
 predict/evaluate fleet provisions from the casestore path (it overrides the
 env-configured `ranged` backend; an explicit
 per-command `--corpus-backend` is the only thing that still wins), and the
@@ -866,10 +866,10 @@ refuses). Do those four and the lane works — you can seed the staging corpus,
 and step 6's first half is its acceptance.
 
 **Step 5 and step 6's second half repoint the scenarios** at the seeded pair —
-and only the scenarios. Step 5 hands the `staging` environment all four
-scenario corpus variables at once, the pointer among them (see *How a consumer
+and only the scenarios. Step 5 hands the `staging` environment both scenario
+corpus variables at once, the pointer among them (see *How a consumer
 resolves the staging index* below for why the pointer cannot be committed).
-The refresh lane's source is pinned to its own production-source variables,
+The refresh lane's source is pinned to its own production-source variable,
 which this step never touches, so re-seeding stays available before and after
 the repoint. Read step 5's two ordering notes before doing either.
 
@@ -944,37 +944,40 @@ the repoint. Read step 5's two ordering notes before doing either.
    writer trust is untouched. Keep
    the production half explicitly read-only: this role must be unable to write
    the production corpus by policy, not merely by the command's refusal.
-4. **Set the variables on the `staging` environment** — the destinations
-   `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`, the pinned
-   sources `PROD_CORPUS_REMOTE_URL` and `PROD_CASESTORE_URL` (the production
-   pair, by value — the refresh lane reads its slice from these and its rail
-   compares destinations against them, so they are dedicated names step 5
+4. **Set the variables on the `staging` environment** — the destination
+   `STAGING_CORPUS_BASE_URL`, the pinned source `PROD_CORPUS_BASE_URL` (the
+   production estate, by value — the refresh lane reads its slice from it and
+   its rail compares destinations against it, so it is a dedicated name step 5
    never touches), and the role
-   `AWS_ROLE_TO_ASSUME_STAGING_RW` (`AWS_REGION` and the scenario variables
-   `CORPUS_REMOTE_URL` / `CASESTORE_URL` are already there at their production
-   values for the integration runs; the seeder deliberately reads neither).
-   Values stay out of git, as the production ones do. The source pins live on
+   `AWS_ROLE_TO_ASSUME_STAGING_RW` (`AWS_REGION` and the scenario variable
+   `CORPUS_BASE_URL` are already there at its production value for the
+   integration runs; the seeder deliberately reads neither). One address per
+   side: both store halves are fixed segments beneath it
+   (`fedcourtsai.paths`), so a side cannot pair one estate's index with
+   another's content store.
+   Values stay out of git, as the production ones do. The source pin lives on
    the environment rather than the repository because environment values are
-   the one slot nothing can shadow — and they join any store-rotation
-   checklist: a rotation that moves the production pair must move these two
+   the one slot nothing can shadow — and it joins any store-rotation
+   checklist: a rotation that moves the production estate must move this pin
    with it, or the lane seeds from whatever the old bucket still resolves to
    — the census's source-blob line (step 6) is where that staleness shows.
-   Type them carefully: the pin is also what the rail refuses to write to,
+   Type it carefully: the pin is also what the rail refuses to write to,
    so a mis-set pin re-bases the local check with it — IAM, read-only on
    production, is what keeps a typo harmless rather than the rail.
 5. **Point the `staging` environment at the staging corpus.** Set its
-   `CORPUS_REMOTE_URL` and `CASESTORE_URL` to the staging pair,
-   `FEDCOURTS_CORPUS_SPLIT=1`, and `FEDCOURTS_CORPUS_POINTER` to the pointer
-   JSON the seed's apply run published — the block its step summary prints
-   (step 6), copied verbatim. The first three name the pair's two stores and
-   its read mode; the fourth is what makes the *index* half resolvable. A
+   `CORPUS_BASE_URL` to the staging estate and `FEDCOURTS_CORPUS_POINTER` to
+   the pointer JSON the seed's apply run published — the block its step
+   summary prints (step 6), copied verbatim. The first names both stores at
+   once, and the corpus-split mode follows from the content store it derives
+   rather than from a separate switch; the second is what makes the *index*
+   half resolvable. A
    consumer otherwise resolves the committed `corpus/corpus.db.ref`, whose
    digest names the production blob, and content addressing means a lean
-   slice can never publish under that digest. With all four set, the
+   slice can never publish under that digest. With both set, the
    integration scenarios dispatched from `staging` run split-on against the
    staging corpus rather than production's.
 
-   **Set all four on the `staging` environment only** — never repository- or
+   **Set both on the `staging` environment only** — never repository- or
    organization-wide. `vars` resolves environment first and falls back to the
    repository and organization, and the scenario job's environment is
    branch-resolved, so a repository-level pointer reaches `prod`-bound
@@ -983,6 +986,13 @@ the repoint. Read step 5's two ordering notes before doing either.
    *stale production* digest resolves cleanly, because the remote is add-only
    and still holds it — every production scenario would then certify the
    seams against an old corpus and pass.
+
+   **Only these names are read.** Every corpus-reading job addresses its
+   estate with the base URL alone, and the mode is a consequence of the
+   content store that address derives — no workflow forwards a per-half store
+   address or a split-mode variable, so a variable of either kind sitting on
+   an environment is inert: `Settings` never sees it. Removing one is
+   housekeeping, not a functional step.
 
    **The refresh lane never receives the pointer, and the command enforces
    it.** Its source is production's index, which is exactly what the
@@ -996,7 +1006,7 @@ the repoint. Read step 5's two ordering notes before doing either.
 
    **Order this after the override is live on the ref the scenarios run
    from.** An environment carrying the pointer variable while the running
-   code ignores it has repointed the store URLs without repointing the
+   code ignores it has repointed the store address without repointing the
    pointer — exactly the failing state the variable exists to prevent. A
    dispatch runs the dispatched ref's own code, and only `staging`-ref
    dispatches bind this environment, so the condition is that `staging`
@@ -1109,9 +1119,9 @@ would resolve a key that bucket does not hold. The pointer is therefore
 supplied **out of band**, the way the remote URL already is: an environment
 variable carrying the published pointer JSON verbatim, which read paths prefer
 over the committed file. `integration-test.yml` forwards it job-wide beside the
-content-store URL and the split flag — and explicitly into the corpus sidecar,
+estate's base URL — and explicitly into the corpus sidecar,
 whose separate process resolves its own connection — so the environment a
-dispatch resolves supplies the whole pair;
+dispatch resolves supplies both halves of the read configuration;
 `scripts/corpus-env` does the same for a developer shell
 ([data-pipeline.md](data-pipeline.md)'s *Developer access*). The seeder renders
 the pointer it published into the apply run's summary, which is the value both

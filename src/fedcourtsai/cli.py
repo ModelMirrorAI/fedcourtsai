@@ -10153,8 +10153,8 @@ def _predict_backlog_cases() -> list[CaseRequest]:
 
     What the derivation found and what it held go to stderr —  stdout carries
     only the matrix or plan JSON — including **which store answered the
-    provisioning probe**, so a mis-set split flag shows up in the plan output
-    rather than as an unexplained short fan-out. See
+    provisioning probe**, so a mis-set corpus address shows up in the plan
+    output rather than as an unexplained short fan-out. See
     :func:`_report_predict_backlog`.
     """
     settings = get_settings()
@@ -10198,7 +10198,7 @@ def _report_predict_backlog(backlog: PredictBacklog, *, cap: int) -> None:
     """Summarize one predict-backlog derivation on stderr (stdout stays JSON).
 
     Three facts, and each earns its line. **What was owed** is the headline.
-    **Where document presence was read from** makes a mis-set corpus-split flag
+    **Where document presence was read from** makes a mis-set corpus address
     visible in the plan output rather than as a mysteriously short fan-out — the
     blob and the content store are different systems of record for the same
     predicate, and nothing else in the output says which one answered. **What

@@ -14,11 +14,12 @@ of them while every gate stays green:
   staging step finds nothing to stage, a hide that never runs grades with every
   predictor name in view, and a late restore meets a consumer of the trees it
   has not put back;
-* the **corpus-split env pair** — an explicit `FEDCOURTS_CORPUS_SPLIT` decides
-  the mode outright, so one wired without `FEDCOURTS_CASESTORE_URL` leaves the
-  reads with nowhere to go; both must carry the same repo-variable
-  expressions everywhere or one surface reads the blob while another reads the
-  content store;
+* the **corpus base URL** — a corpus-reading surface addresses its estate with
+  one variable, in one spelling, and names no per-half address and no split
+  flag: the store's address *is* the split mode, so a job that named the mode
+  beside it could turn the split off with the store addressed and answer every
+  payload read empty, and a job pairing halves by hand could read one
+  environment's index against another's store;
 * the **forward leakage guard** — `run-predict`'s provisioning step is the one
   place `--refuse-terminal` defends the forward information set, and it sits
   behind `continue-on-error`, so losing the flag fails nothing at runtime;
@@ -93,12 +94,24 @@ QP_FENCED_WORKFLOWS = (
     "integration-test.yml",
 )
 
-# The one sanctioned spelling of the corpus-split read-side pair. The `|| '0'`
-# fallback keeps the split off wherever the variable is unset.
-SPLIT_ENV_EXPRESSIONS = {
-    "FEDCOURTS_CASESTORE_URL": "${{ vars.CASESTORE_URL }}",
-    "FEDCOURTS_CORPUS_SPLIT": "${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}",
-}
+# The one sanctioned spelling of a corpus-reading surface's address: one base
+# URL per environment, from which `fedcourtsai.paths` fixes both store halves.
+# No `||` fallback — an environment without the variable must fail loudly on an
+# unconfigured remote, not resolve half an estate.
+BASE_URL_ENV_KEY = "FEDCOURTS_CORPUS_BASE_URL"
+BASE_URL_ENV_EXPRESSION = "${{ vars.CORPUS_BASE_URL }}"
+
+# The spellings that must appear nowhere on the workflow surface. Each names a
+# store half or the mode directly, and the mode is now a consequence of the
+# store's address: a workflow re-introducing one either pairs two environments'
+# halves or states a mode the address contradicts — and a falsy mode beside an
+# addressed store turns the split off, leaving every payload read empty while
+# the run stays green.
+RETIRED_ADDRESS_SPELLINGS = (
+    "CORPUS_REMOTE_URL",
+    "CASESTORE_URL",
+    "FEDCOURTS_CORPUS_SPLIT",
+)
 
 
 def _load(name: str) -> dict[Any, Any]:
@@ -191,15 +204,14 @@ def _env_mappings(name: str) -> list[tuple[str, dict[str, Any]]]:
     return found
 
 
-# Every workflow whose reads the corpus-split mode forks: the cell workflows,
-# the writer lanes, the integration scenarios, and the analysis surface. A
-# workflow leaving this set — or a new corpus-reading workflow not joining it —
-# is a deliberate act.
-# staging-corpus-refresh.yml is deliberately absent: its source is pinned on
-# the command line from dedicated production-source variables, so it reads NO
-# ambient corpus variable at all — neither half of the pair — and the pinning
-# test below holds it to that.
-SPLIT_PAIR_WORKFLOWS = {
+# Every workflow that addresses the corpus estate: the cell workflows, the
+# writer lanes, the integration scenarios, and the analysis surface. A workflow
+# leaving this set — or a new corpus-reading workflow not joining it — is a
+# deliberate act.
+# staging-corpus-refresh.yml is deliberately absent: its source and destination
+# are pinned on the command line from dedicated variables, so it reads NO
+# ambient corpus variable at all, and the pinning test below holds it to that.
+BASE_URL_WORKFLOWS = {
     "integration-test.yml",
     "run-analytics.yml",
     "run-backtest.yml",
@@ -211,46 +223,60 @@ SPLIT_PAIR_WORKFLOWS = {
 }
 
 
-def test_the_corpus_split_pair_travels_together_with_one_spelling() -> None:
-    """Any env block naming one of the split pair names both, verbatim — and
-    the workflows carrying the pair are exactly the corpus-reading set.
+def test_the_corpus_base_url_is_spelled_once_across_the_reading_workflows() -> None:
+    """Every env block addressing the corpus names one base URL, verbatim —
+    and the workflows carrying it are exactly the corpus-reading set.
 
-    A block that sets the flag without the URL turns the split on with no
-    content store to read; one that sets the URL without the flag silently
-    stays on the blob. A respelled expression (a dropped `|| '0'`, a
-    different variable) forks the read path between two surfaces that must
-    agree — the cell workflows and the integration scenarios certify each
-    other only while their env is byte-identical. And a workflow that drops
-    the pair entirely defaults the split off for its own reads, so coverage
-    is pinned per workflow, not as a count.
+    A respelled expression (a `||` fallback, a different variable) forks the
+    read path between two surfaces that must agree: the cell workflows and the
+    integration scenarios certify each other only while their env is
+    byte-identical. And a workflow that drops the address entirely reads no
+    corpus at all rather than failing, so coverage is pinned per workflow, not
+    as a count.
     """
     covered: set[str] = set()
     for name in sorted(p.name for p in WORKFLOWS.glob("*.y*ml")):
         for context, env in _env_mappings(name):
-            present = {k: env[k] for k in SPLIT_ENV_EXPRESSIONS if k in env}
-            if not present:
+            if BASE_URL_ENV_KEY not in env:
                 continue
             covered.add(name)
-            assert present.keys() == SPLIT_ENV_EXPRESSIONS.keys(), (
-                f"{context}: sets {sorted(present)} but the corpus-split pair "
-                f"must travel together: {sorted(SPLIT_ENV_EXPRESSIONS)}"
+            assert env[BASE_URL_ENV_KEY] == BASE_URL_ENV_EXPRESSION, (
+                f"{context}: {BASE_URL_ENV_KEY} must be exactly "
+                f"{BASE_URL_ENV_EXPRESSION!r}, got {env[BASE_URL_ENV_KEY]!r}"
             )
-            for key, expression in SPLIT_ENV_EXPRESSIONS.items():
-                assert env[key] == expression, (
-                    f"{context}: {key} must be exactly {expression!r}, got {env[key]!r}"
-                )
-    assert covered == SPLIT_PAIR_WORKFLOWS, (
-        f"corpus-split pair coverage drifted: {sorted(covered ^ SPLIT_PAIR_WORKFLOWS)}"
+    assert covered == BASE_URL_WORKFLOWS, (
+        f"corpus base-URL coverage drifted: {sorted(covered ^ BASE_URL_WORKFLOWS)}"
     )
 
 
-# The four variables the staging runbook's scenario repoint sets on the
-# staging environment — the refresh lane must reference NONE of them, or the
-# repoint moves the seeder's source with it.
+def test_no_workflow_surface_names_a_store_half_or_the_split_mode() -> None:
+    """The whole `.github` surface addresses the corpus by base URL alone.
+
+    The store's address is the split mode (`Settings.corpus_split`), so the
+    retired spellings are not merely redundant: a falsy mode forwarded beside
+    an addressed store turns the split off and every payload read answers
+    empty from a payload-free index — a run that stays green and produces
+    nothing. A half named on its own outranks the derived one, so it can pair
+    one environment's index with another's store just as quietly. Textual on
+    purpose: an `env:` value, a composite input, a `with:` line and a comment
+    all count, because each is how the spelling would come back.
+    """
+    surfaces = sorted(WORKFLOWS.glob("*.y*ml")) + sorted(ACTIONS.glob("*/action.y*ml"))
+    for path in surfaces:
+        text = path.read_text(encoding="utf-8")
+        for spelling in RETIRED_ADDRESS_SPELLINGS:
+            assert spelling not in text, (
+                f"{path.name} names {spelling}: a corpus-reading surface addresses "
+                f"its estate with {BASE_URL_ENV_EXPRESSION} alone, from which both "
+                "store halves — and so the split mode — derive"
+            )
+
+
+# The variables the staging runbook's scenario repoint sets on the staging
+# environment — the refresh lane must reference NEITHER, or the repoint moves
+# the seeder's source with it.
 _SCENARIO_REPOINT_VARS = (
-    "vars.CORPUS_REMOTE_URL",
-    "vars.CASESTORE_URL",
-    "vars.FEDCOURTS_CORPUS_SPLIT",
+    "vars.CORPUS_BASE_URL",
     "vars.FEDCOURTS_CORPUS_POINTER",
 )
 
@@ -259,14 +285,14 @@ def test_the_refresh_lane_pins_its_source_out_of_the_scenario_variables() -> Non
     """The refresh lane's source and the scenarios' corpus wiring are disjoint.
 
     The seeder reads from — and its refusal rail compares against — a source
-    pinned on the command line from dedicated production-source variables.
+    pinned on the command line from a dedicated production-source variable.
     The staging runbook repoints the scenario variables at the staging pair,
-    so a reference to any of them here would have that repoint silently move
-    the seeder's source, and the rail with it: the seeder would read the
+    so a reference to either of them here would have that repoint silently
+    move the seeder's source, and the rail with it: the seeder would read the
     staging pair as its own source and refuse every legitimate re-seed. The
     guard is textual on purpose — no expression anywhere in the file, not
-    just no env mapping — and the source/destination variables are held
-    pairwise distinct so the two halves can never be flipped together.
+    just no env mapping — and the source and destination come from distinct
+    variables so the two sides can never be flipped together.
     """
     text = (WORKFLOWS / "staging-corpus-refresh.yml").read_text(encoding="utf-8")
     for expression in _SCENARIO_REPOINT_VARS:
@@ -277,10 +303,8 @@ def test_the_refresh_lane_pins_its_source_out_of_the_scenario_variables() -> Non
             "variables"
         )
     pinned = {
-        "SOURCE_REMOTE": "${{ vars.PROD_CORPUS_REMOTE_URL }}",
-        "SOURCE_CASESTORE": "${{ vars.PROD_CASESTORE_URL }}",
-        "DEST_REMOTE": "${{ vars.STAGING_CORPUS_REMOTE_URL }}",
-        "DEST_CASESTORE": "${{ vars.STAGING_CASESTORE_URL }}",
+        "SOURCE_BASE": "${{ vars.PROD_CORPUS_BASE_URL }}",
+        "DEST_BASE": "${{ vars.STAGING_CORPUS_BASE_URL }}",
     }
     seed_steps = [
         step
@@ -298,12 +322,12 @@ def test_the_refresh_lane_pins_its_source_out_of_the_scenario_variables() -> Non
         expression.removeprefix("${{ ").removesuffix(" }}") for expression in pinned.values()
     ]
     assert len(set(backing)) == len(backing), (
-        f"the source and destination halves must come from four distinct variables, got {backing}"
+        f"the source and the destination must come from distinct variables, got {backing}"
     )
     run_block = str(seed_steps[0]["run"])
     for flag, variable in (
-        ("--source-remote", '"${SOURCE_REMOTE}"'),
-        ("--source-casestore", '"${SOURCE_CASESTORE}"'),
+        ("--source-base-url", '"${SOURCE_BASE}"'),
+        ("--dest-base-url", '"${DEST_BASE}"'),
     ):
         assert f"{flag} {variable}" in run_block, (
             f"the seed invocation must pass {flag} {variable} — the pin is "
@@ -315,10 +339,8 @@ def test_the_refresh_lane_pins_its_source_out_of_the_scenario_variables() -> Non
     assert set(env) == {
         "DOCKETS",
         "APPLY",
-        "SOURCE_REMOTE",
-        "SOURCE_CASESTORE",
-        "DEST_REMOTE",
-        "DEST_CASESTORE",
+        "SOURCE_BASE",
+        "DEST_BASE",
     }, f"unexpected seed-step env keys: {sorted(env)}"
     job_envs = [
         job["env"]
@@ -330,31 +352,28 @@ def test_the_refresh_lane_pins_its_source_out_of_the_scenario_variables() -> Non
     )
 
 
-# The corpus-sidecar composite hydrates full-query bodies server-side, so its
-# split configuration rides `with:` inputs rather than env — the same pairing
-# rule, one level up.
-SIDECAR_INPUT_EXPRESSIONS = {
-    "casestore-url": "${{ vars.CASESTORE_URL }}",
-    "corpus-split": "${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}",
-}
+# The corpus-sidecar composite resolves its own corpus connection and hydrates
+# full-query bodies server-side, so its address rides a `with:` input rather
+# than env — the same one-spelling rule, one level up.
+SIDECAR_BASE_URL_INPUT = "corpus-base-url"
 
 
-def test_sidecar_call_sites_pass_the_split_inputs_together() -> None:
-    """A corpus-sidecar call site naming one of the composite's split inputs
-    names both, with the canonical expressions — half a wiring hands the
-    sidecar a store URL it never consults, or a split flag with no store."""
+def test_sidecar_call_sites_pass_the_base_url_with_the_same_spelling() -> None:
+    """Every corpus-sidecar call site addresses the estate, in the canonical
+    spelling. A call site that omitted it would launch a sidecar with no
+    corpus at all; one that respelled it would serve a different estate's rows
+    than the job's own in-process reads resolve — and, with no content store
+    reachable, bodiless `full` rows to every cell while the run stays green."""
     for name in sorted(p.name for p in WORKFLOWS.glob("*.y*ml")):
         for job_id, job in _load(name)["jobs"].items():
             for step in job.get("steps", []) or []:
                 if not str(step.get("uses", "")).endswith("actions/corpus-sidecar"):
                     continue
                 with_block = step.get("with") or {}
-                present = {k: with_block[k] for k in SIDECAR_INPUT_EXPRESSIONS if k in with_block}
-                if not present:
-                    continue
-                assert present == SIDECAR_INPUT_EXPRESSIONS, (
-                    f"{name}: job {job_id}: corpus-sidecar split inputs must be "
-                    f"exactly {SIDECAR_INPUT_EXPRESSIONS}, got {present}"
+                assert with_block.get(SIDECAR_BASE_URL_INPUT) == BASE_URL_ENV_EXPRESSION, (
+                    f"{name}: job {job_id}: corpus-sidecar {SIDECAR_BASE_URL_INPUT} must "
+                    f"be exactly {BASE_URL_ENV_EXPRESSION!r}, got "
+                    f"{with_block.get(SIDECAR_BASE_URL_INPUT)!r}"
                 )
 
 

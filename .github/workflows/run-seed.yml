@@ -104,11 +104,12 @@ jobs:
     # under the App token's 1h life so one token covers the whole run.
     timeout-minutes: 55
     environment: prod
-    # Corpus-split flags (see run-pull): dual-write off unless CASESTORE_URL is
-    # set; FEDCOURTS_CORPUS_SPLIT is the go-live switch (unset → '0' → off).
+    # This environment's corpus estate as one base URL (see run-pull): the
+    # index remote and the per-case content store are fixed segments beneath
+    # it, and the store's address is the corpus-split mode. Job-wide, because
+    # every step below reads or writes the corpus.
     env:
-      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+      FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
     # The ambient GITHUB_TOKEN reads only: the checkout uses it, which is what
     # `contents: read` is for. Every WRITE — the corpus push and every gh call —
     # runs on the App token instead, so the ambient one carries no write at all.
@@ -243,8 +244,6 @@ jobs:
         # graceful when no corpus is on disk and returns a *skipped* verdict,
         # which would otherwise be published over the last real one.
         id: corpus-pull
-        env:
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           # The per-(Term, stream) walk cursors and identity reconciliation read
           # prior corpus state, so it must be restored; a first run has no
@@ -311,7 +310,6 @@ jobs:
         timeout-minutes: 15
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REFRESH_DOCKETS: ${{ inputs.refresh_dockets }}
         run: |
           set -euo pipefail
@@ -400,9 +398,6 @@ jobs:
         # rows in the local blob that no pointer commit covers.
         id: term-walk
         env:
-          # The loop's checkpoints push the corpus blob, so the remote URL must be
-          # job-step env here (CORPUS_REMOTE_URL variable).
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           # Authenticate the pushes via the up-front App token (persist-credentials
           # is false on checkout). One token covers the whole ≤40-min run.
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -527,7 +522,6 @@ jobs:
         timeout-minutes: 10
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
           # No committed pointer means no corpus — nothing to dedupe.
@@ -580,7 +574,6 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
           # No committed pointer means no corpus — nothing to reconcile.
@@ -618,7 +611,6 @@ jobs:
         timeout-minutes: 8
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
           # No committed pointer means no corpus — nothing to relabel.
@@ -664,7 +656,6 @@ jobs:
         timeout-minutes: 10
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
           # No committed pointer means no corpus — nothing to parse.
@@ -707,7 +698,6 @@ jobs:
         timeout-minutes: 10
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
           # No committed pointer means no corpus — nothing to mint.
@@ -781,7 +771,6 @@ jobs:
         timeout-minutes: 8
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
           # No committed pointer means no corpus — nothing to repair.
@@ -866,7 +855,6 @@ jobs:
         timeout-minutes: 5
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
           # No committed pointer means no corpus — nothing to converge.
@@ -911,7 +899,6 @@ jobs:
         timeout-minutes: 5
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
           # No committed pointer means no corpus — nothing to scrub.

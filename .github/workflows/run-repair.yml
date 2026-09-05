@@ -338,14 +338,15 @@ jobs:
     # so it moves with it.
     timeout-minutes: 72
     environment: prod
-    # Corpus-split flags (see run-pull): dual-write off unless CASESTORE_URL is
-    # set; FEDCOURTS_CORPUS_SPLIT is the go-live switch (unset → '0' → off).
-    # The passes that read stored snapshots or documents out of the content
-    # store — the questions-presented backfill, the distribution re-derivation,
-    # the response-signal backfill and the OCR recovery — depend on this pair.
+    # This environment's corpus estate as one base URL (see run-pull): the
+    # index remote and the per-case content store are fixed segments beneath
+    # it, and the store's address is the corpus-split mode. Job-wide, because
+    # every pass below reads or writes the corpus — and the passes that read
+    # stored snapshots or documents out of the content store (the
+    # questions-presented backfill, the distribution re-derivation, the
+    # response-signal backfill and the OCR recovery) answer empty without it.
     env:
-      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+      FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
     # The ambient GITHUB_TOKEN reads only: the checkout uses it, which is what
     # `contents: read` is for. Every WRITE — the corpus push and every gh call —
     # runs on the App token instead, so the ambient one carries no write at all.
@@ -418,8 +419,6 @@ jobs:
         # graceful when no corpus is on disk and returns a *skipped* verdict,
         # which would otherwise be published over the last real one.
         id: corpus-pull
-        env:
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           # Every pass reads prior corpus state; a repo with no committed
           # pointer yet has nothing to repair, and each pass's own guard says
@@ -458,7 +457,6 @@ jobs:
         timeout-minutes: 10
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
           # No committed pointer means no corpus — nothing to dedupe.
@@ -509,7 +507,6 @@ jobs:
         timeout-minutes: 10
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
           # No committed pointer means no corpus — nothing to reconcile.
@@ -558,7 +555,6 @@ jobs:
         timeout-minutes: 15
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
         run: |
           set -euo pipefail
@@ -608,7 +604,6 @@ jobs:
         timeout-minutes: 30
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
         run: |
           set -euo pipefail
@@ -683,7 +678,6 @@ jobs:
         timeout-minutes: 30
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_TARGET: ${{ inputs.repair_target }}
         run: |
@@ -753,7 +747,6 @@ jobs:
         timeout-minutes: 8
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
@@ -831,7 +824,6 @@ jobs:
         timeout-minutes: 20
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
@@ -988,7 +980,6 @@ jobs:
         timeout-minutes: 45
         env:
           GH_TOKEN: ${{ steps.app-token-ocr.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
@@ -1167,7 +1158,6 @@ jobs:
         timeout-minutes: 30
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
@@ -1385,7 +1375,6 @@ jobs:
         timeout-minutes: 20
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
@@ -1511,7 +1500,6 @@ jobs:
         timeout-minutes: 8
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
@@ -1644,7 +1632,6 @@ jobs:
         timeout-minutes: 15
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
@@ -1789,7 +1776,6 @@ jobs:
         timeout-minutes: 8
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}

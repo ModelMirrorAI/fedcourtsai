@@ -108,13 +108,13 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the staging read-write AWS role
-    # This job reads NO ambient corpus location variable — deliberately. Its source
-    # stores are pinned on the command line from the environment's
-    # production-source variables (the seed step below), and the source index
+    # This job reads NO ambient corpus location variable — deliberately. Its
+    # source estate is pinned on the command line from the environment's
+    # production-source base URL (the seed step below), and the source index
     # is this checkout's committed pointer, resolved by the ranged backend
-    # against the pinned remote — a bounded slice is point lookups, so no
-    # full pull. The scenario variables the staging runbook repoints
-    # (CORPUS_REMOTE_URL, CASESTORE_URL, the split flag, the pointer) never
+    # against the index remote that base derives — a bounded slice is point
+    # lookups, so no full pull. The scenario variables the staging runbook
+    # repoints (the environment's corpus base URL and the index pointer) never
     # reach this job, so the repoint cannot move what the seeder reads.
     env:
       FEDCOURTS_CORPUS_BACKEND: ranged
@@ -170,14 +170,14 @@ jobs:
           # case-id grammar and refuses the whole list on any failure.
           DOCKETS: ${{ inputs.dockets }}
           APPLY: ${{ inputs.apply }}
-          # The pinned SOURCE: dedicated production-source variables the
+          # The pinned SOURCE: a dedicated production-source variable the
           # scenario repoint never touches, so source and destination can
-          # never be flipped together. Unset, each resolves empty and the
-          # command refuses before anything is read.
-          SOURCE_REMOTE: ${{ vars.PROD_CORPUS_REMOTE_URL }}
-          SOURCE_CASESTORE: ${{ vars.PROD_CASESTORE_URL }}
-          DEST_REMOTE: ${{ vars.STAGING_CORPUS_REMOTE_URL }}
-          DEST_CASESTORE: ${{ vars.STAGING_CASESTORE_URL }}
+          # never be flipped together. One base URL per side — both store
+          # halves derive from it (fedcourtsai.paths), so a source cannot pair
+          # one estate's index with another's content store. Unset, each
+          # resolves empty and the command refuses before anything is read.
+          SOURCE_BASE: ${{ vars.PROD_CORPUS_BASE_URL }}
+          DEST_BASE: ${{ vars.STAGING_CORPUS_BASE_URL }}
         run: |
           set -euo pipefail
           # Runner-local scratch, not the checkout: the docket list is input,
@@ -196,10 +196,8 @@ jobs:
           seed() {
             uv run fedcourts corpus-seed-slice \
               --dockets-file "$dockets_file" \
-              --source-remote "${SOURCE_REMOTE}" \
-              --source-casestore "${SOURCE_CASESTORE}" \
-              --dest-remote "${DEST_REMOTE}" \
-              --dest-casestore "${DEST_CASESTORE}" \
+              --source-base-url "${SOURCE_BASE}" \
+              --dest-base-url "${DEST_BASE}" \
               --summary-out "$GITHUB_STEP_SUMMARY" \
               "$@"
           }

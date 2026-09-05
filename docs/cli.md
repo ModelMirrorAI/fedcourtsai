@@ -61,8 +61,7 @@ provisioning commands (`provision-snapshot`, `materialize-event`) additionally
 accept `casestore` — read the case's snapshot/documents/event from the per-case
 content store rather than the corpus blob (needs the store configured).
 Under the corpus-split mode — an environment with a content store, where the
-payloads live only there, unless the environment states the mode outright —
-those two commands default to `casestore`
+payloads live only there — those two commands default to `casestore`
 without the explicit flag, so the whole fleet reads one store from one setting.
 
 | Command | Purpose | Key flags |
