@@ -24,8 +24,7 @@ The corpus has two halves:
   storage-class rule that pays for it are *Index retention: keep every version*
   in [docs/data-pipeline.md](../docs/data-pipeline.md). Under the corpus-split
   mode — an environment with the per-case content store configured — the
-  writers keep it
-  **payload-free**: the `snapshots`/`documents` tables stay empty and
+  writers keep it **payload-free**: the `snapshots`/`documents` tables stay empty and
   `cases.opinion_text` stays NULL (a `has_opinion` presence bit is retained),
   so the blob stays a small metadata index and its per-run push does not
   grow with the bulk. With no store configured (dev environments, the
@@ -293,7 +292,9 @@ this table stays empty; with the split mode off they live inline:
 ## Working with it locally
 
 ```bash
-export CORPUS_BASE_URL="<your bucket url>"   # out of band, see SECURITY.md
+export CORPUS_BASE_URL="<the corpus estate's base url>"   # out of band, see SECURITY.md
+# The index remote sits one segment below it. Where you hold that half's own
+# URL instead, export CORPUS_REMOTE_URL with it and skip the base.
 fedcourts corpus-pull    # fetch corpus.db from the remote (checksum-verified)
 fedcourts corpus-info    # show the location, row count, and how fresh the blob is
 fedcourts corpus-info --text-coverage   # also: which stored documents carry no text, per kind

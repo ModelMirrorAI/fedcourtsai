@@ -89,7 +89,17 @@ fi
 # both halves derive from it, and an index URL beside it could only disagree.
 if [[ -n "${base_url}" ]]; then
   printf 'export CORPUS_BASE_URL=%q\n' "${base_url}" >> "${env_file}"
-  echo "Corpus base URL exported as CORPUS_BASE_URL (read-only). Ranged queries work now; a full pull stays deliberate: uv run fedcourts corpus-pull"
+  printf 'export FEDCOURTS_CORPUS_BASE_URL=%q\n' "${base_url}" >> "${env_file}"
+  # Blank every per-half spelling alongside it, both accepted names each. A
+  # blank value reads as an absent setting, so this is what stops an index URL
+  # the shell already carries — the legacy DVC secret among them — from
+  # outranking the half derived from the base and pairing one environment's
+  # index with another's store. Half a spelling would leave the same gap the
+  # prefixed aliases open in scripts/corpus-env.
+  printf 'export CORPUS_REMOTE_URL= FEDCOURTS_CORPUS_REMOTE_URL=\n' >> "${env_file}"
+  printf 'export DVC_REMOTE_URL= FEDCOURTS_DVC_REMOTE_URL=\n' >> "${env_file}"
+  printf 'export CASESTORE_URL= FEDCOURTS_CASESTORE_URL=\n' >> "${env_file}"
+  echo "Corpus base URL exported as CORPUS_BASE_URL (read-only); both store halves derive from it. Ranged queries work now; a full pull stays deliberate: uv run fedcourts corpus-pull"
 elif [[ -n "${remote_url}" ]]; then
   printf 'export CORPUS_REMOTE_URL=%q\n' "${remote_url}" >> "${env_file}"
   echo "Corpus remote URL exported as CORPUS_REMOTE_URL (read-only). Ranged queries work now; a full pull stays deliberate: uv run fedcourts corpus-pull"

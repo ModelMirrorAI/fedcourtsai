@@ -227,10 +227,12 @@ def parse_s3_url(url: str) -> tuple[str, str]:
 def transport_from_settings() -> ObjectTransport | None:
     """Build the configured casestore transport, or ``None`` when dual-write is off.
 
-    Reads ``FEDCOURTS_CASESTORE_URL``; unset (or empty — the workflow passes an
-    unset repo variable through as ``""``) means the case store is disabled and
-    writers mirror nothing (the default, fully-reversible state). A bare bucket
-    URL falls back to :data:`DEFAULT_PREFIX` so both env forms serve the layout.
+    Reads the resolved store address — configured outright, or the casestore
+    segment under the environment's base URL. Unset (or empty — a workflow
+    passes an unset repo variable through as ``""``) means the case store is
+    disabled and writers mirror nothing, the self-contained single-blob state.
+    A bare bucket URL falls back to :data:`DEFAULT_PREFIX` so every spelling of
+    the address serves the same layout.
     """
     url = get_settings().casestore_url
     if url is None or not url.strip():

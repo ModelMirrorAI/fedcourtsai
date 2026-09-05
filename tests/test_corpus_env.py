@@ -140,6 +140,7 @@ def test_a_half_configured_staging_pair_is_still_refused() -> None:
         },
         capture_output=True,
         text=True,
+        check=False,
     )
     assert result.returncode == 1
     assert "STAGING_CORPUS_BASE_URL" in result.stderr

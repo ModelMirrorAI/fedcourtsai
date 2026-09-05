@@ -48,8 +48,8 @@ from pathlib import Path
 # halves the corpus has sit at fixed segments beneath it: the index remote that
 # `fedcourtsai.corpus_remote` publishes the blob to, and the per-case content
 # store `fedcourtsai.casestore` mirrors payloads to. Deriving both from one
-# address is what makes an environment a single setting: pointing the index at
-# one environment while the store answers from another is unrepresentable, and a
+# address is what makes an environment a single setting: one base URL cannot
+# point the index at one environment while the store answers from another, and a
 # new environment costs one variable rather than a pair that can disagree.
 #
 # The content store's segment carries the store layout's **version**, and it

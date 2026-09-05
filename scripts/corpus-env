@@ -3,7 +3,7 @@
 # Point one command — or, via eval, one shell — at the staging or production
 # corpus pair, by re-exporting the env contract the tooling reads: the corpus
 # base URL — one address per environment, from which fedcourtsai.paths derives
-# both store halves — and, for an environment that still names its halves
+# both store halves — and, for an environment that names its halves
 # individually, the corpus remote and casestore URLs. Every URL moves in both
 # accepted spellings (the FEDCOURTS_-prefixed aliases outrank the bare workflow
 # names in fedcourtsai.config, so both must move together or a stray prefixed
@@ -67,8 +67,8 @@ shift
 # it exists only in a flipped shell, where the ambient values are staging's.
 # The emitted staging capture below encodes the same resolution; the two must
 # stay in agreement.
-if [[ -n "${FEDCOURTS_PROD_CORPUS_BASE_URL+x}" ]]; then
-  prod_base="${FEDCOURTS_PROD_CORPUS_BASE_URL}"
+if [[ -n "${FEDCOURTS_PROD_CORPUS_BASE_URL+x}" || -n "${FEDCOURTS_PROD_CORPUS_REMOTE_URL+x}" ]]; then
+  prod_base="${FEDCOURTS_PROD_CORPUS_BASE_URL-}"
   prod_remote="${FEDCOURTS_PROD_CORPUS_REMOTE_URL-}"
   prod_casestore="${FEDCOURTS_PROD_CASESTORE_URL-}"
   prod_split="${FEDCOURTS_PROD_CORPUS_SPLIT-}"
@@ -132,7 +132,7 @@ fi
 # store URL passes through this process's stdout.
 if [[ "${target}" == staging ]]; then
   cat <<'EOS'
-if [[ -z "${FEDCOURTS_PROD_CORPUS_BASE_URL+x}" ]]; then
+if [[ -z "${FEDCOURTS_PROD_CORPUS_BASE_URL+x}" && -z "${FEDCOURTS_PROD_CORPUS_REMOTE_URL+x}" ]]; then
   export FEDCOURTS_PROD_CORPUS_BASE_URL="${FEDCOURTS_CORPUS_BASE_URL:-${CORPUS_BASE_URL-}}"
   export FEDCOURTS_PROD_CORPUS_REMOTE_URL="${FEDCOURTS_CORPUS_REMOTE_URL:-${CORPUS_REMOTE_URL:-${FEDCOURTS_DVC_REMOTE_URL:-${DVC_REMOTE_URL:-}}}}"
   export FEDCOURTS_PROD_CASESTORE_URL="${FEDCOURTS_CASESTORE_URL:-${CASESTORE_URL-}}"
@@ -148,7 +148,7 @@ echo "corpus env -> staging"
 EOS
 else
   cat <<'EOS'
-if [[ -n "${FEDCOURTS_PROD_CORPUS_BASE_URL+x}" ]]; then
+if [[ -n "${FEDCOURTS_PROD_CORPUS_BASE_URL+x}" || -n "${FEDCOURTS_PROD_CORPUS_REMOTE_URL+x}" ]]; then
   export CORPUS_BASE_URL="${FEDCOURTS_PROD_CORPUS_BASE_URL-}" FEDCOURTS_CORPUS_BASE_URL="${FEDCOURTS_PROD_CORPUS_BASE_URL-}"
   export CORPUS_REMOTE_URL="${FEDCOURTS_PROD_CORPUS_REMOTE_URL-}" FEDCOURTS_CORPUS_REMOTE_URL="${FEDCOURTS_PROD_CORPUS_REMOTE_URL-}"
   export CASESTORE_URL="${FEDCOURTS_PROD_CASESTORE_URL-}" FEDCOURTS_CASESTORE_URL="${FEDCOURTS_PROD_CASESTORE_URL-}"

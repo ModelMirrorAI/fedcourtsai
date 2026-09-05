@@ -63,10 +63,12 @@ class Settings(BaseSettings):
     # (``s3://<bucket>[/<prefix>]``), supplied out of band (never committed; see
     # SECURITY.md). **One address per environment**: both store halves below are
     # fixed segments beneath it (`fedcourtsai.paths.corpus_index_url` /
-    # `fedcourtsai.paths.casestore_url`), so an index read and a payload read
-    # cannot answer from different environments, and the split mode follows from
-    # the address rather than from an independent flag. An explicitly configured
-    # half still wins, for an environment that names each one.
+    # `fedcourtsai.paths.casestore_url`), so one base URL cannot name two
+    # environments, and the split mode follows from the address rather than from
+    # an independent flag. A half named on its own outranks the derived one, so
+    # an environment naming each half individually can still pair them however
+    # it likes — the seeder, whose sides are a single invocation's options,
+    # refuses that combination outright instead (`corpus_seed`).
     corpus_base_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("FEDCOURTS_CORPUS_BASE_URL", "CORPUS_BASE_URL"),
@@ -129,8 +131,8 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("FEDCOURTS_CORPUS_SERVICE_URL"),
     )
     # The corpus-split mode stated explicitly, overriding the inference in
-    # `corpus_split` below. For an environment that still wires the mode as its
-    # own variable; unset (or empty) leaves the mode to the store's address.
+    # `corpus_split` below. For an environment that wires the mode as its own
+    # variable; unset (or empty) leaves the mode to the store's address.
     corpus_split_flag: bool | None = Field(
         default=None,
         validation_alias=AliasChoices("FEDCOURTS_CORPUS_SPLIT"),
@@ -156,6 +158,22 @@ class Settings(BaseSettings):
         and each field's own unset behavior takes over.
         """
         if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("corpus_base_url", mode="before")
+    @classmethod
+    def _base_url_without_an_address_is_unset(cls, value: object) -> object:
+        """A base that is only separators names nothing, so it reads as unset.
+
+        ``"/"`` survives the blank rule above and would reach the derivation,
+        where the refusal raises *inside* model validation — and pydantic's
+        error repr is the whole settings mapping, which in a job carries the
+        CourtListener token. Deriving nothing from a base that addresses nothing
+        keeps that failure on the loud, value-free path the CLI already has for
+        an unconfigured remote.
+        """
+        if isinstance(value, str) and not value.strip().rstrip("/"):
             return None
         return value
 
@@ -187,8 +205,9 @@ class Settings(BaseSettings):
         corpus the offline fixture loop and the stub cascade run on — every
         payload read is then the plain SQLite path.
 
-        ``corpus_split_flag`` overrides, for an environment that still states
-        the mode as its own setting.
+        ``corpus_split_flag`` overrides in both directions, for an environment
+        that states the mode as its own setting — which is how every
+        corpus-reading job wires it, so there the address is not consulted.
         """
         if self.corpus_split_flag is not None:
             return self.corpus_split_flag

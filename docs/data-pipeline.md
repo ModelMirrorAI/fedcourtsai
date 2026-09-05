@@ -221,11 +221,19 @@ live in different stores, split by **kind**:
    environment may also name the content store on its own. It is wired at job or
    step level across the writer lanes (`run-pull`, `run-seed`, `run-repair`), the cell
    workflows, the back-test, the integration scenarios, and the analysis
-   surface. `tests/test_workflow_cell_invariants.py` pins both the spelling and
-   which workflows carry it, per workflow rather than as a count, so a
-   corpus-reading workflow that declares no corpus address is a deliberate act;
-   mirroring is best-effort — a store failure logs, never breaking the SQLite
-   write.
+   surface. `tests/test_workflow_cell_invariants.py` pins the half-by-half
+   spelling and which workflows carry it, per workflow rather than as a count,
+   so a corpus-reading workflow that declares no corpus address is a deliberate
+   act; mirroring is best-effort — a store failure logs, never breaking the
+   SQLite write.
+
+   **An explicitly wired `FEDCOURTS_CORPUS_SPLIT` still decides**, in both
+   directions, for an environment that states the mode as its own setting —
+   which every corpus-reading job does today, passing the variable with a falsy
+   fallback so it always arrives set. Read that as the one thing to sequence
+   carefully: a `0` reaching a job whose store *is* addressed turns the split
+   off and makes every payload read answer empty, so the explicit wiring has to
+   go in the same change that gives a job its base URL, never after it.
 2. **Derived judgments → the git ledger** under `data/`, where the
    schema/`validate`/PR-review machinery applies (see *The ledger* below).
 
@@ -295,7 +303,8 @@ Retrieval** 30 days after creation:
 
 `<prefix>` is the index remote's own key prefix, ahead of the `index/sha256/`
 the pointer records — the corpus base URL's prefix plus the index segment
-`fedcourtsai.paths` derives, which each operator holds out of band. The rule is the **account owner's** to apply — this
+`fedcourtsai.paths` derives, which each operator holds out of band. The rule is
+the **account owner's** to apply — this
 repository holds no infrastructure-as-code for the bucket, the workflow roles
 grant enumerated object actions rather than `s3:*`, and the read-write role
 denies lifecycle configuration outright, because a rule installed there would
@@ -436,10 +445,12 @@ committed copy is a point-in-time snapshot that nothing schedules or gates (see
 The corpus remote and the content store are private S3 behind **GitHub OIDC** —
 no static keys in workflows; two IAM roles split read-write (the corpus
 writers) from read-only (every consumer). No config file carries credentials
-or the bucket URL; each job (and each operator) supplies it out of band as the
-corpus **base URL** — one address per environment, from which
-`fedcourtsai.paths` derives the index remote and the content store alike — and
-boto3 takes its credentials from the environment. The full wiring — roles, the per-workflow
+or the bucket URL; each job (and each operator) supplies the corpus address out
+of band — a **base URL**, one per environment, from which `fedcourtsai.paths`
+derives the index remote and the content store alike, or a store named on its
+own — and
+boto3 takes its credentials from the environment. The full wiring — roles, the
+per-workflow
 access table, trust scoping, bucket posture — is single-sourced in
 [security.md](security.md). The CI gate has no remote, so it runs the offline
 half: `fedcourts corpus-status` checks the committed bookkeeping is internally
@@ -815,12 +826,14 @@ is set, and `corpus-seed-slice` likewise refuses under it (that command's
 source is pinned by its own `--source-*` options, so a flipped shell cannot
 re-base what its rail refuses, nor — under the ranged backend — what it
 reads; the `local` backend still reads whatever pulled blob is on disk, per
-the surgery note above). The split flag rides along because the slice is payload-free by
-construction: without it, payload reads bypass the casestore and find
-nothing, silently.
+the surgery note above). The flip carries the staging store's address, which
+is what puts the shell in the split mode: the slice is payload-free by
+construction, so a shell reading it without the store addressed would find
+every payload absent, silently.
 
 That same silence is a standing trap on the **production** side too: a dev
-shell without the split flag and casestore URL set is **casestore-blind** — a
+shell with neither a corpus base URL nor a casestore URL set is
+**casestore-blind** — a
 payload living only in the content store (petition text, documents, the
 snapshots the blob does not carry) reads as *absent* rather than
 erroring, so a figure computed locally over payloads silently undercounts.

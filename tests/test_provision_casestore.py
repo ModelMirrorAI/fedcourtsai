@@ -22,6 +22,22 @@ from fedcourtsai.fixture import build_fixture_corpus
 runner = CliRunner()
 
 
+def _build_payload_carrying_fixture(src: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Build a fixture blob that carries its payloads *and* mirrors them to the store.
+
+    Addressing the store is what puts the writer in the split mode, which leaves
+    the blob payload-free — the right default, and the wrong seed for a test that
+    reads a snapshot back out of the blob it just built. Stating the mode off for
+    the build is what gives these tests a corpus that answers from either half:
+    the blob for the local-backend leg, the mirror for the casestore leg.
+    """
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "0")
+    try:
+        build_fixture_corpus(src)
+    finally:
+        monkeypatch.delenv("FEDCOURTS_CORPUS_SPLIT", raising=False)
+
+
 def _case_with_event_and_snapshot(src: Path) -> tuple[str, str]:
     """A fixture case id + one of its event ids (has both a snapshot and an event)."""
     with corpus.connect(src) as conn:
@@ -88,7 +104,7 @@ def test_provision_record_is_byte_identical(
     corpus_root.mkdir()
     src = corpus.corpus_db_path(corpus_root)
     casestore.set_active_transport(casestore.transport_from_settings())  # mirror to moto S3
-    build_fixture_corpus(src)
+    _build_payload_carrying_fixture(src, monkeypatch)
     case_id, event_id = _case_with_event_and_snapshot(src)
     _add_document(src, case_id)
     casestore.reset_active_transport()  # the CLI builds its own transport from the env
@@ -209,7 +225,7 @@ def test_corpus_split_provisions_from_casestore_without_flag(
     seed_root.mkdir()
     src = corpus.corpus_db_path(seed_root)
     casestore.set_active_transport(casestore.transport_from_settings())
-    build_fixture_corpus(src)
+    _build_payload_carrying_fixture(src, monkeypatch)
     case_id, _ = _case_with_event_and_snapshot(src)
     casestore.reset_active_transport()  # the CLI builds its own transport from the env
     court, docket = case_id.split("/")

@@ -272,8 +272,8 @@ State lives in two stores, split by **kind of data**:
   and forward predict/evaluate cells provision their case record from the
   store. (Configuring the store is what selects these split read/write paths —
   under the split the payloads live only there, so the store's address is the
-  mode. A dev environment with no store configured works against a
-  self-contained blob.)
+  mode, which an environment may also state outright as its own setting. A dev
+  environment with no store configured works against a self-contained blob.)
 - **Derived judgments → the git ledger.** Outcomes, predictions, and
   evaluations under `data/`, organized **case-centrically** so everything
   concluded about a single predictable event lives in one subtree:
