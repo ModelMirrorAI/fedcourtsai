@@ -1,4 +1,4 @@
-case_id: scotus/9526000274
+case_id: scotus/9526000273
 decision_target: disposition
 description: Disposition of the application, forecast once a response has been filed.
 docket_entry_id: null
@@ -6,8 +6,7 @@ event_id: evt-brief-response-disposition
 kind: brief
 moment: response-filed
 opened_at: '2026-08-31'
-resolved: true
+resolved: false
 schema_version: '1.0'
 stage: interim
-title: National Republican Congressional Committee, et al. Applicants v. Sherrod Brown,
-  et al.
+title: Stacey Ian Humphreys v. Georgia Board of Pardons and Paroles, et al.

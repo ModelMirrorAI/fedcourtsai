@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000275",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "gemini-baseline's prediction records input_snapshot \"missing\" and its reasoning reports record/context.json absent, but its transcript looked under events/<event>/record/ rather than the case-level record/, where the snapshot, context, and application text were present (the other candidate read them in the same run, and the harness-stamped context on gemini-baseline's own prediction carries snapshot_date 2026-09-01). The predictor's own data-quality flag about a missing snapshot therefore looks like a path error, not a provisioning failure; no re-provisioning is indicated.",
+      "severity": "info"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "The stored snapshot (2026-09-04) lists an amicus brief of the Initiative and Referendum Institute submitted Sep 3 2026, after the denial entry the same day; outcome.json records interim_signals.amicus_briefs = 0. Plausibly by design (counted as at disposition) \u2014 surfaced only so the outcome writer's reading is visible; no correction made and none proposed.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260904T183332Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,21 @@
+{
+  "actual_disposition": "granted",
+  "actual_granted": 1,
+  "case_id": "scotus/9526000274",
+  "disposition_basis": "standard",
+  "disposition_route": null,
+  "event_id": "evt-order-response-requested-disposition",
+  "interim_signals": {
+    "amicus_briefs": 1,
+    "referred_to_court": true,
+    "response_requested": true
+  },
+  "judgment": null,
+  "noted_dissent_from_denial": null,
+  "resolved_at": "2026-09-04",
+  "schema_version": "1.0",
+  "signals": null,
+  "source": null,
+  "vote_provenance": null,
+  "votes": []
+}

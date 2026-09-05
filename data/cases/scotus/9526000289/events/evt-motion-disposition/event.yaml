@@ -1,13 +1,13 @@
-case_id: scotus/9526000275
+case_id: scotus/9526000289
 decision_target: disposition
 description: null
 docket_entry_id: null
 event_id: evt-motion-disposition
 kind: motion
 moment: arrival
-opened_at: '2026-08-31'
+opened_at: '2026-08-29'
 resolved: true
 schema_version: '1.0'
 stage: interim
-title: Americans for Citizen Voting - Michigan, et al. v. Michigan Board of State
-  Canvassers, et al.
+title: NP Red Rock LLC, d/b/a Red Rock Casino Resort Spa v. National Labor Relations
+  Board

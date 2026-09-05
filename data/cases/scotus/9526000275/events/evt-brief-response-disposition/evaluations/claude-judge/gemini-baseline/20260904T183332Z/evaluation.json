@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "Emergency application to force a citizen-only-voting / photo-ID constitutional amendment onto Michigan's November 2026 ballot \u2014 politically salient subject in a swing state, but the legal question was a state signature-canvass dispute dressed in a contestable 'constructive denial' Section 1257 theory, and the Court disposed of it by a one-line in-chambers denial with no referral, no writing, and no accepted amicus. Real electoral stakes for the sponsors, negligible doctrinal footprint."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9635313215400624,
+  "case_id": "scotus/9526000275",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.010568316289262235
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.9,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.010568316289262235,
+    "total": 0.010568316289262235
+  },
+  "correct": 1,
+  "created_at": "2026-09-04T18:44:25Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell against the 2026-09-02 snapshot; prediction written 2026-09-03T01:13Z (evening of Sep 2 EDT), before Justice Kavanaugh's Sep 3 in-chambers denial existed. Log (31 calls, result_capture_coverage 0.0 \u2014 every result unobserved) shows one web search for the case caption + '26A275' and three CourtListener searches on the parties, all graded on their queries; none could have returned a disposition that did not yet exist. Reasoning presupposes an unresolved application (forecasts referral to the full Court, which did not happen), consistent with not knowing the outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260903T010048Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:e84e8e5fbf47002aa9ed867db60f3f5eee82dcc3bfdd76e44a0b4aac09d5e631",
+    "label": "proc-v6",
+    "pipeline_sha": "061496cebcd611480aecaca2235d462cb1329371",
+    "stamped_at": "2026-09-04T18:47:01.252029Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20260904T183332Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
