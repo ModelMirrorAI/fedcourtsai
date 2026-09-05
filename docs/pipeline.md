@@ -984,9 +984,15 @@ pattern rather than rediscovering it:
   is a **runner-level watchdog**: a detached shell armed immediately before the
   step under the same condition and killed immediately after it (the codex
   cells' arm/disarm pair around `scripts/codex-watchdog.sh`), which at its
-  deadline captures the runner's state and kills the process itself, turning a
-  job-cap cancellation into an ordinary step failure the salvage path already
-  handles. A background process launched in one step survives into the later
+  deadline captures the runner's state, kills the wedged process, and — where
+  the step outlives that kill, or where nothing engine-shaped was ever there to
+  kill — ends the step's own process tree, turning a job-cap cancellation into
+  an ordinary step failure the salvage path already handles. Ending the step
+  means signalling what the runner is waiting on, so the target is found by
+  parentage (the runner starts each step as a child of its per-job worker) and
+  never by name alone; the worker and listener themselves are refused, since
+  signalling those force-kills the job the watchdog exists to save. A
+  background process launched in one step survives into the later
   ones — the sidecars rely on the same property — so the disarm half is what
   keeps the killer from outliving its window.
 - **The CI uv pin and the lockfile format are coupled.** `setup-python-env`
@@ -1814,9 +1820,45 @@ watchdog (`scripts/codex-watchdog.sh`): armed with the same condition as the
 step it guards, disarmed the moment that step ends however it ended. At its
 deadline — set well inside the job cap, with the arithmetic at the arm step —
 it captures the runner user's process tree, the socket table and a listing of
-the codex home, then kills the engine, which fails the *step* and hands the
-cell back to the salvage path above — which is also what makes the sidecar-log
-step run, so those logs land in a job log that now survives. The bundle rides the cell's
+the codex home — first, so the evidence exists whatever the kills then do —
+then kills the engine, which fails the *step* and hands the cell back to the
+salvage path above — which is also what makes the sidecar-log step run, so
+those logs land in a job log that now survives.
+
+Killing the engine only ends the step when the wedge is *in* the engine. A
+wedge in the action's node wrapper, or in a phase that runs before the engine
+spawns, leaves the step `in_progress` with nothing engine-shaped to match — so
+after a short grace the watchdog ends the step's own process tree, and does so
+immediately when no engine matched at all. It finds that tree by **parentage**:
+the runner starts each step as a child of its per-job worker process and runs
+one step at a time, and one job owns the whole hosted machine, so the worker's
+live children are the step, whatever the pinned action's command line happens
+to look like.
+
+Two questions decide what is signalled, and the refusals that answer them are
+what make a kill on a live runner safe. The first is asked of **every** target.
+*May this be signalled at all?* — the worker is read as an anchor and never
+signalled, since killing it force-kills the job, the exact outcome being
+prevented; three independent refusals enforce it, the anchor's own pids, any
+process whose arguments name runner infrastructure (or whose arguments cannot
+be read at all), and the watchdog's own ancestors. The engine's own pattern
+match passes through them too, so a mis-set pattern cannot reach past the
+processes it was meant to name.
+
+The second is asked only of the **root** of the tree. *Is this the step the
+watchdog was armed for?* — because parentage alone would also name whichever
+step is running *later*, and the tail steps that salvage the cell are children
+of the same worker. It is answered by start time: the guarded step began just
+after the watchdog was armed and has been running ever since, so a candidate
+older than the watchdog itself is refused (a sidecar, the model proxy, an
+orphan of an earlier step) and so is one younger than half the deadline (a tail
+step, which is seconds old when the deadline lands). Descendants are
+deliberately never asked it — they are the guarded step by parentage, and most
+of what holds a wedged step open is spawned during the step's run, so testing a
+descendant's age would refuse exactly what the tree kill exists to reach. What
+is ended is the tree recorded at that moment, re-verified by pid and arguments
+before each signal so a recycled pid cannot be hit, plus whatever that tree has
+spawned since. The bundle rides the cell's
 artifact under `codex-watchdog/`, which every logged-in GitHub user can
 download for its retention window, so it carries shapes and metadata only: the
 session rollout stays on the runner and the disarm step distils its item shapes

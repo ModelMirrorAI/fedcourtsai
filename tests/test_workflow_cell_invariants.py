@@ -33,9 +33,11 @@ of them while every gate stays green:
   sandbox or search semantics nothing else uses, and every gate stays green;
 * the **codex hang bound** — the codex step's own `timeout-minutes` does not
   conclude a wedged engine, so an arm/disarm pair brackets it with a
-  runner-level watchdog that kills the engine well inside the job cap and
-  leaves its diagnostics in the cell artifact; the whole guard is step order,
-  one deadline, and one artifact path;
+  runner-level watchdog that ends the engine — and the step itself, where the
+  step outlives it — well inside the job cap, and leaves its diagnostics in the
+  cell artifact; the whole guard is step order, one deadline, and one artifact
+  path, with everything the escalation needs defaulted inside the script, which
+  is why the bracket's env stays the three keys asserted below;
 * the **labeler transcript capture** — the qp-topic labeler's execution log is
   scanned and published as a short-lived artifact, and every clause of that
   (the scan gate, the retention window, the survive-failure condition, and the
