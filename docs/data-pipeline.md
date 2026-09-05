@@ -572,8 +572,9 @@ credentialed process, which is what lets a credential-free cell ask for one.
 ### Provisioning: how a cell gets its record
 
 The predict/evaluate provisioning commands (`provision-snapshot`,
-`materialize-event`) source a cell's `record/` — the point-in-time snapshot,
-its filed-document text, and the event — from the **content store**
+`materialize-event`) source a cell's inputs — the point-in-time snapshot and
+its filed-document text into the case-level `record/`, the event definition
+into `events/<event_id>/event.yaml` — from the **content store**
 (`--corpus-backend casestore`, the default under the corpus-split mode, so the
 whole forward fleet reads one store without per-command flags; an explicit
 `--corpus-backend` still wins), proven byte-identical across backends by a

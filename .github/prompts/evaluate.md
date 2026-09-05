@@ -71,13 +71,13 @@ directory — except the provisioned `record/` inputs, which are **case-level**,
 at `data/cases/$COURT_ID/$DOCKET_ID/record/`: a sibling of `events/`, not a
 child of it, so there is no `events/$EVENT_ID/record/`. The blinded candidates,
 `context.json`, and the snapshot are all there, and every bare `record/…` path
-below means that one directory. Start with the event's
-`event.yaml`: its `stage` field names the decision standard the event resolved
-on and selects which scoring rules below govern — `cert` (a petition for
-certiorari; a petition/appeal-kind event that records no stage also reads as
-cert), `interim` (a stay/injunction application) or `merits` (the judgment the
-Court entered after granting certiorari); the interim and merits rules sit
-under `evaluation.json` below. No other stage reaches a scored cell today.
+below means that one directory. Start with the event's `event.yaml`: its
+`stage` field names the decision standard the event resolved on and selects
+which scoring rules below govern — `cert` (a petition for certiorari; a
+petition/appeal-kind event that records no stage also reads as cert), `interim`
+(a stay/injunction application) or `merits` (the judgment the Court entered
+after granting certiorari); the interim and merits rules sit under
+`evaluation.json` below. No other stage reaches a scored cell today.
 Then:
 
 3. `outcome.json` — the realized ground truth (`actual_disposition`,
