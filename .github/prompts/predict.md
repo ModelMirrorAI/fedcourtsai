@@ -24,9 +24,10 @@ your shell, substitute the literals from your kickoff prompt.
 | `MODEL_ID`     | The model you are running as, e.g. `claude-fable-5-1` |
 
 Run `uv run fedcourts paths --court "$COURT_ID" --docket "$DOCKET_ID" --event
-"$EVENT_ID" --role predictor` to see resolved paths if you are unsure. (The
-realized outcome is an evaluator-only file — the listing does not name it for
-you, and you must never read it.)
+"$EVENT_ID" --role predictor` to resolve the case, corpus, and event paths. It
+does not name the provisioned `record/` paths; those are stated under *Inputs*
+below. (The realized outcome is an evaluator-only file — the listing does not
+name it for you, and you must never read it.)
 
 ## Inputs (read-only)
 
@@ -41,8 +42,14 @@ cached prefix stays as long as possible (don't interleave case facts with them).
    output contract.
 
 **Per-case — read last, right before you write.** The workflow provisions these
-from the corpus (raw facts live in the S3 corpus stores, not git); read them where
-the workflow places them for your run:
+from the corpus (raw facts live in the S3 corpus stores, not git) into
+`data/cases/$COURT_ID/$DOCKET_ID/record/`, relative to your working directory.
+That directory is **case-level** — a sibling of `events/`, not a child of it:
+the snapshot, `context.json`, and `documents/` where any was provisioned are
+all there, and there is no `events/$EVENT_ID/record/`. Every bare `record/…`
+path below means that one directory. The event definition is the per-case input that *does* sit under the
+event, at `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/event.yaml`, beside
+the output directory you will write to.
 
 3. The **event definition** for `$EVENT_ID` (`event.yaml`) — what to predict.
    Its `stage` field names the decision standard the event resolves on and
@@ -52,10 +59,12 @@ the workflow places them for your run:
    after granting certiorari. A petition/appeal-kind event that records no
    stage reads as **cert** — the case-baseline kinds resolve on the cert
    standard by construction. No other stage reaches a predict cell today.
-4. The **snapshot** for this case — your provisioned **baseline**, the
-   guaranteed-common input every predictor in this fan-out reads. Where your
-   event's declared moment fixes a cutoff, the snapshot stops **at that
-   moment** rather than at the latest poll — `context.cutoff` records it,
+4. The **snapshot** for this case, at `record/snapshots/<YYYY-MM-DD>.json` —
+   the dated file `context.json`'s `snapshot_date` names — your provisioned
+   **baseline**, the guaranteed-common input every predictor in this fan-out
+   reads. Where your event's declared moment fixes a cutoff, the snapshot
+   stops **at that moment** rather than at the latest poll — `context.cutoff`
+   records it,
    non-null even on a forward cell — so every cell of one moment conditions
    on one information set: the cutoff is a cohort marker bounding this
    baseline, and what it means for your retrieval is keyed on your **mode**
@@ -943,11 +952,13 @@ willing to be scored on, not a hedge.
 - **You run headless** (in CI, no interactive input). If the snapshot is missing or
   the event is malformed, do not stall waiting for input — always explain the
   problem in `reasoning.md` and record a `flags.json` note (`category` `blocked` or
-  `data-quality`) so it reaches a maintainer durably, then finish. A forward cell
-  may legitimately find itself without a provisioned snapshot (provisioning refuses
-  a forward cell whose snapshot's latest entry reads terminal — the case already
-  looks decided): note the gap in `flags.json` and predict from priors and base
-  rates only, treating the case per the first rule above — do not retrieve its
+  `data-quality`) so it reaches a maintainer durably, then finish. A running cell
+  always has a landed record: provisioning that wrote nothing, or wrote
+  incompletely, refuses the cell and no agent starts. So a snapshot you cannot
+  find is a path error before it is a gap — look under the case-level `record/`
+  named in *Inputs* above, not under your event. If it truly is not there, note
+  the gap in `flags.json` and predict from priors and base rates only, treating
+  the case per the first rule above — do not retrieve its
   current docket state or outcome. Make the most
   conservative reasonable call rather than guessing widely. `flags.json` is the
   channel that survives — the trigger issue is closed when the run lands, so do

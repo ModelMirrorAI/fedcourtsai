@@ -1485,11 +1485,12 @@ staging area lives under the case's gitignored `record/`, so it rides the cell
 artifact and never reaches the ledger.
 
 A second pair of steps keeps the aliases worth having. The committed `predictions/` and
-`evaluations/` trees name every predictor one directory above the staging area,
-so a routine `ls` de-blinds a judge before it has read the contract that forbids
-that tree; `fedcourts hide-cell-record` moves both out of the working tree after
-the staging step and `fedcourts restore-cell-record` moves them back the moment
-the agent stops, ahead of every step that reads them. It narrows the accidental
+`evaluations/` trees name every predictor elsewhere in the same case tree, at
+`events/<event_id>/predictions/<predictor_id>/`, so a routine `ls` de-blinds a
+judge before it has read the contract that forbids that tree; `fedcourts
+hide-cell-record` moves both out of the working tree after the staging step and
+`fedcourts restore-cell-record` moves them back the moment the agent stops,
+ahead of every step that reads them. It narrows the accidental
 route only — the checkout carries full history — and nothing a cell hides or
 fails to restore can reach the run PR as a deletion: the collect job unions each
 cell's `data/` onto a freshly fetched clean `origin/main` checkout, and
