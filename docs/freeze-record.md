@@ -2296,3 +2296,105 @@ freeze commit is recorded here.
   carrying a ledger whose `events_seen` is non-zero. The apply is a separate
   decision taken against that ledger, and it is the event this entry's
   successor records.
+
+- *The interim arrival repair applied: 1956 interim stamps repaired — 1847
+  moved earlier, 109 newly bounded — and the boundary now sits on the far side
+  of the freeze instant, 2026-09-05.* The event the previous entry's successor
+  clause owes: the `arrival-backfill` apply, dispatched by the maintainer
+  against the same-day dry-run ledger (Actions run 33967007763) and executed
+  at 2026-09-05T13:22Z (Actions run 33967774006), corroborated by committed
+  state: data commit `89f3b1f5b` ("repair: converge corpus (interim arrival
+  stamps)", authored 2026-09-05T13:22:21Z) moved the corpus pointer from
+  sha256 `2ee65d00821216e4f5559d251290f0989ea0e02b44556e84f36f821db0efa60b`
+  (pre-apply) to
+  `2646d8db95597006bb658b2497ffd7325d41ee194ba303295d1df20d92c503f7`
+  (post-apply). The apply's figures match the dry run's line for line, and
+  both run ids are named above so the equality is checkable.
+
+  **The membership record.** Post-apply, the `filled` (1956) and `unchanged`
+  (113) arms are indistinguishable in the corpus — both now carry a
+  non-docketing-date arrival — so the set the rule below binds on lives in
+  the pass ledger, which is deterministic over a fixed blob: a dry-run
+  dispatch against the pre-apply pointer named above regenerates `filled`,
+  the candidate class, and the named `admitted_the_disposition` list
+  verbatim. That pointer is an `index/sha256/` object on the 30-day
+  lifecycle, so the reconstruction path closes around 2026-10-05; a permanent
+  copy of the `filled` list must be committed before then or the membership
+  set survives only as the counts recorded here.
+
+  **The figures, in the registered form.** Stamped **1956 of 2070**
+  candidates, and the class closes exactly: 1956 filled + 113 already
+  carrying their arrival (submitted and docketed the same day — matched the
+  predicate, found correct) + 1 naming no dated submission entry. The other
+  residue arms were empty as an observation, not an inference: 0 with no
+  stored snapshot, 0 whose snapshot discloses no proceedings, and
+  `later_refused` empty. Denominators as registered: `events_seen` 2096,
+  `baseline_candidates_seen` 2095 — prevalence 2070 of 2095 (98.8%), in the
+  only population where the defect was measured — and `events_all_slices`
+  27631: the 25536 rows outside the live slice hold no re-readable snapshot
+  and are unreachable by every dispatch of this pass, and the defect's
+  prevalence there is unmeasured. The stamped arm splits 109 with no prior
+  stamp at all (those cells took no cut; an unbounded window closed rather
+  than a late one tightened) and 1847 moved earlier — worst move 473 days;
+  moved-arm histogram 1d: 25, 2–3d: 407, 4–7d: 798, 8–14d: 350, 15–30d: 156,
+  31+d: 111, read under the window-not-admission rule the previous entry
+  registers. Resolution split: 2067 of 2070 candidates decided; 1955 of 1956
+  repairs.
+
+  **The counterfactual exposure, quoted as such** (corpus vintage 2026-09-05,
+  the apply's own blob): a cell provisioned at that vintage under the
+  pre-repair stamps would admit 936 docket entries across 778 of the 1956
+  repaired rows that the repaired stamps do not; for 701 of the 1956 the band
+  includes the case's own disposition, and for 15 the response request. Each
+  count's denominator is the repaired class — 701 is not a subset of 778 by
+  construction, since the disposition read comes from the case row and the
+  entry count from dated proceedings entries. The disposition rows are named
+  in the ledger, re-derivable from the pre-apply pointer above. The
+  `admitted_the_disposition_committed` intersection is exactly one event —
+  `scotus/9526000256` `evt-motion-disposition` — whose committed cells carry
+  nine leakage gradings from three judges. They split: seven `none`; two
+  `possible` with the leakage bit set, on two different cells, from two
+  different judges, each contradicted by the other two panel members; one
+  `retrieved_outcome_material` null (not assessed). All nine were taken
+  against the forward-mis-provisioning shape, not the arrival band. The
+  intersection's question is therefore locatable rather than answered: the
+  gradings to re-read are named on that event, the partial-flag rule in
+  `metrics/README.md` says no aggregate resolves the disagreement, and all
+  three cells are shakedown (proc-v4/proc-v5, harness clocks 2026-08-29
+  through 2026-08-31), so no frozen figure rests on any of them.
+
+  **The residue.** 1 of 1 unrepaired rows is decided and its surviving stamp
+  still admits its own disposition (`residue_admits_disposition` = 1). At
+  n = 1 the resolution split is unreadable — the class is 99.9% decided, so
+  one decided residue row is what the base rate alone predicts — and the
+  claimable statement is the count. The defective class of 1957 (the 2070
+  candidates less the 113 found correct) shrank to this one row on the
+  reachable slice; the residue's all-decided character was shrunk, not
+  removed.
+
+  **The straddle resolved the strict way, and the rule it triggers.** The
+  apply landed after the proc-v6 freeze instant (2026-09-05T00:00:00Z), so
+  the conditional both predecessor entries carried resolves against the
+  relief clause. The standing rule: a figure over interim arrival cells may
+  not pool across the apply instant. The split is read from harness
+  observables, never a clock the agent controls: a cell whose `run_id` is at
+  or after `20260905T132200Z` was planned after the apply and carries
+  post-repair conditioning; a cell whose `process_version.stamped_at` is
+  before 2026-09-05T13:22:21Z finished before it and carries pre-repair
+  conditioning; a run in flight across the instant is the ambiguity band,
+  and that band is empty at this entry's date — the latest committed interim
+  cell's clock is 2026-09-01T03:00:24Z. On the unstamped arm the boundary is
+  additionally artifact-visible, as the previous entry registers:
+  `context.cutoff` null → non-null, `snapshot_provenance` `as-stored` →
+  placed. In practice both arms of the *frozen* partition start empty: the
+  pre-apply frozen arm could only ever be populated from the
+  00:00:00Z–13:22:21Z window, which closed with no cell committed inside it,
+  and the 30 committed interim cells — all shakedown — sit entirely on the
+  pre-apply side. The rule binds the cells the next predict tick mints
+  onward.
+
+  **The provenance-mix consequence now applies.** From the next provisioning
+  onward the repair takes the unstamped arm from `as-stored` to placed and
+  shifts placed rows from `dated` toward `truncated`; any figure pooling
+  cells on these events states the mix under the reading rules already
+  registered.
