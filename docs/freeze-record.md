@@ -2296,3 +2296,56 @@ freeze commit is recorded here.
   carrying a ledger whose `events_seen` is non-zero. The apply is a separate
   decision taken against that ledger, and it is the event this entry's
   successor records.
+
+- *The interim arrival repair applied: 1956 stamps moved, and the boundary now
+  sits on the far side of the freeze instant, 2026-09-05.* The event the
+  previous entry's successor clause owes: the `arrival-backfill` apply,
+  dispatched by the maintainer against the same-day dry-run ledger and executed
+  at 2026-09-05T13:22Z (Actions run 33967774006; corpus index pointer moved to
+  sha256 `2646d8db95597006bb658b2497ffd7325d41ee194ba303295d1df20d92c503f7`).
+  The apply's plan matched the dry run exactly.
+
+  **The figures, in the registered form.** Stamped **1956 of 2070**
+  candidates. Denominators as registered: `events_seen` 2096,
+  `baseline_candidates_seen` 2095 (prevalence 2070 of 2095),
+  `events_all_slices` 27631 — so 25536 rows sit outside the live slice, were
+  never candidates, and keep their defective stamps through every dispatch of
+  this pass. Of the non-candidates in the slice: 113 already carried their
+  arrival, 1 named no dated submission entry. The stamped arm splits 109 with
+  no prior stamp at all (cells there took no cut; an unbounded window closed)
+  and 1847 moved earlier — worst move 473 days; moved-arm histogram 1d: 25,
+  2–3d: 407, 4–7d: 798, 8–14d: 350, 15–30d: 156, 31+d: 111, read under the
+  window-not-admission rule the previous entry registers. Resolution split:
+  2067 of 2070 candidates decided; 1955 of 1956 repairs.
+
+  **The counterfactual exposure, quoted as such** (corpus vintage 2026-09-05,
+  the apply's own blob): a cell provisioned at that vintage under the
+  pre-repair stamps would admit 936 docket entries across 778 rows that the
+  repaired stamps do not; for 701 rows the band includes the case's own
+  disposition, for 15 the response request. The
+  `admitted_the_disposition_committed` intersection is exactly one event —
+  `scotus/9526000256` `evt-motion-disposition` — the same event whose
+  committed cells already carry the leakage gradings taken when the shape was
+  first read, so the one-grading-at-a-time question the intersection exists to
+  pose has already been answered for it.
+
+  **The residue.** 1 of 1 unrepaired rows is decided and its surviving stamp
+  still admits its own disposition (`residue_admits_disposition` = 1) — the
+  decided-side concentration the previous entry gives a structural reason for,
+  shrunk from 2070 defective rows to one and removed for none.
+
+  **The straddle is now actual, and the non-pooling rule is affirmative.** The
+  apply landed after the proc-v6 freeze instant (2026-09-05T00:00:00Z), so the
+  conditional both predecessor entries carried resolves the strict way:
+  frozen-counted interim arrival cells can exist on both sides of this
+  boundary move. A figure over interim arrival cells therefore may not pool
+  across the apply instant; the split key is provisioning time against
+  2026-09-05T13:22Z, since for moved rows `context.cutoff` is non-null on both
+  sides and does not separate the conditionings by itself. At this entry's
+  date the committed interim cells all predate the instant, so the frozen-side
+  arm starts empty and fills from the next predict tick onward.
+
+  **The provenance-mix consequence now applies.** From the next provisioning
+  onward the repair takes the unstamped arm from `as-stored` to placed and
+  shifts placed rows from `dated` toward `truncated`; any figure pooling cells
+  on these events states the mix under the reading rules already registered.
