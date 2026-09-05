@@ -651,8 +651,11 @@ jobs:
           # shared payload reader, so on a payload-free blob it finds no
           # document text and exits non-zero either way — a labeling run that
           # cannot read its input says so rather than handing the labeler an
-          # empty extract. It is here so one spelling covers every step that
-          # reads the corpus, and no step is silently the exception.
+          # empty extract. It is here so one spelling covers every step in this
+          # file that reads case payloads, and none of them is silently the
+          # exception. (The metrics refresh is not one: its artifacts are a pure
+          # function of the pulled index and the committed trees, so that job
+          # declares no corpus address at all.)
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
         run: |
           set -euo pipefail

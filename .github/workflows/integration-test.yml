@@ -122,7 +122,7 @@ on:
       # in-scope, still-predictable case — exactly the shape the read set, the
       # provisioning guard and the cascade cells need, asked of the same
       # record gate the guard applies. Resolving is what naming cannot do:
-      # each deployment environment resolves its own corpus pair, so a case
+      # each deployment environment resolves its own corpus estate, so a case
       # that exists in one is absent from another, and any one case drifts out
       # of shape as its docket resolves. The resolution is echoed to the run
       # summary, so a run always names its subject, and it happens before the
@@ -518,8 +518,9 @@ jobs:
 
       # --- ranged-reads: the fixed read set against the blob in place --------
 
-      # Ranged reads need only AWS credentials and the remote URL from the
-      # environment — never a full pull, never the blob on disk — so this
+      # Ranged reads need only AWS credentials and the estate's base URL from
+      # the environment, which derives the index they address — never a full
+      # pull, never the blob on disk — so this
       # assumes the read-only role directly instead of via the corpus-readonly
       # composite, whose pull serves jobs that read the local file.
       - name: Configure AWS credentials (read-only)
@@ -954,12 +955,12 @@ jobs:
           AWS_SESSION_TOKEN: ${{ steps.corpus.outputs.aws-session-token }}
           AWS_REGION: ${{ vars.AWS_REGION }}
           FEDCOURTS_CORPUS_BACKEND: service
-          # The corpus pair rides the job env for the cascade's own
-          # provisioning reads; the agent inherits those three non-secret
-          # values — the store URL, the split flag, the index pointer —
-          # harmlessly: its reads go via the sidecar, the content store is
-          # unreachable without the scrubbed creds, and a pointer names a
-          # blob rather than granting any reach to one.
+          # The estate's address rides the job env for the cascade's own
+          # provisioning reads; the agent inherits those two non-secret
+          # values — the base URL both store halves derive from, and the index
+          # pointer — harmlessly: its reads go via the sidecar, the content
+          # store is unreachable without the scrubbed creds, and a pointer
+          # names a blob rather than granting any reach to one.
           ANTHROPIC_API_KEY: ${{ matrix.engine == 'claude-code' && secrets.ANTHROPIC_API_KEY || '' }}
           OPENAI_API_KEY: ${{ matrix.engine == 'codex' && secrets.OPENAI_API_KEY || '' }}
           GEMINI_API_KEY: ${{ matrix.engine == 'gemini' && secrets.GEMINI_API_KEY || '' }}

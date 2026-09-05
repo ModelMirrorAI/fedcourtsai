@@ -643,7 +643,7 @@ jobs:
 
       # Parse each merits-bound grant's stored snapshot for the judgment the
       # Court entered, feeding the statpack's merits section. Reads the content
-      # store, so it depends on the job-level split-mode env; a case whose
+      # store, so it depends on the job-level base URL; a case whose
       # snapshot is unreachable is counted, never fatal. Converges like the
       # sweeps above — a re-run over an unchanged corpus stamps nothing.
       - name: Backfill merits judgments

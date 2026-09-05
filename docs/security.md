@@ -272,7 +272,11 @@ retrieval over localhost, the cells having no REST fallback, so no agent step
 carries the token and no client config file does either; unset degrades the
 agents to anonymous rate limits; and by the collect jobs' secret scan, which
 needs the live value to search the run's output for it), the AWS role ARNs
-and region, and the corpus estate's base URL (referenced by role, never committed). Every job that needs any of
+and region, and the corpus estate's base URL — `CORPUS_BASE_URL`, one per
+deployment environment and the sole corpus address every lane resolves, since
+both store halves and the corpus-split mode follow from it; its value is
+out of band, never committed, and an environment missing it has no corpus at
+all rather than half of one. Every job that needs any of
 them declares an environment, and every job outside `integration-test` declares
 `prod` — with two deliberate exceptions, by environment. The `approval` jobs of run-predict
 and run-evaluate declare
@@ -949,9 +953,11 @@ the repoint. Read step 5's two ordering notes before doing either.
    production estate, by value — the refresh lane reads its slice from it and
    its rail compares destinations against it, so it is a dedicated name step 5
    never touches), and the role
-   `AWS_ROLE_TO_ASSUME_STAGING_RW` (`AWS_REGION` and the scenario variable
-   `CORPUS_BASE_URL` are already there at its production value for the
-   integration runs; the seeder deliberately reads neither). One address per
+   `AWS_ROLE_TO_ASSUME_STAGING_RW`. `AWS_REGION` is already there and the
+   seeder does use it, for the role assume; the scenario variable
+   `CORPUS_BASE_URL` is already there too, at its production value for the
+   integration runs, and the seeder deliberately reads *that* one never — its
+   estate comes from the two pins alone. One address per
    side: both store halves are fixed segments beneath it
    (`fedcourtsai.paths`), so a side cannot pair one estate's index with
    another's content store.

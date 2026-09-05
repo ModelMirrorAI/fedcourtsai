@@ -66,6 +66,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import AliasChoices
 
 from fedcourtsai.agent_feedback import (
     _GH_ATTEMPTS,
@@ -73,6 +74,7 @@ from fedcourtsai.agent_feedback import (
     _GH_TIMEOUT_SECONDS,
 )
 from fedcourtsai.cli import _echo_text_coverage
+from fedcourtsai.config import Settings
 from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE, codex_mcp_config
 from fedcourtsai.ops import DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL
 from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
@@ -94,23 +96,54 @@ QP_FENCED_WORKFLOWS = (
     "integration-test.yml",
 )
 
+
+def _base_url_spellings() -> tuple[str, str]:
+    """The env key a workflow sets and the repo variable it reads, taken from
+    the setting itself rather than retyped.
+
+    ``Settings.corpus_base_url`` declares exactly the two: the namespaced name
+    the workflows use as an env key, and the bare name a GitHub variable
+    carries. Reading them from the model is what makes a rename *there* fail
+    *here* — retyped, a renamed alias would leave every job's env key inert,
+    the store unaddressed, and so the split off: payload reads answering empty
+    from a payload-free index, with every check green.
+    """
+    alias = Settings.model_fields["corpus_base_url"].validation_alias
+    assert isinstance(alias, AliasChoices), (
+        "the corpus base URL must declare AliasChoices — the workflow env key "
+        "and the repo-variable name are read from it"
+    )
+    assert len(alias.choices) == 2 and all(isinstance(c, str) for c in alias.choices), (
+        f"expected exactly two plain-name aliases (env key, variable), got {alias.choices}"
+    )
+    namespaced, bare = alias.choices
+    assert isinstance(namespaced, str) and isinstance(bare, str)  # narrowed above
+    return namespaced, bare
+
+
 # The one sanctioned spelling of a corpus-reading surface's address: one base
 # URL per environment, from which `fedcourtsai.paths` fixes both store halves.
-# No `||` fallback — an environment without the variable must fail loudly on an
-# unconfigured remote, not resolve half an estate.
-BASE_URL_ENV_KEY = "FEDCOURTS_CORPUS_BASE_URL"
-BASE_URL_ENV_EXPRESSION = "${{ vars.CORPUS_BASE_URL }}"
+# No `||` — an unset variable already interpolates to the empty string, so a
+# fallback can only name *another* variable, forking the read path between two
+# surfaces that must resolve the same estate.
+BASE_URL_ENV_KEY, _BASE_URL_VARIABLE = _base_url_spellings()
+BASE_URL_ENV_EXPRESSION = "${{ vars." + _BASE_URL_VARIABLE + " }}"
 
-# The spellings that must appear nowhere on the workflow surface. Each names a
-# store half or the mode directly, and the mode is now a consequence of the
-# store's address: a workflow re-introducing one either pairs two environments'
-# halves or states a mode the address contradicts — and a falsy mode beside an
-# addressed store turns the split off, leaving every payload read empty while
-# the run stays green.
-RETIRED_ADDRESS_SPELLINGS = (
+# The spellings that may appear nowhere on the workflow surface, in either the
+# env casing or the composite-input casing. Each names a store half or the mode
+# directly, and the mode is a consequence of the store's address: a workflow
+# naming one either pairs two environments' halves or states a mode the address
+# contradicts — and a falsy mode beside an addressed store turns the split off,
+# leaving every payload read empty while the run stays green.
+# `corpus-split` is deliberately absent: workflow prose says "the corpus-split
+# mode" legitimately, and an input of that name is inert unless something
+# consumes it under an env name this tuple already bans.
+FORBIDDEN_ADDRESS_SPELLINGS = (
     "CORPUS_REMOTE_URL",
     "CASESTORE_URL",
     "FEDCOURTS_CORPUS_SPLIT",
+    "corpus-remote-url",
+    "casestore-url",
 )
 
 
@@ -227,12 +260,13 @@ def test_the_corpus_base_url_is_spelled_once_across_the_reading_workflows() -> N
     """Every env block addressing the corpus names one base URL, verbatim —
     and the workflows carrying it are exactly the corpus-reading set.
 
-    A respelled expression (a `||` fallback, a different variable) forks the
-    read path between two surfaces that must agree: the cell workflows and the
-    integration scenarios certify each other only while their env is
-    byte-identical. And a workflow that drops the address entirely reads no
-    corpus at all rather than failing, so coverage is pinned per workflow, not
-    as a count.
+    A respelled expression (a fallback naming another variable, a different
+    variable outright) forks the read path between two surfaces that must
+    agree: the cell workflows and the integration scenarios certify each other
+    only while their env is byte-identical. And a workflow that drops the
+    address entirely does not uniformly fail — its index reads raise, but its
+    payload reads answer empty from a payload-free index, which is silent — so
+    coverage is pinned per workflow, not as a count.
     """
     covered: set[str] = set()
     for name in sorted(p.name for p in WORKFLOWS.glob("*.y*ml")):
@@ -250,23 +284,25 @@ def test_the_corpus_base_url_is_spelled_once_across_the_reading_workflows() -> N
 
 
 def test_no_workflow_surface_names_a_store_half_or_the_split_mode() -> None:
-    """The whole `.github` surface addresses the corpus by base URL alone.
+    """Every workflow and composite addresses the corpus by base URL alone.
 
-    The store's address is the split mode (`Settings.corpus_split`), so the
-    retired spellings are not merely redundant: a falsy mode forwarded beside
+    The store's address is the split mode (`Settings.corpus_split`), so these
+    spellings are not merely redundant: a falsy mode forwarded beside
     an addressed store turns the split off and every payload read answers
     empty from a payload-free index — a run that stays green and produces
     nothing. A half named on its own outranks the derived one, so it can pair
     one environment's index with another's store just as quietly. Textual on
-    purpose: an `env:` value, a composite input, a `with:` line and a comment
-    all count, because each is how the spelling would come back.
+    purpose, over `.github/workflows/*.y*ml` and `.github/actions/*/action.y*ml`:
+    an `env:` value, a composite input, a `with:` line and a comment all count,
+    because each is how the spelling would come back.
     """
     surfaces = sorted(WORKFLOWS.glob("*.y*ml")) + sorted(ACTIONS.glob("*/action.y*ml"))
     for path in surfaces:
         text = path.read_text(encoding="utf-8")
-        for spelling in RETIRED_ADDRESS_SPELLINGS:
+        where = path.relative_to(REPO_ROOT)
+        for spelling in FORBIDDEN_ADDRESS_SPELLINGS:
             assert spelling not in text, (
-                f"{path.name} names {spelling}: a corpus-reading surface addresses "
+                f"{where} names {spelling}: a corpus-reading surface addresses "
                 f"its estate with {BASE_URL_ENV_EXPRESSION} alone, from which both "
                 "store halves — and so the split mode — derive"
             )
@@ -352,28 +388,32 @@ def test_the_refresh_lane_pins_its_source_out_of_the_scenario_variables() -> Non
     )
 
 
-# The corpus-sidecar composite resolves its own corpus connection and hydrates
-# full-query bodies server-side, so its address rides a `with:` input rather
-# than env — the same one-spelling rule, one level up.
-SIDECAR_BASE_URL_INPUT = "corpus-base-url"
+# The corpus composites resolve their own corpus connection — the sidecar even
+# hydrates full-query bodies server-side — so their address rides a `with:`
+# input rather than env. Same one-spelling rule, one level up, and it covers
+# every corpus composite: a call site is the only place the input is set.
+CORPUS_COMPOSITES = ("corpus-sidecar", "corpus-readonly", "corpus-ranged")
+COMPOSITE_BASE_URL_INPUT = "corpus-base-url"
 
 
-def test_sidecar_call_sites_pass_the_base_url_with_the_same_spelling() -> None:
-    """Every corpus-sidecar call site addresses the estate, in the canonical
-    spelling. A call site that omitted it would launch a sidecar with no
-    corpus at all; one that respelled it would serve a different estate's rows
-    than the job's own in-process reads resolve — and, with no content store
-    reachable, bodiless `full` rows to every cell while the run stays green."""
+def test_corpus_composite_call_sites_pass_the_base_url_with_the_same_spelling() -> None:
+    """Every corpus composite call site addresses the estate, in the canonical
+    spelling. A call site that omitted it would run with no corpus at all; one
+    that respelled it — another environment's pinned address, say — would serve
+    a different estate than the job's own in-process reads resolve, and, for the
+    sidecar, bodiless `full` rows to every cell while the run stays green.
+    A composite's ``required:`` does not enforce this, so the call sites do."""
     for name in sorted(p.name for p in WORKFLOWS.glob("*.y*ml")):
         for job_id, job in _load(name)["jobs"].items():
             for step in job.get("steps", []) or []:
-                if not str(step.get("uses", "")).endswith("actions/corpus-sidecar"):
+                uses = str(step.get("uses", ""))
+                if not any(uses.endswith(f"actions/{c}") for c in CORPUS_COMPOSITES):
                     continue
                 with_block = step.get("with") or {}
-                assert with_block.get(SIDECAR_BASE_URL_INPUT) == BASE_URL_ENV_EXPRESSION, (
-                    f"{name}: job {job_id}: corpus-sidecar {SIDECAR_BASE_URL_INPUT} must "
+                assert with_block.get(COMPOSITE_BASE_URL_INPUT) == BASE_URL_ENV_EXPRESSION, (
+                    f"{name}: job {job_id}: {uses} {COMPOSITE_BASE_URL_INPUT} must "
                     f"be exactly {BASE_URL_ENV_EXPRESSION!r}, got "
-                    f"{with_block.get(SIDECAR_BASE_URL_INPUT)!r}"
+                    f"{with_block.get(COMPOSITE_BASE_URL_INPUT)!r}"
                 )
 
 
@@ -387,7 +427,7 @@ POINTER_ENV_EXPRESSION = "${{ vars.FEDCOURTS_CORPUS_POINTER }}"
 # The scenario lane alone. The production lanes read the pair the committed
 # pointer names, so a pointer reaching run-predict/run-evaluate/the writers
 # would repoint a real run's corpus at another blob — hence a pinned set
-# rather than a count, exactly as the split pair is pinned above.
+# rather than a count, exactly as the base URL is pinned above.
 POINTER_WORKFLOWS = {"integration-test.yml"}
 
 

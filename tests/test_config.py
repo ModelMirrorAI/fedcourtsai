@@ -319,10 +319,12 @@ def test_naming_the_split_mode_takes_effect_or_raises() -> None:
 
 @pytest.mark.usefixtures("clean_store_env")
 def test_the_split_flag_overrides_the_inference(monkeypatch: pytest.MonkeyPatch) -> None:
-    # The compatibility shim, for an environment that still states the mode as
-    # its own setting: an explicit value wins over the store's address, in both
-    # directions. An empty value is an absent setting, not "off" — every env
-    # layer that forwards an unset variable raw passes the empty string.
+    # The dev-shell and test surface, for a shell that pins the mode outright
+    # (`scripts/corpus-env`, the offline fixtures): an explicit value wins over
+    # the store's address, in both directions. No job wires it — a workflow
+    # test refuses one that does. An empty value is an absent setting, not
+    # "off" — every env layer that forwards an unset variable raw passes the
+    # empty string.
     monkeypatch.setenv("CORPUS_BASE_URL", "s3://estate")
     monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "0")
     assert Settings().corpus_split is False

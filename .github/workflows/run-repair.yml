@@ -807,7 +807,8 @@ jobs:
       #
       # It reads those snapshots, which under the corpus split live in the
       # content store rather than the blob — so it depends on the job-level
-      # split-mode env pair, and a row with no stored snapshot is counted and
+      # base URL, whose store segment is where they live, and a row with no
+      # stored snapshot is counted and
       # reported rather than failed. The three columns are fill-in only,
       # matching the latch family they sit in on the upsert path, so a stored
       # value is never overwritten and a degraded payload fills nothing rather
@@ -1358,7 +1359,8 @@ jobs:
       # the same pure parsers rather than re-fetching, and reaches no network at
       # all. It reads those snapshots, which under the corpus split live in the
       # content store rather than the blob, so it depends on the job-level
-      # split-mode env pair, and a row with no stored snapshot is counted and
+      # base URL, whose store segment is where they live, and a row with no
+      # stored snapshot is counted and
       # reported rather than failed.
       #
       # Its write is a direct UPDATE of the index, so the pointer IS the witness
