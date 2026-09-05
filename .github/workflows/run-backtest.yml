@@ -143,7 +143,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
           missing-pointer: warn
           # With the corpus split on, the replay's snapshot provisioning reads
           # the per-case content store for the whole run, so the static
@@ -207,12 +207,10 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the
-          # clean-slate cutover switch; unset variable -> '0' -> off) the pulled
-          # corpus.db is a payload-free index, and the replay's snapshot reads
-          # come from the per-case content store instead. Inert while off.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+          # The corpus estate's base URL: the pulled corpus.db is a payload-free
+          # index, and the replay's snapshot reads come from the per-case
+          # content store the same base derives.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
           # The dispatcher chooses the backend and the set size. `--limit` IS the
           # set-size cap (there is no higher ceiling to lower), so a large value
           # is a deliberate, write-gated spend decision — the PR body echoes what
@@ -249,11 +247,10 @@ jobs:
       - name: Run the salience-gate replay
         if: inputs.replay == 'salience-gate'
         env:
-          # Corpus-split read side, exactly as the cert step wires it: under
-          # the split the pulled corpus.db is a payload-free index and the
-          # snapshot reads come from the content store. Inert while off.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+          # The corpus estate's base URL, exactly as the cert step wires it: the
+          # pulled corpus.db is a payload-free index and the snapshot reads come
+          # from the content store the same base derives.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
           TERMS: ${{ inputs.terms }}
         run: |
           set -euo pipefail

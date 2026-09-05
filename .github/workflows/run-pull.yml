@@ -113,25 +113,25 @@ jobs:
     # a network step hangs.
     timeout-minutes: 45
     environment: prod
-    # Corpus-split (phase 1) dual-write flag, resolved from the `prod` environment
-    # (falling back to a repo/org variable of the same name). Set CASESTORE_URL to
-    # s3://<bucket>[/<prefix>] to mirror each mutated case to the per-case content
-    # store (fedcourtsai.casestore) alongside the corpus blob; unset → "" → off (the
-    # default). Best-effort — a mirror failure only logs, never fails ingestion;
-    # enabling also needs the read-write S3 role to permit PutObject +
-    # GetObject/HeadObject (the write-once existence check) on that prefix.
-    # FEDCOURTS_CORPUS_SPLIT is the phase-4 go-live switch (flipped at the
-    # clean-slate cutover): '1' stops packing payloads into the blob (the corpus
-    # collapses to the small metadata index) and routes the writer's own payload
-    # reads to the store. Unset variable → '0' → off; needs CASESTORE_URL set.
+    # This environment's whole corpus estate, as one base URL
+    # (s3://<bucket>[/<prefix>]) resolved from the `prod` environment, falling
+    # back to a repo/org variable of the same name. fedcourtsai.paths fixes
+    # both halves beneath it — the index remote every corpus-pull/push
+    # resolves the pointer against, and the per-case content store
+    # (fedcourtsai.casestore) the payloads live in — so the two can never name
+    # different environments, and the corpus-split mode follows from the
+    # store's address rather than from a flag beside it: the writer leaves the
+    # blob's payload columns empty and the corpus stays a small metadata
+    # index. Writing needs the read-write S3 role to permit PutObject +
+    # GetObject/HeadObject (the write-once existence check) on the store's
+    # prefix.
     #
     # Neither fan-out is triggered from here: run-predict and run-evaluate each
     # derive their own backlog on their own schedule, so this window writes
     # queues and counts them and nothing else, and pausing a tournament stage is
     # that stage's workflow to hold.
     env:
-      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+      FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
     permissions:
       contents: write
       issues: write # the dashboard + failure-issue writes (non-triggering, ambient)
@@ -204,13 +204,10 @@ jobs:
           # rather than its own message; the real cause is earlier in the log.
           action-timeout-s: 120
 
+      # The estate's base URL comes from the job env above (out of band, never
+      # committed; see SECURITY.md); boto3 picks up the OIDC-assumed
+      # credentials from the environment.
       - name: Pull the current corpus from the remote
-        env:
-          # The remote's bucket URL, out of band (never committed; see
-          # SECURITY.md); boto3 picks up the OIDC-assumed credentials from the
-          # environment. Sourced from the CORPUS_REMOTE_URL repo variable
-          # (the CLI also still accepts the legacy DVC_REMOTE_URL env alias).
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           # Discovery and the rotation governor read prior corpus state (the
           # discovery watermark and per-case last_pulled), so it must be
@@ -245,8 +242,6 @@ jobs:
             --unrecorded-out unrecorded-queue.json
 
       - name: Push the corpus blob to the remote
-        env:
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           # pull-all wrote fresh facts, discovered filings, and bumped tracking
           # state in corpus/corpus.db. corpus-push uploads the blob to its
@@ -450,11 +445,10 @@ jobs:
     # setup (checkout + corpus-pull) before the poll and the push after it.
     timeout-minutes: 35
     environment: prod
-    # Corpus-split flags (see the pull job): dual-write off unless CASESTORE_URL
-    # is set; FEDCOURTS_CORPUS_SPLIT is the phase-4 go-live switch (unset → '0' → off).
+    # This environment's corpus estate as one base URL (see the pull job): both
+    # halves derive from it, and the store's address is the corpus-split mode.
     env:
-      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+      FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
     # The ambient GITHUB_TOKEN carries exactly the non-triggering issue writes
     # (the pipeline-runs dashboard row and the failure run-log issue — the
     # doctrine in docs/security.md: issue writes that must trigger nothing stay
@@ -522,9 +516,6 @@ jobs:
           action-timeout-s: 120
 
       - name: Pull the current corpus from the remote
-        env:
-          # See the pull job: CORPUS_REMOTE_URL variable, same env name.
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           # The live rotation and the per-Term discovery cursors read prior
           # corpus state, so it must be restored; a first run has no committed
@@ -547,8 +538,6 @@ jobs:
             --unrecorded-out unrecorded-queue.json
 
       - name: Push the corpus blob to the remote
-        env:
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           # live-poll wrote fresh snapshots, rows, and cursors into
           # corpus/corpus.db. Blob before pointer commit (content-addressed,
@@ -698,9 +687,10 @@ jobs:
     # corpus-write lock if a network step hangs.
     timeout-minutes: 30
     environment: prod
+    # This environment's corpus estate as one base URL (see the pull job): both
+    # halves derive from it, and the store's address is the corpus-split mode.
     env:
-      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+      FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
     permissions:
       # The pointer commit rides the App token persisted at checkout, so the
       # ambient GITHUB_TOKEN needs no write at all.
@@ -757,8 +747,6 @@ jobs:
           action-timeout-s: 120
 
       - name: Pull the current corpus from the remote
-        env:
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           # No committed pointer means no corpus and nothing to enrich, so the
           # default missing-pointer failure is the right outcome: a dispatch
@@ -792,8 +780,6 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Push the corpus blob to the remote
-        env:
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           # Blob before pointer commit, so the committed pointer always
           # resolves against the remote.

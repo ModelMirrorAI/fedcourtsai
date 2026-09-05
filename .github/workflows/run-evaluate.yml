@@ -83,13 +83,13 @@ jobs:
     # trips before the credential expires and the failure names the right cause.
     timeout-minutes: 30
     environment: prod
-    # Corpus-split read side for the matrix scope backstop: the bare-opinion-
-    # import exclusion fetches the case's latest snapshot, which under
-    # FEDCOURTS_CORPUS_SPLIT=1 lives only in the per-case content store (the
-    # pulled index carries no snapshots). Unset variable -> '0' -> off.
+    # This environment's corpus estate as one base URL: the index remote and
+    # the per-case content store are fixed segments beneath it, and addressing
+    # the store is the corpus-split mode. The matrix scope backstop needs it —
+    # the bare-opinion-import exclusion fetches the case's latest snapshot,
+    # which lives only in the store (the index carries no snapshots).
     env:
-      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+      FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
     permissions:
       contents: read
       id-token: write # assume the AWS role for the corpus pull (read-only)
@@ -125,7 +125,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
 
       - name: Build evaluator x case x event matrix
         id: plan
@@ -323,14 +323,12 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
-          # Corpus-split read side for the sidecar process itself: under the
-          # split, `full` query bodies hydrate from the per-case content
-          # store server-side, and the sidecar is the credentialed process —
-          # without these the sidecar silently serves bodiless rows while
-          # every other read stays green. Inert while the flag is off.
-          casestore-url: ${{ vars.CASESTORE_URL }}
-          corpus-split: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+          # One address for the sidecar process itself: `full` query bodies
+          # hydrate from the per-case content store the base derives, and the
+          # sidecar is the credentialed process — a sidecar that could not
+          # reach the store would silently serve bodiless rows while every
+          # other read stayed green.
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
 
       # Point-in-time snapshots are raw facts in the access-gated corpus, not git:
       # materialize this case's latest snapshot (a ranged point lookup, KB-scale)
@@ -349,14 +347,11 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ steps.corpus.outputs.aws-secret-access-key }}
           AWS_SESSION_TOKEN: ${{ steps.corpus.outputs.aws-session-token }}
           AWS_REGION: ${{ vars.AWS_REGION }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          # One address for both halves of this step's read: the index the
+          # ranged backend queries, and the per-case content store the payload
+          # reads (snapshots, document text) come from.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
           FEDCOURTS_CORPUS_BACKEND: ranged
-          # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the clean-slate
-          # cutover switch; unset variable -> '0' -> off) provisioning defaults to
-          # the per-case content store, which needs its URL. Inert while the flag
-          # is off -- the corpus/ranged path is unchanged.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID"
 
       # A predictable event is a corpus fact, not a committed file. Project it into
@@ -375,14 +370,11 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ steps.corpus.outputs.aws-secret-access-key }}
           AWS_SESSION_TOKEN: ${{ steps.corpus.outputs.aws-session-token }}
           AWS_REGION: ${{ vars.AWS_REGION }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          # One address for both halves of this step's read: the index the
+          # ranged backend queries, and the per-case content store the payload
+          # reads (snapshots, document text) come from.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
           FEDCOURTS_CORPUS_BACKEND: ranged
-          # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the clean-slate
-          # cutover switch; unset variable -> '0' -> off) provisioning defaults to
-          # the per-case content store, which needs its URL. Inert while the flag
-          # is off -- the corpus/ranged path is unchanged.
-          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: uv run fedcourts materialize-event --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
 
       # Blind grading: stage each predictor's latest prediction under an opaque

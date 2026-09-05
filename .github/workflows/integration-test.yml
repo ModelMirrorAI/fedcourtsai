@@ -64,7 +64,7 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # infrastructure before it is promoted, and its `auto` default resolves the
 # environment from the dispatching branch: `main` resolves `prod` as always,
 # `staging` resolves the `staging` environment — the same read-only role and
-# remote variables plus its own engine keys, and the trust of the staging
+# corpus base URL plus its own engine keys, and the trust of the staging
 # read-write role, which any staging-bound job may therefore ask for (the
 # refresh lane is the one reviewed asker; docs/security.md carries the
 # provenance model) — and any other branch resolves its own name, which
@@ -122,7 +122,7 @@ on:
       # in-scope, still-predictable case — exactly the shape the read set, the
       # provisioning guard and the cascade cells need, asked of the same
       # record gate the guard applies. Resolving is what naming cannot do:
-      # each deployment environment resolves its own corpus pair, so a case
+      # each deployment environment resolves its own corpus estate, so a case
       # that exists in one is absent from another, and any one case drifts out
       # of shape as its docket resolves. The resolution is echoed to the run
       # summary, so a run always names its subject, and it happens before the
@@ -181,7 +181,7 @@ on:
         default: ""
       deploy-environment:
         description: >-
-          Deployment environment supplying the role/remote variables. The
+          Deployment environment supplying the role and the corpus base URL. The
           `auto` default resolves it from the dispatching branch — `main`
           resolves `prod`, `staging` resolves `staging`, and any other branch
           resolves its own name, which names no configured environment and so
@@ -275,13 +275,13 @@ jobs:
       contents: read
       id-token: write # assume the read-only AWS role for the ranged corpus read
     env:
-      # The corpus pair, resolved exactly as the scenario job resolves it —
-      # the store URL, the split flag, and the out-of-band index pointer that
-      # keeps a staging-pointed environment reading staging's index. The
-      # resolver must see the same pair the legs will, or it would hand them a
-      # case out of a different corpus.
-      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+      # The corpus estate, resolved exactly as the scenario job resolves it —
+      # this environment's base URL (both store halves beneath it, and
+      # addressing the store is the split mode) and the out-of-band index
+      # pointer that keeps a staging-pointed environment reading staging's
+      # index. The resolver must see the same estate the legs will, or it
+      # would hand them a case out of a different corpus.
+      FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
       FEDCOURTS_CORPUS_POINTER: ${{ vars.FEDCOURTS_CORPUS_POINTER }}
       # Whether this dispatch resolves a case at all: only when the dispatcher
       # left `docket` at the sentinel AND some leg of it actually reads one.
@@ -393,7 +393,6 @@ jobs:
           # shell) so a maintainer-supplied value cannot inject commands.
           COURT: ${{ inputs.court }}
           DOCKET: ${{ inputs.docket }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
           if [ "$RESOLVE_CASE" != true ]; then
@@ -476,32 +475,31 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role for the corpus reads
-    # Corpus-split read side, job-wide: under FEDCOURTS_CORPUS_SPLIT=1 (the
-    # clean-slate cutover switch; unset variable -> '0' -> off) snapshot
-    # payloads and opinion bodies are served from the per-case content store,
-    # which needs its URL. Job-level so every client-side read — the ranged
-    # read set, the stub cascade, the provisioning guard, the engine-smoke
-    # cascade — resolves the same mode; the sidecar process gets the same
-    # pair explicitly, as corpus-sidecar composite inputs, exactly as the
-    # cell workflows pass it. Inert while the flag is off.
+    # This environment's corpus estate, job-wide: one base URL, under which
+    # both halves are fixed segments — the index the ranged reads address, and
+    # the per-case content store that serves snapshot payloads and opinion
+    # bodies (addressing it is the split mode). Job-level so every client-side
+    # read — the ranged read set, the stub cascade, the provisioning guard,
+    # the engine-smoke cascade — resolves the same estate; the sidecar process
+    # gets the same address explicitly, as a corpus-sidecar composite input,
+    # exactly as the cell workflows pass it.
     #
-    # The index half of that pair travels the same way. A consumer resolves
+    # The index pointer travels the same way. A consumer resolves
     # the committed `corpus/corpus.db.ref`, whose digest names the production
     # blob, unless this out-of-band pointer names another published blob —
     # and content addressing means a lean slice can never publish under the
-    # production digest, so an environment holding staging's store URLs must
-    # carry staging's pointer too or every index read asks that bucket for a
-    # key it does not hold. An unset variable resolves to the empty string,
-    # which reads as "the committed pointer, unchanged", and no fallback
-    # literal can express a pointer, so there is nothing to default it to.
-    # What keeps the `prod` lane off this path is that the variable is set on
-    # the `staging` environment alone — every corpus-writing workflow
+    # production digest, so an environment whose base URL names staging's
+    # estate must carry staging's pointer too or every index read asks that
+    # bucket for a key it does not hold. An unset variable resolves to the
+    # empty string, which reads as "the committed pointer, unchanged", and no
+    # fallback literal can express a pointer, so there is nothing to default
+    # it to. What keeps the `prod` lane off this path is that the variable is
+    # set on the `staging` environment alone — every corpus-writing workflow
     # hard-codes `environment: prod` and forwards no pointer at all.
-    # Job-level for the split flag's own reason — one pair per job, never a
+    # Job-level for the base URL's own reason — one estate per job, never a
     # staging index resolved against a production pointer.
     env:
-      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+      FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
       FEDCOURTS_CORPUS_POINTER: ${{ vars.FEDCOURTS_CORPUS_POINTER }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -520,8 +518,9 @@ jobs:
 
       # --- ranged-reads: the fixed read set against the blob in place --------
 
-      # Ranged reads need only AWS credentials and the remote URL from the
-      # environment — never a full pull, never the blob on disk — so this
+      # Ranged reads need only AWS credentials and the estate's base URL from
+      # the environment, which derives the index they address — never a full
+      # pull, never the blob on disk — so this
       # assumes the read-only role directly instead of via the corpus-readonly
       # composite, whose pull serves jobs that read the local file.
       - name: Configure AWS credentials (read-only)
@@ -554,7 +553,6 @@ jobs:
           # inject commands.
           COURT: ${{ needs.plan.outputs.court }}
           DOCKET: ${{ needs.plan.outputs.docket }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
           uv run fedcourts corpus-integration-check \
@@ -576,18 +574,16 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
-          # Corpus-split read side for the sidecar process itself: under the
-          # split, `full` query bodies hydrate from the per-case content
-          # store server-side, and the sidecar is the credentialed process —
-          # without these the sidecar silently serves bodiless rows while
-          # every other read stays green. Inert while the flag is off.
-          casestore-url: ${{ vars.CASESTORE_URL }}
-          corpus-split: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
-          # The index half of the same pair, explicit for the same reason: the
-          # sidecar is a separate process, and a pair whose index it resolved
-          # from the committed pointer would serve production's index rows
-          # against this environment's store.
+          # One address for the sidecar process itself: `full` query bodies
+          # hydrate from the per-case content store the base derives, and the
+          # sidecar is the credentialed process — a sidecar that could not
+          # reach the store would silently serve bodiless rows while every
+          # other read stayed green.
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The pointer, explicit for the same reason: the sidecar is a
+          # separate process, and an index it resolved from the committed
+          # pointer would serve production's index rows against this
+          # environment's store.
           corpus-pointer: ${{ vars.FEDCOURTS_CORPUS_POINTER }}
 
       # The same tested command as the ranged read set, on the service
@@ -630,7 +626,6 @@ jobs:
           COURT: ${{ needs.plan.outputs.court }}
           DOCKET: ${{ needs.plan.outputs.docket }}
           EVENT: ${{ inputs.event }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           FEDCOURTS_CORPUS_BACKEND: ranged
           FEDCOURTS_DATA_ROOT: ${{ runner.temp }}/provision-guard/data
         run: |
@@ -649,7 +644,6 @@ jobs:
           COURT: ${{ needs.plan.outputs.court }}
           DOCKET: ${{ needs.plan.outputs.docket }}
           EVENT: ${{ inputs.event }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           FEDCOURTS_CORPUS_BACKEND: ranged
         run: |
           set -euo pipefail
@@ -960,14 +954,13 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ steps.corpus.outputs.aws-secret-access-key }}
           AWS_SESSION_TOKEN: ${{ steps.corpus.outputs.aws-session-token }}
           AWS_REGION: ${{ vars.AWS_REGION }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           FEDCOURTS_CORPUS_BACKEND: service
-          # The corpus pair rides the job env for the cascade's own
-          # provisioning reads; the agent inherits those three non-secret
-          # values — the store URL, the split flag, the index pointer —
-          # harmlessly: its reads go via the sidecar, the content store is
-          # unreachable without the scrubbed creds, and a pointer names a
-          # blob rather than granting any reach to one.
+          # The estate's address rides the job env for the cascade's own
+          # provisioning reads; the agent inherits those two non-secret
+          # values — the base URL both store halves derive from, and the index
+          # pointer — harmlessly: its reads go via the sidecar, the content
+          # store is unreachable without the scrubbed creds, and a pointer
+          # names a blob rather than granting any reach to one.
           ANTHROPIC_API_KEY: ${{ matrix.engine == 'claude-code' && secrets.ANTHROPIC_API_KEY || '' }}
           OPENAI_API_KEY: ${{ matrix.engine == 'codex' && secrets.OPENAI_API_KEY || '' }}
           GEMINI_API_KEY: ${{ matrix.engine == 'gemini' && secrets.GEMINI_API_KEY || '' }}

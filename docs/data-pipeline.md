@@ -221,19 +221,19 @@ live in different stores, split by **kind**:
    environment may also name the content store on its own. It is wired at job or
    step level across the writer lanes (`run-pull`, `run-seed`, `run-repair`), the cell
    workflows, the back-test, the integration scenarios, and the analysis
-   surface. `tests/test_workflow_cell_invariants.py` pins the half-by-half
-   spelling and which workflows carry it, per workflow rather than as a count,
+   surface. `tests/test_workflow_cell_invariants.py` pins that one spelling and
+   which workflows carry it, per workflow rather than as a count,
    so a corpus-reading workflow that declares no corpus address is a deliberate
    act; mirroring is best-effort — a store failure logs, never breaking the
    SQLite write.
 
-   **An explicitly wired `FEDCOURTS_CORPUS_SPLIT` still decides**, in both
-   directions, for an environment that states the mode as its own setting —
-   which every corpus-reading job does today, passing the variable with a falsy
-   fallback so it always arrives set. Read that as the one thing to sequence
-   carefully: a `0` reaching a job whose store *is* addressed turns the split
-   off and makes every payload read answer empty, so the explicit wiring has to
-   go in the same change that gives a job its base URL, never after it.
+   **The mode is never wired beside the address.** `Settings` still accepts an
+   explicit `FEDCOURTS_CORPUS_SPLIT`, which decides in both directions, and a
+   dev shell or a test uses it to pin the mode outright (`scripts/corpus-env`,
+   the offline fixtures). No workflow forwards it, and a test refuses one that
+   does: a falsy mode reaching a job whose store *is* addressed turns the split
+   off and makes every payload read answer empty from a payload-free index —
+   green, and producing nothing.
 2. **Derived judgments → the git ledger** under `data/`, where the
    schema/`validate`/PR-review machinery applies (see *The ledger* below).
 
@@ -787,9 +787,10 @@ The **staging pair** (the lean real-slice corpus of
 read-only role — the maintainer's role-assumed flow; the contributor IAM
 user stays scoped to production — and its address arrives as a further
 user-scoped secret, `STAGING_CORPUS_BASE_URL` (or, for a pair named half by
-half, `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`): the same
-names the `staging` Actions environment carries for the refresh lane,
-deliberately, since they hold the same values in a different config store.
+half, `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`, which the
+switcher still accepts): the base URL is the same name the `staging` Actions
+environment carries as the refresh lane's destination, deliberately, since
+both hold the same value in a different config store.
 `scripts/corpus-env` (invoked from the repo root) switches the whole env
 contract between the environments — every accepted spelling of the base URL and
 of the two halves, plus `FEDCOURTS_CORPUS_SPLIT` and the out-of-band corpus

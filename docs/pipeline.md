@@ -561,7 +561,7 @@ direct `UPDATE` of the index — it commits the pointer alone.
 `response-backfill` re-derives the dated interim/merits signals from each row's
 newest stored live-shaped snapshot, which under the corpus split lives in the
 content store rather than the blob; it therefore reads through the job's
-split-mode env like the merits-judgment sweep, counts a row with no stored
+corpus base URL like the merits-judgment sweep, counts a row with no stored
 snapshot rather than failing on it, and writes a direct `UPDATE` of the index,
 so the pointer is its own witness. Its bound counts the rows actually filled,
 not the `candidates` denominator beside them, which rises with every new cert

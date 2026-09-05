@@ -9,8 +9,8 @@ description: >-
   Corpus *writers* (run-pull's jobs) assume the read-write role and
   keep their own wiring. The calling job must run setup-python-env BEFORE this
   composite (corpus-pull runs from the synced environment), grant
-  `id-token: write`, and run in the `prod` environment so the role and
-  remote variables are available to pass in.
+  `id-token: write`, and run in the `prod` environment so the role and the
+  corpus base URL are available to pass in.
 
 inputs:
   role-to-assume:
@@ -19,10 +19,13 @@ inputs:
   aws-region:
     description: AWS region for the role/remote (pass vars.AWS_REGION).
     required: true
-  corpus-remote-url:
+  corpus-base-url:
     description: >-
-      The corpus remote's bucket URL (pass vars.CORPUS_REMOTE_URL); the CLI
-      also still accepts the legacy DVC_REMOTE_URL env alias.
+      The corpus estate's base URL for this environment (pass
+      vars.CORPUS_BASE_URL). The index remote and the per-case content store
+      are fixed segments beneath it (fedcourtsai.paths), so one address names
+      the whole estate and the two halves cannot be paired across
+      environments.
     required: true
   missing-pointer:
     description: >-
@@ -65,12 +68,13 @@ runs:
     - name: Pull the corpus
       shell: bash
       env:
-        CORPUS_REMOTE_URL: ${{ inputs.corpus-remote-url }}
+        FEDCOURTS_CORPUS_BASE_URL: ${{ inputs.corpus-base-url }}
         MISSING_POINTER: ${{ inputs.missing-pointer }}
       run: |
         set -euo pipefail
         # corpus-pull resolves the committed pointer (corpus/corpus.db.ref)
-        # against the remote URL and verifies the blob's checksum + size
+        # against the index remote derived from the base URL, and verifies the
+        # blob's checksum + size
         # before it lands — *committed*, because every caller of this composite
         # hard-codes `environment: prod`, where the out-of-band pointer
         # override is unset, and none forwards one. A shell carrying the

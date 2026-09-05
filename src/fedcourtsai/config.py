@@ -77,11 +77,11 @@ class Settings(BaseSettings):
     # see SECURITY.md). corpus-pull/corpus-push and the ranged backend resolve
     # the corpus pointer against it — which pointer a read resolves is
     # `corpus_pointer` below; a push resolves only the committed one. Unset,
-    # it is the index segment under `corpus_base_url`. The
-    # bare workflow variable names
-    # are accepted as aliases so the same runner env serves both. The workflow
-    # variable is CORPUS_REMOTE_URL; the DVC_* aliases exist for the Codespaces
-    # devcontainer secret, which is spelled DVC_REMOTE_URL (see
+    # it is the index segment under `corpus_base_url` — which is how every job
+    # addresses it, so naming this half on its own is a dev-shell surface
+    # (`scripts/corpus-env`, `.devcontainer/`) rather than a CI one. The bare
+    # names are accepted as aliases so the same shell serves both; the DVC_*
+    # ones spell the Codespaces devcontainer secret, DVC_REMOTE_URL (see
     # .devcontainer/) — new names win when both are set, and the aliases can
     # retire once that secret is renamed too.
     corpus_remote_url: str | None = Field(
@@ -131,8 +131,9 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("FEDCOURTS_CORPUS_SERVICE_URL"),
     )
     # The corpus-split mode stated explicitly, overriding the inference in
-    # `corpus_split` below. For an environment that wires the mode as its own
-    # variable; unset (or empty) leaves the mode to the store's address.
+    # `corpus_split` below. For a dev shell or a test that pins the mode
+    # outright — no job wires it, and a workflow test refuses one that does;
+    # unset (or empty) leaves the mode to the store's address.
     corpus_split_flag: bool | None = Field(
         default=None,
         validation_alias=AliasChoices("FEDCOURTS_CORPUS_SPLIT"),
@@ -231,9 +232,11 @@ class Settings(BaseSettings):
         corpus the offline fixture loop and the stub cascade run on — every
         payload read is then the plain SQLite path.
 
-        ``corpus_split_flag`` overrides in both directions, for an environment
-        that states the mode as its own setting — which is how every
-        corpus-reading job wires it, so there the address is not consulted.
+        ``corpus_split_flag`` overrides in both directions, for a dev shell or
+        a test that states the mode outright (``scripts/corpus-env``, the
+        offline fixtures). No job wires it — a workflow forwarding a falsy mode
+        beside an addressed store would turn the split off and answer every
+        payload read empty — so in CI the address always decides.
         Derived, so it is not a constructor keyword: passing one is refused
         rather than ignored.
         """
