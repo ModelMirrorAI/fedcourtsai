@@ -127,9 +127,14 @@ cell's event declares a moment, provisioning places the cell at that moment
 rather than at the corpus's latest snapshot, which moves what the predictor is
 conditioned on without touching a prompt byte and so without moving a digest.
 It does carry a data-visible boundary — `context.cutoff`, non-null exactly on a
-placed cell — so the two conditionings are separable in the record rather than
-pooled silently, which is the property the scoring baseline lacks. It belongs in
-the freeze record on the same terms as the rest.
+placed cell — so the placed/unplaced transition is separable in the record
+rather than pooled silently, which is the property the scoring baseline lacks.
+The visibility stops there: a change of cutoff *value* on an already-placed
+cell leaves `context.cutoff` non-null on both sides, so nothing in the artifact
+separates the two conditionings, and the freeze-record entry registering such a
+move must itself carry what makes the affected set reconstructable — the moved
+rows or a pointer that re-derives them. It belongs in the freeze record on the
+same terms as the rest.
 
 **What the pipeline provisions** is the fourth member, and the second with no
 data-visible boundary. A change to which filed documents `select_documents`
