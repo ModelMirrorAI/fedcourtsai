@@ -1485,8 +1485,9 @@ staging area lives under the case's gitignored `record/`, so it rides the cell
 artifact and never reaches the ledger.
 
 A second pair of steps keeps the aliases worth having. The committed `predictions/` and
-`evaluations/` trees name every predictor one directory above the staging area,
-so a routine `ls` de-blinds a judge before it has read the contract that forbids
+`evaluations/` trees name every predictor a few directories over in the same
+case tree, under `events/<event_id>/`, so a routine `ls` de-blinds a judge
+before it has read the contract that forbids
 that tree; `fedcourts hide-cell-record` moves both out of the working tree after
 the staging step and `fedcourts restore-cell-record` moves them back the moment
 the agent stops, ahead of every step that reads them. It narrows the accidental

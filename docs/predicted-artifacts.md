@@ -48,8 +48,12 @@ fields that mean the same thing at every stage:
 - **Identity** — `case_id` (`<court_id>/<docket_id>`), `event_id`,
   `predictor_id`, `run_id`, `created_at`, and `engine` / `model`: which engine
   ran and which resolved model produced the answer.
-- **`input_snapshot`** — the path of the provisioned snapshot the cell read.
-  The agent's own string, so nothing scored conditions on it; the
+- **`input_snapshot`** — the path of the provisioned snapshot the cell read,
+  `data/cases/<court_id>/<docket_id>/record/snapshots/<YYYY-MM-DD>.json`. That
+  `record/` is **case-level** — a sibling of `events/`, not a child of it — so
+  a cell's provisioned inputs (the snapshot, `context.json`, and `documents/`)
+  sit beside every event of the case rather than under the event being
+  predicted. The agent's own string, so nothing scored conditions on it; the
   harness-written `context` block carries the conditioning state instead.
 - **`granted` / `probability`** — the stage's declared binary and the
   probability of it. The stage names the binary, and the outcome's
