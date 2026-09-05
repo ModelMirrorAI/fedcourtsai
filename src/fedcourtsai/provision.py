@@ -27,6 +27,7 @@ from typing import Any
 from . import casestore
 from .corpus import CaseDocument, CorpusEvent, CorpusRow
 from .pipeline import cert_signals, moments
+from .schemas import Moment, Stage
 
 
 class ProvisionError(RuntimeError):
@@ -139,6 +140,24 @@ def moment_cutoff(event_id: str, events: Sequence[CorpusEvent]) -> date | None:
     if row is None or row.opened_at is None:
         return None
     return row.opened_at + timedelta(days=1)
+
+
+def is_interim_arrival(event_id: str) -> bool:
+    """Whether ``event_id`` names the interim stage's arrival moment.
+
+    The one moment whose trigger is a docket entry the cell can be placed *at*
+    rather than a day it can be placed *within*, and therefore the one that takes
+    the anchor bound (:mod:`fedcourtsai.pipeline.arrival_cut`). An application is
+    submitted, referred and sometimes disposed of inside a single day, so a
+    date-valued cut hands the cell its own outcome; a cert or merits moment's
+    trigger has no such intra-day tail to exclude.
+
+    Read off the declared moment rather than the event id's spelling, so a moment
+    added to the interim stage at the arrival position takes the bound without a
+    second place having to be edited.
+    """
+    spec = moments.spec_for(event_id)
+    return spec is not None and spec.stage is Stage.interim and spec.moment is Moment.arrival
 
 
 def shows_the_moment(payload: Mapping[str, Any], cutoff: date) -> bool:

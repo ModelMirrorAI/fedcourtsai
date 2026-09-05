@@ -8,7 +8,7 @@ from typer.testing import CliRunner, Result
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline import cell_context, cert_signals, ingest
+from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.schemas import EventKind, Moment, Stage
 from tests.conftest import FixtureCorpus
@@ -1353,7 +1353,7 @@ def test_the_placed_path_reports_what_it_removed(fixture_corpus: FixtureCorpus) 
 
     assert result.exit_code == 0, result.output
     # Two of the four entries postdate the grant moment.
-    assert "2 entr(ies) and 0 document(s) postdate the moment" in result.output
+    assert "2 entr(ies) and 0 document(s) are outside the moment" in result.output
     assert "postdate" not in _context(fixture_corpus).get("notes", "")
 
 
@@ -1494,3 +1494,341 @@ def test_truncation_drops_an_entry_whose_date_cannot_be_read(
     descriptions = [entry["description"] for entry in payload["docket_entries"]]
     assert "Record received from the Ninth Circuit." not in descriptions
     assert _context(fixture_corpus)["snapshot_provenance"] == "truncated"
+
+
+# --- the interim arrival moment's anchor bound --------------------------------
+#
+# The interim baseline is the one moment whose trigger is a docket entry rather
+# than a day, so its cut carries a second bound the others do not (see
+# `fedcourtsai.pipeline.arrival_cut`). These pin what the cell reads and what its
+# context records, over both provenances and both modes.
+
+_APPLICATION_SUBMITTED = (
+    "Application (26A11) for a stay of the mandate pending the filing and "
+    + "disposition of a petition for a writ of certiorari, submitted to The Chief Justice."
+)
+_SAME_DAY_DENIAL = "Application (26A11) referred to the Court. Application denied by the Court."
+
+
+def _seed_application_snapshot(
+    fixture_corpus: FixtureCorpus, on: date, entries: list[tuple[str, str]]
+) -> None:
+    """Overlay a snapshot on the fixture's application docket, scotus/306."""
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/306",
+            on,
+            {
+                "docket_number": "26A11",
+                "docket_entries": [
+                    {"id": index, "date_filed": when, "description": text}
+                    for index, (when, text) in enumerate(entries, start=1)
+                ],
+            },
+        )
+
+
+def _provision_application(*args: str) -> Result:
+    return runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "306",
+            "--event",
+            "evt-motion-disposition",
+            *args,
+        ],
+    )
+
+
+def _application_context(fixture_corpus: FixtureCorpus) -> dict[str, Any]:
+    context: dict[str, Any] = json.loads(
+        CasePaths(fixture_corpus.data_root, "scotus", 306).cell_context.read_text()
+    )
+    return context
+
+
+def test_an_arrival_cell_records_the_boundary_it_was_cut_at(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # `cutoff` alone cannot say where inside the opening day the cell stops, and
+    # an artifact byte-identical either side of this change would leave the
+    # replay leakage clock reading the looser rule. So the boundary is on the
+    # context.
+    result = _provision_application()
+
+    assert result.exit_code == 0, result.output
+    context = _application_context(fixture_corpus)
+    assert context["cut_kind"] == "arrival-position"
+    assert context["cut_anchor_index"] == 0
+    assert context["cutoff"] == "2026-06-23"
+
+
+def test_a_moment_with_no_intra_day_tail_records_the_plain_date_rule(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The separability the freeze record rests on: the two conditionings are
+    # distinguishable in the artifact rather than pooled behind one date.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+    _drop_snapshots_before(fixture_corpus, _GRANT_CUTOFF)
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    context = _context(fixture_corpus)
+    assert context["cut_kind"] == "date"
+    assert context["cut_anchor_index"] is None
+
+
+def test_an_uncut_cell_records_no_boundary_at_all(fixture_corpus: FixtureCorpus) -> None:
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    context = _context(fixture_corpus)
+    assert context["cut_kind"] is None
+    assert context["cut_anchor_index"] is None
+
+
+def test_a_same_day_disposed_application_is_not_provisioned_its_own_denial(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The shape the defect was measured on: submitted, referred and denied
+    # inside the arrival day, so the date rule — which keeps everything filed
+    # strictly before the day AFTER the arrival — necessarily admits the denial.
+    _seed_application_snapshot(
+        fixture_corpus,
+        date(2026, 7, 14),
+        [
+            ("2026-06-22", _APPLICATION_SUBMITTED),
+            ("2026-06-22", "Application (26A11) referred to the Court."),
+            ("2026-06-22", _SAME_DAY_DENIAL),
+        ],
+    )
+
+    result = _provision_application()
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 306)
+    payload = json.loads(paths.snapshot("2026-06-23").read_text())
+    descriptions = [entry["description"] for entry in payload["docket_entries"]]
+    assert descriptions == [_APPLICATION_SUBMITTED]
+    assert not any("denied" in text.lower() for text in descriptions)
+
+
+def test_the_anchor_bound_runs_on_a_dated_payload_too(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A `dated` payload is exempt from the DATE rule because the docket really
+    # served it — but a snapshot served on the arrival day itself already
+    # carries that day's later entries, so the branch that reads a payload
+    # unmodified is the one this bound is most needed on.
+    _seed_application_snapshot(
+        fixture_corpus,
+        date(2026, 6, 22),
+        [
+            ("2026-06-22", _APPLICATION_SUBMITTED),
+            ("2026-06-22", _SAME_DAY_DENIAL),
+        ],
+    )
+
+    result = _provision_application()
+
+    assert result.exit_code == 0, result.output
+    context = _application_context(fixture_corpus)
+    assert context["snapshot_provenance"] == "dated"
+    assert context["cut_kind"] == "arrival-position"
+    payload = json.loads(
+        CasePaths(fixture_corpus.data_root, "scotus", 306).snapshot("2026-06-22").read_text()
+    )
+    assert [e["description"] for e in payload["docket_entries"]] == [_APPLICATION_SUBMITTED]
+
+
+def test_a_replay_arrival_cell_takes_the_same_bound(fixture_corpus: FixtureCorpus) -> None:
+    # The bound is a property of the moment, not of the lane: a replay path
+    # provisioning one uncut would reconstruct exactly the conditioning the
+    # forward path refuses.
+    _seed_application_snapshot(
+        fixture_corpus,
+        date(2026, 7, 14),
+        [
+            ("2026-06-22", _APPLICATION_SUBMITTED),
+            ("2026-06-22", _SAME_DAY_DENIAL),
+        ],
+    )
+
+    result = _provision_application("--mode", "replay")
+
+    assert result.exit_code == 0, result.output
+    context = _application_context(fixture_corpus)
+    assert context["mode"] == "replay"
+    assert context["cut_kind"] == "arrival-position"
+
+
+def test_an_unanchorable_arrival_row_refuses_rather_than_taking_the_date_cut(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # Never a silent fall back: the date rule is the conditioning the anchor
+    # bound replaces, so a cell taking it while its context recorded the tighter
+    # one would carry the defect together with a record saying it was fixed.
+    _seed_application_snapshot(
+        fixture_corpus,
+        date(2026, 7, 14),
+        [
+            ("2026-06-22", "Motion for leave to proceed in forma pauperis filed."),
+            ("2026-06-22", _SAME_DAY_DENIAL),
+        ],
+    )
+
+    result = _provision_application()
+
+    assert result.exit_code == 4, result.output
+    assert "could not be anchored" in result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 306)
+    # Refused before writing anything: no snapshot, no context.
+    assert not paths.cell_context.exists()
+    assert not paths.snapshot("2026-06-23").exists()
+
+
+# --- the ledger: the figures the freeze record cites come from here -----------
+
+
+def _seed_live(fixture_corpus: FixtureCorpus, entries: list[tuple[str, str]]) -> None:
+    """Give the fixture's application docket a live-shaped snapshot to read.
+
+    The ledger reads `latest_live_snapshot`, which skips a REST-shaped payload —
+    the fixture's own snapshot is REST-shaped, so a row with no live snapshot is
+    the corpus's default state here and has to be overlaid deliberately.
+    """
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/306",
+            date(2026, 7, 14),
+            {
+                "CaseNumber": "26A11",
+                "ProceedingsandOrder": [{"Date": when, "Text": text} for when, text in entries],
+            },
+        )
+
+
+def _ledger(fixture_corpus: FixtureCorpus) -> arrival_cut.ArrivalCutLedger:
+    with corpus.connect_readonly(fixture_corpus.db_path, backend="local") as conn:
+        return arrival_cut.arrival_cut_ledger(conn, corpus_vintage=date(2026, 9, 5))
+
+
+def test_the_ledger_counts_a_row_with_no_live_snapshot_apart(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The wrong-blob arm, and the reason it is reported rather than failed: a
+    # reading taken without the content store addressed lands the whole
+    # population here and still exits 0, so the count is the only signal that
+    # separates it from a clean run.
+    ledger = _ledger(fixture_corpus)
+
+    assert ledger.rows_seen == 1
+    assert ledger.no_snapshot == 1
+    assert ledger.anchored == 0
+    assert ledger.refused == 0
+
+
+def test_the_ledger_reads_the_tail_and_the_scope_split(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    _seed_live(
+        fixture_corpus,
+        [
+            ("2026-06-22", _APPLICATION_SUBMITTED),
+            ("2026-06-22", "Response to application (26A11) requested, due July 2, 2026."),
+            ("2026-06-22", _SAME_DAY_DENIAL),
+        ],
+    )
+
+    ledger = _ledger(fixture_corpus)
+
+    assert ledger.no_snapshot == 0
+    assert ledger.anchored == 1
+    assert ledger.refused == 0
+    # The fixture's application is substantive, so it is a row the matrix can
+    # actually mint a cell for — the denominator every operational rate uses.
+    assert ledger.scope_rows == 1
+    assert ledger.kind_counts == {"substantive": 1}
+    assert ledger.scope_anchored == 1
+    # Two same-day entries sit after the opening entry, one of them the denial.
+    assert ledger.tail_rows == 1
+    assert ledger.tail_entries == 2
+    assert ledger.tail_carries_disposition == 1
+    assert ledger.scope_tail_entries == 2
+    assert ledger.scope_tail_carries_disposition == 1
+    # The response request was in that tail, so its increment claim moves from
+    # vacuously masked to resolvable.
+    assert ledger.response_requested_unmasked == 1
+
+
+def test_the_ledger_separates_a_stale_stamp_from_an_unanchorable_docket(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The two refusal causes are different findings and the split is what makes
+    # the headline readable: a stamp that disagrees with the docket is corpus
+    # convergence state, while a docket naming no submission entry is a property
+    # of the case.
+    _seed_live(
+        fixture_corpus,
+        [
+            ("2026-06-20", _APPLICATION_SUBMITTED),
+            ("2026-06-22", _SAME_DAY_DENIAL),
+        ],
+    )
+
+    ledger = _ledger(fixture_corpus)
+
+    # `opened_at` is 2026-06-22; the submission entry is dated 2026-06-20.
+    assert ledger.refused == 1
+    assert ledger.refused_stale_stamp == 1
+    assert ledger.refused_no_submission_entry == 0
+    assert ledger.anchored == 0
+
+
+def test_a_docket_naming_no_submission_entry_is_the_other_refusal(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    _seed_live(
+        fixture_corpus,
+        [
+            ("2026-06-22", "Motion for leave to proceed in forma pauperis filed."),
+            ("2026-06-22", _SAME_DAY_DENIAL),
+        ],
+    )
+
+    ledger = _ledger(fixture_corpus)
+
+    assert ledger.refused == 1
+    assert ledger.refused_no_submission_entry == 1
+    assert ledger.refused_stale_stamp == 0
+
+
+def test_the_same_day_read_anchors_on_the_docket_not_the_stamp(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A stale-stamp refusal IS the finding that the stamp names no submission
+    # entry, so reading "disposed of on its arrival day" against the stamp would
+    # answer a question about a day the application did not arrive on. Here the
+    # docket arrived and was denied on 06-20, while the stamp says 06-22: the
+    # row refuses, and the same-day flag must still be true.
+    _seed_live(
+        fixture_corpus,
+        [
+            ("2026-06-20", _APPLICATION_SUBMITTED),
+            ("2026-06-20", _SAME_DAY_DENIAL),
+        ],
+    )
+
+    ledger = _ledger(fixture_corpus)
+
+    assert ledger.refused_stale_stamp == 1
+    assert ledger.refused_same_day_disposition == 1
+    assert [row.same_day_disposition for row in ledger.rows] == [True]

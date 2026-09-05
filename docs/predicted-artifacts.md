@@ -161,6 +161,8 @@ absent optional field as null.
     "snapshot_date": "2026-04-10",
     "snapshot_provenance": "as-stored",
     "cutoff": null,
+    "cut_kind": null,
+    "cut_anchor_index": null,
     "decided_before": null,
     "signals_observable": true,
     "distribution_count": 1,
@@ -527,7 +529,9 @@ directory without knowing which part is which invites trusting the wrong half.
   cell's mode, the cutoff it was placed at (the replay cutoff on a replay cell,
   the declared moment on a forward one; null where nothing placed it, as in the
   cert-baseline example above — and distinct from `decided_before`, the replay
-  clock beside it), and the conditioning state frozen at provisioning: the
+  clock beside it), **which rule bounded the entries inside that cutoff**
+  (`cut_kind`, with `cut_anchor_index` beside it), and the conditioning state
+  frozen at provisioning: the
   salience band, the distribution count and CVSG date as at that cutoff (as at
   the snapshot where there is none), the Term, and — on an application cell only
   — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It
@@ -542,6 +546,24 @@ directory without knowing which part is which invites trusting the wrong half.
   cells owes. Note especially that the gap says nothing about the snapshot
   being stale — a `truncated` cell's `snapshot_date` *is* its cutoff, so it
   dates the moment rather than the pull the payload was reconstructed from.
+
+  **`cut_kind` is the boundary, and the cutoff on its own is not.** A date
+  cannot express the interim arrival moment: an application is submitted,
+  referred, responded to and sometimes disposed of inside one day, so a cutoff
+  set to the day after the arrival necessarily admits the docket's own
+  disposition. On that moment the snapshot therefore stops at **the entry that
+  opened the event** — `cut_kind` `arrival-position`, with `cut_anchor_index`
+  recording where that entry sat in the list the cut was taken over — and the
+  opening day's later entries are outside the cell's information set although
+  `cutoff` admits their date. Every other moment records `date`, the plain rule.
+  Two consequences travel with the field. The replay **leakage clock** reads it
+  rather than the cutoff alone, since material inside the cutoff's day may sit
+  outside the boundary. And a row whose opening entry cannot be located in its
+  snapshot is **refused rather than provisioned on the date rule** — a published
+  membership rule, counted by `fedcourts arrival-cut-ledger` and split there by
+  resolution status and same-day disposition, because unanchorable, terse and
+  summarily-disposed-of are a plausible single shape and a rule dropping rows
+  correlated with the outcome has to be measured rather than assumed harmless.
 
 ## What the prediction is then scored against
 
