@@ -94,3 +94,52 @@ def test_eval_round_trip_from_a_clean_shell_leaves_pointer_empty() -> None:
         'echo "[${FEDCOURTS_CORPUS_POINTER}]"; echo "[${FEDCOURTS_CORPUS_SPLIT}]"'
     )
     assert lines == ["[]", "[]"]
+
+
+def test_a_staging_base_url_serves_the_whole_pair() -> None:
+    # One address per environment: the flip forwards it and fedcourtsai.paths
+    # derives both halves, so the switcher needs no store-layout knowledge.
+    lines = _bash(
+        f'"{SCRIPT}" staging bash -c '
+        '\'echo "[${FEDCOURTS_CORPUS_BASE_URL}]"; echo "[${FEDCOURTS_CORPUS_REMOTE_URL}]"; '
+        'echo "[${FEDCOURTS_CASESTORE_URL}]"\'',
+        extra_env={
+            "STAGING_CORPUS_BASE_URL": "s3://staging-estate",
+            "STAGING_CORPUS_REMOTE_URL": "",
+            "STAGING_CASESTORE_URL": "",
+        },
+    )
+    assert lines == ["[s3://staging-estate]", "[]", "[]"]
+
+
+def test_a_prod_base_url_round_trips_through_a_staging_flip() -> None:
+    # The capture/restore has to cover the base URL too, or a flipped shell
+    # comes back pointing at nothing — or worse, at staging.
+    lines = _bash(
+        f'eval "$("{SCRIPT}" staging)" >/dev/null; '
+        'echo "[${FEDCOURTS_CORPUS_BASE_URL}]"; '
+        f'eval "$("{SCRIPT}" prod)" >/dev/null; '
+        'echo "[${FEDCOURTS_CORPUS_BASE_URL}]"',
+        extra_env={
+            "STAGING_CORPUS_BASE_URL": "s3://staging-estate",
+            "CORPUS_BASE_URL": "s3://prod-estate",
+        },
+    )
+    assert lines == ["[s3://staging-estate]", "[s3://prod-estate]"]
+
+
+def test_a_half_configured_staging_pair_is_still_refused() -> None:
+    # No base URL and only one half: the switcher must not hand out an index
+    # from one environment and a store from another.
+    result = subprocess.run(
+        ["bash", "-c", f'"{SCRIPT}" staging true'],
+        env={
+            "PATH": os.environ["PATH"],
+            "CORPUS_REMOTE_URL": "s3://prod-bucket/store",
+            "STAGING_CORPUS_REMOTE_URL": "s3://staging-bucket/store",
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert "STAGING_CORPUS_BASE_URL" in result.stderr

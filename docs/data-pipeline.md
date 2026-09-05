@@ -209,16 +209,21 @@ live in different stores, split by **kind**:
    replay — are served from the store through a **payload read source**. A
    parity gate (`tests/test_corpus_split_writer.py`) proves the payload-free
    blob equals a legacy full blob run through `build-index`.
-   `FEDCOURTS_CORPUS_SPLIT` (`Settings.corpus_split`) selects these split
-   read/write paths: set on the `prod` environment, default
-   **off** so a dev environment without the store (the fixture loop, offline
-   tests) reads and writes a single self-contained blob. The store's location
-   comes from `FEDCOURTS_CASESTORE_URL`, wired beside the flag as one pair at
-   job or step level: the writer lanes (`run-pull`, `run-seed`, `run-repair`), the cell
+   **Configuring the store is what selects these split read/write paths**
+   (`Settings.corpus_split`): under the split the payloads live *only* in the
+   store, so its address is the mode rather than something a separate flag
+   states beside it — which makes the two states such a flag admits
+   unrepresentable, a store configured but read past and the mode on with
+   nowhere to read. With no store configured (the fixture loop, offline tests) a
+   dev environment reads and writes a single self-contained blob. The address
+   comes from the environment's **corpus base URL**, one setting per
+   environment from which `fedcourtsai.paths` derives both halves; an
+   environment may also name the content store on its own. It is wired at job or
+   step level across the writer lanes (`run-pull`, `run-seed`, `run-repair`), the cell
    workflows, the back-test, the integration scenarios, and the analysis
    surface. `tests/test_workflow_cell_invariants.py` pins both the spelling and
    which workflows carry it, per workflow rather than as a count, so a
-   corpus-reading workflow that declares neither half is a deliberate act;
+   corpus-reading workflow that declares no corpus address is a deliberate act;
    mirroring is best-effort — a store failure logs, never breaking the SQLite
    write.
 2. **Derived judgments → the git ledger** under `data/`, where the
@@ -288,9 +293,9 @@ Retrieval** 30 days after creation:
 }
 ```
 
-`<prefix>` is the remote URL's own key prefix, ahead of the `index/sha256/` the
-pointer records — substituted from `CORPUS_REMOTE_URL`, which each operator
-holds out of band. The rule is the **account owner's** to apply — this
+`<prefix>` is the index remote's own key prefix, ahead of the `index/sha256/`
+the pointer records — the corpus base URL's prefix plus the index segment
+`fedcourtsai.paths` derives, which each operator holds out of band. The rule is the **account owner's** to apply — this
 repository holds no infrastructure-as-code for the bucket, the workflow roles
 grant enumerated object actions rather than `s3:*`, and the read-write role
 denies lifecycle configuration outright, because a rule installed there would
@@ -431,9 +436,10 @@ committed copy is a point-in-time snapshot that nothing schedules or gates (see
 The corpus remote and the content store are private S3 behind **GitHub OIDC** —
 no static keys in workflows; two IAM roles split read-write (the corpus
 writers) from read-only (every consumer). No config file carries credentials
-or the bucket URL; each job (and each operator) supplies the URL out of band
-as the `CORPUS_REMOTE_URL` environment variable, and boto3 takes its
-credentials from the environment. The full wiring — roles, the per-workflow
+or the bucket URL; each job (and each operator) supplies it out of band as the
+corpus **base URL** — one address per environment, from which
+`fedcourtsai.paths` derives the index remote and the content store alike — and
+boto3 takes its credentials from the environment. The full wiring — roles, the per-workflow
 access table, trust scoping, bucket posture — is single-sourced in
 [security.md](security.md). The CI gate has no remote, so it runs the offline
 half: `fedcourts corpus-status` checks the committed bookkeeping is internally
@@ -441,10 +447,18 @@ coherent (blob out of git, pointer well-formed, metrics committed, ranged
 layout); the online pull/push stays with the corpus-writer workflows that hold
 the credentials.
 
-The workflow variable is `CORPUS_REMOTE_URL`. The tooling also accepts
-`DVC_*` aliases so the Codespaces devcontainer secret — spelled
-`DVC_REMOTE_URL` — keeps resolving; the new names win when both are set, and
-the aliases retire once that secret is renamed.
+One address per environment is the point: the index remote and the content
+store cannot then answer from different environments, the split mode follows
+from whether a store is addressed at all, and a new environment costs one
+setting rather than a pair that can disagree. The store layout's version
+travels in the derived segment, so a format migration rides a promotion —
+where the reader and the address it reads move together — instead of being a
+settings edit racing one. An environment that instead names the index remote
+(and, for the split, the content store) individually is accepted too: a named
+half outranks the derived one, so the two forms can coexist while an
+environment moves between them. The tooling also accepts `DVC_*` aliases for
+the index remote so the Codespaces devcontainer secret — spelled
+`DVC_REMOTE_URL` — keeps resolving; the newer names win when both are set.
 
 ### Corpus-writer coordination
 
@@ -752,22 +766,26 @@ never committed: the **maintainer** via IAM Identity Center (short-lived SSO
 sessions assuming the read-only role, configured by the devcontainer's
 post-create hook), **contributors** via a dedicated read-only IAM user's key
 pair, provisioned on demand (see [security.md](security.md)). The hook exports
-the remote URL as `CORPUS_REMOTE_URL`, exactly the env contract the workflows
+the corpus address into every shell — the base URL where one is configured, the
+index remote's own URL otherwise — exactly the env contract the workflows
 use; absent secrets it prints a note and succeeds — the offline fixture loop
 and the full gate need no remote.
 
 The **staging pair** (the lean real-slice corpus of
 [security.md](security.md)'s staging-corpus runbook) is served by the same
 read-only role — the maintainer's role-assumed flow; the contributor IAM
-user stays scoped to production — and its URLs arrive as two more user-scoped
-secrets, `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`: the same
+user stays scoped to production — and its address arrives as a further
+user-scoped secret, `STAGING_CORPUS_BASE_URL` (or, for a pair named half by
+half, `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`): the same
 names the `staging` Actions environment carries for the refresh lane,
-deliberately, since they hold the same URLs in a different config store.
+deliberately, since they hold the same values in a different config store.
 `scripts/corpus-env` (invoked from the repo root) switches the whole env
-contract between the pairs — both accepted spellings of the remote and
-casestore URLs plus `FEDCOURTS_CORPUS_SPLIT` and the out-of-band corpus
+contract between the environments — every accepted spelling of the base URL and
+of the two halves, plus `FEDCOURTS_CORPUS_SPLIT` and the out-of-band corpus
 pointer, together, because the `FEDCOURTS_`-prefixed aliases outrank the bare
-names and a hand-rolled export of one spelling half-switches:
+names and a hand-rolled export of one spelling half-switches. Each knob is
+written on every flip whether or not the target configures it, since a blank
+value reads as an absent setting and is what clears the other environment's:
 `scripts/corpus-env staging <command>` runs one command against staging (the
 form that works from any shell, a coding agent's per-call shells included),
 while `eval "$(scripts/corpus-env staging)"` flips an interactive shell and

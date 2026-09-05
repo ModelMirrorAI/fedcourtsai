@@ -75,6 +75,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Protocol
 
+from . import paths
 from .config import get_settings
 from .corpus import (
     CaseDocument,
@@ -89,9 +90,11 @@ from .corpus import (
 
 logger = logging.getLogger(__name__)
 
-# Bucket-relative default prefix; ``v1`` namespaces the layout so a later
-# incompatible reshape can land beside it rather than migrate in place.
-DEFAULT_PREFIX = "casestore/v1"
+# Bucket-relative default prefix, for a store URL that names only a bucket: the
+# same segment an environment's base URL derives (:mod:`fedcourtsai.paths` owns
+# the one definition, layout version included), so both spellings of the store's
+# address land on the same objects.
+DEFAULT_PREFIX = paths.CASESTORE_SEGMENT
 
 _S3_URL_RE = re.compile(r"s3://(?P<bucket>[^/]+)(?:/(?P<prefix>.+?))?/*$")
 # The short content digest that makes a document text leaf's key unique per

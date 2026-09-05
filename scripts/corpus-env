@@ -2,20 +2,27 @@
 #
 # Point one command — or, via eval, one shell — at the staging or production
 # corpus pair, by re-exporting the env contract the tooling reads: the corpus
-# remote and casestore URLs in both accepted spellings (the FEDCOURTS_-prefixed
-# aliases outrank the bare workflow names in fedcourtsai.config, so both must
-# move together or a stray prefixed export half-switches the pair), plus
-# FEDCOURTS_CORPUS_SPLIT, which travels with the pair because staging is
-# written split-on, plus the out-of-band corpus pointer (both spellings, same
-# rule), which travels with the pair because staging's index pointer is not
-# committed — the staging flip supplies it from STAGING_CORPUS_POINTER (the
+# base URL — one address per environment, from which fedcourtsai.paths derives
+# both store halves — and, for an environment that still names its halves
+# individually, the corpus remote and casestore URLs. Every URL moves in both
+# accepted spellings (the FEDCOURTS_-prefixed aliases outrank the bare workflow
+# names in fedcourtsai.config, so both must move together or a stray prefixed
+# export half-switches the pair), and each of the five knobs is written on every
+# flip whether or not the target configures it — an empty value reads as unset
+# in fedcourtsai.config, so writing them all is what keeps the other
+# environment's settings from surviving a flip. Alongside them travel
+# FEDCOURTS_CORPUS_SPLIT, because staging is written split-on, and the
+# out-of-band corpus pointer (both spellings, same rule), which travels with the
+# pair because staging's index pointer is not committed — the staging flip
+# supplies it from STAGING_CORPUS_POINTER (the
 # seed run's published pointer JSON, verbatim; unset = casestore-only reads,
 # with ranged index reads and corpus-pull failing loudly on the committed
 # production digest) and the prod flip restores whatever the shell had,
 # normally nothing. The pointer value is a delivery mechanism, not a secret —
 # a digest and a size, no URL or credential. Store URLs are never committed:
-# staging's arrive as the user-scoped Codespaces secrets
-# STAGING_CORPUS_REMOTE_URL and STAGING_CASESTORE_URL, production's as
+# staging's arrive as the user-scoped Codespaces secret
+# STAGING_CORPUS_BASE_URL (or the STAGING_CORPUS_REMOTE_URL /
+# STAGING_CASESTORE_URL pair), production's as CORPUS_BASE_URL or
 # CORPUS_REMOTE_URL (see "Developer access" in docs/data-pipeline.md).
 # Both targets are served by the same
 # read-only role — this switches which pair is read, never what may be
@@ -60,12 +67,14 @@ shift
 # it exists only in a flipped shell, where the ambient values are staging's.
 # The emitted staging capture below encodes the same resolution; the two must
 # stay in agreement.
-if [[ -n "${FEDCOURTS_PROD_CORPUS_REMOTE_URL+x}" ]]; then
-  prod_remote="${FEDCOURTS_PROD_CORPUS_REMOTE_URL}"
+if [[ -n "${FEDCOURTS_PROD_CORPUS_BASE_URL+x}" ]]; then
+  prod_base="${FEDCOURTS_PROD_CORPUS_BASE_URL}"
+  prod_remote="${FEDCOURTS_PROD_CORPUS_REMOTE_URL-}"
   prod_casestore="${FEDCOURTS_PROD_CASESTORE_URL-}"
   prod_split="${FEDCOURTS_PROD_CORPUS_SPLIT-}"
   prod_pointer="${FEDCOURTS_PROD_CORPUS_POINTER-}"
 else
+  prod_base="${FEDCOURTS_CORPUS_BASE_URL:-${CORPUS_BASE_URL-}}"
   prod_remote="${FEDCOURTS_CORPUS_REMOTE_URL:-${CORPUS_REMOTE_URL:-${FEDCOURTS_DVC_REMOTE_URL:-${DVC_REMOTE_URL:-}}}}"
   prod_casestore="${FEDCOURTS_CASESTORE_URL:-${CASESTORE_URL-}}"
   prod_split="${FEDCOURTS_CORPUS_SPLIT-}"
@@ -74,21 +83,29 @@ fi
 
 case "${target}" in
   staging)
-    if [[ -z "${STAGING_CORPUS_REMOTE_URL:-}" || -z "${STAGING_CASESTORE_URL:-}" ]]; then
-      echo "corpus-env: STAGING_CORPUS_REMOTE_URL and STAGING_CASESTORE_URL must both be set" \
+    # A base URL names both halves on its own; otherwise both halves must be
+    # named, since half a pair reads one environment's index against the
+    # other's store.
+    if [[ -z "${STAGING_CORPUS_BASE_URL:-}" ]] &&
+      [[ -z "${STAGING_CORPUS_REMOTE_URL:-}" || -z "${STAGING_CASESTORE_URL:-}" ]]; then
+      echo "corpus-env: set STAGING_CORPUS_BASE_URL, or both STAGING_CORPUS_REMOTE_URL" \
+        "and STAGING_CASESTORE_URL" \
         "(user-scoped Codespaces secrets; see docs/data-pipeline.md, Developer access)." >&2
       exit 1
     fi
-    remote="${STAGING_CORPUS_REMOTE_URL}"
-    casestore="${STAGING_CASESTORE_URL}"
+    base="${STAGING_CORPUS_BASE_URL-}"
+    remote="${STAGING_CORPUS_REMOTE_URL-}"
+    casestore="${STAGING_CASESTORE_URL-}"
     split="1"
     pointer="${STAGING_CORPUS_POINTER-}"
     ;;
   prod)
-    if [[ -z "${prod_remote}" ]]; then
-      echo "corpus-env: no production corpus URL in the environment (CORPUS_REMOTE_URL unset)." >&2
+    if [[ -z "${prod_base}" && -z "${prod_remote}" ]]; then
+      echo "corpus-env: no production corpus URL in the environment" \
+        "(neither CORPUS_BASE_URL nor CORPUS_REMOTE_URL is set)." >&2
       exit 1
     fi
+    base="${prod_base}"
     remote="${prod_remote}"
     casestore="${prod_casestore}"
     split="${prod_split}"
@@ -100,9 +117,11 @@ case "${target}" in
 esac
 
 if [[ $# -gt 0 ]]; then
-  # Empty means off for the casestore URL, the split flag, and the pointer
-  # override (fedcourtsai.config reads empty as unset for each).
-  CORPUS_REMOTE_URL="${remote}" FEDCOURTS_CORPUS_REMOTE_URL="${remote}" \
+  # Empty means unset for every one of these (fedcourtsai.config reads a blank
+  # value as an absent setting), which is what lets a target that configures
+  # only some of them still clear the rest.
+  CORPUS_BASE_URL="${base}" FEDCOURTS_CORPUS_BASE_URL="${base}" \
+    CORPUS_REMOTE_URL="${remote}" FEDCOURTS_CORPUS_REMOTE_URL="${remote}" \
     CASESTORE_URL="${casestore}" FEDCOURTS_CASESTORE_URL="${casestore}" \
     FEDCOURTS_CORPUS_SPLIT="${split}" \
     CORPUS_POINTER="${pointer}" FEDCOURTS_CORPUS_POINTER="${pointer}" exec "$@"
@@ -113,22 +132,25 @@ fi
 # store URL passes through this process's stdout.
 if [[ "${target}" == staging ]]; then
   cat <<'EOS'
-if [[ -z "${FEDCOURTS_PROD_CORPUS_REMOTE_URL+x}" ]]; then
+if [[ -z "${FEDCOURTS_PROD_CORPUS_BASE_URL+x}" ]]; then
+  export FEDCOURTS_PROD_CORPUS_BASE_URL="${FEDCOURTS_CORPUS_BASE_URL:-${CORPUS_BASE_URL-}}"
   export FEDCOURTS_PROD_CORPUS_REMOTE_URL="${FEDCOURTS_CORPUS_REMOTE_URL:-${CORPUS_REMOTE_URL:-${FEDCOURTS_DVC_REMOTE_URL:-${DVC_REMOTE_URL:-}}}}"
   export FEDCOURTS_PROD_CASESTORE_URL="${FEDCOURTS_CASESTORE_URL:-${CASESTORE_URL-}}"
   export FEDCOURTS_PROD_CORPUS_SPLIT="${FEDCOURTS_CORPUS_SPLIT-}"
   export FEDCOURTS_PROD_CORPUS_POINTER="${FEDCOURTS_CORPUS_POINTER:-${CORPUS_POINTER-}}"
 fi
-export CORPUS_REMOTE_URL="${STAGING_CORPUS_REMOTE_URL}" FEDCOURTS_CORPUS_REMOTE_URL="${STAGING_CORPUS_REMOTE_URL}"
-export CASESTORE_URL="${STAGING_CASESTORE_URL}" FEDCOURTS_CASESTORE_URL="${STAGING_CASESTORE_URL}"
+export CORPUS_BASE_URL="${STAGING_CORPUS_BASE_URL-}" FEDCOURTS_CORPUS_BASE_URL="${STAGING_CORPUS_BASE_URL-}"
+export CORPUS_REMOTE_URL="${STAGING_CORPUS_REMOTE_URL-}" FEDCOURTS_CORPUS_REMOTE_URL="${STAGING_CORPUS_REMOTE_URL-}"
+export CASESTORE_URL="${STAGING_CASESTORE_URL-}" FEDCOURTS_CASESTORE_URL="${STAGING_CASESTORE_URL-}"
 export FEDCOURTS_CORPUS_SPLIT=1
 export CORPUS_POINTER="${STAGING_CORPUS_POINTER-}" FEDCOURTS_CORPUS_POINTER="${STAGING_CORPUS_POINTER-}"
 echo "corpus env -> staging"
 EOS
 else
   cat <<'EOS'
-if [[ -n "${FEDCOURTS_PROD_CORPUS_REMOTE_URL+x}" ]]; then
-  export CORPUS_REMOTE_URL="${FEDCOURTS_PROD_CORPUS_REMOTE_URL}" FEDCOURTS_CORPUS_REMOTE_URL="${FEDCOURTS_PROD_CORPUS_REMOTE_URL}"
+if [[ -n "${FEDCOURTS_PROD_CORPUS_BASE_URL+x}" ]]; then
+  export CORPUS_BASE_URL="${FEDCOURTS_PROD_CORPUS_BASE_URL-}" FEDCOURTS_CORPUS_BASE_URL="${FEDCOURTS_PROD_CORPUS_BASE_URL-}"
+  export CORPUS_REMOTE_URL="${FEDCOURTS_PROD_CORPUS_REMOTE_URL-}" FEDCOURTS_CORPUS_REMOTE_URL="${FEDCOURTS_PROD_CORPUS_REMOTE_URL-}"
   export CASESTORE_URL="${FEDCOURTS_PROD_CASESTORE_URL-}" FEDCOURTS_CASESTORE_URL="${FEDCOURTS_PROD_CASESTORE_URL-}"
   export FEDCOURTS_CORPUS_SPLIT="${FEDCOURTS_PROD_CORPUS_SPLIT-}"
   export CORPUS_POINTER="${FEDCOURTS_PROD_CORPUS_POINTER-}" FEDCOURTS_CORPUS_POINTER="${FEDCOURTS_PROD_CORPUS_POINTER-}"

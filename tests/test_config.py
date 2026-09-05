@@ -220,15 +220,103 @@ def test_repo_tracking_yaml_arms_the_spend_backstop() -> None:
     assert "window_days" in tracking["spend"]
 
 
-def test_corpus_split_empty_env_reads_as_off(monkeypatch: pytest.MonkeyPatch) -> None:
-    # The workflows wire FEDCOURTS_CORPUS_SPLIT from a repository variable; an
-    # unset variable lands in the job env as the empty string, which must read
-    # as the default (off) — not crash settings resolution.
-    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "")
+_STORE_ENV = (
+    "FEDCOURTS_CORPUS_BASE_URL",
+    "CORPUS_BASE_URL",
+    "FEDCOURTS_CORPUS_REMOTE_URL",
+    "CORPUS_REMOTE_URL",
+    "FEDCOURTS_DVC_REMOTE_URL",
+    "DVC_REMOTE_URL",
+    "FEDCOURTS_CASESTORE_URL",
+    "CASESTORE_URL",
+    "FEDCOURTS_CORPUS_SPLIT",
+)
+
+
+@pytest.fixture
+def clean_store_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No ambient corpus addressing — a maintainer's shell carries the real thing."""
+    for name in _STORE_ENV:
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.mark.usefixtures("clean_store_env")
+def test_base_url_derives_both_store_halves(monkeypatch: pytest.MonkeyPatch) -> None:
+    # One address per environment: the halves are segments beneath it, so an
+    # index read and a payload read cannot answer from different environments.
+    monkeypatch.setenv("CORPUS_BASE_URL", "s3://estate/pfx")
+    settings = Settings()
+    assert settings.corpus_remote_url == "s3://estate/pfx/store"
+    assert settings.casestore_url == "s3://estate/pfx/casestore/v1"
+
+
+@pytest.mark.usefixtures("clean_store_env")
+def test_a_trailing_slash_on_the_base_does_not_double(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CORPUS_BASE_URL", "s3://estate/ ")
+    assert Settings().corpus_remote_url == "s3://estate/store"
+
+
+@pytest.mark.usefixtures("clean_store_env")
+def test_an_explicit_half_outranks_the_base(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The transition shape: an environment that still names a half individually
+    # keeps that half exactly, while the other still derives.
+    monkeypatch.setenv("CORPUS_BASE_URL", "s3://estate")
+    monkeypatch.setenv("CASESTORE_URL", "s3://named/store")
+    settings = Settings()
+    assert settings.casestore_url == "s3://named/store"
+    assert settings.corpus_remote_url == "s3://estate/store"
+
+
+@pytest.mark.usefixtures("clean_store_env")
+def test_a_blank_half_does_not_defeat_the_base(monkeypatch: pytest.MonkeyPatch) -> None:
+    # An env layer that forwards a possibly-unset variable raw — a workflow's
+    # `${{ vars.… }}`, corpus-env's prod restore — passes the empty string. It
+    # must read as absent, or wiring that still mentions a half would blank out
+    # the address the base URL derives.
+    monkeypatch.setenv("CORPUS_BASE_URL", "s3://estate")
+    monkeypatch.setenv("CASESTORE_URL", "  ")
+    monkeypatch.setenv("FEDCOURTS_CORPUS_REMOTE_URL", "")
+    settings = Settings()
+    assert settings.casestore_url == "s3://estate/casestore/v1"
+    assert settings.corpus_remote_url == "s3://estate/store"
+
+
+@pytest.mark.usefixtures("clean_store_env")
+def test_no_addressing_at_all_leaves_both_halves_unset() -> None:
+    # The offline fixture loop: one self-contained blob, no store, no split.
+    settings = Settings()
+    assert settings.corpus_remote_url is None
+    assert settings.casestore_url is None
+    assert settings.corpus_split is False
+
+
+@pytest.mark.usefixtures("clean_store_env")
+def test_the_split_follows_the_content_store_address(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The store's address is the mode: under the split the payloads live only
+    # in the store, so a configured store with the reads pointed elsewhere —
+    # and the mode on with nowhere to read — are both unrepresentable.
+    assert Settings().corpus_split is False
+    monkeypatch.setenv("CASESTORE_URL", "s3://named/store")
+    assert Settings().corpus_split is True
+    monkeypatch.delenv("CASESTORE_URL")
+    monkeypatch.setenv("CORPUS_BASE_URL", "s3://estate")
+    assert Settings().corpus_split is True
+
+
+@pytest.mark.usefixtures("clean_store_env")
+def test_the_split_flag_overrides_the_inference(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The compatibility shim, for an environment that still states the mode as
+    # its own setting: an explicit value wins over the store's address, in both
+    # directions. An empty value is an absent setting, not "off" — every env
+    # layer that forwards an unset variable raw passes the empty string.
+    monkeypatch.setenv("CORPUS_BASE_URL", "s3://estate")
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "0")
     assert Settings().corpus_split is False
     monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
     assert Settings().corpus_split is True
-    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "0")
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "")
+    assert Settings().corpus_split is True
+    monkeypatch.delenv("CORPUS_BASE_URL")
     assert Settings().corpus_split is False
 
 

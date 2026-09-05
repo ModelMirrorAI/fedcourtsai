@@ -31,10 +31,14 @@ env_file="${HOME}/.fedcourts-env.sh"
 
 # The application accepts the bare workflow variable names as aliases of the
 # FEDCOURTS_-prefixed ones (see fedcourtsai.config); the DVC_* pair is the
-# legacy spelling, honored until the Codespaces secret is renamed.
+# legacy spelling, honored until the Codespaces secret is renamed. The base URL
+# is one address for the whole corpus estate, from which fedcourtsai.paths
+# derives both store halves; the remote URL names the index half on its own.
+base_url="${CORPUS_BASE_URL:-${FEDCOURTS_CORPUS_BASE_URL:-}}"
 remote_url="${CORPUS_REMOTE_URL:-${FEDCOURTS_CORPUS_REMOTE_URL:-${DVC_REMOTE_URL:-${FEDCOURTS_DVC_REMOTE_URL:-}}}}"
 
-if [[ -z "${AWS_SSO_START_URL:-}" && -z "${AWS_ACCESS_KEY_ID:-}" && -z "${remote_url}" ]]; then
+if [[ -z "${AWS_SSO_START_URL:-}" && -z "${AWS_ACCESS_KEY_ID:-}" ]] &&
+  [[ -z "${base_url}" && -z "${remote_url}" ]]; then
   echo "Corpus remote access not configured (user-scoped Codespaces secrets absent); offline fixture work is unaffected."
   exit 0
 fi
@@ -77,27 +81,33 @@ elif [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
   echo "Read-only corpus credentials found in the environment (IAM-user key pair)."
 fi
 
-# The remote's URL is independent of which credential flow is present. The
+# The corpus's address is independent of which credential flow is present. The
 # tooling reads it from the environment (any accepted alias), so all that is
 # needed is the preferred name in every shell; the SSO flow's AWS_PROFILE
-# export above already routes boto3 through the assumed-role profile.
-if [[ -n "${remote_url}" ]]; then
+# export above already routes boto3 through the assumed-role profile. A base URL
+# is the whole estate in one name, so it is exported alone where it is set —
+# both halves derive from it, and an index URL beside it could only disagree.
+if [[ -n "${base_url}" ]]; then
+  printf 'export CORPUS_BASE_URL=%q\n' "${base_url}" >> "${env_file}"
+  echo "Corpus base URL exported as CORPUS_BASE_URL (read-only). Ranged queries work now; a full pull stays deliberate: uv run fedcourts corpus-pull"
+elif [[ -n "${remote_url}" ]]; then
   printf 'export CORPUS_REMOTE_URL=%q\n' "${remote_url}" >> "${env_file}"
   echo "Corpus remote URL exported as CORPUS_REMOTE_URL (read-only). Ranged queries work now; a full pull stays deliberate: uv run fedcourts corpus-pull"
 fi
 
-# The staging pair's URLs need no translation — the STAGING_* secrets are
+# The staging URLs need no translation — the STAGING_* secrets are
 # already the names scripts/corpus-env reads — so presence is just worth a
 # pointer to the switcher, and a half-configured pair a warning (the switcher
-# refuses one URL without the other).
-if [[ -n "${STAGING_CORPUS_REMOTE_URL:-}" && -n "${STAGING_CASESTORE_URL:-}" ]]; then
+# takes STAGING_CORPUS_BASE_URL alone, but refuses one half without the other).
+if [[ -n "${STAGING_CORPUS_BASE_URL:-}" ]] ||
+  [[ -n "${STAGING_CORPUS_REMOTE_URL:-}" && -n "${STAGING_CASESTORE_URL:-}" ]]; then
   if [[ -n "${STAGING_CORPUS_POINTER:-}" ]]; then
     echo "Staging corpus pair configured (read-only, index included): scripts/corpus-env staging <cmd>, or eval \"\$(scripts/corpus-env staging)\" for the shell."
   else
     echo "Staging corpus pair configured (read-only, content store only): index reads need STAGING_CORPUS_POINTER (the seed run's published pointer JSON) or they fail on the committed production digest."
   fi
 elif [[ -n "${STAGING_CORPUS_REMOTE_URL:-}${STAGING_CASESTORE_URL:-}" ]]; then
-  echo "Staging corpus pair half-configured: set both STAGING_CORPUS_REMOTE_URL and STAGING_CASESTORE_URL (scripts/corpus-env refuses one without the other)."
+  echo "Staging corpus pair half-configured: set STAGING_CORPUS_BASE_URL, or both STAGING_CORPUS_REMOTE_URL and STAGING_CASESTORE_URL (scripts/corpus-env refuses one half without the other)."
 fi
 
 source_line='if [ -f "$HOME/.fedcourts-env.sh" ]; then . "$HOME/.fedcourts-env.sh"; fi'

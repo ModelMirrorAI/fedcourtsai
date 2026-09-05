@@ -74,7 +74,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import casestore, corpus
+from . import casestore, corpus, paths
 from .casestore import (
     DEFAULT_PREFIX,
     CasestoreError,
@@ -284,6 +284,64 @@ class Source:
             return self.objects
         bucket, prefix = parse_s3_url(self.casestore_url)
         return S3ObjectTransport(bucket, prefix=prefix or DEFAULT_PREFIX)
+
+
+def _pair_for_side(
+    *,
+    base_url: str | None,
+    remote_url: str | None,
+    casestore_url: str | None,
+    base_option: str,
+) -> tuple[str, str]:
+    """The ``(index remote, content store)`` URLs one side of a seed names.
+
+    A base URL derives both halves (:mod:`fedcourtsai.paths`), so it and the
+    per-half options are two ways of saying one thing. Naming both is refused
+    rather than resolved by precedence: a base and a half that disagree is a
+    misconfiguration nobody meant, and picking a winner would read or write one
+    of the two stores the caller named while ignoring the other. Blank is unset
+    throughout — an unset workflow variable arrives as the empty string — so the
+    empty-slot refusals in :class:`Source` / :class:`Destination` stay the one
+    place a missing address is reported.
+    """
+    base = (base_url or "").strip()
+    remote = (remote_url or "").strip()
+    store = (casestore_url or "").strip()
+    if not base:
+        return remote, store
+    if remote or store:
+        raise SeedSliceError(
+            f"refusing to seed: {base_option} already names both halves of the "
+            "store pair, so the per-half options must not be given too — a base "
+            "and a half that disagree name two different stores."
+        )
+    return paths.corpus_index_url(base), paths.casestore_url(base)
+
+
+def resolve_source(
+    *, base_url: str | None = None, remote_url: str | None = None, casestore_url: str | None = None
+) -> Source:
+    """The pinned source, from a base URL or from its halves named explicitly."""
+    remote, store = _pair_for_side(
+        base_url=base_url,
+        remote_url=remote_url,
+        casestore_url=casestore_url,
+        base_option="--source-base-url",
+    )
+    return Source(remote_url=remote, casestore_url=store)
+
+
+def resolve_destination(
+    *, base_url: str | None = None, remote_url: str | None = None, casestore_url: str | None = None
+) -> Destination:
+    """The destination, from a base URL or from its halves named explicitly."""
+    remote, store = _pair_for_side(
+        base_url=base_url,
+        remote_url=remote_url,
+        casestore_url=casestore_url,
+        base_option="--dest-base-url",
+    )
+    return Destination(remote_url=remote, casestore_url=store)
 
 
 # A store's identity for the rail: ``(bucket, prefix)`` case-folded. Comparing
