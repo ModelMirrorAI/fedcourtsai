@@ -28,15 +28,16 @@ def test_gemini_default_model_and_rate() -> None:
 
 
 def test_codex_default_model_and_rate() -> None:
-    assert DEFAULT_MODELS["codex"] == "gpt-5.6-sol"
-    rate = MODEL_RATES["gpt-5.6-sol"]
-    assert (rate.input_per_mtok, rate.output_per_mtok) == (5.0, 30.0)
+    assert DEFAULT_MODELS["codex"] == "gpt-6-astra"
+    rate = MODEL_RATES["gpt-6-astra"]
+    assert (rate.input_per_mtok, rate.output_per_mtok) == (10.0, 50.0)
 
 
 def test_superseded_production_models_stay_priceable() -> None:
     # record-usage exits non-zero on a model absent from MODEL_RATES, so a
     # re-recorded old cell (explicit --model) needs the superseded production
     # models to keep their entries.
+    assert "gpt-5.6-sol" in MODEL_RATES
     assert "gpt-5.5" in MODEL_RATES
     assert "gemini-3.5-flash" in MODEL_RATES
 

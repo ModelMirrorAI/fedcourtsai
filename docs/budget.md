@@ -205,7 +205,7 @@ Three engines run the agentic stages, routed per registry entry
 | Engine | Used by | Billing | Rate (per 1M tokens) |
 |--------|---------|---------|----------------------|
 | Claude Code (`claude-fable-5-1`) | `claude-baseline`, `claude-judge` (predict/evaluate default) | Anthropic API (workflows); Max subscription for interactive local dev | Subscription: $200/mo flat (Max 20x — dev only, in floor #5). API: $10 in / $50 out |
-| Codex (`gpt-5.6-sol`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | $5 in / $30 out |
+| Codex (`gpt-6-astra`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | $10 in / $50 out (≤272k input; steps up beyond) |
 | Gemini (`gemini-3.1-pro-preview`) | `gemini-baseline`, `gemini-judge` | Gemini API (pay-per-token) | $2 in / $12 out (≤200k context; steps up beyond) |
 
 Sources: [Claude Max](https://support.claude.com/en/articles/11049741-what-is-the-max-plan),
@@ -816,12 +816,17 @@ The per-case cost splits across the three API bills — one predict cell and one
 evaluate cell per provider per case — so at a cadence of `C` tournamented cases
 per month each provider's bill is its per-case line × `C`. The Anthropic line
 was measured on `claude-fable-5` and carries to the current default unchanged:
-the point release holds that rate.
+the point release holds that rate. The OpenAI line was measured on
+`gpt-5.6-sol` and does **not** carry: the current default `gpt-6-astra` bills
+2× the input rate and 5/3 the output rate, so until a post-cutover run is
+measured the OpenAI line projects to ≈$5.2–6.3 $/case (share ≈31–35%,
+≈$310–380 at `C` = 60) and the total to ≈$16.7–17.8 $/case ≈ $1.0–1.1K/mo —
+the table keeps the measured values, labeled by the model that produced them.
 
 | Provider (engine) | Predict $/case | Evaluate $/case | $/case | Share | At `C` = 60/mo |
 |-------------------|---------------:|----------------:|-------:|------:|---------------:|
 | Anthropic (`claude-fable-5-1`) | $4.27 | $5.70 | $9.97 | ≈68% | ≈$600 |
-| OpenAI (`gpt-5.6-sol`) | $1.88 | $1.25 | $3.13 | ≈21% | ≈$188 |
+| OpenAI (measured on `gpt-5.6-sol`) | $1.88 | $1.25 | $3.13 | ≈21% | ≈$188 |
 | Google (`gemini-3.1-pro-preview`) | $0.64 | $0.88 | $1.52 | ≈10% | ≈$91 |
 | **Total** | **$6.79** | **$7.84** | **≈$14.6** | | **≈$0.9K** |
 
@@ -930,7 +935,11 @@ predictor per replayed petition, scored mechanically against the hidden
 outcome, so no evaluate cells at all. A default campaign
 replays 25 petitions × 3 predictors ≈ 75 cells — **≈$140–170** at the measured
 cert per-event rates ($5.57 pre-freeze to $6.66–6.68 on the post-freeze
-anchors) — and model spend scales linearly with the dispatch's `--limit`, which
+anchors), all of them measured with codex on `gpt-5.6-sol`; scaling the codex
+share of predict spend (≈28%) to the current `gpt-6-astra` rates (2× in, 5/3
+out) projects **≈$165–220** until a campaign is measured on it — and model
+spend scales
+linearly with the dispatch's `--limit`, which
 is the campaign's only size cap. `workflow_dispatch` is the only way in, and it
 defaults to the free offline `stub` engine, so an accidental dispatch spends
 nothing; choosing `auto` is the real-engine spend decision. The salience-gate
@@ -1047,13 +1056,13 @@ costs nothing here; adding an engine adds a probe.
 | Engine | Model | ≈ tokens / probe | Rate (in / out per Mtok) | ≈ $/day |
 | --- | --- | --- | --- | --- |
 | Claude Code | `claude-fable-5-1` | ~20K in (billed as a cache *write*, 1.25×), ~10 out | $10 / $50 | $0.25 |
-| Codex | `gpt-5.6-sol` | ~15K in, ~500 out (`effort: high`) | $5 / $30 | $0.09 |
+| Codex | `gpt-6-astra` | ~15K in, ~500 out (`effort: high`) | $10 / $50 | $0.18 |
 | Gemini | `gemini-3.1-pro-preview` | ~12K in, ~10 out | $2 / $12 | $0.02 |
 
 The model column is what each probe resolves today; the Claude volumes carry
 from the measurement on the model before it, per the provenance note above.
 
-That sums to ≈$0.36/day — **≈$0.12/engine/day, so at most ≈$11/mo and ≈$135/yr
+That sums to ≈$0.45/day — **≈$0.15/engine/day, so at most ≈$14/mo and ≈$165/yr
 at three engines**, "at most" because GitHub drops crons under load and a
 skipped window costs nothing. The claude row carries the cache-*creation*
 premium and no read discount on purpose: the leg passes the cells'
@@ -1073,8 +1082,8 @@ move it:
   three, and each CLI's own system prompt and tool definitions move all three.
 - **The output estimate assumes the probe behaves.** The codex row is the
   softest: reasoning tokens bill at the output rate, and `effort: high` on a
-  trivial question is not obviously bounded at 500 — at 2K it is $0.14 rather
-  than $0.09. Each leg also runs with the cells' own permissions
+  trivial question is not obviously bounded at 500 — at 2K it is $0.25 rather
+  than $0.18. Each leg also runs with the cells' own permissions
   (`bypassPermissions`, `--yolo`, codex's `fedcourts-cell` permission profile
   with network and live search), so "a short reply" is the model obeying *use
   no tools*. The only hard bound is the per-leg
@@ -1088,12 +1097,12 @@ move it:
   365×/yr. What bounds it is the cron cadence, the three legs the schedule can
   select, and the 10-minute timeout; not `spend.ceiling_usd`.
 
-The same three legs also ride every `scenario=all` dispatch, adding ≈$0.36 to a
+The same three legs also ride every `scenario=all` dispatch, adding ≈$0.45 to a
 promotion suite that already spends three engine-smoke cells' worth — on the
-order of $10–20/yr at a plausible 30–50 whole-suite dispatches. Both sit inside
+order of $15–25/yr at a plausible 30–50 whole-suite dispatches. Both sit inside
 the buffer below, so the floor is unchanged; state them, do not imply them.
 
-> **Line item: $350/mo flat** (a fixed floor, not a variable), the ≈$11/mo
+> **Line item: $350/mo flat** (a fixed floor, not a variable), the ≈$14/mo
 > boot canary inside it.
 
 ## Scaling plan: the order of growth
