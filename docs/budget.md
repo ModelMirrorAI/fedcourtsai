@@ -451,7 +451,11 @@ can flatter. Against the matched interim measurement $15 carries ≈11–14% —
 that holds a Term rate against one stage's measured cost, and interim is
 ~11–12% of the Term. Two gaps pointing opposite ways, neither settled: the
 wider predict population says the rate may be slightly low, the interim
-gradings say the evaluate half may be high.
+gradings say the evaluate half may be high. And all of that arithmetic holds
+the codex third at its measured `gpt-5.6-sol` price: at the projected
+≈$16.7–17.8 per-case rate the question stops being which reading flatters —
+$15 is ≈11–16% short on price alone, before any measurement, so the re-anchor
+below inherits a known price move rather than only a measurement gap.
 
 **The re-anchor trigger is unmet on both halves.** It waits on an evaluate
 fan-out under the currently blessed grading digests **reaching the cert stage**
@@ -769,7 +773,10 @@ re-derive next cycle.
 The shipped value is **$2,500 over a 30-day trailing window** — ~1.7× the
 Term's average month (≈$1.40–1.45K: 838–865 events/Term at the $15 planning
 rate over the ~9 months the Term spans; on a 12-month spread the multiple is
-~2.3×, so the claim is conservative).
+~2.3×, so the claim is conservative). At the projected post-cutover per-case
+rate the average month is ≈$1.6–1.7K and the multiple ≈1.5× (≈2.0× on the
+12-month spread) — thinner, and one more input to the `ceiling_usd` re-size
+the re-anchor already owes.
 
 What it protects against is chiefly a **burst**; the margin against a sustained
 *rate* is thin. The shipped steady state cannot reach the ceiling — the mean
@@ -795,7 +802,8 @@ drain is small — a dry-run over the committed corpus finds 31 mintable grants
 (≈$230–460 with their briefed moments; the un-adjudicated population behind
 that measurement is 674 grant-opening rows, which is why the sweep is bounded
 rather than trusted). Total ≈$1.75–2.0K, leaving ≈$0.5–0.75K of window for the
-lagging ledger.
+lagging ledger — at the projected post-cutover codex rate ≈$1.85–2.2K and
+≈$0.3–0.65K, so the "limited room" narrows with the cutover.
 
 Two limits it is set *with* rather than against. A ceiling of `0` disables the
 backstop (the code default, so a missing section can never wedge the pipeline —
@@ -830,8 +838,10 @@ the point release holds that rate. The OpenAI line was measured on
 `gpt-5.6-sol` and does **not** carry: the current default `gpt-6-astra` bills
 2× the input rate and 5/3 the output rate, so until a post-cutover run is
 measured the OpenAI line projects to ≈$5.2–6.3/case (share ≈31–35%,
-≈$310–380 at `C` = 60) and the total to ≈$16.7–17.8/case ≈ $1.0–1.1K/mo —
-the table keeps the measured values, labeled by the model that produced them.
+≈$310–380 at `C` = 60) and the total to ≈$16.7–17.8/case ≈ $1.0–1.1K/mo,
+with the share column re-splitting to ≈56–60% / 31–35% / ≈9% — the table keeps
+the measured values, Total row included, labeled by the model that produced
+them.
 
 | Provider (engine) | Predict $/case | Evaluate $/case | $/case | Share | At `C` = 60/mo |
 |-------------------|---------------:|----------------:|-------:|------:|---------------:|
@@ -945,11 +955,11 @@ predictor per replayed petition, scored mechanically against the hidden
 outcome, so no evaluate cells at all. A default campaign
 replays 25 petitions × 3 predictors ≈ 75 cells — **≈$140–170** at the measured
 cert per-event rates ($5.57 pre-freeze to $6.66–6.68 on the post-freeze
-anchors), all of them measured with codex on `gpt-5.6-sol`; scaling the codex
-share of predict spend (≈28%) to the current `gpt-6-astra` rates (2× in, 5/3
-out) projects **≈$165–215** until a campaign is measured on it — and model
-spend scales
-linearly with the dispatch's `--limit`, which
+anchors), all of them measured with codex on `gpt-5.6-sol`; scaling those
+anchors' own measured codex lines ($1.38–2.17/event at the cert stage) by the
+current `gpt-6-astra` rates (2× in, 5/3 out) projects **≈$160–220** until a
+campaign is measured on it — and model spend scales linearly with the
+dispatch's `--limit`, which
 is the campaign's only size cap. `workflow_dispatch` is the only way in, and it
 defaults to the free offline `stub` engine, so an accidental dispatch spends
 nothing; choosing `auto` is the real-engine spend decision. The salience-gate
@@ -964,7 +974,7 @@ own run's engine logs. Measured to date there is nothing to read: no
 `metrics/cert-backtest.json` has landed (the committed `metrics/backtest.json`
 is the token-free deterministic reference-predictor replay, a different
 artifact), and no real-engine campaign's spend is recorded anywhere in-repo. Budget campaigns explicitly when planning an iteration push
-— a prompt-tuning series of, say, ten default-sized campaigns is ≈$1.4–1.7K of
+— a prompt-tuning series of, say, ten default-sized campaigns is ≈$1.6–2.2K (at the projected codex rate) of
 provider spend the window never sees — and time them away from
 conference-dense weeks for the same reason the backstop paragraph gives for
 the campaigns it *can* see.
@@ -1109,7 +1119,7 @@ move it:
 
 The same three legs also ride every `scenario=all` dispatch, adding ≈$0.45 to a
 promotion suite that already spends three engine-smoke cells' worth — on the
-order of $15–25/yr at a plausible 30–50 whole-suite dispatches. Both sit inside
+order of $14–23/yr at a plausible 30–50 whole-suite dispatches. Both sit inside
 the buffer below, so the floor is unchanged; state them, do not imply them.
 
 > **Line item: $350/mo flat** (a fixed floor, not a variable), the ≈$14/mo

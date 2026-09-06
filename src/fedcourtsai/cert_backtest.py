@@ -591,7 +591,10 @@ def replay_predictors(
                 # `cut_kind` non-null wherever `cutoff` is, which is what lets the
                 # prompt contract and the leakage clock read one field for the
                 # boundary instead of inferring it from the absence of another.
-                boundary=arrival_cut.CutBoundary(kind="date"),
+                # The blind arm is the converse: its proceedings are removed
+                # wholesale and its cutoff is null, which is neither rule, so it
+                # carries no kind.
+                boundary=(arrival_cut.CutBoundary(kind="date") if cutoff is not None else None),
                 decided_before=str(item.features.year),
             ).model_dump(mode="json"),
         )

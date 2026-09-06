@@ -777,6 +777,24 @@ class PredictionContext(_Strict):
         "strictly before it; which pool is keyed on the stage, not on this field",
     )
 
+    @model_validator(mode="after")
+    def _cut_fields_cohere(self) -> PredictionContext:
+        """The boundary fields travel together or not at all.
+
+        `cut_kind` names the rule that bounded the snapshot at `cutoff`, so a
+        kind over a null cutoff asserts a bound no moment fixed; and the anchor
+        index is the record of exactly the `arrival-position` rule, per its own
+        no-arm-without-the-index contract. Both directions are producer bugs a
+        grader would otherwise be sent to read as a boundary.
+        """
+        if self.cut_kind is not None and self.cutoff is None:
+            raise ValueError("`cut_kind` names a bounding rule but `cutoff` is null")
+        if (self.cut_kind == "arrival-position") != (self.cut_anchor_index is not None):
+            raise ValueError(
+                "`cut_anchor_index` is non-null exactly where `cut_kind` is 'arrival-position'"
+            )
+        return self
+
 
 class ClaimProbability(_Strict):
     """One declared claim's stated probability, inside ``Prediction.claims``.

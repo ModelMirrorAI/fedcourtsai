@@ -1026,6 +1026,15 @@ def test_a_replay_cell_records_which_rule_bounded_it() -> None:
     # The cert baseline's trigger is a conference, not a docket entry, so there
     # is no intra-day tail to exclude and no anchor to record.
     assert context.cut_anchor_index is None
+    # The blind arm is the converse: proceedings removed wholesale and a null
+    # cutoff, which is neither rule — it carries no kind (and the schema
+    # refuses the kind-over-null-cutoff combination outright).
+    blind, _ = truncate_snapshot(_TRAJECTORY, None)
+    blind_context = cell_context.build(
+        "scotus/305", date(2025, 2, 24), blind, "replay", provenance="blind"
+    )
+    assert blind_context.cutoff is None
+    assert blind_context.cut_kind is None
 
 
 def test_truncating_a_decided_payload_reproduces_the_real_pre_decision_snapshot() -> None:

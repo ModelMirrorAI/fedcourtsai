@@ -1195,10 +1195,15 @@ the rendered table) and
   application can be submitted, referred and disposed of inside one — so its
   snapshot stops at the entry that opened the event (`cut_kind`
   `arrival-position`, `cut_anchor_index` beside it) rather than at the end of the
-  cutoff's day. Two obligations follow. A figure pooling `date`-bounded and
-  `arrival-position`-bounded arrival cells is pooling two information sets on the
-  shape where they differ most, the same-day-disposed application; the boundary
-  the freeze record registers is where they split. And the bound carries a
+  cutoff's day. Two obligations follow. An interim arrival cell never carries
+  `cut_kind` `date` — that moment either takes the anchor bound or refuses — so
+  the split the freeze record registers is `cut_kind` **absent** (a cell
+  provisioned before the field existed, its `cutoff` non-null) against
+  `arrival-position`, and a figure pooling the two arms is pooling two
+  information sets on the shape where they differ most, the same-day-disposed
+  application. The null arm is readable as the old rule only restricted to
+  interim arrival events; elsewhere a null `cut_kind` merely means no moment
+  fixed a cutoff or the cell predates the field. And the bound carries a
   **membership rule**: a row whose opening entry cannot be located in its
   snapshot is refused rather than provisioned on the date rule, so those cells
   never exist and no board's exclusion block can show them. `fedcourts
