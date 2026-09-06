@@ -2559,3 +2559,111 @@ freeze commit is recorded here.
   `no_snapshot` with `anchored` 0, so **read `no_snapshot` first**. Alongside
   it, `uv run pytest -k arrival_cut`, whose same-day-disposed and reversed-order
   fixtures are what fail if either half of the bound is removed.
+
+- Freeze commit: `466951d756a573b2533a71e59376b4cfb7764758`, to be tagged
+  **`prereg/proc-v7`** per step 4 — on this freeze commit itself, once its
+  carrying promotion lands and the instant audit passes. Blesses the six
+  proc-v7 digests, retires all six of `prereg/proc-v6`'s, and moves the
+  freeze instant to **`2026-09-07T00:00:00Z`**. The carrying promotion is
+  forecast for 2026-09-06/07; its merge time, the step-4 audit, and the gap
+  census land as an **appended promotion-time entry** below — never as an
+  edit to this one.
+
+  The six digests blessed, read off `fedcourts process-digest --all` at the
+  freeze commit:
+
+  - predictors — claude-baseline
+    `sha256:930e02ae18fd07192bede9d3e54ad420a66183db927f0b5d5939c2af0a2c93eb`,
+    codex-baseline
+    `sha256:c57113fae8715f31767475ef80bb2cee885534ea6c0c39c04aee327241bbf890`,
+    gemini-baseline
+    `sha256:4edc5ac58c718a385e9518a9a1cfc0f17f32eb62ca788ad79c91e7112c11994a`;
+  - evaluators — claude-judge
+    `sha256:84cf4c8b52a1475c8982a22876f9d01e2f628f4d5e9027709490679d211da868`,
+    codex-judge
+    `sha256:fa92c82e827ede277677781a11d13f20afc830517c11377cf50be167c8a07d36`,
+    gemini-judge
+    `sha256:2585c15a6b2c5f3f6cb4aa5393f49ee63592dbfd8ad38fc1a9b9dae0d2ce1bf3`.
+
+  **Fleet-wide: both halves move, and two different inputs move them.** Every
+  enabled actor's digest changes. The shared prompt templates' bytes move
+  together — the cell contracts anchor on the case-level `record/` path; the
+  predict contract loses the escape hatch that let a forward cell
+  legitimately run without a provisioned snapshot (the harness refuses all
+  unprovisioned paths); and the positional-cutoff contract lands whole, on
+  both halves at once: the baseline bound, the replay retrieval boundary
+  keyed on `cut_kind` (the opening entry, not the event date, under
+  `arrival-position`), and the grading rule that the opening day is kept up
+  to the anchor, with an unreadable ordering treated as outside and flagged
+  as a stated conservative default. And on the codex pair alone, the
+  resolved model moves: `gpt-5.6-sol` → `gpt-6-astra` (2× the input rate,
+  5/3 the output rate; the budget re-projection rides the same batch). A
+  codex figure therefore differs across this boundary for two confounded
+  reasons, prompt and model at once; the digest boundary already forbids
+  pooling across it, and this sentence is the record that the model is one
+  of the things it separates.
+
+  **The shape is the first supersession — nothing the retirement removes was
+  ever counted.** proc-v6's instant (`2026-09-05T00:00:00Z`) has passed, but
+  its counted set is empty: no prediction was ever stamped under any of its
+  three predictor digests (the scheduled predict runs since the instant were
+  plan-and-hold, their spend holds never released), and the only cells ever
+  stamped under its evaluator digests are **14 evaluations** — 7 under
+  claude-judge `sha256:e84e8e5f…`, 7 under gemini-judge `sha256:64ae1b0c…`,
+  none under codex-judge `sha256:e44173fb…` (its three cells wedged on the
+  2026-09-04 run and never landed) — every one stamped
+  2026-09-04T18:47–18:57Z, before the instant. So no de-count declaration is
+  called on, `prereg/proc-v6`'s headline is legitimately empty forever, and
+  its tag stays as the record. Census commands, run 2026-09-06 against
+  `origin/main`: `git grep -l 'sha256:<digest>' origin/main -- data/cases |
+  wc -l` per retired digest (0, 0, 0 predictors; 7, 0, 7 evaluators, stamps
+  read off the files), and the wider census `git grep -l
+  '"process_version": {' origin/main -- data/cases | wc -l` → **448** stamped
+  cells: 27 under proc-v2's digests, 331 under proc-v3's, 11 under
+  proc-v4's, 65 under proc-v5's — the ordinary ledger under labels retired
+  before this entry — and the 14 under proc-v6's that this entry retires.
+  Step 0 for the six digests blessed here: the same per-digest grep, **0 for
+  all six**.
+
+  **The gap, declared in advance.** proc-v6's window is open until the
+  carrying promotion lands, so a spend hold released before it would mint
+  cells stamped under proc-v6 digests at or after its instant — counted on
+  minting, de-counted by this supersession. Dated today, while no such cell
+  exists and before any such cell's claim window could resolve, **this entry
+  is the declaration** the third shape would then require: any cell stamped
+  under a proc-v6 digest at or after `2026-09-05T00:00:00Z` is a
+  **shakedown** cell, proc-v7 the counted record, no pooling across the
+  boundary in either direction; if any exist by the promotion, the
+  promotion-time entry carries the census and must name the
+  resolved-outcome split, not just a head count. Operationally the gap is
+  kept empty the same way proc-v6's was: the scheduled predict/evaluate
+  holds stay unreleased until the promotion.
+
+  **The instant's condition.** `2026-09-07T00:00:00Z` sits ahead of the
+  promotion forecast; the registered condition is that the carrying promotion
+  lands on `main` at or before it. Should it slip past, `FROZEN_SINCE` is
+  bumped past the carrying merge in a follow-up promotion **before** the
+  `prereg/proc-v7` tag is minted. Cells minted between the carrying merge and
+  the instant land as shakedown, honestly stamped and uncounted.
+
+  **The evaluator half's pooling exposure.** The 14 gradings under the
+  retiring evaluator digests stay exactly as uncounted as they were; what
+  pools across the rubric boundary is the `--all-versions` diagnostic view
+  and the version-blind leakage digest, as at proc-v6, with the same reading:
+  a flagged-grading count taken after this re-bless is not poolable with one
+  taken before — the more so here, where the grading rule for the
+  positional cut's ambiguous same-day citations is *flag as a stated
+  conservative default*, a policy that raises the flagged rate by
+  construction. The frozen board is again not exposed, because both halves
+  move together: a frozen-scope cell's prediction digest can only be one of
+  the proc-v7 three, minted from `main` after the carrying promotion, so its
+  grading necessarily carries a proc-v7 evaluator digest.
+
+  **The runnable effect check, for the promotion carrying this.**
+  `uv run fedcourts process-digest --all` on the promoted `main` prints
+  `proc-v7` and exactly the six digests this entry blesses; the promotion
+  gate on the next staging PR goes green with no unblessed-digest failure;
+  and the first spend-released run at or after `2026-09-07T00:00:00Z` stamps
+  its cells `proc-v7` (read off any new cell's `process_version`). The codex
+  half of that run is additionally the availability check for `gpt-6-astra`:
+  its cells' `usage.json` must record that model, at the registered rates.
