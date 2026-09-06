@@ -1852,11 +1852,30 @@ an arrival cell is banded on a docket with no distribution yet recorded, which
 is what `arrival` declares — as is the interim application baseline, whose
 declared moment *is* arrival, dated from the docket's own
 `Application (…) … submitted` entry
-(`interim_signals.application_arrival_date`) and falling back to the docketing
-date only where no submission entry can be dated, since docketing runs late on
-an application and the stamp is where the cut falls.
+(`interim_signals.application_arrival_date`). Docketing is the stamp's fallback
+where no submission entry can be dated, and it runs late on an application — but
+a row carrying it is refused rather than cut there, because the anchor bound
+below needs the submission entry the stamp names and a docketing stamp names
+none.
 `context.cutoff` separates the two conditionings:
 non-null where a moment placed the cell, null where nothing did.
+
+The interim baseline takes a **second bound on top of that date**, because a day
+cannot express its moment: an application is submitted, referred, responded to
+and sometimes disposed of inside one, so a cutoff set to the day after the
+arrival necessarily admits the docket's own disposition — measured on the
+highest-salience shape there is, the capital stay application. Its snapshot
+therefore stops at the entry that opened the event, not at the end of that day,
+recorded on the cell as `context.cut_kind` `arrival-position` with
+`cut_anchor_index` beside it. What the frozen conditioning sees moves with it:
+the escalation trio is read off the cut payload, so a same-day response request
+or referral is not frozen as already on the docket — which is what makes its
+increment claim vacuous — and a same-day amicus is not counted at all. A row whose opening entry cannot be located in its snapshot is
+refused rather than provisioned on the date rule alone —
+`fedcourts arrival-cut-ledger` counts those refusals, split by resolution status
+and same-day disposition — the split exists to test whether unanchorable, terse
+and summarily-disposed-of are one shape, which is a hypothesis about a small arm
+rather than an established property of it.
 
 For those two cert moments the placement moves the **base rate**, not just the
 description. The cut removes the relists filed after the trigger, so the frozen

@@ -26,9 +26,11 @@ from fedcourtsai.cert_backtest import (
     truncate_snapshot,
 )
 from fedcourtsai.cli import app
-from fedcourtsai.pipeline import cell_context, cert_signals, ingest
+from fedcourtsai.config import load_salience_config
+from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest
 from fedcourtsai.pipeline.asof import replay_cutoff
-from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner
+from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner, get_runner
+from fedcourtsai.pricing import DEFAULT_MODELS
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import CertBacktest, Disposition
 from fedcourtsai.serialize import read_model
@@ -627,6 +629,14 @@ def test_replay_routes_each_predictor_through_its_own_engine(
         "codex-baseline": "codex",
         "gemini-baseline": "gemini",
     }
+    # And each backtester records that routing, so the report can state it.
+    assert {
+        (b.id, b.engine) for b in backtesters if isinstance(b, cert_backtest.ReplayedBacktester)
+    } == {
+        ("claude-baseline", "claude-code"),
+        ("codex-baseline", "codex"),
+        ("gemini-baseline", "gemini"),
+    }
 
 
 def test_replay_drops_a_predictor_whose_engine_has_no_runner(
@@ -824,6 +834,159 @@ def test_cli_writes_valid_report_with_stub_replay(
     assert "always-deny floor" in result.output
 
 
+def test_cli_stub_report_self_identifies_as_stub(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # The provenance contract: a stub report must be legible as one from the
+    # committed artifact alone. Predictor ids are identical under every backend,
+    # so without this the same document reads as a real-engine board.
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(
+        app,
+        [
+            "cert-backtest",
+            "--out",
+            str(out),
+            "--engine",
+            "stub",
+            "--limit",
+            "7",
+            "--scope",
+            "paid",
+            "--spread",
+            "--skip-engines",
+            "gemini",
+            "--work-dir",
+            str(tmp_path / "work"),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    report = read_model(out, CertBacktest)
+    assert report.provenance is not None
+    dispatch = report.provenance.dispatch
+    # Every dispatch parameter that defines the population or the routing.
+    assert dispatch.engine == "stub"
+    assert dispatch.skip_engines == ["gemini"]
+    assert dispatch.scope == "paid"
+    assert dispatch.spread is True
+    assert dispatch.limit == 7
+    assert report.provenance.run_id is not None  # a replay ran, so it has a run
+    # The frozen config that moves the population and the baselines under an
+    # identical dispatch string rides along, or the block cannot decompose a
+    # mixture of reports later.
+    salience_cfg = load_salience_config(Path("config"))
+    assert report.provenance.salience_floor == salience_cfg.floor
+    assert report.provenance.base_rate_lookback_terms == salience_cfg.base_rate_lookback_terms
+    replayed = {e.predictor_id: e for e in report.entries if e.engine is not None}
+    assert replayed  # the enabled predictors were replayed
+    for entry in replayed.values():
+        assert entry.engine == "stub"  # what ran, not the predictor's own engine
+        assert entry.model is None  # no model ran: the mark of a stub number
+        # And the old null-heuristic really is broken, which is why this exists.
+        assert entry.big_case is not None
+    # The offline reference baselines ran no engine at all and say so.
+    assert report.entries[0].predictor_id  # the board is non-empty
+    baselines = [e for e in report.entries if e.predictor_id in {"constant-denied", "prior-vote"}]
+    assert baselines and all(e.engine is None and e.model is None for e in baselines)
+    assert "engine stub" in result.output
+
+
+def test_cli_offline_report_records_the_dispatch_and_no_run(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # No --engine: only the offline baselines ran, so there is no run id and no
+    # entry claims an engine — the reading that never overstates what produced it.
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(
+        app, ["cert-backtest", "--out", str(out), "--limit", "3", "--skip-engines", "gemini"]
+    )
+    assert result.exit_code == 0, result.output
+    report = read_model(out, CertBacktest)
+    assert report.provenance is not None
+    assert report.provenance.run_id is None
+    assert report.provenance.dispatch.engine == ""
+    assert report.provenance.dispatch.limit == 3
+    # Nothing was opted out of, because nothing ran: recording the opt-out would
+    # name a choice that never applied.
+    assert report.provenance.dispatch.skip_engines == []
+    assert report.provenance.dropped_predictors == []
+    assert all(e.engine is None and e.model is None for e in report.entries)
+    assert "engine none (offline baselines only)" in result.output
+
+
+def test_cli_rejects_an_unknown_engine(fixture_corpus: FixtureCorpus, tmp_path: Path) -> None:
+    # A typo must never reach the artifact: the recorded engine is what tells a
+    # real-engine board from a rehearsal, so an out-of-vocabulary value is
+    # refused rather than written into a committed report.
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(tmp_path / "cert-backtest.json"), "--engine", "stbu"],
+    )
+    assert result.exit_code != 0
+    assert "unknown backend 'stbu'" in result.output
+
+
+def test_replay_records_the_backend_that_ran_each_predictor(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # Under an override every predictor runs on the named backend whatever its
+    # registry entry says, and that discrepancy is the thing to record: the
+    # entries are still named claude-/codex-/gemini-baseline.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    backtesters, _, _ = replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        engine_override="stub",
+        run_id="20260706T000000Z",
+    )
+    assert {b.id for b in backtesters} == {
+        "claude-baseline",
+        "codex-baseline",
+        "gemini-baseline",
+    }
+    for backtester in backtesters:
+        assert isinstance(backtester, cert_backtest.ReplayedBacktester)
+        assert backtester.engine == "stub"
+        assert backtester.model is None
+    # The report carries the pair through onto every entry it scores.
+    report = run_cert_backtest(backtesters, items)
+    assert {(e.engine, e.model) for e in report.entries} == {("stub", None)}
+
+
+def test_a_real_engine_entry_carries_its_engine_and_model(fixture_corpus: FixtureCorpus) -> None:
+    # The other half of the wiring: an entry produced by a token-spending backend
+    # names it and the model it was invoked with, so a real board is legible as
+    # one. Built directly rather than by running an agent — the assertion is that
+    # the pair reaches the entry, which no stub-routed test can make.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    real = cert_backtest.ReplayedBacktester(
+        id="claude-baseline",
+        predictions={
+            item.features.case_id: BacktestPrediction(Disposition.denied, 0.1) for item in items
+        },
+        engine="claude-code",
+        model=DEFAULT_MODELS["claude-code"],
+    )
+    (entry,) = run_cert_backtest([real], items).entries
+    assert entry.predictor_id == "claude-baseline"
+    assert entry.engine == "claude-code"
+    assert entry.model == DEFAULT_MODELS["claude-code"]
+
+
+def test_replay_model_comes_from_the_shared_pricing_defaults() -> None:
+    # The recorded model is the runner's own resolved model, which is read from
+    # DEFAULT_MODELS — so a report cannot name a model the ledger would not price,
+    # and a moved default moves this with it rather than leaving a stale string.
+    for backend, expected in DEFAULT_MODELS.items():
+        assert cert_backtest.replay_model(get_runner(backend)) == expected
+    # The offline backends run no model at all; null is not "unknown" here.
+    assert cert_backtest.replay_model(StubRunner()) is None
+
+
 def test_cli_skip_engines_reports_the_opt_out_once(
     fixture_corpus: FixtureCorpus, tmp_path: Path
 ) -> None:
@@ -1000,6 +1163,41 @@ def test_a_truncated_docket_still_discloses_its_own_band() -> None:
     # Wholesale deletion — the previous behaviour — disclosed nothing at all.
     blind, _ = truncate_snapshot(_TRAJECTORY, None)
     assert cell_context.build("scotus/305", date(2025, 2, 24), blind, "replay").band is None
+
+
+def test_a_replay_cell_records_which_rule_bounded_it() -> None:
+    """`cutoff` non-null implies `cut_kind` non-null, on every provisioner.
+
+    The evaluate prompt's leakage clock keys on `cut_kind` — under `date` the
+    cutoff is the clock, under `arrival-position` the boundary is tighter — so a
+    cell carrying a cutoff with no kind gives the grader neither branch. The
+    replay backtest population is the leakage-sensitive one, which is exactly
+    where a null would have gone unnoticed.
+    """
+    kept, _ = truncate_snapshot(_TRAJECTORY, date(2025, 2, 25))
+    context = cell_context.build(
+        "scotus/305",
+        date(2025, 2, 24),
+        kept,
+        "replay",
+        provenance="truncated",
+        cutoff=date(2025, 2, 25),
+        boundary=arrival_cut.CutBoundary(kind="date"),
+    )
+    assert context.cutoff is not None
+    assert context.cut_kind == "date"
+    # The cert baseline's trigger is a conference, not a docket entry, so there
+    # is no intra-day tail to exclude and no anchor to record.
+    assert context.cut_anchor_index is None
+    # The blind arm is the converse: proceedings removed wholesale and a null
+    # cutoff, which is neither rule — it carries no kind (and the schema
+    # refuses the kind-over-null-cutoff combination outright).
+    blind, _ = truncate_snapshot(_TRAJECTORY, None)
+    blind_context = cell_context.build(
+        "scotus/305", date(2025, 2, 24), blind, "replay", provenance="blind"
+    )
+    assert blind_context.cutoff is None
+    assert blind_context.cut_kind is None
 
 
 def test_truncating_a_decided_payload_reproduces_the_real_pre_decision_snapshot() -> None:

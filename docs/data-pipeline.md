@@ -597,21 +597,26 @@ credentialed process, which is what lets a credential-free cell ask for one.
 ### Provisioning: how a cell gets its record
 
 The predict/evaluate provisioning commands (`provision-snapshot`,
-`materialize-event`) source a cell's `record/` — the point-in-time snapshot,
-its filed-document text, and the event — from the **content store**
+`materialize-event`) source a cell's inputs — the point-in-time snapshot and
+its filed-document text into the case-level `record/`, the event definition
+into `events/<event_id>/event.yaml` — from the **content store**
 (`--corpus-backend casestore`, the default under the corpus-split mode, so the
 whole forward fleet reads one store without per-command flags; an explicit
 `--corpus-backend` still wins), proven byte-identical across backends by a
 parity gate (`tests/test_provision_casestore.py`).
 
 *Which* point in time the record is sourced at is the cell's declared moment,
-not the corpus's newest read: where a forward cell names an event that declares
+not the corpus's newest read: where a cell names an event that declares
 a moment, `provision-snapshot` places it at the day after that event opened,
 cutting the snapshot's proceedings and the documents there, and records the
-instant as `context.cutoff`. The terminal-refusal gates below run on the latest
+instant as `context.cutoff`. On the interim arrival moment that day is only the
+outer bound — the snapshot stops at the docket entry that opened the event, and
+`context.cut_kind` / `context.cut_anchor_index` record that boundary — and a row
+whose opening entry cannot be anchored is refused rather than cut at the date.
+The terminal-refusal gates below run on the latest
 payload first, before any cut — a disposition filed after the cutoff is exactly
 what a cut would otherwise hide. See [cli.md](cli.md) for the flag, the two
-provenances, and the moments the cut does not apply to.
+provenances, the two cut kinds, and the moments the cut does not apply to.
 
 The `casestore` backend has no query surface, so `query` / `stats` / `open-events` / scope reconcile read
 the index — locally pulled or ranged in place — and `cert-backtest` replay

@@ -66,13 +66,18 @@ cached prefix stays as long as possible (don't interleave case facts with them).
    output contract.
 
 **Per-case — read last, right before you write.** Under
-`data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/`. Start with the event's
-`event.yaml`: its `stage` field names the decision standard the event resolved
-on and selects which scoring rules below govern — `cert` (a petition for
-certiorari; a petition/appeal-kind event that records no stage also reads as
-cert), `interim` (a stay/injunction application) or `merits` (the judgment the
-Court entered after granting certiorari); the interim and merits rules sit
-under `evaluation.json` below. No other stage reaches a scored cell today.
+`data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/`, relative to your working
+directory — except the provisioned `record/` inputs, which are **case-level**,
+at `data/cases/$COURT_ID/$DOCKET_ID/record/`: a sibling of `events/`, not a
+child of it, so there is no `events/$EVENT_ID/record/`. The blinded candidates,
+`context.json`, and the snapshot are all there, and every bare `record/…` path
+below means that one directory. Start with the event's `event.yaml`: its
+`stage` field names the decision standard the event resolved on and selects
+which scoring rules below govern — `cert` (a petition for certiorari; a
+petition/appeal-kind event that records no stage also reads as cert), `interim`
+(a stay/injunction application) or `merits` (the judgment the Court entered
+after granting certiorari); the interim and merits rules sit under
+`evaluation.json` below. No other stage reaches a scored cell today.
 Then:
 
 3. `outcome.json` — the realized ground truth (`actual_disposition`,
@@ -603,7 +608,9 @@ candidate:
    the prediction's `context.cutoff` — is legitimate forward signal, not
    leakage. A forward cell's `cutoff`, non-null wherever its event's declared
    moment fixed one, is not a retrieval clock: a placed cell's snapshot stops
-   at that moment, so the cutoff bounds only the provisioned **baseline**,
+   at its own boundary — the cutoff, or the opening entry inside it where
+   `cut_kind` says `arrival-position` — so the cutoff bounds only the
+   provisioned **baseline**,
    and what it means for retrieval is keyed on `mode` — an open case's cell
    retrieves without restriction, and material later than its own baseline is
    the ordinary forward shape, not a breach. A predictor's own honest
@@ -620,6 +627,26 @@ candidate:
    nothing about the replay. Where the prediction carries no `context`, the cutoff
    is unavailable and the honest grade falls back to the event's resolution date;
    say so in `evaluation.md` rather than substituting a date that is later.
+
+   **Read the boundary, not the date alone.** `context.cut_kind` says which rule
+   bounded the prediction's baseline. Under `date` the cutoff *is* the clock, as
+   above. Under `arrival-position` the baseline stopped **earlier**: at the docket
+   entry that opened the event (`context.cut_anchor_index`), so the opening day's
+   own later entries — a same-day referral, response request, amicus or
+   disposition — were outside the cell's information set even though the cutoff
+   date admits them. A prediction citing one of those is reading material it was
+   not given, and grading it clean because its date precedes the cutoff would
+   apply the looser rule the boundary fields exist to replace. Grade it from the
+   two stamped fields and nothing else: the opening day's entries are inside
+   the set only up to the opening entry — material from earlier that day was
+   in the baseline, material after it was not. Where a same-day citation's
+   position against the anchor is unreadable from what you hold (the anchor
+   indexes a list you are not shown), treat it as outside and flag the
+   ambiguity — a conservative default stated as such, not a finding of fact.
+   **Your own `record/` is not the check** — it is provisioned from the decided
+   docket with no cut at all, and the prediction's own snapshot is not staged for
+   you, so a docket entry's presence there says nothing about whether the
+   prediction was given it.
 
    `retrieved_outcome_material` is a **boolean** — write `true` or `false`
    (`null` only where the record supports no answer at all), never a word:

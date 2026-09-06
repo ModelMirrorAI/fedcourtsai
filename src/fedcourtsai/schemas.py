@@ -639,7 +639,10 @@ class PredictionContext(_Strict):
         "case-baseline cell and any cell whose event declares no moment. 'dated' "
         "is a snapshot the docket really served before the cutoff — the strongest "
         "point-in-time evidence, because it also reflects what had not yet been "
-        "filed. 'truncated' is a later payload with its post-cutoff entries "
+        "filed — with one exception, recorded in `cut_kind`: an arrival-position "
+        "cut is taken on a 'dated' payload too, because a snapshot the docket "
+        "served on the opening day itself can carry that day's later entries. "
+        "'truncated' is a later payload with its post-cutoff entries "
         "removed, which cannot know that a pre-cutoff entry was back-filled "
         "later, and which cuts the dated proceedings only — undated top-level "
         "blocks (counsel, amici, the payload's own generation date) are as at "
@@ -652,8 +655,13 @@ class PredictionContext(_Strict):
     )
     cutoff: date | None = Field(
         default=None,
-        description="The instant this cell was placed at: entries filed strictly "
-        "before it are what the snapshot carries. Non-null wherever a moment "
+        description="The day this cell was placed at. It is the snapshot's outer "
+        "bound, not on its own the boundary: entries filed strictly before it "
+        "are what the date rule admits, and `cut_kind` says whether a second, "
+        "tighter rule ran inside that — on an arrival-position cut the snapshot "
+        "stops at the opening entry, so the opening day's own later entries are "
+        "outside the cell's information set although this date admits them. "
+        "Non-null wherever a moment "
         "fixed one — a replay cell other than a 'blind' one, and a forward cell "
         "whose event declares a moment whose opening date is that moment's own "
         "trigger — and null where nothing did: a cell provisioned for no "
@@ -666,6 +674,33 @@ class PredictionContext(_Strict):
         "dated at or after it postdates what the cell was allowed to see, while "
         "a forward cell may retrieve without restriction and the cutoff bounds "
         "only the baseline it was provisioned with",
+    )
+    cut_kind: Literal["date", "arrival-position"] | None = Field(
+        default=None,
+        description="Which rule bounded the provisioned snapshot's entries. 'date' "
+        "keeps every entry filed strictly before `cutoff`, which is the whole of "
+        "the boundary for every moment whose trigger is not itself a docket entry. "
+        "'arrival-position' is that rule and an anchor bound: the snapshot is the "
+        "docket as of the entry that opened the event, so the opening day's own "
+        "later entries — a same-day referral, response request, amicus filing or "
+        "disposition — are outside the cell's information set even though "
+        "`cutoff` admits their date. Taken on the interim arrival moment, where a "
+        "whole application can be submitted and disposed of inside one day, and "
+        "on both snapshot provenances. Null where no moment fixed a cutoff. This "
+        "field, not `cutoff` alone, is the leakage clock's boundary on a replay "
+        "cell: material dated on the cutoff's own eve is inside the set under "
+        "'date' and may be outside it under 'arrival-position', which "
+        "`cut_anchor_index` locates",
+    )
+    cut_anchor_index: int | None = Field(
+        default=None,
+        ge=0,
+        description="Where the opening entry sat in the proceedings list the cut was "
+        "taken over — a 0-based position in the PRE-cut list, so it is a record of "
+        "the boundary rather than an index into the provisioned snapshot. Non-null "
+        "exactly where `cut_kind` is 'arrival-position'; a cell whose opening entry "
+        "could not be located there is refused rather than provisioned on the date "
+        "rule, so there is no arm carrying the kind without the index",
     )
     decided_before: str | None = Field(
         default=None,
@@ -741,6 +776,24 @@ class PredictionContext(_Strict):
         "parsed from a `YYAnnn` application number. Both baselines pool Terms "
         "strictly before it; which pool is keyed on the stage, not on this field",
     )
+
+    @model_validator(mode="after")
+    def _cut_fields_cohere(self) -> PredictionContext:
+        """The boundary fields travel together or not at all.
+
+        `cut_kind` names the rule that bounded the snapshot at `cutoff`, so a
+        kind over a null cutoff asserts a bound no moment fixed; and the anchor
+        index is the record of exactly the `arrival-position` rule, per its own
+        no-arm-without-the-index contract. Both directions are producer bugs a
+        grader would otherwise be sent to read as a boundary.
+        """
+        if self.cut_kind is not None and self.cutoff is None:
+            raise ValueError("`cut_kind` names a bounding rule but `cutoff` is null")
+        if (self.cut_kind == "arrival-position") != (self.cut_anchor_index is not None):
+            raise ValueError(
+                "`cut_anchor_index` is non-null exactly where `cut_kind` is 'arrival-position'"
+            )
+        return self
 
 
 class ClaimProbability(_Strict):
@@ -2045,6 +2098,24 @@ def _throttled_calls(calls: Sequence[RetrievalCall]) -> int | None:
     return sum(1 for call in observed if call.result_status == "throttled")
 
 
+CellMode = Literal["forward", "replay"]
+"""The declared vocabulary of cell modes: a cell either forecasts a pending
+outcome (``forward``) or replays a decided one (``replay``).
+
+There is no third value and no ``unknown`` member: a record that cannot say
+which it was carries ``None`` instead, so absence stays distinguishable from a
+mode. Written here rather than restated at each read site, because the modes are
+what the leakage rules key on — an out-of-vocabulary string reaching a grader as
+if it were a mode is the failure this alias exists to make impossible.
+
+One field stays a free ``str`` deliberately: :class:`PredictionContext`'s own
+``mode``. That file is written into the agent's workspace, so its value is
+checked at the read site — which can then say *which* value was refused, and
+keep the rest of the cell's frozen conditioning — rather than failing the whole
+record to a parse error.
+"""
+
+
 class RetrievalLog(_Strict):
     """``retrieval_log.json`` — the cell's tool-call transcript, harness-captured.
 
@@ -2061,10 +2132,13 @@ class RetrievalLog(_Strict):
     role: UsageRole = Field(description="Which stage produced the log")
     actor_id: str = Field(description="The predictor/evaluator id whose cell this was")
     engine: Engine
-    mode: str | None = Field(
+    mode: CellMode | None = Field(
         default=None,
-        description="The cell's provisioned mode: forward | replay; None on records "
-        "written before the mode field existed",
+        description="The cell's provisioned mode: forward | replay; None where the "
+        "harness could not establish one — an unprovisioned cell, a context "
+        "carrying a value outside the vocabulary, or a record written before the "
+        "field existed. The vocabulary is enforced here rather than trusted from "
+        "the caller, because this field keys the leakage and tool-usage cuts",
     )
     mcp_servers: list[str] = Field(
         default_factory=list,
@@ -3969,8 +4043,130 @@ class CertBacktestBigCase(_Strict):
     )
 
 
+class CertBacktestDispatch(_Strict):
+    """The ``fedcourts cert-backtest`` parameters one report was produced under.
+
+    Recorded because these options *are* the population definition and the engine
+    routing, and neither is recoverable from the scores. ``scope``/``spread``/
+    ``limit`` choose which decided petitions were replayed — and the always-deny
+    floor every ``lift_over_always_denied`` is measured against moves with them,
+    so two reports dispatched differently are two different samples whose top
+    lines are not comparable. ``engine``/``skip_engines`` say which backends were
+    asked for, which is what makes a board's absences legible as a dispatch
+    choice rather than a config gap.
+    """
+
+    engine: str = Field(
+        default="",
+        description="``--engine`` as given: empty means only the offline reference "
+        "baselines ran (no cell, no spend); 'auto' routes each enabled predictor "
+        "through its own configured engine; a concrete backend name forces every "
+        "predictor through that one, which is how the offline 'stub'/'replay' "
+        "sweeps run. What was **asked for** — each entry's own `engine` says what "
+        "actually ran it",
+    )
+    skip_engines: list[str] = Field(
+        default_factory=list,
+        description="``--skip-engines``, sorted: engines opted out of the replay by "
+        "the predictor's own configured engine, so a predictor missing from the "
+        "board is legible as a deliberate opt-out. Empty where no replay ran — an "
+        "opt-out has no meaning without one — and it is not the only reason a "
+        "predictor can be absent: `dropped_predictors` carries the run-time ones",
+    )
+    scope: str = Field(
+        default="all",
+        description="``--scope``: 'all' every modern-cert petition, 'paid' the paid "
+        "segment the salience gate scores (an IFP-based proxy for it, the dominant "
+        "but not the only Tier-0 exclusion), 'selected' the gate's **carve-out "
+        "core** — CVSG or at/above `salience_floor`, which is the N-independent "
+        "core of the live selected slice and not that slice, since the live one "
+        "also fills to N by rank. Three different populations with three different "
+        "denial base rates",
+    )
+    spread: bool = Field(
+        default=False,
+        description="``--spread``: sampled across conference cohorts instead of the "
+        "most recently decided N, which collapses onto the grant-heavy last order "
+        "lists — a different grant mix, so the floor and every lift move with it",
+    )
+    limit: int = Field(
+        default=0,
+        ge=0,
+        description="``--limit``: the cap on the cert set before unreplayable "
+        "petitions were dropped. `events_scored` is what survived that filter, so "
+        "a gap between the two is coverage, not sampling",
+    )
+
+
+class CertBacktestProvenance(_Strict):
+    """What produced a cert back-test report: the run, its dispatch, and its config.
+
+    The report's self-identification, and the reason it exists: predictor ids are
+    identical under every backend — a ``--engine stub`` replay of
+    ``claude-baseline`` writes entries named ``claude-baseline`` — so without this
+    block an offline mechanics rehearsal and a token-spending real-engine replay
+    are the same document, and a reader would render stub numbers under real
+    predictor names. It records what ran; refusing or labelling a rehearsal is
+    the reader's own job, and each reader has to do it.
+
+    The **authority on what ran** is each entry's own ``engine``/``model`` pair;
+    this block records the invocation and the resolved config around them. It is
+    deliberately not only the CLI options: ``salience_floor`` and
+    ``base_rate_lookback_terms`` move the population and the segment baselines
+    under an identical dispatch string, so a decomposition that had only the
+    dispatch would be comparing samples it could not tell apart.
+    """
+
+    run_id: str | None = Field(
+        default=None,
+        description="The replay's own run id (a UTC timestamp): the id its "
+        "provisioned cells were written under in the scratch tree, which is "
+        "discarded with the runner — so this is the replay's as-of stamp and a "
+        "non-null 'an engine replay happened' mark, not a handle on surviving "
+        "artifacts. Null when no engine replay ran: the offline reference "
+        "baselines are pure functions of the corpus and have no run",
+    )
+    dispatch: CertBacktestDispatch = Field(
+        default_factory=CertBacktestDispatch,
+        description="The parameters the run was dispatched with — the population "
+        "definition and the engine routing behind these scores",
+    )
+    salience_floor: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The frozen salience floor the run resolved (config, not a "
+        "constant). It is what `--scope selected` *means*, so two reports both "
+        "stamped 'selected' under different floors are two populations; null only "
+        "where no selection was run at all (the empty report)",
+    )
+    base_rate_lookback_terms: int | None = Field(
+        default=None,
+        ge=0,
+        description="The base-rate lookback window the run resolved (config; 0 is "
+        "unbounded). It sets every entry's `segment_base_rate` and so every "
+        "`mean_brier_skill`, and it rides in no process digest — so without it "
+        "here, per-band skill across two reports is not a comparison. Null only "
+        "where no segment context was built (the empty report)",
+    )
+    dropped_predictors: list[str] = Field(
+        default_factory=list,
+        description="Enabled predictors that produced no entry for a **run-time** "
+        "reason, sorted: their engine had no registered runner, or its CLI binary "
+        "turned out to be missing mid-run. The deliberate opt-out is "
+        "`dispatch.skip_engines` instead. Recorded because a board silently short "
+        "one engine is a different comparison from the three-engine one it looks "
+        "like, and stderr does not survive the runner",
+    )
+
+
 class CertBacktestEntry(_Strict):
-    """One predictor's standings over the cert back-test set."""
+    """One predictor's standings over the cert back-test set.
+
+    ``predictor_id`` names the registry entry whose prompt and configuration were
+    replayed; it says nothing about what executed it, which is why the entry also
+    carries the ``engine``/``model`` pair that did.
+    """
 
     predictor_id: str
     rank: int = Field(ge=1, description="1-based standing; 1 is best")
@@ -4009,7 +4205,28 @@ class CertBacktestEntry(_Strict):
         default=None,
         description="The predictor's pre-registered big-case-score distribution over "
         "the set (stakes, not grade — the replay has no evaluator to grade against); "
-        "null when the predictor produced no big_case_score (the offline baselines)",
+        "null when the predictor produced no big_case_score (the offline baselines). "
+        "Not a backend tell: the offline stub writes a big_case_score like a real "
+        "cell does, so a populated block says the dimension was exercised, never "
+        "that a model exercised it — `engine`/`model` are what answer that",
+    )
+    engine: str | None = Field(
+        default=None,
+        description="The runner backend that actually produced this entry's "
+        "predictions — the backend that ran, not the predictor's configured engine, "
+        "so a `--engine stub` sweep of `codex-baseline` reads 'stub' here. Null for "
+        "the offline reference baselines, which run no engine at all",
+    )
+    model: str | None = Field(
+        default=None,
+        description="The model that backend was invoked with, taken from the "
+        "runner's own resolved model (the shared pricing default table the usage "
+        "ledger prices against, so this cannot drift from what a cell was billed "
+        "at). Null whenever no model ran **in this run**: the offline baselines, "
+        "and the offline 'stub'/'replay' backends. Read it with `engine` — 'stub' "
+        "means canned numbers, while 'replay' re-emits one captured real forecast "
+        "verbatim across every petition, which is an inference that happened in "
+        "some other run and is a constant predictor here",
     )
 
 
@@ -4069,6 +4286,19 @@ class CertBacktest(_Strict):
         "own relist history at all, which is most of what a cert forecast turns "
         "on. Read the mix before reading the scores. Empty on reports written "
         "before the split existed",
+    )
+    provenance: CertBacktestProvenance | None = Field(
+        default=None,
+        description="What produced this report: the replay's run id, the dispatch "
+        "parameters, and the resolved config behind them. Read it before reading "
+        "any score — the entries are named for predictors, not for the backends "
+        "that ran them, so this block plus each entry's `engine`/`model` is the "
+        "only thing separating a token-spending real-engine replay from an "
+        "offline stub rehearsal of the same machinery. Null means **unknown**, "
+        "never 'offline': a report written before provenance was recorded says "
+        "nothing about what produced it, and a reader should refuse it rather "
+        "than read a default into it. Every report the pipeline writes carries "
+        "the block",
     )
     entries: list[CertBacktestEntry] = Field(default_factory=list)
 

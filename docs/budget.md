@@ -25,6 +25,11 @@ The operative numbers, each derived once in the section named:
 | Full paid-gate coverage (the dial switch) | ≈$28K/yr inference, ≈$33K all-in — upper bounds | *What `N` can ever buy* |
 | Whole-docket / 14-court reference ceilings | ≈$83K/yr · ≈$675K/yr | *Scope and the cell identity* |
 
+Every dollar figure above carries the codex third measured on `gpt-5.6-sol`;
+the current codex default (`gpt-6-astra`) projects the per-case rate to
+≈$16.7–17.8 (*Monthly spend by provider*), and the derived rows scale with it
+until a post-cutover run is measured.
+
 ## The shape: a fixed floor plus one dominant scaling line
 
 Every non-inference line — runners, storage, memberships, subscriptions — sums
@@ -205,7 +210,7 @@ Three engines run the agentic stages, routed per registry entry
 | Engine | Used by | Billing | Rate (per 1M tokens) |
 |--------|---------|---------|----------------------|
 | Claude Code (`claude-fable-5-1`) | `claude-baseline`, `claude-judge` (predict/evaluate default) | Anthropic API (workflows); Max subscription for interactive local dev | Subscription: $200/mo flat (Max 20x — dev only, in floor #5). API: $10 in / $50 out |
-| Codex (`gpt-5.6-sol`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | $5 in / $30 out |
+| Codex (`gpt-6-astra`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | $10 in / $50 out (≤272k input; steps up beyond) |
 | Gemini (`gemini-3.1-pro-preview`) | `gemini-baseline`, `gemini-judge` | Gemini API (pay-per-token) | $2 in / $12 out (≤200k context; steps up beyond) |
 
 Sources: [Claude Max](https://support.claude.com/en/articles/11049741-what-is-the-max-plan),
@@ -256,7 +261,7 @@ The first predict fan-out to land after the pre-registration freeze instant
 over 27 events — is the anchor measurement covering the arrival, interim, and
 merits moments rather than cert alone. ("Post-freeze" throughout this document
 names the August cohort stamped after the 2026-08-16 `proc-v3` instant; the
-`proc-v5` and `proc-v6` re-blesses have since re-based the frozen partition, so
+`proc-v5`, `proc-v6` and `proc-v7` re-blesses have since re-based the frozen partition, so
 these are measurement cohorts, not claimable-partition members. Every measured
 Claude figure in this document was produced on `claude-fable-5`; the point
 release holds its rate, so the dollar figures carry to the current default and
@@ -362,9 +367,9 @@ judge-prompt changes — the
 token-relevant one being the judge-workspace prune, which hides the committed
 `predictions/` and `evaluations/` trees from a judge cell's working tree.
 (`proc-v5` carried those evaluator digests forward byte-identical; `proc-v6`
-moves the evaluate prompt's bytes for all three judges, so none of these
-gradings ran under the currently blessed evaluator process and every figure
-here is a measurement cohort.)
+and `proc-v7` each move the shared prompt bytes for all three judges, so none
+of these gradings ran under the currently blessed evaluator process and every
+figure here is a measurement cohort.)
 
 **The newest grading is one moment on since-superseded digests, and is too
 partial to re-price anything.** Run `20260829T040550Z` graded one interim
@@ -430,7 +435,12 @@ pulling the other way.
 Three numbers to hold apart. **$13.20–13.45** is the matched measured basis,
 over six interim events. **$14.6–15.0** is the Term expectation once the
 scaling is applied. **$15** is the planning rate; divided across the design mix
-of six cells it is the **$2.50 per-cell rate** the ceilings are priced on.
+of six cells it is the **$2.50 per-cell rate** the ceilings are priced on. All
+three carry the codex third measured on `gpt-5.6-sol`; on the current
+`gpt-6-astra` default the per-case figure projects to ≈$16.7–17.8 (*Monthly
+spend by provider*), so the planning rate is due a re-anchor at the first
+measured post-cutover run — until then $15 stays the registered rate the
+ceilings are priced on, read with that label.
 
 **Fund against $15, and do not treat any of the gaps as headroom.** Against the
 assumed evaluate half on the $6.79 anchor, $15 clears the band by ~2.5% at the
@@ -441,7 +451,11 @@ can flatter. Against the matched interim measurement $15 carries ≈11–14% —
 that holds a Term rate against one stage's measured cost, and interim is
 ~11–12% of the Term. Two gaps pointing opposite ways, neither settled: the
 wider predict population says the rate may be slightly low, the interim
-gradings say the evaluate half may be high.
+gradings say the evaluate half may be high. And all of that arithmetic holds
+the codex third at its measured `gpt-5.6-sol` price: at the projected
+≈$16.7–17.8 per-case rate the question stops being which reading flatters —
+$15 is ≈11–16% short on price alone, before any measurement, so the re-anchor
+below inherits a known price move rather than only a measurement gap.
 
 **The re-anchor trigger is unmet on both halves.** It waits on an evaluate
 fan-out under the currently blessed grading digests **reaching the cert stage**
@@ -759,7 +773,10 @@ re-derive next cycle.
 The shipped value is **$2,500 over a 30-day trailing window** — ~1.7× the
 Term's average month (≈$1.40–1.45K: 838–865 events/Term at the $15 planning
 rate over the ~9 months the Term spans; on a 12-month spread the multiple is
-~2.3×, so the claim is conservative).
+~2.3×, so the claim is conservative). At the projected post-cutover per-case
+rate the average month is ≈$1.6–1.7K and the multiple ≈1.5× (≈2.0× on the
+12-month spread) — thinner, and one more input to the `ceiling_usd` re-size
+the re-anchor already owes.
 
 What it protects against is chiefly a **burst**; the margin against a sustained
 *rate* is thin. The shipped steady state cannot reach the ceiling — the mean
@@ -785,7 +802,8 @@ drain is small — a dry-run over the committed corpus finds 31 mintable grants
 (≈$230–460 with their briefed moments; the un-adjudicated population behind
 that measurement is 674 grant-opening rows, which is why the sweep is bounded
 rather than trusted). Total ≈$1.75–2.0K, leaving ≈$0.5–0.75K of window for the
-lagging ledger.
+lagging ledger — at the projected post-cutover codex rate ≈$1.85–2.2K and
+≈$0.3–0.65K, so the "limited room" narrows with the cutover.
 
 Two limits it is set *with* rather than against. A ceiling of `0` disables the
 backstop (the code default, so a missing section can never wedge the pipeline —
@@ -816,12 +834,19 @@ The per-case cost splits across the three API bills — one predict cell and one
 evaluate cell per provider per case — so at a cadence of `C` tournamented cases
 per month each provider's bill is its per-case line × `C`. The Anthropic line
 was measured on `claude-fable-5` and carries to the current default unchanged:
-the point release holds that rate.
+the point release holds that rate. The OpenAI line was measured on
+`gpt-5.6-sol` and does **not** carry: the current default `gpt-6-astra` bills
+2× the input rate and 5/3 the output rate, so until a post-cutover run is
+measured the OpenAI line projects to ≈$5.2–6.3/case (share ≈31–35%,
+≈$310–380 at `C` = 60) and the total to ≈$16.7–17.8/case ≈ $1.0–1.1K/mo,
+with the share column re-splitting to ≈56–60% / 31–35% / ≈9% — the table keeps
+the measured values, Total row included, labeled by the model that produced
+them.
 
 | Provider (engine) | Predict $/case | Evaluate $/case | $/case | Share | At `C` = 60/mo |
 |-------------------|---------------:|----------------:|-------:|------:|---------------:|
 | Anthropic (`claude-fable-5-1`) | $4.27 | $5.70 | $9.97 | ≈68% | ≈$600 |
-| OpenAI (`gpt-5.6-sol`) | $1.88 | $1.25 | $3.13 | ≈21% | ≈$188 |
+| OpenAI (measured on `gpt-5.6-sol`) | $1.88 | $1.25 | $3.13 | ≈21% | ≈$188 |
 | Google (`gemini-3.1-pro-preview`) | $0.64 | $0.88 | $1.52 | ≈10% | ≈$91 |
 | **Total** | **$6.79** | **$7.84** | **≈$14.6** | | **≈$0.9K** |
 
@@ -930,7 +955,11 @@ predictor per replayed petition, scored mechanically against the hidden
 outcome, so no evaluate cells at all. A default campaign
 replays 25 petitions × 3 predictors ≈ 75 cells — **≈$140–170** at the measured
 cert per-event rates ($5.57 pre-freeze to $6.66–6.68 on the post-freeze
-anchors) — and model spend scales linearly with the dispatch's `--limit`, which
+anchors), all of them measured with codex on `gpt-5.6-sol`; scaling those
+anchors' own measured codex lines ($1.38–2.17/event at the cert stage) by the
+current `gpt-6-astra` rates (2× in, 5/3 out) projects **≈$160–220** until a
+campaign is measured on it — and model spend scales linearly with the
+dispatch's `--limit`, which
 is the campaign's only size cap. `workflow_dispatch` is the only way in, and it
 defaults to the free offline `stub` engine, so an accidental dispatch spends
 nothing; choosing `auto` is the real-engine spend decision. The salience-gate
@@ -945,7 +974,7 @@ own run's engine logs. Measured to date there is nothing to read: no
 `metrics/cert-backtest.json` has landed (the committed `metrics/backtest.json`
 is the token-free deterministic reference-predictor replay, a different
 artifact), and no real-engine campaign's spend is recorded anywhere in-repo. Budget campaigns explicitly when planning an iteration push
-— a prompt-tuning series of, say, ten default-sized campaigns is ≈$1.4–1.7K of
+— a prompt-tuning series of, say, ten default-sized campaigns is ≈$1.6–2.2K (at the projected codex rate) of
 provider spend the window never sees — and time them away from
 conference-dense weeks for the same reason the backstop paragraph gives for
 the campaigns it *can* see.
@@ -1047,13 +1076,13 @@ costs nothing here; adding an engine adds a probe.
 | Engine | Model | ≈ tokens / probe | Rate (in / out per Mtok) | ≈ $/day |
 | --- | --- | --- | --- | --- |
 | Claude Code | `claude-fable-5-1` | ~20K in (billed as a cache *write*, 1.25×), ~10 out | $10 / $50 | $0.25 |
-| Codex | `gpt-5.6-sol` | ~15K in, ~500 out (`effort: high`) | $5 / $30 | $0.09 |
+| Codex | `gpt-6-astra` | ~15K in, ~500 out (`effort: high`) | $10 / $50 | $0.18 |
 | Gemini | `gemini-3.1-pro-preview` | ~12K in, ~10 out | $2 / $12 | $0.02 |
 
 The model column is what each probe resolves today; the Claude volumes carry
 from the measurement on the model before it, per the provenance note above.
 
-That sums to ≈$0.36/day — **≈$0.12/engine/day, so at most ≈$11/mo and ≈$135/yr
+That sums to ≈$0.45/day — **≈$0.15/engine/day, so at most ≈$14/mo and ≈$165/yr
 at three engines**, "at most" because GitHub drops crons under load and a
 skipped window costs nothing. The claude row carries the cache-*creation*
 premium and no read discount on purpose: the leg passes the cells'
@@ -1073,8 +1102,8 @@ move it:
   three, and each CLI's own system prompt and tool definitions move all three.
 - **The output estimate assumes the probe behaves.** The codex row is the
   softest: reasoning tokens bill at the output rate, and `effort: high` on a
-  trivial question is not obviously bounded at 500 — at 2K it is $0.14 rather
-  than $0.09. Each leg also runs with the cells' own permissions
+  trivial question is not obviously bounded at 500 — at 2K it is $0.25 rather
+  than $0.18. Each leg also runs with the cells' own permissions
   (`bypassPermissions`, `--yolo`, codex's `fedcourts-cell` permission profile
   with network and live search), so "a short reply" is the model obeying *use
   no tools*. The only hard bound is the per-leg
@@ -1088,12 +1117,12 @@ move it:
   365×/yr. What bounds it is the cron cadence, the three legs the schedule can
   select, and the 10-minute timeout; not `spend.ceiling_usd`.
 
-The same three legs also ride every `scenario=all` dispatch, adding ≈$0.36 to a
+The same three legs also ride every `scenario=all` dispatch, adding ≈$0.45 to a
 promotion suite that already spends three engine-smoke cells' worth — on the
-order of $10–20/yr at a plausible 30–50 whole-suite dispatches. Both sit inside
+order of $14–23/yr at a plausible 30–50 whole-suite dispatches. Both sit inside
 the buffer below, so the floor is unchanged; state them, do not imply them.
 
-> **Line item: $350/mo flat** (a fixed floor, not a variable), the ≈$11/mo
+> **Line item: $350/mo flat** (a fixed floor, not a variable), the ≈$14/mo
 > boot canary inside it.
 
 ## Scaling plan: the order of growth

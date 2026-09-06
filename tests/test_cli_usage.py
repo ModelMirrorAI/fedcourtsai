@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pricing import DEFAULT_MODELS
 from fedcourtsai.schemas import ModelUsage
 from fedcourtsai.serialize import read_model
 from fedcourtsai.store import iter_usage
@@ -134,7 +135,7 @@ def test_record_evaluate_usage_uses_evaluator_path(_data_root: Path) -> None:
         .evaluation_usage("codex-judge", "20260624T110000Z")
     )
     usage = read_model(path, ModelUsage)
-    assert usage.model == "gpt-5.6-sol"
+    assert usage.model == DEFAULT_MODELS["codex"]
     assert usage.actor_id == "codex-judge"
 
 

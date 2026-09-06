@@ -52,8 +52,8 @@ short article — *"We predicted the long conference — here's how we did"* —
 the calibration numbers attached, compared against the statpack's per-Term cert
 base rates.
 
-The counted record for this release opens at the `proc-v6` freeze: the six
-blessed digests and the freeze instant 2026-09-05T00:00:00Z
+The counted record for this release opens at the `proc-v7` freeze: the six
+blessed digests and the freeze instant 2026-09-07T00:00:00Z
 ([freeze-record.md](freeze-record.md)) — so predictions
 stamped from that instant, under those digests, are the release's
 claimable population. It is small, datable, and end-to-end, and it defines the
