@@ -28,7 +28,8 @@ from fedcourtsai.cert_backtest import (
 from fedcourtsai.cli import app
 from fedcourtsai.pipeline import cell_context, cert_signals, ingest
 from fedcourtsai.pipeline.asof import replay_cutoff
-from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner
+from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner, get_runner
+from fedcourtsai.pricing import DEFAULT_MODELS
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import CertBacktest, Disposition
 from fedcourtsai.serialize import read_model
@@ -822,6 +823,112 @@ def test_cli_writes_valid_report_with_stub_replay(
     assert {"constant-denied", "prior-vote"} <= ids
     assert {p.id for p in enabled_predictors(Path("config") / "predictors.yaml")} <= ids
     assert "always-deny floor" in result.output
+
+
+def test_cli_stub_report_self_identifies_as_stub(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # The provenance contract: a stub report must be legible as one from the
+    # committed artifact alone. Predictor ids are identical under every backend,
+    # so without this the same document reads as a real-engine board.
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(
+        app,
+        [
+            "cert-backtest",
+            "--out",
+            str(out),
+            "--engine",
+            "stub",
+            "--limit",
+            "7",
+            "--scope",
+            "paid",
+            "--spread",
+            "--skip-engines",
+            "gemini",
+            "--work-dir",
+            str(tmp_path / "work"),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    report = read_model(out, CertBacktest)
+    dispatch = report.provenance.dispatch
+    # Every dispatch parameter that defines the population or the routing.
+    assert dispatch.engine == "stub"
+    assert dispatch.skip_engines == ["gemini"]
+    assert dispatch.scope == "paid"
+    assert dispatch.spread is True
+    assert dispatch.limit == 7
+    assert report.provenance.run_id is not None  # a replay ran, so it has a run
+    replayed = {e.predictor_id: e for e in report.entries if e.engine is not None}
+    assert replayed  # the enabled predictors were replayed
+    for entry in replayed.values():
+        assert entry.engine == "stub"  # what ran, not the predictor's own engine
+        assert entry.model is None  # no model ran: the mark of a stub number
+        # And the old null-heuristic really is broken, which is why this exists.
+        assert entry.big_case is not None
+    # The offline reference baselines ran no engine at all and say so.
+    assert report.entries[0].predictor_id  # the board is non-empty
+    baselines = [e for e in report.entries if e.predictor_id in {"constant-denied", "prior-vote"}]
+    assert baselines and all(e.engine is None and e.model is None for e in baselines)
+    assert "engine stub" in result.output
+
+
+def test_cli_offline_report_records_the_dispatch_and_no_run(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # No --engine: only the offline baselines ran, so there is no run id and no
+    # entry claims an engine — the reading that never overstates what produced it.
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(app, ["cert-backtest", "--out", str(out), "--limit", "3"])
+    assert result.exit_code == 0, result.output
+    report = read_model(out, CertBacktest)
+    assert report.provenance.run_id is None
+    assert report.provenance.dispatch.engine == ""
+    assert report.provenance.dispatch.limit == 3
+    assert all(e.engine is None and e.model is None for e in report.entries)
+    assert "engine none (offline baselines only)" in result.output
+
+
+def test_replay_records_the_backend_that_ran_each_predictor(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # Under an override every predictor runs on the named backend whatever its
+    # registry entry says, and that discrepancy is the thing to record: the
+    # entries are still named claude-/codex-/gemini-baseline.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    backtesters, _, _ = replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        engine_override="stub",
+        run_id="20260706T000000Z",
+    )
+    assert {b.id for b in backtesters} == {
+        "claude-baseline",
+        "codex-baseline",
+        "gemini-baseline",
+    }
+    for backtester in backtesters:
+        assert isinstance(backtester, cert_backtest.ReplayedBacktester)
+        assert backtester.engine == "stub"
+        assert backtester.model is None
+    # The report carries the pair through onto every entry it scores.
+    report = run_cert_backtest(backtesters, items)
+    assert {(e.engine, e.model) for e in report.entries} == {("stub", None)}
+
+
+def test_replay_model_comes_from_the_shared_pricing_defaults() -> None:
+    # The recorded model is the runner's own resolved model, which is read from
+    # DEFAULT_MODELS — so a report cannot name a model the ledger would not price,
+    # and a moved default moves this with it rather than leaving a stale string.
+    for backend, expected in DEFAULT_MODELS.items():
+        assert cert_backtest.replay_model(get_runner(backend)) == expected
+    # The offline backends run no model at all; null is not "unknown" here.
+    assert cert_backtest.replay_model(StubRunner()) is None
 
 
 def test_cli_skip_engines_reports_the_opt_out_once(

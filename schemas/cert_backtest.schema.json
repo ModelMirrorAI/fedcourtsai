@@ -111,9 +111,50 @@
       "title": "CertBacktestBigCase",
       "type": "object"
     },
+    "CertBacktestDispatch": {
+      "additionalProperties": false,
+      "description": "The ``fedcourts cert-backtest`` parameters one report was produced under.\n\nRecorded because these options *are* the population definition and the engine\nrouting, and neither is recoverable from the scores. ``scope``/``spread``/\n``limit`` choose which decided petitions were replayed \u2014 and the always-deny\nfloor every ``lift_over_always_denied`` is measured against moves with them,\nso two reports dispatched differently are two different samples whose top\nlines are not comparable. ``engine``/``skip_engines`` say which backends were\nasked for, which is what makes a board's absences legible as a dispatch\nchoice rather than a config gap.",
+      "properties": {
+        "engine": {
+          "default": "",
+          "description": "``--engine`` as given: empty means only the offline reference baselines ran (no cell, no spend); 'auto' routes each enabled predictor through its own configured engine; a concrete backend name forces every predictor through that one, which is how the offline 'stub'/'replay' sweeps run. What was **asked for** \u2014 each entry's own `engine` says what actually ran it",
+          "title": "Engine",
+          "type": "string"
+        },
+        "limit": {
+          "default": 0,
+          "description": "``--limit``: the cap on the cert set before unreplayable petitions were dropped. `events_scored` is what survived that filter, so a gap between the two is coverage, not sampling",
+          "minimum": 0,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "scope": {
+          "default": "all",
+          "description": "``--scope``: 'all' every modern-cert petition, 'paid' the paid segment the salience gate scores, 'selected' the gate's carve-out core. Three different populations with three different denial base rates",
+          "title": "Scope",
+          "type": "string"
+        },
+        "skip_engines": {
+          "description": "``--skip-engines``, sorted: engines opted out of the replay by the predictor's own configured engine, so a predictor missing from the board is legible as a dispatch choice rather than a routing gap",
+          "items": {
+            "type": "string"
+          },
+          "title": "Skip Engines",
+          "type": "array"
+        },
+        "spread": {
+          "default": false,
+          "description": "``--spread``: sampled across conference cohorts instead of the most recently decided N, which collapses onto the grant-heavy last order lists \u2014 a different grant mix, so the floor and every lift move with it",
+          "title": "Spread",
+          "type": "boolean"
+        }
+      },
+      "title": "CertBacktestDispatch",
+      "type": "object"
+    },
     "CertBacktestEntry": {
       "additionalProperties": false,
-      "description": "One predictor's standings over the cert back-test set.",
+      "description": "One predictor's standings over the cert back-test set.\n\n``predictor_id`` names the registry entry whose prompt and configuration were\nreplayed; it says nothing about what executed it, which is why the entry also\ncarries the ``engine``/``model`` pair that did.",
       "properties": {
         "accuracy": {
           "description": "Fraction whose predicted disposition matched the known label",
@@ -132,7 +173,7 @@
             }
           ],
           "default": null,
-          "description": "The predictor's pre-registered big-case-score distribution over the set (stakes, not grade \u2014 the replay has no evaluator to grade against); null when the predictor produced no big_case_score (the offline baselines)"
+          "description": "The predictor's pre-registered big-case-score distribution over the set (stakes, not grade \u2014 the replay has no evaluator to grade against); null when the predictor produced no big_case_score (the offline baselines). Not a backend tell: the offline stub writes a big_case_score like a real cell does, so a populated block says the dimension was exercised, never that a model exercised it \u2014 `engine`/`model` are what answer that"
         },
         "calibration": {
           "description": "P(granted) decile bins: predicted probability vs observed grant rate",
@@ -141,6 +182,19 @@
           },
           "title": "Calibration",
           "type": "array"
+        },
+        "engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The runner backend that actually produced this entry's predictions \u2014 the backend that ran, not the predictor's configured engine, so a `--engine stub` sweep of `codex-baseline` reads 'stub' here. Null for the offline reference baselines, which run no engine at all",
+          "title": "Engine"
         },
         "events_scored": {
           "description": "Decided cert petitions replayed",
@@ -168,6 +222,19 @@
           "minimum": 0.0,
           "title": "Mean Brier Score",
           "type": "number"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The model that backend ran, taken from the runner's own resolved model (the shared pricing default table the usage ledger prices against, so this cannot drift from what a cell was billed at). Null whenever no model ran \u2014 the offline baselines and the offline 'stub'/'replay' backends \u2014 so a null here marks a number that no inference produced",
+          "title": "Model"
         },
         "predictor_id": {
           "title": "Predictor Id",
@@ -198,6 +265,31 @@
         "lift_over_always_denied"
       ],
       "title": "CertBacktestEntry",
+      "type": "object"
+    },
+    "CertBacktestProvenance": {
+      "additionalProperties": false,
+      "description": "What produced a cert back-test report: the run's identity and its dispatch.\n\nThe report's self-identification, and the reason it exists: predictor ids are\nidentical under every backend \u2014 a ``--engine stub`` replay of\n``claude-baseline`` writes entries named ``claude-baseline`` \u2014 so without this\nblock an offline mechanics rehearsal and a token-spending real-engine replay\nare the same document, and a reader (the performance digest included) would\nrender stub numbers under real predictor names.\n\nAbsence reads conservatively: a report carrying the default block asserts no\nengine and no run, which is the reading that never overstates what produced\nthe figures. The **authority on what ran** is each entry's own\n``engine``/``model`` pair; this block records the invocation around them.",
+      "properties": {
+        "dispatch": {
+          "$ref": "#/$defs/CertBacktestDispatch",
+          "description": "The parameters the run was dispatched with \u2014 the population definition and the engine routing behind these scores"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The replay's run id (a UTC timestamp) \u2014 the id its provisioned cells were written under in the scratch tree, so a report can be tied back to the run that made it. Null when no engine replay ran: the offline reference baselines are pure functions of the corpus and have no run",
+          "title": "Run Id"
+        }
+      },
+      "title": "CertBacktestProvenance",
       "type": "object"
     },
     "CertBacktestSegment": {
@@ -298,6 +390,10 @@
       "minimum": 0,
       "title": "Predictors Evaluated",
       "type": "integer"
+    },
+    "provenance": {
+      "$ref": "#/$defs/CertBacktestProvenance",
+      "description": "What produced this report: the replay's run id and the dispatch parameters behind it. Read it before reading any score \u2014 the entries are named for predictors, not for the backends that ran them, so this block plus each entry's `engine`/`model` is the only thing separating a token-spending real-engine replay from an offline stub rehearsal of the same machinery"
     },
     "provisioning": {
       "additionalProperties": {

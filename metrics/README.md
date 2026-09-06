@@ -1042,7 +1042,18 @@ the rendered table) and
   [salience.md](../docs/salience.md). A replayed predictor's pre-registered
   **big-case-score distribution** (coverage + mean/min/max stakes) rides alongside
   — a distribution, not a grade, since the replay has no independent evaluator to
-  rank against. Produced by the maintainer-triggered
+  rank against. **Read the report's `provenance` block before any of it.**
+  Predictor ids are identical under every backend — an `engine: stub` rehearsal
+  writes entries named `claude-baseline` — so the block records the replay's run
+  id and the dispatch behind it (`engine`, `skip_engines`, `scope`, `spread`,
+  `limit`), and each entry records the backend that actually ran it plus that
+  backend's model. A null `model` is the mark of a number no inference produced:
+  the offline reference baselines, and any offline `stub`/`replay` sweep. The
+  dispatch parameters are part of the reading, not bookkeeping: `scope`,
+  `spread`, and `limit` choose the population, and the always-deny floor every
+  lift is measured against moves with them, so two differently dispatched
+  reports are two samples whose top lines are not comparable. Produced by the
+  maintainer-triggered
   `run-backtest` workflow — a real-engine replay spends tokens, so it never
   runs on a schedule — and labeled retrospective like `backtest.json`. A run
   is an explicit maintainer action: `workflow_dispatch` is the only way in, and

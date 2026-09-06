@@ -257,7 +257,10 @@ from .schemas import (
     AgentToolingFeedback,
     Backtest,
     CellFailure,
+    CellMode,
     CertBacktest,
+    CertBacktestDispatch,
+    CertBacktestProvenance,
     ClaimScoreBlock,
     ClaimScoreBoard,
     ConferenceBucket,
@@ -4407,8 +4410,25 @@ def cert_backtest_cmd(
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     destination = out if out is not None else settings.metrics_root / "cert-backtest.json"
+    # The report's self-identification, recorded from the dispatch rather than
+    # inferred from the scores: predictor ids read the same under every backend,
+    # so this block plus each entry's engine/model is what separates a real-engine
+    # replay from an offline rehearsal of the same machinery. Built before any
+    # work so even the no-corpus report carries it. `--work-dir` is deliberately
+    # absent: a scratch path is not a parameter of the measurement, and it would
+    # write a runner-local path into a committed artifact.
+    dispatch = CertBacktestDispatch(
+        engine=engine,
+        skip_engines=sorted(e.strip() for e in skip_engines.split(",") if e.strip()),
+        scope=scope,
+        spread=spread,
+        limit=limit,
+    )
     if not db_path.exists():
-        write_json(destination, run_cert_backtest([], []))
+        write_json(
+            destination,
+            run_cert_backtest([], [], provenance=CertBacktestProvenance(dispatch=dispatch)),
+        )
         typer.echo(f"No corpus at {db_path} — wrote empty cert back-test report -> {destination}")
         return
     salience_cfg = load_salience_config(settings.config_root)
@@ -4422,6 +4442,7 @@ def cert_backtest_cmd(
         )
         backtesters = default_backtesters(conn)
         provisioning: dict[str, int] = {}  # empty unless an agentic replay ran
+        replay_run_id: str | None = None  # null unless one did: baselines have no run
         if engine:
             items, unreplayable = replayable_items(db_path, items)
             if unreplayable:
@@ -4448,6 +4469,7 @@ def cert_backtest_cmd(
                 typer.echo(
                     "opted out of engine(s): " + ", ".join(sorted(skipped_engines)), err=True
                 )
+            replay_run_id = ids.run_id()
             replayed, unavailable, provisioning = replay_predictors(
                 items,
                 corpus_db_path=db_path,
@@ -4455,7 +4477,7 @@ def cert_backtest_cmd(
                 work_root=work_root,
                 engine_override=None if engine == "auto" else engine,
                 skip_engines=skipped_engines,
-                run_id=ids.run_id(),
+                run_id=replay_run_id,
             )
             for pid in unavailable:
                 typer.echo(
@@ -4482,12 +4504,19 @@ def cert_backtest_cmd(
         segments = build_segment_context(
             conn, items, statpack, lookback_terms=salience_cfg.base_rate_lookback_terms
         )
-        report = run_cert_backtest(backtesters, items, segments=segments, provisioning=provisioning)
+        report = run_cert_backtest(
+            backtesters,
+            items,
+            segments=segments,
+            provisioning=provisioning,
+            provenance=CertBacktestProvenance(run_id=replay_run_id, dispatch=dispatch),
+        )
     write_json(destination, report)
     typer.echo(
         f"cert-backtest: {report.predictors_evaluated} predictor(s) over "
         f"{report.events_scored} decided petition(s); always-deny floor "
-        f"{report.always_denied_accuracy:.3f} -> {destination}"
+        f"{report.always_denied_accuracy:.3f}; engine "
+        f"{engine or 'none (offline baselines only)'} -> {destination}"
     )
 
 
@@ -5912,6 +5941,20 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
                     f"({mode or 'unknown'})",
                     err=True,
                 )
+    if mode and mode not in CELL_MODES:
+        # The same refusal the context path makes, on the caller's own word: the
+        # recorded mode keys the leakage and tool-usage cuts, so an
+        # out-of-vocabulary string is recorded as unknown rather than passed
+        # through to become a segment of its own. A warning, never a failure —
+        # the harvested calls are the point of this step and must not be lost to
+        # a mistyped label.
+        typer.echo(
+            f"::warning::record-retrieval: --mode {mode!r} is outside the cell "
+            f"vocabulary ({' | '.join(CELL_MODES)}); recording unknown",
+            err=True,
+        )
+        mode = ""
+    recorded_mode = cast(CellMode, mode) if mode else None
     calls: list[RetrievalCall] = []
     if claude_execution_file is not None:
         calls = retrieval.parse_claude_retrieval(claude_execution_file)
@@ -5948,7 +5991,7 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         role=role,
         actor_id=actor,
         engine=engine,
-        mode=mode or None,
+        mode=recorded_mode,
         mcp_servers=labels,
         mcp_tools=offered,
         calls=calls,
@@ -6665,9 +6708,10 @@ def mcp_serve(
     os.execvpe(command, [command, *args], {**os.environ, **env})
 
 
-# The cell modes `record/context.json` carries. One definition, so the option
-# help, the validation below, and the replay provisioner cannot disagree.
-CELL_MODES: tuple[str, ...] = ("forward", "replay")
+# The cell modes `record/context.json` carries, read off the schema's own
+# `CellMode` so the option help, the validation below, the replay provisioner and
+# the `retrieval_log.json` field cannot disagree about the vocabulary.
+CELL_MODES: tuple[CellMode, ...] = get_args(CellMode)
 
 
 CorpusBackendOption = Annotated[

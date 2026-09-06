@@ -2045,6 +2045,18 @@ def _throttled_calls(calls: Sequence[RetrievalCall]) -> int | None:
     return sum(1 for call in observed if call.result_status == "throttled")
 
 
+CellMode = Literal["forward", "replay"]
+"""The declared vocabulary of cell modes: a cell either forecasts a pending
+outcome (``forward``) or replays a decided one (``replay``).
+
+There is no third value and no ``unknown`` member: a record that cannot say
+which it was carries ``None`` instead, so absence stays distinguishable from a
+mode. Written here rather than restated at each read site, because the modes are
+what the leakage rules key on — an out-of-vocabulary string reaching a grader as
+if it were a mode is the failure this alias exists to make impossible.
+"""
+
+
 class RetrievalLog(_Strict):
     """``retrieval_log.json`` — the cell's tool-call transcript, harness-captured.
 
@@ -2061,10 +2073,13 @@ class RetrievalLog(_Strict):
     role: UsageRole = Field(description="Which stage produced the log")
     actor_id: str = Field(description="The predictor/evaluator id whose cell this was")
     engine: Engine
-    mode: str | None = Field(
+    mode: CellMode | None = Field(
         default=None,
-        description="The cell's provisioned mode: forward | replay; None on records "
-        "written before the mode field existed",
+        description="The cell's provisioned mode: forward | replay; None where the "
+        "harness could not establish one — an unprovisioned cell, a context "
+        "carrying a value outside the vocabulary, or a record written before the "
+        "field existed. The vocabulary is enforced here rather than trusted from "
+        "the caller, because this field keys the leakage and tool-usage cuts",
     )
     mcp_servers: list[str] = Field(
         default_factory=list,
@@ -3969,8 +3984,92 @@ class CertBacktestBigCase(_Strict):
     )
 
 
+class CertBacktestDispatch(_Strict):
+    """The ``fedcourts cert-backtest`` parameters one report was produced under.
+
+    Recorded because these options *are* the population definition and the engine
+    routing, and neither is recoverable from the scores. ``scope``/``spread``/
+    ``limit`` choose which decided petitions were replayed — and the always-deny
+    floor every ``lift_over_always_denied`` is measured against moves with them,
+    so two reports dispatched differently are two different samples whose top
+    lines are not comparable. ``engine``/``skip_engines`` say which backends were
+    asked for, which is what makes a board's absences legible as a dispatch
+    choice rather than a config gap.
+    """
+
+    engine: str = Field(
+        default="",
+        description="``--engine`` as given: empty means only the offline reference "
+        "baselines ran (no cell, no spend); 'auto' routes each enabled predictor "
+        "through its own configured engine; a concrete backend name forces every "
+        "predictor through that one, which is how the offline 'stub'/'replay' "
+        "sweeps run. What was **asked for** — each entry's own `engine` says what "
+        "actually ran it",
+    )
+    skip_engines: list[str] = Field(
+        default_factory=list,
+        description="``--skip-engines``, sorted: engines opted out of the replay by "
+        "the predictor's own configured engine, so a predictor missing from the "
+        "board is legible as a dispatch choice rather than a routing gap",
+    )
+    scope: str = Field(
+        default="all",
+        description="``--scope``: 'all' every modern-cert petition, 'paid' the paid "
+        "segment the salience gate scores, 'selected' the gate's carve-out core. "
+        "Three different populations with three different denial base rates",
+    )
+    spread: bool = Field(
+        default=False,
+        description="``--spread``: sampled across conference cohorts instead of the "
+        "most recently decided N, which collapses onto the grant-heavy last order "
+        "lists — a different grant mix, so the floor and every lift move with it",
+    )
+    limit: int = Field(
+        default=0,
+        ge=0,
+        description="``--limit``: the cap on the cert set before unreplayable "
+        "petitions were dropped. `events_scored` is what survived that filter, so "
+        "a gap between the two is coverage, not sampling",
+    )
+
+
+class CertBacktestProvenance(_Strict):
+    """What produced a cert back-test report: the run's identity and its dispatch.
+
+    The report's self-identification, and the reason it exists: predictor ids are
+    identical under every backend — a ``--engine stub`` replay of
+    ``claude-baseline`` writes entries named ``claude-baseline`` — so without this
+    block an offline mechanics rehearsal and a token-spending real-engine replay
+    are the same document, and a reader (the performance digest included) would
+    render stub numbers under real predictor names.
+
+    Absence reads conservatively: a report carrying the default block asserts no
+    engine and no run, which is the reading that never overstates what produced
+    the figures. The **authority on what ran** is each entry's own
+    ``engine``/``model`` pair; this block records the invocation around them.
+    """
+
+    run_id: str | None = Field(
+        default=None,
+        description="The replay's run id (a UTC timestamp) — the id its provisioned "
+        "cells were written under in the scratch tree, so a report can be tied back "
+        "to the run that made it. Null when no engine replay ran: the offline "
+        "reference baselines are pure functions of the corpus and have no run",
+    )
+    dispatch: CertBacktestDispatch = Field(
+        default_factory=CertBacktestDispatch,
+        description="The parameters the run was dispatched with — the population "
+        "definition and the engine routing behind these scores",
+    )
+
+
 class CertBacktestEntry(_Strict):
-    """One predictor's standings over the cert back-test set."""
+    """One predictor's standings over the cert back-test set.
+
+    ``predictor_id`` names the registry entry whose prompt and configuration were
+    replayed; it says nothing about what executed it, which is why the entry also
+    carries the ``engine``/``model`` pair that did.
+    """
 
     predictor_id: str
     rank: int = Field(ge=1, description="1-based standing; 1 is best")
@@ -4009,7 +4108,26 @@ class CertBacktestEntry(_Strict):
         default=None,
         description="The predictor's pre-registered big-case-score distribution over "
         "the set (stakes, not grade — the replay has no evaluator to grade against); "
-        "null when the predictor produced no big_case_score (the offline baselines)",
+        "null when the predictor produced no big_case_score (the offline baselines). "
+        "Not a backend tell: the offline stub writes a big_case_score like a real "
+        "cell does, so a populated block says the dimension was exercised, never "
+        "that a model exercised it — `engine`/`model` are what answer that",
+    )
+    engine: str | None = Field(
+        default=None,
+        description="The runner backend that actually produced this entry's "
+        "predictions — the backend that ran, not the predictor's configured engine, "
+        "so a `--engine stub` sweep of `codex-baseline` reads 'stub' here. Null for "
+        "the offline reference baselines, which run no engine at all",
+    )
+    model: str | None = Field(
+        default=None,
+        description="The model that backend ran, taken from the runner's own "
+        "resolved model (the shared pricing default table the usage ledger prices "
+        "against, so this cannot drift from what a cell was billed at). Null "
+        "whenever no model ran — the offline baselines and the offline "
+        "'stub'/'replay' backends — so a null here marks a number that no "
+        "inference produced",
     )
 
 
@@ -4069,6 +4187,15 @@ class CertBacktest(_Strict):
         "own relist history at all, which is most of what a cert forecast turns "
         "on. Read the mix before reading the scores. Empty on reports written "
         "before the split existed",
+    )
+    provenance: CertBacktestProvenance = Field(
+        default_factory=CertBacktestProvenance,
+        description="What produced this report: the replay's run id and the "
+        "dispatch parameters behind it. Read it before reading any score — the "
+        "entries are named for predictors, not for the backends that ran them, so "
+        "this block plus each entry's `engine`/`model` is the only thing "
+        "separating a token-spending real-engine replay from an offline stub "
+        "rehearsal of the same machinery",
     )
     entries: list[CertBacktestEntry] = Field(default_factory=list)
 
