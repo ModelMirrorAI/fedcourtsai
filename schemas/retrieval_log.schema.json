@@ -198,6 +198,10 @@
     "mode": {
       "anyOf": [
         {
+          "enum": [
+            "forward",
+            "replay"
+          ],
           "type": "string"
         },
         {
@@ -205,7 +209,7 @@
         }
       ],
       "default": null,
-      "description": "The cell's provisioned mode: forward | replay; None on records written before the mode field existed",
+      "description": "The cell's provisioned mode: forward | replay; None where the harness could not establish one \u2014 an unprovisioned cell, a context carrying a value outside the vocabulary, or a record written before the field existed. The vocabulary is enforced here rather than trusted from the caller, because this field keys the leakage and tool-usage cuts",
       "title": "Mode"
     },
     "result_capture_coverage": {

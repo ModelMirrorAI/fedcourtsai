@@ -55,7 +55,7 @@ from .pipeline.outcome import (
     is_machine_readable,
     snapshot_shows_disposition,
 )
-from .pipeline.runner import EngineUnavailable, Runner, RunRequest, get_runner
+from .pipeline.runner import AgenticRunner, EngineUnavailable, Runner, RunRequest, get_runner
 from .pipeline.salience import (
     SALIENCE_VERSION,
     salience_band,
@@ -68,6 +68,7 @@ from .schemas import (
     CertBacktest,
     CertBacktestBigCase,
     CertBacktestEntry,
+    CertBacktestProvenance,
     CertBacktestSegment,
     Disposition,
     EventKind,
@@ -384,13 +385,41 @@ def _entry_raw_date(entry: Mapping[str, Any]) -> str | None:
 
 @dataclass(frozen=True)
 class ReplayedBacktester:
-    """A :class:`Backtester` over predictions already produced by an engine replay."""
+    """A :class:`Backtester` over predictions already produced by an engine replay.
+
+    Carries the backend that produced them and the model that backend was invoked
+    with, because ``id`` cannot: it is the predictor's registry id, identical
+    whether a real agent or the offline stub wrote the cells. :func:`replay_predictors`
+    always fills ``engine``; ``model`` is null for the offline backends, which
+    invoke none.
+    """
 
     id: str
     predictions: dict[str, BacktestPrediction]
+    engine: str | None = None
+    model: str | None = None
 
     def predict(self, features: BacktestFeatures) -> BacktestPrediction:
         return self.predictions[features.case_id]
+
+
+def replay_model(runner: Runner) -> str | None:
+    """The model ``runner`` invokes, or ``None`` when it invokes none at all.
+
+    The agentic backends carry the model they pass their CLI, resolved from the
+    shared pricing defaults (:data:`fedcourtsai.pricing.DEFAULT_MODELS`) — the same
+    table the usage ledger prices a cell against, so a report's recorded model
+    cannot drift from what the spend was billed at, nor from a default that moves.
+    It is what the engine was *asked* to run, like the ledger's own model field: a
+    provider-side substitution is invisible to both. The offline ``stub``/``replay``
+    backends invoke none, and their ``None`` is the mark this whole provenance
+    block exists for: a number this run spent nothing to produce.
+
+    Read off the runner rather than recomposed from the registry entry, because
+    the replay routes purely by backend — a predictor's ``model:`` override is not
+    applied to a replay cell, so reporting it would state a model that did not run.
+    """
+    return runner.model if isinstance(runner, AgenticRunner) else None
 
 
 def replayable_items(
@@ -493,9 +522,21 @@ def replay_predictors(
     already made on the other engines. A real engine spends tokens per cell.
     Callers filter the set through :func:`replayable_items` first; a petition
     with no snapshot or petition event here is an internal-invariant error.
+
+    Each returned backtester carries the backend that ran it and that backend's
+    model (:func:`replay_model`), so the report can state what produced a number
+    instead of only which predictor it is named for.
     """
     pairs = _runners_by_predictor(config_root, engine_override, skip_engines)
     collected: dict[str, dict[str, BacktestPrediction]] = {p.id: {} for p, _ in pairs}
+    # What ran each predictor, captured at routing time rather than inferred from
+    # the result: under `engine_override` every predictor runs on the named
+    # backend whatever its registry entry says, and that discrepancy is exactly
+    # what a reader of the report needs told (a stub-replayed `codex-baseline` is
+    # still named `codex-baseline`).
+    ran_on: dict[str, tuple[str, str | None]] = {
+        p.id: (engine_override or str(p.engine), replay_model(runner)) for p, runner in pairs
+    }
     unavailable: set[str] = set()
     # Three information sets, counted as they are provisioned. A blind cell cannot
     # observe its own relist history at all, which is most of what a cert forecast
@@ -648,7 +689,7 @@ def replay_predictors(
                 big_case_score=cell.big_case_score,
             )
     backtesters: list[Backtester] = [
-        ReplayedBacktester(id=pid, predictions=preds)
+        ReplayedBacktester(id=pid, predictions=preds, engine=ran_on[pid][0], model=ran_on[pid][1])
         for pid, preds in collected.items()
         if pid not in unavailable
     ]
@@ -822,8 +863,18 @@ def _score_one(
                 acc = band_acc.setdefault(seg.band, _BandAcc())
                 acc.add(disp_correct, brier, actual_granted, seg.base_rate)
     n = len(items)
+    # Null for anything that is not an engine replay: the offline reference
+    # baselines are pure functions of the corpus, so they ran no backend and no
+    # model, and saying so is what keeps their rows readable beside replayed ones.
+    engine, model = (
+        (backtester.engine, backtester.model)
+        if isinstance(backtester, ReplayedBacktester)
+        else (None, None)
+    )
     return CertBacktestEntry(
         predictor_id=backtester.id,
+        engine=engine,
+        model=model,
         rank=1,  # provisional; assigned after sorting
         events_scored=n,
         accuracy=correct / n,
@@ -842,6 +893,7 @@ def run_cert_backtest(
     *,
     segments: Mapping[str, _ItemSegment] | None = None,
     provisioning: Mapping[str, int] | None = None,
+    provenance: CertBacktestProvenance | None = None,
 ) -> CertBacktest:
     """Replay each backtester over the cert set and roll the scores up best-first.
 
@@ -852,12 +904,20 @@ def run_cert_backtest(
     :func:`build_segment_context`), each entry also carries the per-salience-band
     skill breakdown vs the leakage-safe segment base rate — the same yardstick the
     forward stratum uses; omitted on the offline runs that pass no statpack.
+
+    ``provenance`` is the caller's record of the invocation (run id, dispatch, and
+    the resolved config that moves the population under an identical dispatch);
+    each entry's own engine/model comes off the backtester that produced it, so
+    the two halves cannot disagree about what ran. Omitting it leaves the block
+    null, which a reader must treat as *unknown provenance* rather than as an
+    offline run — every report the CLI writes carries one.
     """
     if not items:
         return CertBacktest(
             events_scored=0,
             predictors_evaluated=0,
             salience_version=SALIENCE_VERSION,
+            provenance=provenance,
             entries=[],
         )
     always_denied_accuracy = sum(
@@ -876,5 +936,6 @@ def run_cert_backtest(
         salience_version=SALIENCE_VERSION,
         always_denied_accuracy=always_denied_accuracy,
         provisioning=dict(provisioning or {}),
+        provenance=provenance,
         entries=entries,
     )

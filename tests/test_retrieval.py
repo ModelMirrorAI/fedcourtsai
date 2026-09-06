@@ -26,8 +26,10 @@ from fedcourtsai.retrieval import (
     parse_gemini_retrieval,
 )
 from fedcourtsai.schemas import (
+    Engine,
     RetrievalCall,
     RetrievalLog,
+    UsageRole,
     normalize_call,
     observed_mcp_conditions,
 )
@@ -1343,6 +1345,60 @@ def test_record_retrieval_refuses_an_out_of_vocabulary_context_mode(
         .prediction_retrieval_log("gemini-baseline", "20260710T120000Z")
     )
     assert json.loads(destination.read_text())["mode"] == "forward"
+
+
+def test_record_retrieval_records_an_out_of_vocabulary_mode_as_unknown(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The caller's own word gets the same treatment as the context file's: the
+    # recorded mode keys the leakage and tool-usage cuts, so a mistyped label is
+    # recorded as unknown rather than becoming a segment of its own. A warning,
+    # never a failure — the harvested calls are the point of the step.
+    result = runner.invoke(
+        app,
+        [
+            "record-retrieval",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+            "--run-id",
+            "20260710T120000Z",
+            "--engine",
+            "gemini",
+            "--role",
+            "predictor",
+            "--actor",
+            "gemini-baseline",
+            "--mode",
+            "fowrard",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "outside the cell vocabulary" in result.output
+    destination = (
+        CasePaths(fixture_corpus.data_root, "scotus", 305)
+        .event("evt-petition-disposition")
+        .prediction_retrieval_log("gemini-baseline", "20260710T120000Z")
+    )
+    assert json.loads(destination.read_text())["mode"] is None
+
+
+def test_retrieval_log_refuses_a_mode_outside_the_vocabulary() -> None:
+    # The vocabulary is the schema's, not a convention each writer re-checks: a
+    # record claiming any other mode is not a record.
+    with pytest.raises(ValidationError):
+        RetrievalLog(
+            case_id="scotus/305",
+            run_id="20260710T120000Z",
+            role=UsageRole.predictor,
+            actor_id="gemini-baseline",
+            engine=Engine.gemini,
+            mode="sideways",
+        )
 
 
 def _log(calls: list[RetrievalCall]) -> RetrievalLog:
