@@ -1,11 +1,10 @@
 case_id: scotus/9526000297
 decision_target: disposition
-description: Disposition of the application, forecast after the Court called for a
-  response.
+description: null
 docket_entry_id: null
-event_id: evt-order-response-requested-disposition
-kind: order
-moment: response-requested
+event_id: evt-motion-disposition
+kind: motion
+moment: arrival
 opened_at: '2026-09-03'
 resolved: true
 schema_version: '1.0'
