@@ -1380,13 +1380,16 @@ dashboard cannot distinguish a rejected hold from a real fan-out failure,
 so a depressed run-predict or run-evaluate success rate during shakedown
 reads against this note rather than against the fleet.
 
-A predict cell refuses to run for two reasons, both landing on the same gate in
+A predict cell refuses to run for three reasons, all landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP
 sidecar, the comment-token mint, and every engine step). One is the
 **provisioning gate**: `provision-snapshot --refuse-terminal` exits 3 when the
 record or the snapshot shows the event is not open, or when the snapshot is
-older than the forward staleness bound. The other is an **unprovisioned
-record**: provisioning wrote nothing (exit 1 — usually a corpus with no
+older than the forward staleness bound. A second is the **arrival anchor**: an
+interim arrival cell whose opening entry cannot be located in its snapshot exits
+4, since the moment's information set cannot be identified and cutting at the
+date instead would restore the conditioning that bound replaces. The third is an
+**unprovisioned record**: provisioning wrote nothing (exit 1 — usually a corpus with no
 snapshot for the case, but a failed corpus read lands there too), or
 `assert-cell-record` finds the provisioning write did not land complete — no
 `record/context.json`, one that does not parse, or no readable snapshot at the

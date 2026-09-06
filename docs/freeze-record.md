@@ -2398,3 +2398,164 @@ freeze commit is recorded here.
   shifts placed rows from `dated` toward `truncated`; any figure pooling
   cells on these events states the mix under the reading rules already
   registered.
+
+- *The interim arrival moment's cut becomes positional as well as dated: the
+  snapshot stops at the entry that opened the event, and the boundary is
+  recorded on the artifact.* A **provisioning-cutoff** change, registered here
+  on the terms [process-version.md](process-version.md) sets for that member of
+  the list, and carrying prompt bytes with it — the predict prompt's cutoff
+  sentences and the evaluate prompt's leakage-clock rule are corrected in the
+  same commit and ride the **proc-v7** re-bless, so this entry's digests are the
+  ones that batch blesses rather than the ones in force when it was written.
+  The batch's own entry records them; this one deliberately names none, because
+  a digest written here would be superseded before it was ever stamped.
+
+  **What moved.** A date-valued cutoff cannot express this moment. An interim
+  event's `opened_at` names the day an application reached a Justice, the cut
+  keeps everything filed strictly before the day after it, and a capital stay
+  application can be submitted, referred, responded to, drawn amici and denied
+  inside that one day — so the cut necessarily admitted the docket's own
+  disposition, on the highest-salience interim shape there is. From this change
+  the arrival snapshot is bounded twice: by the date rule as before, and by an
+  **anchor bound** stopping the entries at the docket's own submission entry.
+  Applied in **both modes** and on **both provenances** — including `dated`,
+  which was previously used unmodified, because a snapshot the docket served on
+  the arrival day itself already carries that day's later entries. The bound is
+  never a naive positional slice: payload entry order is unpinned across the two
+  upstream shapes, so the kept set is the intersection of the date bound with an
+  anchor bound resolved against the list's own observed chronology, failing
+  closed to the anchor entry alone where that chronology cannot be read — which
+  is exactly the all-one-day docket the change exists for.
+
+  **The artifact carries the boundary, which is what makes this registrable by
+  freeze record alone.** `context.cut_kind` (`date` | `arrival-position`) and
+  `context.cut_anchor_index` are new on `PredictionContext`. Without them the
+  two conditionings would be byte-identical either side of this entry —
+  `context.cutoff` non-null on both — and the separability the provisioning
+  cutoff is registrable on would be gone. They also tighten the replay leakage
+  clock rather than loosening it: the evaluate prompt's rule now reads
+  `cut_kind`, so material dated inside the cutoff's day but positionally outside
+  the cell's information set is graded as leakage instead of clean. That rule is
+  registered **ahead of the cells it binds**: no lane mints a replay interim
+  arrival cell today, so the population it governs is currently empty, and it
+  takes effect if and when one is provisioned.
+
+  **The membership rule, published rather than assumed.** A row whose opening
+  entry cannot be located in its snapshot is **refused and counted** — never a
+  silent fall back to the date cut, which is the conditioning being replaced.
+  The anchor derives from the stamped opening entry (`events.opened_at`), so a
+  stale-stamped row refuses. `fedcourts arrival-cut-ledger` is the surface that
+  counts the refusals, split by resolution status, by same-day disposition, and
+  by cause.
+
+  **The figures, executed over the provisioning population.** Corpus vintage
+  **2026-09-05**, blob sha256
+  `597cd2632908d34910b3e3a3fe8ef4f040a2fd916d8f50d4e828b1c8ca81180c` — the
+  pointer committed on `main`, which is where data commits land; a blob resolved
+  from `staging` is stale by construction and, read here first, predated the
+  arrival-backfill apply recorded in the entry above by six hours and reported
+  its entire moved arm as a refusal class. The population is every SCOTUS
+  interim baseline event in the live slice carrying a stamp at all
+  (`opened_at IS NOT NULL`; an unstamped row takes no cut and this bound cannot
+  reach it): **2095 rows**, all with a readable live-shaped snapshot.
+
+  **Two denominators, and only one of them describes the pipeline.** The predict
+  matrix drops every non-substantive application
+  (`corpus.out_of_scope_reason_full` via `is_non_cert_scotus_form`), and the
+  population splits **1665 extension / 345 substantive / 85 unknown** — so 83%
+  of it can never be provisioned a cell, and that 83% is itself the terse,
+  same-day-disposed shape any refusal correlation would run through. Every rate
+  below that describes the pipeline is read over the **345 in-scope** rows; the
+  whole-population figures are given beside them and marked.
+
+  - **The same-day-after-opening-entry tail** — the separately named quantity
+    this change is measured in, and deliberately **not** the arrival-backfill
+    pass's `over_admitted` band, which opens the day *after* the arrival by
+    construction and is therefore identically zero on this delta: **73 entries
+    across 46 in-scope rows**, of which **7** carried the application's own
+    disposition. Over the whole stamped population, 100 entries across 68 rows
+    (66 disposed of), 15 carrying the disposition.
+  - **The refusals: 1 of 2095, and 0 of 345 in scope.** The single refusal names
+    no dated submission entry — the same row the arrival-backfill ledger counts
+    as `unparsed` — and is a disposed-of, out-of-scope docket. The stale-stamp
+    arm is **0** at this vintage, which is what the arrival-backfill apply
+    recorded above bought: it is a corpus-convergence quantity, not a standing
+    property of the rule, and it will reopen whenever a non-live re-extraction
+    writes the docketing date back (`events.opened_at` takes no fill-in latch on
+    the upsert path) until the sweep converges it again. So the membership rule
+    costs, at this vintage, **no in-scope cell at all**. At n = 1 nothing about
+    the refused class is claimable beyond the count; the resolution and same-day
+    splits are registered so the question stays measurable as the arm grows, not
+    because they answer it now.
+  - **The forward lane's denominator**: the pending in-scope slice is **7 rows,
+    7 anchored, 0 refused**. (14 rows are pending across the whole stamped
+    population, but a non-substantive application never reaches the matrix
+    however open it is, so the larger number is not an operational rate.)
+  - **The claim-side deltas over interim-v1**, whole stamped population. The
+    amicus-increment claim's frozen context count falls on **5 rows** (6
+    entries) — an **upper bound** on new positives rather than a count of them,
+    since the claim is `outcome.amicus > context.amicus` and a docket that
+    gained a later amicus resolved positive under both readings. The
+    response-requested increment moves from vacuously masked to resolvable on
+    **31 rows** (29 disposed of); the referral increment on **9** (9 disposed
+    of). Both of those then resolve **positive by construction**: the tail entry
+    that unmasks the claim is the entry that satisfies it, and both flags are
+    monotone-latched. So the realized positive rate of those two claims is not
+    comparable across this boundary — the non-pooling rule below covers it, and
+    covers *claim* rates as well as headline scores. When the conditioned
+    baseline hazard for either is finally computed it must be taken at the
+    arrival-position posture, or it will estimate a rate over a population from
+    which same-day requests were removed while scoring exactly the cells that
+    carry them.
+  - **Masking is not reported as a measurement**, because it cannot vary: the
+    anchor entry always survives the bound and the observability probe tests
+    only that the proceedings key is a list, so an anchored row's cut payload
+    always discloses proceedings. Recorded as a property of the bound rather
+    than published as a zero that would read as empirical.
+
+  Every figure is a **dry-run counterfactual over stored state**: each row's
+  newest stored live-shaped snapshot, read with no date bound, so it says what a
+  cell provisioned against this blob would carry rather than what any committed
+  cell was shown. The reading needs the per-case content store addressed, not
+  merely the index pulled — run against an index alone the command exits 0 and
+  reports the whole population under `no_snapshot`, which is a wrong-blob
+  reading rather than a clean one.
+
+  **What the review confirmed unmoved, and is not re-derived here**: the interim
+  base rate (it pools corpus columns, not snapshots), the interim selection
+  population (it fills from latched columns), every stratum boundary (keyed on
+  resolution against the harness clock), and placement lag (it reads the date
+  stamp, which stays).
+
+  **The straddle, registered affirmatively.** The proc-v6 freeze instant
+  (2026-09-05T00:00:00Z) has passed, so frozen-counted interim arrival cells now
+  exist on both sides of this conditioning change as they do of the arrival
+  repair recorded above. The standing rule: **a figure over interim arrival
+  cells may not pool across this boundary**, claim-level positive rates
+  included. Unlike the repair's instant, this boundary is artifact-visible on
+  every cell it touches, and the transition is `absent` → `arrival-position`
+  rather than `date` → `arrival-position`: cells provisioned before the field
+  existed carry no `cut_kind` at all, and an interim arrival cell will never
+  carry `date`, since that moment either takes the anchor bound or refuses. So
+  the split is read from the artifact rather than from a clock and no ambiguity
+  band exists. The non-pooling reading is the same one the 2026-09-05 apply
+  entry above registers, and the two boundaries compose: a figure over these
+  cells states both. As at this entry's date the incoming arm is empty: the
+  committed interim ledger holds 30 `evt-motion-disposition` predict cells,
+  stamped proc-v3 (18), proc-v4 (2) and proc-v5 (10) — every one of them
+  pre-proc-v6 and therefore shakedown, and every one of them taken under the
+  date rule with no `cut_kind` recorded. So the rule binds the cells the next
+  predict tick mints onward.
+
+  **The runnable effect check, for the promotion carrying this.** A promotion
+  moves code, not state, so the check is that a provisioned arrival cell records
+  the new boundary and that the ledger reports a class:
+  `uv run fedcourts arrival-cut-ledger`, green, with `rows_seen` non-zero,
+  `scope_rows` non-zero and `scope_pending_anchored` non-zero. **It needs the
+  per-case content store addressed, not merely the index pulled** — the reading
+  comes from each row's stored live-shaped snapshot, which lives in the content
+  store under the split, and `--corpus-backend` cannot select it; run against an
+  index alone the command still exits 0 and reports the whole population under
+  `no_snapshot` with `anchored` 0, so **read `no_snapshot` first**. Alongside
+  it, `uv run pytest -k arrival_cut`, whose same-day-disposed and reversed-order
+  fixtures are what fail if either half of the bound is removed.

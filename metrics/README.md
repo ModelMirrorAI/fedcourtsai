@@ -1190,6 +1190,32 @@ the rendered table) and
   completed at the cutoff it opened with, not re-frozen — and the pendency half
   is the moment being what it is.
 
+  **On the interim arrival moment, segment on `cut_kind` as well**, because
+  there the cutoff is not the boundary. A day cannot express that moment — an
+  application can be submitted, referred and disposed of inside one — so its
+  snapshot stops at the entry that opened the event (`cut_kind`
+  `arrival-position`, `cut_anchor_index` beside it) rather than at the end of the
+  cutoff's day. Two obligations follow. A figure pooling `date`-bounded and
+  `arrival-position`-bounded arrival cells is pooling two information sets on the
+  shape where they differ most, the same-day-disposed application; the boundary
+  the freeze record registers is where they split. And the bound carries a
+  **membership rule**: a row whose opening entry cannot be located in its
+  snapshot is refused rather than provisioned on the date rule, so those cells
+  never exist and no board's exclusion block can show them. `fedcourts
+  arrival-cut-ledger` is the surface that counts them, split by resolution status
+  and same-day disposition — the split is owed with any interim arrival figure,
+  because unanchorable, terse and summarily-disposed-of are a plausible single
+  shape, and a membership rule dropping rows correlated with the outcome has to
+  be measured rather than assumed harmless. Read its cause split before drawing
+  anything from the headline: `refused_stale_stamp` is any disagreement between
+  `events.opened_at` and the submission entry the payload carries — in practice
+  the stamp having drifted back to docketing between arrival-backfill sweeps, so
+  a corpus freshness reading — while only `refused_no_submission_entry` is a
+  property of the docket.
+  And read the rate over `pending_rows`, the undisposed-of slice the forward lane
+  actually mints cells for; the whole-population rate pools in decided rows no
+  forward cell is ever provisioned for.
+
   The price is paid in the claim rather than in the input, and on one part of
   the claim only. The **disposition** is unaffected: a forward-stratum cell's
   event was by construction unresolved through the day before its harness clock
