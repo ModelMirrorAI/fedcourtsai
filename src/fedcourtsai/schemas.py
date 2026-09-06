@@ -639,7 +639,10 @@ class PredictionContext(_Strict):
         "case-baseline cell and any cell whose event declares no moment. 'dated' "
         "is a snapshot the docket really served before the cutoff — the strongest "
         "point-in-time evidence, because it also reflects what had not yet been "
-        "filed. 'truncated' is a later payload with its post-cutoff entries "
+        "filed — with one exception, recorded in `cut_kind`: an arrival-position "
+        "cut is taken on a 'dated' payload too, because a snapshot the docket "
+        "served on the opening day itself can carry that day's later entries. "
+        "'truncated' is a later payload with its post-cutoff entries "
         "removed, which cannot know that a pre-cutoff entry was back-filled "
         "later, and which cuts the dated proceedings only — undated top-level "
         "blocks (counsel, amici, the payload's own generation date) are as at "
@@ -652,8 +655,13 @@ class PredictionContext(_Strict):
     )
     cutoff: date | None = Field(
         default=None,
-        description="The instant this cell was placed at: entries filed strictly "
-        "before it are what the snapshot carries. Non-null wherever a moment "
+        description="The day this cell was placed at. It is the snapshot's outer "
+        "bound, not on its own the boundary: entries filed strictly before it "
+        "are what the date rule admits, and `cut_kind` says whether a second, "
+        "tighter rule ran inside that — on an arrival-position cut the snapshot "
+        "stops at the opening entry, so the opening day's own later entries are "
+        "outside the cell's information set although this date admits them. "
+        "Non-null wherever a moment "
         "fixed one — a replay cell other than a 'blind' one, and a forward cell "
         "whose event declares a moment whose opening date is that moment's own "
         "trigger — and null where nothing did: a cell provisioned for no "
@@ -666,6 +674,33 @@ class PredictionContext(_Strict):
         "dated at or after it postdates what the cell was allowed to see, while "
         "a forward cell may retrieve without restriction and the cutoff bounds "
         "only the baseline it was provisioned with",
+    )
+    cut_kind: Literal["date", "arrival-position"] | None = Field(
+        default=None,
+        description="Which rule bounded the provisioned snapshot's entries. 'date' "
+        "keeps every entry filed strictly before `cutoff`, which is the whole of "
+        "the boundary for every moment whose trigger is not itself a docket entry. "
+        "'arrival-position' is that rule and an anchor bound: the snapshot is the "
+        "docket as of the entry that opened the event, so the opening day's own "
+        "later entries — a same-day referral, response request, amicus filing or "
+        "disposition — are outside the cell's information set even though "
+        "`cutoff` admits their date. Taken on the interim arrival moment, where a "
+        "whole application can be submitted and disposed of inside one day, and "
+        "on both snapshot provenances. Null where no moment fixed a cutoff. This "
+        "field, not `cutoff` alone, is the leakage clock's boundary on a replay "
+        "cell: material dated on the cutoff's own eve is inside the set under "
+        "'date' and may be outside it under 'arrival-position', which "
+        "`cut_anchor_index` locates",
+    )
+    cut_anchor_index: int | None = Field(
+        default=None,
+        ge=0,
+        description="Where the opening entry sat in the proceedings list the cut was "
+        "taken over — a 0-based position in the PRE-cut list, so it is a record of "
+        "the boundary rather than an index into the provisioned snapshot. Non-null "
+        "exactly where `cut_kind` is 'arrival-position'; a cell whose opening entry "
+        "could not be located there is refused rather than provisioned on the date "
+        "rule, so there is no arm carrying the kind without the index",
     )
     decided_before: str | None = Field(
         default=None,
@@ -741,6 +776,24 @@ class PredictionContext(_Strict):
         "parsed from a `YYAnnn` application number. Both baselines pool Terms "
         "strictly before it; which pool is keyed on the stage, not on this field",
     )
+
+    @model_validator(mode="after")
+    def _cut_fields_cohere(self) -> PredictionContext:
+        """The boundary fields travel together or not at all.
+
+        `cut_kind` names the rule that bounded the snapshot at `cutoff`, so a
+        kind over a null cutoff asserts a bound no moment fixed; and the anchor
+        index is the record of exactly the `arrival-position` rule, per its own
+        no-arm-without-the-index contract. Both directions are producer bugs a
+        grader would otherwise be sent to read as a boundary.
+        """
+        if self.cut_kind is not None and self.cutoff is None:
+            raise ValueError("`cut_kind` names a bounding rule but `cutoff` is null")
+        if (self.cut_kind == "arrival-position") != (self.cut_anchor_index is not None):
+            raise ValueError(
+                "`cut_anchor_index` is non-null exactly where `cut_kind` is 'arrival-position'"
+            )
+        return self
 
 
 class ClaimProbability(_Strict):
