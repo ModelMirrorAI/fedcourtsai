@@ -25,6 +25,11 @@ The operative numbers, each derived once in the section named:
 | Full paid-gate coverage (the dial switch) | ≈$28K/yr inference, ≈$33K all-in — upper bounds | *What `N` can ever buy* |
 | Whole-docket / 14-court reference ceilings | ≈$83K/yr · ≈$675K/yr | *Scope and the cell identity* |
 
+Every dollar figure above carries the codex third measured on `gpt-5.6-sol`;
+the current codex default (`gpt-6-astra`) projects the per-case rate to
+≈$16.7–17.8 (*Monthly spend by provider*), and the derived rows scale with it
+until a post-cutover run is measured.
+
 ## The shape: a fixed floor plus one dominant scaling line
 
 Every non-inference line — runners, storage, memberships, subscriptions — sums
@@ -430,7 +435,12 @@ pulling the other way.
 Three numbers to hold apart. **$13.20–13.45** is the matched measured basis,
 over six interim events. **$14.6–15.0** is the Term expectation once the
 scaling is applied. **$15** is the planning rate; divided across the design mix
-of six cells it is the **$2.50 per-cell rate** the ceilings are priced on.
+of six cells it is the **$2.50 per-cell rate** the ceilings are priced on. All
+three carry the codex third measured on `gpt-5.6-sol`; on the current
+`gpt-6-astra` default the per-case figure projects to ≈$16.7–17.8 (*Monthly
+spend by provider*), so the planning rate is due a re-anchor at the first
+measured post-cutover run — until then $15 stays the registered rate the
+ceilings are priced on, read with that label.
 
 **Fund against $15, and do not treat any of the gaps as headroom.** Against the
 assumed evaluate half on the $6.79 anchor, $15 clears the band by ~2.5% at the
@@ -819,8 +829,8 @@ was measured on `claude-fable-5` and carries to the current default unchanged:
 the point release holds that rate. The OpenAI line was measured on
 `gpt-5.6-sol` and does **not** carry: the current default `gpt-6-astra` bills
 2× the input rate and 5/3 the output rate, so until a post-cutover run is
-measured the OpenAI line projects to ≈$5.2–6.3 $/case (share ≈31–35%,
-≈$310–380 at `C` = 60) and the total to ≈$16.7–17.8 $/case ≈ $1.0–1.1K/mo —
+measured the OpenAI line projects to ≈$5.2–6.3/case (share ≈31–35%,
+≈$310–380 at `C` = 60) and the total to ≈$16.7–17.8/case ≈ $1.0–1.1K/mo —
 the table keeps the measured values, labeled by the model that produced them.
 
 | Provider (engine) | Predict $/case | Evaluate $/case | $/case | Share | At `C` = 60/mo |
@@ -937,7 +947,7 @@ replays 25 petitions × 3 predictors ≈ 75 cells — **≈$140–170** at the m
 cert per-event rates ($5.57 pre-freeze to $6.66–6.68 on the post-freeze
 anchors), all of them measured with codex on `gpt-5.6-sol`; scaling the codex
 share of predict spend (≈28%) to the current `gpt-6-astra` rates (2× in, 5/3
-out) projects **≈$165–220** until a campaign is measured on it — and model
+out) projects **≈$165–215** until a campaign is measured on it — and model
 spend scales
 linearly with the dispatch's `--limit`, which
 is the campaign's only size cap. `workflow_dispatch` is the only way in, and it

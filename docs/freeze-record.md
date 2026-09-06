@@ -2401,7 +2401,7 @@ freeze commit is recorded here.
 
 - *The interim arrival moment's cut becomes positional as well as dated: the
   snapshot stops at the entry that opened the event, and the boundary is
-  recorded on the artifact.* A **provisioning-cutoff** change, registered here
+  recorded on the artifact, 2026-09-05.* A **provisioning-cutoff** change, registered here
   on the terms [process-version.md](process-version.md) sets for that member of
   the list, and carrying prompt bytes with it — the predict prompt's cutoff
   sentences and the evaluate prompt's leakage-clock rule are corrected in the

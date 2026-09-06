@@ -1212,9 +1212,11 @@ the rendered table) and
   the stamp having drifted back to docketing between arrival-backfill sweeps, so
   a corpus freshness reading — while only `refused_no_submission_entry` is a
   property of the docket.
-  And read the rate over `pending_rows`, the undisposed-of slice the forward lane
-  actually mints cells for; the whole-population rate pools in decided rows no
-  forward cell is ever provisioned for.
+  And read the rate over `scope_pending_rows`, the in-scope undisposed-of slice
+  the forward lane actually mints cells for; `pending_rows` pools in the
+  out-of-scope kinds the matrix drops (`scope_rows` and `kind_counts` carry
+  that split), and the whole-population rate additionally pools in decided
+  rows no forward cell is ever provisioned for.
 
   The price is paid in the claim rather than in the input, and on one part of
   the claim only. The **disposition** is unaffected: a forward-stratum cell's

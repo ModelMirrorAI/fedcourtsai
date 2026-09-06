@@ -637,8 +637,12 @@ candidate:
    date admits them. A prediction citing one of those is reading material it was
    not given, and grading it clean because its date precedes the cutoff would
    apply the looser rule the boundary fields exist to replace. Grade it from the
-   two stamped fields and nothing else: on such a cell, material dated on the day
-   before `cutoff` is inside the set only if it is the opening entry itself.
+   two stamped fields and nothing else: the opening day's entries are inside
+   the set only up to the opening entry — material from earlier that day was
+   in the baseline, material after it was not. Where a same-day citation's
+   position against the anchor is unreadable from what you hold (the anchor
+   indexes a list you are not shown), treat it as outside and flag the
+   ambiguity — a conservative default stated as such, not a finding of fact.
    **Your own `record/` is not the check** — it is provisioned from the decided
    docket with no cut at all, and the prediction's own snapshot is not staged for
    you, so a docket entry's presence there says nothing about whether the

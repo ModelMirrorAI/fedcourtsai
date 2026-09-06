@@ -47,8 +47,9 @@ from the corpus (raw facts live in the S3 corpus stores, not git) into
 That directory is **case-level** — a sibling of `events/`, not a child of it:
 the snapshot, `context.json`, and `documents/` where any was provisioned are
 all there, and there is no `events/$EVENT_ID/record/`. Every bare `record/…`
-path below means that one directory. The event definition is the per-case input that *does* sit under the
-event, at `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/event.yaml`, beside
+path below means that one directory. The event definition is the per-case
+input that *does* sit under the event, at
+`data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/event.yaml`, beside
 the output directory you will write to.
 
 3. The **event definition** for `$EVENT_ID` (`event.yaml`) — what to predict.
@@ -74,11 +75,9 @@ the output directory you will write to.
    `context.cut_anchor_index` records where that entry sat. Either way every
    cell of one moment conditions
    on one information set: the cutoff is a cohort marker bounding this
-   baseline, and what it means for your retrieval is keyed on your **mode**
-   (see *Retrieval* below: nothing extra on a forward cell; the leakage
-   clock on a replay cell). It is not a
-   ceiling: what else you may retrieve is governed by your cell's **mode**
-   (`record/context.json`; see *Retrieval* below). Never invent facts.
+   baseline, not a ceiling — what else you may retrieve is keyed on your
+   **mode** (`record/context.json`; see *Retrieval* below: nothing extra on
+   a forward cell; the leakage clock on a replay cell). Never invent facts.
 5. Any provisioned **filed-document text** under `record/documents/` — for a
    live cert petition typically `questions-presented.txt` (the petition's QP
    section), `petition.txt`, and `brief-in-opposition.txt`, with
@@ -171,9 +170,12 @@ capture.
   removed, so read it as the
   real posture it is, not as a docket that never moved. Where the proceedings are
   absent entirely, no moment could be identified and you are seeing no trajectory
-  at all; say so rather than reading the silence as a quiet docket. Do not seek information about
-  *this case* postdating the event date (the `DECIDED_BEFORE` clock); corpus
-  priors and base rates are always fair game. If outcome-revealing material
+  at all; say so rather than reading the silence as a quiet docket. Do not
+  seek information about *this case* postdating your boundary — the event
+  date (the `DECIDED_BEFORE` clock) under a `date` cut; under an
+  `arrival-position` cut, the entry that opened your event, whose day's own
+  later entries are off-limits even where the date clock would admit them.
+  Corpus priors and base rates are always fair game. If outcome-revealing material
   surfaces anyway, **disclose it in `flags.json`** (what you saw, where, and
   whether it shaped your prediction) rather than pretending to un-see it — an
   honest flag keeps the cell usable as iteration signal.
