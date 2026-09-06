@@ -2667,3 +2667,104 @@ freeze commit is recorded here.
   its cells `proc-v7` (read off any new cell's `process_version`). The codex
   half of that run is additionally the availability check for `gpt-6-astra`:
   its cells' `usage.json` must record that model, at the registered rates.
+
+- **The proc-v7 carrying promotion lands — the step-4 audit and the gap
+  census, 2026-09-06.** The freeze registered at
+  `466951d756a573b2533a71e59376b4cfb7764758` promoted: PR #1707 merged to
+  `main` as merge commit `4792b4754e69ba2df9c7edd1820fc7eab6a94d0a`
+  (parents `5bf3e78d3` / `65400bd93`), committed **2026-09-06T21:18:48Z**.
+
+  **The instant audit.** `2026-09-07T00:00:00Z` sits 2h41m12s after the
+  carrying merge, so the registered condition — the promotion lands at or
+  before the instant — is met and no `FROZEN_SINCE` bump is called on. The
+  true bless moment for all six digests is the carrying merge's committed
+  instant, read off `git log -1 --format=%cI 4792b4754`, which prints
+  `2026-09-06T17:18:48-04:00` = **2026-09-06T21:18:48Z**; the constant's
+  step-2 forecast (`2026-09-06T11:55:00Z`) sits below it, on the registered
+  early side, and its correction to the true moment rides the next ordinary
+  promotion — together with a comment correction the census below makes
+  owed: the constant's first-shape rationale still says nothing was ever
+  stamped at or after proc-v6's instant ("the fourteen evaluations"), which
+  the census below supersedes. The first-shape *conclusion* survives on
+  other grounds stated there — what is wrong in that comment is the stated
+  reason, not the shape's outcome. Both tags are minted on this audit:
+  `prereg/proc-v7` on the freeze commit, `promotion/2026-09-06` on the
+  carrying merge — minted after the audit's checks passed but before this
+  entry landed, a step-4 ordering deviation recorded here as the deviations
+  before it are; and `prereg/proc-v7` is a lightweight tag where the
+  procedure wants an annotated one carrying the record in its message — the
+  same lapse `prereg/proc-v6` carries, and since the namespace blocks update
+  and deletion, this sentence is its permanent record: for both tags the
+  pre-registration record lives in this file, not the tag message.
+
+  **Step 0, re-run at the merge.** Per-digest grep over `data/cases` at
+  `4792b4754`: **0 stamped cells for all six blessed digests** — nothing
+  claims a proc-v7 digest from before its bless. The frozen map in the
+  constant carries exactly the six and none of proc-v6's.
+
+  **The effect check, executed.** `uv run fedcourts process-digest --all` at
+  the merge prints `proc-v7` and exactly the six blessed digests, matching
+  the freeze entry byte for byte. Of this freeze's registered checks, two
+  remain observations to come: the promotion gate on the next staging PR, and
+  the first spend-released run at or after the instant stamping `proc-v7` —
+  whose codex cells' `usage.json` is also the `gpt-6-astra` availability
+  check. (The same carrying promotion also carries the arrival-cut membership
+  entry's own effect check, registered with that entry; it is not restated
+  here.)
+
+  **The gap census the advance declaration called for — not empty, and not
+  the declaration's to license.** The 2026-09-06 evaluate hold was released
+  before the promotion (run `20260906T174126Z`), so cells were stamped under
+  proc-v6 evaluator digests at or after proc-v6's instant: **15 evaluation
+  artifacts**, collectively covering the three interim events on
+  `scotus/9526000274`. The run's matrix spanned two cases — every judge on
+  the three `scotus/9526000274` events, plus a codex-judge-only retry of the
+  three `scotus/9526000275` events — and the cut by judge: claude-judge 3/3
+  cells → 9 gradings under `sha256:e84e8e5f…` (stamped
+  2026-09-06T17:49:00–17:49:26Z); gemini-judge 2/3 cells → 6 gradings under
+  `sha256:64ae1b0c…` (18:50:47Z and 18:52:27Z), the third cell recording
+  `attempt.json` with `error_class: no_output`; codex-judge 0/6 cells across
+  both cases, each recording `attempt.json` with `error_class: died`
+  (queued, uploaded nothing — the run's own logs, which expire, showed all
+  six force-killed at the job cap; issue #1668, occurrence 6). The grid is
+  therefore judge-unbalanced, and even the version-blind `--all-versions`
+  and leakage-digest views over these 15 are not a judge comparison. Two of
+  codex-judge's five attempts per cell (`max_attempts_per_cell`, which a
+  newer process version does **not** reset) are now burned on each
+  `scotus/9526000275` event across the 2026-09-04 and 2026-09-06 runs — if
+  those cells cap out, codex leaves their graded population by attrition,
+  not design, and a later evaluator-agreement figure must not read the
+  absence as a choice.
+
+  The resolved-outcome split the declaration requires, read off each event's
+  committed `outcome.json` at the merge: all three graded events are
+  **interim-stage** moments that had already resolved **granted** on
+  2026-09-04 (`disposition_basis` standard) — an interim grant, not a cert
+  grant, poolable with neither cert band — 3/3 events granted, 15/15
+  gradings of granted-resolved events. That homogeneity decides the licence:
+  every one of the 15 grades an event resolved two days *before* the
+  declaration was dated, so the whole cohort is the already-resolved slice
+  for which a declaration creates no pre-registered boundary, and **the
+  advance declaration licenses nothing here**. What bounds these 15 instead
+  is prior unclaimability: all 15 grade predictions stamped **proc-v5**
+  (predictor digests `sha256:eba87d4c…` / `sha256:b46b3c6d…` /
+  `sha256:8c401008…`, run `20260901T014205Z`), which were never in the
+  frozen map — and since the predictor digest is the enforced membership
+  filter, no frozen-scope artifact ever contained these gradings and
+  retiring the evaluator digests de-counts nothing. The 15 are uncounted on
+  those grounds, proc-v7 the counted record, no pooling across the boundary
+  in either direction.
+
+  Census commands, run at `4792b4754`: per-digest `git grep -l
+  'sha256:<digest>' -- data/cases | wc -l` puts the final tally under
+  proc-v6's evaluator digests at **29** — 16 under claude-judge
+  `sha256:e84e8e5f…`, 13 under gemini-judge `sha256:64ae1b0c…`, 0 under
+  codex-judge — superseding the **14** the freeze entry recorded from its
+  pre-release census, and the wider census (`git grep -l
+  '"process_version": {' -- data/cases | wc -l`) at **463**, up from the 448
+  recorded there (448 + 15). The predictor half of the gap is empty as
+  forecast: no predict hold was released, so proc-v6's predictor digests
+  retire with zero predictions ever stamped. As of this entry no cell exists
+  in proc-v7's window; any cell minted between the carrying merge and the
+  instant lands as shakedown per the freeze entry's registered condition,
+  and the next entry that counts anything under proc-v7 closes the question.
