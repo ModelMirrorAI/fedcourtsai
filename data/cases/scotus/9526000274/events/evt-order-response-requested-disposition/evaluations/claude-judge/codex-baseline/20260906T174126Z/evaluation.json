@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.7,
+    "notes": "Emergency stay over whether party committees' coordinated buys get the lowest-unit-charge rate for the 2026 general-election window, with the Solicitor General backing the applicants against a divided Fourth Circuit; disposed of by per curiam opinion with a noted Jackson dissent and an evident cert vehicle on Hobbs Act finality / \u00a7315(b). High political salience and nationwide pricing effect for one election cycle, but a statutory-administrative question rather than a constitutional one, and a stay rather than a merits judgment."
+  },
+  "brier_score": 0.0576,
+  "brier_skill_score": 0.9281355414738341,
+  "case_id": "scotus/9526000274",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.76,
+        "score": 0.7439088568298028
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.55,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7439088568298028,
+    "total": 0.7439088568298028
+  },
+  "correct": 1,
+  "created_at": "2026-09-06T17:46:02Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-01T02:52Z against the 2026-08-31 snapshot; the application was resolved 2026-09-04, so no disposition existed to retrieve. Log: 65 calls, coverage 0.55; the captured CourtListener calls are confined to the Fourth Circuit docket 26-1785 (notice of judgment, the Aug 25 opinion, the Aug 26 stay motion; legible doc dates 2026-06-22 through 2026-08-26) and to Trump v. California, filed 2026-08-24, with the search explicitly bounded filed_before 2026-08-31. No call touches this application's own SCOTUS docket beyond the provisioned snapshot, none names data/qp-topics/, and every legible date precedes the event. reasoning.md and retrieval.md read the posture as pending and disclose the retrieval in full.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260901T014205Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:e84e8e5fbf47002aa9ed867db60f3f5eee82dcc3bfdd76e44a0b4aac09d5e631",
+    "label": "proc-v6",
+    "pipeline_sha": "eb0a05aaeb8292aa252c5b2a08bf78823825ce2e",
+    "stamped_at": "2026-09-06T17:49:26.735442Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20260906T174126Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

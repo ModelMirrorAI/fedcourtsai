@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000274",
+  "run_id": "20260906T174126Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads of the blinded staging area and the decided record",
+    "metrics/statpack.md (interim-docket section)",
+    "grep over src/ and docs/ to confirm parser and claim-set rules"
+  ],
+  "helpful": [
+    "The decided snapshot (2026-09-05) in record/snapshots/ made the outcome verifiable against docket text without any retrieval.",
+    "Per-call result_capture markers and retrieved_doc_date in the staged retrieval logs made the forward-cell leakage check concrete rather than impressionistic.",
+    "The statpack's per-Term interim rows let me check every candidate's pooled baseline in seconds."
+  ],
+  "gaps": [
+    "The staged prediction.json carries the predictor's big_case_score and rationale in the same file as the headline fields, so the prompt's ask to form the big-case read before seeing theirs is not achievable in practice; staging the big-case block separately would make the independence real.",
+    "A committed record of the disposing order's text (the per curiam and the noted dissent) would let an evaluator confirm vote and writing details on an interim cell without leaving the checkout; today only the docket entry's summary line is in the snapshot."
+  ],
+  "notes": "Interim forward cell, three candidates, no blocking issues. Baseline and skill left to the stamp per the interim rule; no flags.json written because the ordinary interim shape takes none and the one apparent count discrepancy (two amicus entries on the docket, one counted) turned out to be the parser's deliberate filed-vs-submitted rule."
+}
