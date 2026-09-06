@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000274",
+  "run_id": "20260906T174126Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [],
+  "helpful": [],
+  "gaps": [],
+  "notes": "No external corpus tools needed since it's an interim event and all candidates were forward cells."
+}
