@@ -261,7 +261,7 @@ The first predict fan-out to land after the pre-registration freeze instant
 over 27 events — is the anchor measurement covering the arrival, interim, and
 merits moments rather than cert alone. ("Post-freeze" throughout this document
 names the August cohort stamped after the 2026-08-16 `proc-v3` instant; the
-`proc-v5` and `proc-v6` re-blesses have since re-based the frozen partition, so
+`proc-v5`, `proc-v6` and `proc-v7` re-blesses have since re-based the frozen partition, so
 these are measurement cohorts, not claimable-partition members. Every measured
 Claude figure in this document was produced on `claude-fable-5`; the point
 release holds its rate, so the dollar figures carry to the current default and
@@ -367,9 +367,9 @@ judge-prompt changes — the
 token-relevant one being the judge-workspace prune, which hides the committed
 `predictions/` and `evaluations/` trees from a judge cell's working tree.
 (`proc-v5` carried those evaluator digests forward byte-identical; `proc-v6`
-moves the evaluate prompt's bytes for all three judges, so none of these
-gradings ran under the currently blessed evaluator process and every figure
-here is a measurement cohort.)
+and `proc-v7` each move the shared prompt bytes for all three judges, so none
+of these gradings ran under the currently blessed evaluator process and every
+figure here is a measurement cohort.)
 
 **The newest grading is one moment on since-superseded digests, and is too
 partial to re-price anything.** Run `20260829T040550Z` graded one interim
