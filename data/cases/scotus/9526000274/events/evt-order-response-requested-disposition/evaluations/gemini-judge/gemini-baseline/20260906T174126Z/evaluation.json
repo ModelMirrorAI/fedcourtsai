@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.8,
+    "notes": "Major election law emergency order right before the general election regarding broadcast ad rates."
+  },
+  "brier_score": 0.7224999999999999,
+  "brier_skill_score": 0.09857515129939487,
+  "case_id": "scotus/9526000274",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.15,
+        "score": 0.07900885682980285
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 1.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.2,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.07900885682980285,
+    "total": 0.07900885682980285
+  },
+  "correct": 0,
+  "created_at": "2026-09-06T17:41:26Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward run. No outcome-revealing material was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-3.1-pro-preview",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260901T014205Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:64ae1b0c392b62f88c952bbbcc44de2d9ea358f7a7c36dbc10d231f9ed3366c3",
+    "label": "proc-v6",
+    "pipeline_sha": "eb0a05aaeb8292aa252c5b2a08bf78823825ce2e",
+    "stamped_at": "2026-09-06T18:52:27.400447Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20260906T174126Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

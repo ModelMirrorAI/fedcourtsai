@@ -1,0 +1,17 @@
+{
+  "actor_id": "claude-judge",
+  "cache_creation_input_tokens": 136313,
+  "cache_read_input_tokens": 2095080,
+  "case_id": "scotus/9526000274",
+  "created_at": "2026-09-06T17:41:26Z",
+  "engine": "claude-code",
+  "estimated_cost_usd": 4.9235425,
+  "event_id": "evt-order-response-requested-disposition",
+  "input_tokens": 40,
+  "model": "claude-fable-5-1",
+  "output_tokens": 22483,
+  "pipeline_sha": "eb0a05aaeb8292aa252c5b2a08bf78823825ce2e",
+  "role": "evaluator",
+  "run_id": "20260906T174126Z",
+  "schema_version": "1.0"
+}

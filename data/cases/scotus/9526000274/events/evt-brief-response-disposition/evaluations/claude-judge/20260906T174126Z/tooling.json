@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000274",
+  "run_id": "20260906T174126Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file-read",
+    "shell",
+    "mcp:courtlistener:call_endpoint"
+  ],
+  "helpful": [
+    "The blinded staging area with retrieval_log.json per alias: call classes, result_capture markers, and retrieved_doc_date made the forward-mode leakage confirmation a matter of reading the log rather than trusting the prose.",
+    "outcome.json's interim_signals (referred, amicus count) gave the ladder ground truth without any retrieval.",
+    "record/documents/application.txt let me form an independent stakes read from primary text."
+  ],
+  "gaps": [
+    "The cell's docket id is not a CourtListener docket, so the MCP could not surface the application docket's entries (e.g. the government response's position); a provisioned docket-entry list or the response text in record/documents/ would let the judge check a load-bearing premise two candidates relied on.",
+    "The staged prediction.json exposes the candidates' big_case_score before the judge can form an independent read; masking that one field in the blinded view would make the independence the schema asks for structural rather than a matter of discipline."
+  ],
+  "notes": "Interim cell, three forward candidates, all correct on the label. No flags.json written: the ordinary interim shape takes none, no candidate carried a cert band, and nothing was blocked."
+}

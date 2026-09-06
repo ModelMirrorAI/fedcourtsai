@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.75,
+    "notes": "Independent read formed before looking at the candidates' scores: an emergency application over the FCC Media Bureau's lowest-unit-charge notice, brought by both national Republican committees against sitting Democratic senators and candidates, with the Solicitor General supporting the stay, resolved days before the 60-day general-election window opened and disposed of by a per curiam opinion with a noted dissent. National campaign-finance stakes and unusual visibility for an application, but the legal question is a threshold finality/jurisdiction dispute over staff guidance rather than a structural or constitutional holding."
+  },
+  "brier_score": 0.16000000000000003,
+  "brier_skill_score": 0.8003765040939836,
+  "case_id": "scotus/9526000274",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": 0.6415088568298027
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.6415088568298027,
+    "total": 0.6415088568298027
+  },
+  "correct": 1,
+  "created_at": "2026-09-06T17:46:11Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-01T02:43Z, event resolved 2026-09-04. Log carries 24 calls, all timestamped 2026-09-01T02:40-02:45Z, result_capture_coverage 1.0. Latest retrieved_doc_date 2026-08-31 (a corpus query for granted applications). One web search and two web fetches (SCOTUSblog background piece; the government response PDF, which returned 403). The candidate itself notes the 'Court Rejects Stay' headline it saw was the Fourth Circuit's own stay denial, not this application's disposition. No read of data/qp-topics/. Case was genuinely open when predicted; not mis-provisioned.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260901T014205Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:e84e8e5fbf47002aa9ed867db60f3f5eee82dcc3bfdd76e44a0b4aac09d5e631",
+    "label": "proc-v6",
+    "pipeline_sha": "eb0a05aaeb8292aa252c5b2a08bf78823825ce2e",
+    "stamped_at": "2026-09-06T17:49:00.865136Z"
+  },
+  "reasoning_quality": 0.7,
+  "run_id": "20260906T174126Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

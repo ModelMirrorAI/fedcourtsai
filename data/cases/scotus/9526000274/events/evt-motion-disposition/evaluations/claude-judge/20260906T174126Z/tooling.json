@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000274",
+  "gaps": [
+    "The per curiam opinion linked from the disposing docket entry is not in the record, so the reasoning-quality read of the candidates' merits analysis rests on the docket text and the outcome label rather than on what ground the Court actually gave.",
+    "A candidate's factual premise that the docket text does not disclose (here, which side the government's response took) can only be checked through another candidate's primary-source read or an outside fetch; a provisioned text of the government response alongside the application would have settled it from the record."
+  ],
+  "helpful": [
+    "The staged retrieval_log.json with timestamps, result_capture markers and retrieved_doc_date made the forward-mode leakage check mechanical: every call predates the 2026-09-04 resolution.",
+    "The provisioned application.txt gave the posture (FCC/US as losing respondents below) needed to judge whether 'the government supports the stay' was a plausible premise.",
+    "The statpack's interim section made the candidates' shared 31/296 anchor verifiable in one read."
+  ],
+  "notes": "Interim cell: segment_base_rate, brier_skill_score and claim_scores left to the harness stamp; base_rate_basis null; no semantic_grades block written. No flags.json written: ordinary interim shape (null band), no blockers, no leakage suspicion on any candidate.",
+  "role": "evaluator",
+  "run_id": "20260906T174126Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Read",
+    "Bash (find, grep, sed, awk, python3 for JSON inspection and writing)",
+    "Write"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
