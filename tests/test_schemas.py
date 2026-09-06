@@ -17,6 +17,7 @@ from fedcourtsai.schemas import (
     ModelUsage,
     Outcome,
     Prediction,
+    PredictionContext,
     TrackedCase,
     UsageRole,
     VoteValue,
@@ -287,3 +288,34 @@ def test_a_judgment_free_prediction_needs_no_votes() -> None:
     # Every committed cert-stage prediction predates the field; both stay valid.
     assert _prediction().judgment is None
     assert _prediction(votes=[{"justice": "roberts", "vote": "grant"}]).judgment is None
+
+
+def _context(**overrides: object) -> PredictionContext:
+    base: dict[str, object] = {
+        "mode": "replay",
+        "snapshot_date": date(2025, 2, 24),
+        "snapshot_provenance": "truncated",
+        "signals_observable": False,
+    }
+    base.update(overrides)
+    return PredictionContext.model_validate(base)
+
+
+def test_the_cut_fields_travel_together() -> None:
+    # A kind names the rule that bounded the snapshot at `cutoff`, so a kind
+    # over a null cutoff asserts a bound no moment fixed — the blind replay
+    # arm is the producer that would otherwise mint it.
+    with pytest.raises(ValidationError, match="`cutoff` is null"):
+        _context(cut_kind="date")
+    # The anchor index is the record of exactly the arrival-position rule.
+    with pytest.raises(ValidationError, match="cut_anchor_index"):
+        _context(cut_kind="arrival-position", cutoff=date(2025, 2, 25))
+    with pytest.raises(ValidationError, match="cut_anchor_index"):
+        _context(cut_kind="date", cutoff=date(2025, 2, 25), cut_anchor_index=3)
+
+
+def test_the_coherent_cut_shapes_validate() -> None:
+    assert _context().cut_kind is None
+    assert _context(cut_kind="date", cutoff=date(2025, 2, 25)).cut_kind == "date"
+    anchored = _context(cut_kind="arrival-position", cutoff=date(2025, 2, 25), cut_anchor_index=3)
+    assert anchored.cut_anchor_index == 3

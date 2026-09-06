@@ -45,7 +45,7 @@ from .backtest import (
 )
 from .config import SalienceConfig
 from .paths import CasePaths
-from .pipeline import cell_context, cert_signals, moments
+from .pipeline import arrival_cut, cell_context, cert_signals, moments
 from .pipeline.asof import replay_cutoff
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.evaluate import brier_skill, segment_base_rate
@@ -584,6 +584,17 @@ def replay_predictors(
                 "replay",
                 provenance=provenance,
                 cutoff=cutoff,
+                # The plain date rule, stated rather than left null: this
+                # provisioner replays the cert baseline, whose trigger is a
+                # conference rather than a docket entry, so there is no intra-day
+                # tail to exclude and no anchor to record. Saying so keeps
+                # `cut_kind` non-null wherever `cutoff` is, which is what lets the
+                # prompt contract and the leakage clock read one field for the
+                # boundary instead of inferring it from the absence of another.
+                # The blind arm is the converse: its proceedings are removed
+                # wholesale and its cutoff is null, which is neither rule, so it
+                # carries no kind.
+                boundary=(arrival_cut.CutBoundary(kind="date") if cutoff is not None else None),
                 decided_before=str(item.features.year),
             ).model_dump(mode="json"),
         )

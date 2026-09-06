@@ -24,9 +24,10 @@ your shell, substitute the literals from your kickoff prompt.
 | `MODEL_ID`     | The model you are running as, e.g. `claude-fable-5-1` |
 
 Run `uv run fedcourts paths --court "$COURT_ID" --docket "$DOCKET_ID" --event
-"$EVENT_ID" --role predictor` to see resolved paths if you are unsure. (The
-realized outcome is an evaluator-only file — the listing does not name it for
-you, and you must never read it.)
+"$EVENT_ID" --role predictor` to resolve the case, corpus, and event paths. It
+does not name the provisioned `record/` paths; those are stated under *Inputs*
+below. (The realized outcome is an evaluator-only file — the listing does not
+name it for you, and you must never read it.)
 
 ## Inputs (read-only)
 
@@ -41,8 +42,15 @@ cached prefix stays as long as possible (don't interleave case facts with them).
    output contract.
 
 **Per-case — read last, right before you write.** The workflow provisions these
-from the corpus (raw facts live in the S3 corpus stores, not git); read them where
-the workflow places them for your run:
+from the corpus (raw facts live in the S3 corpus stores, not git) into
+`data/cases/$COURT_ID/$DOCKET_ID/record/`, relative to your working directory.
+That directory is **case-level** — a sibling of `events/`, not a child of it:
+the snapshot, `context.json`, and `documents/` where any was provisioned are
+all there, and there is no `events/$EVENT_ID/record/`. Every bare `record/…`
+path below means that one directory. The event definition is the per-case
+input that *does* sit under the event, at
+`data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/event.yaml`, beside
+the output directory you will write to.
 
 3. The **event definition** for `$EVENT_ID` (`event.yaml`) — what to predict.
    Its `stage` field names the decision standard the event resolves on and
@@ -52,17 +60,24 @@ the workflow places them for your run:
    after granting certiorari. A petition/appeal-kind event that records no
    stage reads as **cert** — the case-baseline kinds resolve on the cert
    standard by construction. No other stage reaches a predict cell today.
-4. The **snapshot** for this case — your provisioned **baseline**, the
-   guaranteed-common input every predictor in this fan-out reads. Where your
-   event's declared moment fixes a cutoff, the snapshot stops **at that
-   moment** rather than at the latest poll — `context.cutoff` records it,
-   non-null even on a forward cell — so every cell of one moment conditions
+4. The **snapshot** for this case, at `record/snapshots/<YYYY-MM-DD>.json` —
+   the dated file `context.json`'s `snapshot_date` names — your provisioned
+   **baseline**, the guaranteed-common input every predictor in this fan-out
+   reads. Where your event's declared moment fixes a cutoff, the snapshot
+   stops **at that moment** rather than at the latest poll — `context.cutoff`
+   records the day it falls on and `context.cut_kind` how the entries were
+   bounded inside it, both non-null even on a forward cell. Under `date` the
+   snapshot carries everything filed strictly before the cutoff. Under
+   `arrival-position` — the interim arrival moment, where a whole application
+   can be submitted and disposed of in one day — it stops at **the docket
+   entry that opened your event**, so that day's own later entries are outside
+   your baseline although the cutoff date would admit them;
+   `context.cut_anchor_index` records where that entry sat. Either way every
+   cell of one moment conditions
    on one information set: the cutoff is a cohort marker bounding this
-   baseline, and what it means for your retrieval is keyed on your **mode**
-   (see *Retrieval* below: nothing extra on a forward cell; the leakage
-   clock on a replay cell). It is not a
-   ceiling: what else you may retrieve is governed by your cell's **mode**
-   (`record/context.json`; see *Retrieval* below). Never invent facts.
+   baseline, not a ceiling — what else you may retrieve is keyed on your
+   **mode** (`record/context.json`; see *Retrieval* below: nothing extra on
+   a forward cell; the leakage clock on a replay cell). Never invent facts.
 5. Any provisioned **filed-document text** under `record/documents/` — for a
    live cert petition typically `questions-presented.txt` (the petition's QP
    section), `petition.txt`, and `brief-in-opposition.txt`, with
@@ -132,7 +147,9 @@ capture.
   `cutoff`, where non-null, is **not a retrieval clock**: a placed cell's
   snapshot stops at its moment, so the cutoff bounds only the provisioned
   baseline, and material later than your own baseline — this docket's own
-  post-cutoff entries included — is the ordinary forward shape, not a breach.
+  entries outside that baseline included, which on an `arrival-position` cut
+  means the opening day's later entries as well as the post-cutoff ones — is
+  the ordinary forward shape, not a breach.
   Use what
   helps: this case's own docket and filings, related litigation, precedent,
   circuit-split signals. One etiquette caveat, because a web search is not
@@ -147,13 +164,18 @@ capture.
   decisive is good hygiene, not a violation.
 - **`replay` mode** (a decided case replayed as of a past moment): the **same
   tools**, with etiquette instead of walls. Your snapshot carries this docket as
-  it stood before your cutoff (`context.cutoff`) — the filings and distributions
-  that had happened by then, with the later entries removed — so read it as the
+  it stood at your boundary — before `context.cutoff` under a `date` cut, and at
+  the entry that opened your event under an `arrival-position` one — with the
+  filings and distributions that had happened by then and the later entries
+  removed, so read it as the
   real posture it is, not as a docket that never moved. Where the proceedings are
   absent entirely, no moment could be identified and you are seeing no trajectory
-  at all; say so rather than reading the silence as a quiet docket. Do not seek information about
-  *this case* postdating the event date (the `DECIDED_BEFORE` clock); corpus
-  priors and base rates are always fair game. If outcome-revealing material
+  at all; say so rather than reading the silence as a quiet docket. Do not
+  seek information about *this case* postdating your boundary — the event
+  date (the `DECIDED_BEFORE` clock) under a `date` cut; under an
+  `arrival-position` cut, the entry that opened your event, whose day's own
+  later entries are off-limits even where the date clock would admit them.
+  Corpus priors and base rates are always fair game. If outcome-revealing material
   surfaces anyway, **disclose it in `flags.json`** (what you saw, where, and
   whether it shaped your prediction) rather than pretending to un-see it — an
   honest flag keeps the cell usable as iteration signal.
@@ -943,11 +965,13 @@ willing to be scored on, not a hedge.
 - **You run headless** (in CI, no interactive input). If the snapshot is missing or
   the event is malformed, do not stall waiting for input — always explain the
   problem in `reasoning.md` and record a `flags.json` note (`category` `blocked` or
-  `data-quality`) so it reaches a maintainer durably, then finish. A forward cell
-  may legitimately find itself without a provisioned snapshot (provisioning refuses
-  a forward cell whose snapshot's latest entry reads terminal — the case already
-  looks decided): note the gap in `flags.json` and predict from priors and base
-  rates only, treating the case per the first rule above — do not retrieve its
+  `data-quality`) so it reaches a maintainer durably, then finish. A running cell
+  always has a landed record: provisioning that wrote nothing, or wrote
+  incompletely, refuses the cell and no agent starts. So a snapshot you cannot
+  find is a path error before it is a gap — look under the case-level `record/`
+  named in *Inputs* above, not under your event. If it truly is not there, note
+  the gap in `flags.json` and predict from priors and base rates only, treating
+  the case per the first rule above — do not retrieve its
   current docket state or outcome. Make the most
   conservative reasonable call rather than guessing widely. `flags.json` is the
   channel that survives — the trigger issue is closed when the run lands, so do

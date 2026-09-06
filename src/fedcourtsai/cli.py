@@ -22,7 +22,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
-from typing import Annotated, Any, Literal, cast, get_args
+from typing import Annotated, Any, Literal, NamedTuple, cast, get_args
 from urllib.parse import quote
 
 import typer
@@ -178,8 +178,9 @@ from .ops import (
     weekly_digest_week,
 )
 from .paths import CasePaths, EventPaths
-from .pipeline import cell_context, historical, liveprobe, moments, qp_topics, semantic
+from .pipeline import arrival_cut, cell_context, historical, liveprobe, moments, qp_topics, semantic
 from .pipeline.arrival_backfill import backfill_arrival_stamps
+from .pipeline.arrival_cut import arrival_cut_ledger
 from .pipeline.asof import CutoffPolicy
 from .pipeline.base_rates import interim_base_rate, merits_base_rate
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
@@ -3064,6 +3065,126 @@ def backfill_arrival_stamps_cmd(
             f"  {verb} {fill.case_id} {fill.event_id}: "
             f"{fill.opened_at.isoformat()}{moved}{admitted}"
         )
+
+
+@app.command("arrival-cut-ledger")
+def arrival_cut_ledger_cmd(
+    rows: Annotated[
+        bool,
+        typer.Option("--rows", help="Also print the per-row readings behind the aggregates."),
+    ] = False,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Report what the interim arrival positional cut does over the whole population.
+
+    Read-only, and the published membership surface for that cut. An interim
+    arrival cell's snapshot stops at the entry that opened the event, not at the
+    end of the opening day, so an application submitted, referred and denied
+    inside one day does not hand the cell its own outcome. Two things follow
+    that only a count can state.
+
+    **Refusals are a membership rule.** A row whose opening entry cannot be
+    anchored in its stored snapshot is refused rather than provisioned on the
+    date rule — there is deliberately no fallback, because the date rule is the
+    conditioning being replaced. Unanchorable, terse and summarily disposed of
+    are a plausible single shape, so the refusal count is split by resolution
+    status and by same-day disposition here rather than assumed harmless.
+
+    **The delta is a separately named quantity.** It is the
+    same-day-after-opening-entry tail, and it is NOT the arrival-backfill pass's
+    `over_admitted` band: that band opens the day *after* the arrival by
+    construction, so the positional delta computed with it is identically zero,
+    including on the dockets the defect was measured on. The claim-side shifts
+    are reported beside it — the interim amicus-increment claim's frozen context
+    count, and the response-requested and referral increments moving from
+    vacuously masked to resolvable.
+
+    Every figure is a dry-run reading over each row's newest stored live-shaped
+    snapshot at the stated corpus vintage: what a cell provisioned against this
+    blob would carry, not a measurement of what any committed cell was shown.
+    Run it where the corpus is pulled.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        ledger = arrival_cut_ledger(conn, corpus_vintage=corpus.latest_pull_date(conn))
+    vintage = ledger.corpus_vintage.isoformat() if ledger.corpus_vintage else "unknown"
+    typer.echo(
+        f"arrival-cut-ledger (corpus vintage {vintage}): {ledger.rows_seen} interim "
+        f"arrival row(s) in the provisioning population; {ledger.anchored} anchored, "
+        f"{ledger.refused} refused, {ledger.no_snapshot} with no stored snapshot"
+    )
+    # THE SCOPE SPLIT COMES FIRST, because every rate below it is unreadable
+    # without one: the predict matrix drops every non-substantive application, so
+    # the stamped population is dominated by time-extension dockets that can never
+    # be provisioned a cell — and which are structurally the terse,
+    # same-day-disposed shape the refusal arm is suspected of selecting on.
+    kinds = ", ".join(f"{kind}: {count}" for kind, count in sorted(ledger.kind_counts.items()))
+    typer.echo(
+        f"  scope: {ledger.scope_rows} of {ledger.rows_seen} row(s) can be minted a predict "
+        f"cell (substantive applications only) — {ledger.scope_anchored} anchored, "
+        f"{ledger.scope_refused} refused. Population by form: {kinds}. Every rate that "
+        "describes the pipeline is read over the in-scope count, never over rows_seen"
+    )
+    typer.echo(
+        f"  refusals: {ledger.refused} of {ledger.rows_seen} over the whole stamped "
+        f"population — {ledger.refused_resolved} on a disposed-of row, "
+        f"{ledger.refused_same_day_disposition} on a row whose docket records a disposition "
+        "dated on its own submission day (read from the payload's submission entry, never "
+        f"from the stamp). Anchored rows are {ledger.anchored_resolved} of {ledger.anchored} "
+        "disposed of, which is the base rate the refusal split reads against"
+    )
+    # The two causes answer different questions and must not be pooled. Only the
+    # first is a property of the docket; the second is a reading of how far the
+    # stamps have drifted since the last arrival-backfill sweep.
+    typer.echo(
+        f"  by cause: {ledger.refused_no_submission_entry} name no dated submission entry "
+        f"({ledger.refused_no_submission_entry_resolved} disposed of) — the class the "
+        "outcome correlation would run through, if it runs anywhere; "
+        f"{ledger.refused_stale_stamp} name one the stamp disagrees with "
+        f"({ledger.refused_stale_stamp_resolved} disposed of), which is stamp drift the "
+        "arrival-backfill sweep converges, not a property of the case. A large second arm "
+        "is a freshness reading of the corpus, so re-dispatch that sweep before drawing "
+        "anything from the headline"
+    )
+    # The operational rate, over the only denominator that can produce a cell.
+    typer.echo(
+        f"  the pending IN-SCOPE slice (where forward cells are actually minted): "
+        f"{ledger.scope_pending_rows} row(s), {ledger.scope_pending_anchored} anchored, "
+        f"{ledger.scope_pending_refused} refused. ({ledger.pending_rows} rows are pending "
+        "across the whole stamped population, but a non-substantive application never "
+        "reaches the matrix however open it is)"
+    )
+    typer.echo(
+        f"  the same-day-after-opening-entry tail, IN SCOPE: {ledger.scope_tail_entries} "
+        f"entr(ies) across {ledger.scope_tail_rows} row(s), of which "
+        f"{ledger.scope_tail_carries_disposition} carried the application's own disposition. "
+        f"Over the whole stamped population it is {ledger.tail_entries} entr(ies) across "
+        f"{ledger.tail_rows} row(s) ({ledger.tail_rows_resolved} disposed of), "
+        f"{ledger.tail_carries_disposition} carrying the disposition. This is not the "
+        "arrival-backfill `over_admitted` band, which excludes the arrival day and is zero "
+        "on this delta"
+    )
+    typer.echo(
+        f"  claim-side (whole stamped population): amicus-increment context count falls on "
+        f"{ledger.amicus_shift_rows} row(s) ({ledger.amicus_shift_entries} entr(ies)) — an "
+        "upper bound on new positives, since a docket that gained a later amicus resolved "
+        f"positive either way; response-requested moves masked-to-resolvable on "
+        f"{ledger.response_requested_unmasked} ({ledger.response_requested_unmasked_resolved} "
+        f"disposed of); referral on {ledger.referral_unmasked} "
+        f"({ledger.referral_unmasked_resolved} disposed of). Both unmasked increments then "
+        "resolve positive by construction: the tail entry that unmasks the claim is the "
+        "entry that satisfies it, and both flags are monotone-latched"
+    )
+    # Masking is not reported as a measurement because it cannot vary: the anchor
+    # entry always survives the bound and `snapshot_carries_proceedings` tests only
+    # that the key is a list, so an anchored row's cut payload always discloses
+    # proceedings. Stated here rather than published as a zero that looks empirical.
+    typer.echo(ledger.model_dump_json(exclude={"rows"}))
+    if rows:
+        for reading in ledger.rows:
+            typer.echo(f"  {reading.model_dump_json()}")
 
 
 @app.command("backfill-documents")
@@ -8241,6 +8362,122 @@ def _read_cell_inputs(
     return read
 
 
+class _Placement(NamedTuple):
+    """A cell's inputs after the moment cut, and the boundary its context records."""
+
+    snapshot_date: date
+    payload: dict[str, Any]
+    documents: list[corpus.CaseDocument]
+    provenance: Literal["as-stored", "dated", "truncated"]
+    boundary: arrival_cut.CutBoundary | None
+
+
+def _place_at_moment(
+    case: str,
+    event: str,
+    cutoff: date | None,
+    read: provision.CellRead,
+    *,
+    payload: dict[str, Any],
+    snapshot_date: date,
+    documents: list[corpus.CaseDocument],
+) -> _Placement:
+    """Cut a cell's snapshot and documents to the moment its event declares.
+
+    ``cutoff is None`` is the no-cut case and passes everything through as read.
+    Otherwise two bounds compose, in this order and no other. The **anchor bound**
+    (:mod:`fedcourtsai.pipeline.arrival_cut`, on the interim arrival moment only)
+    runs on the payload as the corpus served it, so the anchor index it records is
+    a position in that list rather than in one the date rule has already thinned.
+    Then the **date rule** reconstructs, where no stored snapshot from before the
+    cutoff reaches the moment.
+
+    Raises ``typer.Exit(4)`` where an interim arrival's opening entry cannot be
+    anchored. There is deliberately no fall back to the date rule alone: that rule
+    is the conditioning the anchor bound replaces, and a cell taking it while its
+    context recorded the tighter one would carry the defect together with a record
+    saying it had been fixed. ``arrival-cut-ledger`` counts those refusals.
+    """
+    provenance: Literal["as-stored", "dated", "truncated"] = "as-stored"
+    if cutoff is None:
+        return _Placement(snapshot_date, payload, documents, provenance, None)
+    # Nothing is removed from a `dated` payload by the DATE rule: it is what the
+    # docket served. The anchor bound below can still remove from it.
+    dropped_entries = 0
+    reconstruct = read.dated is None or not provision.shows_the_moment(read.dated[1], cutoff)
+    if not reconstruct and read.dated is not None:
+        # What the docket really served at the moment, which also knows what had
+        # not yet been filed — strictly better than reconstructing it, so it is
+        # preferred and recorded apart. Only where it reaches the trigger, though:
+        # a stored snapshot from well before the moment would place the cell
+        # earlier than the cohort it is filed under.
+        snapshot_date, payload = read.dated
+        provenance = "dated"
+    boundary = arrival_cut.CutBoundary(kind="date")
+    if provision.is_interim_arrival(event):
+        # The anchor bound, before the date rule and on BOTH provenances. A
+        # `dated` payload is exempt from the date rule because the docket really
+        # served it — but it can have been served on the opening day itself, after
+        # that day's referral or disposition was docketed, so the one branch that
+        # reads a payload unmodified is the branch this bound is most needed on.
+        anchored = arrival_cut.cut_at_arrival(
+            payload,
+            docket_number=arrival_cut.payload_docket_number(payload),
+            opened_at=cutoff - timedelta(days=1),
+        )
+        if anchored is None:
+            typer.echo(
+                f"::warning::refusing to provision {case} {event}: the opening entry "
+                "could not be anchored in the snapshot, so the arrival moment's "
+                "information set cannot be located",
+                err=True,
+            )
+            raise typer.Exit(code=4)
+        payload = anchored.payload
+        boundary = arrival_cut.CutBoundary(
+            kind="arrival-position", anchor_index=anchored.anchor_index
+        )
+        dropped_entries += anchored.dropped_same_day
+    if reconstruct:
+        # Reconstructed from a later payload: post-cutoff entries removed, and an
+        # entry whose date is missing or unparseable removed with them
+        # (`truncate_snapshot` fails closed — an undated entry could be the one
+        # that decides the case). Never `blind`: this path always holds a cutoff to
+        # keep entries against, so it never removes the proceedings key outright,
+        # which is what that provenance records.
+        payload, date_dropped = truncate_snapshot(payload, cutoff)
+        dropped_entries += date_dropped
+        # The same date rule over the top-level fields truncation does not reach,
+        # so the cut docket does not carry an argument date whose entry it just
+        # removed.
+        payload = provision.cut_dated_fields(payload, cutoff)
+        # The docket as at the cutoff is dated by the cutoff, not by the pull whose
+        # bytes it was reconstructed from — otherwise the one file the cell's
+        # information set is judged against carries a later date than anything in
+        # it.
+        snapshot_date = cutoff
+        provenance = "truncated"
+    # Documents take the DATE rule under either cut kind, and that residual is
+    # stated rather than closed: a document is placed by the entry date its link
+    # rode on, which cannot say where inside the opening day it sat, and the one
+    # document an arrival cell most needs — the application itself — is filed on
+    # that day. Tightening to the day before would cost the cell its own
+    # application to remove a tail the corpus cannot locate.
+    kept = provision.documents_before(documents, cutoff)
+    dropped_documents = len(documents) - len(kept)
+    # Spoken, never written to `context.json`: the cell reads that file, and how
+    # much a cut removed separates a grant from a denial about as cleanly as the
+    # disposing order does. Here it is the harness's own record — the auditable
+    # size of what placement excluded.
+    typer.echo(
+        f"::notice::{case} placed at {cutoff.isoformat()} ({provenance}, {boundary.kind}): "
+        f"{dropped_entries} entr(ies) and {dropped_documents} document(s) "
+        f"are outside the moment",
+        err=True,
+    )
+    return _Placement(snapshot_date, payload, kept, provenance, boundary)
+
+
 @app.command("provision-snapshot")
 def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     *,
@@ -8288,16 +8525,20 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         bool,
         typer.Option(
             "--moment-cutoff/--no-moment-cutoff",
-            help="Cut a forward cell's snapshot and documents to the "
-            "information set its --event declares: everything filed strictly "
-            "before the day after the event opened. A stage's later moments "
-            "exist because their information sets differ, so a grant-moment "
-            "merits cell provisioned from the latest snapshot would read the "
-            "merits briefs only the briefed moment declares. On by default; it "
-            "acts only on a forward cell whose --event names a declared moment "
-            "whose opened_at is that moment's trigger and whose corpus row "
-            "records it, so a case-baseline cell and an evaluate cell (no "
-            "--event) are untouched either way.",
+            help="Cut a cell's snapshot and documents to the information set "
+            "its --event declares: everything filed strictly before the day "
+            "after the event opened, and on the interim arrival moment a stop "
+            "at the docket entry that opened the event, since an application "
+            "can be submitted and disposed of inside one day. A stage's later "
+            "moments exist because their information sets differ, so a "
+            "grant-moment merits cell provisioned from the latest snapshot "
+            "would read the merits briefs only the briefed moment declares. On "
+            "by default; it acts on a cell whose --event names a declared "
+            "moment whose opened_at is that moment's trigger and whose corpus "
+            "row records it, so a case-baseline cell and an evaluate cell (no "
+            "--event) are untouched either way. Forward-only except on the "
+            "interim arrival moment, whose bound is a property of the moment "
+            "rather than the lane and so applies in either mode.",
         ),
     ] = True,
     max_snapshot_age_days: Annotated[
@@ -8331,20 +8572,29 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
 
     "Most recent" is the answer only for a cell that has no declared moment of
     its own. Where ``--event`` names one (and ``--moment-cutoff`` is on, which is
-    the default), a forward cell is placed at that moment instead: the snapshot
+    the default), the cell is placed at that moment instead: the snapshot
     is the one the docket served before the cutoff if the corpus stored one
     (``dated``), otherwise the latest payload with its post-cutoff entries
     removed and its date set to the cutoff (``truncated``), and the documents are
-    cut with it. ``record/context.json`` records which, and the cutoff. Both
-    gates below run on the latest payload first, before any of that.
+    cut with it. ``record/context.json`` records which, the cutoff, and — in
+    ``cut_kind`` / ``cut_anchor_index`` — which rule bounded the entries inside
+    it (:func:`_place_at_moment`). Both gates below run on the latest payload
+    first, before any of that.
 
-    Exits non-zero if the corpus holds no snapshot for the case
-    (code 1), or — under ``--refuse-terminal`` on a forward cell — if the
-    record or the snapshot shows the event is not open (code 3, nothing
-    written): the record already holds the outcome
-    (:func:`fedcourtsai.store.forward_refusal_reason`), the snapshot is older
-    than the forward staleness bound, or the snapshot text discloses the
-    outcome (see :func:`_forward_leakage`).
+    Exits non-zero in three ways, kept apart so a refused cell is attributable:
+
+    * **1** — the corpus holds no snapshot for the case.
+    * **3** — under ``--refuse-terminal`` on a forward cell, the record or the
+      snapshot shows the event is not open (nothing written): the record already
+      holds the outcome (:func:`fedcourtsai.store.forward_refusal_reason`), the
+      snapshot is older than the forward staleness bound, or the snapshot text
+      discloses the outcome (see :func:`_forward_leakage`).
+    * **4** — an interim arrival cell whose opening entry cannot be anchored in
+      the snapshot (nothing written). Mode-independent and not gated on
+      ``--refuse-terminal``: the arrival moment's information set cannot be
+      located, and provisioning on the date rule alone would hand the cell the
+      conditioning that rule exists to replace. ``arrival-cut-ledger`` counts
+      these.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -8359,7 +8609,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         case,
         event,
         want_row=gate_active,
-        cut=moment_cutoff and mode == "forward" and bool(event),
+        # The interim arrival moment takes its cut in EITHER mode. Every other
+        # moment's cut is forward-only because the replay provisioners take their
+        # own; the arrival bound is a property of the moment rather than of the
+        # lane, and a replay path that provisioned one uncut would reconstruct the
+        # exact conditioning the forward path refuses.
+        cut=moment_cutoff
+        and bool(event)
+        and (mode == "forward" or provision.is_interim_arrival(event)),
     )
     found = read.latest
     documents = read.documents
@@ -8419,49 +8676,12 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     # construction. The terminal scan asks whether the docket is decided, and a
     # disposing order filed after the cutoff is exactly what the cut would hide:
     # the cell would be provisioned, not refused, against a case that is over.
-    provenance: Literal["as-stored", "dated", "truncated"] = "as-stored"
-    # Nothing was removed from a `dated` payload: it is what the docket served.
-    dropped_entries = 0
-    if cutoff is not None:
-        if read.dated is not None and provision.shows_the_moment(read.dated[1], cutoff):
-            # What the docket really served at the moment, which also knows what
-            # had not yet been filed — strictly better than reconstructing it, so
-            # it is preferred and recorded apart. Only where it reaches the
-            # trigger, though: a stored snapshot from well before the moment
-            # would place the cell earlier than the cohort it is filed under.
-            snapshot_date, payload = read.dated
-            provenance = "dated"
-        else:
-            # Reconstructed from a later payload: post-cutoff entries removed,
-            # and an entry whose date is missing or unparseable removed with them
-            # (`truncate_snapshot` fails closed — an undated entry could be the
-            # one that decides the case). Never `blind`: this path always holds a
-            # cutoff to keep entries against, so it never removes the proceedings
-            # key outright, which is what that provenance records.
-            payload, dropped_entries = truncate_snapshot(payload, cutoff)
-            # The same date rule over the top-level fields truncation does not
-            # reach, so the cut docket does not carry an argument date whose
-            # entry it just removed.
-            payload = provision.cut_dated_fields(payload, cutoff)
-            # The docket as at the cutoff is dated by the cutoff, not by the pull
-            # whose bytes it was reconstructed from — otherwise the one file the
-            # cell's information set is judged against carries a later date than
-            # anything in it.
-            snapshot_date = cutoff
-            provenance = "truncated"
-        kept = provision.documents_before(documents, cutoff)
-        dropped_documents = len(documents) - len(kept)
-        documents = kept
-        # Spoken, never written to `context.json`: the cell reads that file, and
-        # how much a cut removed separates a grant from a denial about as
-        # cleanly as the disposing order does. Here it is the harness's own
-        # record — the auditable size of what placement excluded.
-        typer.echo(
-            f"::notice::{case} placed at {cutoff.isoformat()} ({provenance}): "
-            f"{dropped_entries} entr(ies) and {dropped_documents} document(s) "
-            f"postdate the moment",
-            err=True,
-        )
+    placement = _place_at_moment(
+        case, event, cutoff, read, payload=payload, snapshot_date=snapshot_date, documents=documents
+    )
+    snapshot_date = placement.snapshot_date
+    payload = placement.payload
+    documents = placement.documents
     paths = CasePaths(settings.data_root, court, docket)
     dest = out or paths.snapshot(snapshot_date.isoformat())
     write_raw_json(dest, payload)
@@ -8482,11 +8702,16 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             snapshot_date,
             payload,
             mode,
-            provenance=provenance,
+            provenance=placement.provenance,
             cutoff=cutoff,
+            boundary=placement.boundary,
         ).model_dump(mode="json"),
     )
-    placed = f" cut at {cutoff.isoformat()} ({provenance})" if cutoff is not None else ""
+    placed = (
+        f" cut at {cutoff.isoformat()} ({placement.provenance}, {placement.boundary.kind})"
+        if cutoff is not None and placement.boundary is not None
+        else ""
+    )
     typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}){placed} -> {dest}")
     if documents:
         for doc in documents:

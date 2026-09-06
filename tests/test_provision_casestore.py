@@ -162,7 +162,15 @@ def test_provision_record_is_byte_identical_when_cut_to_a_moment(
                     {
                         "id": 1,
                         "date_filed": "2026-06-22",
-                        "description": "Application (26A11) for a stay of the mandate.",
+                        # The head entry carries the submission clause, as a real
+                        # application docket's does: the arrival moment's anchor
+                        # bound locates the cell's boundary on that entry, and a
+                        # docket naming none refuses rather than being cut at the
+                        # day.
+                        "description": (
+                            "Application (26A11) for a stay of the mandate, "
+                            "submitted to The Chief Justice."
+                        ),
                     }
                 ],
             },
