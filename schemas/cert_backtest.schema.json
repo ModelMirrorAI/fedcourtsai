@@ -130,12 +130,12 @@
         },
         "scope": {
           "default": "all",
-          "description": "``--scope``: 'all' every modern-cert petition, 'paid' the paid segment the salience gate scores, 'selected' the gate's carve-out core. Three different populations with three different denial base rates",
+          "description": "``--scope``: 'all' every modern-cert petition, 'paid' the paid segment the salience gate scores (an IFP-based proxy for it, the dominant but not the only Tier-0 exclusion), 'selected' the gate's **carve-out core** \u2014 CVSG or at/above `salience_floor`, which is the N-independent core of the live selected slice and not that slice, since the live one also fills to N by rank. Three different populations with three different denial base rates",
           "title": "Scope",
           "type": "string"
         },
         "skip_engines": {
-          "description": "``--skip-engines``, sorted: engines opted out of the replay by the predictor's own configured engine, so a predictor missing from the board is legible as a dispatch choice rather than a routing gap",
+          "description": "``--skip-engines``, sorted: engines opted out of the replay by the predictor's own configured engine, so a predictor missing from the board is legible as a deliberate opt-out. Empty where no replay ran \u2014 an opt-out has no meaning without one \u2014 and it is not the only reason a predictor can be absent: `dropped_predictors` carries the run-time ones",
           "items": {
             "type": "string"
           },
@@ -233,7 +233,7 @@
             }
           ],
           "default": null,
-          "description": "The model that backend ran, taken from the runner's own resolved model (the shared pricing default table the usage ledger prices against, so this cannot drift from what a cell was billed at). Null whenever no model ran \u2014 the offline baselines and the offline 'stub'/'replay' backends \u2014 so a null here marks a number that no inference produced",
+          "description": "The model that backend was invoked with, taken from the runner's own resolved model (the shared pricing default table the usage ledger prices against, so this cannot drift from what a cell was billed at). Null whenever no model ran **in this run**: the offline baselines, and the offline 'stub'/'replay' backends. Read it with `engine` \u2014 'stub' means canned numbers, while 'replay' re-emits one captured real forecast verbatim across every petition, which is an inference that happened in some other run and is a constant predictor here",
           "title": "Model"
         },
         "predictor_id": {
@@ -269,11 +269,33 @@
     },
     "CertBacktestProvenance": {
       "additionalProperties": false,
-      "description": "What produced a cert back-test report: the run's identity and its dispatch.\n\nThe report's self-identification, and the reason it exists: predictor ids are\nidentical under every backend \u2014 a ``--engine stub`` replay of\n``claude-baseline`` writes entries named ``claude-baseline`` \u2014 so without this\nblock an offline mechanics rehearsal and a token-spending real-engine replay\nare the same document, and a reader (the performance digest included) would\nrender stub numbers under real predictor names.\n\nAbsence reads conservatively: a report carrying the default block asserts no\nengine and no run, which is the reading that never overstates what produced\nthe figures. The **authority on what ran** is each entry's own\n``engine``/``model`` pair; this block records the invocation around them.",
+      "description": "What produced a cert back-test report: the run, its dispatch, and its config.\n\nThe report's self-identification, and the reason it exists: predictor ids are\nidentical under every backend \u2014 a ``--engine stub`` replay of\n``claude-baseline`` writes entries named ``claude-baseline`` \u2014 so without this\nblock an offline mechanics rehearsal and a token-spending real-engine replay\nare the same document, and a reader would render stub numbers under real\npredictor names. It records what ran; refusing or labelling a rehearsal is\nthe reader's own job, and each reader has to do it.\n\nThe **authority on what ran** is each entry's own ``engine``/``model`` pair;\nthis block records the invocation and the resolved config around them. It is\ndeliberately not only the CLI options: ``salience_floor`` and\n``base_rate_lookback_terms`` move the population and the segment baselines\nunder an identical dispatch string, so a decomposition that had only the\ndispatch would be comparing samples it could not tell apart.",
       "properties": {
+        "base_rate_lookback_terms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The base-rate lookback window the run resolved (config; 0 is unbounded). It sets every entry's `segment_base_rate` and so every `mean_brier_skill`, and it rides in no process digest \u2014 so without it here, per-band skill across two reports is not a comparison. Null only where no segment context was built (the empty report)",
+          "title": "Base Rate Lookback Terms"
+        },
         "dispatch": {
           "$ref": "#/$defs/CertBacktestDispatch",
           "description": "The parameters the run was dispatched with \u2014 the population definition and the engine routing behind these scores"
+        },
+        "dropped_predictors": {
+          "description": "Enabled predictors that produced no entry for a **run-time** reason, sorted: their engine had no registered runner, or its CLI binary turned out to be missing mid-run. The deliberate opt-out is `dispatch.skip_engines` instead. Recorded because a board silently short one engine is a different comparison from the three-engine one it looks like, and stderr does not survive the runner",
+          "items": {
+            "type": "string"
+          },
+          "title": "Dropped Predictors",
+          "type": "array"
         },
         "run_id": {
           "anyOf": [
@@ -285,8 +307,23 @@
             }
           ],
           "default": null,
-          "description": "The replay's run id (a UTC timestamp) \u2014 the id its provisioned cells were written under in the scratch tree, so a report can be tied back to the run that made it. Null when no engine replay ran: the offline reference baselines are pure functions of the corpus and have no run",
+          "description": "The replay's own run id (a UTC timestamp): the id its provisioned cells were written under in the scratch tree, which is discarded with the runner \u2014 so this is the replay's as-of stamp and a non-null 'an engine replay happened' mark, not a handle on surviving artifacts. Null when no engine replay ran: the offline reference baselines are pure functions of the corpus and have no run",
           "title": "Run Id"
+        },
+        "salience_floor": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The frozen salience floor the run resolved (config, not a constant). It is what `--scope selected` *means*, so two reports both stamped 'selected' under different floors are two populations; null only where no selection was run at all (the empty report)",
+          "title": "Salience Floor"
         }
       },
       "title": "CertBacktestProvenance",
@@ -392,8 +429,16 @@
       "type": "integer"
     },
     "provenance": {
-      "$ref": "#/$defs/CertBacktestProvenance",
-      "description": "What produced this report: the replay's run id and the dispatch parameters behind it. Read it before reading any score \u2014 the entries are named for predictors, not for the backends that ran them, so this block plus each entry's `engine`/`model` is the only thing separating a token-spending real-engine replay from an offline stub rehearsal of the same machinery"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CertBacktestProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What produced this report: the replay's run id, the dispatch parameters, and the resolved config behind them. Read it before reading any score \u2014 the entries are named for predictors, not for the backends that ran them, so this block plus each entry's `engine`/`model` is the only thing separating a token-spending real-engine replay from an offline stub rehearsal of the same machinery. Null means **unknown**, never 'offline': a report written before provenance was recorded says nothing about what produced it, and a reader should refuse it rather than read a default into it. Every report the pipeline writes carries the block"
     },
     "provisioning": {
       "additionalProperties": {

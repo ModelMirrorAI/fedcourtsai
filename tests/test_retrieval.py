@@ -1397,7 +1397,7 @@ def test_retrieval_log_refuses_a_mode_outside_the_vocabulary() -> None:
             role=UsageRole.predictor,
             actor_id="gemini-baseline",
             engine=Engine.gemini,
-            mode="sideways",  # type: ignore[arg-type]
+            mode="sideways",
         )
 
 

@@ -2054,6 +2054,12 @@ which it was carries ``None`` instead, so absence stays distinguishable from a
 mode. Written here rather than restated at each read site, because the modes are
 what the leakage rules key on — an out-of-vocabulary string reaching a grader as
 if it were a mode is the failure this alias exists to make impossible.
+
+One field stays a free ``str`` deliberately: :class:`PredictionContext`'s own
+``mode``. That file is written into the agent's workspace, so its value is
+checked at the read site — which can then say *which* value was refused, and
+keep the rest of the cell's frozen conditioning — rather than failing the whole
+record to a parse error.
 """
 
 
@@ -4010,13 +4016,19 @@ class CertBacktestDispatch(_Strict):
         default_factory=list,
         description="``--skip-engines``, sorted: engines opted out of the replay by "
         "the predictor's own configured engine, so a predictor missing from the "
-        "board is legible as a dispatch choice rather than a routing gap",
+        "board is legible as a deliberate opt-out. Empty where no replay ran — an "
+        "opt-out has no meaning without one — and it is not the only reason a "
+        "predictor can be absent: `dropped_predictors` carries the run-time ones",
     )
     scope: str = Field(
         default="all",
         description="``--scope``: 'all' every modern-cert petition, 'paid' the paid "
-        "segment the salience gate scores, 'selected' the gate's carve-out core. "
-        "Three different populations with three different denial base rates",
+        "segment the salience gate scores (an IFP-based proxy for it, the dominant "
+        "but not the only Tier-0 exclusion), 'selected' the gate's **carve-out "
+        "core** — CVSG or at/above `salience_floor`, which is the N-independent "
+        "core of the live selected slice and not that slice, since the live one "
+        "also fills to N by rank. Three different populations with three different "
+        "denial base rates",
     )
     spread: bool = Field(
         default=False,
@@ -4034,32 +4046,64 @@ class CertBacktestDispatch(_Strict):
 
 
 class CertBacktestProvenance(_Strict):
-    """What produced a cert back-test report: the run's identity and its dispatch.
+    """What produced a cert back-test report: the run, its dispatch, and its config.
 
     The report's self-identification, and the reason it exists: predictor ids are
     identical under every backend — a ``--engine stub`` replay of
     ``claude-baseline`` writes entries named ``claude-baseline`` — so without this
     block an offline mechanics rehearsal and a token-spending real-engine replay
-    are the same document, and a reader (the performance digest included) would
-    render stub numbers under real predictor names.
+    are the same document, and a reader would render stub numbers under real
+    predictor names. It records what ran; refusing or labelling a rehearsal is
+    the reader's own job, and each reader has to do it.
 
-    Absence reads conservatively: a report carrying the default block asserts no
-    engine and no run, which is the reading that never overstates what produced
-    the figures. The **authority on what ran** is each entry's own
-    ``engine``/``model`` pair; this block records the invocation around them.
+    The **authority on what ran** is each entry's own ``engine``/``model`` pair;
+    this block records the invocation and the resolved config around them. It is
+    deliberately not only the CLI options: ``salience_floor`` and
+    ``base_rate_lookback_terms`` move the population and the segment baselines
+    under an identical dispatch string, so a decomposition that had only the
+    dispatch would be comparing samples it could not tell apart.
     """
 
     run_id: str | None = Field(
         default=None,
-        description="The replay's run id (a UTC timestamp) — the id its provisioned "
-        "cells were written under in the scratch tree, so a report can be tied back "
-        "to the run that made it. Null when no engine replay ran: the offline "
-        "reference baselines are pure functions of the corpus and have no run",
+        description="The replay's own run id (a UTC timestamp): the id its "
+        "provisioned cells were written under in the scratch tree, which is "
+        "discarded with the runner — so this is the replay's as-of stamp and a "
+        "non-null 'an engine replay happened' mark, not a handle on surviving "
+        "artifacts. Null when no engine replay ran: the offline reference "
+        "baselines are pure functions of the corpus and have no run",
     )
     dispatch: CertBacktestDispatch = Field(
         default_factory=CertBacktestDispatch,
         description="The parameters the run was dispatched with — the population "
         "definition and the engine routing behind these scores",
+    )
+    salience_floor: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The frozen salience floor the run resolved (config, not a "
+        "constant). It is what `--scope selected` *means*, so two reports both "
+        "stamped 'selected' under different floors are two populations; null only "
+        "where no selection was run at all (the empty report)",
+    )
+    base_rate_lookback_terms: int | None = Field(
+        default=None,
+        ge=0,
+        description="The base-rate lookback window the run resolved (config; 0 is "
+        "unbounded). It sets every entry's `segment_base_rate` and so every "
+        "`mean_brier_skill`, and it rides in no process digest — so without it "
+        "here, per-band skill across two reports is not a comparison. Null only "
+        "where no segment context was built (the empty report)",
+    )
+    dropped_predictors: list[str] = Field(
+        default_factory=list,
+        description="Enabled predictors that produced no entry for a **run-time** "
+        "reason, sorted: their engine had no registered runner, or its CLI binary "
+        "turned out to be missing mid-run. The deliberate opt-out is "
+        "`dispatch.skip_engines` instead. Recorded because a board silently short "
+        "one engine is a different comparison from the three-engine one it looks "
+        "like, and stderr does not survive the runner",
     )
 
 
@@ -4122,12 +4166,14 @@ class CertBacktestEntry(_Strict):
     )
     model: str | None = Field(
         default=None,
-        description="The model that backend ran, taken from the runner's own "
-        "resolved model (the shared pricing default table the usage ledger prices "
-        "against, so this cannot drift from what a cell was billed at). Null "
-        "whenever no model ran — the offline baselines and the offline "
-        "'stub'/'replay' backends — so a null here marks a number that no "
-        "inference produced",
+        description="The model that backend was invoked with, taken from the "
+        "runner's own resolved model (the shared pricing default table the usage "
+        "ledger prices against, so this cannot drift from what a cell was billed "
+        "at). Null whenever no model ran **in this run**: the offline baselines, "
+        "and the offline 'stub'/'replay' backends. Read it with `engine` — 'stub' "
+        "means canned numbers, while 'replay' re-emits one captured real forecast "
+        "verbatim across every petition, which is an inference that happened in "
+        "some other run and is a constant predictor here",
     )
 
 
@@ -4188,14 +4234,18 @@ class CertBacktest(_Strict):
         "on. Read the mix before reading the scores. Empty on reports written "
         "before the split existed",
     )
-    provenance: CertBacktestProvenance = Field(
-        default_factory=CertBacktestProvenance,
-        description="What produced this report: the replay's run id and the "
-        "dispatch parameters behind it. Read it before reading any score — the "
-        "entries are named for predictors, not for the backends that ran them, so "
-        "this block plus each entry's `engine`/`model` is the only thing "
-        "separating a token-spending real-engine replay from an offline stub "
-        "rehearsal of the same machinery",
+    provenance: CertBacktestProvenance | None = Field(
+        default=None,
+        description="What produced this report: the replay's run id, the dispatch "
+        "parameters, and the resolved config behind them. Read it before reading "
+        "any score — the entries are named for predictors, not for the backends "
+        "that ran them, so this block plus each entry's `engine`/`model` is the "
+        "only thing separating a token-spending real-engine replay from an "
+        "offline stub rehearsal of the same machinery. Null means **unknown**, "
+        "never 'offline': a report written before provenance was recorded says "
+        "nothing about what produced it, and a reader should refuse it rather "
+        "than read a default into it. Every report the pipeline writes carries "
+        "the block",
     )
     entries: list[CertBacktestEntry] = Field(default_factory=list)
 

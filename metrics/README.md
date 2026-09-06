@@ -1046,13 +1046,25 @@ the rendered table) and
   Predictor ids are identical under every backend — an `engine: stub` rehearsal
   writes entries named `claude-baseline` — so the block records the replay's run
   id and the dispatch behind it (`engine`, `skip_engines`, `scope`, `spread`,
-  `limit`), and each entry records the backend that actually ran it plus that
-  backend's model. A null `model` is the mark of a number no inference produced:
-  the offline reference baselines, and any offline `stub`/`replay` sweep. The
-  dispatch parameters are part of the reading, not bookkeeping: `scope`,
-  `spread`, and `limit` choose the population, and the always-deny floor every
-  lift is measured against moves with them, so two differently dispatched
-  reports are two samples whose top lines are not comparable. Produced by the
+  `limit`), and each entry records the backend that actually ran it plus the
+  model that backend was invoked with. A null `model` means no model ran **in
+  that run**: the offline reference baselines, and the offline `stub`/`replay`
+  backends — `stub` being canned numbers, while `replay` re-emits one captured
+  forecast across every petition, a constant predictor here. The dispatch is
+  part of the reading, not bookkeeping: `scope`, `spread`, and `limit` choose
+  the population, and the always-deny floor every lift is measured against moves
+  with them, so two differently dispatched reports are two samples whose top
+  lines are not comparable. Two config values ride the block for the same
+  reason, because they move the population and the baselines under an *identical*
+  dispatch: `salience_floor` (what `--scope selected` means) and
+  `base_rate_lookback_terms` (what every `segment_base_rate`, and so every
+  `mean_brier_skill`, is scored against — it sits in no process digest, so
+  without it here a per-band comparison across two reports is not one).
+  `dropped_predictors` names the predictors lost at run time (no registered
+  runner, or a missing CLI binary) as against the deliberate `skip_engines`
+  opt-out, since a board silently short one engine is not the three-engine
+  comparison it looks like. A **null** `provenance` means unknown, never
+  offline: read nothing from such a report. Produced by the
   maintainer-triggered
   `run-backtest` workflow — a real-engine replay spends tokens, so it never
   runs on a schedule — and labeled retrospective like `backtest.json`. A run

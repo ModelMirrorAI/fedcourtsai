@@ -4407,19 +4407,31 @@ def cert_backtest_cmd(
             f"unknown scope {scope!r}; choose one of {', '.join(CERT_BACKTEST_SCOPES)}",
             param_hint="--scope",
         )
+    if engine and engine != "auto" and engine not in available_backends():
+        # Checked here rather than left to `get_runner`, so a typo cannot reach
+        # the artifact: the recorded engine is what tells a real-engine board from
+        # a rehearsal, and a value outside the vocabulary tells a reader nothing.
+        raise typer.BadParameter(
+            f"unknown backend {engine!r}; choose 'auto' or one of "
+            f"{', '.join(available_backends())}",
+            param_hint="--engine",
+        )
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     destination = out if out is not None else settings.metrics_root / "cert-backtest.json"
+    skipped_engines = frozenset(e.strip() for e in skip_engines.split(",") if e.strip())
     # The report's self-identification, recorded from the dispatch rather than
     # inferred from the scores: predictor ids read the same under every backend,
     # so this block plus each entry's engine/model is what separates a real-engine
     # replay from an offline rehearsal of the same machinery. Built before any
-    # work so even the no-corpus report carries it. `--work-dir` is deliberately
-    # absent: a scratch path is not a parameter of the measurement, and it would
-    # write a runner-local path into a committed artifact.
+    # work so even the no-corpus report carries it. An opt-out is recorded only
+    # where a replay ran, since nothing was opted out of otherwise. `--work-dir`
+    # is deliberately absent: a scratch path is not a parameter of the
+    # measurement, and it would write a runner-local path into a committed
+    # artifact.
     dispatch = CertBacktestDispatch(
         engine=engine,
-        skip_engines=sorted(e.strip() for e in skip_engines.split(",") if e.strip()),
+        skip_engines=sorted(skipped_engines) if engine else [],
         scope=scope,
         spread=spread,
         limit=limit,
@@ -4431,6 +4443,10 @@ def cert_backtest_cmd(
         )
         typer.echo(f"No corpus at {db_path} — wrote empty cert back-test report -> {destination}")
         return
+    # The two frozen config values that move the population and the segment
+    # baselines under an identical dispatch string, so both ride the provenance:
+    # the floor is what `--scope selected` means, and the lookback window sets
+    # every segment base rate the per-band skill is scored against.
     salience_cfg = load_salience_config(settings.config_root)
     with corpus.connect(db_path) as conn:
         items = select_cert_backtest_set(
@@ -4443,6 +4459,7 @@ def cert_backtest_cmd(
         backtesters = default_backtesters(conn)
         provisioning: dict[str, int] = {}  # empty unless an agentic replay ran
         replay_run_id: str | None = None  # null unless one did: baselines have no run
+        dropped: list[str] = []  # predictors lost at run time, not opted out
         if engine:
             items, unreplayable = replayable_items(db_path, items)
             if unreplayable:
@@ -4452,7 +4469,6 @@ def cert_backtest_cmd(
                     err=True,
                 )
             work_root = work_dir if work_dir is not None else Path(tempfile.mkdtemp())
-            skipped_engines = frozenset(e.strip() for e in skip_engines.split(",") if e.strip())
             known_engines = {
                 str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")
             }
@@ -4479,6 +4495,10 @@ def cert_backtest_cmd(
                 skip_engines=skipped_engines,
                 run_id=replay_run_id,
             )
+            # Both run-time losses ride the report, not only stderr: a board
+            # silently short one engine is a different comparison from the
+            # three-engine one it looks like, and the run log expires.
+            dropped = list(unavailable)
             for pid in unavailable:
                 typer.echo(
                     f"dropped predictor {pid}: its engine's CLI was not available at run time",
@@ -4491,6 +4511,7 @@ def cert_backtest_cmd(
                     and predictor.id not in unavailable
                     and str(predictor.engine) not in skipped_engines
                 ):
+                    dropped.append(predictor.id)
                     typer.echo(
                         f"skipped predictor {predictor.id}: engine "
                         f"{predictor.engine} has no registered runner",
@@ -4509,7 +4530,13 @@ def cert_backtest_cmd(
             items,
             segments=segments,
             provisioning=provisioning,
-            provenance=CertBacktestProvenance(run_id=replay_run_id, dispatch=dispatch),
+            provenance=CertBacktestProvenance(
+                run_id=replay_run_id,
+                dispatch=dispatch,
+                salience_floor=salience_cfg.floor,
+                base_rate_lookback_terms=salience_cfg.base_rate_lookback_terms,
+                dropped_predictors=sorted(dropped),
+            ),
         )
     write_json(destination, report)
     typer.echo(

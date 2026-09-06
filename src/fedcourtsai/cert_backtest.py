@@ -387,11 +387,11 @@ def _entry_raw_date(entry: Mapping[str, Any]) -> str | None:
 class ReplayedBacktester:
     """A :class:`Backtester` over predictions already produced by an engine replay.
 
-    Carries the backend that produced them and the model that backend ran, because
-    ``id`` cannot: it is the predictor's registry id, identical whether a real
-    agent or the offline stub wrote the cells. Both are ``None`` only on a
-    directly-constructed instance that names neither (tests); the replay always
-    fills ``engine``.
+    Carries the backend that produced them and the model that backend was invoked
+    with, because ``id`` cannot: it is the predictor's registry id, identical
+    whether a real agent or the offline stub wrote the cells. :func:`replay_predictors`
+    always fills ``engine``; ``model`` is null for the offline backends, which
+    invoke none.
     """
 
     id: str
@@ -404,14 +404,16 @@ class ReplayedBacktester:
 
 
 def replay_model(runner: Runner) -> str | None:
-    """The model ``runner`` actually runs, or ``None`` when no model runs at all.
+    """The model ``runner`` invokes, or ``None`` when it invokes none at all.
 
-    The agentic backends carry the model they invoke, resolved from the shared
-    pricing defaults (:data:`fedcourtsai.pricing.DEFAULT_MODELS`) — the same table
-    the usage ledger prices a cell against, so a report's recorded model cannot
-    drift from what the spend was billed at, nor from a default that moves. The
-    offline ``stub``/``replay`` backends run no model, and their ``None`` is the
-    mark this whole provenance block exists for: a number no inference produced.
+    The agentic backends carry the model they pass their CLI, resolved from the
+    shared pricing defaults (:data:`fedcourtsai.pricing.DEFAULT_MODELS`) — the same
+    table the usage ledger prices a cell against, so a report's recorded model
+    cannot drift from what the spend was billed at, nor from a default that moves.
+    It is what the engine was *asked* to run, like the ledger's own model field: a
+    provider-side substitution is invisible to both. The offline ``stub``/``replay``
+    backends invoke none, and their ``None`` is the mark this whole provenance
+    block exists for: a number this run spent nothing to produce.
 
     Read off the runner rather than recomposed from the registry entry, because
     the replay routes purely by backend — a predictor's ``model:`` override is not
@@ -892,18 +894,19 @@ def run_cert_backtest(
     skill breakdown vs the leakage-safe segment base rate — the same yardstick the
     forward stratum uses; omitted on the offline runs that pass no statpack.
 
-    ``provenance`` is the caller's record of the invocation (run id + dispatch);
+    ``provenance`` is the caller's record of the invocation (run id, dispatch, and
+    the resolved config that moves the population under an identical dispatch);
     each entry's own engine/model comes off the backtester that produced it, so
-    the two halves cannot disagree about what ran. Omitting it yields the default
-    block, which asserts no engine and no run — the reading that never overstates
-    what produced the figures, and the right one for the empty report.
+    the two halves cannot disagree about what ran. Omitting it leaves the block
+    null, which a reader must treat as *unknown provenance* rather than as an
+    offline run — every report the CLI writes carries one.
     """
     if not items:
         return CertBacktest(
             events_scored=0,
             predictors_evaluated=0,
             salience_version=SALIENCE_VERSION,
-            provenance=provenance or CertBacktestProvenance(),
+            provenance=provenance,
             entries=[],
         )
     always_denied_accuracy = sum(
@@ -922,6 +925,6 @@ def run_cert_backtest(
         salience_version=SALIENCE_VERSION,
         always_denied_accuracy=always_denied_accuracy,
         provisioning=dict(provisioning or {}),
-        provenance=provenance or CertBacktestProvenance(),
+        provenance=provenance,
         entries=entries,
     )
