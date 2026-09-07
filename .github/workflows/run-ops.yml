@@ -36,11 +36,14 @@ name: run-ops
 # schedule — narrower permissions, no corpus, no branch write — which is why it
 # is a job rather than another step.
 #
-# Failure signaling is separate from all of it: GitHub's own workflow-failure
-# notifications plus the issue-as-alarm channels (this job's `data-validation`
-# escalation, run-pull's `pull-log` / `live-log`) carry a break, so an open
-# alarm issue means exactly "something is wrong" and nothing here files on the
-# happy path.
+# Failure signaling is a separate channel from those digests, and stays one:
+# GitHub's own workflow-failure notifications plus the issue-as-alarm labels
+# (this job's `data-validation` escalation, run-pull's `pull-log` / `live-log`)
+# carry a break. An open issue under an ALARM label therefore means exactly
+# "something is wrong"; an open digest means only "unread". Nothing here files
+# an alarm on the happy path, and nothing rewrites a standing body — the
+# escalation edits its own issue, and only its own, so a recurring failure
+# latches onto one thread instead of spamming new ones.
 on:
   schedule:
     - cron: "0 8 * * *" # after run-pull (07:17) so the day's runs are visible
@@ -63,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     # Setup + report is a couple of minutes; the cap is sized for the degraded
     # API this job's retries exist to survive. Seven retryable shell calls
-    # across the three latching steps, plus the three the weekly digest's poster
+    # across its three retried steps, plus the three the weekly digest's poster
     # can make at its Python seam, each worth up to 105s when every attempt
     # times out (3 × `timeout 30` plus 5s + 10s of backoff): ~18 min of retry
     # alone. Under a 15 min cap the job would be killed mid-recovery, after the

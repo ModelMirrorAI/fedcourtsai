@@ -859,23 +859,30 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                               a facts-only PR when a run lands nothing)
 ```
 
-Run logging creates nothing on the happy path. A `run-pull` window's own record
-is its **Actions step summary** — the window × queue counts and the per-case
-unrecorded-outcome triage list — plus the run history behind it, which is where
-a reader goes for the reference view of recent windows. A window that fails or
-is stopped mid-run (timeout or a human's cancel — the shared lock never cancels
-an in-flight run) opens (or reuses, for the same day) a `pull-log` / `live-log`
-issue and leaves it open for a human — so an open run-log issue means exactly
-"a window broke".
+Run logging opens no issue on the happy path. A `run-pull` window that ends in
+success or failure lands its record on its own **Actions step summary** — the
+window × queue counts and the per-case unrecorded-outcome triage list — and the
+run history behind it is the reference view of recent windows. A window that
+fails or is stopped mid-run (timeout or a human's cancel — the shared lock never
+cancels an in-flight run) *also* opens (or reuses, for the same day) a
+`pull-log` / `live-log` issue and leaves it open for a human — so an open
+run-log issue means exactly "a window broke".
 
-**The issue list is the alarm surface, and only the alarm surface.** Nothing
-files on the happy path, nothing is edited in place, and no open issue means "a
-report is available": an open one always means something needs a human. What is
-merely *available to read* is a per-run artifact (the step summaries, the ops
-report on its run summary) or a digest issue the maintainer closes once read
-(`daily-digest`, `weekly-digest`) — never a standing body a job rewrites. That
-split is what keeps an open issue worth reacting to, and it is why an alarm
-never depends on a later window firing to stay honest.
+**An open issue is one of exactly three things, and the reader can tell which
+from its label.** An **alarm** — `pull-log`, `live-log`, `data-validation`,
+`pipeline-health` — is filed only by a failure and closed by a human once
+triaged, so an open one always means something needs attention. A **digest** —
+`daily-digest`, `weekly-digest` — is filed on the happy path and closed once
+read, so the open ones are the unread backlog and nothing more. The
+**`agent-feedback` tracker** is the one standing body a job writes to on a
+healthy run, by comment rather than by rewrite, and it stays open by design (its
+own body says so). Nothing else is an issue: a run's own record is a per-run
+artifact — the step summaries, the ops report on its run summary — never a
+long-lived body a job rewrites in place. Only the data-validation alarm edits a
+body, and only its own, so that a recurring failure latches onto one thread
+instead of spamming new ones. That split is what keeps an open issue worth
+reacting to, and it is why an alarm never depends on a later window firing to
+stay honest.
 
 To run the predict → evaluate → validate cascade for one case **locally** — off
 Actions, over the fixture corpus, offline by default — use `fedcourts

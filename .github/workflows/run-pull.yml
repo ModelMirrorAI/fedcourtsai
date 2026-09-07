@@ -274,13 +274,27 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       # Ops analytics: the window's counts in the Actions UI, no roll-up needed.
+      # Success OR failure — a window that broke after writing its queues still
+      # routed cases and still left unrecorded outcomes, and this summary is the
+      # only place either is now recorded. Never on cancellation: a queued window
+      # superseded on the shared lock has no reading to report. `count` renders a
+      # blank for a file the run never reached, so a window that fell over early
+      # still lands its row rather than failing this step on a missing file.
       - name: Roll the window up on the Actions summary
-        if: success()
+        if: success() || failure()
         env:
           COMMITTED: ${{ steps.commit.outputs.committed }}
         run: |
           set -euo pipefail
-          predict=$(jq 'length' predict-queue.json)
+          count() {
+            local n
+            if [ -f "$1" ] && n=$(jq 'length' "$1" 2>/dev/null | head -n 1) && [ -n "$n" ]; then
+              echo "$n"
+            else
+              echo "—"
+            fi
+          }
+          predict=$(count predict-queue.json)
           # Both rows are readings, not handoffs. The predict row counts the
           # cases this window routed into the queue (stamping `predict_queued_at`
           # as it goes); the evaluate row counts the gradings committed state
@@ -288,8 +302,8 @@ jobs:
           # derivation off exactly these cases. Each stage's own schedule is what
           # fans them out. Reported here because this window is where the numbers
           # move.
-          evaluate=$(jq 'length' evaluate-queue.json)
-          unrecorded=$(jq 'length' unrecorded-queue.json)
+          evaluate=$(count evaluate-queue.json)
+          unrecorded=$(count unrecorded-queue.json)
           if [ "${COMMITTED:-false}" = "true" ]; then
             snap="Committed the refreshed corpus pointer + new outcomes to the default branch."
           else
@@ -539,16 +553,26 @@ jobs:
       # disposition orders ride in the proceedings text), so a non-empty
       # unrecorded queue signals a case shape worth manual triage.
 
+      # Success or failure, never on cancellation — see the pull job's copy for
+      # the gating and the blank-on-absence rationale.
       - name: Roll the window up on the Actions summary
-        if: success()
+        if: success() || failure()
         env:
           COMMITTED: ${{ steps.commit.outputs.committed }}
         run: |
           set -euo pipefail
-          predict=$(jq 'length' predict-queue.json)
+          count() {
+            local n
+            if [ -f "$1" ] && n=$(jq 'length' "$1" 2>/dev/null | head -n 1) && [ -n "$n" ]; then
+              echo "$n"
+            else
+              echo "—"
+            fi
+          }
+          predict=$(count predict-queue.json)
           # Readings, not handoffs — see the pull job's copy.
-          evaluate=$(jq 'length' evaluate-queue.json)
-          unrecorded=$(jq 'length' unrecorded-queue.json)
+          evaluate=$(count evaluate-queue.json)
+          unrecorded=$(count unrecorded-queue.json)
           if [ "${COMMITTED:-false}" = "true" ]; then
             snap="Committed the refreshed corpus pointer + new outcomes to the default branch."
           else

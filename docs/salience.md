@@ -1272,7 +1272,7 @@ prediction's timing contract:
   leave-one-out, which nets out level-knowledge and leaves discrimination. It is
   a board-only figure — no cell records it, no predictor could have known it,
   and it never ranks — with its claim contract in
-  [metrics/README.md](../metrics/README.md). The ops report reports the selected segment's size and its base grant
+  [metrics/README.md](../metrics/README.md). The ops report carries the selected segment's size and its base grant
   rate, and compares predictions to that baseline **for the replay stratum
   only**: its calibration block filters to retrospective cells before averaging,
   so no volume of forward grading ever fills that line. Replay cells come from
@@ -1442,7 +1442,7 @@ reading the table rather than silent.
 
 The ops report's segment rate is a **third, different number**: pack-wide,
 blended across every Term and unmasked by any clock (`fedcourtsai.ops`). It is an
-operational statistic for the human board, never the scored baseline, so neither
+operational statistic for human reading, never the scored baseline, so neither
 knob applies to it.
 
 ### Scope: SCOTUS cert only, deliberately

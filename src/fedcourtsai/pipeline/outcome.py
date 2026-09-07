@@ -460,7 +460,7 @@ class UnrecordedOutcome:
     :func:`detect_resolution`, interpolating only closed-enum values and
     event ids — slugified ``[a-z0-9._-]`` strings minted by
     :func:`fedcourtsai.ids.event_id`, never raw text): it is
-    rendered into a GitHub issue body, so raw docket text — e.g.
+    rendered into a run's Actions step summary, so raw docket text — e.g.
     :func:`termination_signal` output — must never route here.
     """
 

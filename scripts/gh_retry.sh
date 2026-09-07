@@ -1,33 +1,32 @@
 # shellcheck shell=bash
 # A bounded retry around a single GitHub API call, for two classes of call on
-# the run surfaces. The **record** steps: the ops report's collection calls,
-# the weekly digest, the data-validation escalation, the per-day pull-log /
-# live-log alarms, the seed
-# guard, and run-backtest's result comment. The **handoff writes**, which are
-# the work rather than a record of it: the trigger-issue closes in run-evaluate
-# and the two fan-outs' `rejected` jobs. Calls outside both lists — the collect
-# jobs' own PR plumbing, ci.yml's label read — are left bare; a repo-wide rule
-# would be one nobody could keep.
+# the run surfaces. The **record** steps: the ops report's collection calls, the
+# weekly digest, the data-validation escalation, the per-day pull-log / live-log
+# alarms, and the seed guard. The **handoff writes**, which would be the work
+# rather than a record of it — a write another lane's derivation reads back.
+# Every lane derives its own backlog from committed state, so that class has no
+# members today; it is named here because the next such write belongs in it, and
+# the tables in `tests/test_workflow_cell_invariants.py` are empty for the same
+# reason. Calls outside both lists — the collect jobs' own PR plumbing, ci.yml's
+# label read — are left bare; a repo-wide rule would be one nobody could keep.
 #
 # The contract. A transient 5xx at any of them costs something the run never
 # earned — and what it costs differs by site, which is why they all get the
 # same wrapper. On the run-ops steps and the seed guard's clear-the-incident
 # path, a blip fails the step and so reddens a run that did its work, or leaves
-# a stale incident open over a healthy one. On the pull-log / live-log alarms
-# (which fire only on an already-failed window) and the back-test comment
-# (`continue-on-error`), nothing turns red: the loss is the record itself —
-# no incident issue for a day that broke. At the
-# handoff writes the loss is the work: a lost trigger-issue close leaves an
-# issue that run-ops reports as a stalled fan-out — a false alarm over a round
-# that finished. Three attempts absorb the blip; a sustained outage still
+# a stale incident open over a healthy one. On the pull-log / live-log alarms,
+# which fire only on an already-failed window, nothing turns red: the loss is
+# the record itself — no incident issue for a day that broke. At a handoff write
+# the loss would be the work: whatever another lane reads back, silently absent.
+# Three attempts absorb the blip; a sustained outage still
 # exhausts and returns non-zero, which is the right residue when the API itself
 # is down — retrying changes when a call fails, never what its failure means,
 # so the handoff writes stay fatal.
 #
 # Shape matters as much as the retry at the find-or-create lookups, where an
 # empty result is silently meaningful: an empty `num` reads as "no issue yet"
-# and opens a duplicate.
-# The rule there is that a retried call is never a non-final element of a
+# and opens a duplicate thread for the same broken day. The rule there is that
+# a retried call is never a non-final element of a
 # pipeline — either filter with `gh`'s own `--jq` inside the same command, or
 # assign the output and filter the variable — so `set -e` stops the step on the
 # assignment itself. (Note what that does and does not buy: it narrows the
@@ -43,10 +42,9 @@
 # wrapper exists to prevent, reached from the other side, and it is accepted —
 # a >30s write that still succeeds is far rarer than the transient failure
 # being absorbed, and the find-or-create at every such site converges on one
-# issue at the next window. What the sites without a find-or-create accept
-# instead: at the trigger-issue closes and the back-test comment a duplicate is
-# at worst a repeated comment on an issue that still ends in the state the close
-# was for.
+# issue at the next window. What a site without a find-or-create would accept
+# instead: a duplicate comment on a thread that still ends in the state the
+# write was for.
 #
 # Why each attempt is bounded (`timeout 30`). `gh` sets no client-side request
 # timeout, so a stalled connect against a degraded API hangs until the job's own
@@ -71,18 +69,14 @@
 #
 # Two consumption modes:
 #   * `source scripts/gh_retry.sh` — wherever the step runs after a checkout
-#     into a workspace no agent has written to (the run-ops jobs; run-evaluate's
-#     plan job).
+#     into a workspace no agent has written to (the run-ops job's three retried
+#     steps).
 #   * an inline copy of the function below — for the steps with no checkout to
 #     source it from: run-pull's two failure alarms and run-seed's guard, which
-#     must fire even when the checkout or the App-token mint failed, and the
-#     run-predict / run-evaluate `rejected` jobs, whose one job is to keep a
-#     declined request from stranding its issue open — giving them a checkout
-#     would add the failure mode they exist to remove. run-backtest's report
-#     step copies it for a different reason: its replay cells run their agents
-#     in that same workspace, so by then every file in it is agent-writable and
-#     sourcing one would run agent-authored shell against the job's token.
-#     Those copies are pinned byte-identical to this one by
+#     must fire even when the checkout or the App-token mint failed. A step
+#     whose workspace an agent has already written to would need a copy for a
+#     second reason — sourcing a file there runs agent-authored shell against
+#     the job's token. Those copies are pinned byte-identical to this one by
 #     `tests/test_workflow_cell_invariants.py`, so drift fails a test rather
 #     than quietly splitting the behavior in two.
 gh_retry() {

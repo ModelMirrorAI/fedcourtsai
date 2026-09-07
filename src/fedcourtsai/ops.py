@@ -520,8 +520,9 @@ def _health_questions(report: OpsReport) -> list[str]:
     """The digest's fixed interrogative bullets, with this week's answers.
 
     Deliberately short and interrogative — the numbers demand a reaction rather
-    than sit available for inspection; the daily ops report stays the reference
-    view. Renders from whatever the report holds, with explicit absences.
+    than sit available for inspection, which is what the daily ops report they
+    are drawn from already does. Renders from whatever the report holds, with
+    explicit absences.
     """
     substance = report.substance
     lines: list[str] = []
