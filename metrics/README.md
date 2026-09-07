@@ -54,7 +54,13 @@ which is regenerated on demand by `fedcourts docket`, and
 `semantic-grades-<stratum>-<scope>.json`, which `fedcourts semantic-summary`
 writes **only** when the semantic census clears both preconditions below — it
 is outside the gate precisely because its absence is a state the contract
-requires, not a missing artifact. The gate's presence check
+requires, not a missing artifact. One resident is a **record, not a roll-up**:
+`arrival-backfill-membership.json`, the durable copy of the arrival repair's
+filled-membership list (the enumeration `docs/freeze-record.md`'s apply entry
+requires committing before its source object lapses). It is written once and
+never regenerated — its diff is not a quality signal — it is never a
+predictor-performance surface, and nothing may be claimed from it beyond the
+population identities it preserves. The gate's presence check
 tracks the set the weekly refresh regenerates, so an artifact outside that set
 stays outside the gate:
 
