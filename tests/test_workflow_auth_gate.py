@@ -243,3 +243,51 @@ def test_the_agent_cells_sit_behind_the_review_hold() -> None:
             assert "approval" in needs, (
                 f"{name}:{job_name} runs an agent without waiting on the review hold"
             )
+
+
+def test_the_scheduled_back_test_spends_only_behind_the_review_hold() -> None:
+    """The same spend gate, on the lane the sweep above cannot see.
+
+    `run-backtest` reaches its engines through the CLI runner seam rather than
+    through an action, so no `uses:` marker identifies its replay job. Its cron
+    would otherwise be a schedule that spends on its own — the one thing the
+    workflow's header, `metrics/README.md` and the `CertBacktest` schema all
+    register it does not do. The schedule asks; the hold spends.
+    """
+    wf = _load("run-backtest.yml")
+    jobs = _jobs(wf)
+    assert jobs["approval"]["environment"] == "review", (
+        "run-backtest's hold must bind the `review` environment"
+    )
+    # No token, no code, no grant: the job exists for the environment alone.
+    assert jobs["approval"]["permissions"] == {}
+    assert not any("uses" in step for step in _steps(jobs["approval"]))
+
+    replay = jobs["backtest"]
+    needs = replay.get("needs", [])
+    needs = [needs] if isinstance(needs, str) else needs
+    assert {"cadence", "plan", "approval"} <= set(needs), (
+        "the replay job must wait on the cadence guard, the plan and the hold"
+    )
+    condition = " ".join(str(replay["if"]).split())
+    # The dispatch path is unchanged — a dispatcher's own parameter choice is
+    # the deliberate decision — and the cron path reaches the replay only
+    # through a released hold.
+    assert "github.event_name != 'schedule'" in condition
+    assert "needs.cadence.outputs.proceed == 'true'" in condition
+    assert "needs.approval.result == 'success'" in condition
+
+    # The two environments answer different questions and neither replaces the
+    # other: `prod` pins which ref may run this at all, `review` whether this
+    # run may spend. Dropping `prod` would leave the job reachable from any ref.
+    assert replay["environment"] == "prod"
+    assert jobs["plan"]["environment"] == "prod"
+
+    # A hold that never released still has to leave a record, or a fortnight
+    # that declined to spend is indistinguishable from one that never fired.
+    # Named `rejected` like the other lanes' reporters, so the class the
+    # security docs describe keeps covering it.
+    rejected = " ".join(str(jobs["rejected"]["if"]).split())
+    assert "needs.approval.result != 'success'" in rejected
+    assert jobs["rejected"]["permissions"] == {}
+    assert "environment" not in jobs["rejected"]
