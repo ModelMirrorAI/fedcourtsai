@@ -2389,6 +2389,10 @@ def test_the_fortnight_parity_guard_is_a_step_because_it_has_to_be() -> None:
     run = str(parity["run"])
     assert "date -u +%V" in run, "the parity must key on the ISO week, not on a run counter"
     assert "% 2" in run
+    # The direction is registered, not stylistic: the freeze record's cadence
+    # entry names the even weeks as the ones that run, so a flipped comparison
+    # would move every registered release date while staying green here.
+    assert "% 2)) -eq 0 ]; then run=true" in run, "even ISO weeks are the registered releases"
     assert "10#" in run, "a leading-zero ISO week must be forced to base 10"
     assert "exit 1" not in run, "a skipped fortnight is a success, not a failure"
 

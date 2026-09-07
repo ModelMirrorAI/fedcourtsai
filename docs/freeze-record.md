@@ -2768,3 +2768,92 @@ freeze commit is recorded here.
   in proc-v7's window; any cell minted between the carrying merge and the
   instant lands as shakedown per the freeze entry's registered condition,
   and the next entry that counts anything under proc-v7 closes the question.
+
+- *The real-engine cert back-test becomes a standing fortnightly sample behind
+  a strictly manual spend hold — registered before the first scheduled release,
+  2026-09-07.* This entry supersedes a registered refusal: "a real-engine
+  replay spends tokens, so it never runs on a schedule" stood in the workflow
+  header, `metrics/README.md`, and the `CertBacktest` schema docstring, and
+  all three are amended in the PR carrying this entry, along with the same
+  claim's echoes in `README.md`, the lane tables, and the digest's rendered
+  empty-state. The rationale those
+  statements protected — no tokens move without a human — survives literally:
+  **the schedule asks; the hold spends.** A scheduled run derives its plan and
+  parks on the `review` environment's required-reviewer hold with no timer
+  that can release it; an unreleased, rejected, or expired hold is a
+  first-class skipped fortnight that spent nothing and left the standing
+  report at its prior vintage.
+
+  The cadence: one cron, Saturday 06:23 UTC, halved by ISO-week parity —
+  **even ISO weeks run** — for at most 26 asks per ISO year, 52- and 53-week
+  years alike; a 53-week year yields one three-week gap at the seam (W53 and
+  the following W01 both skip — first at the 2026→2027 seam, 2026-12-26 to
+  2027-01-16). Effective from the first even-ISO-week Saturday after the
+  promotion that carries this entry — 2026-09-19 (2026-W38) if promoted
+  before then. The check that settles the arming: on that Saturday,
+  `gh run list --workflow=run-backtest.yml` shows a `schedule` run whose
+  cadence and plan jobs succeeded and whose approval job sits waiting,
+  having spent nothing — and before that Saturday the `review` environment
+  must still list required reviewers, since an unprotected environment
+  releases instantly.
+
+  The sample and selection, pinned on the scheduled path and free on a
+  dispatch: `replay=cert`, `engine=auto` with no engine opted out,
+  `--limit 10` petitions × the routable predictors (three today) ≈ 30 predict
+  cells per released fortnight. The limit is a ceiling, not the sample — a
+  petition without a provisionable snapshot drops out, and the report's
+  `events_scored` is the realized n. `--scope paid`, because the paid class
+  carries the grant-family mass (5.6–7.9% per Term over OT2017–OT2025,
+  complete counts, against 2.3–3.3% per Term over the whole modern-cert
+  population, whose IFP half is denial-reweighted; the replay's granted-side
+  flag is slightly broader than the published family, granted-in-part
+  included) and is the only population the per-band segment breakdown
+  scores — ten unfiltered petitions would read lift against a
+  near-pure-denial floor with empty bands. `--spread`
+  round-robins conference cohorts within a run; the draw moves between
+  fortnights as the resolved population underneath it moves — newly decided
+  petitions entering, and corpus backfills that make older ones selectable —
+  never by per-run randomness. Positional selection at the last distribution before resolution
+  is unchanged, and the arrival moment stays out of replay scope until it is
+  registered as its own extension.
+
+  The budget bound: ≈$70–88 per released fortnight (formal range $65–88,
+  whose upper end rests on the thinnest measured row), ≈$1.8–2.3K/yr at 26
+  releases, projected at `gpt-6-astra` codex rates in `docs/budget.md`'s
+  driver line. The spend is ledger-invisible to the $2,500/30-day backstop —
+  replay cells never reach the committed usage ledger — so what bounds it is
+  the cadence and parity rule, the pinned limit, the manual hold, and the
+  job's `timeout-minutes`.
+
+  Reading rules for the fortnightly series, registered with it. Consecutive
+  released fortnights are comparable **in population** if and only if their
+  reports' provenance blocks agree — the dispatch shape, the salience floor
+  and version, and the base-rate lookback, each stamped there precisely
+  because the cadence pins the dispatch but not the config, which any
+  promotion can move; constancy is verified from the blocks, never assumed
+  from the schedule. (Under the paid scope the population itself is
+  floor-independent — the floor belongs to the band and baseline readings.)
+  What the reports genuinely cannot show is a prompt or predictor-config
+  change between two releases, since replay cells carry no process digest:
+  that is legible only from promotion history. A dispatched campaign's
+  report is comparable to neither the series nor another campaign — a
+  deliberately stricter rule than provenance equality — and the artifact
+  records no trigger, so whether a report belongs to the series or to a
+  dispatch that used the same parameters is itself read from the run
+  history, not from the report. No single fortnight's ranking is a
+  measurement at this size: an ordering turns on the one or two granted
+  outcomes a draw holds, a band on fewer, and only the accumulating series
+  is read — a fortnight in which nothing was granted (probability at least
+  roughly one half: (1−p)^n at p ≈ 5.6–7.9% and the realized
+  `events_scored` as n, ≈0.5 at the pinned ceiling of ten and higher on any
+  shorter draw) has its top line withheld outright rather than ranked. A
+  released fortnight's report is **merged regardless of what it says** — the
+  release decision precedes the numbers, and the series is exactly the
+  committed history of `metrics/cert-backtest.json`, so an unmerged report
+  is overwritten by the next run and selective retention would be visible as
+  a gap. `provenance.run_id` identifies which sample is standing; a gap in
+  the series says only that no report landed — an unreleased hold, an
+  undelivered cron, a run with no replayable petition, and an unmerged
+  review PR are indistinguishable from the artifact alone. The stratum is
+  unchanged throughout: retrospective by construction, an iteration
+  instrument, never claimable performance.
