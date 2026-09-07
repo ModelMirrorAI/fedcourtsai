@@ -1112,8 +1112,8 @@ move it:
   instant the canary fires. Read a red canary as a spend signal too.
 - **It is outside the spend backstop.** The `$2,500 / 30-day` ceiling above
   reads *measured* cost from the committed `usage.json` ledger, which this line
-  never enters — and unlike the other ledger-invisible inference line, which is
-  bounded by being manual-dispatch-only, this one spends unattended, up to
+  never enters — and unlike the other ledger-invisible inference lines, which
+  are bounded by being manual-dispatch-only, this one spends unattended, up to
   365×/yr. What bounds it is the cron cadence, the three legs the schedule can
   select, and the 10-minute timeout; not `spend.ceiling_usd`.
 
@@ -1121,6 +1121,13 @@ The same three legs also ride every `scenario=all` dispatch, adding ≈$0.45 to 
 promotion suite that already spends three engine-smoke cells' worth — on the
 order of $14–23/yr at a plausible 30–50 whole-suite dispatches. Both sit inside
 the buffer below, so the floor is unchanged; state them, do not imply them.
+
+The workflow's **repro-family** scenarios add nothing to either figure. Each
+runs one real cell against a pinned record, but none rides the schedule and
+none rides a whole-suite dispatch, so like the qp-topic labeler they are
+bounded by being manual-dispatch-only: one cell of the named engine per
+deliberate dispatch, on the order of the design-mix mean above (≈$2.44–2.49),
+ledger-invisible and inside the buffer.
 
 > **Line item: $350/mo flat** (a fixed floor, not a variable), the ≈$14/mo
 > boot canary inside it.
