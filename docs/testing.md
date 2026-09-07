@@ -460,8 +460,12 @@ bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_collect`), the cell invariants
 (`test_workflow_cell_invariants`: the qp-topics oracle fence, the corpus base
 URL, the forward leakage guard, the arm/disarm bracket and deadline of the
-codex hang watchdog — whose escalation knobs stay inside the script, so the
-bracket's env set is the fixed three the test pins — the run-surface retry with
+codex hang watchdog — whose arm-step env is pinned as an exact set, so a
+`WATCHDOG_*_MATCH` slipped in later fails rather than silently re-aiming the
+kill, and whose comment-only telemetry mint is pinned to `issues: write`, to the
+engine step's own gate, to the two steps that may hold it, and to
+`continue-on-error`, since a mint that failed hard would skip the engine step —
+the run-surface retry with
 its inline copies, the absence
 of any step that applies a fan-out label, the 10-input `workflow_dispatch`
 cap the UI enforces silently, the fail-closed shape every input gate must have
@@ -494,7 +498,20 @@ runner-infrastructure arguments, which must survive — signalling the runner's
 own worker force-kills the job the watchdog exists to save — and two more pin
 the ends of the window that decides *which* step is the guarded one. Every
 process the suite signals is one it spawned: the discovery patterns are
-fixture-scoped and asserted to be, so it cannot reach the step running it. For a heavier
+fixture-scoped and asserted to be, so it cannot reach the step running it. Its
+off-runner half is driven too, against a localhost sink standing in for the
+telemetry comment's REST endpoint: the PATCH sequence through arm, heartbeat,
+deadline, discovery tally, fire and escalation; that every PATCH extends the
+armed record rather than replacing it, so the fire ETA and the run link survive
+the first heartbeat; the payload's strictness (no argv, no runner path, and no
+token — which reaches the sink's Authorization header and not the watchdog's own
+log, which rides the published artifact); and that a watchdog handed no check-in
+URL still kills on the same terms. `test_watchdog_telemetry` covers `fedcourts
+watchdog-checkin` beside the latch it is built on and off the same injectable
+`gh` seam — find-or-reset, the recency window that makes the page bound search
+the right end of a long-lived issue, the App-authorship test that stops a
+stranger pre-claiming a record on a public repo, and the exit-zero-with-a-warning
+contract a degraded API has to keep. For a heavier
 local check of the
 deterministic jobs (the `plan` job, matrix generation, the collect seam),
 [`nektos/act`](https://github.com/nektos/act) can run them in Docker — useful for

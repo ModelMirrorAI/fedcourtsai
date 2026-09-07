@@ -1014,6 +1014,17 @@ pattern rather than rediscovering it:
   background process launched in one step survives into the later
   ones — the sidecars rely on the same property — so the disarm half is what
   keeps the killer from outliving its window.
+- **A watchdog that reports only onto the runner reports nothing.** The same
+  cancellation that makes a runner-level watchdog necessary destroys every
+  channel that lives on the runner: the diagnostics bundle, the disarm step that
+  publishes it, the step summary, and the job log GitHub drops. A guard whose
+  entire account of itself dies with the failure it guards cannot even be
+  observed to have fired. So the codex watchdog also writes **off** the runner
+  while the runner is still alive — one comment per cell on a long-lived
+  tracking issue, opened before the agent starts and updated in place at each
+  state — and the runner-local bundle becomes the detail behind a record that
+  survives. Any guard against a cancellation wants the same shape: write the
+  evidence somewhere the cancellation cannot reach, first.
 - **The CI uv pin and the lockfile format are coupled.** `setup-python-env`
   installs with `uv sync --locked`, which refuses a lock it cannot read as
   current — so a lock written by a *newer* uv than the action's pin fails every
@@ -1891,6 +1902,47 @@ download for its retention window, so it carries shapes and metadata only: the
 session rollout stays on the runner and the disarm step distils its item shapes
 (`codex-item-shapes`) in its place. The `collect` job commits `data/` alone, so
 none of it reaches the ledger.
+
+That bundle is runner-local, though, and a cancelled job takes it with the
+runner — which is the very failure the watchdog exists to convert, so it is
+exactly the evidence a wedge is best placed to destroy. The record that
+survives is off the runner
+entirely: the arm step opens a comment on the long-lived **`codex-watchdog`**
+issue (`fedcourts watchdog-checkin`, a non-triggering label) *before* the engine
+starts, and the detached watchdog PATCHes that comment as it passes each state —
+a heartbeat while it waits, then the deadline, the discovery tally, the fire or
+stand-down, each signal issued with its pids, the survivors after each grace,
+and the outcome. The disarm step closes it out with the engine step's
+conclusion, collapsing a round where nothing fired to a single armed/disarmed
+line so the issue stays one readable row per cell. The armed record alone is
+already evidence: a comment that says only "armed", on a run that never came
+back, is a wedge the watchdog failed to convert — a different fault from one it
+converted and reported, and the only thing that tells the two apart is a record
+that outlives the runner.
+
+Which comment is *this cell's* is answered by a hidden marker **and** by App
+authorship, because the repository is public and every part of a marker is
+derivable from the issue's own history: a row an account posted is passed over
+and a fresh one written, so nobody outside can pre-claim the record of a hang.
+The lookup is bounded to the recent end of the issue — a window plus a page
+cap, in that order, since the comments endpoint pages oldest-first — which is
+also why **closing the issue rotates it**: the find-or-create reuses the first
+open one, so a closed issue is an archive and the next cell opens a fresh
+record.
+
+What that comment may carry is **stricter** than the artifact's rule, because it
+sits on a public issue that outlives every run: timestamps, phase names, pid
+numbers, counts and the configured deadline — no argv, no file listing, no
+content the cell read. The watchdog composes each body from its own variables
+and never reads one back off `WATCHDOG_DIR`, which the agent it may be about to
+kill can also write — the arm step hands over the armed body it wrote and the
+watchdog appends to it, so the arming time, the fire ETA and the run link
+survive every later PATCH. The credential is an App token minted with
+`issues: write` and nothing else, distributed to the arm/disarm steps and the
+watchdog they launch and never to an agent step; its mint is
+`continue-on-error`, because a hard failure would skip the engine step and kill
+the cell to protect its own reporting. The residuals it leaves are stated in
+*SECURITY.md* rather than argued away.
 
 What salvage looks like is uniform across **run-predict** and
 **run-evaluate**: each cell records its status and uploads its output

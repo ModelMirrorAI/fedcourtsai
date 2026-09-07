@@ -21,11 +21,15 @@ name a real runner, so the suite cannot signal the step that is running it.
 """
 
 import contextlib
+import json
 import os
 import re
 import subprocess
+import threading
 import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WATCHDOG = REPO_ROOT / "scripts" / "codex-watchdog.sh"
@@ -42,9 +46,21 @@ TEST_ARM_SLACK = "120"
 # not exercising is pinned to, so a route left unset can never fall back to a
 # default that names the runner executing the test.
 NO_MATCH = "watchdog-selftest-matches-nothing"
+# Stands in for the arm step's comment-only App mint. Distinctive so the tests
+# can assert it reaches the sink's Authorization header and reaches nothing else.
+CHECKIN_TOKEN = "ghs-watchdog-selftest-token"
+# The armed body the arm step hands over. Every PATCHed body must open with
+# the whole of it: the marker line, or the next find-by-marker would miss the
+# comment the watchdog just rewrote, and the arming line, which is what a
+# reader of a run that never came back has to go on.
+CHECKIN_BASE = (
+    "<!-- codex-watchdog: R/scotus/24-1/evt-x/codex-selftest -->\n"
+    + "### selftest\n"
+    + "armed_at=2026-09-07T12:00:00Z deadline_s=3 fire_eta=2026-09-07T12:00:03Z"
+)
 
 
-def _run(
+def _run(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
     watchdog_dir: Path,
     match: str,
     runner_match: str = NO_MATCH,
@@ -53,6 +69,9 @@ def _run(
     min_step_age_s: str | None = None,
     deadline_s: str | None = None,
     arm_slack_s: str = TEST_ARM_SLACK,
+    checkin_url: str = "",
+    checkin_base: str = "",
+    heartbeat_s: str = "0",
 ) -> subprocess.CompletedProcess[str]:
     # Fail closed on the way in, so a future test cannot hand a discovery route
     # a pattern broad enough to name a process this suite did not spawn. Every
@@ -76,6 +95,14 @@ def _run(
         # No codex home in the test: the home listing is best-effort, and its
         # absence must not stop the kill.
         "CODEX_HOME": str(watchdog_dir / "absent"),
+        # The off-runner channel, empty for every test that is not about it —
+        # spelled out rather than left to the ambient environment, so a
+        # developer shell that happens to export one cannot make the suite
+        # PATCH a real comment.
+        "WATCHDOG_CHECKIN_URL": checkin_url,
+        "WATCHDOG_CHECKIN_TOKEN": CHECKIN_TOKEN if checkin_url else "",
+        "WATCHDOG_CHECKIN_BASE": checkin_base,
+        "WATCHDOG_HEARTBEAT_S": heartbeat_s,
     }
     # Left to derive itself from the deadline unless a test is about the floor,
     # so every other test inherits whatever shape ships.
@@ -635,6 +662,232 @@ def test_a_descendant_the_step_spawned_late_is_still_ended(tmp_path: Path) -> No
         assert tree.proc.poll() is None, "the watchdog signalled the runner's worker process"
     finally:
         tree.close()
+
+
+class CheckinSink:
+    """A stand-in for the telemetry comment's REST endpoint, on localhost.
+
+    The off-runner channel is the only account of a wedge that survives a
+    cancelled job, so what it actually PATCHes has to be driven rather than
+    read: the sink records each body and each Authorization header, and the
+    tests below assert the sequence, the payload's strictness, and that the
+    token reaches the header and nowhere else.
+    """
+
+    def __init__(self) -> None:
+        self.bodies: list[str] = []
+        self.auth: list[str] = []
+        sink = self
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.0"
+
+            def do_PATCH(self) -> None:
+                length = int(self.headers.get("Content-Length") or 0)
+                payload = json.loads(self.rfile.read(length) or b"{}")
+                sink.bodies.append(str(payload.get("body", "")))
+                sink.auth.append(self.headers.get("Authorization") or "")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b"{}")
+
+            def log_message(self, format: str, *args: Any) -> None:
+                """Silent: the handler's default logging writes to the suite's stderr."""
+
+        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread.start()
+
+    @property
+    def url(self) -> str:
+        return f"http://127.0.0.1:{self._server.server_address[1]}/issues/comments/1"
+
+    def close(self) -> None:
+        self._server.shutdown()
+        self._server.server_close()
+        self._thread.join(timeout=10)
+
+
+def _phases(bodies: list[str]) -> list[str]:
+    """The check-in lines of the last (and so most complete) body, stamps stripped.
+
+    Everything past the armed base the arm step handed over — which the watchdog
+    appends to and must never replace.
+    """
+    if not bodies:
+        return []
+    tail = bodies[-1][len(CHECKIN_BASE) :]
+    return [line.split("] ", 1)[-1] for line in tail.splitlines() if line]
+
+
+def test_the_watchdog_reports_every_state_off_the_runner(tmp_path: Path) -> None:
+    """Arm → deadline → discovery → fire → escalation, on a channel a cancel cannot erase.
+
+    This is the whole reason the channel exists: the diagnostics bundle, the
+    disarm step that publishes it, the step summary and the job log are all
+    runner-local, and the wedge they document is what cancels the runner — so a
+    guard relying on them alone cannot even be observed to have fired. Each
+    state is PATCHed onto this cell's
+    comment as it happens, so the record is already off the runner by the time
+    the kill is attempted.
+    """
+    marker = f"fedcourts-watchdog-engine-{os.getpid()}"
+    engine = _named(marker, DEAF)
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", DEAF + "\n")
+    sink = CheckinSink()
+    try:
+        done = _run(
+            tmp_path / "codex-watchdog",
+            marker,
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            grace_s="4",
+            checkin_url=sink.url,
+            checkin_base=CHECKIN_BASE,
+            heartbeat_s="1",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert engine.wait(timeout=60) != 0
+        assert _await(lambda: _gone(tree.step_pid))
+
+        phases = _phases(sink.bodies)
+        # The order is the account: a reader has to be able to tell a watchdog
+        # still counting from one that reached its deadline, and one that found
+        # its target from one that refused every candidate.
+        for expected in (
+            "watching: deadline_s=3",
+            "deadline reached after 3s",
+            "FIRED: the engine was still running",
+            "engine SIGTERM issued",
+            "step tree SIGTERM issued",
+            "outcome: fired",
+        ):
+            assert any(line.startswith(expected) for line in phases), (expected, phases)
+        assert [line.startswith("watching") for line in phases].index(True) == 0
+        assert phases[-1].startswith("outcome: fired")
+        # A beat while it waits, which is what separates a live watchdog from
+        # one whose runner was cancelled out from under it.
+        assert any(line.startswith("waiting: elapsed=") for line in phases)
+        # The deaf fixtures force both escalations, and both are reported.
+        assert any("SIGKILL issued" in line for line in phases)
+
+        # Every body opens with the whole armed base the arm step handed over.
+        # The marker half is what the next find-by-marker matches on; the arming
+        # half is the fire ETA and the run link, and a watchdog that composed
+        # its body from the marker alone would erase both on its first
+        # heartbeat — leaving the record that outlives the runner unable to say
+        # when the deadline was due or which run it belonged to.
+        assert all(body.startswith(CHECKIN_BASE) for body in sink.bodies)
+        assert all("fire_eta=2026-09-07T12:00:03Z" in body for body in sink.bodies)
+        # The body accumulates: each PATCH is the whole record so far, because a
+        # comment has no append — so every body is a prefix of the next.
+        assert len(sink.bodies) > 1
+        assert all(
+            later.startswith(earlier)
+            for earlier, later in zip(sink.bodies, sink.bodies[1:], strict=False)
+        ), "a PATCH replaced the record instead of extending it"
+        assert all(auth == f"Bearer {CHECKIN_TOKEN}" for auth in sink.auth)
+    finally:
+        sink.close()
+        tree.close()
+        if engine.poll() is None:  # pragma: no cover - only on a failed kill
+            engine.kill()
+            engine.wait(timeout=10)
+
+
+def test_the_off_runner_payload_is_stricter_than_the_published_bundle(tmp_path: Path) -> None:
+    """Counts, pids, phases and timestamps — never argv, never a path, never the token.
+
+    The bundle rides a cell artifact and expires with it; this comment sits on a
+    public issue forever, so it takes the harder rule. It is composed only from
+    the script's own variables for the same reason: WATCHDOG_DIR is writable by
+    the very agent the watchdog may be about to kill, and a body read back off
+    that directory would let the agent choose what a public issue says.
+    """
+    marker = f"fedcourts-watchdog-engine-{os.getpid()}"
+    engine = _named(marker)
+    sink = CheckinSink()
+    try:
+        done = _run(
+            tmp_path / "codex-watchdog",
+            marker,
+            checkin_url=sink.url,
+            checkin_base=CHECKIN_BASE,
+            heartbeat_s="1",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert engine.wait(timeout=30) != 0
+        record = "\n".join(sink.bodies)
+        assert marker not in record, "a matched process's argv reached the public record"
+        assert str(tmp_path) not in record, "a runner path reached the public record"
+        assert CHECKIN_TOKEN not in record, "the token was echoed into the record it authorises"
+        # Nor into the watchdog's own log, which rides the published artifact.
+        # (The process dump beside it cannot settle the argv question either way:
+        # it is written after the check-in's curl has already exited, so the
+        # guarantee that keeps the token out of argv is the `--config` pipe the
+        # `checkin` function uses, not anything observable here.)
+        assert CHECKIN_TOKEN not in done.stdout + done.stderr
+        # The pid of the process it killed is the one identifier that does
+        # belong here: it is what ties this record to the bundle beside it.
+        assert any(str(engine.pid) in body for body in sink.bodies)
+    finally:
+        sink.close()
+        if engine.poll() is None:  # pragma: no cover - only on a failed kill
+            engine.kill()
+            engine.wait(timeout=10)
+
+
+def test_the_discovery_tally_separates_a_refusal_from_an_empty_field(tmp_path: Path) -> None:
+    """`roots=0` has two very different causes, and they have opposite fixes.
+
+    A floor set too high refuses candidates it should have accepted; a runner
+    whose shape moved proposes none at all. Without a tally both read as the
+    same silent stand-down, so it rides the record: candidates seen, and how
+    many each refusal turned away.
+    """
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
+    sink = CheckinSink()
+    try:
+        done = _run(
+            tmp_path / "codex-watchdog",
+            f"watchdog-selftest-absent-{os.getpid()}",
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            min_step_age_s="600",  # the floor refuses the fixture step
+            checkin_url=sink.url,
+            checkin_base=CHECKIN_BASE,
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert not _gone(tree.step_pid)
+        discovery = next(line for line in _phases(sink.bodies) if line.startswith("discovery: "))
+        assert "roots=0 engine_matched=0" in discovery
+        # The candidate was seen and refused on age, which is the reading the
+        # bare `roots=0` could not give.
+        assert "refused_age=1" in discovery
+        assert _phases(sink.bodies)[-1].startswith("outcome: stood_down")
+    finally:
+        sink.close()
+        tree.close()
+
+
+def test_no_check_in_url_leaves_the_kill_duty_untouched(tmp_path: Path) -> None:
+    """The arm step's check-in is best-effort, so the watchdog must work without one.
+
+    A watchdog that refused to arm without a telemetry channel would trade the
+    duty it exists for against its own reporting — the wrong way round.
+    """
+    marker = f"fedcourts-watchdog-engine-{os.getpid()}"
+    engine = _named(marker)
+    try:
+        watchdog_dir = tmp_path / "codex-watchdog"
+        done = _run(watchdog_dir, marker, heartbeat_s="1")  # no URL, no token
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert engine.wait(timeout=30) != 0
+        assert (watchdog_dir / "FIRED").exists()
+        assert "check-in" not in done.stdout
+    finally:
+        if engine.poll() is None:  # pragma: no cover - only on a failed kill
+            engine.kill()
+            engine.wait(timeout=10)
 
 
 def test_the_shipped_floor_derives_from_the_deadline() -> None:

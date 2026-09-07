@@ -42,7 +42,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 | `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its one issue write — the failure-only run-log issue — must trigger nothing and so rides the ambient token, never this one |
 | `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
 | `run-repair` | data | contents (both writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the validation job holds no credential |
-| `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
+| `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the codex cells' arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner |
 | `run-backtest` | dev | contents, pull-requests | open the reviewed back-test PR (minted after the replay ran) |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
 | `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
@@ -246,6 +246,38 @@ as a single fail-fast batch (a transient failure of which once discarded a
 whole run's output). The grant is repo-wide read, as Actions scopes cannot be run-scoped; it
 is acceptable here because `collect` runs no agent code and nothing
 agent-controlled steers which API it calls.
+
+One issue write in the cells does **not** ride the ambient token, because the
+process making it outlives every step that could hold one. The codex watchdog
+(*Graceful degradation on limits* in [pipeline.md](pipeline.md)) is a detached
+shell that must report while its runner is still alive — a wedge is ended by the
+job cap, which drops the job's logs and skips its tail, so every runner-local
+channel is destroyed by the failure it documents. It therefore carries an App
+token minted with **`issues: write` and nothing else**, gated on the codex engine
+step's own condition and distributed only to the arm step, the disarm step, and
+the watchdog process; the job's `permissions` block is untouched and no agent
+step inherits it. Everything it is used for is the non-triggering
+`codex-watchdog` issue — found or created — and one comment per cell on it, which
+the watchdog then PATCHes in place. The mint is `continue-on-error`, because a
+hard failure would leave the arm and engine steps skipped on their implicit
+`success()` and so kill the cell to protect its own reporting; both consumers
+guard on an empty token instead. The token travels as environment, never as
+a command argument, because the watchdog's own published diagnostics bundle dumps
+the arguments of every process under the runner user, and the arm step checks the
+check-in URL against this repository's own comments endpoint before handing it to
+the watchdog, so the credential cannot be aimed at another host. Two residuals
+are conceded rather than claimed away: the watchdog's environment is readable at
+the runner user's privilege, as the MCP sidecar's token is, and the disarm step
+runs `fedcourts` out of a workspace the agent has had the whole cell to write.
+Neither is bounded by the job's end — the action's revoke step does not run on a
+**cancelled** job, which is the wedge case itself. What both reach is
+`issues: write` on this repository, which is the repo's whole issue surface and
+not the one comment it is used for; what bounds it is that no workflow here keys
+on an issue event, so nothing it can do starts anything, and that it stays
+strictly narrower than the token a Claude cell hands its agent directly. The
+record's integrity is defended where it lands instead: a cell's comment is
+identified by App authorship as well as by its marker, so on a public repo a row
+planted by an account is passed over rather than adopted.
 
 The predict/evaluate `plan` job needs **no issue write at all**: a round derives
 its own backlog and holds no request open anywhere, so a matrix the scope gate
