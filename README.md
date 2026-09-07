@@ -44,7 +44,7 @@ requests.
 | Schedule + dispatch | `run-evaluate`  | Score past predictions against realized outcomes, over the gradings the evaluate backlog still owes — fan-out is one cell per evaluator, and each judge grades **every** predictor for its event | Claude Code + Codex + Gemini |
 | Dispatch only  | `run-backtest`  | Maintainer-triggered cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR. A second dispatch mode replays the **deterministic salience gate** over past Terms instead — offline, token-free, into `metrics/salience-replay.json` | Claude Code + Codex + Gemini (replay); salience-gate replay is script-only |
 
-Plus `run-ops` (a read-only daily dashboard, plus two issues the maintainer
+Plus `run-ops` (a read-only daily operations report, plus two issues the maintainer
 closes once read: a daily prediction-reading digest — one predicted event with
 every predictor side by side — and a Monday performance digest carrying the
 week's cells, spend, board state, and back-test results) and

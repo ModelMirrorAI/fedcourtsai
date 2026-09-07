@@ -1185,7 +1185,7 @@ Three facts keep the label honest rather than a loophole.
 
 - **No published number depends on it.** Every unit masks, so the census is
   empty and conditionally withheld; nothing in the leaderboard, the ops
-  dashboard, or any committed metrics artifact reads a semantic grade. But note
+  report, or any committed metrics artifact reads a semantic grade. But note
   exactly what that rests on — the **absence of opinion text**, not the absence
   of an elicitation. Cells produce blocks now, so the day coverage lands they
   produce grades under this methodology with no further edit. That is the

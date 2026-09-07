@@ -970,7 +970,7 @@ def stratify(
 
     ``frozen_only`` (the default) keeps only cells whose latest prediction was
     produced by a **frozen** process (:func:`process_version.is_frozen`), so every
-    surface built on this stream — the leaderboard and the ops dashboard both — is
+    surface built on this stream — the leaderboard and the ops report both — is
     the frozen headline by construction and the two cannot disagree. It filters on
     the *prediction's* stamp, not the evaluation's digest: the competitor being
     ranked is the predictor. The scored prediction is the one the evaluation's
@@ -1328,7 +1328,7 @@ def iter_flags(data_root: Path) -> list[AgentFlags]:
     A cell writes one only when it surfaced something to triage; predict flags live
     at ``predictions/<predictor>/<run>/flags.json`` and evaluate at
     ``evaluations/<evaluator>/<run>/flags.json``. All are matched and validated so the
-    run-ops dashboard rolls up only well-formed records. Returns nothing if the
+    run-ops report rolls up only well-formed records. Returns nothing if the
     ledger does not exist yet (reading must not create it).
     """
     return _iter_agent_artifact(data_root, "flags.json", AgentFlags)
@@ -1337,7 +1337,7 @@ def iter_flags(data_root: Path) -> list[AgentFlags]:
 def iter_tooling(data_root: Path) -> list[AgentToolingFeedback]:
     """Every committed ``tooling.json`` self-report in the ledger, in stable path order.
 
-    Mirrors :func:`iter_flags` across the stages' layouts; the run-ops dashboard
+    Mirrors :func:`iter_flags` across the stages' layouts; the run-ops report
     rolls these into the agent tooling-feedback digest. Returns nothing if the ledger
     does not exist yet (reading must not create it).
     """

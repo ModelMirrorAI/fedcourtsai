@@ -963,7 +963,6 @@ def test_the_staging_seed_accepts_the_only_list_shape_its_form_can_produce() -> 
 SOURCING_OPS_STEPS = (
     "Collect recent workflow runs",
     "Collect issues wearing a stale fan-out label",
-    "Post or update the ops dashboard issue",
     "Escalate a failing data-validation verdict",
 )
 # `(workflow, job, step name)` for the record-keeping writes that source the
@@ -974,8 +973,11 @@ SOURCING_OPS_STEPS = (
 # already scan whatever it holds.
 SOURCING_HANDOFF_STEPS: tuple[tuple[str, str, str], ...] = ()
 # The composites, whose `uses: ./.github/actions/...` resolution already proves
-# a workspace checkout put `scripts/` on disk.
-SOURCING_COMPOSITES = ("run-log-dashboard",)
+# a workspace checkout put `scripts/` on disk. Empty because no composite makes
+# a GitHub API call today, and kept as a table for the same reason
+# `SOURCING_HANDOFF_STEPS` is: the next one belongs here, and the tests below
+# already scan whatever it holds.
+SOURCING_COMPOSITES: tuple[str, ...] = ()
 # `(workflow, job, step name)` for each step that inlines its own copy.
 INLINE_GH_RETRY_STEPS = (
     ("run-pull.yml", "pull", "Open the failure run-log issue"),
@@ -1477,15 +1479,13 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
     """A retried listing is assigned to a variable, not piped into `jq`.
 
     Each of these lookups feeds a find-or-create: an empty result reads as "no
-    issue yet", which opens a duplicate — or, on the pipeline-runs dashboard,
-    restarts its rolling 14-day table from the current window. `pipefail` is
-    what keeps a failed listing from reaching that branch, and it is a lot of
-    weight for one shell option to carry, so the shape is pinned instead: the
-    retried listing lands in a variable, making an exhausted retry the
-    assignment's own failure.
+    issue yet", which opens a duplicate thread for the same broken day.
+    `pipefail` is what keeps a failed listing from reaching that branch, and it
+    is a lot of weight for one shell option to carry, so the shape is pinned
+    instead: the retried listing lands in a variable, making an exhausted retry
+    the assignment's own failure.
     """
     blocks = [str(_named_step(*site)["run"]) for site in FIND_OR_CREATE_ALARM_STEPS]
-    blocks.append(_composite_run("run-log-dashboard"))
     for block in blocks:
         assert "listing=$(gh_retry gh issue list" in block
         assert '<<<"$listing"' in block
@@ -1493,12 +1493,6 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
         assert not [
             line for line in _uncommented(block) if "gh_retry gh issue list" in line and "|" in line
         ]
-
-    # The dashboard's body read had the same silent failure and the worst
-    # consequence, so it is captured too rather than redirected from a pipe.
-    composite = _composite_run("run-log-dashboard")
-    assert "body=$(gh_retry gh issue view" in composite
-    assert "dashboard-body.md" in composite
 
 
 # The codex invocation surface, described in several places that certify each

@@ -12,8 +12,8 @@ App installation token** (`actions/create-github-app-token`), never the default
 `GITHUB_TOKEN`: events created with `GITHUB_TOKEN` do not trigger other
 workflows (GitHub's loop-prevention), so an agent PR opened with it would never
 start CI. The inverse is the rule for every issue write in this repository —
-dashboards, run logs, flag latching — which must trigger nothing and so rides
-the ambient token instead.
+the run-log and data-validation alarms, the digests, flag latching — which must
+trigger nothing and so rides the ambient token instead.
 
 The token comes from one of **two Apps, split by trust** — mirroring the two S3
 roles. The split is what makes "data writes land directly, everything agentic
@@ -39,7 +39,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
-| `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its issue writes — the pipeline-runs dashboard row and the failure-only run-log issue — must trigger nothing and so ride the ambient token, never this one |
+| `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its one issue write — the failure-only run-log issue — must trigger nothing and so rides the ambient token, never this one |
 | `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
 | `run-repair` | data | contents (both writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the validation job holds no credential |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
@@ -228,10 +228,10 @@ in this repository keys on `issues: labeled` at all, so labeling triggers
 nothing), which is the only reason a workflow here ever reaches for the App
 token — so issue-write deliberately stays **off** the App token that
 carries `contents: write` and opens the auto-merging PR. This mirrors `run-ops`,
-which posts its `ops-dashboard` / `data-validation` / `daily-digest` /
+which posts its `data-validation` / `daily-digest` /
 `weekly-digest` issues with the same ambient token — each of those labels
 non-triggering, so a reporting job opening an issue can never start a spending
-run — and `run-pull`, whose pipeline-runs dashboard row and failure-only
+run — and `run-pull`, whose failure-only
 run-log issues ride the ambient token for the same reason (its App token is
 reserved for the writes that must reach `main` through the
 deterministic-writer bypass: the corpus commits and the published verdict).
@@ -674,7 +674,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
 | `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `prod`, and it can write nothing production owns |
-| `run-ops`                                 | none          | dashboard reads GitHub state only |
+| `run-ops`                                 | none          | the report reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
 
 The split is deliberate: a cell touches KBs of one case's data, so it reads the

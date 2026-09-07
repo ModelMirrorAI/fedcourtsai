@@ -497,7 +497,7 @@ def flags_table(flag_sets: Sequence[AgentFlags]) -> str:
     """Render flag sets as one severity-sorted markdown table, or ``""`` if none.
 
     The shared table body behind both the per-run roll-up (:func:`render_flags`) and
-    the run-ops dashboard's open-flags section: one row per flag, loudest severity
+    the run-ops report's open-flags section: one row per flag, loudest severity
     first, carrying the columns a maintainer triages on (severity, category, actor,
     case, event, note). Flag messages are agent-authored, so each cell is collapsed
     to one line and pipe-escaped. Returns ``""`` when no set raised a flag.

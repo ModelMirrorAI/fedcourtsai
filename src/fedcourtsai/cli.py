@@ -4081,7 +4081,7 @@ def leaderboard(
     # An exclusion-emptied headline is not the shakedown state — the cells
     # existed and were dropped, which the notes below say — so the shakedown
     # placeholder stands down whenever either exclusion caught anything. The
-    # dashboard's `render_substance` guards its own placeholder the same way,
+    # ops report's `render_substance` guards its own placeholder the same way,
     # and the two surfaces must not describe one build differently.
     excluded_any = (board.forward_claim is not None and board.forward_claim.excluded) or (
         board.leakage_exclusion is not None and board.leakage_exclusion.excluded
@@ -6448,8 +6448,8 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     and the published ``--live-frontier`` readiness snapshot. Also presents the
     **data-health** verdict: it runs the git-only ``validate`` over ``data/``
     itself and folds in the latest corpus verdict from ``--corpus-validation``
-    (produced where the corpus is already pulled). Prints the dashboard Markdown
-    to stdout (the run-ops issue body / step summary); ``--json`` writes the
+    (produced where the corpus is already pulled). Prints the report Markdown
+    to stdout (the run-ops job's Actions step summary); ``--json`` writes the
     structured ``OpsReport``.
 
     ``--digest-out`` renders the **weekly performance digest** — the health
@@ -6549,8 +6549,8 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
 
 
 #: The `daily-digest` label's appearance when the first run creates it. Blue,
-#: distinct from the red `data-validation` escalation and the green
-#: `ops-dashboard` reference view: this one is a reading queue, not an alarm.
+#: distinct from the red `data-validation` escalation: this one is a reading
+#: queue, not an alarm.
 _DAILY_DIGEST_LABEL_COLOR = "1d76db"
 _DAILY_DIGEST_LABEL_DESCRIPTION = (
     "Daily prediction-reading digest (run-ops); close one once you have read it"
@@ -9631,7 +9631,7 @@ def pull_all(
         Path,
         typer.Option(
             help="Write the unrecorded-outcome queue JSON here (decided but not "
-            "deterministically recordable; surfaced on the pipeline-runs dashboard)."
+            "deterministically recordable; surfaced on the window's step summary)."
         ),
     ] = Path("unrecorded-queue.json"),
     limit: Annotated[
@@ -9763,7 +9763,7 @@ def live_poll(
         Path,
         typer.Option(
             help="Write the unrecorded-outcome queue JSON here (decided but not "
-            "deterministically recordable; surfaced on the pipeline-runs dashboard)."
+            "deterministically recordable; surfaced on the window's step summary)."
         ),
     ] = Path("unrecorded-queue.json"),
     term: Annotated[
@@ -9948,7 +9948,7 @@ def live_frontier_cmd(
         typer.Option(help="ISO as-of date for the next-conference pick; defaults to today (UTC)."),
     ] = "",
 ) -> None:
-    """Snapshot the live cert watchlist's readiness for the ops dashboard.
+    """Snapshot the live cert watchlist's readiness for the ops report.
 
     Read-only over the corpus: the pending-before-conference watchlist
     (``conference-set``'s population), its distribution calendar with the next
@@ -13242,8 +13242,8 @@ def post_weekly_digest_cmd(
     """Open a rendered weekly digest as its own `weekly-digest` issue, once a week.
 
     A poster, not a renderer: it takes the body ``ops-report --digest-out``
-    already wrote and opens it, so the ops run's own reporting — the dashboard,
-    the snapshot, the data-validation escalation — has all completed before this
+    already wrote and opens it, so the ops run's own reporting — the snapshot
+    and the data-validation escalation — has all completed before this
     non-idempotent network write is attempted. A blip here therefore costs the
     week's digest and nothing else.
 
