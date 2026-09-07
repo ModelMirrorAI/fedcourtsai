@@ -7,6 +7,8 @@ ready-vs-draft partition that keeps a failed cell out of the auto-merging PR.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from fedcourtsai import retrieval
@@ -34,6 +36,7 @@ from fedcourtsai.collect import (
     render_prior_availability_note,
     render_stall_comment,
     render_throttle_note,
+    union_cell_tree,
 )
 from fedcourtsai.finalize import FinalizeRole
 from fedcourtsai.schemas import (
@@ -157,6 +160,125 @@ def test_rename_keys_on_new_path() -> None:
     # R status (a rename is still not a pure addition).
     changes = parse_name_status("R100\tdata/old.json\tsrc/new.py\n")
     assert changes == [type(changes[0])(status="R", path="src/new.py")]
+
+
+# --- add-only union --------------------------------------------------------
+
+
+def _tree(root: Path, files: dict[str, str]) -> Path:
+    for rel, content in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    return root
+
+
+def test_union_copies_what_the_checkout_lacks(tmp_path: Path) -> None:
+    src = _tree(tmp_path / "src", {"cases/s/1/events/e/evaluations/x/r/evaluation.json": "{}"})
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    report = union_cell_tree(src, dest)
+    assert report.added == ("cases/s/1/events/e/evaluations/x/r/evaluation.json",)
+    assert report.identical == () and report.refused == ()
+    assert (dest / report.added[0]).read_text() == "{}"
+
+
+def test_union_skips_identical_and_refuses_differing_files(tmp_path: Path) -> None:
+    # The stale-tree race: the artifact carries an older version of a file a
+    # deterministic writer has since advanced on main. The checkout's copy is
+    # authoritative and must survive the union untouched.
+    src = _tree(
+        tmp_path / "src",
+        {"cases/s/1/events/e/event.yaml": "resolved: false\n", "cases/s/1/case.yaml": "same\n"},
+    )
+    dest = _tree(
+        tmp_path / "dest",
+        {"cases/s/1/events/e/event.yaml": "resolved: true\n", "cases/s/1/case.yaml": "same\n"},
+    )
+    report = union_cell_tree(src, dest)
+    assert report.refused == ("cases/s/1/events/e/event.yaml",)
+    assert report.identical == ("cases/s/1/case.yaml",)
+    assert report.added == ()
+    assert (dest / "cases/s/1/events/e/event.yaml").read_text() == "resolved: true\n"
+
+
+def test_union_of_a_missing_source_is_empty(tmp_path: Path) -> None:
+    # A cell salvaged after an early death may have produced no data/ at all.
+    report = union_cell_tree(tmp_path / "absent", tmp_path)
+    assert report == type(report)((), (), ())
+
+
+def test_union_refuses_symlinks_and_never_follows_them(tmp_path: Path) -> None:
+    outside = _tree(tmp_path / "outside", {"secret.txt": "not for the ledger"})
+    src = _tree(tmp_path / "src", {"cases/s/1/events/e/ok.json": "{}"})
+    (src / "cases/s/1/events/e/link.json").symlink_to(outside / "secret.txt")
+    (src / "cases/s/1/linkdir").symlink_to(outside)
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    report = union_cell_tree(src, dest)
+    assert report.added == ("cases/s/1/events/e/ok.json",)
+    assert set(report.refused) == {"cases/s/1/events/e/link.json", "cases/s/1/linkdir"}
+    assert not (dest / "cases/s/1/linkdir").exists()
+    assert not (dest / "cases/s/1/events/e/link.json").exists()
+
+
+def test_union_refuses_a_file_shadowing_a_checkout_directory(tmp_path: Path) -> None:
+    src = _tree(tmp_path / "src", {"cases/s/1/events": "a file where a directory belongs"})
+    dest = _tree(tmp_path / "dest", {"cases/s/1/events/e/event.yaml": "resolved: true\n"})
+    report = union_cell_tree(src, dest)
+    assert report.refused == ("cases/s/1/events",)
+    assert (dest / "cases/s/1/events/e/event.yaml").read_text() == "resolved: true\n"
+
+
+def test_union_refuses_when_a_checkout_file_shadows_a_source_directory(tmp_path: Path) -> None:
+    # The mirror case: the checkout holds a plain file where the artifact wants a
+    # directory. mkdir would raise; the file must be refused, never abort the union.
+    src = _tree(tmp_path / "src", {"cases/s/1/events/e/event.yaml": "resolved: false\n"})
+    dest = _tree(tmp_path / "dest", {"cases/s/1/events": "a plain file"})
+    report = union_cell_tree(src, dest)
+    assert report.refused == ("cases/s/1/events/e/event.yaml",)
+    assert report.added == ()
+    assert (dest / "cases/s/1/events").read_text() == "a plain file"
+
+
+def test_union_refuses_an_unreadable_source_file_and_carries_on(tmp_path: Path) -> None:
+    src = _tree(
+        tmp_path / "src",
+        {"cases/s/1/events/e/locked.json": "{}", "cases/s/1/events/e/ok.json": "{}"},
+    )
+    (src / "cases/s/1/events/e/locked.json").chmod(0o000)
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    try:
+        report = union_cell_tree(src, dest)
+    finally:
+        (src / "cases/s/1/events/e/locked.json").chmod(0o644)
+    assert report.added == ("cases/s/1/events/e/ok.json",)
+    assert report.refused == ("cases/s/1/events/e/locked.json",)
+
+
+def test_union_refuses_a_write_through_a_symlinked_checkout_directory(tmp_path: Path) -> None:
+    # A symlinked intermediate already in the checkout would carry the write
+    # outside dest — refused, and nothing lands at the link's target.
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    src = _tree(tmp_path / "src", {"cases/s/1/note.txt": "escapes"})
+    dest = tmp_path / "dest"
+    (dest / "cases").mkdir(parents=True)
+    (dest / "cases/s").symlink_to(outside)
+    report = union_cell_tree(src, dest)
+    assert report.refused == ("cases/s/1/note.txt",)
+    assert list(outside.iterdir()) == []
+
+
+def test_union_of_a_symlinked_source_root_is_empty(tmp_path: Path) -> None:
+    real = _tree(tmp_path / "real", {"cases/s/1/x.json": "{}"})
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    assert union_cell_tree(link, dest) == type(union_cell_tree(link, dest))((), (), ())
+    assert not (dest / "cases").exists()
 
 
 # --- collect plan ----------------------------------------------------------
