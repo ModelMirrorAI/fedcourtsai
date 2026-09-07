@@ -232,7 +232,7 @@ stays outside the gate:
   further, to the event, for a reason that does not apply here — every
   evaluator of one prediction carries an *identical* harness-computed block, so
   there is no second observation to keep. Its judge validation stays per cell.
-  The dashboard's substance funnel reads the same collapsed pass and publishes
+  The ops report's substance funnel reads the same collapsed pass and publishes
   no count of its own; the board's is the audit line for all three, since one
   collapse rule builds them.)
 
@@ -869,12 +869,12 @@ board's own totals never saw. So neither may be netted against a count on the
 board — `excluded` is not `evaluations_total`'s missing term and `assessed` is
 not its denominator. Read them as an audit line about the pass, never as terms
 in the board's arithmetic. For the same reason `leakage_exclusion` is never the
-ops dashboard's `leakage` digest, which is uncollapsed, all-versions, and
+ops report's `leakage` digest, which is uncollapsed, all-versions, and
 window-scoped: the two answer different questions over different populations and
 are never differenced.
 
 The scope is the **stratified scored stream** — the ranked board and its stage
-blocks, `claim-scores.json`, the dashboard's substance funnel, and the semantic
+blocks, `claim-scores.json`, the ops report's substance funnel, and the semantic
 census, all of which read one `store.stratify` pass. Two surfaces read the
 ledger by their own path and so do not apply it, deliberately and for the same
 reason they do not apply the forward-claim exclusion: the board's `big_case` and

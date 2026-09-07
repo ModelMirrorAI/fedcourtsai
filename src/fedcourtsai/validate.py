@@ -280,7 +280,7 @@ def validate_ledger(path: Path) -> LedgerValidation:
 
     The corpus-free, git-only half of data health: the same per-file schema check
     the ``validate`` command (and the PR gate) runs, returned as a structured
-    :class:`LedgerValidation` so the ops dashboard can present it alongside the
+    :class:`LedgerValidation` so the ops report can present it alongside the
     corpus verdict. ``problems`` is capped like the corpus checks; ``invalid`` is
     the true failure count.
 
@@ -460,7 +460,7 @@ def check_docket_number_marking(conn: sqlite3.Connection) -> CorpusCheck:
         checked=corpus.count(conn),
         detail=(
             # "advisory" leads the line because `detail` is what travels into the
-            # `::warning::` and the dashboard's monitored list, where nothing
+            # `::warning::` and the report's monitored list, where nothing
             # else distinguishes this from a baseline-gated pass.
             f"advisory: {len(problems)} row(s) still carry the marking "
             f"({shapes} ***-shaped string(s) corpus-wide, the remainder legitimate "

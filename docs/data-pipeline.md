@@ -1004,11 +1004,11 @@ or network.
 ## Pull — forward freshness
 
 - **Trigger:** an intraday cron (several windows a day), or a
-  `workflow_dispatch` whose `mode` input picks the window to run. Each window
-  that ends in success or failure lands its row on the long-lived pipeline-runs
-  dashboard issue; a failing window also opens a `pull-log` issue for a human,
-  and a window cancelled mid-run (timeout, manual stop) gets only that alarm
-  issue, no dashboard row. Neither of those writes can start anything: no
+  `workflow_dispatch` whose `mode` input picks the window to run. A window
+  that succeeds records itself on its own Actions step summary; a failing
+  window — or one cancelled mid-run (timeout, manual stop) — opens a `pull-log`
+  issue for a human, which is the only issue the lane ever files.
+  That write cannot start anything: no
   workflow keys on `issues: labeled`, so labeling triggers nothing — see
   [pipeline.md](pipeline.md).
 - **Budget governor:** a per-run cap (`max_cases_per_run`) with
@@ -1035,8 +1035,8 @@ or network.
      No issue is filed for it — `run-evaluate` derives that backlog itself on
      its own schedule. Anything
      ambiguous lands on the runner-local **unrecorded queue**, surfaced
-     per-case on the pipeline-runs dashboard for maintainer triage; no issue
-     is filed. A recorded cert **grant** that opens a merits proceeding —
+     per-case on the window's Actions step summary for maintainer triage; no
+     issue is filed. A recorded cert **grant** that opens a merits proceeding —
      `granted` / `granted-in-part`, not a GVR or summary reversal, which
      terminate the case at the cert order — also mints the case's **open
      merits event** (`evt-order-judgment`, kind `order`, stage `merits`,

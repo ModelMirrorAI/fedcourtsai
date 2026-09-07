@@ -1,6 +1,6 @@
 name: run-ops
 
-# Operational analytics dashboard. A read-only DAILY roll-up of authoritative
+# Operational analytics. A read-only DAILY roll-up of authoritative
 # sources — pipeline health (the GitHub Actions run history), substance (scored
 # cells, replay calibration, live-frontier readiness — the committed ledger,
 # metrics artifacts, and the published live-frontier snapshot), and model +
@@ -10,7 +10,7 @@ name: run-ops
 # It reports the PROMOTED state, deliberately. Scheduled runs check out the
 # default branch, so this executes the `fedcourts ops-report` that has reached
 # `main` and reads the tree that is actually running the pipeline — not the newer
-# one staged for the next batch. A dashboard describing code that is not yet
+# one staged for the next batch. A report describing code that is not yet
 # executing would be the wrong artifact: `main` is the pre-registration record,
 # and "is the machine producing" is a question about what is live. The lag is
 # narrower than it looks, because the substance and spend sections read `data/`
@@ -19,21 +19,28 @@ name: run-ops
 # An ops-report change consequently shows up here only after promotion.
 #
 # Persistence is FULLY in GitHub and never touches the default branch: each run
-# posts the current view to one long-lived "Ops dashboard" issue (updated in place)
-# and appends the JSON snapshot to a dedicated `ops-metrics` branch (an orphan
-# time-series, never merged to main — a week-old snapshot backs the substance
-# section's deltas). So `main` stays clean and the corpus-write path is
-# untouched. The Monday schedule additionally opens the **weekly performance
-# digest** as its own `weekly-digest` issue — the health questions, the committed
-# boards' state, the week's cells and measured spend, and the back-test results,
-# every metrics figure carrying its artifact's vintage — closed by the maintainer
-# once read; the daily dashboard stays the reference view.
+# renders the current view onto its own Actions run summary and appends the JSON
+# snapshot to a dedicated `ops-metrics` branch (an orphan time-series, never
+# merged to main — a week-old snapshot backs the substance section's deltas). So
+# `main` stays clean and the corpus-write path is untouched.
 #
-# A second job on the daily tick opens the **daily prediction-reading digest**:
+# The reading surfaces are digests a maintainer closes, not a standing body this
+# job edits in place: an unread digest is an open issue, so the backlog is
+# visible without a reading-state store. The Monday schedule opens the **weekly
+# performance digest** as its own `weekly-digest` issue — the health questions,
+# the committed boards' state, the week's cells and measured spend, and the
+# back-test results, every metrics figure carrying its artifact's vintage. A
+# second job on the daily tick opens the **daily prediction-reading digest**:
 # one predicted event with every predictor side by side, on its own
-# `daily-digest` issue, closed by the maintainer once read. It shares nothing
-# with the dashboard job but the schedule — narrower permissions, no corpus, no
-# branch write — which is why it is a job rather than another step.
+# `daily-digest` issue. That job shares nothing with the `ops` job but the
+# schedule — narrower permissions, no corpus, no branch write — which is why it
+# is a job rather than another step.
+#
+# Failure signaling is separate from all of it: GitHub's own workflow-failure
+# notifications plus the issue-as-alarm channels (this job's `data-validation`
+# escalation, run-pull's `pull-log` / `live-log`) carry a break, so an open
+# alarm issue means exactly "something is wrong" and nothing here files on the
+# happy path.
 on:
   schedule:
     - cron: "0 8 * * *" # after run-pull (07:17) so the day's runs are visible
@@ -41,7 +48,7 @@ on:
     # issue. Two steps are gated on this exact schedule string — the build
     # step's WEEKLY_TICK env and the posting step's `if` — and a shape test
     # pins both to a cron this block actually declares. Offset from the daily
-    # 08:00 so the two runs never race on the dashboard issue.
+    # 08:00 so the two runs never race on the `ops-metrics` branch.
     - cron: "30 8 * * 1"
   workflow_dispatch:
 
@@ -55,19 +62,19 @@ jobs:
   ops:
     runs-on: ubuntu-latest
     # Setup + report is a couple of minutes; the cap is sized for the degraded
-    # API this job's retries exist to survive. Ten retryable shell calls across
-    # the four latching steps, plus the three the weekly digest's poster can
-    # make at its Python seam, each worth up to 105s when every attempt times
-    # out (3 × `timeout 30` plus 5s + 10s of backoff): ~23 min of retry alone.
-    # Under a 15 min cap the job would be killed mid-recovery, after posting
-    # the dashboard but before the data-validation escalation. This job holds
-    # no corpus lock, so a wider cap costs only runner minutes on a day the API
-    # is already broken.
+    # API this job's retries exist to survive. Seven retryable shell calls
+    # across the three latching steps, plus the three the weekly digest's poster
+    # can make at its Python seam, each worth up to 105s when every attempt
+    # times out (3 × `timeout 30` plus 5s + 10s of backoff): ~18 min of retry
+    # alone. Under a 15 min cap the job would be killed mid-recovery, after the
+    # ops-metrics snapshot but before the data-validation escalation. This job
+    # holds no corpus lock, so a wider cap costs only runner minutes on a day
+    # the API is already broken.
     timeout-minutes: 30
     permissions:
       contents: write # read the ledger + push the snapshot to the ops-metrics branch
       actions: read # read the workflow run history for the health section
-      issues: write # post / update the dashboard issue
+      issues: write # the data-validation escalation + the weekly digest
     steps:
       # Persist the built-in token so git can fetch/push the ops-metrics branch.
       # This job uploads no artifacts, so credential leakage is not a concern.
@@ -108,8 +115,9 @@ jobs:
           source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
           # An open issue wearing a run:* fan-out label is a marker somebody left
           # behind: nothing keys on those labels, so it is queued work to no one
-          # and the dashboard says so rather than letting it read as a round in
-          # flight. One gh call per label, merged; the tested
+          # and the report says so rather than letting it read as a round in
+          # flight — the weekly digest carries the same signal as a health
+          # question. One gh call per label, merged; the tested
           # `summarize_trigger_issues` does the filtering/ordering.
           for label in run:predict run:evaluate; do
             gh_retry gh issue list --repo "$REPO" --label "$label" --state open --limit 100 \
@@ -144,9 +152,9 @@ jobs:
           fi
           # The weekly performance digest is rendered every run — it is cheap,
           # and this step stays read-only, so nothing here can fail the run
-          # before the dashboard, the snapshot, and the data-validation
-          # escalation have landed. Opening it as an issue is the last step of
-          # the job, on the Monday tick only.
+          # before the snapshot and the data-validation escalation have landed.
+          # Opening it as an issue is the last step of the job, on the Monday
+          # tick only.
           # ops-report runs the git-only `validate` over data/ itself for the data-health
           # section, catching anything that reached the default branch without the gate.
           uv run fedcourts ops-report --runs runs.json --trigger-issues trigger-issues.json \
@@ -182,28 +190,6 @@ jobs:
           fi
           git worktree remove --force "$tree"
 
-      - name: Post or update the ops dashboard issue
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
-          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
-          # `ops-dashboard` is a NON-triggering label by design (no workflow
-          # keys on it). Create it idempotently so the first run does not fail.
-          gh_retry gh label create ops-dashboard --repo "$REPO" --force \
-            --color 0e8a16 --description "Long-lived operational analytics dashboard (run-ops)"
-          num=$(gh_retry gh issue list --repo "$REPO" --label ops-dashboard --state open \
-            --json number --jq '.[0].number')
-          if [ -z "$num" ]; then
-            gh_retry gh issue create --repo "$REPO" --title "Ops dashboard" \
-              --label ops-dashboard --body-file ops.md
-          else
-            # Update the single dashboard in place so it is always the current view.
-            gh_retry gh issue edit "$num" --repo "$REPO" --body-file ops.md
-          fi
-
       - name: Escalate a failing data-validation verdict
         env:
           GH_TOKEN: ${{ github.token }}
@@ -214,8 +200,8 @@ jobs:
           source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
           # Loud-but-non-blocking escalation: on a failing data-health verdict, open
           # OR update ONE long-lived data-validation issue (reuse, don't spam — the
-          # same find-or-create idiom as the dashboard / pull-log); when it goes green
-          # again, close that issue. `data-validation` is a NON-triggering label by
+          # same find-or-create idiom as run-pull's pull-log alarm); when it goes
+          # green again, close that issue. `data-validation` is a NON-triggering label by
           # design (no workflow keys on `issues: labeled`). Create it idempotently.
           gh_retry gh label create data-validation --repo "$REPO" --force \
             --color b60205 --description "Long-lived data-validation failure (run-ops escalation)"
@@ -240,8 +226,8 @@ jobs:
       # The weekly performance digest, on its own issue the maintainer closes
       # once read — the open `weekly-digest` issues are the unread backlog.
       # LAST in the job, deliberately: this is a non-idempotent network write,
-      # and everything the run must not lose to a degraded API — the dashboard,
-      # the ops-metrics snapshot, the data-validation escalation — has already
+      # and everything the run must not lose to a degraded API — the
+      # ops-metrics snapshot and the data-validation escalation — has already
       # landed by the time it is attempted, so a blip here costs the week's
       # digest and nothing else.
       #

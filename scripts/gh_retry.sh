@@ -1,8 +1,8 @@
 # shellcheck shell=bash
 # A bounded retry around a single GitHub API call, for two classes of call on
-# the run surfaces. The **record** steps: the ops dashboard and the collection
-# calls that feed it, the weekly digest, the data-validation escalation, the
-# per-day pull-log / live-log alarms, the pipeline-runs dashboard, the seed
+# the run surfaces. The **record** steps: the ops report's collection calls,
+# the weekly digest, the data-validation escalation, the per-day pull-log /
+# live-log alarms, the seed
 # guard, and run-backtest's result comment. The **handoff writes**, which are
 # the work rather than a record of it: the trigger-issue closes in run-evaluate
 # and the two fan-outs' `rejected` jobs. Calls outside both lists — the collect
@@ -13,11 +13,10 @@
 # earned — and what it costs differs by site, which is why they all get the
 # same wrapper. On the run-ops steps and the seed guard's clear-the-incident
 # path, a blip fails the step and so reddens a run that did its work, or leaves
-# a stale incident open over a healthy one. On the pipeline-runs dashboard
-# (`continue-on-error` at both callers), the pull-log / live-log alarms (which
-# fire only on an already-failed window), and the back-test comment
-# (`continue-on-error` too), nothing turns red: the loss is the record itself —
-# a missing dashboard row, or no incident issue for a day that broke. At the
+# a stale incident open over a healthy one. On the pull-log / live-log alarms
+# (which fire only on an already-failed window) and the back-test comment
+# (`continue-on-error`), nothing turns red: the loss is the record itself —
+# no incident issue for a day that broke. At the
 # handoff writes the loss is the work: a lost trigger-issue close leaves an
 # issue that run-ops reports as a stalled fan-out — a false alarm over a round
 # that finished. Three attempts absorb the blip; a sustained outage still
@@ -27,7 +26,7 @@
 #
 # Shape matters as much as the retry at the find-or-create lookups, where an
 # empty result is silently meaningful: an empty `num` reads as "no issue yet"
-# and opens a duplicate, or restarts a dashboard's rolling table from scratch.
+# and opens a duplicate.
 # The rule there is that a retried call is never a non-final element of a
 # pipeline — either filter with `gh`'s own `--jq` inside the same command, or
 # assign the output and filter the variable — so `set -e` stops the step on the
@@ -39,8 +38,8 @@
 #
 # What the retry cannot make safe. `gh issue create` and `gh issue comment` are
 # not idempotent, so a write that lands server-side and is then cut off at
-# `timeout 30` is re-sent on the next attempt: a second dashboard issue, or a
-# second alarm thread for the same day. That is the same split state this
+# `timeout 30` is re-sent on the next attempt: a second data-validation issue,
+# or a second alarm thread for the same day. That is the same split state this
 # wrapper exists to prevent, reached from the other side, and it is accepted —
 # a >30s write that still succeeds is far rarer than the transient failure
 # being absorbed, and the find-or-create at every such site converges on one
@@ -73,8 +72,7 @@
 # Two consumption modes:
 #   * `source scripts/gh_retry.sh` — wherever the step runs after a checkout
 #     into a workspace no agent has written to (the run-ops jobs; run-evaluate's
-#     plan job; the run-log-dashboard composite, whose own presence on disk
-#     already proves the checkout succeeded).
+#     plan job).
 #   * an inline copy of the function below — for the steps with no checkout to
 #     source it from: run-pull's two failure alarms and run-seed's guard, which
 #     must fire even when the checkout or the App-token mint failed, and the

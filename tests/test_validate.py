@@ -598,7 +598,7 @@ def test_an_annotated_docket_number_warns_without_failing(tmp_path: Path) -> Non
     assert check.failures == 1
     assert check.checked == 1  # every case row, not just the annotated ones
     assert any("ca9/1" in p and "25-5184" in p for p in check.problems)
-    # `detail` travels into the ::warning:: and the dashboard's monitored list,
+    # `detail` travels into the ::warning:: and the ops report's monitored list,
     # where nothing else marks this apart from a baseline-gated pass.
     assert check.detail.startswith("advisory: ")
     assert "re-ingest" in check.detail  # and it names the path that clears it

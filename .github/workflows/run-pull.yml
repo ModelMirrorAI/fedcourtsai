@@ -49,17 +49,15 @@ name: run-pull
 # own schedule — so a changed case reaches a forecaster, and a resolved event a
 # judge, by those lanes rather than by an issue filed here. A case that appears
 # decided but whose outcome could not be recorded deterministically is surfaced
-# on the pipeline-runs dashboard for maintainer triage.
-# Run logging creates nothing on the happy path: every window (pull and live,
-# success or failure) lands its row on the single long-lived `Pipeline runs`
-# dashboard issue, edited in place (.github/actions/run-log-dashboard), and a
-# failing window opens (or reuses, same day) a `pull-log` / `live-log` issue
-# left open for a human — so an open run-log issue means exactly "a window
-# broke". The corpus commits use the GitHub App token so they reach `main`
-# through the deterministic-writer bypass; the logging writes (dashboard +
-# run-log issues) ride the ambient GITHUB_TOKEN instead — they must trigger
-# nothing, and no workflow in this repository keys on a label at all, so no
-# logging issue can re-fire anything.
+# on the window's Actions step summary for maintainer triage.
+# Run logging creates nothing on the happy path: a window's own record is its
+# Actions step summary and the run history behind it, and only a FAILING window
+# opens (or reuses, same day) a `pull-log` / `live-log` issue left open for a
+# human — so an open run-log issue means exactly "a window broke". The corpus
+# commits use the GitHub App token so they reach `main` through the
+# deterministic-writer bypass; the run-log issues ride the ambient GITHUB_TOKEN
+# instead — they must trigger nothing, and no workflow in this repository keys
+# on a label at all, so no logging issue can re-fire anything.
 on:
   schedule:
     # Four pull windows/day, six hours apart (staggered off the hour from other
@@ -134,7 +132,7 @@ jobs:
       FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
     permissions:
       contents: write
-      issues: write # the dashboard + failure-issue writes (non-triggering, ambient)
+      issues: write # the failure run-log issue (non-triggering, ambient)
       id-token: write # assume the AWS role for the corpus S3 remote (read-write)
     steps:
       # No authorization gate here, and none is missing: this workflow carries
@@ -153,18 +151,14 @@ jobs:
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
           # Contents only, as the enrich job's mint already is. Every consumer of
           # this token is a contents write — the checkout, the pointer commit,
-          # the verdict push; the issue writes this job still makes (the
-          # dashboard row, the failure alarm) must trigger nothing and so ride
-          # the ambient GITHUB_TOKEN instead, never the branch-protection-bypass
-          # credential.
+          # the verdict push; the issue write this job still makes (the failure
+          # alarm) must trigger nothing and so rides the ambient GITHUB_TOKEN
+          # instead, never the branch-protection-bypass credential.
           permission-contents: write
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # Persist the App token so refreshed snapshots can be pushed back to main;
         # this job uploads no artifacts, so credential leakage is not a concern.
-        # The id gates the dashboard step below: the composite action it uses
-        # lives in this tree, so it can only run once checkout has succeeded.
-        id: checkout
         with: # zizmor: ignore[artipacked]
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
@@ -279,40 +273,7 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-      # Success or failure, the window lands its row on the long-lived
-      # `Pipeline runs` dashboard issue (edited in place; the unrecorded
-      # outcomes ride along per case for maintainer triage). Never on
-      # cancellation — a queued window superseded on the shared lock is not an
-      # outcome. A failure before checkout cannot land a row (the composite
-      # lives in this tree) and is covered by the failure issue below.
-      # The ambient GITHUB_TOKEN (this job holds `issues: write`), not the App
-      # token: the dashboard must trigger nothing, so it stays on the
-      # lower-trust, non-bypass credential — the same doctrine as run-ops and
-      # the collect/plan issue writes (docs/security.md).
-      # Loud-not-fatal like publish-corpus-verdict: a transient dashboard
-      # hiccup must not mark a healthy window failed (and so file a false
-      # alarm); a stale dashboard is self-evident from its newest row's
-      # timestamp.
-      - name: Update the pipeline-runs dashboard
-        continue-on-error: true
-        # Bound the composite's retries explicitly rather than letting them run
-        # into the job budget: four sequential `gh_retry` calls, each worth up
-        # to 105s when every attempt times out, is ~7 min against a degraded
-        # API. Past that the row is not worth the window's remaining minutes —
-        # and `continue-on-error` means giving up on it costs only the row.
-        timeout-minutes: 8
-        if: >-
-          (success() || failure()) &&
-          steps.checkout.conclusion == 'success'
-        uses: ./.github/actions/run-log-dashboard
-        with:
-          token: ${{ github.token }}
-          repo: ${{ github.repository }}
-          channel: pull
-          outcome: ${{ job.status }}
-          committed: ${{ steps.commit.outputs.committed }}
-
-      # Ops analytics: the same counts in the Actions UI, no roll-up needed.
+      # Ops analytics: the window's counts in the Actions UI, no roll-up needed.
       - name: Roll the window up on the Actions summary
         if: success()
         env:
@@ -344,15 +305,31 @@ jobs:
             echo "| evaluate backlog cases owed | ${evaluate} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
           } >> "$GITHUB_STEP_SUMMARY"
+          # Name each unrecorded case, not just the count: the window records
+          # nothing rather than guessing a disposition, so a human has to see
+          # which docket was left and why. A corrupt queue file degrades to the
+          # count above rather than failing the step.
+          triage=$(jq -r '.[] | "- `\(.court)/\(.docket)` — \(.reason)"' \
+            unrecorded-queue.json 2>/dev/null) || triage=''
+          if [ -n "$triage" ]; then
+            {
+              echo ""
+              echo "Unrecorded outcomes — decided-looking dockets whose outcome could"
+              echo "not be recorded deterministically, for maintainer triage:"
+              echo ""
+              printf '%s\n' "$triage"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       # Failure-only alarm: an open `pull-log` issue means exactly "a pull
       # window broke" — nothing is filed on the happy path, and nothing closes
       # this automatically; a human closes it once triaged. Inline (no
-      # checkout needed) and on the ambient GITHUB_TOKEN (non-triggering write,
-      # same doctrine as the dashboard step above), so it fires for any broken
-      # window — including one whose App-token mint itself failed, and one
-      # whose checkout or env sync broke: a window lost to infrastructure is a
-      # broken window. No suppression, because every trigger this workflow
+      # checkout needed) and on the ambient GITHUB_TOKEN (a non-triggering write
+      # stays off the App token — the doctrine in docs/security.md), so it fires
+      # for any broken window — including one whose App-token mint itself
+      # failed, and one whose checkout or env sync broke: a window lost to
+      # infrastructure is a broken window.
+      # No suppression, because every trigger this workflow
       # carries is one the platform already authorized, so every failure here is
       # a real one. `cancelled()` is included because the shared lock never
       # cancels an in-flight run (cancel-in-progress is false; a superseded run
@@ -413,7 +390,7 @@ jobs:
             --limit 100 --json number,title)
           num=$(jq -r --arg d "$today" \
             '[.[] | select(.title | endswith($d))][0].number // empty' <<<"$listing")
-          body=$(printf '### ❌ Pull refresh window did not complete\n\n- Run: %s\n- Window: `%s` at %s UTC — status: `%s`\n\nSee the run log for the failing step; the `Pipeline runs` dashboard carries the window history. Close this issue once triaged — an open `pull-log` issue means exactly "a pull window broke".\n' \
+          body=$(printf '### ❌ Pull refresh window did not complete\n\n- Run: %s\n- Window: `%s` at %s UTC — status: `%s`\n\nSee the run log for the failing step; the Actions run history carries the window history. Close this issue once triaged — an open `pull-log` issue means exactly "a pull window broke".\n' \
             "$RUN_URL" "$WINDOW" "$(date -u +%H:%M)" "$STATUS")
           if [ -z "$num" ]; then
             url=$(gh_retry gh issue create --repo "$REPO" \
@@ -449,14 +426,14 @@ jobs:
     # halves derive from it, and the store's address is the corpus-split mode.
     env:
       FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
-    # The ambient GITHUB_TOKEN carries exactly the non-triggering issue writes
-    # (the pipeline-runs dashboard row and the failure run-log issue — the
-    # doctrine in docs/security.md: issue writes that must trigger nothing stay
-    # off the App token). Checkout and the corpus push run on the App token, and
-    # there is no authorize-trigger step to need a read.
+    # The ambient GITHUB_TOKEN carries exactly the non-triggering issue write
+    # (the failure run-log issue — the doctrine in docs/security.md: issue
+    # writes that must trigger nothing stay off the App token). Checkout and the
+    # corpus push run on the App token, and there is no authorize-trigger step
+    # to need a read.
     permissions:
       contents: read
-      issues: write # the dashboard + failure-issue writes (non-triggering, ambient)
+      issues: write # the failure run-log issue (non-triggering, ambient)
       id-token: write # assume the AWS role for the corpus S3 remote (read-write)
     steps:
       - name: Mint app token
@@ -467,18 +444,15 @@ jobs:
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
           # Contents only, as the enrich job's mint already is. Every consumer of
           # this token is a contents write — the checkout, the pointer commit,
-          # the verdict push; the issue writes this job still makes (the
-          # dashboard row, the failure alarm) must trigger nothing and so ride
-          # the ambient GITHUB_TOKEN instead, never the branch-protection-bypass
-          # credential.
+          # the verdict push; the issue write this job still makes (the failure
+          # alarm) must trigger nothing and so rides the ambient GITHUB_TOKEN
+          # instead, never the branch-protection-bypass credential.
           permission-contents: write
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # Persist the App token so outcomes + the corpus pointer can be pushed
         # back to main; this job uploads no artifacts, so credential leakage is
-        # not a concern. The id gates the dashboard step below: its composite
-        # action lives in this tree, so it needs a successful checkout first.
-        id: checkout
+        # not a concern.
         with: # zizmor: ignore[artipacked]
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
@@ -560,27 +534,10 @@ jobs:
           label: outcomes + corpus pointer
           append-date: 'true'
 
-      # Unrecorded outcomes are surfaced on the dashboard/summary below, exactly
+      # Unrecorded outcomes are surfaced on the step summary below, exactly
       # as in `pull`: live resolution is machine-readable by construction (the
       # disposition orders ride in the proceedings text), so a non-empty
       # unrecorded queue signals a case shape worth manual triage.
-
-      # Same dashboard row as `pull` (see that job's step for the gating,
-      # token, and loud-not-fatal rationale) — one shared `Pipeline runs`
-      # issue carries both channels.
-      - name: Update the pipeline-runs dashboard
-        continue-on-error: true
-        timeout-minutes: 8 # the retry bound; see `pull`'s copy of this step
-        if: >-
-          (success() || failure()) &&
-          steps.checkout.conclusion == 'success'
-        uses: ./.github/actions/run-log-dashboard
-        with:
-          token: ${{ github.token }}
-          repo: ${{ github.repository }}
-          channel: live
-          outcome: ${{ job.status }}
-          committed: ${{ steps.commit.outputs.committed }}
 
       - name: Roll the window up on the Actions summary
         if: success()
@@ -607,6 +564,18 @@ jobs:
             echo "| evaluate backlog cases owed | ${evaluate} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
           } >> "$GITHUB_STEP_SUMMARY"
+          # Per-case triage list — see the pull job's copy for the rationale.
+          triage=$(jq -r '.[] | "- `\(.court)/\(.docket)` — \(.reason)"' \
+            unrecorded-queue.json 2>/dev/null) || triage=''
+          if [ -n "$triage" ]; then
+            {
+              echo ""
+              echo "Unrecorded outcomes — decided-looking dockets whose outcome could"
+              echo "not be recorded deterministically, for maintainer triage:"
+              echo ""
+              printf '%s\n' "$triage"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       # Failure-only alarm, mirroring `pull` (see that job's step for the
       # `cancelled()` and ambient-token rationale; there is no authorize step
@@ -656,7 +625,7 @@ jobs:
             --limit 100 --json number,title)
           num=$(jq -r --arg d "$today" \
             '[.[] | select(.title | endswith($d))][0].number // empty' <<<"$listing")
-          body=$(printf '### ❌ Live poll window did not complete\n\n- Run: %s\n- Window: `%s` at %s UTC — status: `%s`\n\nSee the run log for the failing step; the `Pipeline runs` dashboard carries the window history. Close this issue once triaged — an open `live-log` issue means exactly "a live window broke".\n' \
+          body=$(printf '### ❌ Live poll window did not complete\n\n- Run: %s\n- Window: `%s` at %s UTC — status: `%s`\n\nSee the run log for the failing step; the Actions run history carries the window history. Close this issue once triaged — an open `live-log` issue means exactly "a live window broke".\n' \
             "$RUN_URL" "$WINDOW" "$(date -u +%H:%M)" "$STATUS")
           if [ -z "$num" ]; then
             url=$(gh_retry gh issue create --repo "$REPO" \
