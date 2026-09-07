@@ -1501,13 +1501,15 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
     assert "dashboard-body.md" in composite
 
 
-# The codex invocation surface, described in six places that certify each
+# The codex invocation surface, described in several places that certify each
 # other only while they agree: the codex-action steps of the two cell
 # workflows (the action pin and its `codex-version` / `codex-args` /
-# `permission-profile` inputs), the codex-action step of the
-# `engine-actions-smoke` scenario — whose entire claim is that the cells' input
-# block is still *accepted*, which is worth nothing if the block it sends is
-# not the cells' — the permission profile `fedcourtsai.mcp` emits into the
+# `permission-profile` inputs), every codex-action step of the integration
+# suite — the `engine-actions-smoke` probe, whose entire claim is that the
+# cells' input block is still *accepted*, and each repro-family leg, whose
+# claim is that a defect reproduces under the cells' invocation; both are
+# worth nothing if the block they send is not the cells' — the permission
+# profile `fedcourtsai.mcp` emits into the
 # `$CODEX_HOME/config.toml` those steps select by name, the npm pins of the
 # same CLI in run-backtest and the engine smoke, and
 # `CodexRunner.build_command`'s argv. Each carries a "keep in lockstep" comment
@@ -1518,10 +1520,10 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
 CODEX_ACTION_CELL_WORKFLOWS = ("run-predict.yml", "run-evaluate.yml")
 CODEX_ACTION_SMOKE_WORKFLOW = "integration-test.yml"
 CODEX_NPM_PIN_WORKFLOWS = ("run-backtest.yml", "integration-test.yml")
-# The inputs that make the invocation what it is. The prompt and the model
-# deliberately differ on the smoke leg (a boot probe against a resolved
-# default, not a cell against a case); everything that decides how codex runs
-# does not.
+# The inputs that make the invocation what it is. The prompt and the model may
+# differ on an integration leg (the boot probe sends a one-word prompt against
+# a resolved default, a repro leg its own record's cell); everything that
+# decides how codex runs does not.
 CODEX_LOCKSTEP_INPUTS = (
     "codex-version",
     "codex-args",
@@ -1571,13 +1573,26 @@ CODEX_RUNNER_POSTURE_TOKENS = ("--sandbox", "sandbox_workspace_write.network_acc
 _CODEX_NPM_PIN = re.compile(r"@openai/codex@([\w-]+(?:\.[\w-]+)*)")
 
 
-def _codex_action_step(name: str) -> dict[str, Any]:
+def _codex_action_steps(name: str) -> list[dict[str, Any]]:
+    """Every step in a workflow that drives codex through the pinned action."""
     steps: list[dict[str, Any]] = [
         step
         for job in _load(name)["jobs"].values()
         for step in job.get("steps", []) or []
         if str(step.get("uses") or "").startswith("openai/codex-action@")
     ]
+    assert steps, f"{name}: no codex-action step — the invocation this pins is gone"
+    return steps
+
+
+def _codex_action_step(name: str) -> dict[str, Any]:
+    """The one codex-action step of a cell workflow.
+
+    A cell workflow runs exactly one codex invocation; the integration suite
+    runs several (the action-path smoke, and each repro-family leg), and every
+    one of them is held to the same block below.
+    """
+    steps = _codex_action_steps(name)
     assert len(steps) == 1, f"{name}: expected exactly one codex-action step, found {len(steps)}"
     return steps[0]
 
@@ -1645,23 +1660,28 @@ def _profile_posture_settings(profile: dict[str, Any]) -> set[str]:
 
 
 def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> None:
-    """One codex invocation, six surfaces: both cell steps and the action-path
-    smoke share the action pin and its inputs; the profile they select is the
-    one the emitted config.toml declares; the runner reaches the same network
-    posture through the mapping below; the npm installs pin the CLI version the
-    action pins."""
+    """One codex invocation, every surface that makes it: both cell steps and
+    every action-path leg of the integration suite share the action pin and its
+    inputs; the profile they select is the one the emitted config.toml
+    declares; the runner reaches the same network posture through the mapping
+    below; the npm installs pin the CLI version the action pins."""
     predict, evaluate = (_codex_action_step(name) for name in CODEX_ACTION_CELL_WORKFLOWS)
-    smoke = _codex_action_step(CODEX_ACTION_SMOKE_WORKFLOW)
+    # Every action-path leg the integration suite runs, not just the boot
+    # probe: a repro-family leg reproduces a defect against the cells'
+    # invocation, and one that drifted would reproduce against an invocation
+    # nothing runs.
+    smokes = _codex_action_steps(CODEX_ACTION_SMOKE_WORKFLOW)
     assert predict["uses"] == evaluate["uses"], (
         f"the codex-action pin differs between the cell workflows: "
         f"{predict['uses']!r} vs {evaluate['uses']!r} — one permission-profile "
         f"contract cannot be validated against two action versions"
     )
-    assert smoke["uses"] == predict["uses"], (
-        f"the action-path smoke pins {smoke['uses']!r} but the cells run "
-        f"{predict['uses']!r} — the smoke would certify a version nothing else "
-        f"uses, which is the exact failure it exists to catch"
-    )
+    for smoke in smokes:
+        assert smoke["uses"] == predict["uses"], (
+            f"an action-path leg pins {smoke['uses']!r} but the cells run "
+            f"{predict['uses']!r} — the leg would certify a version nothing else "
+            f"uses, which is the exact failure it exists to catch"
+        )
     for key in CODEX_LOCKSTEP_INPUTS:
         # Presence first: a `.get()` comparison would pass vacuously when an
         # input vanishes from every surface at once, and `safety-strategy` has
@@ -1669,7 +1689,7 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
         for name, step in (
             ("run-predict.yml", predict),
             ("run-evaluate.yml", evaluate),
-            (CODEX_ACTION_SMOKE_WORKFLOW, smoke),
+            *((CODEX_ACTION_SMOKE_WORKFLOW, smoke) for smoke in smokes),
         ):
             assert key in step["with"], (
                 f"{name}: codex-action input {key!r} is missing — it is part "
@@ -1686,11 +1706,12 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
             f"codex-action input {key!r} differs between the cell workflows: "
             f"{predict['with'][key]!r} vs {evaluate['with'][key]!r}"
         )
-        assert predict["with"][key] == smoke["with"][key], (
-            f"codex-action input {key!r} differs between the cells and the "
-            f"action-path smoke: {predict['with'][key]!r} vs {smoke['with'][key]!r} "
-            f"— the smoke's acceptance claim is only about the block it sends"
-        )
+        for smoke in smokes:
+            assert predict["with"][key] == smoke["with"][key], (
+                f"codex-action input {key!r} differs between the cells and an "
+                f"action-path leg: {predict['with'][key]!r} vs {smoke['with'][key]!r} "
+                f"— such a leg's claim is only about the block it sends"
+            )
 
     # The profile the steps name is the profile the emitted config declares —
     # the two ends of a selection that fails at startup if they disagree.

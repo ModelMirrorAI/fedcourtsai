@@ -30,7 +30,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | manual dispatch only (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (dashboard + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
-| `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary) |
+| `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), and each repro-family scenario one real cell against its pinned record |
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
@@ -352,8 +352,10 @@ sidecar under the tested `mcp-integration-check` client, a stub
 artifacts (corpus-free and environment-free; every write surface stubbed or
 diverted on the runner), the `qp-topic-measure` composite over canned labels
 built from the committed reference set (token-free and credential-free), or
-(the two token-spending scenarios) a single real-engine cell over the service
-sidecar and a boot probe of each engine's own invocation block
+(the three token-spending scenarios) a single real-engine cell over the service
+sidecar, a boot probe of each engine's own invocation block, and one
+**repro-family** cell — a real cell run against a record pinned to the shape a
+diagnosed engine defect keys on
 — dispatched around changes to corpus access, the sidecars, engine
 CLIs or engine actions, the collect contract, or the corpus-consuming
 workflows and before
@@ -364,10 +366,13 @@ gate's freshness evidence; see *Promotion: staging → main* below). The deploym
 the dispatching branch by default — `main` gets `prod`, `staging` gets
 `staging`, any other branch an empty environment holding no role variables
 and no keys — and a `scenario=all` dispatch
-fans the gate's whole required suite (every real scenario — collect rides the
-run as its own environment-free job — with engine-smoke and
+fans the gate's whole required suite (every required scenario — collect rides
+the run as its own environment-free job — with engine-smoke and
 engine-actions-smoke once per engine each, so
-three cells' token spend plus three boot probes) out of one run.
+three cells' token spend plus three boot probes) out of one run. The
+repro-family scenarios are deliberately not among them: an open defect
+reproducing inside `all` would redden the run, and a red run is no freshness
+evidence at all — it would block the promotion carrying the fix.
 `scenario=all-offline` is that same
 suite with all six token-spending engine legs dropped: token-free end to end,
 and whole-suite evidence only for a pre-flight that skipped them (*The

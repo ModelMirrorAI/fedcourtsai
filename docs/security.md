@@ -450,6 +450,21 @@ the property is not new — the production claude and codex cells have exactly
 the same shape against a read-only role — but against `staging` it is what
 keeps an agent leg away from the only write-capable role outside production.
 
+The **repro family** is the one class of leg that deliberately does not hold
+that invariant, and it is bounded by a different one. A repro leg reproduces a
+diagnosed engine defect, so it must hand the model a *real* record — provisioned
+snapshot, filed-document text, blinded candidates — through the cells' own
+invocation surface, which is exactly the combination the paragraph above rules
+out for a probe. What makes that acceptable is not a weaker rule but an
+identity: such a leg **is** a production cell, run against a record the
+production fleet has already run, in a job whose grants are the cell job's.
+Nothing about its reach is new, and nothing about it is new *to staging*
+either — the pre-agent tripwire the cells carry (`AWS_*` absent from the agent
+step's environment) rides here too, so the write-capable staging role stays as
+far from this agent as it does from a production one. The line to hold is that
+a repro leg may present a real record and nothing else may: a leg that wanted a
+real record *and* a probe's exemption from the cell posture would be neither.
+
 What corrupting it *costs* depends on a coupling worth stating rather than
 discovering. While the `staging` environment still names the production pair,
 nothing committed depends on the staging corpus — the scenarios read
@@ -504,10 +519,11 @@ nothing for such a dispatch to reach. Its only
 real credential is the ambient read-only token that lists and fetches the
 run's own synthetic cell artifacts.
 
-The workflow's two engine scenarios additionally — beyond the role
+The workflow's three engine scenarios additionally — beyond the role
 variables — read one model-provider
 secret — the running engine's API key, chosen by expression ternary (or, on
-the engine-actions-smoke legs, by the per-engine step conditions the legs are
+the engine-actions-smoke legs and each repro-family leg, by the step
+conditions the legs are
 partitioned on) so the
 other engines' keys never enter the job. An `all` dispatch fans one of each per
 engine, so a single run reads all three keys — each confined to its own job —
@@ -540,8 +556,10 @@ workspace filesystem plus network for spawned commands — beside the sidecar
 URL; codex reads no other trusted configuration layer, and the file still holds
 no credential.) Every engine-actions-smoke leg reads that same one,
 for the same reason and by the same route: each drives the cell's invocation
-block, which names the client config the composite's sidecar serves. Two
-further notes on those legs. They hand `claude-code-action` the job's own
+block, which names the client config the composite's sidecar serves — and so
+does each repro-family leg, which drives that same block against a real
+record. Two further notes on the engine-actions-smoke legs.
+They hand `claude-code-action` the job's own
 token rather than minting the cells' App token — the job's permissions cap it
 at `contents: read`, and omitting it entirely is worse, since the action then
 falls back to an OIDC exchange that mints an installation token defaulting to

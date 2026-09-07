@@ -187,7 +187,8 @@ Token-free and credential-free; the extract and the model call stay uncovered
 the unit suite instead (scope, the `--all` measurement form, the row ceiling,
 and the content-store path under the split, all over corpora built in
 `tmp_path`), and the model call is exactly what `run-analytics` pays for.
-`engine-smoke` is one of the two token-spending scenarios: a single real-engine
+`engine-smoke` is the first of the three token-spending scenarios: a single
+real-engine
 predictor cell (the `engine` input picks which — an `all` dispatch ignores it
 and runs one smoke per engine; one predict cell's spend
 against the run's open-event case — a resolved event also replays
@@ -220,7 +221,7 @@ never reaching the sidecar — a decline, or a sidecar that never came up, since
 health is warn-only on this leg. Observation, not a gate — the leg's verdict is
 still the cell's.
 
-`engine-actions-smoke` is the other, and it answers the question the engine
+`engine-actions-smoke` is the second, and it answers the question the engine
 smoke cannot. That leg drives the bare CLI through the tested runner seam,
 while a production cell reaches its engine through an **invocation block** —
 `claude-code-action` and `codex-action` at pinned shas, and for gemini the CLI
@@ -242,6 +243,45 @@ workflows' by a test, and the two deliberate deviations — the kickoff prompt,
 and handing claude the job's read-capped token instead of minting the cells'
 App token — are marked in the workflow where they are made.
 
+**The repro family** is the third token-spending class, and it exists because
+the two above share a blind spot: the resolver applies no stage screen, but
+what it settles on in practice is a cert-stage petition, so a defect keyed on
+a *record shape* they never present is invisible to them however green they
+run. Each member pins one record to the shape one diagnosed engine defect keys
+on and runs a real cell against it, and the leg's own failure is the finding.
+`codex-application-repro` is the first: one `codex-judge` evaluate cell —
+`run-evaluate`'s codex step, its `with:` block held in lockstep with the cells
+by the same test the actions smoke is — against an **application-lane** record,
+a SCOTUS interim docket (the `YYAnnn` application-number lane) whose event trio
+— motion / order-response-requested / brief-response — is committed here and
+whose snapshot and application-kind document the leg provisions at run time,
+staged exactly as a production judge cell is (snapshot and documents
+provisioned, event materialized, candidates blinded, de-blinding surfaces
+hidden). Its provisioning step asserts the application document is actually
+there, so a corpus that stopped serving one fails the leg rather than letting
+it certify an ordinary record — which also means the leg needs an environment
+whose corpus carries the pinned docket, and reads as red when it does not.
+
+Three properties are the family's, not this member's. The record is **pinned in
+the scenario's own steps**, not taken from the `court`/`docket` inputs: the
+record is what the scenario is, and a dispatcher who could re-point it could
+make a red leg mean something else. The engine bound is **tight** — a
+runner-level watchdog at twelve minutes inside a fifteen-minute step backstop,
+well inside the job cap — because a job that runs to its cap is *cancelled*,
+and GitHub drops a cancelled job's logs, so a hang that rides the cap erases
+the evidence the leg exists to produce; the watchdog's diagnostics bundle and
+the rollout's item shapes ride the run's artifact either way. Read a fired
+deadline as what it says — the cell did not finish inside the bound — and not
+as a reproduction on its own: the bound is a small fraction of the cells' own,
+so a healthy-but-slow cell can reach it, and the bundle is what separates that
+from an engine making no progress. And the family is
+**dispatch-only and observational** while its defect is open: no whole-suite
+selection fans it out, and it is absent from `REQUIRED_SCENARIOS`, because a
+defect reproducing on cue inside `all` would redden the run the promotion gate
+matches on and block the promotion carrying the fix. A member whose defect is
+closed becomes the regression test that keeps it closed, and joining the
+required set is the deliberate maintainer edit described two paragraphs below.
+
 Dispatch a scenario around the changes it guards: **before and after any
 change to corpus access** (the read seams, `corpus_ranged`, the sidecar
 composites, the blob's physical layout) **or to a corpus-consuming workflow**,
@@ -251,7 +291,9 @@ cell's `with:` block, or to the codex permission profile the cells select**,
 **collect around any change to the `collect-run` composite or the collect
 jobs that call it**, **qp-topic around any change to the `qp-topic-measure`
 composite, the labeling job, or the `qp_topics` module — and before any paid
-labeling dispatch**, and as a preflight **before a release dry run** and
+labeling dispatch**, **a repro-family scenario around any change aimed at the
+defect it reproduces, and once after the promotion that carries the fix**, and
+as a preflight **before a release dry run** and
 **before a prediction freeze** — the moments when a silent read regression
 would be most expensive.
 
@@ -295,7 +337,7 @@ supplies no override — so provisioning it, and the repointing that remains,
 are the staging corpus runbook in [security.md](security.md). Changed seams are therefore validated after the
 merge to `staging` rather than on the PR branch; nothing broken reaches `main`
 regardless: the gate needs the twelve required integration runs — all eight
-real scenarios, with engine-smoke and engine-actions-smoke counted once per
+required scenarios, with engine-smoke and engine-actions-smoke counted once per
 engine each, or one green
 `scenario=all` run, which covers all twelve because it succeeds only when each
 of its eleven matrix legs and its collect job does — green at exactly that
