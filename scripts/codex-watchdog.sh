@@ -38,17 +38,42 @@
 #   WATCHDOG_STEP_GRACE_S  how long anything signalled here has to answer:
 #                        the engine to a SIGTERM, then the step to the engine's
 #                        death, then the step's tree to its own SIGTERM. Those
-#                        run in sequence, so the deadline plus three of these is
-#                        what has to stay inside the step's own timeout
+#                        run in sequence, so the deadline plus three of these —
+#                        plus the check-ins, each capped at curl's `--max-time`
+#                        and three of them between the deadline and the first
+#                        signal — is what has to stay inside the step's own
+#                        timeout
 #   WATCHDOG_ARM_SLACK_S  how far before this watchdog a process may have
 #                        started and still be the step it guards
 #   WATCHDOG_MIN_STEP_AGE_S  how long a process must already have been running
 #                        to be the step this watchdog was armed for
+#   WATCHDOG_CHECKIN_URL   the off-runner record: the API URL of this cell's
+#   WATCHDOG_CHECKIN_TOKEN comment on the `codex-watchdog` telemetry issue, the
+#   WATCHDOG_CHECKIN_BASE  comment-only App token that may PATCH it, and the
+#                        armed body already written there, which every PATCH
+#                        below appends to rather than replaces — so the arming
+#                        time, the fire ETA and the run link survive the first
+#                        heartbeat. All three come from the arm step
+#                        (`fedcourts watchdog-checkin`); an empty URL or token
+#                        makes every check-in below a no-op.
+#   WATCHDOG_HEARTBEAT_S how often to beat while waiting out the deadline
 #
-# The workflows set only the first three and leave the overrides at their
-# defaults; the overrides exist so a test can drive this against processes of
-# its own, on its own clock, rather than against a pattern naming a real engine
-# or the runner that is executing the test.
+# The workflows set only the first three and the check-in trio, and leave the
+# overrides at their defaults; the overrides exist so a test can drive this
+# against processes of its own, on its own clock, rather than against a pattern
+# naming a real engine or the runner that is executing the test.
+#
+# One channel does not live on the runner, because every runner-local one dies
+# with a cancelled job — which is the failure being guarded against, so the
+# bundle below is exactly the evidence a wedge is best placed to destroy. Each
+# state this script passes is also PATCHed onto this cell's comment on the long-lived
+# `codex-watchdog` issue, opened by the arm step before the agent starts. That
+# body is composed **only** from this script's own variables and never from any
+# file: WATCHDOG_DIR is writable by the very agent the watchdog may be about to
+# kill, and a public issue is no place to let it choose what is said. It is
+# stricter than the bundle for the same reason it outlives it — timestamps,
+# phase names, pid numbers, counts and the configured deadline, never argv,
+# never a file listing, never anything the cell read.
 #
 # The bundle is published: it rides the cell artifact, which is downloadable by
 # anyone with a GitHub account for its retention window. So it holds shapes and
@@ -107,9 +132,63 @@ step_grace_s="${WATCHDOG_STEP_GRACE_S:-30}"
 # ever judged by it, and a step's root process starts when its step does.
 min_step_age_s="${WATCHDOG_MIN_STEP_AGE_S:-$((deadline_s / 2))}"
 clk_tck="$(getconf CLK_TCK 2>/dev/null || echo 100)"
+# The off-runner record. Empty is the ordinary degraded state, not an error: the
+# arm step's check-in is best-effort, because a watchdog that refused to arm
+# without a telemetry channel would trade the kill duty for the reporting one.
+checkin_url="${WATCHDOG_CHECKIN_URL:-}"
+checkin_token="${WATCHDOG_CHECKIN_TOKEN:-}"
+checkin_body="${WATCHDOG_CHECKIN_BASE:-}"
+# Long enough that an ordinary 40-minute wait costs single-digit API calls,
+# short enough that a maintainer reading mid-round can tell a live watchdog from
+# one whose runner is already gone.
+heartbeat_s="${WATCHDOG_HEARTBEAT_S:-300}"
 
 stamp() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 log() { echo "[$(stamp)] watchdog: $*"; }
+
+# Append one stamped line to the off-runner record and re-PATCH the whole of it.
+#
+# The whole body every time, because a comment has no append operation — and
+# accumulating it in a variable is also what keeps the payload composed from
+# this script alone. Bounded three ways so this can never become the reason a
+# kill is late: curl's own `--max-time`, an unconditional `|| true`, and the
+# no-op when the arm step handed over no URL or token.
+#
+# The token reaches curl through a config file on a pipe, never as an argument:
+# `capture_runner_state` below dumps every argument of every process this user
+# owns into a bundle that gets published, so a token in argv would be one
+# unlucky overlap away from a public artifact. Nothing here is echoed either —
+# the watchdog's own log rides that same artifact.
+checkin() {
+  # The base is checked alongside the URL and the token, and for a sharper
+  # reason than either: an empty one would PATCH a body carrying no marker over
+  # a real record, destroying the row instead of skipping it. A broken hand-over
+  # has to degrade to no telemetry, never to corrupted telemetry.
+  [ -n "$checkin_url" ] && [ -n "$checkin_token" ] && [ -n "$checkin_body" ] || return 0
+  local line payload
+  for line in "$@"; do
+    checkin_body="${checkin_body}"$'\n'"[$(stamp)] ${line}"
+  done
+  # `jq` does the JSON quoting rather than a hand-rolled escape, and its absence
+  # is said out loud: a silently skipped encode would look exactly like a
+  # watchdog whose runner was cancelled, which is the one thing this must never
+  # be mistaken for.
+  if ! payload="$(printf '%s' "$checkin_body" | jq -Rs '{body: .}' 2>/dev/null)"; then
+    log "the off-runner check-in could not be encoded"
+    return 0
+  fi
+  [ -n "$payload" ] || return 0
+  if ! curl --max-time 10 --silent --output /dev/null \
+    --request PATCH \
+    --header "Accept: application/vnd.github+json" \
+    --header "X-GitHub-Api-Version: 2022-11-28" \
+    --config <(printf 'header = "Authorization: Bearer %s"\n' "$checkin_token") \
+    --data-binary @- \
+    --url "$checkin_url" <<<"$payload" 2>/dev/null; then
+    log "the off-runner check-in did not land"
+  fi
+  return 0
+}
 
 # A killed process that its parent has not reaped yet still answers `kill -0`,
 # and waiting out a zombie is waiting out nothing — so read the state instead.
@@ -242,8 +321,17 @@ guarded_step_root() {
 # children (parentage, which holds whatever the action's argv looks like) and
 # the action's entry argv (precise where it still matches, and the only route
 # left if the worker cannot be found).
+#
+# The first line of the output is a tally, and the roots follow it. It is a
+# tally because the interesting failure is silent: discovery that proposes
+# candidates and then refuses every one of them looks exactly like discovery
+# that found nothing to propose, and the two have opposite fixes — a mis-set
+# floor or a stale refusal against a runner whose shape moved. Counted here
+# rather than derived by the caller because this runs in a subshell, so nothing
+# it assigns survives.
 discover_step_roots() {
   local candidates=() roots=() byname=() pid ppid worker candidate seen=""
+  local seen_n=0 refused_infra=0 refused_age=0
   if [ "${#worker_pids[@]}" -gt 0 ]; then
     while read -r pid ppid; do
       [ -n "$ppid" ] || continue
@@ -257,8 +345,19 @@ discover_step_roots() {
   for candidate in "${candidates[@]}"; do
     case " $seen " in *" $candidate "*) continue ;; esac
     seen="$seen $candidate"
-    signalable "$candidate" && guarded_step_root "$candidate" && roots+=("$candidate")
+    seen_n=$((seen_n + 1))
+    if ! signalable "$candidate"; then
+      refused_infra=$((refused_infra + 1))
+      continue
+    fi
+    if ! guarded_step_root "$candidate"; then
+      refused_age=$((refused_age + 1))
+      continue
+    fi
+    roots+=("$candidate")
   done
+  printf 'candidates=%d refused_infra=%d refused_age=%d\n' \
+    "$seen_n" "$refused_infra" "$refused_age"
   [ "${#roots[@]}" -gt 0 ] && printf '%s\n' "${roots[@]}"
   return 0
 }
@@ -341,6 +440,7 @@ end_step_tree() {
   done
   log "ending the step's process tree (pids: ${tree[*]})"
   kill -TERM "${tree[@]}" 2>/dev/null
+  checkin "step tree SIGTERM issued (pids: ${tree[*]})"
   while [ "$waited" -lt "$step_grace_s" ] && alive "${tree[@]}"; do
     sleep "$poll_s"
     waited=$((waited + poll_s))
@@ -351,6 +451,9 @@ end_step_tree() {
   if [ "${#still[@]}" -gt 0 ]; then
     log "SIGTERM did not end the step; escalating to SIGKILL (pids: ${still[*]})"
     kill -KILL "${still[@]}" 2>/dev/null
+    checkin "step tree survived SIGTERM; SIGKILL issued (pids: ${still[*]})"
+  else
+    checkin "step tree ended on SIGTERM"
   fi
   ended_pids="${tree[*]}"
   return 0
@@ -404,11 +507,22 @@ step_tree_cmds=()
 ended_pids=""
 
 log "armed; firing in ${deadline_s}s unless disarmed"
+checkin "watching: deadline_s=${deadline_s} poll_s=${poll_s} grace_s=${step_grace_s}"
 elapsed=0
+since_beat=0
 while [ "$elapsed" -lt "$deadline_s" ]; do
   sleep "$poll_s"
   elapsed=$((elapsed + poll_s))
+  since_beat=$((since_beat + poll_s))
+  # A beat is how a maintainer tells a watchdog that is still counting from one
+  # whose runner was cancelled out from under it — the difference the whole
+  # off-runner channel exists to make readable.
+  if [ "$heartbeat_s" -gt 0 ] && [ "$since_beat" -ge "$heartbeat_s" ]; then
+    since_beat=0
+    checkin "waiting: elapsed=${elapsed}s of ${deadline_s}s"
+  fi
 done
+checkin "deadline reached after ${deadline_s}s"
 
 # Everything the escalation may signal is decided now, at the deadline, while
 # the wedged step is still the step the runner is waiting on.
@@ -418,7 +532,10 @@ collect_ancestry
 # every root rather than widening the window to everything.
 own_start="$(start_of "$$")" || own_start=""
 mapfile -t worker_pids < <(pgrep -u "$uid" -f -- "$worker_match")
-mapfile -t step_roots < <(discover_step_roots)
+# The tally leads the output (see `discover_step_roots`); the roots follow it.
+mapfile -t discovery < <(discover_step_roots)
+discovery_counts="${discovery[0]:-candidates=0 refused_infra=0 refused_age=0}"
+step_roots=("${discovery[@]:1}")
 if [ "${#step_roots[@]}" -eq 0 ]; then
   log "deadline reached but no step process was identified; the step cannot be ended from here"
 else
@@ -444,6 +561,10 @@ for pid in "${pids[@]}"; do
   signalable "$pid" && engine_pids+=("$pid")
 done
 pids=("${engine_pids[@]}")
+# The one line that says why the deadline went the way it did. `roots=0` with
+# candidates behind it is a refusal that needs reading; `roots=0` with none is a
+# runner whose shape no longer matches either discovery route.
+checkin "discovery: roots=${#step_roots[@]} engine_matched=${#pids[@]} ${discovery_counts}"
 if [ "${#pids[@]}" -eq 0 ]; then
   # The deadline is only reached while the engine step is still running, so
   # matching nothing means either the engine never spawned — a wedge in one of
@@ -452,6 +573,7 @@ if [ "${#pids[@]}" -eq 0 ]; then
   # those apart afterwards; either way the step still has to end, and with no
   # engine to kill there is nothing to wait for, so the tree goes now.
   log "deadline reached but no process matches the engine; recording and ending the step"
+  checkin "STOOD_DOWN: no process matched the engine"
   capture_runner_state
   {
     echo "stood_down_at=$(stamp)"
@@ -466,10 +588,12 @@ if [ "${#pids[@]}" -eq 0 ]; then
   else
     note_escalation STOOD_DOWN "the step's tree was already gone"
   fi
+  checkin "outcome: stood_down escalated_pids=${ended_pids:-none}"
   exit 0
 fi
 
 log "deadline reached with the engine still running (pids: ${pids[*]})"
+checkin "FIRED: the engine was still running (pids: ${pids[*]})"
 capture_runner_state
 engine_cmds=()
 for pid in "${pids[@]}"; do
@@ -491,6 +615,7 @@ done
 
 log "diagnostics captured to ${dir}; terminating the engine"
 kill -TERM "${pids[@]}" 2>/dev/null
+checkin "engine SIGTERM issued (pids: ${pids[*]})"
 waited=0
 while [ "$waited" -lt "$step_grace_s" ] && alive "${pids[@]}"; do
   sleep "$poll_s"
@@ -502,6 +627,9 @@ mapfile -t engine_survivors < <(verify_recorded pids engine_cmds)
 if [ "${#engine_survivors[@]}" -gt 0 ]; then
   log "SIGTERM did not land; escalating to SIGKILL (pids: ${engine_survivors[*]})"
   kill -KILL "${engine_survivors[@]}" 2>/dev/null
+  checkin "engine survived SIGTERM; SIGKILL issued (pids: ${engine_survivors[*]})"
+else
+  checkin "engine ended on SIGTERM"
 fi
 
 # A dead engine normally brings the step down within seconds. Where it does
@@ -516,6 +644,7 @@ else
     waited=$((waited + poll_s))
   done
   mapfile -t survivors < <(surviving_members)
+  checkin "step survivors after the engine kill: ${#survivors[@]}"
   if [ "${#survivors[@]}" -eq 0 ]; then
     log "the step ended with the engine; no escalation needed"
     note_escalation FIRED "the step ended with the engine"
@@ -527,3 +656,4 @@ else
 fi
 
 log "fired; the engine step should now fail and leave the capture tail to run"
+checkin "outcome: fired escalated_pids=${ended_pids:-none}"

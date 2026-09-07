@@ -693,6 +693,7 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
         "Configure agent retrieval (MCP)",
         "Materialize the event definition for the ledger",
         "Predict with Claude Code",
+        "Mint the codex watchdog telemetry token",
         "Arm the codex watchdog",
         "Predict with Codex",
         "Install the Gemini CLI",
@@ -1821,6 +1822,24 @@ CODEX_WATCHDOG_DIR = "codex-watchdog"
 # backstop; the arm steps carry the arithmetic.
 CODEX_WATCHDOG_DEADLINE_S = "2400"
 CODEX_WATCHDOG_CELL_JOBS = {"run-predict.yml": "predict", "run-evaluate.yml": "evaluate"}
+# The arm step's whole configuration: the three the script has always read, the
+# cell's identifiers and run URL for the off-runner record, and the comment-only
+# token in its two roles (`gh` opens the record; the watchdog PATCHes it).
+CODEX_WATCHDOG_ARM_ENV = {
+    "CODEX_HOME",
+    "WATCHDOG_DIR",
+    "WATCHDOG_DEADLINE_S",
+    "COURT_ID",
+    "DOCKET_ID",
+    "EVENT_ID",
+    "ACTOR_ID",
+    "RUN_ID",
+    "RUN_URL",
+    "GH_TOKEN",
+    "WATCHDOG_CHECKIN_TOKEN",
+}
+CODEX_WATCHDOG_TOKEN_STEP = "Mint the codex watchdog telemetry token"
+CODEX_WATCHDOG_TOKEN_REF = "${{ steps.watchdog-token.outputs.token }}"
 
 
 def test_the_codex_cell_brackets_its_engine_with_a_watchdog() -> None:
@@ -1843,8 +1862,10 @@ def test_the_codex_cell_brackets_its_engine_with_a_watchdog() -> None:
         assert arm.get("if") == engine.get("if"), f"{name}: the arm step's gate is not the engine's"
         assert CODEX_WATCHDOG_SCRIPT in str(arm["run"])
         # The production pattern is the script's default; an override here
-        # would point the watchdog at a process the cell does not run.
-        assert set(arm["env"]) == {"CODEX_HOME", "WATCHDOG_DIR", "WATCHDOG_DEADLINE_S"}, (
+        # would point the watchdog at a process the cell does not run. Pinned as
+        # an exact set rather than an absence, so a `WATCHDOG_*_MATCH` slipped
+        # in later is a failure and not a silent re-aiming.
+        assert set(arm["env"]) == CODEX_WATCHDOG_ARM_ENV, (
             f"{name}: unexpected watchdog configuration {sorted(arm['env'])!r}"
         )
         assert arm["env"]["CODEX_HOME"] == CODEX_HOME_EXPRESSION
@@ -1905,6 +1926,86 @@ def test_the_cell_artifact_ships_only_the_cells_own_event_directory() -> None:
             f"{name}: the cell artifact must carry exactly the status file, the "
             f"matrix-scoped event directory, and the watchdog bundle; got {entries}"
         )
+
+
+def test_the_codex_watchdog_reports_off_the_runner_on_a_comment_only_token() -> None:
+    """The channel a cancelled job cannot erase, and the credential it runs on.
+
+    Every other account the watchdog leaves is runner-local, and the wedge it
+    documents is what cancels the runner — so the bundle, the disarm step that
+    publishes it, the step summary and the job log are destroyed by exactly the
+    failure they exist to describe. The off-runner record is what survives it,
+    and what it costs is a GitHub token in a codex cell. The whole of that
+    concession is pinned here: **issues alone**, minted per step under the
+    engine step's own gate, reaching the watchdog rather than the agent, and
+    failing soft so the reporting can never cost the kill.
+    """
+    for name, job_name in CODEX_WATCHDOG_CELL_JOBS.items():
+        job = _load(name)["jobs"][job_name]
+        steps = job["steps"]
+        arm_at = next(i for i, s in enumerate(steps) if s.get("name") == "Arm the codex watchdog")
+        mint = steps[arm_at - 1]
+        assert mint.get("name") == CODEX_WATCHDOG_TOKEN_STEP, (
+            f"{name}: nothing mints the watchdog's telemetry token before the arming"
+        )
+        # Exactly the engine step's window, so a cell that runs no engine — a
+        # refused one on predict — mints no live credential either.
+        assert mint.get("if") == steps[arm_at].get("if"), (
+            f"{name}: the telemetry mint's gate is not the arm step's"
+        )
+        # Comment-only, and narrower than the Claude cell's token beside it:
+        # everything it is used for is one tracking issue and one comment on it.
+        assert str(mint.get("uses", "")).startswith("actions/create-github-app-token@")
+        assert set(mint["with"]) == {"client-id", "private-key", "permission-issues"}, (
+            f"{name}: the watchdog token asks for more than issues:write"
+        )
+        assert mint["with"]["permission-issues"] == "write"
+        # A mint that failed hard would leave the arm step and the engine step
+        # skipped on their implicit `success()` — killing the cell to protect
+        # its own reporting, which inverts the whole priority. Failing soft
+        # leaves an empty token, which both consumers guard on.
+        assert mint.get("continue-on-error") is True, (
+            f"{name}: a failed telemetry mint would skip the engine step"
+        )
+        # The job's own permission block is untouched: this is a step-scoped App
+        # mint, not a widening of what every step in the cell may do.
+        assert "issues" not in job["permissions"]
+        # The token reaches the arm step (which opens the record and hands the
+        # watchdog its env) and the disarm step (which closes it out) — never an
+        # agent step, which is a separate step and inherits neither.
+        holders = [s for s in steps if CODEX_WATCHDOG_TOKEN_REF in str(s.get("env", {}))]
+        assert [s.get("name") for s in holders] == [
+            "Arm the codex watchdog",
+            "Disarm the codex watchdog",
+        ], f"{name}: the telemetry token reaches steps it has no business in"
+        # It travels as env on both, never as an argument: the watchdog's own
+        # published bundle dumps every argument of every process this user owns.
+        for holder in holders:
+            assert CODEX_WATCHDOG_TOKEN_REF not in str(holder.get("run", ""))
+        arm_run = str(steps[arm_at]["run"])
+        assert "watchdog-checkin" in arm_run
+        # The watchdog appends to the armed body it is handed, so the arm step
+        # must pass the *whole* of what the check-in wrote. A base trimmed to
+        # the marker would have the first heartbeat erase the arming time, the
+        # fire ETA and the run link — the entire record on a run that never
+        # comes back.
+        assert "WATCHDOG_CHECKIN_BASE=" in arm_run
+        # The watchdog authenticates with WATCHDOG_CHECKIN_TOKEN and never runs
+        # `gh`, so `GH_TOKEN` is cleared rather than inherited into a process
+        # that outlives this step by the whole deadline.
+        assert "GH_TOKEN=''" in arm_run, f"{name}: the watchdog inherits a credential it never uses"
+        # And the destination that credential is sent to for the next 40 minutes
+        # is checked against this repository's own comments endpoint before it is
+        # handed over: it arrived on a stdout this step does not otherwise police.
+        assert '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"' in arm_run, (
+            f"{name}: the check-in URL is handed to the watchdog unvalidated"
+        )
+        # Both check-ins are bounded outside the command's own gh retry, whose
+        # budget is per call: the arming one must not delay the deadline it
+        # starts, and the disarming one runs ahead of the artifact upload.
+        assert "timeout 90 uv run fedcourts watchdog-checkin" in arm_run
+        disarm = next(s for s in steps if s.get("name") == "Disarm the codex watchdog")
+        assert "timeout 90 uv run fedcourts watchdog-checkin --disarm" in str(disarm["run"])
 
 
 # The one condition every engine-actions-smoke step is gated on. A leg whose
