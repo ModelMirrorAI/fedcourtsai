@@ -1224,14 +1224,21 @@ jobs:
             '{court:$court,docket:$docket,event_id:$event_id,actor:$actor,run_id:$run_id,produced:$produced,validated:$validated,agent_ok:$agent_ok}' \
             > status.json
 
-      # One artifact per cell: its status.json plus its data/ subtree, and — on a
-      # codex cell — the watchdog's directory, which carries its own log always
-      # and the diagnostics bundle when it fired — shapes and metadata only,
-      # because a cell artifact is downloadable by anyone with a GitHub account
-      # for its retention window. The collect job copies only `data/` into the
-      # run's commit, so the bundle never reaches the ledger. The name is
-      # unique per predictor x case x event so concurrent cells never collide, and
-      # the collect job keys the download on the `predict-` prefix.
+      # One artifact per cell: its status.json, its own matrix event directory
+      # under data/ — everything a cell legitimately produces lives there, and
+      # shipping the rest of the checkout would hand collect a stale copy of
+      # files the deterministic writers may have advanced on main while the
+      # matrix ran — and, on a codex cell, the watchdog's directory, which
+      # carries its own log always and the diagnostics bundle when it fired —
+      # shapes and metadata only, because a cell artifact is downloadable by
+      # anyone with a GitHub account for its retention window. The collect job
+      # unions only `data/` (add-only) into the run's commit, so the bundle
+      # never reaches the ledger. status.json at the workspace root also anchors
+      # the artifact's layout: upload-artifact roots the archive at the matched
+      # paths' common ancestor, so without it the deep data/ path would lose its
+      # prefix and the collect union would find nothing. The name is unique per
+      # predictor x case x event so concurrent cells never collide, and the
+      # collect job keys the download on the `predict-` prefix.
       - name: Upload cell output
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -1239,7 +1246,7 @@ jobs:
           name: predict-${{ matrix.predictor_id }}-${{ matrix.court }}-${{ matrix.docket }}-${{ matrix.event_id }}
           path: |
             status.json
-            data
+            data/cases/${{ matrix.court }}/${{ matrix.docket }}/events/${{ matrix.event_id }}
             codex-watchdog
           if-no-files-found: error
           retention-days: 7

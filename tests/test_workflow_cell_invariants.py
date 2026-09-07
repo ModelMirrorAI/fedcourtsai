@@ -1861,6 +1861,37 @@ def test_the_codex_cell_brackets_its_engine_with_a_watchdog() -> None:
         assert CODEX_WATCHDOG_DIR in str(upload["with"]["path"]).split()
 
 
+def test_the_cell_artifact_ships_only_the_cells_own_event_directory() -> None:
+    """The upload's `data` entry is scoped to the matrix event directory.
+
+    Everything a cell legitimately produces lives under its own
+    `data/cases/<court>/<docket>/events/<event_id>/`; the rest of the checkout is
+    the cell's stale view of run-start `main`, and shipping it hands collect a
+    tree whose pre-existing files may have been advanced by the deterministic
+    writers while the matrix ran. Collect's union refuses those stale copies, but
+    the refusal path should be the backstop, not the diet: a bare `data` entry
+    here reopens the wholesale shipment.
+
+    The `status.json` entry is load-bearing beyond its content: upload-artifact
+    roots the archive at the matched paths' common ancestor, and a file at the
+    workspace root pins that ancestor to the root — drop it and the deep data/
+    path loses its prefix inside the artifact, the collect union finds no
+    `data/` at every cell, and (because a missing source is tolerated for
+    early-dead cells) the run collects a silent, empty union rather than failing.
+    """
+    scoped = "data/cases/${{ matrix.court }}/${{ matrix.docket }}/events/${{ matrix.event_id }}"
+    for name, job_name in CODEX_WATCHDOG_CELL_JOBS.items():
+        steps = _load(name)["jobs"][job_name]["steps"]
+        upload = next(s for s in steps if s.get("name") == "Upload cell output")
+        entries = [
+            line.strip() for line in str(upload["with"]["path"]).splitlines() if line.strip()
+        ]
+        assert entries == ["status.json", scoped, CODEX_WATCHDOG_DIR], (
+            f"{name}: the cell artifact must carry exactly the status file, the "
+            f"matrix-scoped event directory, and the watchdog bundle; got {entries}"
+        )
+
+
 # The one condition every engine-actions-smoke step is gated on. A leg whose
 # steps are gated on something subtly different runs nothing and reports
 # green, which is the vacuous pass the scenario exists to replace.

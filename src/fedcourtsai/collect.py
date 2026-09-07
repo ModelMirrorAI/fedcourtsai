@@ -15,6 +15,10 @@ live here as small pure functions the CLI wraps so the YAML only runs git/gh:
   producer-side in the ``collect`` job (before the commit) and again as a required
   status check on the PR, so the guarantee holds independently of the workflow
   that produced the branch.
+- The **add-only union** (:func:`union_cell_tree`): the writer-side half of the
+  jail's contract — each cell's artifact tree is unioned onto the branch base by
+  copying only what the base lacks, so a pre-existing file the artifact carries a
+  stale copy of is refused rather than written over the authoritative version.
 - The **collect plan** (:func:`collect_plan`): partitions a run's cells into the
   ready set (one auto-merging PR) and the partial set (a failed or invalid
   agent's output, opened as a single *draft* PR a maintainer finishes — a draft
@@ -23,9 +27,12 @@ live here as small pure functions the CLI wraps so the YAML only runs git/gh:
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Literal
 
 from .blinding import neutral_tool_class
@@ -134,12 +141,93 @@ def assert_cleanup_within_jail(changes: Iterable[PathChange]) -> None:
 
 
 @dataclass(frozen=True)
+class UnionReport:
+    """What one cell artifact's add-only union onto the branch checkout did.
+
+    Paths are relative to the unioned ``data/`` root, each list sorted. ``added``
+    landed in the checkout; ``identical`` already sat there byte-for-byte (another
+    cell's copy of the same materialized event, or content that merged meanwhile);
+    ``refused`` differed from the checkout's copy and was left alone.
+    """
+
+    added: tuple[str, ...]
+    identical: tuple[str, ...]
+    refused: tuple[str, ...]
+
+
+def union_cell_tree(source: Path, dest: Path) -> UnionReport:
+    """Union one cell's ``data/`` subtree onto ``dest``, honoring the add-only jail.
+
+    A cell's artifact carries its whole ``data/`` tree as checked out at the run's
+    start, not only the files the cell wrote. The matrix runs long, and the
+    deterministic writers (live/seed/pull) advance ``main`` concurrently — so a
+    pre-existing file in the artifact can be *older* than the branch's copy, and
+    copying it wholesale would silently revert the authoritative version, then
+    trip the jail and strand the whole run's output behind a draft. The union
+    therefore enforces the jail's contract at write time: a file absent from
+    ``dest`` is copied (a cell output, or a newly materialized event definition);
+    one already present with identical bytes is skipped; one already present with
+    *different* bytes is refused — the branch keeps its own copy, and the caller
+    surfaces the refusal. Symlinks are refused and never followed (no cell
+    legitimately writes one), and a path whose ``dest`` counterpart is not a plain
+    file is refused rather than guessed at.
+
+    A missing ``source`` is an empty union, not an error: a cell salvaged after an
+    early death may never have produced a ``data/`` tree at all. Any ``OSError``
+    on a single file (a torn extraction, a path whose ancestor is a plain file, a
+    permission oddity) refuses that file rather than propagating — one bad path
+    must never abort the collect loop and strand every cell's output.
+    """
+    added: list[str] = []
+    identical: list[str] = []
+    refused: list[str] = []
+    if source.is_symlink() or not source.is_dir():
+        return UnionReport((), (), ())
+    dest_real = os.path.realpath(dest)
+    for root, dirs, files in os.walk(source, followlinks=False):
+        root_path = Path(root)
+        for name in list(dirs):
+            if (root_path / name).is_symlink():
+                dirs.remove(name)
+                refused.append(str((root_path / name).relative_to(source)))
+        for name in files:
+            src = root_path / name
+            rel = str(src.relative_to(source))
+            try:
+                if src.is_symlink():
+                    refused.append(rel)
+                    continue
+                target = dest / rel
+                # A symlinked intermediate already in the checkout would carry
+                # the write outside dest; resolve and contain before touching.
+                parent_real = os.path.realpath(target.parent)
+                if parent_real != dest_real and not parent_real.startswith(dest_real + os.sep):
+                    refused.append(rel)
+                    continue
+                if target.is_symlink() or target.is_dir():
+                    refused.append(rel)
+                    continue
+                if target.is_file():
+                    if target.read_bytes() == src.read_bytes():
+                        identical.append(rel)
+                    else:
+                        refused.append(rel)
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, target)
+                added.append(rel)
+            except OSError:
+                refused.append(rel)
+    return UnionReport(tuple(sorted(added)), tuple(sorted(identical)), tuple(sorted(refused)))
+
+
+@dataclass(frozen=True)
 class CellStatus:
     """One matrix cell's outcome, read from the status JSON it uploaded.
 
     ``artifact_dir`` is the cell's directory under the collect job's download root
-    (the parent of its ``status.json``); the workflow copies that subtree's
-    ``data/`` into the PR it belongs to.
+    (the parent of its ``status.json``); the workflow unions that subtree's
+    ``data/`` add-only into the PR it belongs to.
     """
 
     court: str

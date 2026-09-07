@@ -395,11 +395,23 @@ runs:
           # permission failure that strands a run's output.
           git fetch --no-tags -q origin main
           git checkout -q -B "$branch" origin/main
-          # Union each member cell's data/ subtree onto the clean main checkout.
-          # Cells write disjoint paths, so the union is conflict-free.
+          # Union each member cell's data/ subtree onto the clean main checkout,
+          # add-only. Cells write disjoint new paths, so their *outputs* never
+          # conflict — but each artifact carries the cell's whole data/ tree as
+          # checked out at run start, and the deterministic writers advance main
+          # while the matrix runs. The union copies only what the checkout lacks
+          # and refuses (loudly, keeping the checkout's copy) any pre-existing
+          # file whose bytes differ, so a cell's stale view of a concurrently
+          # advanced file cannot ride into the commit as a modification and
+          # strand the run's output behind a jail-tripped draft.
+          union_args=()
           while IFS= read -r dir; do
-            cp -a "cell-artifacts/${dir}/data/." data/
+            union_args+=(--source "cell-artifacts/${dir}/data")
           done < <(jq -r '.artifact_dirs[]' <<<"$pr")
+          if [ "${#union_args[@]}" -gt 0 ]; then
+            "$FEDCOURTS" collect-union "${union_args[@]}" --dest data \
+              --summary-file "$GITHUB_STEP_SUMMARY"
+          fi
           git add data/
           draft=$(jq -r '.draft' <<<"$pr")
           auto=true

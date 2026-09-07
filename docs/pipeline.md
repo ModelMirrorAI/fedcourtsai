@@ -1490,8 +1490,9 @@ An evaluate cell brackets its agent with two deterministic harness steps
 provision-blinded-predictions` stages each predictor's latest prediction under an
 opaque alias with its identity masked, and `fedcourts unblind-evaluations`
 renames the evaluator's alias-keyed output back onto the real predictor ids. The
-staging area lives under the case's gitignored `record/`, so it rides the cell
-artifact and never reaches the ledger.
+staging area lives under the case's gitignored `record/`, which stays on the
+runner — neither committed nor uploaded, since the cell artifact carries only
+the cell's own event directory — and so never reaches the ledger.
 
 A second pair of steps keeps the aliases worth having. The committed `predictions/` and
 `evaluations/` trees name every predictor elsewhere in the same case tree, at
@@ -1502,8 +1503,10 @@ hide-cell-record` moves both out of the working tree after the staging step and
 ahead of every step that reads them. It narrows the accidental
 route only — the checkout carries full history — and nothing a cell hides or
 fails to restore can reach the run PR as a deletion: the collect job unions each
-cell's `data/` onto a freshly fetched clean `origin/main` checkout, and
-`assert-paths` rejects any non-addition.
+cell's `data/` *add-only* onto a freshly fetched clean `origin/main` checkout —
+a file the checkout already carries is never overwritten, and a differing copy
+is refused with the checkout's kept — and `assert-paths` rejects any
+non-addition that slips past.
 
 **The un-aliasing runs before the stamp, and the ordering is load-bearing.**
 `stamp-cell --role evaluator` joins each evaluation to the prediction it scored
@@ -1741,6 +1744,7 @@ three remedies:
 | *artifact did not transfer* | the cell likely succeeded; its output still exists | **re-run the `collect` job** |
 | *no cell output at all* | the cell died before it could report | **let the next round re-derive the cell** — no rerun helps |
 | *secret scan did not pass; withholding &lt;branch&gt;* (log), with a redacted report on the run's step summary | that branch was withheld — its cells' output sits only in the run's cell artifacts | **review the flagged content, then salvage by hand or accept a re-spend** — see below |
+| *add-only union refused &lt;path&gt;* (log annotation + step summary) | the cell's artifact carried a different version of a file the branch base already has — normally its run-start copy of a file a deterministic writer advanced mid-run; the checkout's authoritative copy was kept | **usually none** — investigate only if the refused path is inside the run's own cell output, which would mean two writers claimed the same path |
 
 A secret-scan withhold starts with a judgment call the other two rows do not
 need. Locate the flagged content first: the scan runs per PR kind, so a hit

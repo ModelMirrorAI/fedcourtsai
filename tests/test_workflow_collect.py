@@ -209,6 +209,24 @@ def test_uncovered_cells_are_warned_in_step_not_only_in_the_pr_body() -> None:
     )
 
 
+def test_the_union_is_add_only_never_a_wholesale_copy() -> None:
+    """The union must go through `collect-union`, whose add-only contract keeps a
+    cell's stale run-start tree from overwriting files the deterministic writers
+    advanced on main while the matrix ran. A raw `cp` here would reintroduce the
+    stale write the jail can only catch after the fact, by drafting the whole run."""
+    aggregate = next(
+        s for s in _load(COLLECT_ACTION)["runs"]["steps"] if s["name"].startswith("Aggregate")
+    )
+    assert '"$FEDCOURTS" collect-union' in aggregate["run"]
+    assert 'union_args+=(--source "cell-artifacts/${dir}/data")' in aggregate["run"]
+    assert '--summary-file "$GITHUB_STEP_SUMMARY"' in aggregate["run"], (
+        "refusals must land on the durable step summary, not only the expiring log"
+    )
+    assert "cp -a" not in aggregate["run"], (
+        "cell trees are unioned add-only via collect-union, never copied wholesale"
+    )
+
+
 def test_a_truncated_download_is_cleared_before_retry() -> None:
     """A half-written data/ subtree would otherwise be unioned into the PR as if
     it were a complete cell."""

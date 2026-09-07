@@ -50,6 +50,66 @@ def test_assert_paths_run_id_scope(tmp_path: Path) -> None:
     assert "not under run id 'R'" in result.output
 
 
+def test_collect_union_refusal_warns_but_exits_zero(tmp_path: Path) -> None:
+    # A refused stale file is the guard working, not a collect failure: the loop
+    # must keep unioning the remaining cells, so the command never exits non-zero.
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "event.yaml").write_text("resolved: false\n")
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    (dest / "event.yaml").write_text("resolved: true\n")
+    result = runner.invoke(app, ["collect-union", "--source", str(src), "--dest", str(dest)])
+    assert result.exit_code == 0
+    assert "::warning::" in result.output and "'event.yaml'" in result.output
+    assert "0 added, 0 already present, 1 refused" in result.output
+    assert (dest / "event.yaml").read_text() == "resolved: true\n"
+
+
+def test_collect_union_missing_source_is_a_clean_no_op(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app, ["collect-union", "--source", str(tmp_path / "absent"), "--dest", str(tmp_path)]
+    )
+    assert result.exit_code == 0
+    assert "0 added, 0 already present, 0 refused" in result.output
+
+
+def test_collect_union_takes_repeated_sources_and_writes_the_summary(tmp_path: Path) -> None:
+    # One process per PR, not per cell: sources repeat, refusals land on the
+    # durable step summary (a note left only in a run log expires with it), and
+    # the second cell's identical copy of what the first added is a silent skip.
+    for cell in ("cell-a", "cell-b"):
+        d = tmp_path / cell / "events" / "e"
+        d.mkdir(parents=True)
+        (d / "event.yaml").write_text("resolved: false\n")
+    dest = tmp_path / "dest"
+    (dest / "events" / "e").mkdir(parents=True)
+    (dest / "events" / "e" / "event.yaml").write_text("resolved: true\n")
+    (tmp_path / "cell-a" / "new.json").write_text("{}")
+    summary = tmp_path / "summary.md"
+    result = runner.invoke(
+        app,
+        [
+            "collect-union",
+            "--source",
+            str(tmp_path / "cell-a"),
+            "--source",
+            str(tmp_path / "cell-b"),
+            "--dest",
+            str(dest),
+            "--summary-file",
+            str(summary),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "1 added, 0 already present, 1 refused" in result.output  # cell-a
+    assert "0 added, 0 already present, 1 refused" in result.output  # cell-b
+    text = summary.read_text()
+    assert text.count("add-only union refused `events/e/event.yaml`") == 2
+    assert "cell-a" in text and "cell-b" in text
+    assert (dest / "events" / "e" / "event.yaml").read_text() == "resolved: true\n"
+
+
 def test_assert_cleanup_paths_ok_exits_zero(tmp_path: Path) -> None:
     changes = _write_changes(
         tmp_path,

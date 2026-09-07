@@ -102,6 +102,7 @@ from .collect import (
     collect_plan,
     parse_name_status,
     render_stall_comment,
+    union_cell_tree,
 )
 from .config import (
     CorpusBackend,
@@ -12382,6 +12383,54 @@ def assert_paths_cmd(
         typer.echo(f"::error::{exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(f"path jail OK ({len(changes)} change(s))")
+
+
+@app.command("collect-union")
+def collect_union_cmd(
+    source: Annotated[
+        list[Path],
+        typer.Option(help="A cell artifact's data/ subtree; repeatable (missing = empty union)."),
+    ],
+    dest: Annotated[Path, typer.Option(help="The branch checkout's data/ root to union onto.")],
+    summary_file: Annotated[
+        Path | None,
+        typer.Option(help="Append a markdown line per refusal here (the step summary)."),
+    ] = None,
+) -> None:
+    """Add-only union of cell artifacts' ``data/`` onto the branch checkout.
+
+    The collect job runs this over a PR's member cells instead of a wholesale
+    copy: a cell's artifact carries files as of the run's start, and the
+    deterministic writers advance ``main`` while the matrix runs, so a blind copy
+    would write a cell's stale view over files the branch's fresh base already
+    carries. Files absent from the checkout are copied, identical ones skipped,
+    and a pre-existing file with different content is refused — the checkout's
+    copy is kept and the artifact's dropped, surfaced as a ``::warning::`` and
+    (when ``--summary-file`` is given) a line on the durable step summary, since
+    a note left only in a run log expires with it. Always exits zero: a refusal
+    is the guard working, not a collect failure.
+    """
+    summary_lines: list[str] = []
+    for src in source:
+        report = union_cell_tree(src, dest)
+        for rel in report.refused:
+            typer.echo(
+                f"::warning::add-only union refused {rel!r} from {src}: the checkout "
+                "already carries a different version; kept the checkout's copy and "
+                "dropped the artifact's"
+            )
+            summary_lines.append(f"- add-only union refused `{rel}` from `{src}`")
+        typer.echo(
+            f"unioned {src}: {len(report.added)} added, "
+            f"{len(report.identical)} already present, {len(report.refused)} refused"
+        )
+    if summary_file is not None and summary_lines:
+        with summary_file.open("a", encoding="utf-8") as handle:
+            handle.write(
+                "\n**Add-only union refusals** (the checkout's copy was kept):\n"
+                + "\n".join(summary_lines)
+                + "\n"
+            )
 
 
 def _scan_listed_files(
