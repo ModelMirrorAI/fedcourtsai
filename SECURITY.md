@@ -43,9 +43,10 @@ runbook, [docs/security.md](docs/security.md).
   whose background `fedcourts mcp-serve` process inherits it and serves the
   CourtListener MCP tools over localhost HTTP — the cells launch it, and so
   does `integration-test` — its engine-smoke **codex** leg, which exists to
-  exercise that very wiring, and its engine-actions-smoke legs, whose
-  invocation blocks name the client config that sidecar serves — and the
-  collect job's
+  exercise that very wiring, its engine-actions-smoke legs, whose
+  invocation blocks name the client config that sidecar serves, and each
+  repro-family leg, which drives one of those blocks against a real
+  record — and the collect job's
   **aggregate step**, where the secret scan (below) needs the live value to
   search the run's output for it — a step that parses agent bytes with
   jq/git/tested Python but never executes them. (Pull's ingestion holds the
@@ -136,16 +137,65 @@ runbook, [docs/security.md](docs/security.md).
   users regardless, so the last line stays what it always was: the *reachable*
   secret is not worth stealing — the single-account, **read-only**
   CourtListener token whose worst case is spending pull's quota and forcing a
-  rotation (above), not a model key or a GitHub credential (the Claude cell's
-  only token is comment-only; Codex and Gemini hold none).
+  rotation (above), not a model key. The GitHub credentials in reach of a cell
+  are comment-shaped and nothing more: the Claude agent's own comment-only
+  token, and — in a codex cell, at the runner user's privilege rather than in
+  the agent's hands — the watchdog's issues-only mint, bounded below.
 - **Agents get a least-privilege GitHub App token, never a static one.** The
   Claude agent steps in `run-predict` / `run-evaluate` receive a short-lived
   App installation token scoped **comment-only** (`contents: read` + `issues` +
-  `pull-requests: write`); the Codex and Gemini cells get no GitHub token at
-  all — their blocked-channel is `flags.json`, surfaced by the trusted
+  `pull-requests: write`); the Codex and Gemini **agent steps** get no GitHub
+  token at all — their blocked-channel is `flags.json`, surfaced by the trusted
   `collect` job. The *workflow* (a distinct `contents: write` App token) does
   the commit/PR, so a prompt injection in docket text cannot push code with the
   agent's token. Issue and docket text stay untrusted input.
+- **One credential in a codex cell is not the agent's: the watchdog's.** The
+  codex hang bound (`scripts/codex-watchdog.sh`; *Graceful degradation on
+  limits* in [docs/pipeline.md](docs/pipeline.md)) is trusted
+  repo code, and the failure it guards — a step that never ends until the *job*
+  cap cancels the runner — destroys every runner-local account of itself, the
+  diagnostics bundle and the job log included. So the watchdog reports **off**
+  the runner while the runner is still alive, onto one long-lived
+  `codex-watchdog` issue, and that costs an App token minted with
+  **`issues: write` and nothing else** — no `contents`, no `pull-requests`, and
+  no widening of the job's own `permissions` block. Everything it is used for is
+  that one tracking issue, found-or-created under a non-triggering label, and
+  one comment per cell on it; the detached watchdog holds it only to PATCH that
+  comment. It is step-scoped in *distribution* rather than in lifetime — an
+  installation token stays valid for its App's window, and this one is
+  deliberately handed to a process that outlives the step that minted it — and
+  no step but the arm and disarm ones receives it. The agent step is a separate
+  step and inherits neither the token nor the process. What it can say is
+  narrower than what the published artifact carries: timestamps, phase names,
+  pid numbers, counts and the configured deadline, composed only from the
+  script's own variables and never read back off the agent-writable bundle
+  directory.
+  Two residuals, both stated rather than denied. The watchdog runs as the same
+  runner user as the agent, so its environment is readable from an agent shell
+  exactly as the MCP sidecar's CourtListener token is — the process-level class
+  already conceded above. And the disarm step runs `fedcourts` out of a
+  workspace the agent has had the whole cell to write, so code planted there
+  reaches this token without needing the process read at all. Neither is
+  time-bounded by the job: `create-github-app-token`'s revoke step does not run
+  when a job is **cancelled**, which is precisely the wedge this feature exists
+  for, so in that case the installation token lives out its own window.
+  What either residual reaches is one credential, and the honest description of
+  it is `issues: write` **on this repository** — GitHub has no per-issue
+  scoping, so a thief gets the repo's issue surface, not the one comment the
+  token is used for: opening, editing, closing, commenting on and labelling any
+  issue, the ops and agent-feedback surfaces included. Two things bound that.
+  It starts nothing — no workflow in this repository keys on an issue event, so
+  neither a label nor a comment is a trigger (*Labels are categories, not
+  triggers*, `AGENTS.md`) — and it is strictly narrower than the token a Claude
+  cell hands its agent outright, which carries the same `issues` plus
+  `contents: read` and `pull-requests: write`. The forgeable-evidence risk that
+  leaves is answered where it lands rather than by the scope: this cell's
+  comment is identified by App authorship as well as by its marker, so a record
+  planted by an account is passed over rather than adopted.
+  The token never enters a command line, because the watchdog's own published
+  bundle dumps every argument of every process this user owns, and the arm step
+  checks the check-in URL against this repository's own comments endpoint before
+  handing it over, so a credential cannot be aimed elsewhere.
 - **No static cloud keys — OIDC for S3.** Workflows that touch the private S3
   stores (the corpus remote and the per-case content store) assume a
   least-privilege IAM role via GitHub OIDC. **Three roles, split by access:**
@@ -273,9 +323,13 @@ runbook, [docs/security.md](docs/security.md).
   and its own engine keys for the pre-promotion integration runs. A third,
   `review`, holds no secret, no role, and no branch policy: its entire content
   is a required-reviewer rule, and it exists only as the audit-logged hold
-  between a paid fan-out's plan and its token spend — run-predict and
-  run-evaluate both bind it; one environment serves every spend hold rather
-  than each minting its own. The promotion gate's
+  between a plan that would spend and the spend — run-predict, run-evaluate and
+  run-backtest all bind it; one environment serves every spend hold rather
+  than each minting its own. What each hold covers differs by what the trigger
+  already gates: the two fan-outs put every round behind it, while run-backtest
+  holds its **scheduled** fortnight and lets a `workflow_dispatch` through, since
+  a dispatch is a human choosing the parameters and its `engine` input defaults
+  to the free offline stub. The promotion gate's
   admin-read stage verifies the rule is present, because an auto-created
   environment is unprotected and an unprotected hold releases instantly.
   Self-review is deliberately permitted: with a single maintainer the hold is

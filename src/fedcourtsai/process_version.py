@@ -80,12 +80,12 @@ CURRENT_PROCESS_LABEL = "proc-v7"
 # stamped under it** — the mechanism the third supersession shape in
 # `docs/process-version.md` names, engaged here over an empty set. The label
 # is the **first** shape, a re-freeze with nothing counted under the prior
-# label: nothing was ever stamped at or after proc-v6's own instant
-# (2026-09-05T00:00:00Z — the fourteen evaluations ever stamped under its
-# evaluator digests all predate it, and no prediction was ever stamped under
-# its predictor digests), so nothing
-# the retirement removes was ever counted and no declaration is called on.
-# The freeze record carries the census and the condition it rests on. Keyed
+# label: no prediction was ever stamped under its predictor digests, and
+# every evaluation ever stamped under its evaluator digests grades a
+# prediction that was never counted — each stamped before its own label's
+# counting instant — so no frozen-scope artifact ever contained one, and
+# nothing the retirement removes was ever counted; no declaration is called
+# on. The freeze record carries the census and the grounds it rests on. Keyed
 # on the digest, never the label,
 # so a process that drifted under an unchanged label is not silently blessed;
 # the evaluator entries are the freeze *record* of the blessed grading
@@ -108,33 +108,33 @@ CURRENT_PROCESS_LABEL = "proc-v7"
 # command that yields it.
 FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
     {
-        # Every entry below carries the **step-2 forecast** — a stamp at or
-        # before this commit's own authoring date, the safe floor, since the
-        # carrying merge is necessarily at or after it. Step 4 of the cutover
-        # corrects each to the real merge time of the promotion that lands
-        # this freeze on `main` (`git log -1 --format=%cI <carrying merge>`).
+        # Every entry below is the audited carrying-merge time per the block
+        # comment above; a freeze commit initially ships a step-2 forecast
+        # floor (a stamp at or before its own authoring date, safe because
+        # the carrying merge is necessarily at or after it), which step 4 of
+        # the cutover corrects for each newly blessed entry.
         #
         # predictors: claude-baseline, codex-baseline, gemini-baseline.
         "sha256:930e02ae18fd07192bede9d3e54ad420a66183db927f0b5d5939c2af0a2c93eb": datetime(
-            2026, 9, 6, 11, 55, 0, tzinfo=UTC
+            2026, 9, 6, 21, 18, 48, tzinfo=UTC
         ),
         "sha256:c57113fae8715f31767475ef80bb2cee885534ea6c0c39c04aee327241bbf890": datetime(
-            2026, 9, 6, 11, 55, 0, tzinfo=UTC
+            2026, 9, 6, 21, 18, 48, tzinfo=UTC
         ),
         "sha256:4edc5ac58c718a385e9518a9a1cfc0f17f32eb62ca788ad79c91e7112c11994a": datetime(
-            2026, 9, 6, 11, 55, 0, tzinfo=UTC
+            2026, 9, 6, 21, 18, 48, tzinfo=UTC
         ),
         # evaluators: claude-judge, codex-judge, gemini-judge. None carries
         # forward — the shared prompt bytes move for all three — so none
         # keeps an earlier label's bless moment.
         "sha256:84cf4c8b52a1475c8982a22876f9d01e2f628f4d5e9027709490679d211da868": datetime(
-            2026, 9, 6, 11, 55, 0, tzinfo=UTC
+            2026, 9, 6, 21, 18, 48, tzinfo=UTC
         ),
         "sha256:fa92c82e827ede277677781a11d13f20afc830517c11377cf50be167c8a07d36": datetime(
-            2026, 9, 6, 11, 55, 0, tzinfo=UTC
+            2026, 9, 6, 21, 18, 48, tzinfo=UTC
         ),
         "sha256:2585c15a6b2c5f3f6cb4aa5393f49ee63592dbfd8ad38fc1a9b9dae0d2ce1bf3": datetime(
-            2026, 9, 6, 11, 55, 0, tzinfo=UTC
+            2026, 9, 6, 21, 18, 48, tzinfo=UTC
         ),
     }
 )

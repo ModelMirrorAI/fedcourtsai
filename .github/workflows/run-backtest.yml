@@ -1,19 +1,23 @@
 name: run-backtest
 
-# Maintainer-triggered cert back-test: replay the enabled predictors over the
-# most recently decided modern discretionary-cert petitions (outcomes hidden —
-# redacted snapshots in a scratch tree, never data/) and land the refreshed
-# `metrics/cert-backtest.json` as a **reviewed** PR — never a direct commit,
-# never auto-merged. Retrospective by construction: iteration signal, never
-# claimable performance (see metrics/README.md).
+# Cert back-test: replay the enabled predictors over the most recently decided
+# modern discretionary-cert petitions (outcomes hidden — redacted snapshots in a
+# scratch tree, never data/) and land the refreshed `metrics/cert-backtest.json`
+# as a **reviewed** PR — never a direct commit, never auto-merged. Retrospective
+# by construction: iteration signal, never claimable performance (see
+# metrics/README.md).
 #
 # Replaying agentic engines SPENDS MODEL TOKENS (~one cell per predictor per
-# petition), so every run is an explicit maintainer decision. `workflow_dispatch`
-# is the only way in, and GitHub gates it on repository write; nothing schedules
-# this workflow, because a back-test is a question someone asks, not a backlog
-# that drains. The `engine` input defaults to the free offline `stub` so an
-# accidental dispatch spends nothing; pick `auto` deliberately to route each
-# predictor through its real engine.
+# petition), so no run spends without an explicit maintainer decision. There are
+# two ways in and neither spends on its own. **The schedule asks; the hold
+# spends**: the fortnightly cron derives its plan under pinned parameters and
+# then waits on the `review` environment's required reviewers, so a released run
+# is a maintainer's opt-in and an unreleased one is a skipped fortnight that cost
+# nothing. A **`workflow_dispatch`** is gated by GitHub on repository write and
+# keeps its free parameters, its `engine` input defaulting to the free offline
+# `stub` so an accidental dispatch spends nothing; pick `auto` deliberately to
+# route each predictor through its real engine. The cadence is standing, the
+# spend is not: no tokens move without a human.
 #
 # Dispatch also selects WHAT is replayed: `replay: cert` (the default) replays
 # the predictors; `replay: salience-gate` replays the deterministic salience
@@ -22,6 +26,34 @@ name: run-backtest
 # tokens, no engine credential, no agent CLI — landing its report through the
 # same reviewed-PR path.
 on:
+  schedule:
+    # 06:23 UTC on Saturdays. The slot is chosen for the runway behind it, not
+    # for the corpus in front of it: a released fortnight has to derive its
+    # plan, wait however long the hold takes, run up to its 330-minute cap, and
+    # then land a **reviewed** PR before the Monday 08:30 digest tick reads the
+    # report — roughly 50 hours, which no weekday slot leaves. It opens after
+    # run-pull's 04:47 live window (35-minute cap) has committed and closes well
+    # before the 07:17 ingestion window; the replay only ever reads the corpus
+    # and takes no `corpus-write` lock, so an overlap would cost a staler read
+    # and nothing else. The minute is off every other workflow's (:00, :12, :13,
+    # :17, :27, :30, :31, :32, :39, :41, :47, :53) so the repo's offset grid
+    # stays legible.
+    #
+    # The **effective cadence is biweekly**, and the cron cannot say so: GitHub
+    # cron has no fortnight, and `0 6 */14 * *` is a day-of-month stride that
+    # resets every month rather than a two-week one. So the cron fires weekly
+    # and the `cadence` job below drops the odd ISO weeks — a guard in a step,
+    # because expressions carry no date function and a job-level `if` therefore
+    # cannot compute a week number at all. An odd week is a cheap successful
+    # no-op (one runner, no checkout, no corpus, no credential), never a failure.
+    #
+    # GitHub delivers `schedule` events best-effort: a slot can be delayed or
+    # dropped with no record, and a newly registered cron sometimes never
+    # indexes until the file changes again on the default branch. A missed
+    # fortnight costs a fortnight — this lane is a sampled measurement, not a
+    # level-triggered backlog that re-derives — and the digest states the
+    # standing report's vintage either way.
+    - cron: "23 6 * * 6"
   workflow_dispatch:
     inputs:
       replay:
@@ -58,22 +90,318 @@ on:
 
 permissions: {}
 
-# One back-test at a time; a queued run waits (a superseded parameter choice is
-# the maintainer's to cancel, never silently dropped). A per-workflow group,
-# because a dispatch carries nothing to key on and every run of this workflow
-# is one someone asked for.
-concurrency:
-  group: run-backtest
-  cancel-in-progress: false
+# What the run replays. Resolved once, at workflow level, so the plan a
+# maintainer releases and the command that then runs read the SAME values: the
+# cron path PINS its parameters and a dispatch keeps its own free ones. On a
+# `schedule` the `inputs` context is empty, so nothing below may read `inputs.*`
+# directly — an unresolved `inputs.limit` would pass an empty `--limit`.
+#
+# The pins are the standing measurement — 10 petitions, all three real engines,
+# the paid modern-cert population, spread across conference cohorts — and the
+# fortnightly budget line is written against exactly them.
+#
+# `--scope paid` is the pin, not the wider `all`, because the population has to
+# carry signal at this sample size: the paid class resolves grant-or-GVR at
+# ~5.6-7.9% a Term against ~2.3-3.3% over the whole modern-cert population
+# (metrics/statpack.json), so ten paid petitions hold roughly 2.3x the
+# grant-family mass ten unfiltered ones do. The two failure modes an unfiltered
+# draw invites are different ones: the lift reads off all ten petitions but
+# against an always-deny floor that denial purity pins at or near 1.00, which
+# makes it uninformative rather than empty; the per-band breakdown goes
+# genuinely empty, since it scores paid rows only and would drop about seven of
+# the ten. `paid` is a corpus
+# fact (modern cert, fee class) with no config knob behind it, unlike
+# `selected`, whose meaning moves with the salience floor — so consecutive
+# fortnights stay samples of one population without a second thing to hold
+# still.
+#
+# `skip_engines` needs no ternary: unset IS the pin (no engine opted out). The
+# `x && y || z` idiom could not express it anyway — '' is falsy, so the true
+# branch would fall through to the false one.
+env:
+  BT_REPLAY: ${{ github.event_name == 'schedule' && 'cert' || inputs.replay }}
+  BT_ENGINE: ${{ github.event_name == 'schedule' && 'auto' || inputs.engine }}
+  BT_LIMIT: ${{ github.event_name == 'schedule' && '10' || inputs.limit }}
+  BT_SCOPE: ${{ github.event_name == 'schedule' && 'paid' || inputs.scope }}
+  BT_SPREAD: ${{ github.event_name == 'schedule' && 'true' || inputs.spread }}
+  BT_SKIP_ENGINES: ${{ inputs.skip_engines }}
+  BT_TERMS: ${{ inputs.terms }}
 
 jobs:
-  backtest:
+  # The fortnight gate, and the whole cost of a fortnight that does not run: one
+  # runner, no checkout, no corpus, no credential, no token. Cron-only — a
+  # dispatch is already a human choosing parameters, and neither guard below has
+  # anything to add to that.
+  cadence:
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    # Two short checks; the cap is the runner's own setup with room.
+    timeout-minutes: 5
+    permissions:
+      # This workflow's own run history, for the overlap guard. Repo-wide read
+      # of run metadata; this job runs no agent code and downloads no artifact.
+      actions: read
+    outputs:
+      # `false` whenever either guard withheld the fortnight, and `''` never:
+      # a skipped `overlap` step leaves an empty output, which compares false.
+      proceed: ${{ steps.parity.outputs.run == 'true' && steps.overlap.outputs.clear == 'true' }}
+    steps:
+      # Biweekly, expressed where a fortnight can actually be computed. ISO week
+      # parity is the rule: even weeks run, odd weeks do not. `date +%V` is the
+      # ISO 8601 week, so the parity is a property of the calendar rather than
+      # of when this workflow was last edited — a rebuilt runner, a missed slot,
+      # or a re-registered cron all land on the same fortnights.
+      #
+      # The seam, stated: an ISO year with 53 weeks puts two odd weeks back to
+      # back (…52, 53, then week 01), so once every five or six years the gap
+      # between released Saturdays is three weeks rather than two. Accepted —
+      # the cadence is a spend bound, not a measurement clock. Every gap, this
+      # one included, is a fortnight with no new sample; the standing report is
+      # unchanged and the digest renders its vintage.
+      - name: Hold every other ISO week
+        id: parity
+        run: |
+          set -euo pipefail
+          iso=$(date -u +%G-W%V)
+          # 10# forces base 10: weeks 08 and 09 are not octal.
+          if [ $((10#$(date -u +%V) % 2)) -eq 0 ]; then run=true; else run=false; fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          {
+            echo "## run-backtest — fortnight parity"
+            echo ""
+            if [ "$run" = true ]; then
+              echo "\`${iso}\` is an even ISO week: this fortnight's replay derives its plan below."
+            else
+              echo "\`${iso}\` is an odd ISO week: the cron fires weekly and this lane runs biweekly, so this run stops here having spent nothing. The next even week derives one."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The skip-if-still-running guard, and what serializes the *asks*. The
+      # concurrency group sits on the replay job alone, so it serializes spends
+      # and nothing else: two crons can otherwise both derive a plan and both
+      # ask for a release while a fortnight is stuck against the 330-minute cap
+      # or parked on the hold for days. A run that was queued while an earlier
+      # one was still going is that twin, and it skips rather than replaying the
+      # same population hours later.
+      #
+      # Fail-open on an API error, and deliberately: the `review` hold, not this
+      # guard, is what stands between a plan and a spend, so the worst an
+      # unreadable run history can buy is a maintainer asked to release a
+      # fortnight they may decline. The reverse — a fortnight lost to a
+      # transient 5xx — costs a sample nobody sees go missing. Two more paths
+      # fail open the same way and for the same reason: a predecessor pushed
+      # past the 20-run window this reads, and a `gh` call that hangs, which the
+      # `timeout` below turns into that same warning rather than into a job that
+      # burns the cap and fails. What counts as a predecessor is any earlier run
+      # of this workflow, the token-free `salience-gate` mode included — a
+      # skipped fortnight is cheap, and mode-matching would be a second thing to
+      # keep true.
+      - name: Skip a fortnight queued behind a run still going
+        id: overlap
+        if: steps.parity.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          clear=true
+          blocking=""
+          if runs=$(timeout 30 gh api "repos/${REPO}/actions/workflows/run-backtest.yml/runs?per_page=20"); then
+            # This run's own queue time, read from the same payload rather than
+            # from a second call. Empty if the listing did not carry it, which
+            # makes every comparison below false — fail-open, as above.
+            self=$(jq -r --arg id "$GITHUB_RUN_ID" \
+              '.workflow_runs[] | select((.id|tostring) == $id) | .created_at' <<<"$runs")
+            # An older run is blocking when it is still not `completed`, or when
+            # it was last touched after this run was queued — which is how a run
+            # that finished while this one waited in the concurrency queue names
+            # itself.
+            blocking=$(jq -r --arg id "$GITHUB_RUN_ID" --arg t "$self" '
+              [ .workflow_runs[]
+                | select((.id|tostring) != $id and .created_at < $t)
+                | select(.status != "completed" or .updated_at > $t)
+                | "\(.id) [\(.status)]" ] | join(", ")' <<<"$runs")
+            if [ -n "$blocking" ]; then clear=false; fi
+          else
+            echo "::warning::could not read this workflow's run history; proceeding — the review hold is the spend gate" >&2
+          fi
+          echo "clear=$clear" >> "$GITHUB_OUTPUT"
+          if [ "$clear" != true ]; then
+            {
+              echo ""
+              echo "This fortnight was queued behind a back-test that was still going (${blocking}), so it would replay the same population hours after it. Skipped, having spent nothing; the next even ISO week derives a fresh plan."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # The plan the hold is judged on. Costs a corpus pull and no tokens: it states
+  # the pinned parameters the release would spend under, the vintage of the blob
+  # the population is drawn from, and the predictors that would be routed — so a
+  # maintainer is never asked to release a spend with nothing to read. It also
+  # fails a corpus-less fortnight here, before the ask, rather than after it.
+  #
+  # The vintage is the plan's, not the run's: the release may come hours later
+  # and the replay job pulls its own corpus, so this line bounds the population
+  # described here rather than certifying the one that runs.
+  plan:
+    needs: cadence
+    if: needs.cadence.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    # A corpus pull plus two local reads. Bounded so a wedged pull names itself
+    # rather than running out the runner's six-hour default: this job takes no
+    # lock, but a run stuck here counts as an in-flight back-test for the
+    # promotion gate's quiescence check and parks a hold that never arrives.
+    timeout-minutes: 30
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          missing-pointer: warn
+          # The default duration: this job pulls the index and then reads it
+          # locally, so nothing needs the credential after the pull returns.
+
+      - name: Report the plan for release
+        env:
+          # The corpus estate's base URL, exactly as the replay job wires it.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ ! -f corpus/corpus.db ]; then
+            echo "::error::no corpus on disk; nothing to back-test" >&2
+            exit 1
+          fi
+          {
+            echo "## run-backtest — the fortnight's plan"
+            echo ""
+            # The pins are read from the same workflow env the replay command
+            # reads, never retyped: a plan that restated them would be the one
+            # document able to describe a spend the run does not make.
+            printf 'Pinned on the cron path: `--engine %s` (each predictor through its own real engine), `--limit %s`, `--scope %s`, spread across conference cohorts: `%s`. Replay mode `%s`; engines opted out: none.\n' \
+              "$BT_ENGINE" "$BT_LIMIT" "$BT_SCOPE" "$BT_SPREAD" "$BT_REPLAY"
+            echo ""
+            echo 'The limit is a ceiling, not the sample: a petition holding no snapshot is dropped before any cell runs, so the report'"'"'s own `events_scored` is what was measured. Spreading draws the newest petition from each conference cohort rather than the tail of one — a within-run property; the draw moves between fortnights only as newly decided petitions enter the population.'
+            echo ""
+            echo 'Corpus the population is drawn from — the vintage of the blob this plan read, not of the one a released run pulls:'
+            echo '```'
+            uv run fedcourts corpus-info
+            echo '```'
+            echo 'Predictors the replay would route, one cert cell each per petition:'
+            echo '```'
+            uv run fedcourts predictors
+            echo '```'
+            echo 'Nothing has spent yet. Releasing the `review` hold below is what spends: up to the limit above x the routable predictors, one cert cell each. What that costs is priced once, as the fortnightly driver line under *Backtest campaigns* in `docs/budget.md`. Declining the hold, or letting it expire, is a skipped fortnight — a first-class outcome of this lane, and the digest states the standing vintage either way.'
+            echo ""
+            echo 'One operational consequence of leaving this pending: a run waiting on a hold counts as an in-flight back-test for the promotion gate'"'"'s quiescence check, so a parked fortnight blocks promotions until it is released or declined.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # The hold. This job carries no code, no token and no permissions — its one
+  # purpose is the deployment environment: the `review` environment's required
+  # reviewers gate it, so the replay behind it waits on an explicit,
+  # audit-logged release. Strictly manual by design: there is no wait timer to
+  # auto-approve it, because the registered rationale is that no tokens move
+  # without a human. The wait happens before the job is scheduled, so
+  # timeout-minutes bounds only the no-op itself. The environment must exist
+  # WITH required reviewers configured before this reaches main: GitHub
+  # auto-creates a referenced environment unprotected, and an unprotected
+  # environment is no gate at all.
+  #
+  # It composes with the replay job's `environment: prod` rather than replacing
+  # it: `prod` is the ref gate (its deployment branches are restricted to
+  # `main`, which is what refuses a dispatch from an arbitrary ref), `review` is
+  # the spend gate. Two environments, two questions — which ref may run this,
+  # and may this particular run spend — so the replay job keeps `prod` and
+  # gains a `needs` on this one.
+  approval:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: review
+    permissions: {}
+    steps:
+      - name: Release the fortnight's replay
+        run: echo "the review hold released — the replay may spend."
+
+  # A hold that did not release still has to leave a durable record, and the
+  # record is this job's step summary — rendered onto the same run page as the
+  # plan the decision was made on, so the two read together. `!= 'success'`
+  # covers the whole class: the Reject button (a failed deployment), a cancelled
+  # or expired wait, and a plan job that died before the hold (approval then
+  # skipped). No token and no permissions, because a step summary needs neither.
+  rejected:
+    needs: [cadence, plan, approval]
+    if: ${{ always() && needs.cadence.outputs.proceed == 'true' && needs.approval.result != 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Record the fortnight that did not spend
+        env:
+          RESULT: ${{ needs.approval.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## run-backtest — the review hold did not release"
+            echo ""
+            echo "The \`review\` hold ended as \`${RESULT}\` — rejected, cancelled, expired, or the plan failed before the hold — so no cell ran and nothing was spent. A skipped fortnight is a first-class outcome of this lane, not a failure of it."
+            echo ""
+            echo "The plan on the \`plan\` job of this run is the record of what was declined; if none appears there, the plan failed before rendering one: ${RUN_URL}"
+            echo ""
+            echo "Nothing is stranded and nothing has to be re-filed: the standing \`metrics/cert-backtest.json\` is untouched and the digest renders its vintage honestly, the next even ISO week derives a fresh plan, and a \`workflow_dispatch\` runs one now. A hold left pending counts as an in-flight run for the promotion gate's quiescence check, so decline it rather than parking it when a promotion is waiting."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  backtest:
+    needs: [cadence, plan, approval]
+    # A dispatch reaches this job directly — `cadence`, `plan` and `approval`
+    # all skip, and the dispatcher's own parameter choice (with `engine`
+    # defaulting to the free stub) is the deliberate decision. The cron path
+    # reaches it only on an even ISO week, clear of a still-running twin, with a
+    # plan that derived, and a hold that a human released.
+    if: >-
+      ${{ !cancelled()
+          && (github.event_name != 'schedule'
+              || (needs.cadence.outputs.proceed == 'true'
+                  && needs.plan.result == 'success'
+                  && needs.approval.result == 'success')) }}
+    runs-on: ubuntu-latest
+    # One back-test at a time, and the lock sits on the job that does the work
+    # rather than on the workflow: a group is assigned before any job condition
+    # runs, so a workflow-level group would let the ~26 odd-week no-ops a year
+    # take the lock and evict a maintainer's dispatch from the group's single
+    # pending slot. `cadence` and `plan` are read-only and need no lock.
+    #
+    # `cancel-in-progress: false` protects the *running* replay, not the queue
+    # behind it: a superseded parameter choice is the maintainer's to cancel,
+    # never silently dropped. A run parked on the hold does not hold this lock —
+    # only a replay that is actually spending does — so a dispatch is never
+    # queued behind a fortnight nobody has released yet. The mirror case is the
+    # one to know: a dispatch running when a fortnight is released queues that
+    # replay behind it, and a second dispatch arriving before the first ends
+    # supersedes the queued one — a release granted and then not spent, which
+    # `rejected` does not report because the hold succeeded. Two dispatches
+    # inside one hold is what it takes; check the released run started before
+    # dispatching again.
+    concurrency:
+      group: run-backtest
+      cancel-in-progress: false
     # Headroom for ~25 petitions x 3 routable predictors of real agent cells
     # (claude-code, codex, gemini), run strictly sequentially, plus the corpus
-    # pull — ~75 cells at the default limit, up from ~50 when only two engines
-    # ran, so the cap is raised accordingly while still keeping a hung engine
-    # from burning six billable hours.
+    # pull — ~75 cells at the dispatch default, which is what keeps a hung engine
+    # from burning six billable hours. It stays sized for the widest dispatch
+    # rather than for the cron's pinned 10 petitions (~30 cells, well inside it):
+    # a cap that killed a legitimately-running replay would waste the spend it
+    # had already made. This is the hard ceiling the budget line cites.
     timeout-minutes: 330
     environment: prod
     permissions:
@@ -81,11 +409,14 @@ jobs:
       id-token: write # assume the read-only AWS role to pull the corpus
     steps:
       # No authorization gate here, and none is missing: this workflow carries
-      # no trigger an outside actor can reach. `workflow_dispatch` is gated by
-      # GitHub on repository write, and this job binds `prod`, whose deployment
-      # branches are restricted to `main`, so a dispatch from any other ref is
-      # refused before a step runs — and the spend is the dispatcher's own
-      # deliberate parameter choice, `engine` defaulting to the free stub.
+      # no trigger an outside actor can reach. A `schedule` fires only from the
+      # DEFAULT branch, so a cron can run only what a maintainer-merged
+      # promotion put on `main`; a `workflow_dispatch` is gated by GitHub on
+      # repository write; and this job binds `prod`, whose deployment branches
+      # are restricted to `main`, so a dispatch from any other ref is refused
+      # before a step runs. On the dispatch path the spend is the dispatcher's
+      # own deliberate parameter choice, `engine` defaulting to the free stub;
+      # on the cron path it is the `review` hold this job waits on.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -106,7 +437,7 @@ jobs:
       # read-only role: the one script it executes on purpose must see a
       # credential-free environment.
       - name: Install the agent CLIs
-        if: inputs.engine == 'auto' && inputs.replay != 'salience-gate'
+        if: env.BT_ENGINE == 'auto' && env.BT_REPLAY != 'salience-gate'
         # zizmor: ignore[adhoc-packages] — top-level exact-version pins,
         # transitive scripts disabled, and a credential-free step environment
         # are the practical controls for global CLIs; a lockfile is not
@@ -170,7 +501,7 @@ jobs:
       # MCP or telemetry block here: unlike the live workflows, the back-test
       # configures no MCP servers and parses no telemetry.
       - name: Configure the Gemini cell env allowlist
-        if: inputs.engine == 'auto' && inputs.replay != 'salience-gate'
+        if: env.BT_ENGINE == 'auto' && env.BT_REPLAY != 'salience-gate'
         run: |
           set -euo pipefail
           mkdir -p .gemini
@@ -187,7 +518,7 @@ jobs:
       # before writing, as upstream does: a kernel without the knob has
       # nothing to loosen.
       - name: Enable unprivileged user namespaces for the codex sandbox
-        if: inputs.engine == 'auto' && inputs.replay != 'salience-gate'
+        if: env.BT_ENGINE == 'auto' && env.BT_REPLAY != 'salience-gate'
         run: |
           set -euo pipefail
           if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
@@ -198,7 +529,7 @@ jobs:
           fi
 
       - name: Run the cert back-test
-        if: inputs.replay != 'salience-gate'
+        if: env.BT_REPLAY != 'salience-gate'
         env:
           # Engine credentials for the replay cells; unused by the stub backend.
           # One per routable engine — claude, codex, gemini — so `auto` runs the
@@ -211,30 +542,22 @@ jobs:
           # index, and the replay's snapshot reads come from the per-case
           # content store the same base derives.
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
-          # The dispatcher chooses the backend and the set size. `--limit` IS the
-          # set-size cap (there is no higher ceiling to lower), so a large value
-          # is a deliberate, write-gated spend decision — the PR body echoes what
-          # ran.
-          ENGINE: ${{ inputs.engine }}
-          LIMIT: ${{ inputs.limit }}
-          # Empty runs every engine; a dispatch may opt one out. An unknown
-          # engine name simply matches no predictor.
-          SKIP_ENGINES: ${{ inputs.skip_engines }}
-          # The defaults are the whole modern-cert population in recency order;
-          # a dispatch may scope to the live-comparable slice and spread it
-          # across conferences.
-          SCOPE: ${{ inputs.scope }}
-          SPREAD: ${{ inputs.spread }}
         run: |
           set -euo pipefail
           if [ ! -f corpus/corpus.db ]; then
             echo "::error::no corpus on disk; nothing to back-test" >&2
             exit 1
           fi
-          if [ "$SPREAD" = "true" ]; then SPREAD_FLAG=--spread; else SPREAD_FLAG=--no-spread; fi
+          # The backend and the set size come from the job env above: a
+          # dispatcher's choice, or the cron's pins. `--limit` IS the set-size
+          # cap (there is no higher ceiling to lower), so a large value is a
+          # deliberate, write-gated spend decision — the PR body echoes what ran.
+          # An empty `--skip-engines` runs every engine, and an unknown engine
+          # name simply matches no predictor.
+          if [ "$BT_SPREAD" = "true" ]; then SPREAD_FLAG=--spread; else SPREAD_FLAG=--no-spread; fi
           uv run fedcourts cert-backtest \
-            --engine "$ENGINE" --limit "$LIMIT" --skip-engines "$SKIP_ENGINES" \
-            --scope "$SCOPE" "$SPREAD_FLAG" \
+            --engine "$BT_ENGINE" --limit "$BT_LIMIT" --skip-engines "$BT_SKIP_ENGINES" \
+            --scope "$BT_SCOPE" "$SPREAD_FLAG" \
             --work-dir "$RUNNER_TEMP/backtest-cells"
 
       # The salience-gate mode replays the deterministic gate, not the
@@ -245,20 +568,19 @@ jobs:
       # carries none, and the CLI-install/sandbox steps above are skipped for
       # this mode.
       - name: Run the salience-gate replay
-        if: inputs.replay == 'salience-gate'
+        if: env.BT_REPLAY == 'salience-gate'
         env:
           # The corpus estate's base URL, exactly as the cert step wires it: the
           # pulled corpus.db is a payload-free index and the snapshot reads come
           # from the content store the same base derives.
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
-          TERMS: ${{ inputs.terms }}
         run: |
           set -euo pipefail
           if [ ! -f corpus/corpus.db ]; then
             echo "::error::no corpus on disk; nothing to replay" >&2
             exit 1
           fi
-          uv run fedcourts salience-replay --terms "$TERMS"
+          uv run fedcourts salience-replay --terms "$BT_TERMS"
 
       # The review PR is opened with the dev App token, exactly like the
       # metrics refresh: the dev App is not a branch-protection bypass actor,
@@ -289,10 +611,6 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
-          ENGINE: ${{ inputs.engine }}
-          LIMIT: ${{ inputs.limit }}
-          REPLAY: ${{ inputs.replay }}
-          TERMS: ${{ inputs.terms }}
         run: |
           set -euo pipefail
           gh auth setup-git
@@ -301,22 +619,22 @@ jobs:
             echo "Replay report unchanged; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          if [ "$REPLAY" = "salience-gate" ]; then
+          if [ "$BT_REPLAY" = "salience-gate" ]; then
             # The prose stays minimal on purpose — the command line it echoes
             # is the whole parameterization, and the refreshed report is the
             # reviewable content; anything more would restate CLI defaults
             # that would go silently stale here.
             branch="metrics/salience-replay"
-            title="metrics(salience): gate replay over Terms ${TERMS}"
+            title="metrics(salience): gate replay over Terms ${BT_TERMS}"
             commit_message="metrics(salience): salience-gate replay (run ${GITHUB_RUN_ID})"
             {
-              printf 'Deterministic salience-gate replay: `fedcourts salience-replay --terms %s`.\n\n' "$TERMS"
+              printf 'Deterministic salience-gate replay: `fedcourts salience-replay --terms %s`.\n\n' "$BT_TERMS"
               printf 'Refreshes `metrics/salience-replay.json`. No model ran and no tokens were spent. '
               printf 'What the numbers may and may not be read as: `metrics/README.md`.\n'
             } > pr-body.md
           else
             plan=$(uv run fedcourts cert-backtest-plan --run-id "$GITHUB_RUN_ID" \
-              --limit "$LIMIT" --engine "$ENGINE")
+              --limit "$BT_LIMIT" --engine "$BT_ENGINE")
             if [ "$(jq -r '.pr' <<<"$plan")" = "null" ]; then
               echo "No back-test report produced; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
               exit 0

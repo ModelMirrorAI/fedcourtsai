@@ -329,7 +329,7 @@ instant it was blessed. Everything keys off it:
   stamped cell whose stamp *precedes* the freeze instant, whatever its digest.
   Until a stamped cell's digest is blessed *and* its stamp is at or after the
   freeze instant, the frozen headline is legitimately **empty** — "no
-  frozen-process evaluations yet" — which the leaderboard, the ops dashboard,
+  frozen-process evaluations yet" — which the leaderboard, the ops report,
   and the weekly performance digest all say in as many words, rather than
   showing a bare
   `0` that reads as a regression.
@@ -392,7 +392,7 @@ The frozen filter lives at the one shared producer both surfaces read
 so the scored cells and both exclusion
 records — `forward_claim` and `leakage_exclusion` — come from one
 pass; `iter_stratified_evaluations` is its thin cells-only wrapper), so the
-leaderboard headline and the ops dashboard's scored figures can never disagree —
+leaderboard headline and the ops report's scored figures can never disagree —
 they each pass one boolean. Both CLIs take `--all-versions` for the pooled
 shakedown view. The filter partitions on the **prediction's** stamp — the
 competitor being ranked is the predictor — and additionally requires the
@@ -406,7 +406,7 @@ headline:
 - The **prediction census** (`ledger_cell_counts` — how many predictions and
   events the funnel has) counts everything committed. A frozen scope showing many
   predictions but zero frozen evaluations is the honest shakedown state, and the
-  dashboard labels that divergence rather than hiding it.
+  ops report labels that divergence rather than hiding it.
 - The **leakage digest** counts every evaluation carrying a leakage grade,
   frozen or not. Shakedown contamination is exactly what it exists to surface, so
   scoping it to frozen-only would blank it during the window it matters most —
@@ -525,8 +525,8 @@ materially, bump `CURRENT_PROCESS_LABEL` to the next label; the old label's cell
 keep their stamp and remain replayable against the process that produced them,
 never overwritten.
 
-**Re-freezing before the prior instant has any cells** is a supersession, not
-an extension: the new two-constant commit *replaces* the retired label's
+**Re-freezing with nothing counted under the prior label** is a supersession,
+not an extension: the new two-constant commit *replaces* the retired label's
 digests in `FROZEN_PROCESS_DIGESTS` (the map holds one blessed process per
 actor, and `is_frozen` is a membership filter, so keeping the old predictor
 digests would bless two processes at once). The procedure above runs in full

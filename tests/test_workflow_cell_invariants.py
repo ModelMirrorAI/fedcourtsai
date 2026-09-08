@@ -693,6 +693,7 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
         "Configure agent retrieval (MCP)",
         "Materialize the event definition for the ledger",
         "Predict with Claude Code",
+        "Mint the codex watchdog telemetry token",
         "Arm the codex watchdog",
         "Predict with Codex",
         "Install the Gemini CLI",
@@ -963,7 +964,6 @@ def test_the_staging_seed_accepts_the_only_list_shape_its_form_can_produce() -> 
 SOURCING_OPS_STEPS = (
     "Collect recent workflow runs",
     "Collect issues wearing a stale fan-out label",
-    "Post or update the ops dashboard issue",
     "Escalate a failing data-validation verdict",
 )
 # `(workflow, job, step name)` for the record-keeping writes that source the
@@ -974,8 +974,11 @@ SOURCING_OPS_STEPS = (
 # already scan whatever it holds.
 SOURCING_HANDOFF_STEPS: tuple[tuple[str, str, str], ...] = ()
 # The composites, whose `uses: ./.github/actions/...` resolution already proves
-# a workspace checkout put `scripts/` on disk.
-SOURCING_COMPOSITES = ("run-log-dashboard",)
+# a workspace checkout put `scripts/` on disk. Empty because no composite makes
+# a GitHub API call today, and kept as a table for the same reason
+# `SOURCING_HANDOFF_STEPS` is: the next one belongs here, and the tests below
+# already scan whatever it holds.
+SOURCING_COMPOSITES: tuple[str, ...] = ()
 # `(workflow, job, step name)` for each step that inlines its own copy.
 INLINE_GH_RETRY_STEPS = (
     ("run-pull.yml", "pull", "Open the failure run-log issue"),
@@ -1477,15 +1480,13 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
     """A retried listing is assigned to a variable, not piped into `jq`.
 
     Each of these lookups feeds a find-or-create: an empty result reads as "no
-    issue yet", which opens a duplicate — or, on the pipeline-runs dashboard,
-    restarts its rolling 14-day table from the current window. `pipefail` is
-    what keeps a failed listing from reaching that branch, and it is a lot of
-    weight for one shell option to carry, so the shape is pinned instead: the
-    retried listing lands in a variable, making an exhausted retry the
-    assignment's own failure.
+    issue yet", which opens a duplicate thread for the same broken day.
+    `pipefail` is what keeps a failed listing from reaching that branch, and it
+    is a lot of weight for one shell option to carry, so the shape is pinned
+    instead: the retried listing lands in a variable, making an exhausted retry
+    the assignment's own failure.
     """
     blocks = [str(_named_step(*site)["run"]) for site in FIND_OR_CREATE_ALARM_STEPS]
-    blocks.append(_composite_run("run-log-dashboard"))
     for block in blocks:
         assert "listing=$(gh_retry gh issue list" in block
         assert '<<<"$listing"' in block
@@ -1494,20 +1495,16 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
             line for line in _uncommented(block) if "gh_retry gh issue list" in line and "|" in line
         ]
 
-    # The dashboard's body read had the same silent failure and the worst
-    # consequence, so it is captured too rather than redirected from a pipe.
-    composite = _composite_run("run-log-dashboard")
-    assert "body=$(gh_retry gh issue view" in composite
-    assert "dashboard-body.md" in composite
 
-
-# The codex invocation surface, described in six places that certify each
+# The codex invocation surface, described in several places that certify each
 # other only while they agree: the codex-action steps of the two cell
 # workflows (the action pin and its `codex-version` / `codex-args` /
-# `permission-profile` inputs), the codex-action step of the
-# `engine-actions-smoke` scenario — whose entire claim is that the cells' input
-# block is still *accepted*, which is worth nothing if the block it sends is
-# not the cells' — the permission profile `fedcourtsai.mcp` emits into the
+# `permission-profile` inputs), every codex-action step of the integration
+# suite — the `engine-actions-smoke` probe, whose entire claim is that the
+# cells' input block is still *accepted*, and each repro-family leg, whose
+# claim is that a defect reproduces under the cells' invocation; both are
+# worth nothing if the block they send is not the cells' — the permission
+# profile `fedcourtsai.mcp` emits into the
 # `$CODEX_HOME/config.toml` those steps select by name, the npm pins of the
 # same CLI in run-backtest and the engine smoke, and
 # `CodexRunner.build_command`'s argv. Each carries a "keep in lockstep" comment
@@ -1518,10 +1515,10 @@ def test_the_retried_listings_are_captured_before_they_are_filtered() -> None:
 CODEX_ACTION_CELL_WORKFLOWS = ("run-predict.yml", "run-evaluate.yml")
 CODEX_ACTION_SMOKE_WORKFLOW = "integration-test.yml"
 CODEX_NPM_PIN_WORKFLOWS = ("run-backtest.yml", "integration-test.yml")
-# The inputs that make the invocation what it is. The prompt and the model
-# deliberately differ on the smoke leg (a boot probe against a resolved
-# default, not a cell against a case); everything that decides how codex runs
-# does not.
+# The inputs that make the invocation what it is. The prompt and the model may
+# differ on an integration leg (the boot probe sends a one-word prompt against
+# a resolved default, a repro leg its own record's cell); everything that
+# decides how codex runs does not.
 CODEX_LOCKSTEP_INPUTS = (
     "codex-version",
     "codex-args",
@@ -1571,13 +1568,26 @@ CODEX_RUNNER_POSTURE_TOKENS = ("--sandbox", "sandbox_workspace_write.network_acc
 _CODEX_NPM_PIN = re.compile(r"@openai/codex@([\w-]+(?:\.[\w-]+)*)")
 
 
-def _codex_action_step(name: str) -> dict[str, Any]:
+def _codex_action_steps(name: str) -> list[dict[str, Any]]:
+    """Every step in a workflow that drives codex through the pinned action."""
     steps: list[dict[str, Any]] = [
         step
         for job in _load(name)["jobs"].values()
         for step in job.get("steps", []) or []
         if str(step.get("uses") or "").startswith("openai/codex-action@")
     ]
+    assert steps, f"{name}: no codex-action step — the invocation this pins is gone"
+    return steps
+
+
+def _codex_action_step(name: str) -> dict[str, Any]:
+    """The one codex-action step of a cell workflow.
+
+    A cell workflow runs exactly one codex invocation; the integration suite
+    runs several (the action-path smoke, and each repro-family leg), and every
+    one of them is held to the same block below.
+    """
+    steps = _codex_action_steps(name)
     assert len(steps) == 1, f"{name}: expected exactly one codex-action step, found {len(steps)}"
     return steps[0]
 
@@ -1645,23 +1655,28 @@ def _profile_posture_settings(profile: dict[str, Any]) -> set[str]:
 
 
 def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> None:
-    """One codex invocation, six surfaces: both cell steps and the action-path
-    smoke share the action pin and its inputs; the profile they select is the
-    one the emitted config.toml declares; the runner reaches the same network
-    posture through the mapping below; the npm installs pin the CLI version the
-    action pins."""
+    """One codex invocation, every surface that makes it: both cell steps and
+    every action-path leg of the integration suite share the action pin and its
+    inputs; the profile they select is the one the emitted config.toml
+    declares; the runner reaches the same network posture through the mapping
+    below; the npm installs pin the CLI version the action pins."""
     predict, evaluate = (_codex_action_step(name) for name in CODEX_ACTION_CELL_WORKFLOWS)
-    smoke = _codex_action_step(CODEX_ACTION_SMOKE_WORKFLOW)
+    # Every action-path leg the integration suite runs, not just the boot
+    # probe: a repro-family leg reproduces a defect against the cells'
+    # invocation, and one that drifted would reproduce against an invocation
+    # nothing runs.
+    smokes = _codex_action_steps(CODEX_ACTION_SMOKE_WORKFLOW)
     assert predict["uses"] == evaluate["uses"], (
         f"the codex-action pin differs between the cell workflows: "
         f"{predict['uses']!r} vs {evaluate['uses']!r} — one permission-profile "
         f"contract cannot be validated against two action versions"
     )
-    assert smoke["uses"] == predict["uses"], (
-        f"the action-path smoke pins {smoke['uses']!r} but the cells run "
-        f"{predict['uses']!r} — the smoke would certify a version nothing else "
-        f"uses, which is the exact failure it exists to catch"
-    )
+    for smoke in smokes:
+        assert smoke["uses"] == predict["uses"], (
+            f"an action-path leg pins {smoke['uses']!r} but the cells run "
+            f"{predict['uses']!r} — the leg would certify a version nothing else "
+            f"uses, which is the exact failure it exists to catch"
+        )
     for key in CODEX_LOCKSTEP_INPUTS:
         # Presence first: a `.get()` comparison would pass vacuously when an
         # input vanishes from every surface at once, and `safety-strategy` has
@@ -1669,7 +1684,7 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
         for name, step in (
             ("run-predict.yml", predict),
             ("run-evaluate.yml", evaluate),
-            (CODEX_ACTION_SMOKE_WORKFLOW, smoke),
+            *((CODEX_ACTION_SMOKE_WORKFLOW, smoke) for smoke in smokes),
         ):
             assert key in step["with"], (
                 f"{name}: codex-action input {key!r} is missing — it is part "
@@ -1686,11 +1701,12 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
             f"codex-action input {key!r} differs between the cell workflows: "
             f"{predict['with'][key]!r} vs {evaluate['with'][key]!r}"
         )
-        assert predict["with"][key] == smoke["with"][key], (
-            f"codex-action input {key!r} differs between the cells and the "
-            f"action-path smoke: {predict['with'][key]!r} vs {smoke['with'][key]!r} "
-            f"— the smoke's acceptance claim is only about the block it sends"
-        )
+        for smoke in smokes:
+            assert predict["with"][key] == smoke["with"][key], (
+                f"codex-action input {key!r} differs between the cells and an "
+                f"action-path leg: {predict['with'][key]!r} vs {smoke['with'][key]!r} "
+                f"— such a leg's claim is only about the block it sends"
+            )
 
     # The profile the steps name is the profile the emitted config declares —
     # the two ends of a selection that fails at startup if they disagree.
@@ -1806,6 +1822,24 @@ CODEX_WATCHDOG_DIR = "codex-watchdog"
 # backstop; the arm steps carry the arithmetic.
 CODEX_WATCHDOG_DEADLINE_S = "2400"
 CODEX_WATCHDOG_CELL_JOBS = {"run-predict.yml": "predict", "run-evaluate.yml": "evaluate"}
+# The arm step's whole configuration: the three the script has always read, the
+# cell's identifiers and run URL for the off-runner record, and the comment-only
+# token in its two roles (`gh` opens the record; the watchdog PATCHes it).
+CODEX_WATCHDOG_ARM_ENV = {
+    "CODEX_HOME",
+    "WATCHDOG_DIR",
+    "WATCHDOG_DEADLINE_S",
+    "COURT_ID",
+    "DOCKET_ID",
+    "EVENT_ID",
+    "ACTOR_ID",
+    "RUN_ID",
+    "RUN_URL",
+    "GH_TOKEN",
+    "WATCHDOG_CHECKIN_TOKEN",
+}
+CODEX_WATCHDOG_TOKEN_STEP = "Mint the codex watchdog telemetry token"
+CODEX_WATCHDOG_TOKEN_REF = "${{ steps.watchdog-token.outputs.token }}"
 
 
 def test_the_codex_cell_brackets_its_engine_with_a_watchdog() -> None:
@@ -1828,8 +1862,10 @@ def test_the_codex_cell_brackets_its_engine_with_a_watchdog() -> None:
         assert arm.get("if") == engine.get("if"), f"{name}: the arm step's gate is not the engine's"
         assert CODEX_WATCHDOG_SCRIPT in str(arm["run"])
         # The production pattern is the script's default; an override here
-        # would point the watchdog at a process the cell does not run.
-        assert set(arm["env"]) == {"CODEX_HOME", "WATCHDOG_DIR", "WATCHDOG_DEADLINE_S"}, (
+        # would point the watchdog at a process the cell does not run. Pinned as
+        # an exact set rather than an absence, so a `WATCHDOG_*_MATCH` slipped
+        # in later is a failure and not a silent re-aiming.
+        assert set(arm["env"]) == CODEX_WATCHDOG_ARM_ENV, (
             f"{name}: unexpected watchdog configuration {sorted(arm['env'])!r}"
         )
         assert arm["env"]["CODEX_HOME"] == CODEX_HOME_EXPRESSION
@@ -1859,6 +1895,117 @@ def test_the_codex_cell_brackets_its_engine_with_a_watchdog() -> None:
         # bundle reaches a maintainer without reaching the ledger.
         upload = next(s for s in steps if s.get("name") == "Upload cell output")
         assert CODEX_WATCHDOG_DIR in str(upload["with"]["path"]).split()
+
+
+def test_the_cell_artifact_ships_only_the_cells_own_event_directory() -> None:
+    """The upload's `data` entry is scoped to the matrix event directory.
+
+    Everything a cell legitimately produces lives under its own
+    `data/cases/<court>/<docket>/events/<event_id>/`; the rest of the checkout is
+    the cell's stale view of run-start `main`, and shipping it hands collect a
+    tree whose pre-existing files may have been advanced by the deterministic
+    writers while the matrix ran. Collect's union refuses those stale copies, but
+    the refusal path should be the backstop, not the diet: a bare `data` entry
+    here reopens the wholesale shipment.
+
+    The `status.json` entry is load-bearing beyond its content: upload-artifact
+    roots the archive at the matched paths' common ancestor, and a file at the
+    workspace root pins that ancestor to the root — drop it and the deep data/
+    path loses its prefix inside the artifact, the collect union finds no
+    `data/` at every cell, and (because a missing source is tolerated for
+    early-dead cells) the run collects a silent, empty union rather than failing.
+    """
+    scoped = "data/cases/${{ matrix.court }}/${{ matrix.docket }}/events/${{ matrix.event_id }}"
+    for name, job_name in CODEX_WATCHDOG_CELL_JOBS.items():
+        steps = _load(name)["jobs"][job_name]["steps"]
+        upload = next(s for s in steps if s.get("name") == "Upload cell output")
+        entries = [
+            line.strip() for line in str(upload["with"]["path"]).splitlines() if line.strip()
+        ]
+        assert entries == ["status.json", scoped, CODEX_WATCHDOG_DIR], (
+            f"{name}: the cell artifact must carry exactly the status file, the "
+            f"matrix-scoped event directory, and the watchdog bundle; got {entries}"
+        )
+
+
+def test_the_codex_watchdog_reports_off_the_runner_on_a_comment_only_token() -> None:
+    """The channel a cancelled job cannot erase, and the credential it runs on.
+
+    Every other account the watchdog leaves is runner-local, and the wedge it
+    documents is what cancels the runner — so the bundle, the disarm step that
+    publishes it, the step summary and the job log are destroyed by exactly the
+    failure they exist to describe. The off-runner record is what survives it,
+    and what it costs is a GitHub token in a codex cell. The whole of that
+    concession is pinned here: **issues alone**, minted per step under the
+    engine step's own gate, reaching the watchdog rather than the agent, and
+    failing soft so the reporting can never cost the kill.
+    """
+    for name, job_name in CODEX_WATCHDOG_CELL_JOBS.items():
+        job = _load(name)["jobs"][job_name]
+        steps = job["steps"]
+        arm_at = next(i for i, s in enumerate(steps) if s.get("name") == "Arm the codex watchdog")
+        mint = steps[arm_at - 1]
+        assert mint.get("name") == CODEX_WATCHDOG_TOKEN_STEP, (
+            f"{name}: nothing mints the watchdog's telemetry token before the arming"
+        )
+        # Exactly the engine step's window, so a cell that runs no engine — a
+        # refused one on predict — mints no live credential either.
+        assert mint.get("if") == steps[arm_at].get("if"), (
+            f"{name}: the telemetry mint's gate is not the arm step's"
+        )
+        # Comment-only, and narrower than the Claude cell's token beside it:
+        # everything it is used for is one tracking issue and one comment on it.
+        assert str(mint.get("uses", "")).startswith("actions/create-github-app-token@")
+        assert set(mint["with"]) == {"client-id", "private-key", "permission-issues"}, (
+            f"{name}: the watchdog token asks for more than issues:write"
+        )
+        assert mint["with"]["permission-issues"] == "write"
+        # A mint that failed hard would leave the arm step and the engine step
+        # skipped on their implicit `success()` — killing the cell to protect
+        # its own reporting, which inverts the whole priority. Failing soft
+        # leaves an empty token, which both consumers guard on.
+        assert mint.get("continue-on-error") is True, (
+            f"{name}: a failed telemetry mint would skip the engine step"
+        )
+        # The job's own permission block is untouched: this is a step-scoped App
+        # mint, not a widening of what every step in the cell may do.
+        assert "issues" not in job["permissions"]
+        # The token reaches the arm step (which opens the record and hands the
+        # watchdog its env) and the disarm step (which closes it out) — never an
+        # agent step, which is a separate step and inherits neither.
+        holders = [s for s in steps if CODEX_WATCHDOG_TOKEN_REF in str(s.get("env", {}))]
+        assert [s.get("name") for s in holders] == [
+            "Arm the codex watchdog",
+            "Disarm the codex watchdog",
+        ], f"{name}: the telemetry token reaches steps it has no business in"
+        # It travels as env on both, never as an argument: the watchdog's own
+        # published bundle dumps every argument of every process this user owns.
+        for holder in holders:
+            assert CODEX_WATCHDOG_TOKEN_REF not in str(holder.get("run", ""))
+        arm_run = str(steps[arm_at]["run"])
+        assert "watchdog-checkin" in arm_run
+        # The watchdog appends to the armed body it is handed, so the arm step
+        # must pass the *whole* of what the check-in wrote. A base trimmed to
+        # the marker would have the first heartbeat erase the arming time, the
+        # fire ETA and the run link — the entire record on a run that never
+        # comes back.
+        assert "WATCHDOG_CHECKIN_BASE=" in arm_run
+        # The watchdog authenticates with WATCHDOG_CHECKIN_TOKEN and never runs
+        # `gh`, so `GH_TOKEN` is cleared rather than inherited into a process
+        # that outlives this step by the whole deadline.
+        assert "GH_TOKEN=''" in arm_run, f"{name}: the watchdog inherits a credential it never uses"
+        # And the destination that credential is sent to for the next 40 minutes
+        # is checked against this repository's own comments endpoint before it is
+        # handed over: it arrived on a stdout this step does not otherwise police.
+        assert '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"' in arm_run, (
+            f"{name}: the check-in URL is handed to the watchdog unvalidated"
+        )
+        # Both check-ins are bounded outside the command's own gh retry, whose
+        # budget is per call: the arming one must not delay the deadline it
+        # starts, and the disarming one runs ahead of the artifact upload.
+        assert "timeout 90 uv run fedcourts watchdog-checkin" in arm_run
+        disarm = next(s for s in steps if s.get("name") == "Disarm the codex watchdog")
+        assert "timeout 90 uv run fedcourts watchdog-checkin --disarm" in str(disarm["run"])
 
 
 # The one condition every engine-actions-smoke step is gated on. A leg whose
@@ -2181,3 +2328,184 @@ def test_every_schedule_gate_names_a_cron_run_ops_declares() -> None:
         assert any(cron in gate for cron in declared), (
             f"the gate {gate!r} names no cron run-ops declares: {sorted(declared)}"
         )
+
+
+def _schedule(name: str) -> list[str]:
+    """The cron literals a workflow declares, in file order."""
+    workflow = _load(name)
+    triggers = workflow.get("on") or workflow.get(True) or {}
+    return [str(entry["cron"]) for entry in (triggers.get("schedule") or [])]
+
+
+def test_the_back_test_cron_is_one_weekend_slot_off_every_other_workflows() -> None:
+    """The fortnight's runway, and the offset grid it has to respect.
+
+    A released fortnight derives a plan, waits an unbounded human interval on
+    the hold, runs up to its 330-minute cap and then lands a **reviewed** PR —
+    all before the Monday digest tick reads the report. Only a weekend slot
+    leaves that much room, so the day is pinned here rather than left to a later
+    edit that would quietly cost the digest a fresh report. The minute is pinned
+    clear of every other workflow's for the reason the whole grid exists: GitHub
+    queues a repository's crons together, so slots that share a minute contend.
+    """
+    crons = _schedule("run-backtest.yml")
+    assert len(crons) == 1, f"run-backtest declares {len(crons)} crons; the cadence is one slot"
+    minute, hour, day_of_month, month, day_of_week = crons[0].split()
+    assert day_of_week == "6", "the back-test cron must fire on Saturday"
+    assert (day_of_month, month) == ("*", "*"), (
+        "a day-of-month stride resets every month and is not a fortnight; the "
+        "parity guard is what halves this cron"
+    )
+    # Ahead of run-ops' Monday digest tick with the weekend in between.
+    assert int(hour) < 12
+    others = [
+        cron
+        for path in sorted(WORKFLOWS.glob("*.y*ml"))
+        if path.name != "run-backtest.yml"
+        for cron in _schedule(path.name)
+    ]
+    assert others, "no other schedules to compare against — has the cron layout moved?"
+    assert all(cron.split()[0] != minute for cron in others), (
+        f"minute :{minute} is already taken by another workflow's schedule"
+    )
+
+
+def test_the_fortnight_parity_guard_is_a_step_because_it_has_to_be() -> None:
+    """Biweekly, computed where a fortnight can actually be computed.
+
+    GitHub cron has no fortnight and workflow expressions have no date
+    function, so neither the `on:` block nor a job-level `if` can express this
+    cadence: the guard runs in a shell, and the shell is where this pins it. An
+    odd week must end as a cheap SUCCESS — a failing guard would read as a
+    broken lane every other week and train the maintainer to ignore it — and
+    the job must stay cheap enough that half the year's runs cost nothing:
+    no checkout, no corpus, no credential.
+    """
+    cadence = _load("run-backtest.yml")["jobs"]["cadence"]
+    assert cadence["if"] == "github.event_name == 'schedule'", (
+        "the guards are the cron's; a dispatch is already a human's choice"
+    )
+    parity = next(step for step in cadence["steps"] if step.get("id") == "parity")
+    run = str(parity["run"])
+    assert "date -u +%V" in run, "the parity must key on the ISO week, not on a run counter"
+    assert "% 2" in run
+    # The direction is registered, not stylistic: the freeze record's cadence
+    # entry names the even weeks as the ones that run, so a flipped comparison
+    # would move every registered release date while staying green here.
+    assert "% 2)) -eq 0 ]; then run=true" in run, "even ISO weeks are the registered releases"
+    assert "10#" in run, "a leading-zero ISO week must be forced to base 10"
+    assert "exit 1" not in run, "a skipped fortnight is a success, not a failure"
+
+    body = yaml.safe_dump(cadence)
+    assert "actions/checkout" not in body
+    assert "corpus-readonly" not in body
+    assert "secrets." not in body
+    assert "create-github-app-token" not in body
+    # Both guards decide the fortnight, and an unrun guard leaves an empty
+    # output that compares false rather than a missing one that compares true.
+    proceed = str(_load("run-backtest.yml")["jobs"]["cadence"]["outputs"]["proceed"])
+    assert "steps.parity.outputs.run == 'true'" in proceed
+    assert "steps.overlap.outputs.clear == 'true'" in proceed
+
+
+def test_the_cadence_job_skips_a_fortnight_queued_behind_a_running_twin() -> None:
+    """The overlap guard, and its deliberate fail-open.
+
+    The concurrency group sits on the replay job alone, so it serializes the
+    spends and nothing else: without this guard two crons could both derive a
+    plan and both ask for a release while an earlier fortnight is wedged against
+    its 330-minute cap or parked on the hold. The guard reads this workflow's
+    own run history to recognise itself as that twin. It fails *open* on an
+    unreadable history on purpose — the hold, not this guard, is what stands
+    between a plan and a spend — so an API blip costs a maintainer one
+    declinable ask rather than a lost sample. A hung call is the same case,
+    which is why the API call carries its own `timeout`: without one it would
+    run out the job cap and fail the fortnight instead.
+    """
+    cadence = _load("run-backtest.yml")["jobs"]["cadence"]
+    assert cadence["permissions"] == {"actions": "read"}
+    overlap = next(step for step in cadence["steps"] if step.get("id") == "overlap")
+    run = str(overlap["run"])
+    assert "actions/workflows/run-backtest.yml/runs" in run
+    assert overlap["env"]["GH_TOKEN"] == "${{ github.token }}"
+    assert "timeout 30 gh api" in run, "an unbounded gh call fails the fortnight it guards"
+    assert "::warning::" in run and "exit 1" not in run, (
+        "an unreadable run history must warn and proceed, never fail the fortnight"
+    )
+
+
+def test_the_back_test_cron_path_pins_every_parameter_it_replays_under() -> None:
+    """A `schedule` carries no inputs, so the pins are the run.
+
+    On a cron the `inputs` context is empty: a step reading `inputs.engine`
+    would route no engine at all and one reading `inputs.limit` would pass an
+    empty `--limit`. So each parameter is resolved ONCE at workflow level and
+    every job reads from there — the plan the hold is judged on and the command
+    the release runs cannot describe different spends. The pinned values are the
+    standing measurement: consecutive fortnights are comparable only because
+    nothing about the dispatch moves between them, and the fortnightly budget
+    line in `docs/budget.md` is written against exactly this limit, scope and
+    engine.
+    """
+    workflow = _load("run-backtest.yml")
+    env = workflow["env"]
+    assert env["BT_REPLAY"] == "${{ github.event_name == 'schedule' && 'cert' || inputs.replay }}"
+    assert env["BT_ENGINE"] == "${{ github.event_name == 'schedule' && 'auto' || inputs.engine }}"
+    assert env["BT_LIMIT"] == "${{ github.event_name == 'schedule' && '10' || inputs.limit }}"
+    # `paid`, not the wider `all`: the paid class carries ~2.3x the grant-family
+    # mass per petition and is the only population the per-band segment
+    # breakdown scores, so ten unfiltered petitions would leave the lift reading
+    # against a near-pure-denial floor and the bands empty.
+    assert env["BT_SCOPE"] == "${{ github.event_name == 'schedule' && 'paid' || inputs.scope }}"
+    assert env["BT_SPREAD"] == "${{ github.event_name == 'schedule' && 'true' || inputs.spread }}"
+    # Unset IS the pin (no engine opted out), and the `x && y || z` idiom could
+    # not express it anyway: '' is falsy, so the true branch falls through.
+    assert env["BT_SKIP_ENGINES"] == "${{ inputs.skip_engines }}"
+
+    for job_id in ("plan", "backtest"):
+        for step in workflow["jobs"][job_id]["steps"]:
+            label = step.get("name", step.get("uses", "run step"))
+            assert "inputs." not in yaml.safe_dump(step), (
+                f"run-backtest:{job_id} step {label!r} reads a dispatch input directly — "
+                "on the cron path that value is empty"
+            )
+
+    # The plan a maintainer releases reads the pins rather than restating them:
+    # a retyped `--limit 10` is the one document able to describe a spend the
+    # run does not make.
+    plan = next(
+        step
+        for step in workflow["jobs"]["plan"]["steps"]
+        if step.get("name") == "Report the plan for release"
+    )
+    for variable in ("$BT_ENGINE", "$BT_LIMIT", "$BT_SCOPE"):
+        assert variable in str(plan["run"]), (
+            f"the plan report hardcodes {variable} instead of reading it"
+        )
+
+
+def test_the_back_test_dispatch_keeps_its_free_default_and_its_parameters() -> None:
+    """The cadence adds a way in; it takes none away.
+
+    The dispatch is the episodic campaign path and its `engine` default is the
+    free offline stub, so an accidental dispatch still spends nothing. Pinned
+    beside the cron pins above because the two paths are easy to conflate: a
+    default quietly moved to `auto` would turn every misclick into a campaign.
+    """
+    workflow = _load("run-backtest.yml")
+    # `on` parses to the truthy bool key in YAML; tolerate either spelling.
+    triggers = workflow.get("on") or workflow.get(True) or {}
+    inputs = triggers["workflow_dispatch"]["inputs"]
+    assert set(inputs) == {
+        "replay",
+        "engine",
+        "limit",
+        "terms",
+        "skip_engines",
+        "scope",
+        "spread",
+    }
+    assert inputs["engine"]["default"] == "stub"
+    assert inputs["replay"]["default"] == "cert"
+    assert inputs["limit"]["default"] == "25"
+    assert inputs["spread"]["default"] is False

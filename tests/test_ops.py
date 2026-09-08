@@ -232,7 +232,7 @@ def test_estimate_cost_quiet_week_still_reports_the_model_rate() -> None:
 
     Regression: the projection was suppressed whenever `actions_monthly` was None,
     so too few dated runs (a quiet week, or a degraded `gh run list`) erased a
-    fully-rated model figure — blanking the number the dashboard exists to show.
+    fully-rated model figure — blanking the number the report exists to show.
     """
     one_run = [
         _run("run-pull", "success", started="2026-06-26T00:00:00Z", ended="2026-06-26T00:30:00Z")
@@ -379,7 +379,7 @@ def test_render_markdown_smoke() -> None:
         usage=[_usage("a", 0.25)],
     )
     md = ops.render_markdown(report)
-    assert "# Ops dashboard" in md
+    assert "# Ops report" in md
     assert "## Pipeline health" in md and "run-pull" in md
     # Spend and cost are one merged section, not two.
     assert "## Spend & cost" in md and "$0.25" in md
@@ -563,7 +563,7 @@ def test_render_markdown_healthy_data_health_is_one_line() -> None:
 
 
 def test_render_markdown_green_verdict_still_carries_the_monitored_counts() -> None:
-    """A monitored count never reddens a verdict, so a green dashboard is the
+    """A monitored count never reddens a verdict, so a green report is the
     only state it ever occurs in — gating it behind the failing branch would
     hide it permanently. The one-line collapse still holds otherwise."""
     health = _healthy().model_copy(
@@ -862,11 +862,11 @@ def test_summarize_trigger_issues_filters_and_orders_oldest_first() -> None:
             "labels": [{"name": "run:predict"}],
             "createdAt": "2026-07-02T08:29:52Z",
         },
-        # Not a trigger label: dropped (dashboards and trackers are long-lived).
+        # Not a trigger label: dropped (long-lived trackers are not fan-out markers).
         {
             "number": 117,
-            "title": "Ops dashboard",
-            "labels": [{"name": "ops-dashboard"}],
+            "title": "Agent feedback",
+            "labels": [{"name": "agent-feedback"}],
             "createdAt": "2026-06-01T00:00:00Z",
         },
         # An older trigger must lead — the longest-stalled first.
@@ -1738,7 +1738,7 @@ def test_leakage_digest_stays_all_versions_while_substance_is_frozen(tmp_path: P
 
 def test_render_substance_names_the_forward_claim_exclusions() -> None:
     # The rendered line appears exactly when the record carries a non-zero
-    # count, so an exclusion is legible on the dashboard, not only on the
+    # count, so an exclusion is legible on the report, not only on the
     # boards.
     quiet = ops.summarize_substance(
         cell_counts=(0, 0, 0),
@@ -2944,7 +2944,7 @@ def test_the_weekly_digest_publishes_the_predicted_courts_row_not_only_the_poole
 
 def test_the_weekly_digest_prints_an_uncomputed_backtest_figure_as_unknown() -> None:
     # The floor, the lift and the Brier are all nullable on the schema. Formatting
-    # a None raises, which would take the whole ops report down — dashboard
+    # a None raises, which would take the whole ops report down — the digest
     # included — over a figure that simply was not computed.
     board = Backtest(
         predictors_evaluated=1,

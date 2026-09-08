@@ -1738,7 +1738,7 @@ class AgentToolingFeedback(_Strict):
     *data or task*), every predict/evaluate cell is *invited* to write this
     short, structured note about its *environment*: whether it used the ``fedcourts``
     corpus-query CLI, which abilities actually helped, and what was missing. Rolled up
-    across runs on the run-ops dashboard, it tells maintainers whether the corpus
+    across runs on the run-ops report, it tells maintainers whether the corpus
     tooling earns its keep and where to invest next; ``used_corpus_query`` alone is
     also read per run by the ``collect`` job, as the self-reported side of the run
     PR's prior-availability note (the field asks whether the cell *used* the CLI,
@@ -4245,9 +4245,15 @@ class CertBacktest(_Strict):
     distribution transition, most often the first. So the always-deny floor here
     is lower than the forward stratum's, and neither the top line nor the band mix
     estimates forward performance. ``metrics/README.md``'s stratum rule bars the
-    pooled comparison regardless. Produced by the maintainer-triggered
-    ``run-backtest`` workflow via ``fedcourts cert-backtest``
-    (it spends tokens when agentic engines are replayed), never by a schedule.
+    pooled comparison regardless. Produced by the ``run-backtest`` workflow via
+    ``fedcourts cert-backtest``, which spends tokens when agentic engines are
+    replayed — so its fortnightly schedule only ever *asks*: the run derives its
+    plan under pinned parameters and waits on a manual release, and no report is
+    written unless a maintainer released it. A gap between reports says only that
+    no report landed, and the artifact does not distinguish the reasons (a
+    fortnight nobody released, a cron GitHub never delivered, a run that found no
+    replayable petition, a review PR nobody merged); ``provenance.run_id``
+    identifies the sample that is standing, not why there is no newer one.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -6507,9 +6513,9 @@ class LedgerValidation(_Strict):
 
 
 class DataHealth(_Strict):
-    """The data-validation verdict surfaced on the ops dashboard: ledger + corpus.
+    """The data-validation verdict surfaced on the ops report: ledger + corpus.
 
-    Pairs the two complementary checks the dashboard presents — the git-only
+    Pairs the two complementary checks the report presents — the git-only
     ``validate`` over ``data/`` (:class:`LedgerValidation`) and the corpus-dependent
     ``validate-corpus`` verdict (:class:`CorpusValidation`, produced where the corpus
     is already pulled and read back from the ``ops-metrics`` branch). Either half may
@@ -6528,10 +6534,10 @@ class DataHealth(_Strict):
 
 
 class LeakageDigest(_Strict):
-    """The evaluators' leakage grading rolled up for the run-ops dashboard.
+    """The evaluators' leakage grading rolled up for the run-ops report.
 
     The visibility half of the leakage doctrine: replay cells run
-    with the same tools as forward cells, so the dashboard must show — across
+    with the same tools as forward cells, so the report must show — across
     runs — whether outcome material is reaching a graded cell. Counts are over
     committed ``evaluation.json`` files carrying a
     ``leakage`` block within ``window_days`` of generation; ``likely`` offenders
@@ -6570,7 +6576,7 @@ class LeakageDigest(_Strict):
 class FlagsDigest(_Strict):
     """Open agent flags scanned from the committed ``flags.json`` files under ``data/``.
 
-    A read-only roll-up the run-ops dashboard presents so agent-surfaced feedback is
+    A read-only roll-up the run-ops report presents so agent-surfaced feedback is
     visible alongside the other operational analytics — not only in the run PR that
     produced it. The severity counts and ``recent`` cover only flags from runs within
     ``window_days`` of generation, so long-since-fixed flags stop dominating the
@@ -6605,7 +6611,7 @@ class ToolingCount(_Strict):
 
 
 class ToolingDigest(_Strict):
-    """Agent tooling self-reports (`tooling.json`) rolled up for the run-ops dashboard.
+    """Agent tooling self-reports (`tooling.json`) rolled up for the run-ops report.
 
     A read-only roll-up of the committed :class:`AgentToolingFeedback` records so a
     maintainer can see, across runs, whether the corpus tooling earns its keep:
@@ -6638,12 +6644,12 @@ class ToolingDigest(_Strict):
 
 
 class OpenTriggerIssue(_Strict):
-    """One open issue wearing a ``run:*`` fan-out label, on the ops dashboard.
+    """One open issue wearing a ``run:*`` fan-out label, on the ops report.
 
     Nothing keys on those labels — no workflow triggers on ``issues: labeled``,
     and a predict or evaluate round derives its cases from committed state — so
     an issue carrying one is a marker somebody left behind, never queued work.
-    The dashboard lists them with their age so a reader clears them instead of
+    The report lists them with their age so a reader clears them instead of
     reading them as a round in flight.
     """
 
@@ -6813,7 +6819,7 @@ class LiveFrontier(_Strict):
 
 
 class SubstanceDigest(_Strict):
-    """The dashboard's substantive-results section: is the machine producing?
+    """The report's substantive-results section: is the machine producing?
 
     Complements run-health (is the machine running): scored-cell counts by
     stratum, replay calibration vs the deny base rate, per-predictor score
@@ -6838,7 +6844,7 @@ class SubstanceDigest(_Strict):
     forward_claim: ForwardClaimRecord | None = Field(
         default=None,
         description="The forward-claim integrity rule applied to the scored-cell "
-        "figures, exactly as the boards record it — so the dashboard and the "
+        "figures, exactly as the boards record it — so the report and the "
         "leaderboard cannot disagree about what was excluded; null on a report "
         "built before the record existed",
     )
@@ -6862,10 +6868,10 @@ class OpsReport(_Strict):
     usage ledger), so no pipeline run writes an ops record. Unlike the
     deterministic leaderboard / back-test roll-ups this is a **point-in-time** view —
     it carries ``generated_at`` and run durations, so it is not byte-stable and is
-    surfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``
-    branch) rather than committed to the default branch.
+    surfaced on the run-ops job's Actions run summary (and persisted to the
+    ``ops-metrics`` branch) rather than committed to the default branch.
 
-    ``data_health`` carries the data-validation verdict the dashboard also presents —
+    ``data_health`` carries the data-validation verdict the report also presents —
     null until the wiring supplies it, kept separate from the run-health analytics
     above. ``flags`` is the open-agent-flags digest scanned from ``data/`` and
     ``tooling`` the agent tooling-feedback digest scanned the same way; both are null

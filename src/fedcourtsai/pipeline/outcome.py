@@ -19,7 +19,7 @@ conservative:
 - **Surface otherwise.** Anything ambiguous — an unreadable/absent disposition,
   no decision date, or open events the case-level disposition cannot be
   attributed to one of — produces an :class:`UnrecordedOutcome`, surfaced on the
-  pipeline-runs dashboard for maintainer triage. Nothing is written on a guess.
+  refresh window's Actions step summary for maintainer triage. Nothing is written on a guess.
 
 Attribution is **stage-routed**, with the docket's form selecting the
 disposition's source and therefore its stage: on a cert docket the case-level
@@ -454,13 +454,13 @@ def interim_disposal_signal(docket: Mapping[str, Any]) -> str | None:
 class UnrecordedOutcome:
     """An open event that appears decided but cannot be recorded deterministically.
 
-    Carried out of the library so the workflow can surface it on the
-    pipeline-runs dashboard; ``reason`` explains why automatic recording was
+    Carried out of the library so the workflow can surface it on the window's
+    Actions step summary; ``reason`` explains why automatic recording was
     declined. ``reason`` must stay a fixed-vocabulary string (the literals in
     :func:`detect_resolution`, interpolating only closed-enum values and
     event ids — slugified ``[a-z0-9._-]`` strings minted by
     :func:`fedcourtsai.ids.event_id`, never raw text): it is
-    rendered into a GitHub issue body, so raw docket text — e.g.
+    rendered into a run's Actions step summary, so raw docket text — e.g.
     :func:`termination_signal` output — must never route here.
     """
 

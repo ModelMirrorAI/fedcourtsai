@@ -960,10 +960,69 @@ anchors' own measured codex lines ($1.38–2.17/event at the cert stage) by the
 current `gpt-6-astra` rates (2× in, 5/3 out) projects **≈$160–220** until a
 campaign is measured on it — and model spend scales linearly with the
 dispatch's `--limit`, which
-is the campaign's only size cap. `workflow_dispatch` is the only way in, and it
-defaults to the free offline `stub` engine, so an accidental dispatch spends
-nothing; choosing `auto` is the real-engine spend decision. The salience-gate
+is the campaign's only size cap. A `workflow_dispatch` defaults to the free
+offline `stub` engine, so an accidental dispatch spends nothing; choosing
+`auto` is the real-engine spend decision. The salience-gate
 replay is deterministic and token-free.
+
+**The standing fortnightly replay.** One shape of this spend recurs rather than
+being asked for: `run-backtest`'s cron path, pinned to `replay: cert`,
+`engine: auto`, `--limit 10`, `--scope paid` and `--spread`, firing every other
+ISO week (Saturday 06:23 UTC) and spending only where a maintainer releases its
+`review` hold. Sized from the same two anchors as the campaign above, per
+replayed petition: the claude and gemini thirds are measured — $3.65 + $0.55 =
+**$4.20** on the pre-freeze anchor, $3.90 + $0.59 = **$4.49** on the
+post-freeze one — and the codex third is projected off its own measured line
+($1.38 and $2.17 at the cert stage) by the `gpt-6-astra` rate step, whose
+bounds are ×5/3 (an all-output mix) and ×2 (an all-input one): **$2.30–2.76**
+and **$3.62–4.34**. Summed, that is **$6.50–8.83 a petition** — the per-petition
+figure already spans all three engines — so ten petitions (30 cells, one per
+predictor each) is **≈$65–88 a released fortnight**, and at most 26 of those a
+year ≈ **$1.7–2.3K/yr**. Read three things with that band. The whole of it is a
+projection rather than a measurement, top and bottom alike, until a released
+fortnight's engine logs re-anchor it. Its **upper** end is the *softer* number,
+not the firmer one — the post-freeze anchor is the 3-event first-distribution
+row, against 137 events behind the pre-freeze one, and the row `n`s travel with
+the dollars here as everywhere in this document. And the low end assumes a mix
+the cell model contradicts: cells run input-dominated (≈280–400K in against ≈6K
+out), and cache reads bill off the input rate too, so codex scales at
+essentially ×2 and the operating band is nearer **≈$70–88 a fortnight
+(≈$1.8–2.3K/yr)**; ×5/3 is a formal bound, not a reachable point. `--limit` is
+also a ceiling rather than the sample — a petition holding no snapshot is
+dropped before any cell runs — so a fortnight's realized `events_scored` can sit
+below ten, and its spend with it.
+
+Treat it as **a bounded tier, not a measurement**, the way the boot canary's
+line is treated below. Four things bound it, and `spend.ceiling_usd` is none of
+them — a replay cell writes no `usage.json`, so this line is as invisible to
+the $2,500/30-day backstop as every other figure in this section. It sits
+outside the scenario ladder below for a related reason: that ladder totals
+inference as `events(N) × per-case(P)`, and this line moves with neither dial —
+it is a fixed fortnightly ask a human either releases or does not:
+
+- **The cron cadence, and the parity guard that makes it a fortnight.** GitHub
+  cron cannot express a fortnight, so the schedule fires weekly and the odd ISO
+  weeks are dropped in a guard step — 26 asks a year, and fewer whenever a slot
+  is delayed or dropped, which costs a sample and nothing else. It is a
+  calendar rule, so the count does not drift with when the workflow was last
+  edited.
+- **The pinned cron-path `--limit`.** Model spend is linear in it and the cron
+  path does not read the dispatch input: 10 is the ceiling, and moving it is a
+  workflow change that lands through review, not a parameter someone types.
+- **The strictly manual hold.** Every scheduled run derives its plan and then
+  waits on the `review` environment's required reviewers, with no timer that
+  could release it unattended. An unreleased fortnight spends nothing at all,
+  so this is a ceiling on the number of *asks*, not on the number of releases.
+- **`timeout-minutes: 330`.** The job's hard cap, and the only bound that holds
+  when an engine wedges. The pinned 10 petitions run well inside it (~30 cells
+  against a ceiling sized for ~75), so the cap is the ceiling on a pathological
+  run rather than a budget for a healthy one — and a run killed there has
+  already spent what it spent.
+
+> **Line item: ≈$70–88 per released fortnight, ≈$1.8–2.3K/yr at 26 releases**
+> (formal lower bound ≈$65 / ≈$1.7K, at an all-output codex mix the cell model
+> contradicts) — projected at the current `gpt-6-astra` codex rates,
+> ledger-invisible, and zero for any fortnight nobody releases.
 
 **Accounting.** Campaign cells run under a runner-scratch working tree and are
 discarded — only the metrics report lands, via a reviewed PR — so backtest
@@ -1112,15 +1171,23 @@ move it:
   instant the canary fires. Read a red canary as a spend signal too.
 - **It is outside the spend backstop.** The `$2,500 / 30-day` ceiling above
   reads *measured* cost from the committed `usage.json` ledger, which this line
-  never enters — and unlike the other ledger-invisible inference line, which is
-  bounded by being manual-dispatch-only, this one spends unattended, up to
-  365×/yr. What bounds it is the cron cadence, the three legs the schedule can
-  select, and the 10-minute timeout; not `spend.ceiling_usd`.
+  never enters — and it is the only ledger-invisible inference line that spends
+  **unattended**, up to 365×/yr: the qp-topic labeler spends only on a dispatch,
+  and the fortnightly back-test replay only on a released hold. What bounds this
+  one is the cron cadence, the three legs the schedule can select, and the
+  10-minute timeout; not `spend.ceiling_usd`.
 
 The same three legs also ride every `scenario=all` dispatch, adding ≈$0.45 to a
 promotion suite that already spends three engine-smoke cells' worth — on the
 order of $14–23/yr at a plausible 30–50 whole-suite dispatches. Both sit inside
 the buffer below, so the floor is unchanged; state them, do not imply them.
+
+The workflow's **repro-family** scenarios add nothing to either figure. Each
+runs one real cell against a pinned record, but none rides the schedule and
+none rides a whole-suite dispatch, so like the qp-topic labeler they are
+bounded by being manual-dispatch-only: one cell of the named engine per
+deliberate dispatch, on the order of the design-mix mean above (≈$2.44–2.49),
+ledger-invisible and inside the buffer.
 
 > **Line item: $350/mo flat** (a fixed floor, not a variable), the ≈$14/mo
 > boot canary inside it.

@@ -102,6 +102,7 @@ from .collect import (
     collect_plan,
     parse_name_status,
     render_stall_comment,
+    union_cell_tree,
 )
 from .config import (
     CorpusBackend,
@@ -330,6 +331,7 @@ from .validate import (
     run_scope_audit,
     validate_ledger,
 )
+from .watchdog_telemetry import arm_checkin, disarm_checkin
 
 app = typer.Typer(add_completion=False, help="Predict events in US federal courts.")
 
@@ -4080,7 +4082,7 @@ def leaderboard(
     # An exclusion-emptied headline is not the shakedown state — the cells
     # existed and were dropped, which the notes below say — so the shakedown
     # placeholder stands down whenever either exclusion caught anything. The
-    # dashboard's `render_substance` guards its own placeholder the same way,
+    # ops report's `render_substance` guards its own placeholder the same way,
     # and the two surfaces must not describe one build differently.
     excluded_any = (board.forward_claim is not None and board.forward_claim.excluded) or (
         board.leakage_exclusion is not None and board.leakage_exclusion.excluded
@@ -6447,8 +6449,8 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     and the published ``--live-frontier`` readiness snapshot. Also presents the
     **data-health** verdict: it runs the git-only ``validate`` over ``data/``
     itself and folds in the latest corpus verdict from ``--corpus-validation``
-    (produced where the corpus is already pulled). Prints the dashboard Markdown
-    to stdout (the run-ops issue body / step summary); ``--json`` writes the
+    (produced where the corpus is already pulled). Prints the report Markdown
+    to stdout (the run-ops job's Actions step summary); ``--json`` writes the
     structured ``OpsReport``.
 
     ``--digest-out`` renders the **weekly performance digest** — the health
@@ -6548,8 +6550,8 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
 
 
 #: The `daily-digest` label's appearance when the first run creates it. Blue,
-#: distinct from the red `data-validation` escalation and the green
-#: `ops-dashboard` reference view: this one is a reading queue, not an alarm.
+#: distinct from the red `data-validation` escalation: this one is a reading
+#: queue, not an alarm.
 _DAILY_DIGEST_LABEL_COLOR = "1d76db"
 _DAILY_DIGEST_LABEL_DESCRIPTION = (
     "Daily prediction-reading digest (run-ops); close one once you have read it"
@@ -9630,7 +9632,7 @@ def pull_all(
         Path,
         typer.Option(
             help="Write the unrecorded-outcome queue JSON here (decided but not "
-            "deterministically recordable; surfaced on the pipeline-runs dashboard)."
+            "deterministically recordable; surfaced on the window's step summary)."
         ),
     ] = Path("unrecorded-queue.json"),
     limit: Annotated[
@@ -9762,7 +9764,7 @@ def live_poll(
         Path,
         typer.Option(
             help="Write the unrecorded-outcome queue JSON here (decided but not "
-            "deterministically recordable; surfaced on the pipeline-runs dashboard)."
+            "deterministically recordable; surfaced on the window's step summary)."
         ),
     ] = Path("unrecorded-queue.json"),
     term: Annotated[
@@ -9947,7 +9949,7 @@ def live_frontier_cmd(
         typer.Option(help="ISO as-of date for the next-conference pick; defaults to today (UTC)."),
     ] = "",
 ) -> None:
-    """Snapshot the live cert watchlist's readiness for the ops dashboard.
+    """Snapshot the live cert watchlist's readiness for the ops report.
 
     Read-only over the corpus: the pending-before-conference watchlist
     (``conference-set``'s population), its distribution calendar with the next
@@ -11469,8 +11471,10 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "rates do not use "
         + "it: two runs independently graded one six-event INTERIM population "
         + "($6.44 and $6.69 an event, one figure per run), before the current "
-        + "instant and under since-superseded evaluator "
-        + "digests. It lands below the scaled projection, but no pre-freeze "
+        + "instant and under since-superseded evaluator digests — and a partial "
+        + "grading of one further interim event sits beside them, an incomplete "
+        + "grid under digests superseded earlier still. It lands below the "
+        + "scaled projection, but no pre-freeze "
         + "anchor covers the interim stage, so it bounds nothing — the rates "
         + "hold the pre-freeze anchor until an evaluate fan-out under the "
         + "currently blessed grading digests reaches the cert stage.",
@@ -11592,8 +11596,9 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
         "spend_estimate_basis": {
             "source": (
                 "docs/budget.md — 'Per-cell cost is keyed on the stage' (the predict "
-                "whole-run row) and the evaluate-cohort table beside it (proc-v2 row, "
-                "scaled by the predict move)"
+                "whole-run row) and the evaluate-cohort table in the 'Evaluate cost: "
+                "narrower, weaker, and mid-re-anchor' subsection that follows it "
+                "(proc-v2 row, scaled by the predict move)"
             ),
             "seam": seam,
             "rates_usd_per_cell": dict(rates),
@@ -12382,6 +12387,54 @@ def assert_paths_cmd(
         typer.echo(f"::error::{exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(f"path jail OK ({len(changes)} change(s))")
+
+
+@app.command("collect-union")
+def collect_union_cmd(
+    source: Annotated[
+        list[Path],
+        typer.Option(help="A cell artifact's data/ subtree; repeatable (missing = empty union)."),
+    ],
+    dest: Annotated[Path, typer.Option(help="The branch checkout's data/ root to union onto.")],
+    summary_file: Annotated[
+        Path | None,
+        typer.Option(help="Append a markdown line per refusal here (the step summary)."),
+    ] = None,
+) -> None:
+    """Add-only union of cell artifacts' ``data/`` onto the branch checkout.
+
+    The collect job runs this over a PR's member cells instead of a wholesale
+    copy: a cell's artifact carries files as of the run's start, and the
+    deterministic writers advance ``main`` while the matrix runs, so a blind copy
+    would write a cell's stale view over files the branch's fresh base already
+    carries. Files absent from the checkout are copied, identical ones skipped,
+    and a pre-existing file with different content is refused — the checkout's
+    copy is kept and the artifact's dropped, surfaced as a ``::warning::`` and
+    (when ``--summary-file`` is given) a line on the durable step summary, since
+    a note left only in a run log expires with it. Always exits zero: a refusal
+    is the guard working, not a collect failure.
+    """
+    summary_lines: list[str] = []
+    for src in source:
+        report = union_cell_tree(src, dest)
+        for rel in report.refused:
+            typer.echo(
+                f"::warning::add-only union refused {rel!r} from {src}: the checkout "
+                "already carries a different version; kept the checkout's copy and "
+                "dropped the artifact's"
+            )
+            summary_lines.append(f"- add-only union refused `{rel}` from `{src}`")
+        typer.echo(
+            f"unioned {src}: {len(report.added)} added, "
+            f"{len(report.identical)} already present, {len(report.refused)} refused"
+        )
+    if summary_file is not None and summary_lines:
+        with summary_file.open("a", encoding="utf-8") as handle:
+            handle.write(
+                "\n**Add-only union refusals** (the checkout's copy was kept):\n"
+                + "\n".join(summary_lines)
+                + "\n"
+            )
 
 
 def _scan_listed_files(
@@ -13193,8 +13246,8 @@ def post_weekly_digest_cmd(
     """Open a rendered weekly digest as its own `weekly-digest` issue, once a week.
 
     A poster, not a renderer: it takes the body ``ops-report --digest-out``
-    already wrote and opens it, so the ops run's own reporting — the dashboard,
-    the snapshot, the data-validation escalation — has all completed before this
+    already wrote and opens it, so the ops run's own reporting — the snapshot
+    and the data-validation escalation — has all completed before this
     non-idempotent network write is attempted. A blip here therefore costs the
     week's digest and nothing else.
 
@@ -13248,6 +13301,96 @@ def post_agent_feedback_cmd(
     """
     comment = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
     typer.echo(post_agent_feedback(comment, repo))
+
+
+@app.command("watchdog-checkin")
+def watchdog_checkin_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
+    repo: Annotated[str, typer.Option(help="owner/name of the repository to post into.")],
+    run_id: Annotated[str, typer.Option(help="The round's run id.")],
+    court: Annotated[str, typer.Option(help="The cell's court id.")],
+    docket: Annotated[str, typer.Option(help="The cell's docket id.")],
+    event_id: Annotated[str, typer.Option(help="The cell's event id.")],
+    actor: Annotated[str, typer.Option(help="The cell's predictor or evaluator id.")],
+    deadline_s: Annotated[
+        int, typer.Option(help="The watchdog's deadline, in seconds (arm mode).")
+    ] = 0,
+    run_url: Annotated[str, typer.Option(help="The Actions run's URL (arm mode).")] = "",
+    disarm: Annotated[
+        bool,
+        typer.Option(
+            "--disarm/--arm",
+            help="Close the record out with the engine step's conclusion instead of opening it.",
+        ),
+    ] = False,
+    conclusion: Annotated[
+        str, typer.Option(help="The engine step's conclusion (disarm mode).")
+    ] = "",
+    healthy: Annotated[
+        bool,
+        typer.Option(
+            "--healthy/--not-healthy",
+            help="Disarm mode: the watchdog never reached its deadline, so the record collapses.",
+        ),
+    ] = True,
+) -> None:
+    """Record this codex cell on the long-lived `codex-watchdog` telemetry issue.
+
+    The one channel a wedged codex cell cannot erase. Every other account the
+    watchdog leaves — the diagnostics bundle, the disarm step that publishes it,
+    the step summary, the job log — dies with the runner when the *job* cap
+    cancels a step that never ended, so a hang erases its own evidence down to
+    whether the watchdog fired at all. This writes the record **off the
+    runner** while the runner is still alive: find-or-create the single
+    `codex-watchdog` issue (a non-triggering label), then create this cell's
+    comment or reset the one its marker already names.
+
+    Stdout is the arm step's hand-over to the detached watchdog, and it is two
+    parts: the **first line** is the comment's API URL, which the watchdog
+    PATCHes as it passes each state, and **everything after it** is the body
+    just written — the base each state is appended to. The whole body and not
+    just its marker line, because the watchdog PATCHes what it has composed, so
+    a trimmed base would have the first heartbeat erase the arming time, the
+    fire ETA and the run link. Passed rather than rebuilt in shell so the marker
+    has one spelling. The token is the comment-only App mint the cell's watchdog
+    steps hold; nothing here reads or writes a cell artifact.
+
+    Best-effort by contract: the kill duty is what the watchdog is for, so a
+    failure here warns and exits zero, leaving the arm step to arm a watchdog
+    with no check-in URL — which simply beats nowhere.
+    """
+    try:
+        if disarm:
+            url, base = disarm_checkin(
+                repo=repo,
+                run_id=run_id,
+                court=court,
+                docket=docket,
+                event_id=event_id,
+                actor=actor,
+                conclusion=conclusion or "unknown",
+                healthy=healthy,
+            )
+        else:
+            url, base = arm_checkin(
+                repo=repo,
+                run_id=run_id,
+                court=court,
+                docket=docket,
+                event_id=event_id,
+                actor=actor,
+                deadline_s=deadline_s,
+                run_url=run_url,
+            )
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        # Named exactly: a missing/unexecutable gh, an unparseable response, and
+        # the bounded runner's exhausted retries. Anything else is a bug here
+        # rather than a degraded API, and a bug should fail loudly — the call
+        # sites carry `|| true` regardless, so a loud failure still costs the
+        # record rather than the arming.
+        typer.echo(f"::warning::codex watchdog check-in failed ({type(exc).__name__})", err=True)
+        return
+    typer.echo(url)
+    typer.echo(base)
 
 
 def main() -> None:

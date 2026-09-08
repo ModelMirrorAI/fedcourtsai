@@ -6,6 +6,10 @@ no stage hands work to the next by creating one — each stage derives what it
 owes from committed state, so a round that failed, was declined, or never fired
 is simply re-derived next cycle. That is the pipeline's level-triggered spine:
 what a lane does is a function of the ledger, never of a request someone made.
+One lane is deliberately outside it: `run-backtest`'s fortnightly replay is a
+sampled measurement rather than a backlog, so a fortnight nobody released is a
+sample not taken — the next cadence draws a fresh one instead of re-deriving
+that one.
 
 The trigger surface is therefore the trust boundary†, and the platform holds it:
 a `schedule` fires only from the **default branch**, so a cron can run only what
@@ -27,10 +31,10 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
 | `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less manual dispatch | Claude Code + Codex + Gemini |
 | `run-evaluate`   | daily schedule (15:39 UTC), input-less manual dispatch | Claude Code + Codex + Gemini |
-| `run-backtest`   | manual dispatch only (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
-| `run-ops`        | daily schedule (dashboard + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
+| `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
+| `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
-| `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary) |
+| `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), and each repro-family scenario one real cell against its pinned record |
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
@@ -67,18 +71,20 @@ fan-out labels** (open issues wearing a `run:*` label, oldest first — markers
 left behind rather than queued work, since nothing keys on a label and each
 stage derives its own backlog, so the section says to clear them; deleting the
 two labels from the repository retires the section for good) — rendered by
-`fedcourts ops-report`. It surfaces the current view in one long-lived "Ops
-dashboard" issue and appends each JSON snapshot to a dedicated **`ops-metrics`
-branch** (an orphan time-series that never merges to `main`, so the default
-branch stays clean and a prior snapshot backs the substance deltas). On the
-Monday schedule tick it additionally opens the **weekly performance digest** as
-its own issue (below), with the daily dashboard staying the reference view. It triggers
+`fedcourts ops-report`. It renders the current view onto its own **Actions run
+summary** and appends each JSON snapshot to a dedicated **`ops-metrics` branch**
+(an orphan time-series that never merges to `main`, so the default branch stays
+clean and a prior snapshot backs the substance deltas). The report is a
+per-run artifact rather than a standing body edited in place: what a maintainer
+reads is the digests below, which are issues to close, and what alarms is the
+issue-as-alarm channel. On the Monday schedule tick the same job additionally
+opens the **weekly performance digest** as its own issue (below). It triggers
 nothing and touches neither `main` nor the corpus. It reports the **promoted**
-state: scheduled runs execute from the default branch, so the dashboard describes
+state: scheduled runs execute from the default branch, so the report describes
 the tree that is actually running rather than the one staged for the next batch —
 and the lag is confined to code and config, since the substance and spend
 sections read `data/` and `metrics/`, which the writers commit to `main`
-directly. One reading note the dashboard now carries itself: `promote` is
+directly. One reading note the report carries itself: `promote` is
 level-triggered, so its failures are unsatisfied-gate reports rather than
 incidents, and its success rate counts promotion attempts.
 
@@ -88,7 +94,7 @@ produces a correctness verdict and the live-frontier readiness snapshot where
 the corpus is already pulled, and `run-ops`
 renders them as the **data-health** section and the substance section's
 watchlist view, escalating a failing verdict to one
-long-lived issue — so the dashboard surfaces run-health, data-health, and
+long-lived issue — so the report surfaces run-health, data-health, and
 substance while staying a read-only presenter that never touches the corpus.
 
 ### The weekly performance digest
@@ -96,16 +102,16 @@ substance while staying a read-only presenter that never touches the corpus.
 On the Monday tick the same job opens the **weekly performance digest** as its
 own issue under the non-triggering `weekly-digest` label — one per ISO week,
 which is what its `<!-- weekly-digest: YYYY-Www -->` marker makes the create
-idempotent on. Its own issue rather than a comment on the standing dashboard for
-the same reason the daily digest gets one: a digest is a thing to read and close,
-so the open issues under the label are the unread backlog.
+idempotent on. Its own issue for the same reason the daily digest gets one: a
+digest is a thing to read and close, so the open issues under the label are the
+unread backlog.
 
 Four blocks, in the order a reader needs them:
 
 - **Health questions** — the fixed interrogative bullets (replay calibration,
   forward cells scored, watchlist vs next conference, oldest stalled trigger,
   spend vs budget): numbers as questions demanding a reaction. These carry the
-  dashboard's un-vintaged framing, which is why the vintage rule below is
+  ops report's un-vintaged framing, which is why the vintage rule below is
   scoped to the two blocks that publish figures to quote.
 - **Analytics state** — what the committed boards hold. An empty one names the
   condition that empties it — which cells the frozen headline ranks, and how
@@ -130,8 +136,9 @@ Four blocks, in the order a reader needs them:
   it named (a per-band figure means something only under the function that
   assigned the band, so an older version's numbers are history rather than a
   current reading), and the plain statement that **no cert back-test has landed**
-  — `metrics/cert-backtest.json` is off the scheduled refresh because a
-  real-engine replay spends tokens.
+  — `metrics/cert-backtest.json` is not regenerated by the weekly metrics
+  refresh, because a real-engine replay spends tokens: it appears only once a
+  fortnight's hold has been released.
 
 **In the analytics and back-test blocks, every figure carries the vintage of the
 artifact it came from.** None of those artifacts is refreshed on this schedule —
@@ -147,7 +154,7 @@ are real ones.
 Only the Monday cron posts. Every run renders the digest to a file; only the
 Monday step hands it to `post-weekly-digest`, so the repair for a Monday run that
 failed before that step is a **re-run of that scheduled run**, not a dispatch.
-The create is the job's final step, after the dashboard, the snapshot push, and
+The create is the job's final step, after the snapshot push and
 the data-validation escalation, so a degraded API costs the week's digest and
 nothing else — and because the poster takes the already-rendered body rather than
 re-deriving it, the report build stays read-only.
@@ -161,7 +168,7 @@ A second job opens the **prediction-reading digest**: one predicted event with
 every predictor side by side — the case/event header, each cell's probability
 and claims, its `predicted_reasoning.md` and `reasoning.md` inline, its flags,
 and links to the committed cell paths — on its own issue under the
-non-triggering `daily-digest` label. The dashboard answers whether the machine
+non-triggering `daily-digest` label. The ops report answers whether the machine
 is producing; this answers *what it said*, which nothing else surfaces for a
 human to read.
 
@@ -207,7 +214,7 @@ and the workflow-level `cancel-in-progress` lets the 08:30 weekly tick cancel an
 Selection, rendering, and the once-a-day issue create are all
 `fedcourts daily-digest`, so the workflow step is a thin wrapper with no `gh` of
 its own and the bounded retry is the tested Python seam's
-(`fedcourtsai.agent_feedback`). The job is separate from the dashboard job
+(`fedcourtsai.agent_feedback`). The job is separate from the `ops` job
 because permissions are per-job and its needs are narrower: `contents: read`
 plus `issues: write`, the ambient `GITHUB_TOKEN`, no corpus credential, no model
 call, no branch write.
@@ -352,8 +359,10 @@ sidecar under the tested `mcp-integration-check` client, a stub
 artifacts (corpus-free and environment-free; every write surface stubbed or
 diverted on the runner), the `qp-topic-measure` composite over canned labels
 built from the committed reference set (token-free and credential-free), or
-(the two token-spending scenarios) a single real-engine cell over the service
-sidecar and a boot probe of each engine's own invocation block
+(the three token-spending scenarios) a single real-engine cell over the service
+sidecar, a boot probe of each engine's own invocation block, and one
+**repro-family** cell — a real cell run against a record pinned to the shape a
+diagnosed engine defect keys on
 — dispatched around changes to corpus access, the sidecars, engine
 CLIs or engine actions, the collect contract, or the corpus-consuming
 workflows and before
@@ -364,10 +373,13 @@ gate's freshness evidence; see *Promotion: staging → main* below). The deploym
 the dispatching branch by default — `main` gets `prod`, `staging` gets
 `staging`, any other branch an empty environment holding no role variables
 and no keys — and a `scenario=all` dispatch
-fans the gate's whole required suite (every real scenario — collect rides the
-run as its own environment-free job — with engine-smoke and
+fans the gate's whole required suite (every required scenario — collect rides
+the run as its own environment-free job — with engine-smoke and
 engine-actions-smoke once per engine each, so
-three cells' token spend plus three boot probes) out of one run.
+three cells' token spend plus three boot probes) out of one run. The
+repro-family scenarios are deliberately not among them: an open defect
+reproducing inside `all` would redden the run, and a red run is no freshness
+evidence at all — it would block the promotion carrying the fix.
 `scenario=all-offline` is that same
 suite with all six token-spending engine legs dropped: token-free end to end,
 and whole-suite evidence only for a pre-flight that skipped them (*The
@@ -822,7 +834,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  ├─ detect resolution → write outcome.json when the
                                  │  disposition is machine-readable (git ledger);
                                  │  else queue an unrecorded outcome, surfaced
-                                 │  per-case on the pipeline-runs dashboard
+                                 │  per-case on the window's step summary
                                  ├─ route the predict queue (stamp predict_queued_at on
                                  │  a changed case with open forecastable events, unless
                                  │  the docket already looks decided — skipped + surfaced)
@@ -839,7 +851,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  ├─ detect resolution from the proceedings text
                                  │  → write outcome.json (git ledger); else queue an
                                  │    unrecorded outcome, surfaced per-case on the
-                                 │    pipeline-runs dashboard
+                                 │    window's step summary
                                  ├─ route the predict queue (as above)
                                  └─ derive the evaluate backlog (as above)
    daily ×2 → run-predict → plan (derive the predict backlog from committed state,
@@ -857,19 +869,30 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                               a facts-only PR when a run lands nothing)
 ```
 
-Run logging creates nothing on the happy path. Every `run-pull` window (pull
-and live, success or failure) that reaches checkout lands its row on the single
-long-lived **Pipeline runs** dashboard issue — label `run-log-dashboard`,
-edited in place like the Ops
-dashboard, its state carried as a fenced JSON block in its own body
-(`.github/actions/run-log-dashboard`): a rolling 14 days of window × outcome ×
-queue counts, plus the per-case unrecorded-outcome triage list. A window that
-fails or is stopped mid-run (timeout or a human's cancel — the shared lock
-never cancels an in-flight run; a stopped window gets only the alarm, no
-dashboard row) opens (or reuses, for the same day) a `pull-log` / `live-log`
-issue and leaves it open for a human — so an open run-log issue means exactly
-"a window broke": the issue list is the alarm surface, the dashboard the
-reference view, and neither depends on a later window firing to stay honest.
+Run logging opens no issue on the happy path. A `run-pull` window that ends in
+success or failure lands its record on its own **Actions step summary** — the
+window × queue counts and the per-case unrecorded-outcome triage list — and the
+run history behind it is the reference view of recent windows. A window that
+fails or is stopped mid-run (timeout or a human's cancel — the shared lock never
+cancels an in-flight run) *also* opens (or reuses, for the same day) a
+`pull-log` / `live-log` issue and leaves it open for a human — so an open
+run-log issue means exactly "a window broke".
+
+**An open issue is one of exactly three things, and the reader can tell which
+from its label.** An **alarm** — `pull-log`, `live-log`, `data-validation`,
+`pipeline-health` — is filed only by a failure and closed by a human once
+triaged, so an open one always means something needs attention. A **digest** —
+`daily-digest`, `weekly-digest` — is filed on the happy path and closed once
+read, so the open ones are the unread backlog and nothing more. The
+**`agent-feedback` tracker** is the one standing body a job writes to on a
+healthy run, by comment rather than by rewrite, and it stays open by design (its
+own body says so). Nothing else is an issue: a run's own record is a per-run
+artifact — the step summaries, the ops report on its run summary — never a
+long-lived body a job rewrites in place. Only the data-validation alarm edits a
+body, and only its own, so that a recurring failure latches onto one thread
+instead of spamming new ones. That split is what keeps an open issue worth
+reacting to, and it is why an alarm never depends on a later window firing to
+stay honest.
 
 To run the predict → evaluate → validate cascade for one case **locally** — off
 Actions, over the fixture corpus, offline by default — use `fedcourts
@@ -883,7 +906,8 @@ Events created with the default `GITHUB_TOKEN` **do not trigger other workflows*
 run PRs, the metrics and back-test review PRs — is opened with a **GitHub App
 installation token** (`actions/create-github-app-token`), not `GITHUB_TOKEN`.
 The rule cuts the other way too, and that is what keeps the operational issues
-safe: the dashboard edits and the run-log alarms must fire nothing, so they ride
+safe: the run-log alarms, the data-validation escalation, and the digests must
+fire nothing, so they ride
 the ambient `GITHUB_TOKEN` and never the App's. See `docs/security.md` for the
 one-time App setup.
 
@@ -995,6 +1019,17 @@ pattern rather than rediscovering it:
   background process launched in one step survives into the later
   ones — the sidecars rely on the same property — so the disarm half is what
   keeps the killer from outliving its window.
+- **A watchdog that reports only onto the runner reports nothing.** The same
+  cancellation that makes a runner-level watchdog necessary destroys every
+  channel that lives on the runner: the diagnostics bundle, the disarm step that
+  publishes it, the step summary, and the job log GitHub drops. A guard whose
+  entire account of itself dies with the failure it guards cannot even be
+  observed to have fired. So the codex watchdog also writes **off** the runner
+  while the runner is still alive — one comment per cell on a long-lived
+  tracking issue, opened before the agent starts and updated in place at each
+  state — and the runner-local bundle becomes the detail behind a record that
+  survives. Any guard against a cancellation wants the same shape: write the
+  evidence somewhere the cancellation cannot reach, first.
 - **The CI uv pin and the lockfile format are coupled.** `setup-python-env`
   installs with `uv sync --locked`, which refuses a lock it cannot read as
   current — so a lock written by a *newer* uv than the action's pin fails every
@@ -1027,8 +1062,8 @@ pattern rather than rediscovering it:
   there, and exports the absolute path the rest of the step calls. A shape test
   fails on a bare `uv run fedcourts` reappearing in that composite.
 - **A GitHub API call has no retry unless you give it one.** The calls that
-  route through `gh_retry` are the ones that keep the run *record* — the ops and
-  pipeline-runs dashboards, the weekly digest, the data-validation escalation,
+  route through `gh_retry` are the ones that keep the run *record* — the ops
+  report's collection calls, the weekly digest, the data-validation escalation,
   run-backtest's result comment,
   the per-day `pull-log` / `live-log` alarms, the seed guard. They are
   bookkeeping about a run rather than the work, which is what makes a lost one
@@ -1037,9 +1072,9 @@ pattern rather than rediscovering it:
   ci.yml's label read are not on this surface. A transient 5xx costs something
   the run never earned, and what it costs depends on the site, so read yours: on
   the run-ops steps and the guard's clear-the-incident path a blip reddens a run
-  that did its work; on the dashboard (`continue-on-error`), the alarms
-  (which only fire on an already-failed window), and the back-test comment
-  (`continue-on-error` too) nothing turns red and the
+  that did its work; on the alarms
+  (which only fire on an already-failed window) and the back-test comment
+  (`continue-on-error`) nothing turns red and the
   *record* is what goes missing.
   `gh` also sets no client-side request timeout, so a stalled connect hangs to
   the job's kill with nothing written.
@@ -1073,7 +1108,7 @@ pattern rather than rediscovering it:
   buys is that a blip does not decide it.
 - **Shape a retried lookup so its failure cannot read as an empty result.**
   Most of these lookups feed a find-or-create, so an empty `num` reads as "no
-  issue yet" and opens a duplicate or restarts a dashboard's rolling state.
+  issue yet" and opens a duplicate thread for the same broken day.
   Never let
   a retried call be a non-final element of a pipeline: filter with `gh`'s own
   `--jq` inside the same command, or assign the output and filter the variable.
@@ -1350,11 +1385,12 @@ splitting a case's engines) in a deterministic case-id order, with the deferred
 count surfaced as a `::warning::` and in the plan's step summary; a deferred case
 stays in the predict queue and re-runs next cycle, so the cap defers rather than
 drops. This is the numeric backstop, distinct from the **review hold** — the
-per-run gate between plan and spend on both fan-outs, and the only *judgement*
+per-run gate between plan and spend on both fan-outs and on the back-test's
+scheduled fortnight, and the only *judgement*
 in the pipeline about whether a round should spend; the caps and the ex-post
 backstop below are mechanical. Each plan job renders its report
 to the run's step summary and the matrix waits on a required reviewer approving
-the `review` deployment in the Actions UI; one environment serves both holds, so
+the `review` deployment in the Actions UI; one environment serves every hold, so
 the reviewer approves in the same place whichever stage is asking, though the
 evaluate report's spend line carries the weaker basis its plan states: a scaled
 pre-freeze anchor until an evaluate fan-out under the currently blessed grading
@@ -1375,10 +1411,22 @@ double-spends the overlap. The two plan reports make the overlap visible
 before either release, each on its own run's step summary; a mechanical post-release re-check
 belongs to the auto-release follow-up, where no human reads the reports. A
 rejected hold is an unsatisfied-gate report, not an incident — but unlike
-`promote`, whose failures the ops dashboard annotates as gate reports, the
-dashboard cannot distinguish a rejected hold from a real fan-out failure,
+`promote`, whose failures the ops report annotates as gate reports, the
+report cannot distinguish a rejected hold from a real fan-out failure,
 so a depressed run-predict or run-evaluate success rate during shakedown
 reads against this note rather than against the fleet.
+
+The back-test's fortnightly hold is the same environment and a different
+decision, so two of the rules above invert for it. A stale plan is not a
+double-spend risk — the replay writes no ledger and lands only a metrics report
+— so a fortnight held past its Saturday costs a fresher corpus read, not
+correctness. And declining is an ordinary outcome rather than an exception: the
+series is a sample with declared gaps, and the digest states the standing
+report's vintage either way. What does argue for resolving it promptly is the
+promotion gate: quiescence counts a `waiting` run of `run-backtest` as
+in-flight, so a fortnight left parked blocks every promotion until it is
+released or rejected. Reject it rather than leaving it pending when a batch is
+waiting.
 
 A predict cell refuses to run for three reasons, all landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP
@@ -1490,8 +1538,9 @@ An evaluate cell brackets its agent with two deterministic harness steps
 provision-blinded-predictions` stages each predictor's latest prediction under an
 opaque alias with its identity masked, and `fedcourts unblind-evaluations`
 renames the evaluator's alias-keyed output back onto the real predictor ids. The
-staging area lives under the case's gitignored `record/`, so it rides the cell
-artifact and never reaches the ledger.
+staging area lives under the case's gitignored `record/`, which stays on the
+runner — neither committed nor uploaded, since the cell artifact carries only
+the cell's own event directory — and so never reaches the ledger.
 
 A second pair of steps keeps the aliases worth having. The committed `predictions/` and
 `evaluations/` trees name every predictor elsewhere in the same case tree, at
@@ -1502,8 +1551,10 @@ hide-cell-record` moves both out of the working tree after the staging step and
 ahead of every step that reads them. It narrows the accidental
 route only — the checkout carries full history — and nothing a cell hides or
 fails to restore can reach the run PR as a deletion: the collect job unions each
-cell's `data/` onto a freshly fetched clean `origin/main` checkout, and
-`assert-paths` rejects any non-addition.
+cell's `data/` *add-only* onto a freshly fetched clean `origin/main` checkout —
+a file the checkout already carries is never overwritten, and a differing copy
+is refused with the checkout's kept — and `assert-paths` rejects any
+non-addition that slips past.
 
 **The un-aliasing runs before the stamp, and the ordering is load-bearing.**
 `stamp-cell --role evaluator` joins each evaluation to the prediction it scored
@@ -1540,7 +1591,7 @@ For both fan-outs, `collect` also rolls up any
 agent feedback (`flags.json`) the run surfaced and posts it three ways — each
 gated on the run's secret scan, since flag messages are agent free text — the run PR
 body, the Actions summary, and one long-lived **agent-feedback** tracking issue (the
-single latched-issue pattern of `ops-dashboard` / `data-validation` / `pipeline-health`) — so a note
+single latched-issue pattern of `data-validation` / `pipeline-health`) — so a note
 reaches a durable, centralized home even when a fully-failed run opens no PR.
 It also reads the run's own harness-captured `retrieval_log.json` files and, if
 any cell's manifest-tool results came back rate-limited, warns in the same PR
@@ -1621,7 +1672,7 @@ Separately, every cell may also write a `tooling.json` self-report on its
 environment/tooling, committed with the cell's output; only its
 `used_corpus_query` line is read per run (it is the served side of the
 prior-availability note above), while the report as a whole is scanned across
-runs by the `run-ops` dashboard into a tooling-feedback digest. See the
+runs by the `run-ops` report into a tooling-feedback digest. See the
 `flags.json` and `tooling.json` channels in
 [data-pipeline.md](data-pipeline.md).
 
@@ -1680,10 +1731,10 @@ a case-level disposition that cannot be attributed across several open events �
 becomes an **unrecorded outcome** (it does not guess): the case lands on the
 runner-local unrecorded queue (`unrecorded-queue.json`, the `UnrecordedOutcome`
 detection in the library) instead of the git ledger. No issue is filed for
-these. Both the pull and live jobs surface each one per-case on the pipeline-runs
-dashboard's triage list ("court/docket — reason"), with the count on
-the Actions step summary, for maintainer triage — recording nothing beats a
-guess.
+these. Both the pull and live jobs surface each one on the window's Actions step
+summary — the count in the roll-up table and a per-case triage list
+("court/docket — reason") beneath it — for maintainer triage, because recording
+nothing beats a guess.
 
 ## A corrected outcome: re-grading the event's evaluations
 
@@ -1741,6 +1792,7 @@ three remedies:
 | *artifact did not transfer* | the cell likely succeeded; its output still exists | **re-run the `collect` job** |
 | *no cell output at all* | the cell died before it could report | **let the next round re-derive the cell** — no rerun helps |
 | *secret scan did not pass; withholding &lt;branch&gt;* (log), with a redacted report on the run's step summary | that branch was withheld — its cells' output sits only in the run's cell artifacts | **review the flagged content, then salvage by hand or accept a re-spend** — see below |
+| *add-only union refused &lt;path&gt;* (log annotation + step summary) | the cell's artifact carried a different version of a file the branch base already has — normally its run-start copy of a file a deterministic writer advanced mid-run; the checkout's authoritative copy was kept | **usually none** — investigate only if the refused path is inside the run's own cell output, which would mean two writers claimed the same path |
 
 A secret-scan withhold starts with a judgment call the other two rows do not
 need. Locate the flagged content first: the scan runs per PR kind, so a hit
@@ -1869,6 +1921,47 @@ session rollout stays on the runner and the disarm step distils its item shapes
 (`codex-item-shapes`) in its place. The `collect` job commits `data/` alone, so
 none of it reaches the ledger.
 
+That bundle is runner-local, though, and a cancelled job takes it with the
+runner — which is the very failure the watchdog exists to convert, so it is
+exactly the evidence a wedge is best placed to destroy. The record that
+survives is off the runner
+entirely: the arm step opens a comment on the long-lived **`codex-watchdog`**
+issue (`fedcourts watchdog-checkin`, a non-triggering label) *before* the engine
+starts, and the detached watchdog PATCHes that comment as it passes each state —
+a heartbeat while it waits, then the deadline, the discovery tally, the fire or
+stand-down, each signal issued with its pids, the survivors after each grace,
+and the outcome. The disarm step closes it out with the engine step's
+conclusion, collapsing a round where nothing fired to a single armed/disarmed
+line so the issue stays one readable row per cell. The armed record alone is
+already evidence: a comment that says only "armed", on a run that never came
+back, is a wedge the watchdog failed to convert — a different fault from one it
+converted and reported, and the only thing that tells the two apart is a record
+that outlives the runner.
+
+Which comment is *this cell's* is answered by a hidden marker **and** by App
+authorship, because the repository is public and every part of a marker is
+derivable from the issue's own history: a row an account posted is passed over
+and a fresh one written, so nobody outside can pre-claim the record of a hang.
+The lookup is bounded to the recent end of the issue — a window plus a page
+cap, in that order, since the comments endpoint pages oldest-first — which is
+also why **closing the issue rotates it**: the find-or-create reuses the first
+open one, so a closed issue is an archive and the next cell opens a fresh
+record.
+
+What that comment may carry is **stricter** than the artifact's rule, because it
+sits on a public issue that outlives every run: timestamps, phase names, pid
+numbers, counts and the configured deadline — no argv, no file listing, no
+content the cell read. The watchdog composes each body from its own variables
+and never reads one back off `WATCHDOG_DIR`, which the agent it may be about to
+kill can also write — the arm step hands over the armed body it wrote and the
+watchdog appends to it, so the arming time, the fire ETA and the run link
+survive every later PATCH. The credential is an App token minted with
+`issues: write` and nothing else, distributed to the arm/disarm steps and the
+watchdog they launch and never to an agent step; its mint is
+`continue-on-error`, because a hard failure would skip the engine step and kill
+the cell to protect its own reporting. The residuals it leaves are stated in
+*SECURITY.md* rather than argued away.
+
 What salvage looks like is uniform across **run-predict** and
 **run-evaluate**: each cell records its status and uploads its output
 (`if: !cancelled()`); the `collect` job then routes a cell that did not finish
@@ -1939,8 +2032,8 @@ honors `predict.max_attempts_per_cell` via the ledger-derived failure facts
 attempt cannot re-queue forever while a sibling engine still owed the same event
 is swept normally.
 
-Held windows are marked **held** on the pipeline-runs dashboard row, the run
-log, and the step summary rather than reported as dispatched, so a growing
+Held windows are marked **held** on the run
+log and the step summary rather than reported as dispatched, so a growing
 backlog is legible as a paused channel and not misread as a stalled fan-out.
 
 ### The evaluate queue is level-triggered too
@@ -2039,7 +2132,7 @@ lanes needs each lane's own disable.
 ### Recovering from a manual disable
 
 A workflow paused with a disable (`disabled_manually` in `gh workflow list
---all` — the bare listing hides disabled workflows, and the ops dashboard
+--all` — the bare listing hides disabled workflows, and the ops report
 gives the state no distinct marker, so the `--all` listing is the one
 surface that shows it) comes back in two steps, and neither of them is a
 backfill:

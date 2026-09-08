@@ -797,6 +797,41 @@ jobs:
             --permission-mode bypassPermissions
             --mcp-config mcp-servers.json
 
+      # The watchdog's reporting channel cannot live on the runner, because the
+      # cancellation it guards against is what destroys everything there: the
+      # diagnostics bundle, the disarm step that publishes it, the step summary,
+      # and the job log GitHub drops. So the watchdog also reports **off** the
+      # runner, and this is the credential that lets it — comment-only, minted
+      # per step, and held by the watchdog rather than by the agent.
+      - name: Mint the codex watchdog telemetry token
+        id: watchdog-token
+        if: matrix.engine == 'codex' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
+        # Narrower than the Claude cell's comment token above: issues alone, no
+        # contents and no pull-requests. Everything it is used for is the
+        # `codex-watchdog` tracking issue and one comment per cell on it, which
+        # the watchdog then PATCHes in place; the grant itself is the repo's
+        # issue surface, which SECURITY.md bounds rather than understates. The
+        # agent
+        # step is never handed it — it goes to this step, to the disarm step,
+        # and to the detached watchdog this step's successor launches, and no
+        # agent step inherits from any of those. It stays *reachable* at the
+        # runner user's privilege, which SECURITY.md states rather than denies.
+        # The refusal halves ride the gate for the same reason the arm step
+        # carries them: a refused cell runs no engine, so it needs no watchdog
+        # and no credential for one.
+        #
+        # `continue-on-error` because the telemetry is best-effort and the kill
+        # duty is not: a failed mint would otherwise leave the arm and engine
+        # steps skipped on their implicit `success()`, killing the cell to
+        # protect its reporting. Failing soft leaves an empty token output,
+        # which both consumers already guard on.
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-issues: write
+
       # The codex step's own `timeout-minutes` is not enough on its own: a
       # wedged engine has held the step `in_progress` past it until the JOB cap
       # cancelled the runner, and a cancelled job runs none of the capture tail
@@ -814,10 +849,24 @@ jobs:
         env:
           CODEX_HOME: ${{ github.workspace }}/.codex
           WATCHDOG_DIR: ${{ runner.temp }}/codex-watchdog
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          ACTOR_ID: ${{ matrix.predictor_id }}
+          RUN_ID: ${{ matrix.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # The comment-only mint above, twice: `gh` reads the first to open the
+          # record, and the second rides into the detached watchdog's env so it
+          # can PATCH that record as it passes each state. Both are env, never
+          # argv — the watchdog's own published bundle dumps every argument of
+          # every process this user owns.
+          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          WATCHDOG_CHECKIN_TOKEN: ${{ steps.watchdog-token.outputs.token }}
           # 40 minutes. The cell job is capped at 60 and reaches this step
-          # inside its first minute (measured: +46s on a healthy cell), so
-          # firing at +40 ends the engine ~41 minutes into the job and leaves
-          # ~19 for the `if: !cancelled()` tail, which measures in single-digit
+          # inside its first minute (measured: +46s on a healthy cell), and the
+          # off-runner record below is bounded to 90s on top of that, so
+          # firing at +40 ends the engine ~43 minutes into the job and leaves
+          # ~17 for the `if: !cancelled()` tail, which measures in single-digit
           # minutes. It also lands 10 minutes inside the step's own
           # `timeout-minutes: 50`, which stays as the backstop: a
           # process-level watchdog is a guess about which process to kill, and
@@ -826,12 +875,70 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$WATCHDOG_DIR"
+          # The armed record, written off the runner before the engine starts:
+          # one comment on the long-lived `codex-watchdog` issue, which the
+          # watchdog then updates in place. Its existence is already evidence —
+          # a cell whose comment says only "armed", on a run that never came
+          # back, is a wedge the watchdog failed to convert, which is a
+          # different fault from one it converted and reported.
+          #
+          # Best-effort, and deliberately so: the kill duty is primary, so a
+          # degraded API costs the telemetry and never the deadline. Stdout is
+          # the hand-over: its first line is the comment's API URL, and the rest
+          # is the armed body the watchdog appends each state to — the whole of
+          # it, so the first heartbeat cannot erase the arming time, the fire
+          # ETA and the run link. An empty first line makes every check-in a
+          # no-op.
+          checkin_url=""
+          checkin_base=""
+          if [ -n "${GH_TOKEN:-}" ]; then
+            # `timeout` on top of the command's own bounded gh retry: that
+            # budget is per call and this makes several, so an API having a bad
+            # minute could otherwise push the whole arming — and with it the
+            # deadline this step exists to start — minutes later into a job cap
+            # the arithmetic below is measured against.
+            checkin_out="$(timeout 90 uv run fedcourts watchdog-checkin \
+              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
+              --court "$COURT_ID" --docket "$DOCKET_ID" --event-id "$EVENT_ID" \
+              --actor "$ACTOR_ID" --deadline-s "$WATCHDOG_DEADLINE_S" \
+              --run-url "$RUN_URL" || true)"
+            if [ -n "$checkin_out" ]; then
+              # Split without a pipeline: under `pipefail` a broken pipe here
+              # would be the one way a failed check-in could still abort arming.
+              checkin_url="${checkin_out%%$'\n'*}"
+              checkin_base="${checkin_out#*$'\n'}"
+            fi
+          fi
+          # The URL is where a live credential gets sent for the next 40 minutes,
+          # and it arrived on a stdout this step does not otherwise police — so
+          # it is checked against the one shape it may have before it is handed
+          # over. Anything else is dropped, which costs the telemetry and never
+          # the deadline. (The watchdog follows no redirects either, so the
+          # header cannot be forwarded onward from an accepted host.)
+          case "$checkin_url" in
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*) ;;
+            *)
+              if [ -n "$checkin_url" ]; then
+                echo "::warning::codex watchdog check-in URL was not this repository's; dropped"
+              fi
+              checkin_url=""
+              checkin_base=""
+              ;;
+          esac
+          if [ -z "$checkin_url" ]; then
+            echo "::warning::codex watchdog armed with no off-runner record (${EVENT_ID})"
+          fi
           # The watchdog and its evidence both live outside the workspace: that
           # tree belongs to the agent for the next 40 minutes, and bash reads a
           # script file as it executes it. The disarm step brings the bundle
           # back for the artifact.
           cp scripts/codex-watchdog.sh "$RUNNER_TEMP/codex-watchdog.sh"
-          nohup bash "$RUNNER_TEMP/codex-watchdog.sh" \
+          # `GH_TOKEN=` cleared: the watchdog reads WATCHDOG_CHECKIN_TOKEN and
+          # never `gh`, so the credential need not sit in a process that
+          # outlives this step by forty minutes twice over.
+          GH_TOKEN='' WATCHDOG_CHECKIN_URL="$checkin_url" \
+            WATCHDOG_CHECKIN_BASE="$checkin_base" \
+            nohup bash "$RUNNER_TEMP/codex-watchdog.sh" \
             > "$WATCHDOG_DIR/watchdog.log" 2>&1 &
           echo "$!" > "$RUNNER_TEMP/codex-watchdog.pid"
 
@@ -943,6 +1050,12 @@ jobs:
           DOCKET_ID: ${{ matrix.docket }}
           EVENT_ID: ${{ matrix.event_id }}
           CODEX_HOME: ${{ github.workspace }}/.codex
+          ACTOR_ID: ${{ matrix.predictor_id }}
+          RUN_ID: ${{ matrix.run_id }}
+          ENGINE_CONCLUSION: ${{ steps.predict_codex.conclusion }}
+          # Empty on a refused cell, whose mint step never ran — which is what
+          # the guard below reads: this step is `always()` and the mint is not.
+          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
         run: |
           set -euo pipefail
           # The pid file sits on the runner's temp path, which the agent could
@@ -998,6 +1111,23 @@ jobs:
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           done
+          # Close the off-runner record out with the engine step's conclusion.
+          # A round where nothing fired collapses to a single armed/disarmed
+          # line, so the telemetry issue stays one readable row per cell instead
+          # of burying the rounds that matter behind uneventful heartbeats.
+          if [ -n "${GH_TOKEN:-}" ]; then
+            healthy_flag=--healthy
+            if [ -f codex-watchdog/FIRED ] || [ -f codex-watchdog/STOOD_DOWN ]; then
+              healthy_flag=--not-healthy
+            fi
+            # Bounded like the arming one, and for the sharper reason: this
+            # step runs ahead of the artifact upload that carries the cell out.
+            timeout 90 uv run fedcourts watchdog-checkin --disarm "$healthy_flag" \
+              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
+              --court "$COURT_ID" --docket "$DOCKET_ID" --event-id "$EVENT_ID" \
+              --actor "$ACTOR_ID" --conclusion "${ENGINE_CONCLUSION:-unknown}" \
+              > /dev/null || true
+          fi
 
       # Install the Gemini CLI in its own SECRET-FREE step: only the top-level
       # version is exactly pinned (transitive dependencies resolve fresh at every
@@ -1224,14 +1354,21 @@ jobs:
             '{court:$court,docket:$docket,event_id:$event_id,actor:$actor,run_id:$run_id,produced:$produced,validated:$validated,agent_ok:$agent_ok}' \
             > status.json
 
-      # One artifact per cell: its status.json plus its data/ subtree, and — on a
-      # codex cell — the watchdog's directory, which carries its own log always
-      # and the diagnostics bundle when it fired — shapes and metadata only,
-      # because a cell artifact is downloadable by anyone with a GitHub account
-      # for its retention window. The collect job copies only `data/` into the
-      # run's commit, so the bundle never reaches the ledger. The name is
-      # unique per predictor x case x event so concurrent cells never collide, and
-      # the collect job keys the download on the `predict-` prefix.
+      # One artifact per cell: its status.json, its own matrix event directory
+      # under data/ — everything a cell legitimately produces lives there, and
+      # shipping the rest of the checkout would hand collect a stale copy of
+      # files the deterministic writers may have advanced on main while the
+      # matrix ran — and, on a codex cell, the watchdog's directory, which
+      # carries its own log always and the diagnostics bundle when it fired —
+      # shapes and metadata only, because a cell artifact is downloadable by
+      # anyone with a GitHub account for its retention window. The collect job
+      # unions only `data/` (add-only) into the run's commit, so the bundle
+      # never reaches the ledger. status.json at the workspace root also anchors
+      # the artifact's layout: upload-artifact roots the archive at the matched
+      # paths' common ancestor, so without it the deep data/ path would lose its
+      # prefix and the collect union would find nothing. The name is unique per
+      # predictor x case x event so concurrent cells never collide, and the
+      # collect job keys the download on the `predict-` prefix.
       - name: Upload cell output
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -1239,7 +1376,7 @@ jobs:
           name: predict-${{ matrix.predictor_id }}-${{ matrix.court }}-${{ matrix.docket }}-${{ matrix.event_id }}
           path: |
             status.json
-            data
+            data/cases/${{ matrix.court }}/${{ matrix.docket }}/events/${{ matrix.event_id }}
             codex-watchdog
           if-no-files-found: error
           retention-days: 7

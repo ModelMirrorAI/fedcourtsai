@@ -26,16 +26,39 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # side-effect free: no corpus write, no git
 # write, no PR, no issue — results go to the Actions step summary and the run
 # log, and any cell output lands only in the runner's throwaway checkout. Every
-# scenario is also token-free except the two engine scenarios, which say so on
+# scenario is also token-free except the three engine scenarios, which say so on
 # their inputs: engine-smoke spends about one predict cell's worth of the
-# selected engine's model tokens, and engine-actions-smoke a boot probe's —
-# so a whole-suite `all` dispatch spends three cells' worth plus three probes,
-# and `all-offline` (the same suite with both engine families dropped) spends
-# nothing. The collect scenario is environment-free on top of token-free:
+# selected engine's model tokens, engine-actions-smoke a boot probe's, and
+# codex-application-repro one evaluate cell's — so a whole-suite `all` dispatch
+# spends three cells' worth plus three probes (the repro is dispatch-only and
+# joins no whole-suite run), and `all-offline` (the same suite with both engine
+# families dropped) spends nothing. The collect scenario is environment-free on top of token-free:
 # it exercises the collect-run composite against synthetic cell artifacts
 # with every write surface stubbed or diverted on the runner, so its job
 # binds no deployment environment and is the one scenario that still
 # dispatches from any branch.
+#
+# **The repro family.** A second class of scenario lives here alongside the
+# preflights: one scenario per diagnosed engine defect that has a reproducible
+# *input shape*, each pinned to the record shape its defect keys on.
+# `codex-application-repro` is the first. The suite's other engine legs run
+# against a cert-stage case — resolved from the corpus, or pinned — and a
+# defect keyed on a record shape the suite never presents is invisible to it
+# however green the suite runs. A repro scenario is what makes that shape
+# presentable on demand, and its own failure is the finding.
+#
+# Two rules hold for the whole family. It is **dispatch-only**: a repro
+# scenario is absent from the `suite` literal below, so no whole-suite run
+# fans one out — an open defect reproducing on schedule inside `all` would
+# turn every `all` run red, and the promotion gate reads a red run as no
+# freshness evidence at all, blocking the very promotion that carries the fix.
+# And it stays **out of `REQUIRED_SCENARIOS`** (scripts/promotion-gate.sh)
+# while its defect is open, for the same reason; a repro whose defect is
+# closed is a regression test and belongs in both, which is a deliberate
+# maintainer edit at that point rather than a default. Its engine bound is
+# also deliberately tight — a wedge must fail its own step well inside the job
+# cap, because a job that runs to the cap is *cancelled*, and GitHub drops a
+# cancelled job's logs.
 #
 # Manual dispatch, plus one scheduled arm. Its own workflow rather than a
 # run-analytics mode because it is a preflight of the pipeline
@@ -101,7 +124,10 @@ on:
           probes. `all-offline` is that same suite with both engine families
           dropped: token-free end to end, and accepted as whole-suite
           freshness evidence only by a promotion dispatched with its own
-          engine-smoke skip set.
+          engine-smoke skip set. `codex-application-repro` is the repro
+          family's first member — one codex evaluate cell against a pinned
+          application-lane record — and SPENDS MODEL TOKENS: one evaluate
+          cell's worth of codex. Neither whole-suite selection fans it out.
         type: choice
         default: ranged-reads
         options:
@@ -113,6 +139,7 @@ on:
           - mcp-sidecar
           - collect
           - qp-topic
+          - codex-application-repro
           - all
           - all-offline
       # The case the corpus-reading scenarios target. With `docket` left
@@ -154,7 +181,9 @@ on:
       docket:
         description: >-
           Empty resolves a known-good case from the corpus this run reads; a
-          docket id pins that case instead.
+          docket id pins that case instead. A repro-family scenario reads
+          neither half: it names its own record in its steps, because that
+          record IS the scenario.
         type: string
         default: ""
       engine:
@@ -164,8 +193,9 @@ on:
           against the run's open-event case (a resolved or multi-event case
           also replays evaluator cells, so narrow with `event` when pinning
           one); for engine-actions-smoke, one boot probe. Ignored by `all`,
-          which runs one of each per engine, and by `all-offline`, which runs
-          neither.
+          which runs one of each per engine, by `all-offline`, which runs
+          neither, and by every repro-family scenario, which names the engine
+          its own defect belongs to.
         type: choice
         default: claude-code
         options:
@@ -219,10 +249,12 @@ permissions: {}
 # is part of the key so per-engine smokes run side by side (scenario-only
 # grouping made simultaneous claude/gemini smoke dispatches cancel each
 # other); for the other scenarios the engine input is a constant default, so
-# the grouping is unchanged. A whole-suite dispatch (`all`, `all-offline`)
-# groups on the scenario alone — its engine input is meaningless, and folding
+# the grouping is unchanged. A whole-suite dispatch (`all`, `all-offline`) —
+# and a repro-family one, which names its own engine — groups on the scenario
+# alone: its engine input is meaningless, and folding
 # it in would let two such dispatches differing only on that input race
-# instead of superseding each other. The two whole-suite scenarios keep
+# instead of superseding each other, which for a repro leg is a second cell's
+# spend for nothing. The two whole-suite scenarios keep
 # separate groups, and neither shares one with a single-scenario run: none can
 # cancel or queue behind another, and an overlap on the same scenario is
 # harmless because every scenario is idempotent and side-effect free. The
@@ -351,6 +383,15 @@ jobs:
             # nothing else. Derived from the suite literal, so the canary can
             # only ever run legs the promotion gate also requires.
             matrix=$(jq -c '[.[] | select(.scenario == "engine-actions-smoke")]' <<<"$suite")
+            ;;
+          codex-application-repro)
+            # A repro-family leg, and the engine is part of the defect rather
+            # than a dispatcher's choice: pin it here so the leg cannot be
+            # dispatched against an engine whose steps it does not run.
+            # Deliberately absent from the suite literal above — see the repro
+            # family note at the top of this file for why an open defect must
+            # not ride a whole-suite run.
+            matrix=$(jq -nc '[{scenario: "codex-application-repro", engine: "codex"}]')
             ;;
           *)
             matrix=$(jq -nc --arg s "$SCENARIO" --arg e "$ENGINE" \
@@ -567,10 +608,11 @@ jobs:
       # and publishes the non-secret service URL job-wide. A dispatch therefore
       # exercises the dispatched ref's own composite + service code. The
       # engine-smoke scenario also takes the step-scoped credential outputs
-      # for the cascade's own provisioning reads.
+      # for the cascade's own provisioning reads, as the codex-application-repro
+      # leg does for the cell-provisioning steps it mirrors from run-evaluate.
       - uses: ./.github/actions/corpus-sidecar
         id: corpus
-        if: ${{ matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' }}
+        if: ${{ matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' || matrix.scenario == 'codex-application-repro' }}
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -844,11 +886,12 @@ jobs:
       # writing, as upstream does: a kernel without the knob has nothing to
       # loosen.
       #
-      # Both codex legs need it: the actions-smoke leg passes the cells' own
-      # `permission-profile: fedcourts-cell` / `safety-strategy: drop-sudo`
-      # pair, so its turn runs under the same bubblewrap sandbox.
+      # Every codex leg needs it: the actions-smoke and application-repro legs
+      # pass the cells' own `permission-profile: fedcourts-cell` /
+      # `safety-strategy: drop-sudo` pair, so their turns run under the same
+      # bubblewrap sandbox.
       - name: Enable unprivileged user namespaces for the codex sandbox
-        if: ${{ (matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke') && matrix.engine == 'codex' }}
+        if: ${{ (matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke' || matrix.scenario == 'codex-application-repro') && matrix.engine == 'codex' }}
         run: |
           set -euo pipefail
           if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
@@ -1000,6 +1043,431 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # --- codex-application-repro: the wedge's record shape, on demand ------
+
+      # The repro family's first member (see the family note at the top of
+      # this file). Codex cells wedge — hang until the job cap cancels the
+      # runner — on **application-lane** records: a SCOTUS interim docket
+      # (`YYAnnn`) carrying the motion / order-response-requested /
+      # brief-response event trio and the application-kind provisioned
+      # document. Every other engine completes the same cells, and codex
+      # completes cert-stage cells normally, which is exactly why the rest of
+      # this suite cannot see it: the resolver applies no stage screen, but
+      # what it settles on in practice is a cert-stage petition, and no other
+      # leg here presents an application record to an engine.
+      #
+      # So this leg presents one, deliberately: `run-evaluate`'s codex cell
+      # step, on its own invocation surface, against a record pinned below.
+      # The evaluate role rather than predict because that is where the wedge
+      # is deterministic — codex judge cells on these records wedge every
+      # time, while codex predict cells on them sometimes complete — and
+      # because the evaluate cell is the shape whose staging (blinded
+      # candidates, hidden record) the rest of the suite never runs either.
+      #
+      # What it costs and what it says: one evaluate cell's worth of codex
+      # tokens, and a red leg is the finding rather than a fault in the
+      # harness. A green leg says only that this record shape completed on
+      # this day, which for an open defect is worth having and for a closed
+      # one is the regression test.
+      #
+      # The record is PINNED, not resolved. An application resolves in days,
+      # so no live application docket stays a stable subject, while a
+      # committed resolved one keeps its shape indefinitely — and an evaluate
+      # cell wants a decided docket anyway. The pin therefore names a docket
+      # whose ledger trio is committed here and whose corpus row still serves
+      # the snapshot and the application document the cell reads — the
+      # provisioning step below asserts that second half rather than assuming
+      # it. Which corpus that is stays the deployment environment's business,
+      # as it is for every other leg: the pinned docket lives in the
+      # production estate, so dispatch this scenario against an environment
+      # whose corpus carries it, and read a provisioning failure as the estate
+      # not holding the record rather than as the defect reproducing.
+      - name: Resolve the pinned application-lane cell identity
+        id: repro
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        run: |
+          set -euo pipefail
+          # The pin, spelled once. Both known-trigger dockets carry the same
+          # trio; re-point these three at the sibling docket or another of its
+          # events to widen an investigation, which is an edit to this
+          # scenario rather than a dispatch input — the record IS the
+          # scenario, and a dispatcher who could re-point it could also make a
+          # red leg mean something else.
+          court=scotus
+          docket=9526000275
+          event=evt-motion-disposition
+          # The identity a production judge cell of this engine runs under,
+          # read from the package and the registry rather than restated: a
+          # model default bump or a prompt move would otherwise leave this leg
+          # reproducing against an invocation production no longer makes.
+          model=$(uv run python -c \
+            'from fedcourtsai.pricing import DEFAULT_MODELS; print(DEFAULT_MODELS["codex"])')
+          prompt=$(uv run python -c \
+            'from pathlib import Path; from fedcourtsai.registry import enabled_evaluators; print(next(e.prompt for e in enabled_evaluators(Path("config/evaluators.yaml")) if e.id == "codex-judge"))')
+          run_id=$(uv run python -c 'from fedcourtsai import ids; print(ids.run_id())')
+          # Shape-screen before the append: all three become step outputs that
+          # ride straight into an action's `with:` block.
+          case "$model" in
+            "" | *[!a-zA-Z0-9.-]*)
+              echo "::error::the resolved model id is not a bare identifier"
+              exit 1
+              ;;
+          esac
+          # Charset first, then shape: `*` matches a newline, so a path
+          # carrying one would otherwise pass the prefix test and forge extra
+          # `key=value` lines into $GITHUB_OUTPUT — including the model that
+          # rides into the action's `with:` block.
+          case "$prompt" in
+            *[!a-zA-Z0-9./_-]*)
+              echo "::error::the resolved evaluate prompt is not a bare repo path"
+              exit 1
+              ;;
+          esac
+          case "$prompt" in
+            .github/prompts/*.md) ;;
+            *)
+              echo "::error::the resolved evaluate prompt is not a repo prompt path"
+              exit 1
+              ;;
+          esac
+          case "$run_id" in
+            [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z) ;;
+            *)
+              echo "::error::the minted run id is not a UTC run-id stamp"
+              exit 1
+              ;;
+          esac
+          {
+            printf 'court=%s\ndocket=%s\nevent=%s\n' "$court" "$docket" "$event"
+            printf 'evaluator=codex-judge\nmodel=%s\nprompt=%s\nrun_id=%s\n' \
+              "$model" "$prompt" "$run_id"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo ""
+            echo "## codex-application-repro"
+            echo ""
+            echo "- record: \`${court}/${docket}\` ${event} (application lane)"
+            echo "- cell: codex-judge / ${model}, run ${run_id}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # run-evaluate's provisioning step, verbatim in what it asks for: the
+      # latest snapshot and the case's documents, no `--event` cut and no
+      # forward gate — an evaluate cell targets a decided docket by design.
+      # Read-only credentials ride this step's env only, from the corpus
+      # sidecar's outputs, exactly as they do in the cell workflow.
+      - name: Provision the pinned record from the corpus
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        env:
+          COURT_ID: ${{ steps.repro.outputs.court }}
+          DOCKET_ID: ${{ steps.repro.outputs.docket }}
+          AWS_ACCESS_KEY_ID: ${{ steps.corpus.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.corpus.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.corpus.outputs.aws-session-token }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          FEDCOURTS_CORPUS_BACKEND: ranged
+        run: |
+          set -euo pipefail
+          uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID"
+          # The scenario's own claim, asserted rather than assumed: this leg is
+          # worth running only while the record it provisions still carries the
+          # application-kind document the wedge is keyed on. Without this a
+          # corpus that stopped serving that document would leave the leg
+          # running an ordinary record and certifying nothing.
+          manifest="data/cases/$COURT_ID/$DOCKET_ID/record/documents/documents.json"
+          if ! jq -e 'any(.[]; .kind == "application")' "$manifest" > /dev/null; then
+            echo "::error::the provisioned record carries no application document; this leg no longer presents the shape it exists to present"
+            exit 1
+          fi
+
+      # The event definition the ledger and the judge's own reads resolve
+      # against, projected from the corpus as the cell workflow projects it.
+      - name: Materialize the pinned event definition
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        env:
+          COURT_ID: ${{ steps.repro.outputs.court }}
+          DOCKET_ID: ${{ steps.repro.outputs.docket }}
+          EVENT_ID: ${{ steps.repro.outputs.event }}
+          AWS_ACCESS_KEY_ID: ${{ steps.corpus.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.corpus.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.corpus.outputs.aws-session-token }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          FEDCOURTS_CORPUS_BACKEND: ranged
+        run: uv run fedcourts materialize-event --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
+
+      # Blind grading, as run-evaluate stages it: each predictor's committed
+      # prediction goes under an opaque alias, and the map that undoes the
+      # aliasing lands in the runner temp dir the agent never browses. The
+      # candidates are the ones committed in this checkout — the cell input a
+      # production judge of this record actually received.
+      - name: Stage the blinded candidates
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        env:
+          COURT_ID: ${{ steps.repro.outputs.court }}
+          DOCKET_ID: ${{ steps.repro.outputs.docket }}
+          EVENT_ID: ${{ steps.repro.outputs.event }}
+          RUN_ID: ${{ steps.repro.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts provision-blinded-predictions \
+            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
+            --run-id "$RUN_ID" --map-dir "$RUNNER_TEMP/blinding"
+
+      # The evaluate cell's own tokenless MCP surface: same composite, same
+      # warn-only health as the cells (the `mcp-sidecar` scenario is what
+      # gates on the sidecar itself), on the evaluator registry's manifest.
+      - uses: ./.github/actions/mcp-sidecar
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        with:
+          role: evaluator
+          actor: ${{ steps.repro.outputs.evaluator }}
+          courtlistener-api-token: ${{ secrets.COURTLISTENER_API_TOKEN }}
+
+      # run-evaluate's "Configure agent retrieval (MCP)" codex arm: the tested
+      # `mcp-config` command emits codex's client format from the versioned
+      # manifest (config/evaluators.yaml `mcp_servers:`) and this step only
+      # plumbs stdout to the file the CLI reads. The generated file names a
+      # localhost URL and carries no token, and `.codex` is this leg's
+      # CODEX_HOME, so the trusted config the permission profile lives in is
+      # where codex-action looks for it.
+      - name: Configure the repro cell's MCP retrieval
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        env:
+          EVALUATOR_ID: ${{ steps.repro.outputs.evaluator }}
+        run: |
+          set -euo pipefail
+          mkdir -p .codex
+          uv run fedcourts mcp-config --engine codex \
+            --role evaluator --actor "$EVALUATOR_ID" \
+            --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
+
+      # The cells' own tripwire, kept because this leg reproduces the cell
+      # posture and not merely the cell prompt: the corpus sidecar hands its
+      # role credentials out as step outputs, never through $GITHUB_ENV, and
+      # the agent step below must inherit none of them.
+      - name: Assert the agent env is credential-free
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        run: |
+          set -euo pipefail
+          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables leaked into the job env"
+            exit 1
+          fi
+          echo "agent env is credential-free"
+
+      # The de-blinding surfaces run-evaluate takes out of the judge's tree:
+      # the committed predictions/ and evaluations/ trees name every actor one
+      # directory above the aliased staging area, so a routine `ls` would
+      # de-blind the cell. (data/qp-topics is already gone — the oracle fence
+      # at the top of this job deletes it for every leg.) Nothing restores
+      # them: this leg opens no PR and its checkout dies with the runner.
+      - name: Remove the de-blinding surfaces from the agent's tree
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts hide-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
+
+      # The bound that actually bites, and the reason this leg is worth
+      # dispatching at all. A wedged codex step outlasts its
+      # own `timeout-minutes`, leaving the job to run to its cap — and a
+      # capped job is *cancelled*, which skips every `if: always()` tail and
+      # whose logs GitHub drops, so the hang erases the evidence it exists to
+      # produce. The watchdog is the runner-level deadline that converts the
+      # hang into a step failure instead: it captures the runner's state
+      # first, then ends the engine and, if the step outlives it, the step's
+      # own process tree. Deadline well inside the step's backstop, which is
+      # well inside the job cap, so a fired watchdog leaves the whole tail to
+      # run and the job concludes red rather than cancelled.
+      - name: Arm the codex watchdog
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        env:
+          CODEX_HOME: ${{ github.workspace }}/.codex
+          WATCHDOG_DIR: ${{ runner.temp }}/codex-watchdog
+          # 720 s. The step below is capped at 15 minutes and starts within
+          # seconds of this one, so firing at +12 leaves the watchdog's own
+          # three graces (30 s each) inside that cap with room to spare, and
+          # ends the leg ~13 minutes into a 45-minute job.
+          #
+          # Deliberately far under the cells' 2400 s, and the trade is stated
+          # rather than hidden: the deadline covers the action's own install
+          # and proxy start as well as the turn, so what it leaves the engine
+          # is roughly ten minutes, and a healthy-but-slow judge cell can
+          # reach it. That is why a fired deadline is reported as "did not
+          # finish inside the bound" and not as a reproduction — the bundle
+          # separates the two, since a wedge shows an engine making no
+          # progress. A bound loose enough to never catch a slow cell would be
+          # loose enough to let a wedge ride the job cap, which is the failure
+          # mode this leg exists to convert into evidence.
+          WATCHDOG_DEADLINE_S: "720"
+        run: |
+          set -euo pipefail
+          mkdir -p "$WATCHDOG_DIR"
+          # The watchdog and its evidence both live outside the workspace: that
+          # tree belongs to the agent for the next ten minutes, and bash reads a
+          # script file as it executes it.
+          cp scripts/codex-watchdog.sh "$RUNNER_TEMP/codex-watchdog.sh"
+          nohup bash "$RUNNER_TEMP/codex-watchdog.sh" \
+            > "$WATCHDOG_DIR/watchdog.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/codex-watchdog.pid"
+
+      # run-evaluate's codex cell step: the same action at the same sha with
+      # the same inputs (a test holds every surface that decides how codex
+      # runs in lockstep), the same env contract, and the same kickoff prompt
+      # — pointed at the pinned record. Nothing here is a probe: the cell is
+      # asked to do the work a production judge cell does, because a wedge
+      # that only appears under the real task is exactly the one the
+      # boot-probe leg cannot see.
+      - name: Evaluate the pinned application-lane record with Codex
+        id: repro_codex
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        # 15, against the cells' 50: a wedge must fail this leg fast. The
+        # watchdog above is what ends a step the runner cannot, and this stays
+        # the backstop for an overrun the runner can.
+        timeout-minutes: 15
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        env:
+          COURT_ID: ${{ steps.repro.outputs.court }}
+          DOCKET_ID: ${{ steps.repro.outputs.docket }}
+          EVENT_ID: ${{ steps.repro.outputs.event }}
+          EVALUATOR_ID: ${{ steps.repro.outputs.evaluator }}
+          RUN_ID: ${{ steps.repro.outputs.run_id }}
+          MODEL_ID: ${{ steps.repro.outputs.model }}
+          # Corpus queries go through the localhost sidecar, as in the cells:
+          # same surface, no cloud credential in this shell.
+          FEDCOURTS_CORPUS_BACKEND: service
+          # Pin codex's home to the workspace dir the config was written into,
+          # as the cell step does; the session rollout the assertion and the
+          # distillation below read lands under it.
+          CODEX_HOME: ${{ github.workspace }}/.codex
+        with:
+          allow-bot-users: "fedcourtsai-data[bot]"
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt: |
+            Read ${{ steps.repro.outputs.prompt }} and AGENTS.md, then score every predictor's
+            prediction for this cell against its outcome.json:
+
+            COURT_ID=${{ steps.repro.outputs.court }}
+            DOCKET_ID=${{ steps.repro.outputs.docket }}
+            EVENT_ID=${{ steps.repro.outputs.event }}
+            EVALUATOR_ID=${{ steps.repro.outputs.evaluator }}
+            RUN_ID=${{ steps.repro.outputs.run_id }}
+            MODEL_ID=${{ steps.repro.outputs.model }}
+
+            These values are authoritative; the same identifiers are exported as
+            environment variables on engines that pass them through, but if
+            `$COURT_ID` expands empty in your shell, use the literals above.
+            Write only the output files the prompt contract names for your cell.
+            Do not commit, push, or open a PR — the workflow handles git. You run
+            headless with no interactive input; if you are blocked, record it in
+            flags.json and explain it in evaluation.md, then finish — do not wait
+            for a reply.
+          model: ${{ steps.repro.outputs.model }}
+          effort: high
+          safety-strategy: drop-sudo
+          # The cells' block, unchanged: workspace writes plus subprocess
+          # network through the `fedcourts-cell` permission profile in the
+          # emitted `$CODEX_HOME/config.toml`, live web search, and a pinned
+          # CLI. run-predict's codex step carries the rationale in full; a
+          # test holds these values in lockstep across every surface, so this
+          # leg cannot reproduce against a posture nothing else runs.
+          permission-profile: fedcourts-cell
+          codex-version: "0.144.1"
+          codex-args: '["-c","web_search=live"]'
+
+      # Stand the watchdog down the moment the engine step is over, however it
+      # ended, so it can never fire late and kill something in the tail, and
+      # assemble what the upload below publishes.
+      #
+      # The bundle directory is on the runner's temp path, which the agent has
+      # a shell on for the whole of its turn — so nothing here trusts what sits
+      # there. The pid is signalled only if it is a number naming this script;
+      # the publishable copy takes **regular files only**, because
+      # `upload-artifact` follows symlinks and publishing the directory
+      # wholesale would let a planted link put an unrelated readable file in a
+      # public artifact; and the marker the summary quotes is read from that
+      # sanitized copy, truncated, because a summary is rendered markdown. A
+      # planted marker can still make the leg *say* a deadline passed, which is
+      # a report, not a grant — the step's own exit status is what the leg's
+      # verdict rests on.
+      - name: Disarm the codex watchdog
+        if: ${{ always() && matrix.scenario == 'codex-application-repro' }}
+        run: |
+          set -euo pipefail
+          pid_file="$RUNNER_TEMP/codex-watchdog.pid"
+          if [ -f "$pid_file" ]; then
+            pid=$(cat "$pid_file")
+            if [[ "$pid" =~ ^[0-9]+$ ]] && grep -qa codex-watchdog.sh "/proc/$pid/cmdline" 2>/dev/null; then
+              kill "$pid" 2>/dev/null || true
+            fi
+            rm -f "$pid_file"
+          fi
+          bundle="$RUNNER_TEMP/codex-watchdog-bundle"
+          rm -rf "$bundle"
+          mkdir -p "$bundle"
+          if [ -d "$RUNNER_TEMP/codex-watchdog" ]; then
+            find "$RUNNER_TEMP/codex-watchdog" -maxdepth 1 -type f \
+              -exec cp -p {} "$bundle/" \;
+          fi
+          for marker in FIRED STOOD_DOWN; do
+            file="$bundle/$marker"
+            [ -f "$file" ] || continue
+            case "$marker" in
+              FIRED) note="the engine did not finish inside the bound and was killed at the deadline" ;;
+              *) note="the deadline passed with no engine process matched — check the watchdog still names the action's invocation" ;;
+            esac
+            echo "::warning::codex-application-repro: ${note}"
+            {
+              echo ""
+              echo "## codex watchdog — ${note}"
+              echo ""
+              echo '```'
+              head -c 500 "$file"
+              echo
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      # The verdict, stated rather than implied. A mis-spelled `if:` above
+      # would SKIP every step and leave the leg green having invoked nothing,
+      # which is the vacuous pass this scenario exists to replace — so a run
+      # that got this far must show the evidence of a session, and an absent
+      # one fails here. It runs on the engine step's success, deliberately: a
+      # failed engine step has already reddened the leg, and that is the
+      # finding. Evidence of the invocation only:
+      # nothing reads what the model said, and a cell that finishes without an
+      # evaluation is reported rather than failed (a blocked cell is not a
+      # wedge, and this leg's subject is the wedge).
+      - name: Assert the repro cell ran, and report what it produced
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        env:
+          CODEX_HOME: ${{ github.workspace }}/.codex
+          COURT_ID: ${{ steps.repro.outputs.court }}
+          DOCKET_ID: ${{ steps.repro.outputs.docket }}
+          EVENT_ID: ${{ steps.repro.outputs.event }}
+          EVALUATOR_ID: ${{ steps.repro.outputs.evaluator }}
+          RUN_ID: ${{ steps.repro.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(find "$CODEX_HOME/sessions" -type f -name '*.jsonl' -print -quit 2>/dev/null)" ]; then
+            echo "::error::codex left no session rollout — the cell never started"
+            exit 1
+          fi
+          # A judge writes one evaluation per blinded candidate, under the
+          # candidate's alias — the un-aliasing that resolves those names back
+          # is a step this leg deliberately does not run, since it commits
+          # nothing and validates nothing. Counting them is the report.
+          base="data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/evaluations/$EVALUATOR_ID"
+          graded=0
+          if [ -d "$base" ]; then
+            graded=$(find "$base" -mindepth 3 -maxdepth 3 -type f -name evaluation.json \
+              -path "*/$RUN_ID/*" | wc -l)
+          fi
+          if [ "$graded" -gt 0 ]; then
+            verdict="the cell completed and graded ${graded} candidate(s)"
+          else
+            verdict="the cell completed without grading anything (blocked, not wedged)"
+          fi
+          echo "codex-application-repro: ${verdict}" >> "$GITHUB_STEP_SUMMARY"
+
       # What the dispatch is worth beyond a green tick: the codex rollout's
       # item shapes, distilled by the tested `codex-item-shapes` command and
       # uploaded. The `record-retrieval` parser keys on those shapes, and an
@@ -1028,8 +1496,12 @@ jobs:
       # its shapes (a blocked cell's transcript is exactly the interesting
       # one), `continue-on-error` and a tolerant command so the smoke's
       # verdict stays the cell's.
+      #
+      # The application-repro leg takes both steps for the same reason and one
+      # more: a reproduced wedge leaves a transcript that stops mid-turn, and
+      # the shapes are the only account of it that can leave the runner.
       - name: Distill the codex transcript's item shapes
-        if: ${{ always() && matrix.scenario == 'engine-smoke' && matrix.engine == 'codex' }}
+        if: ${{ always() && ((matrix.scenario == 'engine-smoke' && matrix.engine == 'codex') || matrix.scenario == 'codex-application-repro') }}
         continue-on-error: true
         env:
           CODEX_HOME: ${{ github.workspace }}/.codex
@@ -1040,12 +1512,20 @@ jobs:
             --out "$RUNNER_TEMP/codex-item-shapes.json"
 
       - name: Upload the codex transcript's item shapes
-        if: ${{ always() && matrix.scenario == 'engine-smoke' && matrix.engine == 'codex' }}
+        if: ${{ always() && ((matrix.scenario == 'engine-smoke' && matrix.engine == 'codex') || matrix.scenario == 'codex-application-repro') }}
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: codex-item-shapes
-          path: ${{ runner.temp }}/codex-item-shapes.json
+          # The repro leg's watchdog bundle rides the same artifact — the
+          # process forest, socket table, codex-home listing and the
+          # watchdog's own log, all shapes and metadata, never content. The
+          # sanitized copy the disarm step assembles, never the runner-temp
+          # directory the agent could plant a symlink in. Absent on every
+          # other leg, which is what `warn` below is for.
+          path: |
+            ${{ runner.temp }}/codex-item-shapes.json
+            ${{ runner.temp }}/codex-watchdog-bundle
           # Warn, not error: a cell that died before writing a transcript
           # leaves nothing to upload, and this step must not be the thing
           # that reddens the smoke.
@@ -1337,7 +1817,7 @@ jobs:
       # evidence lines are at the top and an engine-smoke's query records
       # scroll them off a tail alone.
       - name: Show the sidecar logs
-        if: ${{ always() && (matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke' || matrix.scenario == 'mcp-sidecar') }}
+        if: ${{ always() && (matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke' || matrix.scenario == 'mcp-sidecar' || matrix.scenario == 'codex-application-repro') }}
         continue-on-error: true
         run: |
           set -euo pipefail

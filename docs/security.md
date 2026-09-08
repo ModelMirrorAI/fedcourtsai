@@ -12,8 +12,8 @@ App installation token** (`actions/create-github-app-token`), never the default
 `GITHUB_TOKEN`: events created with `GITHUB_TOKEN` do not trigger other
 workflows (GitHub's loop-prevention), so an agent PR opened with it would never
 start CI. The inverse is the rule for every issue write in this repository —
-dashboards, run logs, flag latching — which must trigger nothing and so rides
-the ambient token instead.
+the run-log and data-validation alarms, the digests, flag latching — which must
+trigger nothing and so rides the ambient token instead.
 
 The token comes from one of **two Apps, split by trust** — mirroring the two S3
 roles. The split is what makes "data writes land directly, everything agentic
@@ -39,11 +39,11 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
-| `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its issue writes — the pipeline-runs dashboard row and the failure-only run-log issue — must trigger nothing and so ride the ambient token, never this one |
+| `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its one issue write — the failure-only run-log issue — must trigger nothing and so rides the ambient token, never this one |
 | `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
 | `run-repair` | data | contents (both writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the validation job holds no credential |
-| `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
-| `run-backtest` | dev | contents, pull-requests | open the reviewed back-test PR (minted after the replay ran) |
+| `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the codex cells' arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner |
+| `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
 | `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
@@ -228,10 +228,10 @@ in this repository keys on `issues: labeled` at all, so labeling triggers
 nothing), which is the only reason a workflow here ever reaches for the App
 token — so issue-write deliberately stays **off** the App token that
 carries `contents: write` and opens the auto-merging PR. This mirrors `run-ops`,
-which posts its `ops-dashboard` / `data-validation` / `daily-digest` /
+which posts its `data-validation` / `daily-digest` /
 `weekly-digest` issues with the same ambient token — each of those labels
 non-triggering, so a reporting job opening an issue can never start a spending
-run — and `run-pull`, whose pipeline-runs dashboard row and failure-only
+run — and `run-pull`, whose failure-only
 run-log issues ride the ambient token for the same reason (its App token is
 reserved for the writes that must reach `main` through the
 deterministic-writer bypass: the corpus commits and the published verdict).
@@ -246,6 +246,38 @@ as a single fail-fast batch (a transient failure of which once discarded a
 whole run's output). The grant is repo-wide read, as Actions scopes cannot be run-scoped; it
 is acceptable here because `collect` runs no agent code and nothing
 agent-controlled steers which API it calls.
+
+One issue write in the cells does **not** ride the ambient token, because the
+process making it outlives every step that could hold one. The codex watchdog
+(*Graceful degradation on limits* in [pipeline.md](pipeline.md)) is a detached
+shell that must report while its runner is still alive — a wedge is ended by the
+job cap, which drops the job's logs and skips its tail, so every runner-local
+channel is destroyed by the failure it documents. It therefore carries an App
+token minted with **`issues: write` and nothing else**, gated on the codex engine
+step's own condition and distributed only to the arm step, the disarm step, and
+the watchdog process; the job's `permissions` block is untouched and no agent
+step inherits it. Everything it is used for is the non-triggering
+`codex-watchdog` issue — found or created — and one comment per cell on it, which
+the watchdog then PATCHes in place. The mint is `continue-on-error`, because a
+hard failure would leave the arm and engine steps skipped on their implicit
+`success()` and so kill the cell to protect its own reporting; both consumers
+guard on an empty token instead. The token travels as environment, never as
+a command argument, because the watchdog's own published diagnostics bundle dumps
+the arguments of every process under the runner user, and the arm step checks the
+check-in URL against this repository's own comments endpoint before handing it to
+the watchdog, so the credential cannot be aimed at another host. Two residuals
+are conceded rather than claimed away: the watchdog's environment is readable at
+the runner user's privilege, as the MCP sidecar's token is, and the disarm step
+runs `fedcourts` out of a workspace the agent has had the whole cell to write.
+Neither is bounded by the job's end — the action's revoke step does not run on a
+**cancelled** job, which is the wedge case itself. What both reach is
+`issues: write` on this repository, which is the repo's whole issue surface and
+not the one comment it is used for; what bounds it is that no workflow here keys
+on an issue event, so nothing it can do starts anything, and that it stays
+strictly narrower than the token a Claude cell hands its agent directly. The
+record's integrity is defended where it lands instead: a cell's comment is
+identified by App authorship as well as by its marker, so on a public repo a row
+planted by an account is passed over rather than adopted.
 
 The predict/evaluate `plan` job needs **no issue write at all**: a round derives
 its own backlog and holds no request open anywhere, so a matrix the scope gate
@@ -278,13 +310,14 @@ both store halves and the corpus-split mode follow from it; its value is
 out of band, never committed, and an environment missing it has no corpus at
 all rather than half of one. Every job that needs any of
 them declares an environment, and every job outside `integration-test` declares
-`prod` — with two deliberate exceptions, by environment. The `approval` jobs of run-predict
-and run-evaluate declare
+`prod` — with two deliberate exceptions, by environment. The `approval` jobs of run-predict,
+run-evaluate and run-backtest declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables, no role, and no deployment-branch
 policy; each job it gates runs one echo under `permissions: {}`, so the
-environment grants nothing and merely withholds that fan-out's matrix until
-a named reviewer releases it — one environment serves every spend hold
+environment grants nothing and merely withholds the spend behind it — a
+fan-out's matrix, or the back-test's fortnightly replay — until
+a named reviewer releases it; one environment serves every spend hold
 rather than each minting its own. It must be
 created **with required reviewers configured before the gate promotes**:
 GitHub auto-creates a referenced environment unprotected, and an unprotected
@@ -296,10 +329,14 @@ here, not two-person control, a call to revisit if a second maintainer
 joins. `staging-corpus-refresh` declares **`staging`** — the same environment
 the integration scenarios bind, because the staging read-write role's trust
 deliberately names it (see *The staging corpus* below). And among the fan-out
-workflows, the `rejected` reporters declare no environment at all and run under
+workflows and on run-backtest, the `rejected` reporters declare no environment
+at all and run under
 `permissions: {}`: writing "the hold did not release" to the run's Actions
 summary needs no secret and no token, and the step must work even when nothing
-else did.
+else did. run-backtest's `cadence` guard is the one other environment-less job:
+it decides whether the fortnight runs at all, holds `actions: read` on the
+ambient token to read this workflow's own run history, and reaches no
+credential, no corpus and no agent.
 
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
 sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer
@@ -450,6 +487,21 @@ the property is not new — the production claude and codex cells have exactly
 the same shape against a read-only role — but against `staging` it is what
 keeps an agent leg away from the only write-capable role outside production.
 
+The **repro family** is the one class of leg that deliberately does not hold
+that invariant, and it is bounded by a different one. A repro leg reproduces a
+diagnosed engine defect, so it must hand the model a *real* record — provisioned
+snapshot, filed-document text, blinded candidates — through the cells' own
+invocation surface, which is exactly the combination the paragraph above rules
+out for a probe. What makes that acceptable is not a weaker rule but an
+identity: such a leg **is** a production cell, run against a record the
+production fleet has already run, in a job whose grants are the cell job's.
+Nothing about its reach is new, and nothing about it is new *to staging*
+either — the pre-agent tripwire the cells carry (`AWS_*` absent from the agent
+step's environment) rides here too, so the write-capable staging role stays as
+far from this agent as it does from a production one. The line to hold is that
+a repro leg may present a real record and nothing else may: a leg that wanted a
+real record *and* a probe's exemption from the cell posture would be neither.
+
 What corrupting it *costs* depends on a coupling worth stating rather than
 discovering. While the `staging` environment still names the production pair,
 nothing committed depends on the staging corpus — the scenarios read
@@ -504,10 +556,11 @@ nothing for such a dispatch to reach. Its only
 real credential is the ambient read-only token that lists and fetches the
 run's own synthetic cell artifacts.
 
-The workflow's two engine scenarios additionally — beyond the role
+The workflow's three engine scenarios additionally — beyond the role
 variables — read one model-provider
 secret — the running engine's API key, chosen by expression ternary (or, on
-the engine-actions-smoke legs, by the per-engine step conditions the legs are
+the engine-actions-smoke legs and each repro-family leg, by the step
+conditions the legs are
 partitioned on) so the
 other engines' keys never enter the job. An `all` dispatch fans one of each per
 engine, so a single run reads all three keys — each confined to its own job —
@@ -540,8 +593,10 @@ workspace filesystem plus network for spawned commands — beside the sidecar
 URL; codex reads no other trusted configuration layer, and the file still holds
 no credential.) Every engine-actions-smoke leg reads that same one,
 for the same reason and by the same route: each drives the cell's invocation
-block, which names the client config the composite's sidecar serves. Two
-further notes on those legs. They hand `claude-code-action` the job's own
+block, which names the client config the composite's sidecar serves — and so
+does each repro-family leg, which drives that same block against a real
+record. Two further notes on the engine-actions-smoke legs.
+They hand `claude-code-action` the job's own
 token rather than minting the cells' App token — the job's permissions cap it
 at `contents: read`, and omitting it entirely is worse, since the action then
 falls back to an OIDC exchange that mints an installation token defaulting to
@@ -624,9 +679,13 @@ pair the third one writes:
   full-pull consumers (`run-analytics` / the metrics refresh, and
   `run-backtest`). Two operational facts ride this role. Its IAM **maximum
   session duration** must allow the sessions its callers request —
-  `run-backtest` asks for 21600 s (6 h), the census for 8100 s — because a
+  `run-backtest`'s replay job asks for 21600 s (6 h), the census for 8100 s —
+  because a
   re-provisioned role at the AWS default hour fails both at their first
-  credentialed step. And `run-backtest` is the one `corpus-readonly` caller
+  credentialed step. (`run-backtest` calls the composite twice: its cadence
+  `plan` job pulls the index at the composite's default hour and reads it
+  locally, which is all a plan needs.) And that replay job is the one
+  `corpus-readonly` caller
   that also runs agents in the same job, so its job-wide credential export is
   the accepted exception to the agents-hold-nothing pattern; the step comment
   there states what the long session buys and costs.
@@ -656,7 +715,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
 | `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `prod`, and it can write nothing production owns |
-| `run-ops`                                 | none          | dashboard reads GitHub state only |
+| `run-ops`                                 | none          | the report reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
 
 The split is deliberate: a cell touches KBs of one case's data, so it reads the

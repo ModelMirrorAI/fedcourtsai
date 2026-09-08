@@ -3,7 +3,7 @@ description: >
   Run the read-only corpus verdicts where the corpus is already pulled —
   `fedcourts validate-corpus` (integrity + referential) and `fedcourts
   live-frontier` (the cert watchlist's readiness snapshot) — and publish
-  both JSONs to the orphan `ops-metrics` branch for the run-ops dashboard to present.
+  both JSONs to the orphan `ops-metrics` branch for the run-ops report to present.
   NON-BLOCKING by design: a failing verdict (or a publish hiccup) must not fail the
   host run, so the workflow step that uses this action sets `continue-on-error: true`.
   The prior published verdict supplies the monotonic row-count baseline; each new

@@ -54,7 +54,8 @@ read the diff, run the linters, and report findings with a clear verdict. You do
 - **The token-choice gotcha.** A step that must start something downstream — opening
   a PR that triggers CI — uses a **GitHub App token**, not the default
   `GITHUB_TOKEN` (which suppresses downstream triggers). Every issue write here is
-  the other case: dashboards, run logs, flag latching must trigger nothing, and no
+  the other case: the run-log and data-validation alarms, the digests, and flag
+  latching must trigger nothing, and no
   workflow keys on `issues: labeled`, so they ride the ambient `GITHUB_TOKEN` rather
   than a broader App token — least privilege, and the App token is the one that
   bypasses branch protection.

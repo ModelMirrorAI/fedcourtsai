@@ -321,10 +321,35 @@ def render_refresh_pr(
 BACKTEST_BRANCH = "metrics/cert-backtest"
 
 
+def _granted_in_set(report: CertBacktest) -> int | None:
+    """Granted-side outcomes in the replayed set, or ``None`` when unrecoverable.
+
+    What a lift is measured on is the *granted* side of the binary target, and
+    cert's denial skew makes a draw with none of them an ordinary outcome at a
+    small sample — one where every denial-heavy predictor ties the floor and the
+    ranking is noise. So the review PR has to say how many there were.
+
+    The always-deny floor cannot answer it: that is the **denied** share, and a
+    dismissal is neither denied nor granted, so ``1 - floor`` overstates the
+    granted side by the dismissal-bearing draws. The calibration view can:
+    every replayed petition lands in exactly one probability bin, so a bin's
+    ``predictions x observed_granted_rate`` is its granted count and the sum
+    over bins is the set's. Any entry scores the same items, so the top one
+    answers for the board. ``None`` where the bins do not account for the whole
+    set, so a caller states nothing rather than a wrong number.
+    """
+    if not report.entries:
+        return None
+    bins = report.entries[0].calibration
+    if not bins or sum(one.predictions for one in bins) != report.events_scored:
+        return None
+    return round(sum(one.predictions * one.observed_granted_rate for one in bins))
+
+
 def render_backtest_pr(
     metrics_root: Path, run_id: str, *, limit: int, engine: str
 ) -> MetricsRefreshPr | None:
-    """Render the review PR for a maintainer-triggered cert back-test run.
+    """Render the review PR for a cert back-test run a maintainer released.
 
     Reads the freshly-written ``metrics/cert-backtest.json`` for its headline
     (top lift over the always-deny floor, sample size) so the PR states what the
@@ -337,25 +362,39 @@ def render_backtest_pr(
     if not report_path.exists():
         return None
     report = read_model(report_path, CertBacktest)
-    if report.entries:
+    granted = _granted_in_set(report)
+    if not report.entries:
+        headline = "no predictors scored (empty set)"
+    elif granted == 0:
+        headline = (
+            "no granted-side outcome in this set — every predictor is scored against a "
+            "draw with nothing to discriminate, so the lift ordering is not a measurement"
+        )
+    else:
         top = report.entries[0]
         headline = (
             f"top predictor `{top.predictor_id}`: lift "
             f"**{top.lift_over_always_denied:+.1%}** over always-deny "
             f"(accuracy {top.accuracy:.0%}, Brier {top.mean_brier_score:.3f})"
         )
-    else:
-        headline = "no predictors scored (empty set)"
     title = f"metrics: cert back-test over {report.events_scored} petition(s)"
+    granted_line = (
+        f" ({granted} granted-side outcome(s) in {report.events_scored})"
+        if granted is not None
+        else " (granted-side count unavailable — no calibration view)"
+    )
     body = (
-        f"Maintainer-triggered cert back-test (run `{run_id}`): the enabled "
-        f"predictors replayed over the {report.events_scored} most recently "
-        f"decided modern discretionary-cert petition(s) with outcomes hidden "
-        f"(`--limit {limit} --engine {engine}`), scored against the realized "
+        f"Cert back-test (run `{run_id}`): the enabled predictors replayed over "
+        f"{report.events_scored} decided modern discretionary-cert petition(s) "
+        f"with outcomes hidden (`--limit {limit} --engine {engine}`; the report's "
+        "`provenance` block carries the rest of the dispatch — the scope, and "
+        "whether the draw was spread across conference cohorts — which is what "
+        "the population actually was), scored against the realized "
         "grant/deny. Retrospective by construction — iteration signal, never "
         "claimable performance.\n\n"
         f"- {headline}\n"
-        f"- always-deny floor: **{report.always_denied_accuracy:.0%}** over this set\n"
+        f"- always-deny floor: **{report.always_denied_accuracy:.0%}** over this set"
+        f"{granted_line}\n"
         f"- predictors on the board: {report.predictors_evaluated}\n\n"
         "Review and merge — this PR is intentionally **not** auto-merged; a "
         "later run force-pushes this same branch and the PR updates in place.\n"

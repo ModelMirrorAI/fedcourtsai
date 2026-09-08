@@ -563,7 +563,16 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
         "stub-cascade",
         "engine-smoke",
     }
-    for scenario in ("mcp-sidecar", "qp-topic", "engine-actions-smoke"):
+    # A repro-family scenario reads a case too, but names it in its own steps
+    # rather than through the resolver — the pinned record is what the
+    # scenario is — so it stays out of the gate for a different reason than
+    # the corpus-free legs do.
+    for scenario in (
+        "mcp-sidecar",
+        "qp-topic",
+        "engine-actions-smoke",
+        "codex-application-repro",
+    ):
         assert f'"{scenario}"' not in RESOLVE_GATE, scenario
     # Every scenario the workflow offers is either in that set or deliberately
     # out of it: a new one added to the input options and to nothing else would
@@ -574,6 +583,7 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
         "qp-topic",
         "collect",
         "engine-actions-smoke",
+        "codex-application-repro",
     }
     # The step itself is unconditional — it is the single producer of the two
     # outputs, and gating it would hand every leg an empty pair on a pinned
