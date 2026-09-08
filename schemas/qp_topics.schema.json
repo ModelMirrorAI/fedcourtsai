@@ -85,7 +85,7 @@
     },
     "QpTopicBatchEntry": {
       "additionalProperties": false,
-      "description": "One labeling run's contribution to the accumulating labels artifact.\n\nThe artifact is the union of every batch, so without this ledger a reader\ncould not tell which run produced which row, what it was measured at, or how\nmany runs the file took. Each row records both counts because they answer\ndifferent questions: ``published`` is what the batch added to the file, while\n``measured`` is what its labeler actually read \u2014 larger by the reference rows\nit re-graded, which are the per-run cost of the measurement and publish\nnothing new.\n\n``agree``/``n`` are that batch's own agreement with the reference set, kept\nper batch rather than only at the top level so a drifting labeler is visible\nas a series rather than as a single current number.",
+      "description": "One labeling run's contribution to the accumulating labels artifact.\n\nThe artifact is the union of every batch, so without this ledger a reader\ncould not tell which run produced which row, what it was measured at, or how\nmany runs the file took. Each row records both counts because they answer\ndifferent questions: ``published`` is what the batch added to the file, while\n``measured`` is what its labeler actually read \u2014 larger by the reference rows\nit re-graded, which are the per-run cost of the measurement and publish\nnothing new.\n\nThe measurement fields are kept per batch rather than only at the top level\nso a drifting labeler is visible as a series rather than as a single current\nnumber \u2014 with two readings the series will not support. Every batch is\nscored over the **same** reference entries, so the differences between rows\nare labeler-side re-labeling of identical items, not independent samples of\nanything: a few points of movement on ``n`` this size is noise, and only a\nsustained move reads. And ``agree``/``n`` never read without ``floor``, which\nis why it is carried here rather than recomputed: on a sixteen-label\nvocabulary most of any rate is the floor.",
       "properties": {
         "agree": {
           "description": "Compared reference entries this batch matched",
@@ -99,14 +99,50 @@
           "title": "Batch",
           "type": "integer"
         },
+        "disagreements": {
+          "default": 0,
+          "description": "Of those, texts where this batch's labeler differed from the rule. The shadow rules are the only instrument that touches rows the batch publishes, so the series is the regression trip-wire; its level is uninterpretable",
+          "minimum": 0,
+          "title": "Disagreements",
+          "type": "integer"
+        },
+        "fired": {
+          "default": 0,
+          "description": "Texts in this batch exactly one shadow rule fired on",
+          "minimum": 0,
+          "title": "Fired",
+          "type": "integer"
+        },
+        "floor": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What a constant labeler scores on this batch's compared entries \u2014 the rate is unreadable without it, and only the distance above it is skill",
+          "title": "Floor"
+        },
         "labeler": {
           "description": "Who assigned this batch's labels \u2014 engine and model",
           "minLength": 1,
           "title": "Labeler",
           "type": "string"
         },
+        "labeler_rows": {
+          "default": 0,
+          "description": "Of those, rows carrying this labeler's own call. The remainder are reference members entering the artifact from the hand set's adjudicated labels, which no labeler assigned \u2014 so this, not `published`, is what a batch labeled",
+          "minimum": 0,
+          "title": "Labeler Rows",
+          "type": "integer"
+        },
         "measured": {
-          "description": "Extract rows this batch's labeler read \u2014 the published rows plus the reference rows it re-graded for the measurement",
+          "description": "Extract rows this batch's labeler read \u2014 its new rows plus every reference row in the frame, re-graded for the measurement",
           "minimum": 0,
           "title": "Measured",
           "type": "integer"

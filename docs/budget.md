@@ -925,7 +925,7 @@ labeling ceiling `fedcourts qp-corpus` enforces (1,200 rows —
 extract, measured against the dev blob pulled 2026-08-27 whose newest stored
 snapshot is 2026-07-13: mean 1,088 characters a row, median 942, p90 ≈1,920,
 capped at 4,000. (That snapshot stamp bounds the figure — QP presence is a
-document-fetch artifact — and the frame has since grown well past the ceiling,
+document-fetch artifact — and the frame runs well past the ceiling,
 which is what the batching below exists for.) A ceiling-sized run is ≈1.3 MB of
 question text ≈ 0.33M input tokens
 read once (~4 characters a token); what it bills is a multiple of that, and
@@ -941,25 +941,29 @@ a dispatch labels a derived batch and the artifact accrues one batch at a time
 ([qp-topic.md](qp-topic.md)). Every batch is ceiling-sized, so each costs the
 single-digit-dollar figure above and the rest is multiplication, not a new rate:
 
-- **Per batch**, roughly 353 of the 1,200 rows are the reference set, re-graded
-  every run for the agreement measurement and publishing nothing. That is ≈30% of
-  each batch's spend bought as *measurement* rather than as labels — the standing
-  price of the publication gate, not an overhead to trim: a batch that skipped it
-  could not be measured, so it could not publish.
-- **Clearing the historical backlog** at the frame size the batching landed
-  against — 8,183 rows, so about ten dispatches — is **tens of dollars at the
-  default tier**, single-digit tens; `claude-sonnet-4-6` is 3× that and
-  `claude-fable-5` 10×, the same tier ordering the table above prices. Those are
-  ten manual dispatches at whatever cadence a maintainer chooses, not a queued
-  campaign, and the count falls as the frame is cleared.
-- **Then forward**, a batch every quarter or so keeps up with new QP-bearing
-  rows: a handful a year, still inside the misc floor's buffer (driver #5)
-  rather than earning its own line.
+- **Per batch**, 296 of the 1,200 rows are the reference cases the frame holds,
+  re-graded every run for the agreement measurement and publishing nothing —
+  ≈25% of each batch's spend bought as *measurement* rather than as labels. That
+  is the standing price of the publication gate, not an overhead to trim: a batch
+  that skipped it could not be measured, so it could not publish. The share moves
+  with how much of the reference set the frame holds, and rises if that shrinks.
+- **Clearing the historical backlog** — 8,183 frame rows against the blob pulled
+  2026-09-08 (newest stored snapshot 2026-07-13), leaving 7,887 to label at 904
+  new rows a batch, so **nine dispatches** — is **tens of dollars at the default
+  tier**, single-digit tens; `claude-sonnet-4-6` is 3× that and `claude-fable-5`
+  10×, the same tier ordering the table above prices. Those are nine manual
+  dispatches at whatever cadence a maintainer chooses, not a queued campaign, and
+  the count falls as the frame clears and rises as it grows.
+- **Then forward**, one batch absorbs a long stretch of new QP-bearing rows, so a
+  dispatch every few months keeps up: a handful a year, still inside the misc
+  floor's buffer (driver #5) rather than earning its own line.
 
 Batching multiplies the runs without changing the accounting: labeling spend
 stays **ledger-invisible** for the reason above — the ledger is keyed by cell and
 a labeling run is not one, so the mode writes no `usage.json` — so a cleared
-frame's true cost is read off ten engine logs or it is not read at all.
+frame's true cost is read off nine engine logs or it is not read at all. A run
+refused in the extract job (a converged frame, or one under the coverage floor)
+spends nothing at all, which is the point of checking there.
 
 The Haiku row is a **known defect**, not a rounding note: `run-analytics`
 offers the dated id `claude-haiku-4-5-20251001` (and defaults to it), while

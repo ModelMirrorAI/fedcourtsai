@@ -579,6 +579,30 @@ def test_qp_corpus_refuses_a_converged_frame(
     assert not out.exists()
 
 
+def test_qp_corpus_refuses_a_frame_that_cannot_reach_the_coverage_floor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Every reference case in the frame is in the batch and the labeler labels
+    # every extract row, so the coverage `qp-topics` will measure is knowable
+    # before the dispatch. A frame missing reference texts cannot publish however
+    # well the labeler reads, and finding that out at the gate costs a whole run.
+    _extract_corpus_root(tmp_path, monkeypatch, rows=3)
+    # Four reference cases, only three of them QP-bearing in this corpus: 75%,
+    # under the floor.
+    _install_reference(
+        tmp_path / "data",
+        _extract_reference(["scotus/1", "scotus/2", "scotus/3", "scotus/404"]),
+    )
+    out = tmp_path / "extract.json"
+
+    result = CliRunner().invoke(app, ["qp-corpus", "--out", str(out)])
+
+    assert result.exit_code == 1
+    assert "only 3 of 4 reference case(s) are in the frame (75.0%)" in result.output
+    assert f"{COVERAGE_FLOOR:.0%} coverage floor" in result.output
+    assert not out.exists()
+
+
 def test_qp_corpus_requires_the_reference_set_for_the_scoped_form(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1236,9 +1260,22 @@ def test_cli_accrues_the_committed_artifact_across_two_batches(
     )
 
     assert (first.exit_code, second.exit_code) == (0, 0), first.output + second.output
+    # The first batch is where `published` and `labeler_rows` diverge: the ten
+    # reference rows enter the artifact there too, carrying the hand set's
+    # labels, and crediting them to the labeler is the misreport this splits.
     assert (
-        "batch 2 — 11 row(s) labeled by b, 1 newly published, 12 labeled case(s)" in second.output
+        "batch 1 — 11 row(s) read by a, 1 newly published from its own calls and 10 from "
+        "the reference set's hand labels" in first.output
+    )
+    assert (
+        "batch 2 — 11 row(s) read by b, 1 newly published from its own calls and 0 from "
+        "the reference set's hand labels; 12 labeled case(s) in the artifact across "
+        "2 batch(es)" in second.output
     )
     written = read_model(qp_topics_module.labels_path(data_root), QpTopicLabels)
     assert written.cases == 12
+    assert [(row.batch, row.published, row.labeler_rows) for row in written.batches] == [
+        (1, 11, 1),
+        (2, 1, 1),
+    ]
     assert {entry.case_id for entry in written.entries} >= {"scotus/900", "scotus/901"}

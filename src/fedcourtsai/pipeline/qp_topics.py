@@ -144,14 +144,18 @@ LABEL_ROW_CEILING: Final = 1200
 # would make the published topic mix a function of docket number. The
 # stratification below restores Term and fee class *deliberately*, as
 # proportions; the hash decides only who goes first inside a stratum.
+#
+# Not a pre-registered constant, and no digest reads it. Moving it re-draws only
+# *future* batches — label-once already excludes every published row, so nothing
+# already in the artifact can be re-based by a new seed — which is why a change
+# here needs a diff review rather than a version bump.
 BATCH_ORDER_SEED: Final = "qp-topic-v0:batch-order"
 
-# The key an unparsable docket number strata under. Empty in the labeling frame
-# by construction (it is modern-cert-scoped, so every number parses), and kept
-# so a frame that ever widens buckets those rows visibly instead of dropping
-# them out of the draw.
+# The stratum an unparsable docket number falls into. Empty over the labeling
+# frame by construction — it is modern-cert-scoped, so every number parses — and
+# kept so a frame that ever widens buckets those rows visibly rather than
+# dropping them out of the draw.
 UNPARSED_STRATUM: Final = "(unparsed)"
-
 
 # The confusion-matrix labels, in row and column order. These three carry the
 # boundaries where the labeling actually goes wrong, so they get a matrix rather
@@ -239,11 +243,26 @@ class QpTopicBatch:
     frame: int
     labeled: int
     reference_rows: int
+    reference_total: int
     pool: int
     fill: int
     remaining: int
     strata: tuple[QpTopicStratum, ...]
     converged: bool
+
+    @property
+    def reference_covered(self) -> float:
+        """The share of the committed reference set this batch will be measured over.
+
+        Exact rather than projected: the batch carries every reference member the
+        frame holds and the labeler labels every extract row, so this is the
+        coverage :func:`measure_agreement` will compute. Reference members the
+        frame does not hold are simply unreachable — a case in the labeling scope
+        whose stored questions-presented text is gone is a case no batch can put
+        in front of a labeler — so this is the number that decides whether the
+        run can clear the coverage floor at all, knowable before the dispatch.
+        """
+        return self.reference_rows / self.reference_total if self.reference_total else 0.0
 
 
 def _batch_order_key(case_id: str) -> tuple[bytes, str]:
@@ -268,9 +287,13 @@ def _stratum_key(docket_number: str) -> str:
 
     These are the two dimensions the batch is stratified on because they are the
     two the frame is most obviously *not* uniform across: coverage is thin and
-    growing Term over Term, and far higher on paid dockets than IFP, so an
-    unstratified draw would give the early batches whatever mix the current
-    fetch state happens to hold and leave the correction to the last one.
+    growing Term over Term, and far higher on paid dockets than IFP. What the
+    stratification buys is **variance reduction, not bias removal** — the order
+    key is a keyed hash independent of both dimensions, so an unstratified draw
+    of the lowest hashes would already be an equal-probability sample and
+    unbiased for the pool's mix. Proportional allocation makes each batch's
+    margins exact instead of binomially noisy, which is what keeps an early batch
+    from being read as a Term or fee-class statement it is not.
     """
     year = scotus_term_year(docket_number)
     parsed = parse_scotus_docket_number(strip_docket_annotation(docket_number))
@@ -322,9 +345,13 @@ def derive_label_batch(
        after batch. They are the measurement, not the output — their published
        labels come from the reference set, so re-labeling them costs a fraction
        of each batch and buys the agreement rate the publication gate turns on.
-       Dropping them, or including only some, would put the gate's coverage floor
-       out of reach and turn membership in the batch into a probe on a set whose
-       membership encodes cert outcomes.
+       Including only some would both lower the coverage the gate measures and
+       turn membership in the batch into a probe on a set whose membership
+       encodes cert outcomes. Note what the complete force-include does *not*
+       promise: reference members the frame does not hold cannot be reached at
+       all, so the coverage a run will be graded on is ``reference_covered``, and
+       a frame missing enough of them cannot clear the floor however well the
+       labeler reads. The caller checks that before spending the dispatch.
     2. **The rest of the ceiling is filled from the not-yet-labeled rows**,
        stratified by Term x fee class in proportion to that stratum's share of
        the unlabeled pool, ordered inside each stratum by :func:`_batch_order_key`.
@@ -347,6 +374,15 @@ def derive_label_batch(
     members = {entry.case_id for entry in reference.entries}
     published = set(labeled)
     numbers = dict(frame)
+    if len(numbers) != len(frame):
+        # `dict` would keep the last docket number and report a frame one row
+        # short, so a duplicated case would silently shrink the population every
+        # later count is taken against. `read_texts` refuses the same thing.
+        seen = Counter(case_id for case_id, _ in frame)
+        raise QpTopicError(
+            "duplicate case_id in the frame: "
+            + ", ".join(sorted(case_id for case_id, count in seen.items() if count > 1))
+        )
     in_reference = sorted(case_id for case_id in numbers if case_id in members)
     if len(in_reference) > budget:
         raise QpTopicError(
@@ -370,6 +406,7 @@ def derive_label_batch(
         frame=len(numbers),
         labeled=sum(1 for case_id in numbers if case_id in published),
         reference_rows=len(in_reference),
+        reference_total=len(reference.entries),
         pool=len(pool),
         fill=len(drawn),
         remaining=len(pool) - len(drawn),
@@ -389,7 +426,15 @@ def batch_metadata(batch: QpTopicBatch, *, ceiling: int | None = None) -> dict[s
     counts are Term and fee-class counts, and the selection rule is exactly what
     the labeling prompt forbids reasoning from. Handing the labeler the shape of
     its own draw — how many of its rows are measured, how the fee streams split —
-    is the effort asymmetry the gate cannot detect.
+    is the effort asymmetry the gate cannot detect. The withholding is
+    shape-level, not absolute: ``docs/qp-topic.md`` states the rule and the
+    reference share in prose, and the prompt sends the labeler there. What no
+    channel gives it is which of *its* rows are which.
+
+    ``reference_rows`` travels with ``reference_total`` and the coverage they
+    make, because this file and the run log are where a maintainer decides
+    whether to spend the dispatch, and a count without its denominator is the
+    shape of claim the rest of this repository refuses.
     """
     return {
         "seed": BATCH_ORDER_SEED,
@@ -398,6 +443,9 @@ def batch_metadata(batch: QpTopicBatch, *, ceiling: int | None = None) -> dict[s
         "labeled": batch.labeled,
         "batch": len(batch.case_ids),
         "reference_rows": batch.reference_rows,
+        "reference_total": batch.reference_total,
+        "reference_covered": batch.reference_covered,
+        "coverage_floor": COVERAGE_FLOOR,
         "pool": batch.pool,
         "fill": batch.fill,
         "remaining": batch.remaining,
@@ -414,6 +462,8 @@ def render_batch(batch: QpTopicBatch) -> str:
         f"  frame:     {batch.frame} scoped row(s), {batch.labeled} already labeled",
         f"  batch:     {len(batch.case_ids)} row(s) = {batch.reference_rows} reference "
         f"(re-graded every run, published from the hand labels) + {batch.fill} new",
+        f"  measured:  {batch.reference_rows} of {batch.reference_total} reference case(s) "
+        f"({batch.reference_covered:.1%}) against a {COVERAGE_FLOOR:.0%} coverage floor",
         f"  remaining: {batch.remaining} unlabeled row(s) for later batches",
         f"  order:     seeded hash of case_id (seed {BATCH_ORDER_SEED!r}), "
         "stratified by Term x fee class:",
@@ -729,15 +779,23 @@ def build_labels(
             )
         superseded += 1
 
+    fresh = [row for row in published.values() if row.batch == batch]
     ledger = [*(prior.batches if prior is not None else [])]
     ledger.append(
         QpTopicBatchEntry(
             batch=batch,
             labeler=labeler,
-            published=sum(1 for row in published.values() if row.batch == batch),
+            published=len(fresh),
+            # Split out, because on the first batch every reference row is also
+            # newly published and `published` would otherwise credit the labeler
+            # with the hand set's rows.
+            labeler_rows=sum(1 for row in fresh if row.source == "labeler"),
             measured=len(entries),
             agree=agreement.overall_agree,
             n=agreement.overall_n,
+            floor=agreement.floor,
+            fired=fired,
+            disagreements=disagreements,
             superseded=superseded,
         )
     )

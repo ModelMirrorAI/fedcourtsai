@@ -1564,7 +1564,12 @@ has been scored against it — so the denial/IFP stream that dominates any
 reweighted cut stays unmeasured until the first labeler run is scored. The deterministic shadow rules'
 disagreement count is a regression trip-wire on one labeler's movement between
 runs, not a second measurement — its *level* is uninterpretable off the
-reference set. No topic label enters a claim score, a leaderboard rank, or any
+reference set. **The artifact accrues and the headline rate does not**: the
+labeling frame outruns one dispatch, so the file is the union of many batches
+while its top-level `agreement` is the most recent batch's alone. A rate quoted
+from that file therefore certifies the batch that produced it, not the labels
+beside it; the per-batch `batches` ledger carries each run's own `agree`/`n`,
+and a claim over the whole file has to say which batches it is reading. No topic label enters a claim score, a leaderboard rank, or any
 denominator here; a labeling run describes the corpus and commits a predictor to
 nothing.
 

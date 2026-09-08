@@ -833,14 +833,18 @@ boundary `data/scope/scope.json` withholds from the committed public surface
 (it can enumerate keys for ingested-but-unpublished dockets). The stated,
 bounded exception to that boundary covers exactly two committed artifacts, both
 argued and accepted in `docs/qp-topic.md` and nowhere else: the
-hand-labeled qp-topic reference set, and a labeling run's per-case qp-topic
+hand-labeled qp-topic reference set, and the accrued per-case qp-topic
 labels file over the QP-bearing rows *in the labeling scope* — the live-slice
-modern discretionary-cert frame, bounded above by the extract ceiling
-`qp-corpus` enforces (`docs/qp-topic.md`), so **one** labels file's disclosure
-extent is capped rather than tracking corpus growth. Capped per artifact, not
-across history: successive cuts committed over time union in git to a wider
-enumeration, the same history-differencing residual the reference set already
-carries. Each names
+modern discretionary-cert frame. Its extent is bounded by that **frame**, not by
+the extract ceiling: the labels file accumulates one batch a dispatch and
+converges on the whole frame, so it tracks corpus growth in that scope and the
+committed file at any commit is the union of every batch landed so far. The
+ceiling bounds one extract — the non-committed channel below — and nothing else.
+That is a real widening over a single capped cut, and it is accepted on the
+ground already argued in `docs/qp-topic.md`: what the frame enumerates is
+QP-bearing SCOTUS petitions, whose dockets are named on the Court's own site,
+and no QP text is republished. Nothing further comes from history-differencing
+here, because the file's own accrual makes the union readable at HEAD. Each names
 ingested-but-unpublished dockets by public docket number; the reference set's
 membership is outcome-conditioned (presence predicts a cert grant), the labels
 file's is fetch- **and scope-**conditioned (a questions-presented document is

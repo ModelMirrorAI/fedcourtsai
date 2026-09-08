@@ -288,20 +288,27 @@ Three consequences bind every use of the set:
   the labeler copied from is agreement with nothing.
 
   **Batch membership adds nothing to this oracle.** A labeling batch (below) is
-  derived from committed state alone: every reference member present in the
-  frame, force-included, plus a draw over the rows the committed labels artifact
-  does not yet publish. Both halves are computable by anyone holding the two
-  committed files, so the batch is a function of what is already disclosed and
-  discloses nothing further — it cannot, since it is not new information. The
-  force-include being **complete** is what buys that, and it is the reason the
-  rule is written that way rather than as a sample: a batch carrying *some*
-  reference members would make membership in the batch evidence about membership
-  in the set, and the set encodes cert outcomes. The fill half is drawn from the
-  complement of the reference set by construction, so it is
-  outcome-uncorrelated: the draw sees a case id and a docket number, never a
-  disposition. What the batch does bound is the *extract's* enumeration, which is
-  now one batch of the frame rather than the whole of it — a narrowing of the
-  non-committed channel below, not a widening.
+  derived from committed state and the frame: every reference member present in
+  the frame, force-included, plus a draw over the rows the committed labels
+  artifact does not yet publish. The force-include being **complete** is what
+  keeps that innocent, and it is the reason the rule is written that way rather
+  than as a sample: a batch carrying *some* reference members would make
+  membership in the batch evidence about membership in the set, and the set
+  encodes cert outcomes. The fill half is drawn from the complement of the
+  reference set by construction, so it is outcome-uncorrelated — the draw sees a
+  case id and a docket number, never a disposition.
+
+  Batching does create one structure the whole-frame design did not have, and it
+  is worth naming rather than leaving to be found: because the same reference
+  rows appear in *every* extract while a non-reference row appears in exactly
+  one, **intersecting two consecutive extracts recovers the in-frame reference
+  membership**. Two whole-frame extracts would have differenced to nothing. That
+  is accepted for one reason only — the reference set is itself a committed
+  artifact in a public repository, so the intersection recovers a list already
+  published — and it would stop being acceptable the moment that file were not.
+  What the batch does bound is the *extract's* enumeration, which is one batch of
+  the frame rather than the whole of it: a narrowing of the non-committed channel
+  below, not a widening.
 - **The set enumerates ingested-but-unpublished dockets, deliberately.** The
   great majority of the 353 case ids have no directory under `data/cases` — a
   small published minority does, and that share moves with every predict round
@@ -318,9 +325,10 @@ Three consequences bind every use of the set:
   no QP text is republished; the extent-by-counts the coverage caveat also
   carries is the posture the docket pack already publishes. The exception is
   accepted for **exactly two committed artifacts** — this set, and the
-  labeler's per-case labels file `data/qp-topics/qp-topics.json`, which a
-  labeling run commits in full so a reviewer can read every label the measured
-  block reports over. Neither is precedent for a third: any further committed
+  labeler's per-case labels file `data/qp-topics/qp-topics.json`, which every
+  labeling run commits in full so a reviewer reads the labels themselves rather
+  than a summary of them — every row, including the batches before this one, and
+  each stamped with the batch and the source that published it. Neither is precedent for a third: any further committed
   surface that enumerates the ingested corpus is argued here, before it exists.
 
   **What the second artifact adds, stated plainly.** Its own membership is
@@ -334,10 +342,13 @@ Three consequences bind every use of the set:
   file enumerates the QP-bearing rows of the labeling frame, the difference
   between the two committed files is, by construction, that frame's QP-bearing
   **non-grants** — the labels file supplies the frame this set's "absence
-  predicts non-grant" inference previously had to range over. The extract's
-  frame and row ceiling bound what the pair reconstructs; they do not change
-  the character of the inference. That is accepted on the same ground as
-  the first: cert outcomes are published on the Court's own order lists, so what
+  predicts non-grant" inference previously had to range over. What bounds the
+  pair is the labeling **frame**, and the labels file converges on it: the row
+  ceiling bounds one extract, not the committed file, which accrues a batch a
+  dispatch until the frame is clear. So the reconstruction is complete over that
+  frame rather than capped at a slice of it, and it grows with the frame. That
+  widening does not change the character of the inference, and it is accepted on
+  the same ground as the first: cert outcomes are published on the Court's own order lists, so what
   the pair reconstructs is a public fact in a more convenient shape, and no QP
   text is republished by either. What it is *not* is a licence to relax the cell
   boundary — which is why the predict and evaluate prompts prohibit the whole
@@ -443,7 +454,11 @@ overall agreement with `n=`, per-label agreement with `n=` (floor-gated,
 below), and the 3×3 confusion matrix on the
 `constitutional-rights` / `criminal-law` / `civil-procedure` triangle (172 of
 353 entries), written into the labels artifact alongside the labels
-themselves.
+themselves. All four describe the **most recent batch** — the artifact accrues,
+so its headline agreement block is one run's measurement over a file many runs
+built, and the per-batch figures are in the artifact's own `batches` ledger. A
+rate quoted from that file certifies the batch that produced it, not the labels
+beside it.
 
 **Reliability is measured on the supplement, and only there.** Across both
 supplement draws, two independent blind raters agreed on 151 of 164
@@ -569,16 +584,24 @@ rather than *walked*, because the denial sampling puts the walked serial count
 several-fold above the rows on hand. A pooled cut must also say that coverage is
 uneven across Terms, since its own ratio cannot show it.
 
-The word *labeled* is load-bearing and so is the sentence that follows it in the
-docket pack's scope string. The gap between `<n>` and `<N>` is now two different
+The word *labeled* is load-bearing, and the scope string carries one further
+mandatory clause behind it. The gap between `<n>` and `<N>` is two different
 things at once — rows with no stored QP text, and QP-bearing rows whose labeling
 batch has not come up yet — and a reader who takes the whole gap for a fetch gap
-reads the labeled subset as whatever the extractor happened to reach. So the
-scope string also states **how the labeled subset was drawn**: every reference
-case, plus a Term × fee-class-stratified draw of the not-yet-labeled remainder
-ordered by a seeded hash of case id. That is a stratified sample of the frame,
-not a prefix of it, and the unlabeled remainder is outstanding rather than
-excluded.
+reads the labeled subset as whatever the extractor happened to reach.
+
+So the scope string must also state **how the labeled subset was drawn, and on
+what unequal terms**. The labeled rows are two populations: the hand reference
+set, which rides in every batch and is therefore included with certainty, and a
+Term × fee-class-stratified, seeded-hash draw of the remainder, included only as
+its batch comes up. Both then count once in the table. Until the frame converges
+the reference block is over-represented by the ratio of those two inclusion
+rates, and it is grant-enriched by design and carries no sampling weights — so
+the clause states both counts and that ratio, and says outright that this mix is
+not the frame's while any of the frame is unlabeled. No reweighting in the pack
+corrects it: the denial reweighting corrects the *walker's* sampling, not the
+force-include. The unlabeled remainder is outstanding rather than excluded, and
+the distortion closes on its own as the frame clears.
 
 ## What one labeling run can hold
 
@@ -613,8 +636,11 @@ committed state alone (`derive_label_batch`), in two clauses:
    after batch. Those rows are the measurement, not the output: the publication
    gate needs 90% reference coverage and 80% agreement in *every* run, so a batch
    that carried only part of the set could not be measured at all. They are
-   re-labeled each run and cost roughly 353 of the 1,200 rows — about 30% of each
-   batch, which is the standing per-run price of the measurement.
+   re-labeled each run and cost whatever the frame holds of the set — 296 of the
+   1,200 rows against the blob pulled 2026-09-08 whose newest stored snapshot is
+   2026-07-13, about a quarter of each batch, and the standing per-run price of
+   the measurement. Only *in-frame* members can be force-included, which is what
+   the coverage check below turns on.
 2. **The rest of the budget is filled from the not-yet-labeled rows** — those
    absent from the committed `data/qp-topics/qp-topics.json`, or all
    non-reference rows when no artifact exists yet. The fill is **stratified by
@@ -631,14 +657,17 @@ constant rather than randomized per run, because the batch has to be a pure
 function of committed state: re-deriving it on another runner, or after a
 dispatch that died, must select the same rows, or a second run would re-label
 what the first had already published. Term and fee class come back in
-deliberately, as *proportions* — the frame is thin and growing Term over Term and
-far denser on paid dockets, so an unstratified draw would give the early batches
-whatever mix the current fetch state happened to hold.
+deliberately, as *proportions*. Be exact about what that buys: the hash is
+independent of both, so an unstratified draw of the lowest hashes is already an
+equal-probability sample and unbiased for the pool's mix. Proportional allocation
+buys **variance reduction, not bias removal** — each batch's Term and fee-class
+margins are exact rather than binomially noisy, which is what keeps an early
+batch from being read as a Term or stream statement it is not.
 
 **No dispatch inputs.** There is nothing to choose and nothing to pass: the same
-committed state always cuts the same batch, which is why the batching added no
-input to the run mode. The arithmetic — frame size, labeled so far, batch size,
-reference share, per-stratum pool and draw — goes to the extract job's stderr and
+committed state always cuts the same batch, so the run mode carries no input for
+it. The arithmetic — frame size, labeled so far, batch size, the reference share
+and the coverage it makes, per-stratum pool and draw — goes to the extract job's stderr and
 to a `.batch.json` sidecar beside the extract. It is deliberately **not** written
 into the extract: that file is the labeler's whole evidentiary input, and strata
 counts plus the selection rule are exactly what the labeling prompt forbids
@@ -660,9 +689,44 @@ unchanged. Two rules make that safe:
   arriving anyway stops the run as a derivation bug.
 
 Each row carries the `batch` that first published it, and `batches` is a ledger
-of every contributing run — its labeler, what it published, how many rows it
-read, and its own agreement figures — so a drifting labeler is readable as a
-series rather than as one current number.
+of every contributing run — its labeler, what it published, how many of those
+rows were its own calls rather than the hand set's, how many rows it read, and
+its own agreement, floor and shadow figures — so a drifting labeler is readable
+as a series rather than as one current number. Read that series carefully: every
+batch is scored over the *same* reference entries, so the differences between
+rows are one labeler re-labeling identical items, not independent samples. A few
+points of movement is noise; only a sustained move reads.
+
+**What is measured and what is published are disjoint sets, by construction.**
+That is what a held-out gold set is for, and it is the design here — but it has a
+shape worth stating rather than leaving to inference:
+
+- **No published row is ever measured.** "296 of 1,200 rows measured" is not
+  coverage *of the batch*; it is a rate over rows that share none of the batch's
+  output.
+- **The evidence base is fixed while the output grows.** `n` stays at the
+  in-frame reference count for every batch, so the measured share of the artifact
+  falls from about a quarter at the first batch toward a few percent at
+  convergence. The same passing rate licenses steadily more unmeasured rows.
+- **The oracle fence is load-bearing for the measurement, not only for
+  leakage.** The rows that decide the gate are exactly the rows whose labels are
+  discarded, and the rows that get published count for nothing — which is safe
+  only because the labeler cannot tell them apart. The `data/qp-topics/` move and
+  the prompt's prohibition on inferring membership are what make that hold; if a
+  labeler could identify measured rows, effort asymmetry would raise the reported
+  rate above the labeling that is actually published, and no gate would see it.
+- **The two populations differ.** The measured set is grant-enriched by design
+  (every QP-bearing grant as of the reference frame date); each batch's published
+  draw is denial-dominated. The pooled gate therefore certifies the grant stream,
+  per batch, while each batch publishes hundreds of denial-stream rows — which is
+  why the per-stream split at measurement review binds every batch, not just the
+  first.
+- **Re-dispatching after a gate failure looks at the same rows.** The derivation
+  is deterministic, so a second attempt is scored on the identical 296 entries
+  against the identical threshold. That is the repository's own "tuned on the
+  measurement set" warning, one level up: say what changed between attempts.
+- **Convergence ends measurement.** Once the frame is clear no further batch
+  runs, so the last batch's rate is the figure the whole artifact carries.
 
 **Deliberate relabeling still exists**, and it is the only path that rewrites a
 published row: a vocabulary version bump (`qp-topic-v1`), an extraction repair
@@ -670,19 +734,39 @@ that changes the text a label was assigned from, or a reference relabel — whic
 supersedes the published row from the new hand label and is counted in that
 batch's `superseded`. All three travel in their own reviewed diff.
 
-**Convergence.** Repeat dispatches clear the frame batch by batch. At the
-population the frame held when this was written — 8,183 rows, 353 of them
-reference members, so 847 new rows a batch — the historical backlog clears in
-**about ten dispatches**. That figure moves with the frame and with the
-reference set; it is arithmetic over two numbers, not a property of the design.
-When nothing is left to label outside the reference set, `qp-corpus` says so and
-exits non-zero rather than spending a run to re-grade the reference and publish
-nothing; the next batch arrives when the next pull grows the frame.
+**The coverage floor is checked before the dispatch, not after it.** Every
+reference case in the frame is in the batch and the labeler labels every extract
+row, so the coverage `qp-topics` will measure is exactly the share of the
+reference set the frame holds — knowable at extract time. `qp-corpus` therefore
+refuses a frame below the 90% floor and says which number it is, because a frame
+missing reference texts cannot publish however well the labeler reads, and
+learning that at the gate costs a whole labeling run. This enforces the standing
+gate earlier and more cheaply; it does not move it. **This is the state the frame
+is in**: 296 of the 353 committed reference cases are in it — 83.9%, under the
+floor — against the blob pulled 2026-09-08 whose newest stored snapshot is
+2026-07-13, so the next dispatch stops in the extract job rather than spending a
+labeling turn it could not publish. All 57 absentees are in the labeling scope
+and carry no stored questions-presented document, so restoring those documents is
+what makes the frame measurable; a reference case can in principle also leave by
+scope drift, for which the fix is not the same. Which strata the absentees fall
+in is a question for measurement review — the set's strata are disproportionate
+by design, so an absence skewed toward the supplement's denial/GVR/dismissed
+blocks would leave the measured remainder more grant-skewed than the reference
+set already is.
+
+**Convergence.** Repeat dispatches clear the frame batch by batch. Against the
+blob above — 8,183 rows, 296 reference members in frame, so 904 new rows a
+batch — the historical backlog clears in **nine dispatches**. That figure moves
+with the frame and with the reference set; it is arithmetic over two numbers, not
+a property of the design. When nothing is left to label outside the reference
+set, `qp-corpus` says so and exits non-zero rather than spending a run to
+re-grade the reference and publish nothing; the next batch arrives when the next
+pull grows the frame.
 
 Forward accrual is the smaller number. The Court dockets on the order of five
-thousand cert petitions a Term, and only the QP-bearing ones enter this frame, so
-once the backlog is clear a dispatch every quarter or so keeps up — a few hundred
-rows a month, well inside one batch. Treat that as a bound to re-derive from the
+thousand cert petitions a Term and only the QP-bearing ones enter this frame, so
+once the backlog is clear one batch absorbs a long stretch of new filings and a
+dispatch every few months keeps up. Treat that as a bound to re-derive from the
 first cleared frame rather than a measured rate: the frame's recent growth is
 extraction catching up with petitions already on hand, not the filing rate, and
 the two cannot be separated until the backlog is gone.
@@ -709,7 +793,7 @@ without raising the labeling step's cap buys a cancelled run rather than a
 bigger artifact, and raising that cap means raising the job's too — the step
 sits inside it deliberately — for a single agent turn measured in hours, which
 is not a shape this repository runs. The scoped population **has** outgrown the
-ceiling, and the answer is the batching below: a documented, reproducible subset
+ceiling, and the answer is the batching described above: a documented, reproducible subset
 with its own selection rule and its own line in the scope string, accrued until
 the frame is clear — never a truncated one, because a prefix of `case_id` order
 is a selection on docket number and would make the published mix a function of

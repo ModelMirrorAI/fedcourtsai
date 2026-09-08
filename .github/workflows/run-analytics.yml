@@ -1273,9 +1273,40 @@ jobs:
           # the deterministic writers landed (or this dispatch's ref carried)
           # while the agent ran. -f discards the local tree, which is safe
           # because everything this step needs is already under $RUNNER_TEMP.
+          #
+          # The cut also decides which prior this file supersedes, and the
+          # artifact accrues: `qp-topics` built it by accruing onto the *dispatch
+          # ref's* committed copy, while the push replaces main's. Dispatch this
+          # mode from the ref carrying the newest artifact — on a ref that lags
+          # main, the pushed file silently drops main's later batches, and the
+          # ledger shows no gap. That is why the PR is reviewed and never
+          # auto-merged: the falling `cases` count in the title is the tell.
           cp data/qp-topics/qp-topics.json "$RUNNER_TEMP/qp-topics.json"
           git fetch --no-tags -q origin main
           git checkout -q -f -B "$BRANCH" origin/main
+          # Accrual makes the cut a supersession, so check it is one. The run
+          # built its file by accruing onto the *dispatch ref's* copy; if that
+          # ref lagged main, the ledger main already holds is not a prefix of
+          # this one and the push would silently drop main's later batches. The
+          # counts cannot show it — every batch is ceiling-sized, so a run one
+          # batch behind lands the same `cases` a correct one would — and only
+          # the file diff would, which is why this is mechanical rather than left
+          # to review.
+          if [ -f data/qp-topics/qp-topics.json ]; then
+            landed=$(jq -cS '[.batches[] | {batch, labeler, published}]' \
+              data/qp-topics/qp-topics.json)
+          else
+            landed='[]'
+          fi
+          incoming=$(jq -cS '[.batches[] | {batch, labeler, published}]' \
+            "$RUNNER_TEMP/qp-topics.json")
+          if [ "$(jq -n --argjson a "$landed" --argjson b "$incoming" \
+                  '$b[:($a | length)] == $a')" != "true" ]; then
+            echo "::error::this run accrued onto a stale artifact — main's batch ledger is" \
+              "not a prefix of the run's, so pushing would drop batches main already holds." \
+              "Dispatch qp-topic-label from the ref carrying the newest data/qp-topics/qp-topics.json."
+            exit 1
+          fi
           mkdir -p data/qp-topics
           cp "$RUNNER_TEMP/qp-topics.json" data/qp-topics/qp-topics.json
           git add data/qp-topics/qp-topics.json
@@ -1285,12 +1316,15 @@ jobs:
           fi
           # The artifact accrues one batch a run, so the title counts what *this*
           # run added and the total separately: attributing the whole file to
-          # this labeler would credit it with every earlier batch's rows.
-          cases=$(jq -r '.cases' data/qp-topics/qp-topics.json)
-          batch=$(jq -r '.batches[-1].batch' data/qp-topics/qp-topics.json)
-          published=$(jq -r '.batches[-1].published' data/qp-topics/qp-topics.json)
-          measured=$(jq -r '.batches[-1].measured' data/qp-topics/qp-topics.json)
-          title="data(qp-topics): batch ${batch} — ${published} new qp-topic-v0 label(s) by ${LABELER} (${cases} total)"
+          # this labeler would credit it with every earlier batch's rows. It
+          # counts `labeler_rows`, not `published` — on the first batch the
+          # reference rows are newly published too, and those carry the hand
+          # set's adjudicated labels, which no labeler assigned. `-e` so a shape
+          # change fails the step instead of titling the PR `null`.
+          cases=$(jq -er '.cases' data/qp-topics/qp-topics.json)
+          batch=$(jq -er '.batches[-1].batch' data/qp-topics/qp-topics.json)
+          labeled=$(jq -er '.batches[-1].labeler_rows' data/qp-topics/qp-topics.json)
+          title="data(qp-topics): batch ${batch} — ${labeled} new qp-topic-v0 label(s) by ${LABELER} (${cases} total)"
           # The body carries only CLI-rendered numbers and vocabulary labels —
           # no agent prose and no petition text — and so does the committed
           # artifact: `QpTopicPublishedEntry` is a strict pydantic model whose
@@ -1300,7 +1334,7 @@ jobs:
           # attention, is why this step runs no secret scan where `collect-run`
           # does.
           {
-            printf '%s\n\n' "Batch ${batch} of the \`qp-topic-v0\` labeling frame: \`${LABELER}\` read ${measured} stored questions-presented text(s) from the text alone, ${published} of which are newly published here; the artifact now holds ${cases} label(s). The rest of the batch is the hand reference set, re-graded every run for the measurement and published from its own adjudicated labels."
+            printf '%s\n\n' "Batch ${batch} of the \`qp-topic-v0\` labeling frame, by \`${LABELER}\` from the stored questions-presented text alone: ${labeled} new label(s), bringing the artifact to ${cases}. The artifact accrues one batch a run, so the block below is this batch's measurement and not the file's — the rest of what this batch read is the hand reference set, re-graded every run for that measurement and published from its own adjudicated labels rather than the labeler's. Prior batches' rows are carried forward unchanged."
             printf '%s\n\n' "The command enforces the publication gate, so this PR exists only because the run cleared it. What the numbers mean — agreement with a single v0 reference rater, **not** accuracy; a grant-enriched frame that certifies the grant stream only; per-label rates suppressed under the support floor — is in \`docs/qp-topic.md\`."
             printf '%s\n' '```'
             cat "$MEASURED_FILE"

@@ -307,10 +307,12 @@ deterministically and committed for review: `metrics/` and `data/scope/scope.jso
 plus the `data/qp-topics/` artifacts, which are not roll-ups at all
 (`docs/qp-topic.md`): `qp-topic-reference.json`, the hand-labeled topic
 reference set, authored as a judgment and changed only in its own reviewed diff;
-and — once a labeling run has produced one — `qp-topics.json`, that run's
+and — once a labeling run has produced one — `qp-topics.json`, the
 machine-produced per-case labels, written by the agent-backed `qp-topic-label`
 run mode and landed the same way, as a reviewed PR to `main` that is never
-auto-merged. Full
+auto-merged. That file **accrues**: the labeling frame outruns one dispatch, so
+each run labels a derived batch and the artifact is the union of every batch,
+carrying a per-batch ledger of who labeled what. Full
 design: [`docs/data-pipeline.md`](docs/data-pipeline.md).
 
 ## Develop
