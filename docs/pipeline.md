@@ -1259,12 +1259,12 @@ The full path of a change, operator's view:
 3. Dispatch the required integration scenarios at staging's post-sync head —
    one `scenario=all` dispatch covers the whole suite, or per-scenario runs
    add up to it (the summary prints both forms) — then re-dispatch `promote`.
-   Name the case: a staging dispatch adds `-f court=scotus -f
-   docket=<seeded-slice member>`, because the run-time case resolver reads a
-   candidate window out of the blob's snapshot index and the seeded staging
-   slice, written split-on, carries none — so a dispatch that leaves `docket`
-   empty refuses in the plan job. The staging-corpus runbook in
-   [security.md](security.md) says which cases the slice holds.
+   Leave `docket` empty: the run-time case resolver self-resolves on the seeded
+   staging slice as it does on production, falling back to a content-store probe
+   where the split-on slice's blob carries no snapshot rows, and the plan job
+   echoes its subject to the run summary. Pin a case (`-f court=scotus -f
+   docket=<slice member>`) only to aim a dispatch at one; the staging-corpus
+   runbook in [security.md](security.md) says which cases the slice holds.
    On a cell-inert batch, `promote -f skip_engine_smoke=true` first: it prints
    the `all-offline` form and tells you whether anything *else* is missing
    before you pay for the engine legs, which step 4 still needs.

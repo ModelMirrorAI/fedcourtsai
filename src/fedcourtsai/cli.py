@@ -9384,14 +9384,19 @@ def corpus_integration_case(
         court=scotus
         docket=71234567
 
-    The human line — the case, its live-poll stamp, its snapshot date, its open
-    events — goes to stderr. Exits 2 when nothing in the window qualifies,
-    naming what each candidate was rejected for, and 1 when the local backend
-    finds no pulled corpus. Runs on the local and ranged backends: the corpus
-    query service exposes no unresolved-first census surface, so resolve on
-    ranged and pass the case to the service leg. Under the corpus-split mode
-    the blob carries no snapshot rows, so the window cannot answer at all and
-    the command says so rather than reporting an absent case.
+    Under the **corpus-split** mode the blob carries no snapshot rows, so that
+    window is empty by construction and a second one answers instead: the same
+    still-predictable rows out of the index, bounded, with content-store
+    snapshot **presence** probed per candidate (a key listing, no payload
+    fetch). Same screens either way — an estate seeded split-on self-resolves
+    like any other, and the human line names which window answered.
+
+    The human line — the case, the window it came from, its live-poll stamp,
+    its snapshot date, its open events — goes to stderr. Exits 2 when nothing
+    qualifies, naming every window tried and what each candidate was rejected
+    for, and 1 when the local backend finds no pulled corpus. Runs on the local
+    and ranged backends: the corpus query service exposes no unresolved-first
+    census surface, so resolve on ranged and pass the case to the service leg.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -9424,8 +9429,9 @@ def corpus_integration_case(
         raise typer.Exit(code=2) from exc
     polled = resolved.last_live_polled.isoformat() if resolved.last_live_polled else "never"
     typer.echo(
-        f"resolved {resolved.case_id} (candidate {resolved.scanned}): live-polled "
-        f"{polled}, snapshot {resolved.snapshot_date.isoformat()}, open "
+        f"resolved {resolved.case_id} (candidate {resolved.scanned} of "
+        f"{resolved.window}): live-polled {polled}, snapshot "
+        f"{resolved.snapshot_date.isoformat()}, open "
         f"event(s) {', '.join(resolved.open_event_ids)}",
         err=True,
     )

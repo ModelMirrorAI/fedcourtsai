@@ -3513,6 +3513,24 @@ _UNRESOLVED_SQL = (
 )
 
 
+# The still-predictable screen both candidate windows below apply to `cases`, so
+# the two cannot drift: undisposed, no resolution date, unlatched, and carrying
+# at least one unresolved event. One `?` placeholder, the court.
+_STILL_PREDICTABLE_SQL = (
+    "cases.court = ? "
+    f"AND {_UNRESOLVED_SQL} "
+    "AND cases.disposition IS NULL "
+    "AND cases.predict_excluded = 0 "
+    "AND EXISTS (SELECT 1 FROM events "
+    "            WHERE events.case_id = cases.case_id AND events.resolved = 0)"
+)
+
+# Both windows hand candidates over most recently live-polled first, never-polled
+# rows at the tail, `case_id` breaking ties — so the same corpus always yields the
+# same window, whichever one answered.
+_CANDIDATE_ORDER_SQL = "ORDER BY cases.last_live_polled DESC, cases.case_id ASC LIMIT ?"
+
+
 def snapshot_bearing_open_cases(conn: ReadConnection, *, court: str, limit: int) -> list[CorpusRow]:
     """Up to ``limit`` still-predictable cases the blob stores a snapshot for.
 
@@ -3546,7 +3564,8 @@ def snapshot_bearing_open_cases(conn: ReadConnection, *, court: str, limit: int)
     Empty under the **corpus-split** mode, where the blob carries no snapshot
     rows at all (the content store holds them); callers must handle that, since
     an empty window there means "cannot tell from the index", not "no such case"
-    — :func:`payload_reads_offloaded` is the seam that distinguishes them. The
+    — :func:`payload_reads_offloaded` is the seam that distinguishes them, and
+    :func:`still_predictable_open_cases` is the window that answers there. The
     remaining screen stays with the caller, which holds the connection: the full
     scope reason (:func:`out_of_scope_reason_full`, whose snapshot-aware rules
     the ``predict_excluded`` latch cannot carry on its own).
@@ -3556,14 +3575,37 @@ def snapshot_bearing_open_cases(conn: ReadConnection, *, court: str, limit: int)
     sql = (
         "SELECT cases.* FROM (SELECT DISTINCT case_id FROM snapshots) AS snap "
         "CROSS JOIN cases ON cases.case_id = snap.case_id "
-        "WHERE cases.court = ? "
-        f"AND {_UNRESOLVED_SQL} "
-        "AND cases.disposition IS NULL "
-        "AND cases.predict_excluded = 0 "
-        "AND EXISTS (SELECT 1 FROM events "
-        "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
-        "ORDER BY cases.last_live_polled DESC, cases.case_id ASC LIMIT ?"
+        f"WHERE {_STILL_PREDICTABLE_SQL} {_CANDIDATE_ORDER_SQL}"
     )
+    return [_from_record(record) for record in conn.execute(sql, (court, limit))]
+
+
+def still_predictable_open_cases(
+    conn: ReadConnection, *, court: str, limit: int
+) -> list[CorpusRow]:
+    """Up to ``limit`` still-predictable cases, whether or not the blob snapshots them.
+
+    :func:`snapshot_bearing_open_cases` without the snapshot join: the same
+    predicates on ``cases`` and the same ordering, so the two windows agree on
+    every case both can see and a caller that falls back from one to the other
+    changes only *where the snapshot fact comes from*.
+
+    The window for an estate whose snapshots are not in the blob to be found in —
+    a slice seeded under the **corpus-split** mode, where the payloads live only
+    in the content store. There the snapshot-driven window is empty by
+    construction, so the snapshot screen cannot be a join and moves to the
+    caller, which probes the store per candidate.
+
+    Unlike its sibling this is **not** self-bounding: nothing here restricts the
+    row count the way the tiny ``snapshots`` table does, so ``limit`` is the only
+    bound and a caller must pick one it is willing to pay a per-candidate probe
+    for. It is still an index read — ``idx_cases_priors_recency`` serves the
+    order — but over the court's whole undisposed slice, so a large estate wants
+    a small ``limit`` and a loud refusal at it rather than a scan.
+    """
+    if limit <= 0:
+        return []
+    sql = f"SELECT cases.* FROM cases WHERE {_STILL_PREDICTABLE_SQL} {_CANDIDATE_ORDER_SQL}"
     return [_from_record(record) for record in conn.execute(sql, (court, limit))]
 
 

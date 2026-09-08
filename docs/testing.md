@@ -129,15 +129,20 @@ echoed to the run summary, so a run always names its subject, and a corpus with
 no usable case fails the plan job — before the engine-smoke legs spend
 anything.
 
-A non-empty `docket` pins a case instead and skips the resolver. That is the
-escape hatch for a corpus the resolver cannot read a candidate window out of,
-and for aiming a dispatch at one case. The window is driven from the **blob's**
-snapshot index, which is what bounds it, so a pair whose blob carries no
-snapshot rows cannot answer: a slice seeded split-on is exactly that, the
-staging pair included, and a staging-ref dispatch therefore names a member of
-the seeded slice (the staging-corpus runbook in
-[security.md](security.md) says which). The refusal is immediate and says so —
-the plan job, before any leg runs.
+The primary candidate window is driven from the **blob's** snapshot index,
+which is what bounds it, so a pair whose blob carries no snapshot rows leaves it
+empty — a slice seeded split-on is exactly that, the staging pair included.
+There a **second window** answers instead: the same still-predictable rows out
+of the index, in the same order, with content-store snapshot presence probed per
+candidate (a key listing, no payload fetch). Same screens either way, so a
+staging-ref dispatch self-resolves exactly as a `main` one does, and the run
+summary names which window answered. That window is not self-bounding, so it
+stops at a stated candidate count and refuses loudly, naming both windows.
+
+A non-empty `docket` pins a case instead and skips the resolver. It stays an
+override, never a requirement: for aiming a dispatch at one particular case, or
+for a corpus neither window can answer out of. Any refusal is immediate — the
+plan job, before any leg runs.
 
 `ranged-reads` is the tested `fedcourts corpus-integration-check`
 read set — a point lookup, a priors retrieval, a snapshot provisioning —

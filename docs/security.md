@@ -1155,23 +1155,26 @@ the repoint. Read step 5's two ordering notes before doing either.
    *After step 5.* Then:
 
    ```bash
-   # substitute a docket from the seeded slice
-   gh workflow run integration-test.yml --ref staging -f scenario=stub-cascade \
-     -f court=scotus -f docket=74112233
+   gh workflow run integration-test.yml --ref staging -f scenario=stub-cascade
    ```
 
-   **Name a slice member explicitly.** A dispatch that leaves `docket` empty
-   resolves its case at run time, and the resolver's candidate window is
-   driven from the blob's snapshot index — which a slice seeded split-on does
-   not have, since its snapshots live in the content store. So the resolver
-   refuses on this pair (loudly, in the plan job, before any leg runs) and a
-   staging dispatch names its own case. The case must meet the same contract
-   the resolver would have enforced: an open event, a snapshot in the content
-   store, and — for the provisioning guard — a genuinely undisposed posture.
-   The apply run's per-case census
-   lists the slice's cases with their row/event/snapshot/document counts, so
-   it narrows the field to cases carrying events and snapshots; whether one
-   is *open* and *undisposed* is a `fedcourts query` against the pair.
+   **`docket` stays empty.** The dispatch resolves its own case at run time, on
+   this pair as on production. The resolver's primary candidate window is driven
+   from the blob's snapshot index, which a slice seeded split-on does not have —
+   its snapshots live in the content store — so a second, explicitly bounded
+   window answers there instead: the still-predictable cases the index does
+   carry, with content-store snapshot presence probed per candidate. The screens
+   are the same ones the primary window applies, so the case it hands over
+   already meets the contract (an open event, a snapshot in the store, and a
+   genuinely undisposed posture for the provisioning guard), and the plan job
+   echoes it to the run summary.
+
+   Pinning stays available as an override — `-f court=scotus -f
+   docket=<slice member>` — for aiming a dispatch at one particular case. A
+   pinned case must meet that contract by hand; the apply run's per-case census
+   lists the slice's cases with their row/event/snapshot/document counts, so it
+   narrows the field to cases carrying events and snapshots, and whether one is
+   *open* and *undisposed* is a `fedcourts query` against the pair.
 
    Green there is the full acceptance — provision → predict → validate over a
    real, split-on corpus that no production credential was involved in writing.
