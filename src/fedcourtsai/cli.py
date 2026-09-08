@@ -11471,8 +11471,10 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "rates do not use "
         + "it: two runs independently graded one six-event INTERIM population "
         + "($6.44 and $6.69 an event, one figure per run), before the current "
-        + "instant and under since-superseded evaluator "
-        + "digests. It lands below the scaled projection, but no pre-freeze "
+        + "instant and under since-superseded evaluator digests — and a partial "
+        + "grading of one further interim event sits beside them, an incomplete "
+        + "grid under digests superseded earlier still. It lands below the "
+        + "scaled projection, but no pre-freeze "
         + "anchor covers the interim stage, so it bounds nothing — the rates "
         + "hold the pre-freeze anchor until an evaluate fan-out under the "
         + "currently blessed grading digests reaches the cert stage.",
@@ -11594,8 +11596,9 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
         "spend_estimate_basis": {
             "source": (
                 "docs/budget.md — 'Per-cell cost is keyed on the stage' (the predict "
-                "whole-run row) and the evaluate-cohort table beside it (proc-v2 row, "
-                "scaled by the predict move)"
+                "whole-run row) and the evaluate-cohort table in the 'Evaluate cost: "
+                "narrower, weaker, and mid-re-anchor' subsection that follows it "
+                "(proc-v2 row, scaled by the predict move)"
             ),
             "seam": seam,
             "rates_usd_per_cell": dict(rates),
