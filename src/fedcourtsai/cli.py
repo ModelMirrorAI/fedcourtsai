@@ -225,6 +225,12 @@ from .pipeline.outcome import (
     snapshot_shows_disposition,
     snapshot_shows_judgment,
 )
+from .pipeline.party import (
+    PARTY_AS_OF_FIELDS,
+    PARTY_RULE_VERSION,
+    PARTY_RULES,
+    party_census,
+)
 from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
     PredictBacklog,
@@ -931,6 +937,37 @@ def reconcile_salience_selection_cmd(
     typer.echo(result.model_dump_json())
 
 
+def _census_corpus_sha(settings: Settings, db_path: Path) -> str:
+    """The provenance digest a census stamps on its result.
+
+    The one reading every census shares, so two censuses of the same corpus
+    can never disagree about which blob they read: under `local` the hash of
+    the file the census actually ran over (which can drift from the committed
+    pointer); under `ranged` the immutable blob IS the pointer's object, so the
+    digest of the pointer the read paths resolve — the out-of-band override
+    when set, else the committed file — names it exactly. Only a MISSING
+    committed pointer is excused (an empty digest); a malformed one raises
+    rather than blanking the field, which for the caption and distribution
+    censuses is a freeze-record input, and an override discloses itself on
+    stderr so a digest that came from one never reads like a committed-pointer
+    digest.
+    """
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+        return corpus_sha
+    if settings.corpus_pointer is None:
+        pointer_file = corpus_remote.pointer_path_for(db_path)
+        return (
+            corpus_ranged.read_index_pointer(pointer_file).sha256 if pointer_file.is_file() else ""
+        )
+    typer.echo(
+        "corpus provenance: out-of-band pointer override in effect — the "
+        "recorded corpus_sha256 names the override's blob",
+        err=True,
+    )
+    return corpus.resolve_read_pointer(db_path).sha256
+
+
 @app.command("caption-census")
 def caption_census_cmd(
     rule_version: str = typer.Option(
@@ -965,33 +1002,7 @@ def caption_census_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    # The provenance the freeze record needs: under `local` the hash of the
-    # file the census actually ran over (which can drift from the committed
-    # pointer); under `ranged` the immutable blob IS the pointer's object, so
-    # the digest of the pointer the read paths resolve — the out-of-band
-    # override when set, else the committed file — names it exactly.
-    if settings.corpus_backend == "local":
-        corpus_sha, _ = corpus_remote.digest_file(db_path)
-    else:
-        if settings.corpus_pointer is None:
-            # Only a MISSING committed pointer is excused (an empty digest); a
-            # malformed one must raise rather than blank a freeze-record input.
-            pointer_file = corpus_remote.pointer_path_for(db_path)
-            corpus_sha = (
-                corpus_ranged.read_index_pointer(pointer_file).sha256
-                if pointer_file.is_file()
-                else ""
-            )
-        else:
-            corpus_sha = corpus.resolve_read_pointer(db_path).sha256
-        # The census is a freeze-record input: a provenance digest that came
-        # from the override must never read like a committed-pointer one.
-        if settings.corpus_pointer is not None:
-            typer.echo(
-                "corpus provenance: out-of-band pointer override in effect — the "
-                "recorded corpus_sha256 names the override's blob",
-                err=True,
-            )
+    corpus_sha = _census_corpus_sha(settings, db_path)
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
         census = caption_census(conn, corpus_sha256=corpus_sha, rule_version=rule_version)
     typer.echo(f"caption census ({census.rule_version}), pooled:", err=True)
@@ -999,6 +1010,133 @@ def caption_census_cmd(
         rate = f"{cell.rate:.4f}" if cell.rate is not None else "-"
         typer.echo(
             f"{cell.petitioner_class}: n={cell.n} grant-family={cell.grant_family} rate={rate}",
+            err=True,
+        )
+    typer.echo(census.model_dump_json())
+
+
+@app.command("party-census")
+def party_census_cmd(
+    as_of: str = typer.Option(
+        ...,
+        "--as-of",
+        help=(
+            "Required — which date attributes the administration: 'filed' (who "
+            "held office when the petition arrived) or 'resolved' (who held "
+            "office when the Court acted on it). No default: the convention "
+            "belongs to the cut, not to the command."
+        ),
+    ),
+    rule_version: str = typer.Option(
+        PARTY_RULE_VERSION,
+        "--rule-version",
+        help="Which registered party-annotation rule cuts the frame (party-v1).",
+    ),
+) -> None:
+    """The party census: federal/state parties by side, and by administration.
+
+    A deterministic, read-only cut of the live slice's **unweighted** rows
+    (every SCOTUS row the live channel has polled — IFP and interim-docket rows
+    included, since a caption is a caption — bar the legacy one-in-ten sampled
+    denial block, which is counted whole and annotated nowhere, so a stratum
+    stored at a tenth of its size never reads as a tenth of its cells) under
+    one registered annotation rule
+    (`pipeline.party`), which reads both caption halves through the caption
+    classifier and attributes an administration from dates rather than from the
+    officer a caption names. Counts only: grant rates by government-party status
+    are an analytics cut with its own scope strings and reweighting, not a
+    number this command may publish.
+
+    `--as-of` is required and stamped on the output, because a petition filed
+    under one administration is routinely resolved under the next, so the two
+    conventions give different — both correct — counts and only cuts sharing a
+    stamp are comparable; under `resolved` a pending petition has no date at
+    all, so the newest window is right-censored and `pending` is the size of
+    that censoring. Every administration cell is keyed on a docket stratum
+    (paid cert / IFP cert / application / other) and printed against the
+    matching `frame_by_administration` denominator, because the windows hold
+    different mixes of those strata and a count compared across windows without
+    holding the stratum fixed compares the mix. The other coverage counters
+    travel with the cells too: captions with no ` v. ` half (In re / Ex parte)
+    annotate from one party, and rows carrying no date under the chosen
+    convention attribute no administration rather than an imputed one. Prints a
+    `PartyCensus`. Fails loud if the corpus is absent, or if the rule version or
+    the as-of convention is one this process does not know.
+    """
+    if rule_version not in PARTY_RULES:
+        typer.echo(
+            f"unregistered party rule {rule_version!r}; "
+            f"registered: {', '.join(sorted(PARTY_RULES))}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if as_of not in PARTY_AS_OF_FIELDS:
+        typer.echo(
+            f"unknown --as-of {as_of!r}; choose {' or '.join(PARTY_AS_OF_FIELDS)}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the party census.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    corpus_sha = _census_corpus_sha(settings, db_path)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        census = party_census(
+            conn, as_of_field=as_of, corpus_sha256=corpus_sha, rule_version=rule_version
+        )
+    # The corpus vintage rides on the human banner as well as in the JSON: a
+    # count read off a stale blob is a different number, and a reader of the
+    # terminal output must not have to go find that out.
+    pulled = census.latest_pull.isoformat() if census.latest_pull else "never pulled"
+    snapshot = census.latest_snapshot.isoformat() if census.latest_snapshot else "none"
+    # `pending` censors the `resolved` cut and nothing else — under `filed` those
+    # rows sit in their filing window with their outcomes merely unobserved — so
+    # the banner says which of the two it is rather than leaving a quoted count
+    # to carry the wrong implication.
+    pending = f"{census.pending} pending"
+    if census.as_of_field == "resolved":
+        pending += " (right-censoring this cut)"
+    typer.echo(
+        f"party census ({census.rule_version} over {census.caption_rule_version}, "
+        f"as-of {census.as_of_field}): "
+        f"{census.rows} unweighted live-slice row(s), {census.sampled_excluded} "
+        f"sampled row(s) excluded, {census.single_party} single-party caption(s), "
+        f"{census.undated} undated, {pending}; "
+        f"corpus latest pull {pulled}, latest snapshot {snapshot}",
+        err=True,
+    )
+    # The denominator prints BEFORE the federal cells it scales, and is cut the
+    # same way they are: the windows differ in size (the newest truncated by
+    # today, the oldest by the slice's own start) AND in stratum mix, and only
+    # the second is what a raw cross-window count most often mistakes for
+    # litigation.
+    for frame_cell in census.frame_by_administration:
+        typer.echo(
+            f"frame {frame_cell.administration or 'unattributed'} {frame_cell.stratum}: "
+            f"rows={frame_cell.rows} sampled-excluded={frame_cell.sampled_excluded}",
+            err=True,
+        )
+    for cell in census.federal_party:
+        typer.echo(f"federal_party {cell.side}: n={cell.n}", err=True)
+    for admin_cell in census.federal_by_administration:
+        label = admin_cell.administration or "unattributed"
+        typer.echo(
+            f"federal_party {admin_cell.federal_party} x {label} {admin_cell.stratum}: "
+            f"n={admin_cell.n}",
+            err=True,
+        )
+    for cell in census.state_party:
+        typer.echo(f"state_party {cell.side}: n={cell.n}", err=True)
+    for president_cell in census.named_president:
+        typer.echo(
+            f"named_president {president_cell.president} ({president_cell.side}): "
+            f"n={president_cell.n}",
             err=True,
         )
     typer.echo(census.model_dump_json())
@@ -1090,31 +1228,7 @@ def distribution_census_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    # The provenance the freeze record needs, read exactly as the caption census
-    # reads it: under `local` the hash of the file the census actually ran over,
-    # under `ranged` the parsed digest of the pointer the read paths resolve.
-    if settings.corpus_backend == "local":
-        corpus_sha, _ = corpus_remote.digest_file(db_path)
-    else:
-        if settings.corpus_pointer is None:
-            # Only a MISSING committed pointer is excused (an empty digest); a
-            # malformed one must raise rather than blank a freeze-record input.
-            pointer_file = corpus_remote.pointer_path_for(db_path)
-            corpus_sha = (
-                corpus_ranged.read_index_pointer(pointer_file).sha256
-                if pointer_file.is_file()
-                else ""
-            )
-        else:
-            corpus_sha = corpus.resolve_read_pointer(db_path).sha256
-        # The census is a freeze-record input: a provenance digest that came
-        # from the override must never read like a committed-pointer one.
-        if settings.corpus_pointer is not None:
-            typer.echo(
-                "corpus provenance: out-of-band pointer override in effect — the "
-                "recorded corpus_sha256 names the override's blob",
-                err=True,
-            )
+    corpus_sha = _census_corpus_sha(settings, db_path)
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
         census = distribution_census(
             conn,
