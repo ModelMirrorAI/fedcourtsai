@@ -184,8 +184,12 @@ drifted below the agreement gate must both fail without publishing, and a
 faithful one must publish an artifact covering the whole reference set.
 Token-free and credential-free; the extract and the model call stay uncovered
 *by this scenario* by design — the extract is a corpus read, so it is pinned in
-the unit suite instead (scope, the `--all` measurement form, the row ceiling,
-and the content-store path under the split, all over corpora built in
+the unit suite instead (scope, the `--all` measurement form and its flat row
+ceiling, the content-store path under the split, and the batch derivation the
+scoped form cuts — determinism under a shuffled frame, the reference
+force-include, the stratified fill's proportions, exclusion of already-published
+rows, a frame clearing over repeated dispatches without relabeling a row, and
+the converged and under-coverage refusals — all over corpora and frames built in
 `tmp_path`), and the model call is exactly what `run-analytics` pays for.
 `engine-smoke` is the first of the three token-spending scenarios: a single
 real-engine

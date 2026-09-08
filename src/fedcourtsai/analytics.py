@@ -790,7 +790,33 @@ def _qp_topic_spec(labels: QpTopicLabels) -> _SectionSpec:
     )
 
 
-def _qp_topic_scope_note(rows: _SectionRows) -> str:
+def _qp_topic_reference_spec(labels: QpTopicLabels) -> _SectionSpec:
+    """The topic cut narrowed to the rows published from the hand reference set.
+
+    Never rendered: its only output is ``kept`` — how many reference-sourced rows
+    the topic section itself matched — which the scope note's over-representation
+    ratio divides by. Counted in the same streamed pass as the cut it describes,
+    because the two counts have to be over the same rows: an artifact-level
+    reference tally would be a count of a different population than the one the
+    published table sums, and the ratio between them is the number the caveat
+    exists to state.
+    """
+    members = {entry.case_id for entry in labels.entries if entry.source == "reference"}
+    return _SectionSpec(
+        _QP_TOPIC_TITLE,
+        "scotus",
+        True,
+        True,
+        True,
+        GroupBy.qp_topic,
+        # One bucket, because only `kept` is read: bucketing on the case id would
+        # build a per-row slice for a section that is discarded.
+        key_fn=lambda row: "reference",
+        row_filter=lambda row: row.case_id in members,
+    )
+
+
+def _qp_topic_scope_note(rows: _SectionRows, reference_rows: int) -> str:
     """The coverage caveat ``docs/qp-topic.md`` requires beside every published share.
 
     Carried as a field on the section rather than as prose the renderer emits, so
@@ -798,23 +824,53 @@ def _qp_topic_scope_note(rows: _SectionRows) -> str:
     numbers rather than as a standing sentence.
 
     The mandated string leads and stays contiguous, so it is quotable whole. Its
-    two counts are **ingested rows** — rows on hand — not walked serials: this
-    document reserves *walked* for the discovery cursors' census, which runs
-    several-fold above the ingested count because the historical walk samples
-    denials. The clauses after it carry what the flags and that string leave
-    unsaid: which counts are raw and which reweighted, that reweighting does not
-    recover the docket, and that a grant-enriched population makes this section's
-    base-rate column incomparable to the cuts above it.
+    two counts are the **labeled coverage** of the cut's own frame, in ingested
+    rows — rows on hand — not walked serials: this document reserves *walked* for
+    the discovery cursors' census, which runs several-fold above the ingested
+    count because the historical walk samples denials.
+
+    The clauses after it carry what the flags and that string leave unsaid: which
+    counts are raw and which reweighted, that reweighting does not recover the
+    docket, that a grant-enriched population makes this section's base-rate
+    column incomparable to the cuts above it, and **how the labeled subset was
+    chosen** — which the batching makes a claim of its own rather than a
+    footnote. The labeled subset is two populations, drawn on different terms:
+    the hand reference set, in every batch and so included with certainty, and a
+    stratified draw of the remainder, included only as its batch comes up. Both
+    then enter the table at one row apiece, so until the frame converges the
+    reference block is over-represented by the ratio of those two rates — and it
+    is grant-enriched by design and carries no sampling weights
+    (``docs/qp-topic.md``). Naming the ratio is the whole point: this cut's mix is
+    not the frame's while any of the frame is unlabeled, and no reweighting here
+    corrects it.
     """
+    drawn = max(rows.kept - reference_rows, 0)
+    unlabeled = max(rows.scoped - rows.kept, 0)
+    # The remainder's inclusion rate, against the frame outside the reference
+    # block — the denominator a drawn row was actually drawn from.
+    pool = drawn + unlabeled
+    # With no drawn rows the ratio is unbounded rather than large: the cut would
+    # be the reference block alone, which is the strongest form of the caveat and
+    # must not round to a finite-looking number.
+    over = (
+        f"{pool / drawn:.1f}x" if drawn else "an unbounded factor — every labeled row here is one"
+    )
     return (
-        f"QP-bearing rows only — {rows.kept} of {rows.scoped} ingested rows; grant-enriched; "
-        "primaries only; not docket-representative. Those two counts are raw rows; the bucket "
-        "counts are denial-reweighted, and no reweighting recovers the docket — QP presence is "
-        "itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. "
-        "Coverage is uneven across Terms and zero on the earliest of them, so the mix is not "
-        "the whole slice's; the base-rate column is over a grant-enriched population and is not "
-        "comparable to the sections above. A naive share partly counts coordinated filing "
-        "campaigns rather than subjects; no de-duplicated companion is published."
+        f"QP-bearing rows only — {rows.kept} of {rows.scoped} ingested rows labeled; "
+        "grant-enriched; primaries only; not docket-representative. Those two counts are raw "
+        "rows; the bucket counts are denial-reweighted, and no reweighting recovers the "
+        "docket — QP presence is itself outcome- and stream-correlated, so this stays a share "
+        "of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, "
+        "so the mix is not the whole slice's; the base-rate column is over a grant-enriched "
+        "population and is not comparable to the sections above. Labeling accrues in batches, "
+        f"so the labeled rows are two populations on different terms: {reference_rows} hand "
+        f"reference-set members, carried in every batch and so included with certainty, and "
+        f"{drawn} drawn from the remaining {pool} by a Term x fee-class-stratified, "
+        "seeded-hash order. Both count once here, so the reference block — grant-enriched by "
+        f"design and carrying no sampling weights — is over-represented by about {over}, and "
+        "this mix is not the frame's until every row is labeled. A naive share partly counts "
+        "coordinated filing campaigns rather than subjects; no de-duplicated companion is "
+        "published."
     )
 
 
@@ -1681,22 +1737,31 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
     )
     if labels is not None and not labels.agreement.gate_passed:
         labels = None
-    # The QP cut is appended last, so the scan's per-spec parallel arrays keep the
-    # docket sections at their own indices and the cut at the end.
-    specs = _DOCKET_SECTIONS if labels is None else (*_DOCKET_SECTIONS, _qp_topic_spec(labels))
+    # The QP cut and its reference-only counterpart are appended last, so the
+    # scan's per-spec parallel arrays keep the docket sections at their own
+    # indices and the two QP specs at the end. The second is a counter, not a
+    # section: it is dropped before the pack is assembled.
+    specs = (
+        _DOCKET_SECTIONS
+        if labels is None
+        else (*_DOCKET_SECTIONS, _qp_topic_spec(labels), _qp_topic_reference_spec(labels))
+    )
     scan = _scan_corpus(corpus_db_path, specs)
     qp_topics: DocketPackQpTopics | None = None
     if labels is None:
         sections = _sections(specs, scan)
     else:
-        *sections, qp_section = _sections(specs, scan)
-        rows = scan.section_rows[-1]
+        *sections, qp_section, _reference_only = _sections(specs, scan)
+        rows = scan.section_rows[-2]
         # A cut that matched no row publishes nothing: labels produced against a
         # different corpus vintage would otherwise render an empty table *and*
         # drop the gap bullet, which is the one state a reader most needs it in.
         if rows.kept:
+            reference_rows = scan.section_rows[-1].kept
             qp_topics = DocketPackQpTopics(
                 labeler=labels.labeler,
+                batches=len(labels.batches),
+                reference_rows=reference_rows,
                 agree=labels.agreement.overall_agree,
                 n=labels.agreement.overall_n,
                 floor=labels.agreement.floor,
@@ -1712,7 +1777,9 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
                 # The scope note is set here rather than on the spec because its
                 # numbers are the scan's: how many rows carry a label is not known
                 # until the rows have been walked.
-                section=qp_section.model_copy(update={"scope_note": _qp_topic_scope_note(rows)}),
+                section=qp_section.model_copy(
+                    update={"scope_note": _qp_topic_scope_note(rows, reference_rows)}
+                ),
             )
     census = _census(scan.cursor_rows)
     term_years = sorted({*scan.terms, *(term for term, _ in census)}, reverse=True)
@@ -2266,29 +2333,40 @@ _DOCKET_GAPS = (
 def _qp_topic_provenance(topics: DocketPackQpTopics) -> list[str]:
     """The lines that make the topic table's numbers readable, under the table.
 
-    Three claims a share cannot be quoted without. The agreement figure never
+    Four claims a share cannot be quoted without. The agreement figure never
     appears without its ``n``, without the rate a **constant** labeler scores on
     the same entries — on a sixteen-label vocabulary most of any rate is that
     floor, and only the distance from it is skill — or without the word
     *agreement*, since with a single hand rater accuracy is not what was measured.
-    The join count separates thin coverage from a labels file produced against a
-    different corpus vintage, which look identical in the coverage figure. And the
-    labels the reference set cannot measure are named, because the headline rate
-    certifies none of those rows.
+    It also never appears as if it covered the table: the labels artifact accrues
+    over dispatches, so the rate and the labeler named are the **latest batch's**
+    while the rows above them came from every batch, and saying so is what stops a
+    reader crediting one labeler with the whole distribution. The join count
+    separates thin coverage from a labels file produced against a different corpus
+    vintage. And the labels the reference set cannot measure are named, because
+    the headline rate certifies none of those rows.
     """
     floor = "unmeasured" if topics.floor is None else _pct(topics.floor)
     rate = _pct(topics.agree / topics.n) if topics.n else "—"
+    spans = (
+        "one labeling batch"
+        if topics.batches == 1
+        else f"{topics.batches} labeling batches, whose labelers may differ"
+    )
     lines = [
         "",
-        f"_Labeled by {topics.labeler}, whose primaries matched the `qp-topic-v0` reference "
-        + f"rater on {topics.agree} of {topics.n} reference case(s) ({rate}), against the "
-        + f"{floor} a constant labeler scores on the same entries — **agreement, not "
-        + "accuracy**: with a single hand rater, rater error and labeler error cannot be "
-        + "separated, and the reference frame is grant-enriched, so the figure certifies the "
-        + f"grant stream only. {topics.uncovered} reference entr(ies) went uncovered. "
-        + f"{topics.matched_cases} of {topics.labeled_cases} labeled case(s) joined a row in "
-        + "this section's population; far apart, read that as labels produced against another "
-        + "corpus vintage rather than as thin coverage._",
+        f"_Accrued over {spans}. The most recent was labeled by {topics.labeler}, whose "
+        + f"primaries matched the `qp-topic-v0` reference rater on {topics.agree} of "
+        + f"{topics.n} reference case(s) ({rate}), against the {floor} a constant labeler "
+        + "scores on the same entries — **agreement, not accuracy**: with a single hand "
+        + "rater, rater error and labeler error cannot be separated, and the reference frame "
+        + "is grant-enriched, so the figure certifies the grant stream only. That rate "
+        + "certifies the batch that produced it, not every row in the table above; the "
+        + f"per-batch figures are in the labels artifact. {topics.uncovered} reference "
+        + f"entr(ies) went uncovered. {topics.matched_cases} of {topics.labeled_cases} "
+        + "labeled case(s) joined a row in this section's population; a gap is expected "
+        + "across batches, which span corpus vintages, and a large one reads as labels "
+        + "produced against another vintage rather than as thin coverage._",
     ]
     if topics.unmeasured_labels:
         lines += [

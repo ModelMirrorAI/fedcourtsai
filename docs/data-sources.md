@@ -155,8 +155,8 @@ what governs is the content, not where it happens to sit.
 What does go to **public git** under `data/` is only our **own work product**: the
 model-generated predictions, outcomes, and evaluations, keyed by case id, plus the
 reasoning text that explains them — and the two qp-topic artifacts
-(`docs/qp-topic.md`), the hand-labeled reference set and a labeling run's
-per-case labels: subject-matter judgments keyed by case id and public-record
+(`docs/qp-topic.md`), the hand-labeled reference set and the accrued per-case
+labels: subject-matter judgments keyed by case id and public-record
 docket number, republishing no source text. There is also a **non-git** public
 channel that carries corpus-derived text: `run-analytics`' four one-day
 GitHub Actions artifacts, which on a public repository any logged-in user can

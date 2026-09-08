@@ -316,10 +316,20 @@ each as its own least-privilege job holding only the credentials its mode needs:
   locally and in the gate. Results go to the step summary; it commits nothing.
 - **`qp-topic-label`** (dispatch) runs the `qp-topic-v0` topic labeler over the
   scoped extract of questions-presented texts (`fedcourts qp-corpus`, whose
-  population and row ceiling are in [qp-topic.md](qp-topic.md)) and lands the
+  population, row ceiling, and batching rule are in [qp-topic.md](qp-topic.md))
+  and lands the
   measured per-case labels file
   (`data/qp-topics/qp-topics.json`) as a **reviewed** PR to `main` — fixed
-  branch `qp-topics/refresh`, force-pushed, never auto-merged. It is the only
+  branch `qp-topics/refresh`, force-pushed, never auto-merged. The frame outruns
+  one dispatch, so each run labels a batch derived from committed state and the
+  artifact **accrues**: dispatch it repeatedly to clear the frame, and dispatch
+  it **from the ref carrying the newest artifact** — the extract job reads the
+  committed labels file from the dispatch ref while the PR is cut from
+  `origin/main`, so a dispatch on a stale ref re-derives a stale batch (the PR
+  step refuses to push one whose ledger is not an extension of main's). Two
+  states stop the run in the extract job, before any model spend: a frame with
+  nothing left to label outside the reference set, and one holding too little of
+  the reference set to clear the publication gate's coverage floor. It is the only
   mode that runs an agent, and therefore the only one **split across two jobs**,
   because `corpus-readonly` exports the assumed role's credentials job-wide:
   `qp-topic-extract` holds the read-only S3 role and writes the extract

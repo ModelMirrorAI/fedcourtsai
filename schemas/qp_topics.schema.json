@@ -83,6 +83,101 @@
       "title": "QpTopicAgreement",
       "type": "object"
     },
+    "QpTopicBatchEntry": {
+      "additionalProperties": false,
+      "description": "One labeling run's contribution to the accumulating labels artifact.\n\nThe artifact is the union of every batch, so without this ledger a reader\ncould not tell which run produced which row, what it was measured at, or how\nmany runs the file took. Each row records both counts because they answer\ndifferent questions: ``published`` is what the batch added to the file, while\n``measured`` is what its labeler actually read \u2014 larger by the reference rows\nit re-graded, which are the per-run cost of the measurement and publish\nnothing new.\n\nThe measurement fields are kept per batch rather than only at the top level\nso a drifting labeler is visible as a series rather than as a single current\nnumber \u2014 with two readings the series will not support. Every batch is\nscored over the **same** reference entries, so the differences between rows\nare labeler-side re-labeling of identical items, not independent samples of\nanything: a few points of movement on ``n`` this size is noise, and only a\nsustained move reads. And ``agree``/``n`` never read without ``floor``, which\nis why it is carried here rather than recomputed: on a sixteen-label\nvocabulary most of any rate is the floor.",
+      "properties": {
+        "agree": {
+          "description": "Compared reference entries this batch matched",
+          "minimum": 0,
+          "title": "Agree",
+          "type": "integer"
+        },
+        "batch": {
+          "description": "1-indexed labeling run, ascending and gapless",
+          "minimum": 1,
+          "title": "Batch",
+          "type": "integer"
+        },
+        "disagreements": {
+          "default": 0,
+          "description": "Of those, texts where this batch's labeler differed from the rule. The shadow rules are the only instrument that touches rows the batch publishes, so the series is the regression trip-wire; its level is uninterpretable",
+          "minimum": 0,
+          "title": "Disagreements",
+          "type": "integer"
+        },
+        "fired": {
+          "default": 0,
+          "description": "Texts in this batch exactly one shadow rule fired on",
+          "minimum": 0,
+          "title": "Fired",
+          "type": "integer"
+        },
+        "floor": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What a constant labeler scores on this batch's compared entries \u2014 the rate is unreadable without it, and only the distance above it is skill",
+          "title": "Floor"
+        },
+        "labeler": {
+          "description": "Who assigned this batch's labels \u2014 engine and model",
+          "minLength": 1,
+          "title": "Labeler",
+          "type": "string"
+        },
+        "labeler_rows": {
+          "default": 0,
+          "description": "Of those, rows carrying this labeler's own call. The remainder are reference members entering the artifact from the hand set's adjudicated labels, which no labeler assigned \u2014 so this, not `published`, is what a batch labeled",
+          "minimum": 0,
+          "title": "Labeler Rows",
+          "type": "integer"
+        },
+        "measured": {
+          "description": "Extract rows this batch's labeler read \u2014 its new rows plus every reference row in the frame, re-graded for the measurement",
+          "minimum": 0,
+          "title": "Measured",
+          "type": "integer"
+        },
+        "n": {
+          "description": "Reference entries this batch covered and compared",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        },
+        "published": {
+          "description": "Rows this batch first published into the artifact",
+          "minimum": 0,
+          "title": "Published",
+          "type": "integer"
+        },
+        "superseded": {
+          "default": 0,
+          "description": "Rows already in the artifact whose published label this batch changed. Only ever rows whose published label became the hand set's: a reference entry relabeled by hand, or a row the reference set has since taken in",
+          "minimum": 0,
+          "title": "Superseded",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "batch",
+        "labeler",
+        "published",
+        "measured",
+        "agree",
+        "n"
+      ],
+      "title": "QpTopicBatchEntry",
+      "type": "object"
+    },
     "QpTopicLabelAgreement": {
       "additionalProperties": false,
       "description": "One label's agreement between a labeler and the v0 reference rater.\n\nCounted over the reference entries carrying this label, so ``n`` is the\n*reference* support, not the labeler's. ``rate`` is withheld below the\nper-label support floor: under it the count is reported and the ratio is\nnot, because a single entry moves it by tens of points.",
@@ -146,10 +241,16 @@
       "title": "QpTopicLabelAgreement",
       "type": "object"
     },
-    "QpTopicLabelEntry": {
+    "QpTopicPublishedEntry": {
       "additionalProperties": false,
-      "description": "One labeled question-presented text: a case, its primary topic, and its optional facets.\n\n``secondary`` and ``vehicle`` are recorded but **unpublishable in v0**: the\nreference set carries primaries only, so neither facet has a measured\nagreement, and ``docs/qp-topic.md`` holds both out of every published cut\nuntil a reference block exercises them. They are written here so the\njudgment survives the run that made it, not so a cut can count them.",
+      "description": "One row of the accumulating labels artifact: a label plus where it came from.\n\nThe labeler's own line (:class:`QpTopicLabelEntry`) plus the two provenance\nstamps the artifact needs and the labeler must never write \u2014 which is why\nthey live on a subclass rather than on the line format: the base model\nforbids extra keys, so a labeler that emitted ``source`` or ``batch`` fails\nvalidation instead of stamping its own provenance.\n\n``source`` is the split the batching design turns on. A row inside the hand\nreference set publishes the reference's **adjudicated** label, never the\nlabeler's \u2014 the labeler's call on those rows is a measurement input, scored\ninto the agreement rate and discarded \u2014 so a labeler flip on a reference\ncase moves that run's measured rate and can never change a published row.\nEvery other row publishes the labeler's own call, once: later batches\nexclude what is already here, so no second labeling of the same row exists\nto disagree with the first.\n\n``batch`` is the labeling run that first published the row, indexed from 1\nand joined to :class:`QpTopicBatchEntry` for that run's labeler and measured\nagreement. It is *first* published rather than most recently written because\nreference rows are re-read every run and would otherwise all carry the\nnewest batch, erasing when the row entered the artifact.",
       "properties": {
+        "batch": {
+          "description": "The labeling batch that first published this row (1-indexed)",
+          "minimum": 1,
+          "title": "Batch",
+          "type": "integer"
+        },
         "case_id": {
           "description": "Canonical ``<court>/<docket>`` id \u2014 joins the corpus row and ``data/cases``",
           "minLength": 1,
@@ -216,6 +317,15 @@
           "description": "An advisory second subject for a smuggled question \u2014 never counted, and unpublishable in v0",
           "title": "Secondary"
         },
+        "source": {
+          "description": "Where this row's published label came from: the labeler's own call, or the hand reference set's adjudicated label for a reference member",
+          "enum": [
+            "labeler",
+            "reference"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
         "vehicle": {
           "default": false,
           "description": "The petition asks for a GVR in light of a named decision; the label is the underlying subject. Recorded, unpublishable in v0",
@@ -226,9 +336,11 @@
       "required": [
         "case_id",
         "docket_number",
-        "label"
+        "label",
+        "source",
+        "batch"
       ],
-      "title": "QpTopicLabelEntry",
+      "title": "QpTopicPublishedEntry",
       "type": "object"
     },
     "QpTopicShadow": {
@@ -323,29 +435,37 @@
     }
   },
   "additionalProperties": false,
-  "description": "``data/qp-topics/qp-topics.json`` \u2014 one labeler run's ``qp-topic-v0`` labels.\n\nThe primary label for every question-presented text the labeler read,\nassigned from that text alone, carrying its own measurement: agreement with\nthe hand reference set, the triangle confusion matrix, and the shadow rules'\ndisagreement rate. The artifact is written only when the agreement gate\npasses, so a labels file on disk is one whose measurement is on the record\nbeside it. Labels here are a corpus description, not a prediction claim, and\nnothing frozen reads them. Every published cut drawn from this file carries\nthe coverage caveat in ``docs/qp-topic.md``, and neither ``secondary`` nor\n``vehicle`` may appear in one while the reference set leaves them unmeasured.\n\n``gate_passed`` is necessary and **not sufficient** for publication: the\nreference set's frame certifies the grant stream only, and ``docs/qp-topic.md``\nbars every cut until a denial- and GVR-stratified supplement block exists and\nis measured. A cut-builder that reads no further than this file will publish\ntoo early.",
+  "description": "``data/qp-topics/qp-topics.json`` \u2014 the accumulating ``qp-topic-v0`` labels.\n\nThe primary label for every question-presented text labeled so far, each\nassigned from that text alone. The file **accrues**: the labeling frame runs\nwell past what one dispatch can finish, so each run labels a derived batch\nand the artifact is the union of every batch to date (``docs/qp-topic.md``).\n``entries`` and ``cases`` are therefore cumulative, while ``agreement`` and\n``shadow`` describe the **most recent run only** \u2014 they are measured over\nthat run's extract, and ``batches`` keeps every run's figures so the series\nis readable rather than just the latest point.\n\nThe artifact is written only when the agreement gate passes, so a labels file\non disk is one whose measurement is on the record beside it. Labels here are\na corpus description, not a prediction claim, and nothing frozen reads them.\nEvery published cut drawn from this file carries the coverage caveat in\n``docs/qp-topic.md``, and neither ``secondary`` nor ``vehicle`` may appear in\none while the reference set leaves them unmeasured.\n\n``gate_passed`` is necessary and **not sufficient** for publication: the\nreference set's frame certifies the grant stream only, and ``docs/qp-topic.md``\nbars every cut until a denial- and GVR-stratified supplement block exists and\nis measured. A cut-builder that reads no further than this file will publish\ntoo early.",
   "properties": {
     "agreement": {
       "$ref": "#/$defs/QpTopicAgreement",
-      "description": "This run's measured agreement with the v0 reference rater"
+      "description": "The most recent run's measured agreement with the v0 reference rater"
+    },
+    "batches": {
+      "description": "One row per labeling run that contributed, in batch order",
+      "items": {
+        "$ref": "#/$defs/QpTopicBatchEntry"
+      },
+      "title": "Batches",
+      "type": "array"
     },
     "cases": {
       "default": 0,
-      "description": "Number of labeled cases (== len(entries))",
+      "description": "Labeled cases across every batch (== len(entries))",
       "minimum": 0,
       "title": "Cases",
       "type": "integer"
     },
     "entries": {
-      "description": "One entry per labeled case, in case_id order",
+      "description": "One entry per labeled case, in case_id order, across every batch",
       "items": {
-        "$ref": "#/$defs/QpTopicLabelEntry"
+        "$ref": "#/$defs/QpTopicPublishedEntry"
       },
       "title": "Entries",
       "type": "array"
     },
     "labeler": {
-      "description": "Who assigned the labels \u2014 a free-form actor string (engine and model), so a measured agreement is attributable to what produced it",
+      "description": "Who assigned the most recent batch's labels \u2014 a free-form actor string (engine and model), so a measured agreement is attributable to what produced it. Earlier batches carry their own labeler in `batches`",
       "minLength": 1,
       "title": "Labeler",
       "type": "string"
@@ -358,7 +478,7 @@
     },
     "shadow": {
       "$ref": "#/$defs/QpTopicShadow",
-      "description": "The deterministic shadow rules' firing and disagreement counts"
+      "description": "The most recent run's shadow-rule firing and disagreement counts"
     },
     "vocabulary": {
       "const": "qp-topic-v0",

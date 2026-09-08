@@ -4736,6 +4736,107 @@ class QpTopicLabelEntry(_Strict):
     )
 
 
+class QpTopicPublishedEntry(QpTopicLabelEntry):
+    """One row of the accumulating labels artifact: a label plus where it came from.
+
+    The labeler's own line (:class:`QpTopicLabelEntry`) plus the two provenance
+    stamps the artifact needs and the labeler must never write — which is why
+    they live on a subclass rather than on the line format: the base model
+    forbids extra keys, so a labeler that emitted ``source`` or ``batch`` fails
+    validation instead of stamping its own provenance.
+
+    ``source`` is the split the batching design turns on. A row inside the hand
+    reference set publishes the reference's **adjudicated** label, never the
+    labeler's — the labeler's call on those rows is a measurement input, scored
+    into the agreement rate and discarded — so a labeler flip on a reference
+    case moves that run's measured rate and can never change a published row.
+    Every other row publishes the labeler's own call, once: later batches
+    exclude what is already here, so no second labeling of the same row exists
+    to disagree with the first.
+
+    ``batch`` is the labeling run that first published the row, indexed from 1
+    and joined to :class:`QpTopicBatchEntry` for that run's labeler and measured
+    agreement. It is *first* published rather than most recently written because
+    reference rows are re-read every run and would otherwise all carry the
+    newest batch, erasing when the row entered the artifact.
+    """
+
+    source: Literal["labeler", "reference"] = Field(
+        description="Where this row's published label came from: the labeler's own call, or "
+        "the hand reference set's adjudicated label for a reference member"
+    )
+    batch: int = Field(
+        ge=1, description="The labeling batch that first published this row (1-indexed)"
+    )
+
+
+class QpTopicBatchEntry(_Strict):
+    """One labeling run's contribution to the accumulating labels artifact.
+
+    The artifact is the union of every batch, so without this ledger a reader
+    could not tell which run produced which row, what it was measured at, or how
+    many runs the file took. Each row records both counts because they answer
+    different questions: ``published`` is what the batch added to the file, while
+    ``measured`` is what its labeler actually read — larger by the reference rows
+    it re-graded, which are the per-run cost of the measurement and publish
+    nothing new.
+
+    The measurement fields are kept per batch rather than only at the top level
+    so a drifting labeler is visible as a series rather than as a single current
+    number — with two readings the series will not support. Every batch is
+    scored over the **same** reference entries, so the differences between rows
+    are labeler-side re-labeling of identical items, not independent samples of
+    anything: a few points of movement on ``n`` this size is noise, and only a
+    sustained move reads. And ``agree``/``n`` never read without ``floor``, which
+    is why it is carried here rather than recomputed: on a sixteen-label
+    vocabulary most of any rate is the floor.
+    """
+
+    batch: int = Field(ge=1, description="1-indexed labeling run, ascending and gapless")
+    labeler: str = Field(
+        min_length=1, description="Who assigned this batch's labels — engine and model"
+    )
+    published: int = Field(ge=0, description="Rows this batch first published into the artifact")
+    labeler_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows carrying this labeler's own call. The remainder are "
+        "reference members entering the artifact from the hand set's adjudicated labels, "
+        "which no labeler assigned — so this, not `published`, is what a batch labeled",
+    )
+    measured: int = Field(
+        ge=0,
+        description="Extract rows this batch's labeler read — its new rows plus every "
+        "reference row in the frame, re-graded for the measurement",
+    )
+    agree: int = Field(ge=0, description="Compared reference entries this batch matched")
+    n: int = Field(ge=0, description="Reference entries this batch covered and compared")
+    floor: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="What a constant labeler scores on this batch's compared entries — the "
+        "rate is unreadable without it, and only the distance above it is skill",
+    )
+    fired: int = Field(
+        default=0, ge=0, description="Texts in this batch exactly one shadow rule fired on"
+    )
+    disagreements: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, texts where this batch's labeler differed from the rule. The "
+        "shadow rules are the only instrument that touches rows the batch publishes, so the "
+        "series is the regression trip-wire; its level is uninterpretable",
+    )
+    superseded: int = Field(
+        default=0,
+        ge=0,
+        description="Rows already in the artifact whose published label this batch changed. "
+        "Only ever rows whose published label became the hand set's: a reference entry "
+        "relabeled by hand, or a row the reference set has since taken in",
+    )
+
+
 class QpTopicLabelAgreement(_Strict):
     """One label's agreement between a labeler and the v0 reference rater.
 
@@ -4859,17 +4960,23 @@ class QpTopicShadow(_Strict):
 
 
 class QpTopicLabels(_Strict):
-    """``data/qp-topics/qp-topics.json`` — one labeler run's ``qp-topic-v0`` labels.
+    """``data/qp-topics/qp-topics.json`` — the accumulating ``qp-topic-v0`` labels.
 
-    The primary label for every question-presented text the labeler read,
-    assigned from that text alone, carrying its own measurement: agreement with
-    the hand reference set, the triangle confusion matrix, and the shadow rules'
-    disagreement rate. The artifact is written only when the agreement gate
-    passes, so a labels file on disk is one whose measurement is on the record
-    beside it. Labels here are a corpus description, not a prediction claim, and
-    nothing frozen reads them. Every published cut drawn from this file carries
-    the coverage caveat in ``docs/qp-topic.md``, and neither ``secondary`` nor
-    ``vehicle`` may appear in one while the reference set leaves them unmeasured.
+    The primary label for every question-presented text labeled so far, each
+    assigned from that text alone. The file **accrues**: the labeling frame runs
+    well past what one dispatch can finish, so each run labels a derived batch
+    and the artifact is the union of every batch to date (``docs/qp-topic.md``).
+    ``entries`` and ``cases`` are therefore cumulative, while ``agreement`` and
+    ``shadow`` describe the **most recent run only** — they are measured over
+    that run's extract, and ``batches`` keeps every run's figures so the series
+    is readable rather than just the latest point.
+
+    The artifact is written only when the agreement gate passes, so a labels file
+    on disk is one whose measurement is on the record beside it. Labels here are
+    a corpus description, not a prediction claim, and nothing frozen reads them.
+    Every published cut drawn from this file carries the coverage caveat in
+    ``docs/qp-topic.md``, and neither ``secondary`` nor ``vehicle`` may appear in
+    one while the reference set leaves them unmeasured.
 
     ``gate_passed`` is necessary and **not sufficient** for publication: the
     reference set's frame certifies the grant stream only, and ``docs/qp-topic.md``
@@ -4885,19 +4992,26 @@ class QpTopicLabels(_Strict):
     )
     labeler: str = Field(
         min_length=1,
-        description="Who assigned the labels — a free-form actor string (engine and model), "
-        "so a measured agreement is attributable to what produced it",
+        description="Who assigned the most recent batch's labels — a free-form actor string "
+        "(engine and model), so a measured agreement is attributable to what produced it. "
+        "Earlier batches carry their own labeler in `batches`",
     )
-    cases: int = Field(default=0, ge=0, description="Number of labeled cases (== len(entries))")
+    cases: int = Field(
+        default=0, ge=0, description="Labeled cases across every batch (== len(entries))"
+    )
     agreement: QpTopicAgreement = Field(
-        description="This run's measured agreement with the v0 reference rater"
+        description="The most recent run's measured agreement with the v0 reference rater"
     )
     shadow: QpTopicShadow = Field(
-        description="The deterministic shadow rules' firing and disagreement counts"
+        description="The most recent run's shadow-rule firing and disagreement counts"
     )
-    entries: list[QpTopicLabelEntry] = Field(
+    batches: list[QpTopicBatchEntry] = Field(
         default_factory=list,
-        description="One entry per labeled case, in case_id order",
+        description="One row per labeling run that contributed, in batch order",
+    )
+    entries: list[QpTopicPublishedEntry] = Field(
+        default_factory=list,
+        description="One entry per labeled case, in case_id order, across every batch",
     )
 
     @model_validator(mode="after")
@@ -4907,6 +5021,14 @@ class QpTopicLabels(_Strict):
         ids = [entry.case_id for entry in self.entries]
         if ids != sorted(ids) or len(set(ids)) != len(ids):
             raise ValueError("entries must be sorted by case_id and unique")
+        numbers = [row.batch for row in self.batches]
+        if numbers != list(range(1, len(numbers) + 1)):
+            raise ValueError("batches must be numbered 1..n in order")
+        if sum(row.published for row in self.batches) != self.cases:
+            raise ValueError("the batch ledger's published counts must sum to cases")
+        unknown = sorted({entry.batch for entry in self.entries} - set(numbers))
+        if unknown:
+            raise ValueError(f"entries cite batches with no ledger row: {unknown}")
         return self
 
 
@@ -5798,15 +5920,23 @@ class DocketPackTerm(_Strict):
 
 
 class DocketPackQpTopics(_Strict):
-    """The question-presented topic distribution, inseparable from who labeled it.
+    """The question-presented topic distribution, inseparable from how it was labeled.
 
-    A topic share is only readable beside the labeler that produced it and that
-    labeler's measured agreement with the ``qp-topic-v0`` reference rater, so the
-    two travel in one object rather than as a section a quotation can lift alone.
+    A topic share is only readable beside the labeling that produced it and its
+    measured agreement with the ``qp-topic-v0`` reference rater, so the two
+    travel in one object rather than as a section a quotation can lift alone.
     ``agree``/``n`` is **agreement, not accuracy**: with a single hand rater,
     reference error and labeler error cannot be separated, and the reference
     frame is grant-enriched, so the figure certifies the grant stream only
     (``docs/qp-topic.md``).
+
+    The labels artifact **accrues across dispatches**, so the pairing is looser
+    than one run's: ``labeler`` and ``agree``/``n`` are the most recent batch's,
+    while the rows counted in ``section`` come from ``batches`` runs that may
+    have had different labelers. The rate therefore certifies the batch that
+    produced it, not every row beside it, and ``batches`` is carried so a reader
+    can see that rather than infer one run. Per-batch labelers and rates are in
+    the labels artifact's own ledger.
 
     Three fields exist because the headline rate alone is unreadable. ``floor``
     is what a constant labeler scores on the same entries — the distance from it
@@ -5824,8 +5954,23 @@ class DocketPackQpTopics(_Strict):
 
     labeler: str = Field(
         min_length=1,
-        description="Who assigned the labels — the free-form actor string from the labels "
-        "artifact, so a quoted share names what produced it",
+        description="Who assigned the most recent batch's labels — the free-form actor string "
+        "from the labels artifact. Earlier batches may name a different one, so this attributes "
+        "the measurement below, not every row in the table",
+    )
+    batches: int = Field(
+        default=1,
+        ge=1,
+        description="Labeling runs the artifact accrued over. Above 1, the table's rows come "
+        "from several runs while `labeler` and `agree`/`n` are the latest run's alone",
+    )
+    reference_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Labeled cases whose published label is the hand reference set's "
+        "adjudicated one. They are in **every** batch by construction, so while the frame is "
+        "still accruing they enter the table at a far higher inclusion rate than a drawn row "
+        "and the mix is not the frame's — the section's scope note states it",
     )
     agree: int = Field(
         ge=0,
@@ -5858,8 +6003,9 @@ class DocketPackQpTopics(_Strict):
         default=0,
         ge=0,
         description="Of those, the ones that joined a row in this section's population — the "
-        "cut's raw row count. Far below `labeled_cases` means the labels were produced "
-        "against a different corpus vintage, which reads as thin coverage unless both are here",
+        "cut's raw row count. A gap is expected once the artifact spans several batches, since "
+        "those span corpus vintages; a large one still means labels produced against a "
+        "different vintage rather than thin coverage, which is why both counts are here",
     )
     unmeasured_labels: list[QpTopicLabel] = Field(
         default_factory=list,
