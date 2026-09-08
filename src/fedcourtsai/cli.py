@@ -122,7 +122,13 @@ from .config import (
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .disposition_convergence import converge_disposition_labels
 from .docket_marking_migration import normalize_docket_markings
-from .finalize import FinalizeRole, agent_produced_output
+from .finalize import (
+    FinalizeRole,
+    agent_produced_output,
+    blinded_candidates,
+    cell_output_root,
+    required_outputs,
+)
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
 from .integrity import (
@@ -12362,6 +12368,69 @@ def finalize_produced_cmd(
         run_id=run_id,
     )
     typer.echo("true" if produced else "false")
+
+
+@app.command("cell-outputs")
+def cell_outputs_cmd(
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id the cell acts on.")],
+    actor: Annotated[str, typer.Option(help="The predictor_id / evaluator_id for this cell.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+) -> None:
+    """Print this cell's output root, then every file a finished cell of it owes.
+
+    The engine watchdog's **completion sentinel** is what reads this: armed before
+    the agent starts, it waits for exactly these files to exist and parse, and
+    then for the output root to go quiet, before concluding a step that has
+    finished its work but will not end. So the list is emitted once, up front, on
+    the runner's own terms — the watchdog never re-derives it, and never reads a
+    file the agent could rewrite to say what it should wait for.
+
+    Stdout is a hand-over the arm step splits, like ``watchdog-checkin``'s: the
+    **first line** is the directory whose write quiescence is watched, and
+    **every line after it** is one required file, repo-relative. An evaluate cell
+    names its candidates by their staging aliases, since the un-aliasing runs in
+    the cell's tail, long after the sentinel has to recognize them; a cell with no
+    staged candidate has no completion to wait for and exits non-zero, which
+    leaves the watchdog on its deadline alone.
+    """
+    settings = get_settings()
+    candidates: list[str] = []
+    if role is FinalizeRole.evaluate:
+        candidates = blinded_candidates(data_root=settings.data_root, court=court, docket=docket)
+        if not candidates:
+            typer.echo(
+                "::error::no blinded candidates are staged for "
+                + f"{court}/{docket}; this cell has no completion set",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+    typer.echo(
+        str(
+            cell_output_root(
+                role,
+                data_root=settings.data_root,
+                court=court,
+                docket=docket,
+                event=event,
+                actor=actor,
+                run_id=run_id,
+            )
+        )
+    )
+    for path in required_outputs(
+        role,
+        data_root=settings.data_root,
+        court=court,
+        docket=docket,
+        event=event,
+        actor=actor,
+        run_id=run_id,
+        candidates=candidates,
+    ):
+        typer.echo(str(path))
 
 
 @app.command("assert-paths")

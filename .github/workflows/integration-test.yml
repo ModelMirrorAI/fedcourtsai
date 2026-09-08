@@ -32,7 +32,9 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # codex-application-repro one evaluate cell's — so a whole-suite `all` dispatch
 # spends three cells' worth plus three probes (the repro is dispatch-only and
 # joins no whole-suite run), and `all-offline` (the same suite with both engine
-# families dropped) spends nothing. The collect scenario is environment-free on top of token-free:
+# families dropped) spends nothing. The repro leg is the long one in wall-clock
+# as well: the judge cell it presents runs 40-50 minutes, so its bounds and its
+# job cap are set above that rather than at the suite's usual 45. The collect scenario is environment-free on top of token-free:
 # it exercises the collect-run composite against synthetic cell artifacts
 # with every write surface stubbed or diverted on the runner, so its job
 # binds no deployment environment and is the one scenario that still
@@ -55,10 +57,12 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # And it stays **out of `REQUIRED_SCENARIOS`** (scripts/promotion-gate.sh)
 # while its defect is open, for the same reason; a repro whose defect is
 # closed is a regression test and belongs in both, which is a deliberate
-# maintainer edit at that point rather than a default. Its engine bound is
-# also deliberately tight — a wedge must fail its own step well inside the job
-# cap, because a job that runs to the cap is *cancelled*, and GitHub drops a
-# cancelled job's logs.
+# maintainer edit at that point rather than a default. Its bounds sit *above*
+# the work envelope it reproduces and its job cap above those — a repro leg has
+# to let the cell finish, because the defect it is pinned to begins only after
+# the work is done; what must stay well inside the job cap is the watchdog, so
+# a step that will not conclude is concluded rather than riding to a
+# cancellation whose logs GitHub drops.
 #
 # Manual dispatch, plus one scheduled arm. Its own workflow rather than a
 # run-analytics mode because it is a preflight of the pipeline
@@ -507,7 +511,16 @@ jobs:
         include: ${{ fromJSON(needs.plan.outputs.matrix) }}
     # 45, not 30: the engine-smoke scenario spans an npm CLI install plus one
     # real agent cell, which alone can run tens of minutes on a slow model day.
-    timeout-minutes: 45
+    #
+    # The application-repro leg gets 75 instead, and the arithmetic is its own:
+    # the work it reproduces is a judge cell on an application record, measured
+    # at 40-50 minutes, so its watchdog deadline sits at 50 and its step bound at
+    # 58 (see the leg's own steps). 58 plus this job's setup — checkout, env,
+    # corpus provisioning, blinded staging, the MCP sidecar — and the disarm,
+    # distill and upload tail lands near 63, and 75 is that with room. Per-leg
+    # rather than raised for everyone: a 75-minute cap on the boot probes would
+    # turn a hung smoke into an hour of billed silence.
+    timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 75 || 45 }}
     # Branch-resolved with an explicit override; keep this expression
     # identical to `run-name:`'s and the plan job's above (YAML anchors do not
     # work in workflows), and see the deploy-environment input for what
@@ -1266,48 +1279,96 @@ jobs:
           set -euo pipefail
           uv run fedcourts hide-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
 
-      # The bound that actually bites, and the reason this leg is worth
-      # dispatching at all. A wedged codex step outlasts its
-      # own `timeout-minutes`, leaving the job to run to its cap — and a
-      # capped job is *cancelled*, which skips every `if: always()` tail and
-      # whose logs GitHub drops, so the hang erases the evidence it exists to
-      # produce. The watchdog is the runner-level deadline that converts the
-      # hang into a step failure instead: it captures the runner's state
-      # first, then ends the engine and, if the step outlives it, the step's
-      # own process tree. Deadline well inside the step's backstop, which is
-      # well inside the job cap, so a fired watchdog leaves the whole tail to
-      # run and the job concludes red rather than cancelled.
-      - name: Arm the codex watchdog
+      # The bracket that makes this leg worth dispatching, and the half of it
+      # that carries the verdict is the **completion sentinel**. The defect this
+      # leg reproduces is a step that will not conclude *after* its agent has
+      # finished: every output written and self-validated, the closing token
+      # count printed, and then the step frozen `in_progress` until the job cap
+      # cancels the runner — which skips every `if: always()` tail, and whose
+      # logs GitHub drops, so the hang erases the evidence it exists to produce.
+      # The watchdog waits for those outputs to exist, parse and go quiet, then
+      # captures the runner's state and ends the step's tree — so on a reproduced
+      # hang it is the **reap** that fires, ~90 s after the agent finishes, and
+      # its process forest and socket table are what name whatever is holding a
+      # finished step open. A green leg is then the precise certification that
+      # completed work is concluded and picked up.
+      #
+      # So the two markers read differently here, and the difference is the whole
+      # verdict. `REAPED` is the defect reproducing and being handled. `FIRED` or
+      # `STOOD_DOWN` means the completion set was never satisfied — work still
+      # running at the deadline, or a required file the judge never wrote — which
+      # is a finding about the cell, not about teardown. The bounds below sit
+      # above the 40-50 minute work envelope precisely so that the deadline is
+      # never reached by a cell that simply took its time.
+      - name: Arm the engine watchdog
         if: ${{ matrix.scenario == 'codex-application-repro' }}
         env:
           CODEX_HOME: ${{ github.workspace }}/.codex
-          WATCHDOG_DIR: ${{ runner.temp }}/codex-watchdog
-          # 720 s. The step below is capped at 15 minutes and starts within
-          # seconds of this one, so firing at +12 leaves the watchdog's own
-          # three graces (30 s each) inside that cap with room to spare, and
-          # ends the leg ~13 minutes into a 45-minute job.
+          WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
+          COURT_ID: ${{ steps.repro.outputs.court }}
+          DOCKET_ID: ${{ steps.repro.outputs.docket }}
+          EVENT_ID: ${{ steps.repro.outputs.event }}
+          EVALUATOR_ID: ${{ steps.repro.outputs.evaluator }}
+          RUN_ID: ${{ steps.repro.outputs.run_id }}
+          # 3000 s. The work this leg presents runs 40-50 minutes, so a deadline
+          # under that would kill a healthy mid-grading cell and never reach the
+          # teardown phase where the defect lives. Fifty minutes clears the
+          # envelope; the step below is capped at 58, leaving the watchdog's own
+          # three graces (30 s each) inside that cap with room; and this leg's
+          # job cap is 75.
           #
-          # Deliberately far under the cells' 2400 s, and the trade is stated
-          # rather than hidden: the deadline covers the action's own install
-          # and proxy start as well as the turn, so what it leaves the engine
-          # is roughly ten minutes, and a healthy-but-slow judge cell can
-          # reach it. That is why a fired deadline is reported as "did not
-          # finish inside the bound" and not as a reproduction — the bundle
-          # separates the two, since a wedge shows an engine making no
-          # progress. A bound loose enough to never catch a slow cell would be
-          # loose enough to let a wedge ride the job cap, which is the failure
-          # mode this leg exists to convert into evidence.
-          WATCHDOG_DEADLINE_S: "720"
+          # It is longer than the cells' 2400 s deliberately. A cell has a whole
+          # round's budget to protect and a level-triggered lane that re-derives
+          # what it loses; this leg is one dispatched observation, and cutting it
+          # short costs the observation itself.
+          WATCHDOG_DEADLINE_S: "3000"
         run: |
           set -euo pipefail
           mkdir -p "$WATCHDOG_DIR"
+          # The cell workflows' sentinel arming, verbatim in what it asks for:
+          # the required-output list from the same `cell-outputs` command, handed
+          # over as env rather than as a file the agent could rewrite.
+          sentinel_root=""
+          sentinel_paths=""
+          if cell_outputs="$(timeout 60 uv run fedcourts cell-outputs --role evaluate \
+            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
+            --actor "$EVALUATOR_ID" --run-id "$RUN_ID")"; then
+            # `case` rather than `${x#*}`: that expansion returns the whole
+            # string when there is no newline, so a root-only stdout would put
+            # the output *directory* into the list of required files. Degraded to
+            # no sentinel rather than to a failed step, like every other miss
+            # here — the kill duty is primary, and a cell that runs on its
+            # deadline alone is the behaviour before any of this.
+            case "$cell_outputs" in
+              *$'\n'*) ;;
+              *)
+                echo "::warning::cell-outputs named no required files; the watchdog runs on its deadline alone"
+                cell_outputs=""
+                ;;
+            esac
+            # Absolute already when the data root is (which a dev or a smoke can
+            # set); prefixing unconditionally would yield `$PWD//abs/path` and a
+            # sentinel that silently never fires.
+            absolute() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s/%s' "$PWD" "$1" ;; esac; }
+            if [ -n "$cell_outputs" ]; then
+              sentinel_root="$(absolute "${cell_outputs%%$'\n'*}")"
+              while IFS= read -r relative; do
+                [ -n "$relative" ] || continue
+                sentinel_paths="${sentinel_paths}${sentinel_paths:+$'\n'}$(absolute "$relative")"
+              done <<< "${cell_outputs#*$'\n'}"
+            fi
+          else
+            echo "::warning::no completion sentinel for this leg; the watchdog runs on its deadline alone"
+          fi
           # The watchdog and its evidence both live outside the workspace: that
-          # tree belongs to the agent for the next ten minutes, and bash reads a
+          # tree belongs to the agent for the whole of its turn, and bash reads a
           # script file as it executes it.
-          cp scripts/codex-watchdog.sh "$RUNNER_TEMP/codex-watchdog.sh"
-          nohup bash "$RUNNER_TEMP/codex-watchdog.sh" \
+          cp scripts/engine-watchdog.sh "$RUNNER_TEMP/engine-watchdog.sh"
+          WATCHDOG_OUTPUT_DIR="$sentinel_root" \
+            WATCHDOG_SENTINEL_PATHS="$sentinel_paths" \
+            nohup bash "$RUNNER_TEMP/engine-watchdog.sh" \
             > "$WATCHDOG_DIR/watchdog.log" 2>&1 &
-          echo "$!" > "$RUNNER_TEMP/codex-watchdog.pid"
+          echo "$!" > "$RUNNER_TEMP/engine-watchdog.pid"
 
       # run-evaluate's codex cell step: the same action at the same sha with
       # the same inputs (a test holds every surface that decides how codex
@@ -1319,10 +1380,12 @@ jobs:
       - name: Evaluate the pinned application-lane record with Codex
         id: repro_codex
         if: ${{ matrix.scenario == 'codex-application-repro' }}
-        # 15, against the cells' 50: a wedge must fail this leg fast. The
-        # watchdog above is what ends a step the runner cannot, and this stays
-        # the backstop for an overrun the runner can.
-        timeout-minutes: 15
+        # 58, above the 50-minute watchdog deadline and under the 75 this leg's
+        # job is capped at. The work runs 40-50 minutes, so a bound that made
+        # this leg fail *fast* would only ever fail it on healthy work; the
+        # watchdog is what ends a step the runner cannot, and this stays the
+        # backstop for an overrun the runner can.
+        timeout-minutes: 58
         uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
         env:
           COURT_ID: ${{ steps.repro.outputs.court }}
@@ -1388,36 +1451,46 @@ jobs:
       # planted marker can still make the leg *say* a deadline passed, which is
       # a report, not a grant — the step's own exit status is what the leg's
       # verdict rests on.
-      - name: Disarm the codex watchdog
+      - name: Disarm the engine watchdog
+        id: repro_disarm
         if: ${{ always() && matrix.scenario == 'codex-application-repro' }}
         run: |
           set -euo pipefail
-          pid_file="$RUNNER_TEMP/codex-watchdog.pid"
+          pid_file="$RUNNER_TEMP/engine-watchdog.pid"
           if [ -f "$pid_file" ]; then
             pid=$(cat "$pid_file")
-            if [[ "$pid" =~ ^[0-9]+$ ]] && grep -qa codex-watchdog.sh "/proc/$pid/cmdline" 2>/dev/null; then
+            if [[ "$pid" =~ ^[0-9]+$ ]] && grep -qa engine-watchdog.sh "/proc/$pid/cmdline" 2>/dev/null; then
               kill "$pid" 2>/dev/null || true
             fi
             rm -f "$pid_file"
           fi
-          bundle="$RUNNER_TEMP/codex-watchdog-bundle"
+          # Read from the runner-temp bundle, before the sanitized copy below:
+          # this is what the assertion step reports the step half of its verdict
+          # from, and the agent had a shell on the workspace, not on this path.
+          reaped=false
+          if [ -f "$RUNNER_TEMP/engine-watchdog/REAPED" ]; then
+            reaped=true
+          fi
+          echo "reaped=$reaped" >> "$GITHUB_OUTPUT"
+          bundle="$RUNNER_TEMP/engine-watchdog-bundle"
           rm -rf "$bundle"
           mkdir -p "$bundle"
-          if [ -d "$RUNNER_TEMP/codex-watchdog" ]; then
-            find "$RUNNER_TEMP/codex-watchdog" -maxdepth 1 -type f \
+          if [ -d "$RUNNER_TEMP/engine-watchdog" ]; then
+            find "$RUNNER_TEMP/engine-watchdog" -maxdepth 1 -type f \
               -exec cp -p {} "$bundle/" \;
           fi
-          for marker in FIRED STOOD_DOWN; do
+          for marker in REAPED FIRED STOOD_DOWN; do
             file="$bundle/$marker"
             [ -f "$file" ] || continue
             case "$marker" in
+              REAPED) note="the cell's outputs were complete and quiescent and the step would not conclude; the watchdog ended it" ;;
               FIRED) note="the engine did not finish inside the bound and was killed at the deadline" ;;
               *) note="the deadline passed with no engine process matched — check the watchdog still names the action's invocation" ;;
             esac
             echo "::warning::codex-application-repro: ${note}"
             {
               echo ""
-              echo "## codex watchdog — ${note}"
+              echo "## engine watchdog — ${note}"
               echo ""
               echo '```'
               head -c 500 "$file"
@@ -1426,18 +1499,32 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           done
 
-      # The verdict, stated rather than implied. A mis-spelled `if:` above
-      # would SKIP every step and leave the leg green having invoked nothing,
-      # which is the vacuous pass this scenario exists to replace — so a run
-      # that got this far must show the evidence of a session, and an absent
-      # one fails here. It runs on the engine step's success, deliberately: a
-      # failed engine step has already reddened the leg, and that is the
-      # finding. Evidence of the invocation only:
-      # nothing reads what the model said, and a cell that finishes without an
-      # evaluation is reported rather than failed (a blocked cell is not a
-      # wedge, and this leg's subject is the wedge).
-      - name: Assert the repro cell ran, and report what it produced
-        if: ${{ matrix.scenario == 'codex-application-repro' }}
+      # The verdict, stated rather than implied, and stated as **two halves**.
+      # The defect is a step that will not conclude after its agent has already
+      # finished, so "did the work get done" and "did the step end" are separate
+      # questions with separate answers — and a future regression has to be
+      # legible as which of the two broke. Reported one line each:
+      #
+      #   outputs — how many of the files a finished cell owes are on disk,
+      #             counted against the same `cell-outputs` list the watchdog's
+      #             sentinel waited for, so the leg and the reaper cannot
+      #             disagree about what "complete" means;
+      #   step    — whether it concluded on its own, was reaped, was killed at
+      #             the deadline, or never concluded at all.
+      #
+      # A mis-spelled `if:` above would SKIP every step and leave the leg green
+      # having invoked nothing, which is the vacuous pass this scenario exists to
+      # replace — so a run that got this far must show the evidence of a session,
+      # and an absent one fails here. Nothing reads what the model said, and a
+      # cell that finishes without an evaluation is reported rather than failed
+      # (a blocked cell is not a wedge, and this leg's subject is the wedge).
+      # `!cancelled()` rather than `always()`: a failed engine step is exactly the
+      # case whose two halves matter most, so an implicit `success()` would skip
+      # the report where it is worth the most — but a cancelled leg has nothing to
+      # read and a job cancelled mid-setup would only add a misleading second
+      # error to an already-red run.
+      - name: Assert the repro cell ran, and report both halves of its outcome
+        if: ${{ !cancelled() && matrix.scenario == 'codex-application-repro' }}
         env:
           CODEX_HOME: ${{ github.workspace }}/.codex
           COURT_ID: ${{ steps.repro.outputs.court }}
@@ -1445,28 +1532,68 @@ jobs:
           EVENT_ID: ${{ steps.repro.outputs.event }}
           EVALUATOR_ID: ${{ steps.repro.outputs.evaluator }}
           RUN_ID: ${{ steps.repro.outputs.run_id }}
+          ENGINE_OUTCOME: ${{ steps.repro_codex.outcome }}
+          REAPED: ${{ steps.repro_disarm.outputs.reaped }}
         run: |
           set -euo pipefail
+          # A skipped engine step means the leg died before the cell — a setup
+          # failure has already reddened the run, and "the cell never started" on
+          # top of it would name the wrong cause.
+          if [ "$ENGINE_OUTCOME" = "skipped" ]; then
+            echo "codex-application-repro: the cell step never ran; nothing to report"
+            exit 0
+          fi
           if [ -z "$(find "$CODEX_HOME/sessions" -type f -name '*.jsonl' -print -quit 2>/dev/null)" ]; then
             echo "::error::codex left no session rollout — the cell never started"
             exit 1
           fi
-          # A judge writes one evaluation per blinded candidate, under the
-          # candidate's alias — the un-aliasing that resolves those names back
-          # is a step this leg deliberately does not run, since it commits
-          # nothing and validates nothing. Counting them is the report.
-          base="data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/evaluations/$EVALUATOR_ID"
-          graded=0
-          if [ -d "$base" ]; then
-            graded=$(find "$base" -mindepth 3 -maxdepth 3 -type f -name evaluation.json \
-              -path "*/$RUN_ID/*" | wc -l)
+          # Half one: the work. Counted over the required-output list rather than
+          # over `evaluation.json` alone, because a judge that wrote its three
+          # gradings and stopped short of its own retrieval and tooling files is
+          # a *different* finding from one that graded nothing — and it is the
+          # difference the sentinel keys on.
+          owed=0
+          present=0
+          if cell_outputs="$(uv run fedcourts cell-outputs --role evaluate \
+            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
+            --actor "$EVALUATOR_ID" --run-id "$RUN_ID")" \
+            && case "$cell_outputs" in *$'\n'*) true ;; *) false ;; esac; then
+            while IFS= read -r relative; do
+              [ -n "$relative" ] || continue
+              owed=$((owed + 1))
+              # Spelled as an `if` and not `[ … ] && …`: under `set -e` a list
+              # whose first half fails ends the step, so the *missing* file — the
+              # case this count exists to report — would redden the leg instead
+              # of being counted.
+              if [ -s "$relative" ]; then
+                present=$((present + 1))
+              fi
+            done <<< "${cell_outputs#*$'\n'}"
           fi
-          if [ "$graded" -gt 0 ]; then
-            verdict="the cell completed and graded ${graded} candidate(s)"
+          if [ "$owed" -eq 0 ]; then
+            outputs="unknown — the required-output list could not be resolved"
+          elif [ "$present" -eq "$owed" ]; then
+            outputs="complete — all ${owed} required output file(s) present"
+          elif [ "$present" -eq 0 ]; then
+            outputs="none — the cell produced nothing (blocked, not wedged)"
           else
-            verdict="the cell completed without grading anything (blocked, not wedged)"
+            outputs="partial — ${present} of ${owed} required output file(s) present"
           fi
-          echo "codex-application-repro: ${verdict}" >> "$GITHUB_STEP_SUMMARY"
+          # Half two: the step. A reap is the defect reproducing *and* being
+          # handled, which is exactly what this leg certifies once the fix is in.
+          if [ "${REAPED:-false}" = "true" ]; then
+            step="hung after completion and was reaped by the watchdog"
+          elif [ "$ENGINE_OUTCOME" = "success" ]; then
+            step="concluded on its own"
+          else
+            step="did not conclude cleanly (outcome: ${ENGINE_OUTCOME:-unknown}) — read the watchdog bundle"
+          fi
+          {
+            echo "codex-application-repro outputs: ${outputs}"
+            echo "codex-application-repro step: ${step}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "outputs: ${outputs}"
+          echo "step: ${step}"
 
       # What the dispatch is worth beyond a green tick: the codex rollout's
       # item shapes, distilled by the tested `codex-item-shapes` command and
@@ -1518,14 +1645,16 @@ jobs:
         with:
           name: codex-item-shapes
           # The repro leg's watchdog bundle rides the same artifact — the
-          # process forest, socket table, codex-home listing and the
-          # watchdog's own log, all shapes and metadata, never content. The
+          # process forest and socket table (taken after the cell completed,
+          # which is what names whatever holds a finished step open), the
+          # codex-home listing and the watchdog's own log, all shapes and
+          # metadata, never content. The
           # sanitized copy the disarm step assembles, never the runner-temp
           # directory the agent could plant a symlink in. Absent on every
           # other leg, which is what `warn` below is for.
           path: |
             ${{ runner.temp }}/codex-item-shapes.json
-            ${{ runner.temp }}/codex-watchdog-bundle
+            ${{ runner.temp }}/engine-watchdog-bundle
           # Warn, not error: a cell that died before writing a transcript
           # leaves nothing to upload, and this step must not be the thing
           # that reddens the smoke.
