@@ -1283,17 +1283,24 @@ jobs:
             echo "Labels identical to main; nothing to open." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          # The artifact accrues one batch a run, so the title counts what *this*
+          # run added and the total separately: attributing the whole file to
+          # this labeler would credit it with every earlier batch's rows.
           cases=$(jq -r '.cases' data/qp-topics/qp-topics.json)
-          title="data(qp-topics): ${cases} qp-topic-v0 label(s) by ${LABELER}"
+          batch=$(jq -r '.batches[-1].batch' data/qp-topics/qp-topics.json)
+          published=$(jq -r '.batches[-1].published' data/qp-topics/qp-topics.json)
+          measured=$(jq -r '.batches[-1].measured' data/qp-topics/qp-topics.json)
+          title="data(qp-topics): batch ${batch} — ${published} new qp-topic-v0 label(s) by ${LABELER} (${cases} total)"
           # The body carries only CLI-rendered numbers and vocabulary labels —
           # no agent prose and no petition text — and so does the committed
-          # artifact: `QpTopicLabelEntry` is a strict pydantic model whose every
-          # field is a copied key, a vocabulary enum, or a bool, joined to the
-          # extract on both keys, so no agent-authored string can reach either.
-          # That mechanism, not reviewer attention, is why this step runs no
-          # secret scan where `collect-run` does.
+          # artifact: `QpTopicPublishedEntry` is a strict pydantic model whose
+          # every field is a copied key, a vocabulary enum, a bool, or a stamp
+          # the builder assigns, joined to the extract on both keys, so no
+          # agent-authored string can reach either. That mechanism, not reviewer
+          # attention, is why this step runs no secret scan where `collect-run`
+          # does.
           {
-            printf '%s\n\n' "One \`qp-topic-v0\` labeling run: primary labels for ${cases} stored questions-presented text(s), assigned by \`${LABELER}\` from the text alone and measured against the hand reference set by \`fedcourts qp-topics\`."
+            printf '%s\n\n' "Batch ${batch} of the \`qp-topic-v0\` labeling frame: \`${LABELER}\` read ${measured} stored questions-presented text(s) from the text alone, ${published} of which are newly published here; the artifact now holds ${cases} label(s). The rest of the batch is the hand reference set, re-graded every run for the measurement and published from its own adjudicated labels."
             printf '%s\n\n' "The command enforces the publication gate, so this PR exists only because the run cleared it. What the numbers mean — agreement with a single v0 reference rater, **not** accuracy; a grant-enriched frame that certifies the grant stream only; per-label rates suppressed under the support floor — is in \`docs/qp-topic.md\`."
             printf '%s\n' '```'
             cat "$MEASURED_FILE"

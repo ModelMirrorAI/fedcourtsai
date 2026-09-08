@@ -286,6 +286,22 @@ Three consequences bind every use of the set:
   leaking: it moves the directory out for the duration of its agent step and
   restores it from the commit before measuring, because agreement with a file
   the labeler copied from is agreement with nothing.
+
+  **Batch membership adds nothing to this oracle.** A labeling batch (below) is
+  derived from committed state alone: every reference member present in the
+  frame, force-included, plus a draw over the rows the committed labels artifact
+  does not yet publish. Both halves are computable by anyone holding the two
+  committed files, so the batch is a function of what is already disclosed and
+  discloses nothing further — it cannot, since it is not new information. The
+  force-include being **complete** is what buys that, and it is the reason the
+  rule is written that way rather than as a sample: a batch carrying *some*
+  reference members would make membership in the batch evidence about membership
+  in the set, and the set encodes cert outcomes. The fill half is drawn from the
+  complement of the reference set by construction, so it is
+  outcome-uncorrelated: the draw sees a case id and a docket number, never a
+  disposition. What the batch does bound is the *extract's* enumeration, which is
+  now one batch of the frame rather than the whole of it — a narrowing of the
+  non-committed channel below, not a widening.
 - **The set enumerates ingested-but-unpublished dockets, deliberately.** The
   great majority of the 353 case ids have no directory under `data/cases` — a
   small published minority does, and that share moves with every predict round
@@ -546,12 +562,23 @@ section-level caveat does not survive a quoted number; the scope string does.
 are not interchangeable. A **per-Term** cut states `<pct> of walked Term-<T>
 rows` against that Term's serial census, the frame the coverage figures above
 are quoted in. A **pooled** cut — the docket pack's, computed over the whole
-modern discretionary-cert live slice — states `<n> of <N> ingested rows`:
-counts, because a pooled percentage against a census that spans Terms of 0% and
-16% coverage reads as a coverage level no Term has, and *ingested* rather than
-*walked*, because the denial sampling puts the walked serial count several-fold
-above the rows on hand. A pooled cut must also say that coverage is uneven
-across Terms, since its own ratio cannot show it.
+modern discretionary-cert live slice — states `<n> of <N> ingested rows
+labeled`: counts, because a pooled percentage against a census that spans Terms
+of 0% and 16% coverage reads as a coverage level no Term has, and *ingested*
+rather than *walked*, because the denial sampling puts the walked serial count
+several-fold above the rows on hand. A pooled cut must also say that coverage is
+uneven across Terms, since its own ratio cannot show it.
+
+The word *labeled* is load-bearing and so is the sentence that follows it in the
+docket pack's scope string. The gap between `<n>` and `<N>` is now two different
+things at once — rows with no stored QP text, and QP-bearing rows whose labeling
+batch has not come up yet — and a reader who takes the whole gap for a fetch gap
+reads the labeled subset as whatever the extractor happened to reach. So the
+scope string also states **how the labeled subset was drawn**: every reference
+case, plus a Term × fee-class-stratified draw of the not-yet-labeled remainder
+ordered by a seeded hash of case id. That is a stratified sample of the frame,
+not a prefix of it, and the unlabeled remainder is outstanding rather than
+excluded.
 
 ## What one labeling run can hold
 
@@ -566,16 +593,99 @@ derived from that one, since a bound sized against the outer cap would admit
 exactly the extracts the inner one kills.
 
 `qp-corpus` therefore enforces a ceiling (`LABEL_ROW_CEILING` in
-`fedcourtsai.pipeline.qp_topics`) and refuses to write a larger extract,
-printing the count and the scope it would have had to label. Its value is a
-**declared budget, not an observed rate**: no labeling dispatch has completed,
-so the pace behind it is unmeasured, and the first finished run is what should
-re-derive it. That refusal is
-the useful outcome, not a failure to route around: it costs the extract job
-rather than the labeling one, and its count is what decides between a narrower
-scope and a different design. The labeling prompt states its budget as
-"whatever the extract holds" for the same reason — one number, in one place,
-and no second copy to drift.
+`fedcourtsai.pipeline.qp_topics`) and sizes each dispatch's extract to it. Its
+value is a **declared budget, not an observed rate**: no labeling dispatch has
+completed, so the pace behind it is unmeasured, and the first finished run is
+what should re-derive it. The labeling prompt states its budget as "whatever the
+extract holds" for the same reason — one number, in one place, and no second copy
+to drift.
+
+## Batching: how the frame gets labeled
+
+The scoped frame runs far past the ceiling, and it grows. So a dispatch does not
+label the frame; it labels a **batch**, and the artifact accrues one batch at a
+time until the frame is clear.
+
+**The rule.** When `qp-corpus` cuts an extract it derives the batch from
+committed state alone (`derive_label_batch`), in two clauses:
+
+1. **Every reference-set case present in the frame is force-included**, batch
+   after batch. Those rows are the measurement, not the output: the publication
+   gate needs 90% reference coverage and 80% agreement in *every* run, so a batch
+   that carried only part of the set could not be measured at all. They are
+   re-labeled each run and cost roughly 353 of the 1,200 rows — about 30% of each
+   batch, which is the standing per-run price of the measurement.
+2. **The rest of the budget is filled from the not-yet-labeled rows** — those
+   absent from the committed `data/qp-topics/qp-topics.json`, or all
+   non-reference rows when no artifact exists yet. The fill is **stratified by
+   Term × fee class**, allocated in proportion to each stratum's share of the
+   unlabeled pool by largest-remainder apportionment, and ordered inside each
+   stratum by a seeded hash of `case_id` (`BATCH_ORDER_SEED`, a named constant
+   in `fedcourtsai.pipeline.qp_topics`).
+
+**Why a hash and not an order.** `case_id` order is docket order, so any prefix
+of the frame selects on Term and fee class — the two properties the text-only
+contract works hardest to keep away from the labeler — and would make the
+published topic mix a function of docket number. The hash is keyed on a fixed
+constant rather than randomized per run, because the batch has to be a pure
+function of committed state: re-deriving it on another runner, or after a
+dispatch that died, must select the same rows, or a second run would re-label
+what the first had already published. Term and fee class come back in
+deliberately, as *proportions* — the frame is thin and growing Term over Term and
+far denser on paid dockets, so an unstratified draw would give the early batches
+whatever mix the current fetch state happened to hold.
+
+**No dispatch inputs.** There is nothing to choose and nothing to pass: the same
+committed state always cuts the same batch, which is why the batching added no
+input to the run mode. The arithmetic — frame size, labeled so far, batch size,
+reference share, per-stratum pool and draw — goes to the extract job's stderr and
+to a `.batch.json` sidecar beside the extract. It is deliberately **not** written
+into the extract: that file is the labeler's whole evidentiary input, and strata
+counts plus the selection rule are exactly what the labeling prompt forbids
+reasoning from. The run mode uploads the extract by name, so the sidecar does not
+travel to the labeling job either.
+
+**Label once, and what publishes what.** The accumulating artifact is the union
+of the prior artifact and the run's new rows, prior entries carried forward
+unchanged. Two rules make that safe:
+
+- **A reference-set row publishes the hand set's adjudicated label**, marked
+  `source: reference`, never the labeler's. The labeler's call on those rows is
+  measurement input: scored into the agreement rate, then discarded. So a labeler
+  flip on a reference case moves that run's measured rate — the only thing it
+  should move — and can neither block a run nor change a published row.
+- **Every other row is published once**, marked `source: labeler`, because later
+  batches exclude what is already published. There is no flip surface: no second
+  labeling of a non-reference row exists to disagree with the first, and one
+  arriving anyway stops the run as a derivation bug.
+
+Each row carries the `batch` that first published it, and `batches` is a ledger
+of every contributing run — its labeler, what it published, how many rows it
+read, and its own agreement figures — so a drifting labeler is readable as a
+series rather than as one current number.
+
+**Deliberate relabeling still exists**, and it is the only path that rewrites a
+published row: a vocabulary version bump (`qp-topic-v1`), an extraction repair
+that changes the text a label was assigned from, or a reference relabel — which
+supersedes the published row from the new hand label and is counted in that
+batch's `superseded`. All three travel in their own reviewed diff.
+
+**Convergence.** Repeat dispatches clear the frame batch by batch. At the
+population the frame held when this was written — 8,183 rows, 353 of them
+reference members, so 847 new rows a batch — the historical backlog clears in
+**about ten dispatches**. That figure moves with the frame and with the
+reference set; it is arithmetic over two numbers, not a property of the design.
+When nothing is left to label outside the reference set, `qp-corpus` says so and
+exits non-zero rather than spending a run to re-grade the reference and publish
+nothing; the next batch arrives when the next pull grows the frame.
+
+Forward accrual is the smaller number. The Court dockets on the order of five
+thousand cert petitions a Term, and only the QP-bearing ones enter this frame, so
+once the backlog is clear a dispatch every quarter or so keeps up — a few hundred
+rows a month, well inside one batch. Treat that as a bound to re-derive from the
+first cleared frame rather than a measured rate: the frame's recent growth is
+extraction catching up with petitions already on hand, not the filing rate, and
+the two cannot be separated until the backlog is gone.
 
 **Why the scope stops where it does, and not one clause further.** The obvious
 next narrowing is the predict-scope segment — the population the salience gate
@@ -594,13 +704,13 @@ that it is text-only. The extract frame is wide because a narrower one leaks
 the measurement. If a future scope genuinely needs the paid segment, the
 reference set has to move into that frame first.
 
-Two consequences worth stating plainly. The ceiling is not a lever: raising it
+One consequence worth stating plainly. The ceiling is not a lever: raising it
 without raising the labeling step's cap buys a cancelled run rather than a
 bigger artifact, and raising that cap means raising the job's too — the step
 sits inside it deliberately — for a single agent turn measured in hours, which
-is not a shape this repository runs. And if the scoped population outgrows the
-ceiling, the
-answer is a **deliberately partial cut** — a documented, reproducible subset
-with its own selection rule and its own line in the scope string — never a
-truncated one, because a prefix of `case_id` order is a selection on docket
-number and would make the published mix a function of it.
+is not a shape this repository runs. The scoped population **has** outgrown the
+ceiling, and the answer is the batching below: a documented, reproducible subset
+with its own selection rule and its own line in the scope string, accrued until
+the frame is clear — never a truncated one, because a prefix of `case_id` order
+is a selection on docket number and would make the published mix a function of
+it.

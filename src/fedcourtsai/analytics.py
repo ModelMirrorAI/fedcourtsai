@@ -798,22 +798,30 @@ def _qp_topic_scope_note(rows: _SectionRows) -> str:
     numbers rather than as a standing sentence.
 
     The mandated string leads and stays contiguous, so it is quotable whole. Its
-    two counts are **ingested rows** — rows on hand — not walked serials: this
-    document reserves *walked* for the discovery cursors' census, which runs
-    several-fold above the ingested count because the historical walk samples
-    denials. The clauses after it carry what the flags and that string leave
-    unsaid: which counts are raw and which reweighted, that reweighting does not
-    recover the docket, and that a grant-enriched population makes this section's
-    base-rate column incomparable to the cuts above it.
+    two counts are the **labeled coverage** of the cut's own frame, in ingested
+    rows — rows on hand — not walked serials: this document reserves *walked* for
+    the discovery cursors' census, which runs several-fold above the ingested
+    count because the historical walk samples denials. The clauses after it carry
+    what the flags and that string leave unsaid: which counts are raw and which
+    reweighted, that reweighting does not recover the docket, that a
+    grant-enriched population makes this section's base-rate column incomparable
+    to the cuts above it, and **how the labeled subset was chosen** — because the
+    frame outruns one labeling dispatch, so the gap between the two counts is a
+    labeling backlog rather than a fetch gap, and a reader is owed the selection
+    rule that closes it.
     """
     return (
-        f"QP-bearing rows only — {rows.kept} of {rows.scoped} ingested rows; grant-enriched; "
-        "primaries only; not docket-representative. Those two counts are raw rows; the bucket "
-        "counts are denial-reweighted, and no reweighting recovers the docket — QP presence is "
-        "itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. "
-        "Coverage is uneven across Terms and zero on the earliest of them, so the mix is not "
-        "the whole slice's; the base-rate column is over a grant-enriched population and is not "
-        "comparable to the sections above. A naive share partly counts coordinated filing "
+        f"QP-bearing rows only — {rows.kept} of {rows.scoped} ingested rows labeled; "
+        "grant-enriched; primaries only; not docket-representative. Those two counts are raw "
+        "rows; the bucket counts are denial-reweighted, and no reweighting recovers the "
+        "docket — QP presence is itself outcome- and stream-correlated, so this stays a share "
+        "of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, "
+        "so the mix is not the whole slice's; the base-rate column is over a grant-enriched "
+        "population and is not comparable to the sections above. The labeled subset accrues in "
+        "batches — every reference case, plus a Term x fee-class-stratified draw of the "
+        "not-yet-labeled remainder ordered by a seeded hash of case id — so it is a stratified "
+        "sample of the frame rather than a prefix of it, and the unlabeled remainder is "
+        "outstanding rather than excluded. A naive share partly counts coordinated filing "
         "campaigns rather than subjects; no de-duplicated companion is published."
     )
 

@@ -205,6 +205,7 @@ from .pipeline.distribution_rederive import rederive_distribution_counts
 from .pipeline.document_backfill import backfill_documents
 from .pipeline.documents import (
     KIND_PETITION,
+    QpExtractRow,
     TextCoverage,
     backfill_questions_presented,
     document_text_coverage,
@@ -290,6 +291,7 @@ from .schemas import (
     Prediction,
     PredictionContext,
     ProcessVersion,
+    QpTopicLabels,
     QpTopicReference,
     RetrievalCall,
     RetrievalLog,
@@ -3431,6 +3433,68 @@ def _work_tree_root() -> Path | None:
     return None
 
 
+def _labeling_batch(
+    frame: Sequence[QpExtractRow], *, data_root: Path, out: Path, scope: str
+) -> list[QpExtractRow]:
+    """The rows this dispatch labels, cut from the scoped frame by committed state.
+
+    Reads the committed reference set and, where one exists, the committed labels
+    artifact, then hands both to
+    :func:`~fedcourtsai.pipeline.qp_topics.derive_label_batch`. The reference set
+    is required rather than optional: the batch force-includes it to stay
+    measurable, and a run that could not do so would fail the publication gate's
+    coverage floor whatever it labeled.
+
+    Writes the batch's arithmetic to a sidecar beside the extract and prints it
+    to stderr, and exits non-zero on a converged frame — a dispatch that would
+    re-grade the reference set and publish nothing.
+    """
+    reference_file = qp_topics.reference_path(data_root)
+    if not reference_file.is_file():
+        typer.echo(
+            f"qp-corpus: no reference set at {reference_file} — the batch is derived from "
+            "committed state (every reference case, plus a stratified draw of the "
+            "not-yet-labeled remainder), so without it there is no measurable batch to cut "
+            "and no labeling run could pass the publication gate",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    labels_file = qp_topics.labels_path(data_root)
+    prior = read_model(labels_file, QpTopicLabels) if labels_file.is_file() else None
+    try:
+        batch = qp_topics.derive_label_batch(
+            frame=[(row.case_id, row.docket_number) for row in frame],
+            reference=read_model(reference_file, QpTopicReference),
+            labeled={entry.case_id for entry in prior.entries} if prior is not None else (),
+        )
+    except qp_topics.QpTopicError as exc:
+        typer.echo(f"qp-corpus: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    if batch.converged:
+        # Loud, and non-zero: the frame is labeled out. Another dispatch would
+        # re-grade the reference set, publish not one new row, and spend a
+        # labeling run to do it. A pull that ingests new petitions is what makes
+        # the next batch, not a re-dispatch of this one.
+        typer.echo(
+            f"qp-corpus: converged — all {batch.frame} scoped row(s) outside the reference "
+            f"set are labeled ({batch.labeled} published), so this dispatch would re-grade "
+            "the reference and publish nothing. Nothing was written. The next batch arrives "
+            "with the next pull, when the frame grows.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    # Beside the extract, never inside it: the extract is the labeler's whole
+    # evidentiary input and the contract is text-only, so the selection rule and
+    # its Term x fee-class counts stay out of the file the labeler reads. The run
+    # mode uploads the extract by name, so this file does not travel to the
+    # labeling job either.
+    write_raw_json(out.with_name(out.stem + ".batch.json"), qp_topics.batch_metadata(batch))
+    typer.echo(f"qp-corpus: batch derived from committed state ({scope})", err=True)
+    typer.echo(qp_topics.render_batch(batch), err=True)
+    selected = set(batch.case_ids)
+    return [row for row in frame if row.case_id in selected]
+
+
 @app.command("qp-corpus")
 def qp_corpus(
     out: Annotated[Path, typer.Option(help="JSON output path for the extracted texts.")],
@@ -3476,14 +3540,24 @@ def qp_corpus(
     is half the key the reference join is checked on, and an empty extraction is
     nothing to label.
 
-    **Refuses an extract larger than the labeling ceiling**
-    (:data:`~fedcourtsai.pipeline.qp_topics.LABEL_ROW_CEILING`), printing the
-    count and the scope it would have had to label. A labeling dispatch is one
-    headless turn under a hard step cap, and only a *complete* label file yields
-    an artifact, so an over-budget extract does not buy partial coverage — it
-    buys a killed step, full spend, and no artifact. The refusal is the count:
-    it is what a maintainer needs to decide what to do next, and it costs the
-    extract job rather than the labeling one.
+    **Cuts a batch when the frame runs past the labeling ceiling**
+    (:data:`~fedcourtsai.pipeline.qp_topics.LABEL_ROW_CEILING`). A labeling
+    dispatch is one headless turn under a hard step cap and only a *complete*
+    label file yields an artifact, so an over-budget extract buys a killed step
+    and no artifact rather than partial coverage. The batch
+    (:func:`~fedcourtsai.pipeline.qp_topics.derive_label_batch`) is derived from
+    committed state alone — every reference case in the frame, force-included so
+    the run stays measurable, plus a Term x fee-class-stratified, seeded-hash
+    draw of the rows the committed labels artifact does not yet publish — so
+    repeat dispatches clear the frame batch by batch and each row is labeled
+    once. There are no new dispatch inputs and nothing to choose: the same
+    committed state always cuts the same batch. The arithmetic goes to stderr and
+    to a ``.batch.json`` sidecar beside the extract, deliberately not into the
+    extract, which is the labeler's text-only evidentiary input.
+
+    A frame with nothing left to label outside the reference set is
+    **converged**: the command says so and exits non-zero rather than spending a
+    dispatch to re-grade the reference and publish nothing.
 
     The extract is a working file for one labeler run, **never a committed
     artifact**: it enumerates the ingested corpus and republishes stored
@@ -3539,25 +3613,30 @@ def qp_corpus(
             err=True,
         )
         raise typer.Exit(code=1)
-    if len(extract.rows) > qp_topics.LABEL_ROW_CEILING:
-        typer.echo(
-            f"qp-corpus: refusing to write {len(extract.rows)} row(s) — over the "
-            f"{qp_topics.LABEL_ROW_CEILING}-row labeling ceiling. Scope: {scope}. "
-            "The labeler runs as one headless turn under a hard step cap and only a "
-            "complete label file yields an artifact, so this extract would spend the "
-            "run and produce nothing. Nothing was written, and there is no flag that "
-            "makes this proceed: labeling this population needs a deliberately "
-            "partial cut, which is a design decision and is not built (see "
-            "docs/qp-topic.md). Do not truncate the extract by hand — case_id order "
-            "is docket-number order, so a prefix selects on docket number.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
+    rows = extract.rows
+    if all_texts:
+        # The measurement form is not batched: it answers "what is in this blob",
+        # and a batch of that answer is not one. It keeps the flat refusal, so a
+        # maintainer who points a labeling run at it is stopped rather than
+        # handed an unmeasurable slice.
+        if len(rows) > qp_topics.LABEL_ROW_CEILING:
+            typer.echo(
+                f"qp-corpus: refusing to write {len(rows)} row(s) — over the "
+                f"{qp_topics.LABEL_ROW_CEILING}-row labeling ceiling. Scope: {scope}. "
+                "The measurement form is unbatched by design: it enumerates a file rather "
+                "than deriving a labeling population, so there is nothing to accrue against "
+                "and no reference set to measure with. Drop --all for the scoped, batched "
+                "labeling selection.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+    else:
+        rows = _labeling_batch(extract.rows, data_root=settings.data_root, out=out, scope=scope)
     write_raw_json(
         out,
         [
             {"case_id": row.case_id, "docket_number": row.docket_number, "text": row.text}
-            for row in extract.rows
+            for row in rows
         ],
     )
     if extract.skipped:
@@ -3565,7 +3644,7 @@ def qp_corpus(
             f"qp-corpus: skipped {extract.skipped} row(s) with no docket number or no text",
             err=True,
         )
-    typer.echo(f"qp-corpus: {len(extract.rows)} question(s) presented ({scope}) -> {out}")
+    typer.echo(f"qp-corpus: {len(rows)} question(s) presented ({scope}) -> {out}")
 
 
 @app.command("qp-topics")
@@ -3586,7 +3665,17 @@ def qp_topics_cmd(
         typer.Option(help="JSON output path (default: <data_root>/qp-topics/qp-topics.json)."),
     ] = None,
 ) -> None:
-    """Measure a topic labeler against the reference set and write its labels artifact.
+    """Measure a topic labeler against the reference set and accrue its labels artifact.
+
+    The artifact accumulates: one dispatch labels one derived batch
+    (``fedcourts qp-corpus``), and what is written is the union of the committed
+    artifact and this batch's new rows. Rows already published are carried
+    forward unchanged, so a later batch cannot rewrite an earlier one; the
+    exception is a row inside the hand reference set, which always publishes the
+    reference's **adjudicated** label rather than the labeler's. The labeler's
+    call on a reference row is measurement input only — it is scored into the
+    agreement rate and discarded — so a flip there moves this run's rate and
+    nothing else.
 
     Reads the labeler's JSONL intermediate, validates every label against the
     ``qp-topic-v0`` vocabulary, joins it to the hand reference set on ``case_id``
@@ -3608,17 +3697,33 @@ def qp_topics_cmd(
     if not reference_path.is_file():
         typer.echo(f"qp-topics: no reference set at {reference_path}", err=True)
         raise typer.Exit(code=1)
+    # The committed artifact is the accrual base, read from the data root rather
+    # than from `--out`: the artifact is the union of every batch, and a run that
+    # wrote somewhere else would still have to start from what is published.
+    prior_path = qp_topics.labels_path(settings.data_root)
+    prior = read_model(prior_path, QpTopicLabels) if prior_path.is_file() else None
     try:
         artifact = qp_topics.build_labels(
             entries=qp_topics.read_label_lines(labels),
             texts=qp_topics.read_texts(texts),
             reference=read_model(reference_path, QpTopicReference),
             labeler=labeler,
+            prior=prior,
         )
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-topics: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    typer.echo(f"qp-topics: {artifact.cases} labeled case(s) by {artifact.labeler}")
+    batch = artifact.batches[-1]
+    typer.echo(
+        f"qp-topics: batch {batch.batch} — {batch.measured} row(s) labeled by "
+        f"{artifact.labeler}, {batch.published} newly published, {artifact.cases} "
+        f"labeled case(s) in the artifact"
+    )
+    if batch.superseded:
+        typer.echo(
+            f"qp-topics: {batch.superseded} standing row(s) re-published from a changed "
+            "hand reference label"
+        )
     typer.echo(qp_topics.render_agreement(artifact.agreement))
     typer.echo(
         f"  shadow:    {artifact.shadow.disagreements} disagreement(s) on "

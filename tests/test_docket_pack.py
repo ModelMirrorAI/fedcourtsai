@@ -28,10 +28,11 @@ from fedcourtsai.schemas import (
     DocketPack,
     GroupBy,
     QpTopicAgreement,
+    QpTopicBatchEntry,
     QpTopicLabel,
     QpTopicLabelAgreement,
-    QpTopicLabelEntry,
     QpTopicLabels,
+    QpTopicPublishedEntry,
     QpTopicShadow,
     StatPackSection,
 )
@@ -519,9 +520,23 @@ def _qp_labels(path: Path, primaries: dict[str, QpTopicLabel], *, gate_passed: b
             gate_passed=gate_passed,
         ),
         shadow=QpTopicShadow(texts=len(primaries), fired=0, disagreements=0),
+        batches=[
+            QpTopicBatchEntry(
+                batch=1,
+                labeler="stub-labeler",
+                published=len(primaries),
+                measured=len(primaries),
+                agree=170,
+                n=189,
+            )
+        ],
         entries=[
-            QpTopicLabelEntry(
-                case_id=case_id, docket_number=case_id.removeprefix("scotus/"), label=label
+            QpTopicPublishedEntry(
+                case_id=case_id,
+                docket_number=case_id.removeprefix("scotus/"),
+                label=label,
+                source="labeler",
+                batch=1,
             )
             for case_id, label in sorted(primaries.items())
         ],
@@ -632,10 +647,19 @@ def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) ->
     assert (
         "_Scope: scotus, modern discretionary-cert dockets, live/historical slice; "
         "counts are denial-reweighted estimates. QP-bearing rows only — 2 of 3 ingested "
-        "rows; grant-enriched; primaries only; not docket-representative." in md
+        "rows labeled; grant-enriched; primaries only; not docket-representative." in md
     )
     assert "no reweighting recovers the docket" in md
     assert "not comparable to the sections above" in md
+    # The labeling frame outruns one dispatch, so the gap between the two counts
+    # is a labeling backlog: the caveat has to say how the labeled subset was
+    # drawn, or a reader reads a stratified sample as a fetch gap.
+    assert (
+        "The labeled subset accrues in batches — every reference case, plus a Term x "
+        "fee-class-stratified draw of the not-yet-labeled remainder ordered by a seeded "
+        "hash of case id — so it is a stratified sample of the frame rather than a prefix "
+        "of it, and the unlabeled remainder is outstanding rather than excluded." in md
+    )
     assert (
         "A naive share partly counts coordinated filing campaigns rather than subjects; "
         "no de-duplicated companion is published._" in md
