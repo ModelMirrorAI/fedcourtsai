@@ -1006,12 +1006,12 @@ pattern rather than rediscovering it:
   erases its own evidence and spends the whole budget. Where the wedged process
   sits inside a third-party action with no timeout input of its own, the bound
   is a **runner-level watchdog**: a detached shell armed immediately before the
-  step under the same condition and killed immediately after it (the codex
-  cells' arm/disarm pair around `scripts/codex-watchdog.sh`), which at its
-  deadline captures the runner's state, kills the wedged process, and — where
-  the step outlives that kill, or where nothing engine-shaped was ever there to
-  kill — ends the step's own process tree, turning a job-cap cancellation into
-  an ordinary step failure the salvage path already handles. Ending the step
+  guarded steps and killed immediately after them (the cells' arm/disarm pair
+  around `scripts/engine-watchdog.sh`), which ends the step's own process tree
+  — as soon as the cell's required outputs are complete and quiescent, and
+  failing that at a deadline, having first captured the runner's state and
+  killed the wedged process. Either way a job-cap cancellation becomes an
+  ordinary concluded step the salvage path already handles. Ending the step
   means signalling what the runner is waiting on, so the target is found by
   parentage (the runner starts each step as a child of its per-job worker) and
   never by name alone; the worker and listener themselves are refused, since
@@ -1024,7 +1024,8 @@ pattern rather than rediscovering it:
   channel that lives on the runner: the diagnostics bundle, the disarm step that
   publishes it, the step summary, and the job log GitHub drops. A guard whose
   entire account of itself dies with the failure it guards cannot even be
-  observed to have fired. So the codex watchdog also writes **off** the runner
+  observed to have fired. So the engine watchdog also writes **off** the runner,
+  on the codex cells that mint the credential for it,
   while the runner is still alive — one comment per cell on a long-lived
   tracking issue, opened before the agent starts and updated in place at each
   state — and the runner-local bundle becomes the detail behind a record that
@@ -1866,20 +1867,70 @@ not the job. A step timeout (or a max-turns stop) fails only that step and leave
 the runner alive, so the salvage step still runs (`if: !cancelled()`) and the
 agent's partial work survives instead of being discarded with the cancelled job.
 
-One engine needs more than that bound. A wedged `codex exec` has held its step
-`in_progress` straight through the step timeout until the *job* cap cancelled
-the runner — and a cancelled job runs none of the salvage tail and has its logs
-dropped by GitHub, so the hang erases its own evidence while spending the whole
-budget. The pinned codex-action carries no timeout input of its own, so both
-codex cell steps are bracketed by an **arm/disarm pair** around a runner-level
-watchdog (`scripts/codex-watchdog.sh`): armed with the same condition as the
-step it guards, disarmed the moment that step ends however it ended. At its
-deadline — set well inside the job cap, with the arithmetic at the arm step —
-it captures the runner user's process tree, the socket table and a listing of
-the codex home — first, so the evidence exists whatever the kills then do —
-then kills the engine, which fails the *step* and hands the cell back to the
-salvage path above — which is also what makes the sidecar-log step run, so
-those logs land in a job log that now survives.
+Agent steps need more than that bound, because a step can stay `in_progress`
+straight through its own timeout until the *job* cap cancels the runner — and a
+cancelled job runs none of the salvage tail and has its logs dropped by GitHub,
+so the hang erases its own evidence while spending the whole budget. The pinned
+engine actions carry no timeout input of their own, so every cell's engine steps
+are bracketed by an **arm/disarm pair** around a runner-level watchdog
+(`scripts/engine-watchdog.sh`): armed once before the first of them — under the
+cell's refusal gate where it has one, which on predict is the whole of its
+condition, and ungated on evaluate, which has none — and disarmed the moment the
+last ends however it ended.
+Every engine is bracketed, not only the one whose hangs have been observed —
+both of the watchdog's triggers read the step and the cell's files rather than
+anything engine-specific, so the guard is engine-agnostic by construction.
+
+**The completion sentinel** is the trigger that saves work, and it exists
+because of what the hang actually looks like: the agent writes every output file
+its contract names, self-validates them, prints its closing token count — and
+then the step's *teardown* never concludes, so the job cap deletes finished,
+valid work. The arm step therefore resolves the cell's required outputs up front
+(`fedcourts cell-outputs`). The set is the **prompt contract's**, resolved
+through `fedcourtsai.paths` so nothing spells a filename: for a predict cell
+`prediction.json` — the artifact `finalize-produced` probes — plus
+`reasoning.md`, `predicted_reasoning.md`, `retrieval.md` and `tooling.json`; for
+an evaluate cell one `evaluation.json` + `evaluation.md` per candidate staged
+under `record/blinded/`, named by staging **alias** because the un-aliasing runs
+in the cell's tail long after the sentinel must recognize them, plus the judge's
+own `retrieval.md` and `tooling.json`. The filenames are fixed rather than read
+back from the pointers inside `prediction.json`, since the sentinel has to
+resolve them before anything has parsed that file. `flags.json` is excluded —
+written only when there is something to flag, so requiring it would leave the
+sentinel unable to fire on an ordinary cell — as are `usage.json` and
+`retrieval_log.json`, which the harness writes after the step this reaps.
+
+The list reaches the watchdog as environment — never as a file, since the agent
+owns the workspace and a list it could rewrite is a list it could satisfy without
+doing the work. The watchdog polls for all of them to exist, be non-empty and
+(for JSON) parse, and then for the output directory to go **quiescent** for five
+minutes, so an agent revising a draft is never cut off — the committed retrieval
+logs show a predict cell going 104 seconds between completing its file set and
+its next write to one of them, so the grace is set clear of the observed
+distribution rather than at its edge. On complete and quiet it
+captures the runner's state — a process forest and socket table taken *after* the
+agent finished, which is the one reading that can name whatever holds a finished
+step open — and ends the step's process tree. It records the reap only when it
+actually found a tree to end: a step that concluded on its own in the meantime
+leaves nothing to signal, and a marker written before that discovery would tell
+the tail "the watchdog ended this step" about a cell it never touched. Where no list could be resolved, or
+where the runner has no `python3` to parse with, the sentinel stands down and
+says so, leaving the deadline as the only bound. The step concludes, the tail runs, `status.json` records
+produced+validated, and `collect` picks the cell up as **ready** — a reaped step
+is counted as an agent that finished, because the watchdog only ever reaps one
+that did. The parse is deliberately all the sentinel asks: schema truth is the
+tail's `validate`, which routes a malformed cell to the draft PR, and that is
+strictly better than the job cap destroying it.
+
+**The deadline** is the second line, for a wedge that completes nothing. Set
+well inside the job cap, with the arithmetic at the arm step, it captures the
+runner user's process tree, the socket table and a listing of the codex home —
+first, so the evidence exists whatever the kills then do — then kills the
+engine, which fails the *step* and hands the cell back to the salvage path
+above — which is also what makes the sidecar-log step run, so those logs land in
+a job log that now survives. (The engine pattern names codex's invocation; on
+any other engine it matches nothing and the escalation goes straight to the
+step's tree, the same path a never-spawned engine takes.)
 
 Killing the engine only ends the step when the wedge is *in* the engine. A
 wedge in the action's node wrapper, or in a phase that runs before the engine
@@ -1907,30 +1958,48 @@ step is running *later*, and the tail steps that salvage the cell are children
 of the same worker. It is answered by start time: the guarded step began just
 after the watchdog was armed and has been running ever since, so a candidate
 older than the watchdog itself is refused (a sidecar, the model proxy, an
-orphan of an earlier step) and so is one younger than half the deadline (a tail
-step, which is seconds old when the deadline lands). Descendants are
+orphan of an earlier step) and so is one younger than the trigger's own
+reference moment. At the deadline that moment is half the deadline ago, which a
+tail step — seconds old when the deadline lands — falls under. At a sentinel it
+is sharper: the step that wrote the output began before the output was complete,
+and a tail step cannot have, so the sentinel's own timestamp is the ceiling.
+That is what lets a reap end a step the deadline's floor would have refused for
+being younger than a deadline it never reached. Descendants are
 deliberately never asked it — they are the guarded step by parentage, and most
 of what holds a wedged step open is spawned during the step's run, so testing a
 descendant's age would refuse exactly what the tree kill exists to reach. What
 is ended is the tree recorded at that moment, re-verified by pid and arguments
 before each signal so a recycled pid cannot be hit, plus whatever that tree has
 spawned since. The bundle rides the cell's
-artifact under `codex-watchdog/`, which every logged-in GitHub user can
+artifact under `engine-watchdog/`, which every logged-in GitHub user can
 download for its retention window, so it carries shapes and metadata only: the
 session rollout stays on the runner and the disarm step distils its item shapes
-(`codex-item-shapes`) in its place. The `collect` job commits `data/` alone, so
+(`codex-item-shapes`) in its place. Now that the bracket is every engine's, that
+exposure is too — a claude or gemini cell uploads the watchdog's own log always,
+and the process forest whenever the watchdog acts. It is the same class of
+publication the codex cells already accepted, widened from one engine to three:
+argv and kernel state for this runner user, never a file's contents, and a
+maintainer weighing it should read it as three cells' worth rather than one. The `collect` job commits `data/` alone, so
 none of it reaches the ledger.
 
 That bundle is runner-local, though, and a cancelled job takes it with the
 runner — which is the very failure the watchdog exists to convert, so it is
-exactly the evidence a wedge is best placed to destroy. The record that
-survives is off the runner
-entirely: the arm step opens a comment on the long-lived **`codex-watchdog`**
+exactly the evidence a wedge is best placed to destroy. (A *reaped* cell keeps
+it: concluding the step is what makes the tail that uploads it run.) The record
+that survives a cancellation is off the runner entirely, and it is **codex cells
+only**. The reaper needs no telemetry to work, and the record is load-bearing
+only where the escalation fails to end the step at all and the job cap cancels
+the runner regardless — the deadline path, which codex is the one engine to have
+taken. Widening the mint would put an issues:write App token in every cell of
+every round to buy a record for a failure no other engine has shown. On a codex cell the arm step opens a comment
+on the long-lived **`codex-watchdog`**
 issue (`fedcourts watchdog-checkin`, a non-triggering label) *before* the engine
 starts, and the detached watchdog PATCHes that comment as it passes each state —
-a heartbeat while it waits, then the deadline, the discovery tally, the fire or
-stand-down, each signal issued with its pids, the survivors after each grace,
-and the outcome. The disarm step closes it out with the engine step's
+whether the sentinel armed and over how many files, a heartbeat while it waits,
+**the moment the completion sentinel is observed** (the durable proof that the
+work existed, which survives even a reap that then fails), then the deadline or
+the reap, the discovery tally, each signal issued with its pids, the survivors
+after each grace, and the outcome. The disarm step closes it out with the engine step's
 conclusion, collapsing a round where nothing fired to a single armed/disarmed
 line so the issue stays one readable row per cell. The armed record alone is
 already evidence: a comment that says only "armed", on a run that never came

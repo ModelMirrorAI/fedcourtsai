@@ -265,17 +265,28 @@ whose corpus carries the pinned docket, and reads as red when it does not.
 Three properties are the family's, not this member's. The record is **pinned in
 the scenario's own steps**, not taken from the `court`/`docket` inputs: the
 record is what the scenario is, and a dispatcher who could re-point it could
-make a red leg mean something else. The engine bound is **tight** — a
-runner-level watchdog at twelve minutes inside a fifteen-minute step backstop,
-well inside the job cap — because a job that runs to its cap is *cancelled*,
-and GitHub drops a cancelled job's logs, so a hang that rides the cap erases
-the evidence the leg exists to produce; the watchdog's diagnostics bundle and
-the rollout's item shapes ride the run's artifact either way. Read a fired
-deadline as what it says — the cell did not finish inside the bound — and not
-as a reproduction on its own: the bound is a small fraction of the cells' own,
-so a healthy-but-slow cell can reach it, and the bundle is what separates that
-from an engine making no progress. And the family is
-**dispatch-only and observational** while its defect is open: no whole-suite
+make a red leg mean something else. The bounds sit **above the work envelope**
+— a 50-minute watchdog deadline inside a 58-minute step backstop inside a
+75-minute job cap for this leg, against a judge cell on this record shape that
+runs 40–50 minutes — because the defect being reproduced begins only *after*
+the agent finishes: a tighter bound would kill a healthy mid-grading cell and
+never reach the teardown phase the leg exists to observe. What must stay well
+inside the job cap is the watchdog, since a job that runs to its cap is
+*cancelled* and GitHub drops a cancelled job's logs. The leg arms the
+**completion sentinel** too, so on a reproduced hang it is the *reap* that
+fires — about ninety seconds after the agent finishes — and its capture, a
+process forest and socket table taken while the work is already done, is what
+names the holder. Read the markers accordingly: `REAPED` is the defect
+reproducing and being handled, while `FIRED` or `STOOD_DOWN` says the completion
+set was never satisfied — work still running at fifty minutes, or a required file
+the judge never wrote — which is a finding about the cell rather than about
+teardown. The bundle and the rollout's item shapes ride the run's artifact either
+way. The leg reports **two halves separately**, because
+the finding is that they can disagree: `outputs:` counts the cell's produced
+files against the same `cell-outputs` list the watchdog's sentinel waits on, and
+`step:` says whether it concluded on its own, was reaped by the watchdog, or did
+not conclude — so a future regression is legible as which half broke. And the
+family is **dispatch-only and observational** while its defect is open: no whole-suite
 selection fans it out, and it is absent from `REQUIRED_SCENARIOS`, because a
 defect reproducing on cue inside `all` would redden the run the promotion gate
 matches on and block the promotion carrying the fix. A member whose defect is
@@ -462,10 +473,15 @@ bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants
 (`test_workflow_cell_invariants`: the qp-topics oracle fence, the corpus base
-URL, the forward leakage guard, the arm/disarm bracket and deadline of the
-codex hang watchdog — whose arm-step env is pinned as an exact set, so a
+URL, the forward leakage guard, the arm/disarm bracket, sentinel and deadline of the
+engine hang watchdog — whose bracket must wrap *every* engine step with no other
+step between them, whose arm-step env is pinned as an exact set, so a
 `WATCHDOG_*_MATCH` slipped in later fails rather than silently re-aiming the
-kill, and whose comment-only telemetry mint is pinned to `issues: write`, to the
+kill, whose completion sentinel is pinned to this cell's own role, to a bounded
+resolution and to reaching the watchdog as environment rather than as a file the
+agent could rewrite, whose reaped cell must reach `AGENT_OK` (or the fix would
+convert destroyed work into demoted work) off a flag read from runner temp, and
+whose comment-only telemetry mint is pinned to `issues: write`, to the codex
 engine step's own gate, to the two steps that may hold it, and to
 `continue-on-error`, since a mint that failed hard would skip the engine step —
 the run-surface retry with
@@ -489,13 +505,19 @@ asserts the workflow's grepped literal against the summary the CLI prints —
 the one coupling that lives in output wording rather than argv); and
 `test_collect_issueless` executes the collect composite's own `collect-plan`
 call with the sentinel it normalizes an absent issue number to, which is the
-path every round takes, since no lane supplies one. `test_codex_watchdog` does
-the same for the codex cells' hang bound: it runs `scripts/codex-watchdog.sh`
+path every round takes, since no lane supplies one. `test_engine_watchdog` does
+the same for the cells' hang bound: it runs `scripts/engine-watchdog.sh`
 against processes whose command lines and parentage stand in for a wedged
 engine, for the step that outlives its engine's death, and for the step that
 never spawned one at all, because every claim about that guard is a claim about
 process matching and signals on a live runner, and a wedge otherwise destroys
-its own evidence. Its safety half is the part worth reading: each discovery
+its own evidence. Its **completion sentinel** half is driven the same way, over
+files rather than processes: a fixture cell whose required outputs are all
+written has its wedged step reaped without waiting for the deadline, while a set
+that is one file short, one that does not parse, one still being rewritten, and
+one whose output directory does not exist yet each leave the reaper off and the
+deadline as the only bound — the four ways a reap could destroy work in
+progress, and the conservative direction is what each of them pins. Its safety half is the part worth reading: each discovery
 route is pointed, in its own test, straight at a fixture wearing
 runner-infrastructure arguments, which must survive — signalling the runner's
 own worker force-kills the job the watchdog exists to save — and two more pin

@@ -9,7 +9,7 @@ nothing afterwards says whether the watchdog even fired. Evidence about a runner
 that may be cancelled has to leave the runner *while the runner is still
 running*, which is what this module opens: a long-lived ``codex-watchdog``
 tracking issue carrying one comment per cell, created here before the agent
-starts and then PATCHed in place by ``scripts/codex-watchdog.sh`` itself as it
+starts and then PATCHed in place by ``scripts/engine-watchdog.sh`` itself as it
 passes each state.
 
 Built on :mod:`fedcourtsai.agent_feedback`: the same bounded ``gh`` runner (so
@@ -46,7 +46,7 @@ _LABEL_DESCRIPTION = "Codex cell watchdog telemetry (armed records and live hear
 _ISSUE_TITLE = "Codex watchdog telemetry"
 _ISSUE_BODY = (
     "Long-lived tracking issue for the codex cell watchdog "
-    "(`scripts/codex-watchdog.sh`). Each codex cell records itself here as one "
+    "(`scripts/engine-watchdog.sh`). Each codex cell records itself here as one "
     "comment: armed before the engine starts, then updated in place as the "
     "watchdog passes each state, so a wedge that cancels the runner — which "
     "drops the job's logs and skips its capture tail — cannot erase the account "

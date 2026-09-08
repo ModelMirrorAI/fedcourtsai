@@ -233,9 +233,9 @@ __marimo__/
 /.codex/
 /.gemini/
 
-# The codex cell watchdog's log, and the diagnostics bundle it writes when it
-# fires: runner-local evidence that rides the cell artifact, never the ledger.
-/codex-watchdog/
+# The cell watchdog's log, and the diagnostics bundle it writes when it acts:
+# runner-local evidence that rides the cell artifact, never the ledger.
+/engine-watchdog/
 
 # Claude Code's stored subscription credential.
 .credentials.json
