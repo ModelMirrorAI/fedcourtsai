@@ -172,9 +172,10 @@ on:
       #
       # A non-empty `docket` pins one case instead and `court` is then its
       # court half; the resolver is skipped entirely. It stays available as an
-      # override — for aiming a dispatch at one particular case, or for a corpus
-      # neither window can answer out of (the resolver refuses loudly, naming
-      # both). A pinned case must satisfy by hand what the resolver checks: it exists
+      # override — for aiming a dispatch at one particular case, or for a
+      # corpus no window can answer out of (the resolver refuses loudly,
+      # naming every window it tried). A pinned case must satisfy by hand what
+      # the resolver checks: it exists
       # in the corpus, it (or the `event` the dispatch narrows to) is
       # genuinely undisposed — the stub-cascade provisioning guard rightly
       # refuses a snapshot that already shows the outcome — and it carries a

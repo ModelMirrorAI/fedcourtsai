@@ -131,7 +131,8 @@ anything.
 
 The primary candidate window is driven from the **blob's** snapshot index,
 which is what bounds it, so a pair whose blob carries no snapshot rows leaves it
-empty — a slice seeded split-on is exactly that, the staging pair included.
+empty — a slice written *entirely* split-on is exactly that, the staging pair
+included ([cli.md](cli.md)'s `corpus-integration-case` row has the full rule).
 There a **second window** answers instead: the same still-predictable rows out
 of the index, in the same order, with content-store snapshot presence probed per
 candidate (a key listing, no payload fetch). Same screens either way, so a

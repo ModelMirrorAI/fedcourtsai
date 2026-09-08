@@ -235,11 +235,14 @@ def resolve_integration_case(
     dockets a repair sweep happened to touch.) Deterministic given a corpus, and
     bounded by ``scan_limit``.
 
-    **A split estate gets a second window.** Under the corpus-split mode the
-    blob carries no ``snapshots`` rows at all — the payloads live only in the
-    content store — so the primary window is empty *by construction*, and an
-    estate seeded that way (the staging pair) could not self-resolve. When that
-    window comes back empty and :func:`fedcourtsai.corpus.payload_reads_offloaded`
+    **A split-written estate gets a second window.** An estate written
+    *entirely* under the corpus-split mode carries no ``snapshots`` rows in its
+    blob at all — the payloads only ever reached the content store — so the
+    primary window is empty *by construction* there, and a slice seeded that way
+    (the staging pair) could not self-resolve. (Not every split-on estate: the
+    production corpus keeps every snapshot row written before the cutover, so
+    its primary window answers.) When the primary window comes back empty and
+    :func:`fedcourtsai.corpus.payload_reads_offloaded`
     says the store is where snapshots live, the resolver walks
     :func:`fedcourtsai.corpus.still_predictable_open_cases` — the same
     predicates and the same ordering, minus the snapshot join — and probes
@@ -308,10 +311,16 @@ def resolve_integration_case(
         if rejected
         else "no unresolved, unlatched case with an open event carries a stored snapshot"
     )
+    # `--scan-limit` reaches only the primary window's bound; the store window's
+    # is fixed, so say which lever the refusal is actually offering.
+    widen = (
+        "Refresh the corpus or name a case explicitly"
+        if len(windows) > 1
+        else "Widen the scan limit, refresh the corpus, or name a case explicitly"
+    )
     raise CaseResolutionError(
         f"no case in {court} is shaped for the integration suite. Tried "
-        f"{'; then '.join(windows)}; none usable — {tally}. Widen the bound, "
-        f"refresh the corpus, or name a case explicitly."
+        f"{'; then '.join(windows)}; none usable — {tally}. {widen}."
     )
 
 

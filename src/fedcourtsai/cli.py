@@ -9350,8 +9350,9 @@ def corpus_integration_case(
         int,
         typer.Option(
             min=1,
-            help="How many candidates the bounded window admits — the cap on both "
-            "the index walk and the per-candidate snapshot reads.",
+            help="How many candidates the primary, snapshot-driven window admits "
+            "— the cap on both its index walk and its per-candidate snapshot "
+            "reads. The split-estate fallback window's bound is fixed.",
         ),
     ] = integration_check.DEFAULT_CANDIDATE_SCAN,
     corpus_backend: CorpusBackendOption = "",
@@ -9373,10 +9374,10 @@ def corpus_integration_case(
     newest stamp is the case whose row and stored snapshot best reflect the
     live docket. (Not `last_pulled` — the pull governor rotates over the whole
     active set including the historical bulk import, so its freshest stamps are
-    ancient dockets a repair sweep happened to touch.) The window is driven from
-    the blob's snapshot index, which covers a tiny fraction of the corpus, so
-    the read stays bounded rather than walking the court's whole slice.
-    Deterministic given a corpus.
+    ancient dockets a repair sweep happened to touch.) The primary window is
+    driven from the blob's snapshot index, which covers a tiny fraction of the
+    corpus, so the read stays bounded rather than walking the court's whole
+    slice. Deterministic given a corpus.
 
     Prints exactly two lines on stdout, appendable straight to a step's
     ``$GITHUB_OUTPUT``:
@@ -9384,12 +9385,13 @@ def corpus_integration_case(
         court=scotus
         docket=71234567
 
-    Under the **corpus-split** mode the blob carries no snapshot rows, so that
+    Where the blob carries no snapshot rows — an estate written *entirely*
+    under the **corpus-split** mode, the seeded staging slice among them — that
     window is empty by construction and a second one answers instead: the same
     still-predictable rows out of the index, bounded, with content-store
     snapshot **presence** probed per candidate (a key listing, no payload
-    fetch). Same screens either way — an estate seeded split-on self-resolves
-    like any other, and the human line names which window answered.
+    fetch). Same screens either way, so such an estate self-resolves like any
+    other, and the human line names which window answered.
 
     The human line — the case, the window it came from, its live-poll stamp,
     its snapshot date, its open events — goes to stderr. Exits 2 when nothing

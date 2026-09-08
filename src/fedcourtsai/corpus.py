@@ -3561,12 +3561,17 @@ def snapshot_bearing_open_cases(conn: ReadConnection, *, court: str, limit: int)
     leaving it to the planner, which otherwise drives from ``cases`` and walks
     every undisposed row in the court to find the few that are snapshotted.
 
-    Empty under the **corpus-split** mode, where the blob carries no snapshot
-    rows at all (the content store holds them); callers must handle that, since
-    an empty window there means "cannot tell from the index", not "no such case"
-    — :func:`payload_reads_offloaded` is the seam that distinguishes them, and
-    :func:`still_predictable_open_cases` is the window that answers there. The
-    remaining screen stays with the caller, which holds the connection: the full
+    Empty over a blob that carries no snapshot rows: an estate written
+    *entirely* under the **corpus-split** mode, whose payloads only ever reached
+    the content store. The seeded staging slice is one. The production corpus is
+    not — it is split-on, but it keeps every snapshot row written before the
+    cutover, so its window answers. Callers must handle the empty case, since
+    there it means "cannot tell from the index", not "no such case" —
+    :func:`payload_reads_offloaded` is the seam that says whether the store is
+    worth asking, and :func:`still_predictable_open_cases` is the window that
+    asks it.
+
+    The remaining screen stays with the caller, which holds the connection: the full
     scope reason (:func:`out_of_scope_reason_full`, whose snapshot-aware rules
     the ``predict_excluded`` latch cannot carry on its own).
     """
