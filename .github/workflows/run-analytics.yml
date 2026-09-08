@@ -963,11 +963,24 @@ jobs:
           set -euo pipefail
           rm -rf "$RUNNER_TEMP/qp-topics-oracle"
           # From the commit, not from the copy: whatever the agent did to the
-          # tree, the file the gate measures against is the reviewed one.
+          # tree, the files the gate measures against are the reviewed ones.
+          # The rm before the checkout is load-bearing for the accrual base:
+          # `git checkout --` restores tracked files only, and the measure
+          # step reads the committed labels artifact from this path — an
+          # untracked file the agent planted there would survive a bare
+          # restore, ride into the union as carried rows, and publish. Wipe
+          # the directory, restore the tracked truth, and refuse any
+          # untracked residue the porcelain still shows.
+          rm -rf data/qp-topics
           git checkout -- data/qp-topics
           if ! git diff --quiet || ! git diff --cached --quiet; then
             echo "::error::the labeler modified tracked files; refusing to measure"
             git status --porcelain
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain -- data/qp-topics)" ]; then
+            echo "::error::untracked content under data/qp-topics after the restore; refusing to measure"
+            git status --porcelain -- data/qp-topics
             exit 1
           fi
           echo "work tree pristine"
@@ -1302,33 +1315,49 @@ jobs:
           # artifact accrues: `qp-topics` built it by accruing onto the *dispatch
           # ref's* committed copy, while the push replaces main's. Dispatch this
           # mode from the ref carrying the newest artifact — on a ref that lags
-          # main, the pushed file silently drops main's later batches, and the
-          # ledger shows no gap. That is why the PR is reviewed and never
-          # auto-merged: the falling `cases` count in the title is the tell.
+          # main, the pushed file would drop or rewrite rows main already
+          # publishes. The guard below refuses that push mechanically (ledger
+          # extension + row containment); the reviewed, never-auto-merged PR
+          # stays the human backstop behind it.
           cp data/qp-topics/qp-topics.json "$RUNNER_TEMP/qp-topics.json"
           git fetch --no-tags -q origin main
           git checkout -q -f -B "$BRANCH" origin/main
-          # Accrual makes the cut a supersession, so check it is one. The run
-          # built its file by accruing onto the *dispatch ref's* copy; if that
-          # ref lagged main, the ledger main already holds is not a prefix of
-          # this one and the push would silently drop main's later batches. The
-          # counts cannot show it — every batch is ceiling-sized, so a run one
-          # batch behind lands the same `cases` a correct one would — and only
-          # the file diff would, which is why this is mechanical rather than left
-          # to review.
+          # Accrual makes the cut a supersession, so check it is one — on the
+          # ROWS, not the ledger counts. A run exactly one batch behind lands a
+          # ledger of the same length with the same {batch, labeler, published}
+          # tuples (every batch is ceiling-sized), so a tuple-prefix check
+          # passes in precisely the stale case it exists for; only row content
+          # separates the two. The rule the artifact registers is that a
+          # labeler-published row is immutable once landed (reference rows are
+          # legitimately superseded by a hand relabel), so the mechanical form
+          # is containment: every labeler-sourced row main publishes must
+          # appear byte-identically in the incoming file, and the ledger must
+          # extend main's.
           if [ -f data/qp-topics/qp-topics.json ]; then
             landed=$(jq -cS '[.batches[] | {batch, labeler, published}]' \
               data/qp-topics/qp-topics.json)
+            landed_rows=$(jq -cS '[.entries[] | select(.source == "labeler")]' \
+              data/qp-topics/qp-topics.json)
           else
             landed='[]'
+            landed_rows='[]'
           fi
           incoming=$(jq -cS '[.batches[] | {batch, labeler, published}]' \
             "$RUNNER_TEMP/qp-topics.json")
+          incoming_rows=$(jq -cS '[.entries[] | select(.source == "labeler")]' \
+            "$RUNNER_TEMP/qp-topics.json")
           if [ "$(jq -n --argjson a "$landed" --argjson b "$incoming" \
-                  '$b[:($a | length)] == $a')" != "true" ]; then
-            echo "::error::this run accrued onto a stale artifact — main's batch ledger is" \
-              "not a prefix of the run's, so pushing would drop batches main already holds." \
+                  '($b[:($a | length)] == $a) and (($b | length) > ($a | length))')" != "true" ]; then
+            echo "::error::this run's batch ledger does not strictly extend main's —" \
+              "the run accrued onto a stale artifact, or published nothing new." \
               "Dispatch qp-topic-label from the ref carrying the newest data/qp-topics/qp-topics.json."
+            exit 1
+          fi
+          if [ "$(jq -n --argjson a "$landed_rows" --argjson b "$incoming_rows" \
+                  '($a - $b) | length == 0')" != "true" ]; then
+            echo "::error::rows main already publishes are missing or changed in this run's" \
+              "artifact — pushing would rewrite published labels. The run accrued onto a" \
+              "stale or divergent artifact; dispatch from the ref carrying main's newest copy."
             exit 1
           fi
           mkdir -p data/qp-topics

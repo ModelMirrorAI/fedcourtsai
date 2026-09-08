@@ -841,9 +841,11 @@ converges on the whole frame, so it tracks corpus growth in that scope and the
 committed file at any commit is the union of every batch landed so far. The
 ceiling bounds one extract — the non-committed channel below — and nothing else.
 That is a real widening over a single capped cut, and it is accepted on the
-ground already argued in `docs/qp-topic.md`: what the frame enumerates is
-QP-bearing SCOTUS petitions, whose dockets are named on the Court's own site,
-and no QP text is republished. Nothing further comes from history-differencing
+ground already argued in `docs/qp-topic.md`: the frame's *contents* are public
+dockets, named on the Court's own site, and no QP text is republished — while
+its *membership* (which of those dockets this pipeline holds a QP text for) is
+the compilation extent, derivable from no public source, and disclosing exactly
+that is what the compilation-extent exception buys. Nothing further comes from history-differencing
 here, because the file's own accrual makes the union readable at HEAD. Each names
 ingested-but-unpublished dockets by public docket number; the reference set's
 membership is outcome-conditioned (presence predicts a cert grant), the labels
@@ -855,7 +857,13 @@ pair reconstructs that frame's QP-bearing non-grants by difference. That composi
 artifacts under the same one-day window, publicly downloadable on this
 repository: its extract of stored petition text, riding between the mode's two
 jobs, and the labeler's scanned turn-by-turn transcript, which embeds the same
-text plus the agent's own turns. A third run artifact rides the same one-day
+text plus the agent's own turns. Because every batch re-carries the reference
+rows, intersecting two extracts recovers the in-frame reference membership
+within their windows — `docs/qp-topic.md` carries that reading and its bound.
+The extract job's step summary is one more durable public surface, deliberately
+counts-only (batch sizes, stratum keys, the seed name — no case id, no text);
+that property holds for today's messages rather than by a stripping mechanism,
+since the summary tees the command's stderr verbatim. A third run artifact rides the same one-day
 window: the `distribution-census` JSON, which republishes no document text —
 counts, band labels, and changed-case ids only — but whose id lists name
 ingested dockets by public docket number, membership conditioned on a parse

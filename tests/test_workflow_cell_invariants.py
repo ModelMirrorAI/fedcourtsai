@@ -221,7 +221,32 @@ def test_the_labeler_diverts_and_restores_the_oracle() -> None:
     agent's own bytes would let a labeler grade against a file it wrote."""
     runs = _run_blocks(_load("run-analytics.yml"))
     assert any('mv data/qp-topics "$RUNNER_TEMP/qp-topics-oracle"' in run for run in runs)
-    assert any("git checkout -- data/qp-topics" in run for run in runs)
+    restore = next(run for run in runs if "git checkout -- data/qp-topics" in run)
+    # The wipe before the restore, and the untracked-residue refusal after it,
+    # are what make the fence cover the accrual base: `git checkout --`
+    # restores tracked files only, and the measure step reads the committed
+    # labels artifact from this path — an untracked file the agent planted
+    # would survive a bare restore and ride into the published union.
+    assert restore.index("rm -rf data/qp-topics") < restore.index("git checkout -- data/qp-topics")
+    assert "git status --porcelain -- data/qp-topics" in restore, (
+        "the pristine assertion must refuse untracked residue under data/qp-topics"
+    )
+
+
+def test_the_qp_labels_push_guard_checks_rows_not_ledger_counts() -> None:
+    """A run exactly one batch behind lands a same-length ledger with identical
+    {batch, labeler, published} tuples — every batch is ceiling-sized — so a
+    tuple-prefix check alone passes in precisely the stale case it exists for.
+    The registered rule is row immutability for labeler-published entries, and
+    the guard must deliver it mechanically: ledger strict extension plus
+    byte-identical containment of every labeler-sourced row main publishes."""
+    runs = _run_blocks(_load("run-analytics.yml"))
+    guard = next(run for run in runs if "qp-topics/refresh" in run or "stale or divergent" in run)
+    assert 'select(.source == "labeler")' in guard
+    assert "($a - $b) | length == 0" in guard, "row containment, not counts, is the check"
+    assert "($b | length) > ($a | length)" in guard, (
+        "the ledger must strictly extend main's — an equal ledger is a settled rerun"
+    )
 
 
 def _env_mappings(name: str) -> list[tuple[str, dict[str, Any]]]:
