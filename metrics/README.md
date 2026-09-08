@@ -1583,8 +1583,8 @@ enters a claim score, a leaderboard rank, or any denominator here, and the
 census publishes **counts only**. A grant rate by government-party status is a
 different artifact with its own scope string and denial reweighting; computing
 one from these cells would inherit every caveat below without carrying them.
-Five rules travel with any figure quoted from it, and the first is the one that
-inverts a conclusion when it is skipped. **No cross-administration reading
+Six rules travel with any figure quoted from it, and the first two are the ones
+that invert a conclusion when they are skipped. **No cross-administration reading
 without holding the docket stratum fixed.** The windows hold very different
 mixes of paid cert, IFP cert and applications — on the blob pulled 2026-09-08
 (newest stored snapshot 2026-07-13), the `filed` frame runs 91% paid under
@@ -1598,7 +1598,12 @@ are therefore keyed on the stratum, and only a stratum-matched share is
 readable across windows — the paid-cert stratum being the one captured whole in
 every window, since the excluded one-in-ten sampled denial block is entirely
 IFP and covers OT2017–OT2024, leaving the two newest Terms of a frame that runs
-to OT2026 with no exclusion at all. **Always with the date convention and
+to OT2026 with no exclusion at all. **And one stratum is not rescued by holding
+it fixed**: because the exclusion *is* the IFP stratum, the older windows'
+`ifp-cert` cells are the complement of a systematic sample — frame coverage of
+the estimated IFP stratum runs about 3.6% in each of the two older windows
+against 74% in the newest — so no `ifp-cert` series may be read across windows
+until this census gains reweighted cuts. **Always with the date convention and
 the rule version**, both stamped on the artifact (`as_of_field`,
 `rule_version`): a petition filed under one administration is routinely
 resolved under the next, so two cuts are comparable only where both stamps
@@ -1612,16 +1617,12 @@ one of them filed under the newest administration), and the newest window's
 coincide exactly under `resolved` is a **measured** fact about this blob, not a
 structural one: the two are counted separately so that a dated row carrying no
 label — a divergence — reads as the counters working rather than as a bug.
-And one stratum is not rescued by stratum-matching at all: the excluded block
-is IFP, so the `ifp-cert` cells of the older windows are the complement of a
-systematic sample (frame coverage of the estimated IFP stratum runs about 3.6%
-in the two older windows against 74% in the newest), and no `ifp-cert` series
-may be read across windows until the reweighted cuts exist. **The administration is the date's,
-not the caption's** — official-capacity captions auto-substitute on a
-transition and the stored caption is as-of-last-pull, so nothing here reads a
-party's *name* for attribution, and a federal party may be a court or an agency
-the executive does not speak for, so the label names who held office rather
-than asserting the administration was the litigant. **`named_president` is a
+**The administration is the date's, not the caption's** — official-capacity
+captions auto-substitute on a transition and the stored caption is
+as-of-last-pull, so nothing here reads a party's *name* for attribution, and a
+federal party may be a court or an agency the executive does not speak for, so
+the label names who held office rather than asserting the administration was
+the litigant. **`named_president` is a
 name match, not an identification, and not a personal-capacity flag on its
 own**: it fires on official-capacity captions too (they name the president),
 so the personal-capacity family is the flag together with `federal_party`

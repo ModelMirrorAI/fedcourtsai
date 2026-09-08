@@ -32,12 +32,13 @@ caption's names are used for one narrow, separately-labeled purpose:
 
 The label says who held office on that date; it does not assert that the
 administration was the litigant. The ``federal`` class is the federal
-government broadly — the United States, its agencies, and officers in the
-caption's officer convention, and a caption naming a United States *court* —
-so a case captioned between two federal appellate judges attributes an
-administration the executive had no part in. That is the honest reading of a
-date-attributed label, and a cut that needs the executive specifically has to
-narrow the class rather than the date.
+government broadly — the United States, its agencies, officers in the caption's
+officer convention, and a caption in the ``United States Court of …`` word order
+(a judge named by title alone reads ``private``) — so a petition against a
+United States court of appeals attributes an administration the executive had
+no part in. That is the honest reading of a date-attributed label, and a cut
+that needs the executive specifically has to narrow the class rather than the
+date.
 
 **Which date is the caller's to choose.** A petition filed under one
 administration is routinely resolved under the next, so "the administration"
@@ -60,8 +61,8 @@ separator, so an ``In re`` or ``Ex parte`` caption annotates from its single
 party (:attr:`PartyCensus.single_party`); ``petitioner_title`` (the structured,
 rendering-independent petitioner column) backs under half the frame — 9,625 of
 20,145 rows on the blob pulled 2026-09-08, newest stored snapshot 2026-07-13 —
-and the rest split ``case_name``, which no structured respondent column backs
-on either path; and an anonymized or initialized IFP caption carries no
+and the rest split ``case_name``, which no respondent-*title* column backs on
+either path; and an anonymized or initialized IFP caption carries no
 classifiable party name at all, so it lands in the ``none`` cell without a
 counter of its own. Those rows are ``private``/``none`` by the same
 total-function rule the caption classifiers use — never an error, and never a
@@ -189,13 +190,14 @@ _PRESIDENT_NAME_RE: Final = re.compile(
 #: The caption separator SCOTUS captions join on. Only the FIRST occurrence
 #: splits: a consolidated caption can carry more, and everything after the first
 #: separator is the respondent side as the caption renders it. The frame carries
-#: no such caption today (measured: zero live-slice rows hold two separators), so
+#: no such caption today (zero live-slice rows hold two separators, on the blob
+#: the module docstring names), so
 #: nothing bleeds; were a consolidated-caption source to land, the respondent
 #: half would carry a second case's petitioner and the unanchored markers would
 #: read it. The exact spelling is load-bearing in the other direction too: a
 #: caption whose separator is malformed ("Pennsylvania, Petitioner v.Landis")
-#: does not split at all and annotates as a single party, which is one row of the
-#: frame and the same shape the frozen caption rules already miss.
+#: does not split at all and annotates as a single party — one row of the frame
+#: on the same blob, and the same shape the frozen caption rules already miss.
 _CAPTION_SEPARATOR: Final[str] = " v. "
 
 #: Which date field a cut reads for ``as_of``, by name. ``filed`` is the arrival
@@ -278,13 +280,16 @@ def administration_for(as_of: date | None) -> str | None:
 def respondent_caption(row: corpus.CorpusRow) -> str | None:
     """The row's respondent caption, or ``None`` where the caption has one party.
 
-    Unlike the petitioner side, no structured respondent column exists on
-    either ingestion path — the SCOTUS live channel's ``RespondentTitle`` is
-    consumed into the joined ``case_name`` and not stored on its own — so this
-    is always the split, and it inherits the join's rendering quirks. An ``In
-    re`` / ``Ex parte`` caption has no respondent half and answers ``None``,
-    which is a different fact from "a respondent nobody could classify" and is
-    kept distinct all the way to the census.
+    Unlike the petitioner side, no respondent-*title* column exists on either
+    ingestion path — the SCOTUS live channel's ``RespondentTitle`` is consumed
+    into the joined ``case_name`` and not stored on its own — so this is always
+    the split, and it inherits the join's rendering quirks. The ``counsel``
+    blocks do carry a respondent role, but they are per-counsel party rows
+    accrued over a docket's life rather than the caption a class rule reads, and
+    they are empty off the SCOTUS live channel. An ``In re`` / ``Ex parte``
+    caption has no respondent half and answers ``None``, which is a different
+    fact from "a respondent nobody could classify" and is kept distinct all the
+    way to the census.
     """
     _, separator, tail = row.case_name.partition(_CAPTION_SEPARATOR)
     if not separator:
@@ -438,7 +443,8 @@ def party_census(
     much of it the caption cannot classify at all.
 
     The frame is the live slice's **unweighted** rows (SCOTUS rows the live
-    channel has polled, carrying ``sample_weight`` 1), not the salience gate's
+    channel has polled whose ``sample_weight`` is 1 or unset), not the salience
+    gate's
     scored segment: the annotation is a property of a caption, so the honest
     denominator is every row that has one, IFP and interim-docket rows
     included. The one exclusion is the live slice's legacy systematic denial
