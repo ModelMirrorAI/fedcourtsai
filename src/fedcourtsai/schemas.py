@@ -6220,12 +6220,15 @@ class PartySideCell(_Strict):
 
 
 class PartyAdministrationCell(_Strict):
-    """One federal-party x administration cell of the party census.
+    """One federal-party x administration x stratum cell of the party census.
 
     ``administration`` is null where the row's ``as_of`` date is missing or
     predates the committed calendar — reported as its own cell rather than
     folded into an administration, because "we cannot say" is a different fact
-    from any president's count.
+    from any president's count. The ``stratum`` key is not optional detail: the
+    windows hold different mixes of paid cert, IFP cert and applications, and
+    the class rates differ between them, so a cell is comparable across windows
+    only against its own stratum's denominator.
     """
 
     federal_party: Literal["both", "petitioner", "respondent"] = Field(
@@ -6234,26 +6237,37 @@ class PartyAdministrationCell(_Strict):
     administration: str | None = Field(
         default=None, description="Administration label (e.g. trump-47), or null where unattributed"
     )
-    n: int = Field(ge=0, description="Live-slice rows in the cell")
+    stratum: Literal["paid-cert", "ifp-cert", "application", "other"] = Field(
+        description="Docket stratum the cell is keyed on"
+    )
+    n: int = Field(ge=0, description="Live-slice docket rows in the cell — rows, not disputes")
 
 
 class PartyFrameCell(_Strict):
-    """One administration's slice of the frame: the denominator, and what is missing from it.
+    """One administration x stratum slice of the frame: the denominator, and its gap.
 
-    A federal-party count is uninterpretable without this row. The live slice's
-    per-administration coverage is uneven by construction — the excluded
-    sampled block is concentrated in the earliest Terms, and the newest
-    administration's window is truncated by today — so a cell being larger than
-    another administration's says as much about coverage as about litigation,
-    and only the share within an administration is comparable across them.
+    A federal-party count is uninterpretable without its matching cell here. The
+    live slice's coverage is uneven across the windows in two ways that a raw
+    count silently mixes: the windows differ in *size* (the newest is truncated
+    by today, the oldest by the slice's own start), and they differ in
+    *composition* — the live channel's coverage of the IFP and application
+    streams grew over the slice's span, and the excluded sampled block is
+    entirely IFP, so the earlier windows lose IFP mass the newest one keeps.
+    Dividing by window size corrects only the first. A share is therefore
+    comparable across windows **within a stratum** and not otherwise; the
+    paid-cert stratum is the one captured whole in every window and is the
+    natural cut for a cross-administration reading.
     """
 
     administration: str | None = Field(
         default=None, description="Administration label, or null where unattributed"
     )
-    rows: int = Field(ge=0, description="Frame rows whose as-of date falls in this administration")
+    stratum: Literal["paid-cert", "ifp-cert", "application", "other"] = Field(
+        description="Docket stratum the cell is keyed on"
+    )
+    rows: int = Field(ge=0, description="Frame rows in this administration x stratum cell")
     sampled_excluded: int = Field(
-        ge=0, description="Sampled-block rows in the same window, outside the frame"
+        ge=0, description="Sampled-block rows in the same cell, outside the frame"
     )
 
 
@@ -6263,12 +6277,19 @@ class PartyPresidentCell(_Strict):
     A **name** match on the caption, not an identification of the person: the
     caption cannot distinguish a president from a private litigant of the same
     surname, so this is a screening count and is never read as an
-    official-capacity class (which the federal-party fields carry).
+    official-capacity class (which the federal-party fields carry). It fires on
+    both capacities — an official-capacity caption names the president too — so
+    the personal-capacity family is this flag together with `federal_party`
+    `none`, not this flag alone. Two undercounts ride in it: only the leading
+    name segment of each caption half is tested, and only the first matching
+    side is reported, so a president named second on a side, or on the
+    respondent side of a caption whose petitioner already matched, never
+    appears here.
     """
 
     president: str = Field(description="The calendar president's surname the caption matched")
     side: Literal["petitioner", "respondent"] = Field(description="Which side carried the name")
-    n: int = Field(ge=0, description="Live-slice rows in the cell")
+    n: int = Field(ge=0, description="Live-slice docket rows in the cell — rows, not disputes")
 
 
 class PartyCensus(_Strict):
@@ -6282,6 +6303,13 @@ class PartyCensus(_Strict):
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     rule_version: str = Field(description="The committed annotation rule, e.g. party-v1")
+    caption_rule_version: str = Field(
+        default="",
+        description="The caption rule the annotation rule composes over both "
+        "halves (e.g. caption-v2) — stamped so the artifact says which class "
+        "predicate produced its cells rather than leaving the pairing to be "
+        "recovered from the source",
+    )
     as_of_field: str = Field(
         description="Which date drove the administration attribution: filed | resolved"
     )
@@ -6312,8 +6340,9 @@ class PartyCensus(_Strict):
     single_party: int = Field(
         default=0,
         ge=0,
-        description="Of those, captions with no ` v. ` half (In re / Ex parte) — "
-        "annotated from one party, so no respondent class exists to count",
+        description="Of those, captions with no ` v. ` half — In re / Ex parte, "
+        "plus the rare caption whose separator is malformed — annotated from one "
+        "party, so no respondent class exists to count",
     )
     undated: int = Field(
         default=0,
@@ -6321,9 +6350,22 @@ class PartyCensus(_Strict):
         description="Of those, rows carrying no date under `as_of_field` — their "
         "administration is null by construction, never imputed",
     )
+    pending: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows carrying no disposition yet. A pending "
+        "petition ordinarily carries no resolution date either, so under the "
+        "`resolved` convention this sizes the newest window's "
+        "**right-censoring**: that window's count is a floor, not a total. The "
+        "two counters are kept separate rather than assumed equal — where a "
+        "dated row carries no label, `undated` and `pending` part company and "
+        "say so. Under `filed` these rows sit in their filing window with their "
+        "outcomes unobserved.",
+    )
     frame_by_administration: list[PartyFrameCell] = Field(
         default_factory=list,
-        description="The per-administration denominator every federal cell is read against",
+        description="The per-administration, per-stratum denominator every federal "
+        "cell is read against",
     )
     federal_party: list[PartySideCell] = Field(default_factory=list)
     state_party: list[PartySideCell] = Field(default_factory=list)

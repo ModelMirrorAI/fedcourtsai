@@ -947,9 +947,10 @@ def _census_corpus_sha(settings: Settings, db_path: Path) -> str:
     digest of the pointer the read paths resolve — the out-of-band override
     when set, else the committed file — names it exactly. Only a MISSING
     committed pointer is excused (an empty digest); a malformed one raises
-    rather than blanking a freeze-record input, and an override discloses
-    itself on stderr so a digest that came from one never reads like a
-    committed-pointer digest.
+    rather than blanking the field, which for the caption and distribution
+    censuses is a freeze-record input, and an override discloses itself on
+    stderr so a digest that came from one never reads like a committed-pointer
+    digest.
     """
     if settings.corpus_backend == "local":
         corpus_sha, _ = corpus_remote.digest_file(db_path)
@@ -1020,10 +1021,10 @@ def party_census_cmd(
         ...,
         "--as-of",
         help=(
-            "Required — which date attributes the administration: 'filed' (the "
-            "arrival moment: whose government brought this) or 'resolved' (the "
-            "petition-stage resolution: what the Court did to whose government). "
-            "No default: the convention belongs to the cut, not to the command."
+            "Required — which date attributes the administration: 'filed' (who "
+            "held office when the petition arrived) or 'resolved' (who held "
+            "office when the Court acted on it). No default: the convention "
+            "belongs to the cut, not to the command."
         ),
     ),
     rule_version: str = typer.Option(
@@ -1049,11 +1050,18 @@ def party_census_cmd(
     `--as-of` is required and stamped on the output, because a petition filed
     under one administration is routinely resolved under the next, so the two
     conventions give different — both correct — counts and only cuts sharing a
-    stamp are comparable. The coverage counters travel with the cells: captions
-    with no ` v. ` half (In re / Ex parte) annotate from one party, and rows
-    carrying no date under the chosen convention attribute no administration
-    rather than an imputed one. Prints a `PartyCensus`. Fails loud if the corpus
-    is absent or a label is unregistered.
+    stamp are comparable; under `resolved` a pending petition has no date at
+    all, so the newest window is right-censored and `pending` is the size of
+    that censoring. Every administration cell is keyed on a docket stratum
+    (paid cert / IFP cert / application / other) and printed against the
+    matching `frame_by_administration` denominator, because the windows hold
+    different mixes of those strata and a count compared across windows without
+    holding the stratum fixed compares the mix. The other coverage counters
+    travel with the cells too: captions with no ` v. ` half (In re / Ex parte)
+    annotate from one party, and rows carrying no date under the chosen
+    convention attribute no administration rather than an imputed one. Prints a
+    `PartyCensus`. Fails loud if the corpus is absent, or if the rule version or
+    the as-of convention is one this process does not know.
     """
     if rule_version not in PARTY_RULES:
         typer.echo(
@@ -1088,21 +1096,23 @@ def party_census_cmd(
     pulled = census.latest_pull.isoformat() if census.latest_pull else "never pulled"
     snapshot = census.latest_snapshot.isoformat() if census.latest_snapshot else "none"
     typer.echo(
-        f"party census ({census.rule_version}, as-of {census.as_of_field}): "
+        f"party census ({census.rule_version} over {census.caption_rule_version}, "
+        f"as-of {census.as_of_field}): "
         f"{census.rows} unweighted live-slice row(s), {census.sampled_excluded} "
         f"sampled row(s) excluded, {census.single_party} single-party caption(s), "
-        f"{census.undated} undated; corpus latest pull {pulled}, latest snapshot {snapshot}",
+        f"{census.undated} undated, {census.pending} pending; "
+        f"corpus latest pull {pulled}, latest snapshot {snapshot}",
         err=True,
     )
-    # The per-administration denominator prints BEFORE the federal cells it
-    # scales: the live slice's coverage is uneven across the windows (the
-    # excluded sampled block sits in the earliest Terms, and the current
-    # administration's window is truncated by today), so a cell read without
-    # its window's size compares coverage and calls it litigation.
+    # The denominator prints BEFORE the federal cells it scales, and is cut the
+    # same way they are: the windows differ in size (the newest truncated by
+    # today, the oldest by the slice's own start) AND in stratum mix, and only
+    # the second is what a raw cross-window count most often mistakes for
+    # litigation.
     for frame_cell in census.frame_by_administration:
         typer.echo(
-            f"frame {frame_cell.administration or 'unattributed'}: rows={frame_cell.rows} "
-            f"sampled-excluded={frame_cell.sampled_excluded}",
+            f"frame {frame_cell.administration or 'unattributed'} {frame_cell.stratum}: "
+            f"rows={frame_cell.rows} sampled-excluded={frame_cell.sampled_excluded}",
             err=True,
         )
     for cell in census.federal_party:
@@ -1110,7 +1120,8 @@ def party_census_cmd(
     for admin_cell in census.federal_by_administration:
         label = admin_cell.administration or "unattributed"
         typer.echo(
-            f"federal_party {admin_cell.federal_party} x {label}: n={admin_cell.n}",
+            f"federal_party {admin_cell.federal_party} x {label} {admin_cell.stratum}: "
+            f"n={admin_cell.n}",
             err=True,
         )
     for cell in census.state_party:

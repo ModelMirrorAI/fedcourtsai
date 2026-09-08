@@ -12,25 +12,30 @@ identification.
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus
-from fedcourtsai.cli import app
+from fedcourtsai import corpus, corpus_remote
+from fedcourtsai.cli import _census_corpus_sha, app
+from fedcourtsai.config import Settings
+from fedcourtsai.corpus_ranged import RangedBackendError
 from fedcourtsai.pipeline.party import (
     ADMINISTRATIONS,
     PARTY_RULE_VERSION,
     PARTY_RULES,
     administration_for,
     as_of_date,
+    docket_stratum,
     party_annotations,
     party_census,
     party_rule,
     respondent_caption,
 )
+from fedcourtsai.schemas import Disposition
 
 runner = CliRunner()
 
@@ -231,8 +236,17 @@ def test_only_registered_rules_annotate() -> None:
         party_rule("party-v9")
 
 
+def test_the_docket_stratum_partitions_the_frame() -> None:
+    """Every row lands in exactly one stratum, off its docket number alone."""
+    assert docket_stratum(_row("scotus/1", "A v. B", docket_number="24-100")) == "paid-cert"
+    assert docket_stratum(_row("scotus/2", "A v. B", docket_number="24-5001")) == "ifp-cert"
+    assert docket_stratum(_row("scotus/3", "A v. B", docket_number="24A100")) == "application"
+    assert docket_stratum(_row("scotus/4", "A v. B", docket_number="22O141")) == "other"
+    assert docket_stratum(_row("scotus/5", "A v. B")) == "other"
+
+
 def _census_corpus(db: Path) -> None:
-    """The census fixture frame: three administrations, plus every coverage case."""
+    """The census fixture frame: three administrations, three strata, every gap."""
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
             conn,
@@ -240,30 +254,52 @@ def _census_corpus(db: Path) -> None:
                 _row(
                     "scotus/1",
                     "Jane Doe v. United States",
+                    docket_number="18-100",
                     date_filed=date(2019, 6, 1),
                     date_cert_denied=date(2022, 6, 1),
+                    disposition=Disposition.denied,
                 ),
-                _row(
+                _row(  # pending: no resolution date, so `resolved` cannot place it
                     "scotus/2",
                     "United States v. Acme Corp.",
+                    docket_number="24-200",
                     date_filed=date(2025, 6, 1),
                 ),
                 _row(
                     "scotus/3",
                     "Oklahoma v. Victor Castro",
+                    docket_number="21-300",
                     date_filed=date(2022, 6, 1),
+                    date_cert_denied=date(2022, 12, 1),
+                    disposition=Disposition.denied,
                 ),
-                _row("scotus/4", "In Re Michael Rocks-Macqueen"),  # undated, single-party
+                _row(  # undated, single-party, and the frame's only IFP row
+                    "scotus/4",
+                    "In Re Michael Rocks-Macqueen",
+                    docket_number="24-5001",
+                    disposition=Disposition.denied,
+                ),
+                _row(  # an application, with a president in office in the caption
+                    "scotus/7",
+                    "Donald J. Trump, President of the United States v. Jane Doe",
+                    docket_number="25A100",
+                    date_filed=date(2025, 6, 1),
+                    date_decided=date(2025, 7, 1),
+                    disposition=Disposition.denied,
+                ),
                 _row(  # the legacy sampled block: counted, never annotated
                     "scotus/5",
                     "John Roe v. United States",
+                    docket_number="18-5010",
                     date_filed=date(2019, 6, 1),
+                    disposition=Disposition.denied,
                     sample_weight=10,
                 ),
                 corpus.CorpusRow(  # not live-slice: outside the frame entirely
                     case_id="scotus/6",
                     court="scotus",
                     case_name="Jane Poe v. United States",
+                    docket_number="18-400",
                     date_filed=date(2019, 6, 1),
                 ),
             ],
@@ -275,8 +311,8 @@ def test_the_census_counts_the_unweighted_live_slice(tmp_path: Path) -> None:
 
     The sampled block is excluded rather than mixed in — stored one row in ten,
     it would understate its stratum tenfold in exactly the cells it fills — and
-    is reported whole, in the same administration windows as the frame, so the
-    coverage gap is legible where the federal cells are read.
+    is reported whole, in the same window-and-stratum cells as the frame, so the
+    coverage gap is legible where the federal counts are read.
     """
     db = tmp_path / "corpus.db"
     _census_corpus(db)
@@ -284,29 +320,38 @@ def test_the_census_counts_the_unweighted_live_slice(tmp_path: Path) -> None:
         census = party_census(conn, as_of_field="filed")
     assert census.rule_version == "party-v1"
     assert census.as_of_field == "filed"
-    assert (census.rows, census.sampled_excluded) == (4, 1)
-    assert (census.single_party, census.undated) == (1, 1)
+    assert (census.rows, census.sampled_excluded) == (5, 1)
+    assert (census.single_party, census.undated, census.pending) == (1, 1, 1)
     federal = {cell.side: cell.n for cell in census.federal_party}
-    assert federal == {"both": 0, "petitioner": 1, "respondent": 1, "none": 2}
+    assert federal == {"both": 0, "petitioner": 2, "respondent": 1, "none": 2}
     state = {cell.side: cell.n for cell in census.state_party}
     assert state["petitioner"] == 1
     by_admin = {
-        (cell.federal_party, cell.administration): cell.n
+        (cell.federal_party, cell.administration, cell.stratum): cell.n
         for cell in census.federal_by_administration
     }
-    assert by_admin == {("petitioner", "trump-47"): 1, ("respondent", "trump-45"): 1}
+    # Two federal petitioners share the trump-47 window and split by stratum:
+    # pooling them would compare a cert docket with an application docket.
+    assert by_admin == {
+        ("petitioner", "trump-47", "paid-cert"): 1,
+        ("petitioner", "trump-47", "application"): 1,
+        ("respondent", "trump-45", "paid-cert"): 1,
+    }
     frame = {
-        cell.administration: (cell.rows, cell.sampled_excluded)
+        (cell.administration, cell.stratum): (cell.rows, cell.sampled_excluded)
         for cell in census.frame_by_administration
     }
-    # Every frame row is dated into a window, federal party or not; the excluded
-    # block rides the same windows, and the undated row is its own cell.
+    # Every frame row is dated and stratified, federal party or not; the excluded
+    # block rides the same cells, and the undated row is its own.
     assert frame == {
-        "trump-45": (1, 1),
-        "biden-46": (1, 0),
-        "trump-47": (1, 0),
-        None: (1, 0),
+        ("trump-45", "paid-cert"): (1, 0),
+        ("trump-45", "ifp-cert"): (0, 1),
+        ("biden-46", "paid-cert"): (1, 0),
+        ("trump-47", "paid-cert"): (1, 0),
+        ("trump-47", "application"): (1, 0),
+        (None, "ifp-cert"): (1, 0),
     }
+    assert [cell.president for cell in census.named_president] == ["Trump"]
 
 
 def test_the_census_stamp_changes_with_the_date_convention(tmp_path: Path) -> None:
@@ -316,17 +361,26 @@ def test_the_census_stamp_changes_with_the_date_convention(tmp_path: Path) -> No
     with corpus.connect(db) as conn:
         filed = party_census(conn, as_of_field="filed")
         resolved = party_census(conn, as_of_field="resolved")
-    assert {(c.federal_party, c.administration): c.n for c in filed.federal_by_administration} == {
-        ("petitioner", "trump-47"): 1,
-        ("respondent", "trump-45"): 1,
-    }
-    # scotus/1 was filed under trump-45 and denied under biden-46; scotus/2 has
-    # no resolution date at all, so it leaves the administration cells for the
-    # unattributed one rather than keeping its filing window.
     assert {
-        (c.federal_party, c.administration): c.n for c in resolved.federal_by_administration
-    } == {("petitioner", None): 1, ("respondent", "biden-46"): 1}
-    assert resolved.undated == 3
+        (c.federal_party, c.administration, c.stratum): c.n for c in filed.federal_by_administration
+    } == {
+        ("petitioner", "trump-47", "paid-cert"): 1,
+        ("petitioner", "trump-47", "application"): 1,
+        ("respondent", "trump-45", "paid-cert"): 1,
+    }
+    # scotus/1 was filed under trump-45 and denied under biden-46; scotus/2 is
+    # pending, so under `resolved` it leaves its window for the unattributed
+    # cell — the right-censoring `pending` counts, not a case that vanished.
+    assert {
+        (c.federal_party, c.administration, c.stratum): c.n
+        for c in resolved.federal_by_administration
+    } == {
+        ("petitioner", None, "paid-cert"): 1,
+        ("petitioner", "trump-47", "application"): 1,
+        ("respondent", "biden-46", "paid-cert"): 1,
+    }
+    assert (resolved.undated, resolved.pending) == (2, 1)
+    assert filed.pending == resolved.pending
     with pytest.raises(ValueError, match="unknown as-of field"), corpus.connect(db) as conn:
         party_census(conn, as_of_field="argued")
 
@@ -340,14 +394,18 @@ def test_the_command_prints_the_census_with_its_vintage(
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
     result = runner.invoke(app, ["party-census", "--as-of", "filed"])
     assert result.exit_code == 0, result.output
-    assert "party census (party-v1, as-of filed): 4 unweighted live-slice row(s)" in result.stderr
+    assert (
+        "party census (party-v1 over caption-v2, as-of filed): 5 unweighted live-slice row(s)"
+        in result.stderr
+    )
     assert "1 sampled row(s) excluded" in result.stderr
     # The vintage is on the banner, not only in the JSON: a count read off a
     # stale blob is a different number.
     assert "corpus latest pull never pulled" in result.stderr
-    assert "frame trump-45: rows=1 sampled-excluded=1" in result.stderr
-    assert "federal_party respondent x trump-45: n=1" in result.stderr
+    assert "frame trump-45 ifp-cert: rows=0 sampled-excluded=1" in result.stderr
+    assert "federal_party respondent x trump-45 paid-cert: n=1" in result.stderr
     assert '"rule_version":"party-v1"' in result.stdout
+    assert '"caption_rule_version":"caption-v2"' in result.stdout
 
 
 def test_the_command_refuses_an_unregistered_label(
@@ -365,6 +423,53 @@ def test_the_command_refuses_an_unregistered_label(
     unknown_field = runner.invoke(app, ["party-census", "--as-of", "argued"])
     assert unknown_field.exit_code == 2
     assert "unknown --as-of" in unknown_field.stderr
+
+
+def _pointer(sha: str) -> str:
+    """A well-formed committed index pointer naming ``sha``."""
+    return json.dumps(
+        {"key": f"index/sha256/{sha}", "schema_version": "1.0", "sha256": sha, "size": 7}
+    )
+
+
+def test_the_provenance_digest_names_the_blob_each_backend_actually_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The one digest three censuses stamp, over every branch it has.
+
+    Two of those censuses are freeze-record inputs, so a digest that silently
+    changed meaning — the committed pointer read where the override governs, or
+    a malformed pointer blanked instead of raised — would corrupt the record
+    rather than fail. The branches are pinned here because one helper now
+    carries all three commands.
+    """
+    db_path = tmp_path / "corpus.db"
+    db_path.write_bytes(b"corpus!")
+    local_sha, _ = corpus_remote.digest_file(db_path)
+    committed = "a" * 64
+    override = "b" * 64
+    corpus_remote.pointer_path_for(db_path).write_text(_pointer(committed))
+
+    monkeypatch.setenv("FEDCOURTS_CORPUS_POINTER", _pointer(override))
+    local = Settings(corpus_backend="local")
+    assert _census_corpus_sha(local, db_path) == local_sha  # the file, not the pointer
+    # The override governs every ranged READ path, so it must govern the digest
+    # too: a stamp naming the committed blob while the override's blob was read
+    # is the one failure a freeze record cannot recover from.
+    assert _census_corpus_sha(Settings(corpus_backend="ranged"), db_path) == override
+
+    monkeypatch.delenv("FEDCOURTS_CORPUS_POINTER")
+    assert _census_corpus_sha(Settings(corpus_backend="ranged"), db_path) == committed
+
+    # A MISSING committed pointer is excused with an empty digest; a MALFORMED
+    # one raises rather than blanking the field.
+    bare = tmp_path / "bare" / "corpus.db"
+    bare.parent.mkdir()
+    bare.write_bytes(b"corpus!")
+    assert _census_corpus_sha(Settings(corpus_backend="ranged"), bare) == ""
+    corpus_remote.pointer_path_for(bare).write_text("{not json")
+    with pytest.raises(RangedBackendError):
+        _census_corpus_sha(Settings(corpus_backend="ranged"), bare)
 
 
 def test_the_command_fails_loud_without_a_corpus(

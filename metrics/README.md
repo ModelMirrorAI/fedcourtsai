@@ -1583,28 +1583,50 @@ enters a claim score, a leaderboard rank, or any denominator here, and the
 census publishes **counts only**. A grant rate by government-party status is a
 different artifact with its own scope string and denial reweighting; computing
 one from these cells would inherit every caveat below without carrying them.
-Four rules travel with any figure quoted from it. **Always with the
-per-administration denominator**, which the census prints as
-`frame_by_administration`: live-slice coverage is uneven across the windows —
-the excluded one-in-ten sampled denial block sits in the earliest Terms, and the
-newest administration's window is truncated by today — so a raw count compared
-across administrations compares coverage, and only the share within a window
-travels. **Always with the date convention**, since a petition filed under one
-administration is routinely resolved under the next: the census stamps
-`as_of_field`, and two cuts are comparable only where their stamps agree.
-**The administration is the date's, not the caption's** — official-capacity
-captions auto-substitute on a transition and the stored caption is
-as-of-last-pull, so nothing here reads a party's *name* for attribution, and a
-federal party may be a court or an agency the executive does not speak for, so
-the label names who held office rather than asserting the administration was
-the litigant. **`named_president` is a screen, not an identification**: it is a
-surname match on a party's name segment, so a private litigant of the same
-surname fires it and a president litigating under a variant does not — read it
-as a candidate list for personal-capacity litigation, and never as a count of
-cases involving a president. The caption itself is the last limit: a styled
-caption (`In re`, `Ex parte`) has one party and is annotated from it, and an
-anonymized or initialized IFP caption carries no classifiable party at all, so
-`none` means "no sovereign the caption names", never "no sovereign".
+Five rules travel with any figure quoted from it, and the first is the one that
+inverts a conclusion when it is skipped. **No cross-administration reading
+without holding the docket stratum fixed.** The windows hold very different
+mixes of paid cert, IFP cert and applications — on the blob pulled 2026-09-08
+(newest stored snapshot 2026-07-13), the `filed` frame runs 91% paid under
+`trump-45` and 31% paid under `trump-47`, which carries 1,949 application rows
+against `trump-45`'s none — and the federal-respondent rate differs sharply
+between the strata, so the pooled share climbs 22.8% → 23.4% → 33.5% across the
+windows while the paid-cert share is flat at 21.4% → 22.3% → 21.7%. The window's
+*size* is not the confound; its *composition* is. Both the numerator
+(`federal_by_administration`) and the denominator (`frame_by_administration`)
+are therefore keyed on the stratum, and only a stratum-matched share is
+readable across windows — the paid-cert stratum being the one captured whole in
+every window, since the excluded one-in-ten sampled denial block is entirely
+IFP and covers OT2017–OT2024, leaving the two newest Terms of a frame that runs
+to OT2026 with no exclusion at all. **Always with the date convention and
+the rule version**, both stamped on the artifact (`as_of_field`,
+`rule_version`): a petition filed under one administration is routinely
+resolved under the next, so two cuts are comparable only where both stamps
+agree — and with the corpus vintage the census prints beside them
+(`latest_pull`, `latest_snapshot`), since every count here is a corpus-state
+reading. **A `resolved` cut's newest window is right-censored**: a pending
+petition has no resolution date, so it leaves its window for the unattributed
+cell (`pending` is the size of that mass — 1,364 rows on the same blob, all but
+one of them filed under the newest administration), and the newest window's
+`resolved` count is a floor, never a total. **The administration is the date's,
+not the caption's** — official-capacity captions auto-substitute on a
+transition and the stored caption is as-of-last-pull, so nothing here reads a
+party's *name* for attribution, and a federal party may be a court or an agency
+the executive does not speak for, so the label names who held office rather
+than asserting the administration was the litigant. **`named_president` is a
+name match, not an identification, and not a personal-capacity flag on its
+own**: it fires on official-capacity captions too (they name the president),
+so the personal-capacity family is the flag together with `federal_party`
+`none`; a private litigant of the same surname fires it, measurably — on the
+same blob, 7 of 8 `Bush` matches and all 6 `Clinton` matches are namesakes or a
+non-president of that surname, against 30 of 30 genuine for `Biden`, the error
+concentrating entirely in surnames whose presidencies predate the live slice. Two limits close the list. Every `n` counts **docket rows, not
+disputes**: one dispute routinely holds an application row and a petition row,
+and a re-docketed case appears more than once. And the caption is the last
+limit — a styled caption (`In re`, `Ex parte`) has one party and is annotated
+from it, and an anonymized or initialized IFP caption carries no classifiable
+party at all, so `none` means "no sovereign the caption names", never "no
+sovereign".
 
 **What may be claimed from the tool-usage rollup.** `fedcourts tool-usage`
 publishes call counts, per-engine result observability, per-cell cost, and a
