@@ -1573,6 +1573,39 @@ and a claim over the whole file has to say which batches it is reading. No topic
 denominator here; a labeling run describes the corpus and commits a predictor to
 nothing.
 
+**What may be claimed from the party census.** `fedcourts party-census`
+(`pipeline.party`, [docs/cli.md](../docs/cli.md)) annotates every unweighted
+live-slice row from its caption — `federal_party` and `state_party` as none /
+petitioner / respondent / both, the administration a federal party's date falls
+in, and a president's surname appearing as a party — and prints the counts. It
+is descriptive corpus structure, not a performance instrument: no annotation
+enters a claim score, a leaderboard rank, or any denominator here, and the
+census publishes **counts only**. A grant rate by government-party status is a
+different artifact with its own scope string and denial reweighting; computing
+one from these cells would inherit every caveat below without carrying them.
+Four rules travel with any figure quoted from it. **Always with the
+per-administration denominator**, which the census prints as
+`frame_by_administration`: live-slice coverage is uneven across the windows —
+the excluded one-in-ten sampled denial block sits in the earliest Terms, and the
+newest administration's window is truncated by today — so a raw count compared
+across administrations compares coverage, and only the share within a window
+travels. **Always with the date convention**, since a petition filed under one
+administration is routinely resolved under the next: the census stamps
+`as_of_field`, and two cuts are comparable only where their stamps agree.
+**The administration is the date's, not the caption's** — official-capacity
+captions auto-substitute on a transition and the stored caption is
+as-of-last-pull, so nothing here reads a party's *name* for attribution, and a
+federal party may be a court or an agency the executive does not speak for, so
+the label names who held office rather than asserting the administration was
+the litigant. **`named_president` is a screen, not an identification**: it is a
+surname match on a party's name segment, so a private litigant of the same
+surname fires it and a president litigating under a variant does not — read it
+as a candidate list for personal-capacity litigation, and never as a count of
+cases involving a president. The caption itself is the last limit: a styled
+caption (`In re`, `Ex parte`) has one party and is annotated from it, and an
+anonymized or initialized IFP caption carries no classifiable party at all, so
+`none` means "no sovereign the caption names", never "no sovereign".
+
 **What may be claimed from the tool-usage rollup.** `fedcourts tool-usage`
 publishes call counts, per-engine result observability, per-cell cost, and a
 call-volume-against-Brier table. The counts are facts about the pipeline and

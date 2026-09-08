@@ -6210,6 +6210,129 @@ class CaptionCensus(_Strict):
     pooled: list[CaptionCensusClass] = Field(default_factory=list)
 
 
+class PartySideCell(_Strict):
+    """How many frame rows put a sovereign class on which side of the caption."""
+
+    side: Literal["both", "petitioner", "respondent", "none"] = Field(
+        description="Which side(s) of the caption the class occupies"
+    )
+    n: int = Field(ge=0, description="Live-slice rows in the cell")
+
+
+class PartyAdministrationCell(_Strict):
+    """One federal-party x administration cell of the party census.
+
+    ``administration`` is null where the row's ``as_of`` date is missing or
+    predates the committed calendar — reported as its own cell rather than
+    folded into an administration, because "we cannot say" is a different fact
+    from any president's count.
+    """
+
+    federal_party: Literal["both", "petitioner", "respondent"] = Field(
+        description="Which side(s) the federal government occupies"
+    )
+    administration: str | None = Field(
+        default=None, description="Administration label (e.g. trump-47), or null where unattributed"
+    )
+    n: int = Field(ge=0, description="Live-slice rows in the cell")
+
+
+class PartyFrameCell(_Strict):
+    """One administration's slice of the frame: the denominator, and what is missing from it.
+
+    A federal-party count is uninterpretable without this row. The live slice's
+    per-administration coverage is uneven by construction — the excluded
+    sampled block is concentrated in the earliest Terms, and the newest
+    administration's window is truncated by today — so a cell being larger than
+    another administration's says as much about coverage as about litigation,
+    and only the share within an administration is comparable across them.
+    """
+
+    administration: str | None = Field(
+        default=None, description="Administration label, or null where unattributed"
+    )
+    rows: int = Field(ge=0, description="Frame rows whose as-of date falls in this administration")
+    sampled_excluded: int = Field(
+        ge=0, description="Sampled-block rows in the same window, outside the frame"
+    )
+
+
+class PartyPresidentCell(_Strict):
+    """How often a president's surname names a party, by side.
+
+    A **name** match on the caption, not an identification of the person: the
+    caption cannot distinguish a president from a private litigant of the same
+    surname, so this is a screening count and is never read as an
+    official-capacity class (which the federal-party fields carry).
+    """
+
+    president: str = Field(description="The calendar president's surname the caption matched")
+    side: Literal["petitioner", "respondent"] = Field(description="Which side carried the name")
+    n: int = Field(ge=0, description="Live-slice rows in the cell")
+
+
+class PartyCensus(_Strict):
+    """``party-census`` result: the live-slice party annotation counts.
+
+    Counts only, under one annotation rule and one date convention — both
+    stamped, because a cell is comparable to another only where the pair
+    agrees. Grant rates by government-party status are an analytics cut with
+    its own scope strings and reweighting, not a field here.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    rule_version: str = Field(description="The committed annotation rule, e.g. party-v1")
+    as_of_field: str = Field(
+        description="Which date drove the administration attribution: filed | resolved"
+    )
+    corpus_sha256: str = Field(
+        default="",
+        description="sha256 of the corpus database the census ran over — the "
+        "artifact is re-derivable only against this exact corpus state",
+    )
+    latest_pull: date | None = Field(
+        default=None, description="Corpus vintage: newest `last_pulled` across the blob"
+    )
+    latest_snapshot: date | None = Field(
+        default=None, description="Corpus vintage: newest stored snapshot date across the blob"
+    )
+    rows: int = Field(
+        default=0,
+        ge=0,
+        description="Unweighted live-slice SCOTUS rows annotated (the frame)",
+    )
+    sampled_excluded: int = Field(
+        default=0,
+        ge=0,
+        description="Live-slice rows carrying a sampling weight (the legacy "
+        "one-in-ten denial block) — outside the frame, counted here so the "
+        "coverage gap is visible rather than silently mixed in at a tenth of "
+        "its true stratum size",
+    )
+    single_party: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, captions with no ` v. ` half (In re / Ex parte) — "
+        "annotated from one party, so no respondent class exists to count",
+    )
+    undated: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows carrying no date under `as_of_field` — their "
+        "administration is null by construction, never imputed",
+    )
+    frame_by_administration: list[PartyFrameCell] = Field(
+        default_factory=list,
+        description="The per-administration denominator every federal cell is read against",
+    )
+    federal_party: list[PartySideCell] = Field(default_factory=list)
+    state_party: list[PartySideCell] = Field(default_factory=list)
+    federal_by_administration: list[PartyAdministrationCell] = Field(
+        default_factory=list, description="Non-empty cells only; zero cells are omitted, not zeroed"
+    )
+    named_president: list[PartyPresidentCell] = Field(default_factory=list)
+
+
 class DistributionBandTransition(_Strict):
     """One cell of the band-transition matrix: how many cases moved from → to."""
 
