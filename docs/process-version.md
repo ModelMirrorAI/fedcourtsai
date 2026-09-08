@@ -525,8 +525,8 @@ materially, bump `CURRENT_PROCESS_LABEL` to the next label; the old label's cell
 keep their stamp and remain replayable against the process that produced them,
 never overwritten.
 
-**Re-freezing before the prior instant has any cells** is a supersession, not
-an extension: the new two-constant commit *replaces* the retired label's
+**Re-freezing with nothing counted under the prior label** is a supersession,
+not an extension: the new two-constant commit *replaces* the retired label's
 digests in `FROZEN_PROCESS_DIGESTS` (the map holds one blessed process per
 actor, and `is_frozen` is a membership filter, so keeping the old predictor
 digests would bless two processes at once). The procedure above runs in full
