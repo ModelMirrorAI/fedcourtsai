@@ -603,6 +603,26 @@ def test_qp_corpus_refuses_a_frame_that_cannot_reach_the_coverage_floor(
     assert not out.exists()
 
 
+def test_qp_corpus_refuses_when_the_reference_set_fills_the_whole_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Rows left to label, but no budget left to label them with. That is the
+    # converged waste without the converged refusal — a full extract read for
+    # zero published rows — so it stops here too, and unlike convergence it does
+    # not clear with the next pull.
+    monkeypatch.setattr(qp_topics_module, "LABEL_ROW_CEILING", 2)
+    _extract_corpus_root(tmp_path, monkeypatch, rows=4)
+    _install_reference(tmp_path / "data", _extract_reference(["scotus/1", "scotus/2"]))
+    out = tmp_path / "extract.json"
+
+    result = CliRunner().invoke(app, ["qp-corpus", "--out", str(out)])
+
+    assert result.exit_code == 1
+    assert "2 in-frame reference case(s) fill the 2-row budget" in result.output
+    assert "leaving no room for any of the 2 unlabeled row(s)" in result.output
+    assert not out.exists()
+
+
 def test_qp_corpus_requires_the_reference_set_for_the_scoped_form(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1126,6 +1146,19 @@ def test_the_artifact_is_the_union_and_prior_rows_are_byte_identical() -> None:
     # which 10 were reference re-grades that published nothing new.
     assert (second.batches[-1].measured, second.shadow.texts) == (11, 11)
     assert {entry.batch for entry in second.entries if entry.source == "reference"} == {1}
+    # The measurement travels per batch, floor included: a rate without its floor
+    # is unreadable, and the shadow counts are the standing trip-wire, so a
+    # series of them has to survive the run that produced it.
+    for row, artifact in ((second.batches[0], first), (second.batches[1], second)):
+        assert (row.agree, row.n) == (
+            artifact.agreement.overall_agree,
+            artifact.agreement.overall_n,
+        )
+        assert row.floor == artifact.agreement.floor
+        assert (row.fired, row.disagreements) == (
+            artifact.shadow.fired,
+            artifact.shadow.disagreements,
+        )
 
 
 def test_a_reference_row_publishes_the_hand_label_not_the_labelers() -> None:

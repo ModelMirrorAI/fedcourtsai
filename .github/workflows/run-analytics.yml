@@ -663,7 +663,31 @@ jobs:
           # stored petition text and enumerates the ingested corpus, so
           # `qp-corpus` refuses an --out anywhere inside the checkout (one
           # `git add -A` from being committed).
-          uv run fedcourts qp-corpus --out "$RUNNER_TEMP/qp-texts.json"
+          #
+          # The batch arithmetic goes to stderr, which is captured here and
+          # copied into the step summary: the frame is not committed, so how this
+          # batch was cut is not re-derivable once the runner is gone, and the
+          # summary is the durable channel. It carries counts and stratum keys
+          # only — no case id, no petition text — the same shape the sidecar
+          # holds. That sidecar stays on the runner deliberately: the upload
+          # below names the extract by file, so the selection rule never reaches
+          # the labeling job.
+          # Captured to a file rather than through a tee subprocess, so the
+          # summary is written from a complete file rather than racing a
+          # background writer. A refusal's message is the most valuable thing
+          # here, so the capture runs on both outcomes and the exit status is
+          # replayed afterwards.
+          status=0
+          uv run fedcourts qp-corpus --out "$RUNNER_TEMP/qp-texts.json" \
+            2> "$RUNNER_TEMP/qp-batch.txt" || status=$?
+          cat "$RUNNER_TEMP/qp-batch.txt" >&2
+          {
+            echo '### qp-topic extract'
+            echo '```'
+            cat "$RUNNER_TEMP/qp-batch.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
       - name: Upload the extract
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -3508,6 +3508,21 @@ def _labeling_batch(
             err=True,
         )
         raise typer.Exit(code=1)
+    if not batch.fill:
+        # Rows left to label, but no budget to label them with: the reference set
+        # fills the ceiling on its own. The run would read a full extract and
+        # publish nothing, repeatably — the converged waste without the converged
+        # refusal — so it stops here too. Unlike convergence this does not clear
+        # with the next pull; it clears by raising the caps or narrowing the
+        # reference set, both of which re-derive the gate.
+        typer.echo(
+            f"qp-corpus: the {batch.reference_rows} in-frame reference case(s) fill the "
+            f"{qp_topics.LABEL_ROW_CEILING}-row budget, leaving no room for any of the "
+            f"{batch.pool} unlabeled row(s). A dispatch would re-grade the reference and "
+            "publish nothing. Nothing was written.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     # Beside the extract, never inside it: the extract is the labeler's whole
     # evidentiary input and the contract is text-only, so the selection rule and
     # its Term x fee-class counts stay out of the file the labeler reads. The run

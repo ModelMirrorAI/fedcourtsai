@@ -761,7 +761,16 @@ with the frame and with the reference set; it is arithmetic over two numbers, no
 a property of the design. When nothing is left to label outside the reference
 set, `qp-corpus` says so and exits non-zero rather than spending a run to
 re-grade the reference and publish nothing; the next batch arrives when the next
-pull grows the frame.
+pull grows the frame. It refuses on one more state for the same reason: a
+reference set large enough to fill the ceiling on its own leaves no room to
+label anything, which does not clear with the next pull.
+
+Convergence is a claim about a **fixed** frame: each batch removes its fill from
+the pool and nothing re-enters, so a fixed frame clears in a bounded number of
+dispatches. A frame that grows between dispatches admits, in principle, a
+high-hash row deferred while lower-hash arrivals enter its stratum. That stays
+theoretical at any plausible arrival rate, since the fill is several times the
+monthly intake and the deferred row's stratum share shrinks as the pool does.
 
 Forward accrual is the smaller number. The Court dockets on the order of five
 thousand cert petitions a Term and only the QP-bearing ones enter this frame, so

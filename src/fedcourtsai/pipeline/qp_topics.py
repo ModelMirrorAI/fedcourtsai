@@ -441,7 +441,9 @@ def batch_metadata(batch: QpTopicBatch, *, ceiling: int | None = None) -> dict[s
         "ceiling": LABEL_ROW_CEILING if ceiling is None else ceiling,
         "frame": batch.frame,
         "labeled": batch.labeled,
-        "batch": len(batch.case_ids),
+        # `rows`, not `batch`: the ledger's `batch` is an index, and one word for
+        # a size in one artifact and an index in the other invites a mis-read.
+        "rows": len(batch.case_ids),
         "reference_rows": batch.reference_rows,
         "reference_total": batch.reference_total,
         "reference_covered": batch.reference_covered,
@@ -461,12 +463,12 @@ def render_batch(batch: QpTopicBatch) -> str:
     lines = [
         f"  frame:     {batch.frame} scoped row(s), {batch.labeled} already labeled",
         f"  batch:     {len(batch.case_ids)} row(s) = {batch.reference_rows} reference "
-        f"(re-graded every run, published from the hand labels) + {batch.fill} new",
+        + f"(re-graded every run, published from the hand labels) + {batch.fill} new",
         f"  measured:  {batch.reference_rows} of {batch.reference_total} reference case(s) "
-        f"({batch.reference_covered:.1%}) against a {COVERAGE_FLOOR:.0%} coverage floor",
+        + f"({batch.reference_covered:.1%}) against a {COVERAGE_FLOOR:.0%} coverage floor",
         f"  remaining: {batch.remaining} unlabeled row(s) for later batches",
         f"  order:     seeded hash of case_id (seed {BATCH_ORDER_SEED!r}), "
-        "stratified by Term x fee class:",
+        + "stratified by Term x fee class:",
     ]
     lines += [f"    {row.key:16s} {row.selected} of {row.pool} unlabeled" for row in batch.strata]
     return "\n".join(lines)

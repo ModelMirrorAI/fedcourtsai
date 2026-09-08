@@ -4831,8 +4831,9 @@ class QpTopicBatchEntry(_Strict):
     superseded: int = Field(
         default=0,
         ge=0,
-        description="Rows already in the artifact whose published label this batch changed — "
-        "only ever reference members, and only when the hand label itself changed",
+        description="Rows already in the artifact whose published label this batch changed. "
+        "Only ever rows whose published label became the hand set's: a reference entry "
+        "relabeled by hand, or a row the reference set has since taken in",
     )
 
 

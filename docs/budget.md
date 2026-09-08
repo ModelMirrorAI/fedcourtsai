@@ -950,10 +950,15 @@ single-digit-dollar figure above and the rest is multiplication, not a new rate:
 - **Clearing the historical backlog** — 8,183 frame rows against the blob pulled
   2026-09-08 (newest stored snapshot 2026-07-13), leaving 7,887 to label at 904
   new rows a batch, so **nine dispatches** — is **tens of dollars at the default
-  tier**, single-digit tens; `claude-sonnet-4-6` is 3× that and `claude-fable-5`
-  10×, the same tier ordering the table above prices. Those are nine manual
-  dispatches at whatever cadence a maintainer chooses, not a queued campaign, and
-  the count falls as the frame clears and rises as it grows.
+  tier**. That is a projection, not a plan a maintainer can start today: at that
+  vintage the frame holds 296 of the 353 reference cases, under the coverage
+  floor, so the extract job refuses every dispatch until the missing
+  questions-presented documents are restored ([qp-topic.md](qp-topic.md)). Spend
+  begins at the first batch that clears that check. Single-digit tens at the
+  default tier; `claude-sonnet-4-6` is 3× that and `claude-fable-5` 10×, the same
+  tier ordering the table above prices. Those are nine manual dispatches at
+  whatever cadence a maintainer chooses, not a queued campaign, and the count
+  falls as the frame clears and rises as it grows.
 - **Then forward**, one batch absorbs a long stretch of new QP-bearing rows, so a
   dispatch every few months keeps up: a handful a year, still inside the misc
   floor's buffer (driver #5) rather than earning its own line.
