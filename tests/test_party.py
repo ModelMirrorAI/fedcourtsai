@@ -406,6 +406,12 @@ def test_the_command_prints_the_census_with_its_vintage(
     assert "federal_party respondent x trump-45 paid-cert: n=1" in result.stderr
     assert '"rule_version":"party-v1"' in result.stdout
     assert '"caption_rule_version":"caption-v2"' in result.stdout
+    # `pending` censors the `resolved` cut only, and the banner says so there
+    # rather than letting a quoted count carry the implication under `filed`.
+    assert "1 pending;" in result.stderr
+    resolved = runner.invoke(app, ["party-census", "--as-of", "resolved"])
+    assert resolved.exit_code == 0, resolved.output
+    assert "1 pending (right-censoring this cut)" in resolved.stderr
 
 
 def test_the_command_refuses_an_unregistered_label(

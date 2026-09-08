@@ -1095,12 +1095,19 @@ def party_census_cmd(
     # terminal output must not have to go find that out.
     pulled = census.latest_pull.isoformat() if census.latest_pull else "never pulled"
     snapshot = census.latest_snapshot.isoformat() if census.latest_snapshot else "none"
+    # `pending` censors the `resolved` cut and nothing else — under `filed` those
+    # rows sit in their filing window with their outcomes merely unobserved — so
+    # the banner says which of the two it is rather than leaving a quoted count
+    # to carry the wrong implication.
+    pending = f"{census.pending} pending"
+    if census.as_of_field == "resolved":
+        pending += " (right-censoring this cut)"
     typer.echo(
         f"party census ({census.rule_version} over {census.caption_rule_version}, "
         f"as-of {census.as_of_field}): "
         f"{census.rows} unweighted live-slice row(s), {census.sampled_excluded} "
         f"sampled row(s) excluded, {census.single_party} single-party caption(s), "
-        f"{census.undated} undated, {census.pending} pending; "
+        f"{census.undated} undated, {pending}; "
         f"corpus latest pull {pulled}, latest snapshot {snapshot}",
         err=True,
     )

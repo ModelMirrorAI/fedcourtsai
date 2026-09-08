@@ -1608,7 +1608,15 @@ reading. **A `resolved` cut's newest window is right-censored**: a pending
 petition has no resolution date, so it leaves its window for the unattributed
 cell (`pending` is the size of that mass — 1,364 rows on the same blob, all but
 one of them filed under the newest administration), and the newest window's
-`resolved` count is a floor, never a total. **The administration is the date's,
+`resolved` count is a floor, never a total. That `pending` and `undated`
+coincide exactly under `resolved` is a **measured** fact about this blob, not a
+structural one: the two are counted separately so that a dated row carrying no
+label — a divergence — reads as the counters working rather than as a bug.
+And one stratum is not rescued by stratum-matching at all: the excluded block
+is IFP, so the `ifp-cert` cells of the older windows are the complement of a
+systematic sample (frame coverage of the estimated IFP stratum runs about 3.6%
+in the two older windows against 74% in the newest), and no `ifp-cert` series
+may be read across windows until the reweighted cuts exist. **The administration is the date's,
 not the caption's** — official-capacity captions auto-substitute on a
 transition and the stored caption is as-of-last-pull, so nothing here reads a
 party's *name* for attribution, and a federal party may be a court or an agency
@@ -1617,10 +1625,12 @@ than asserting the administration was the litigant. **`named_president` is a
 name match, not an identification, and not a personal-capacity flag on its
 own**: it fires on official-capacity captions too (they name the president),
 so the personal-capacity family is the flag together with `federal_party`
-`none`; a private litigant of the same surname fires it, measurably — on the
-same blob, 7 of 8 `Bush` matches and all 6 `Clinton` matches are namesakes or a
-non-president of that surname, against 30 of 30 genuine for `Biden`, the error
-concentrating entirely in surnames whose presidencies predate the live slice. Two limits close the list. Every `n` counts **docket rows, not
+`none`; a private litigant of the same surname fires it, measurably — over all
+140 matches on the same blob, 14 (10%) do not name the president: 7 of 8 `Bush`
+and all 6 `Clinton` are namesakes or a non-president of that surname, against
+93 of 94 for `Trump`, 30 of 30 for `Biden` and 2 of 2 for `Obama`, so the error
+concentrates almost entirely in surnames whose presidencies predate the live
+slice. Two limits close the list. Every `n` counts **docket rows, not
 disputes**: one dispute routinely holds an application row and a petition row,
 and a re-docketed case appears more than once. And the caption is the last
 limit — a styled caption (`In re`, `Ex parte`) has one party and is annotated
