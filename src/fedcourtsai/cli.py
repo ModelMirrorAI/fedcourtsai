@@ -122,7 +122,13 @@ from .config import (
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .disposition_convergence import converge_disposition_labels
 from .docket_marking_migration import normalize_docket_markings
-from .finalize import FinalizeRole, agent_produced_output
+from .finalize import (
+    FinalizeRole,
+    agent_produced_output,
+    blinded_candidates,
+    cell_output_root,
+    required_outputs,
+)
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
 from .integrity import (
@@ -199,6 +205,7 @@ from .pipeline.distribution_rederive import rederive_distribution_counts
 from .pipeline.document_backfill import backfill_documents
 from .pipeline.documents import (
     KIND_PETITION,
+    QpExtractRow,
     TextCoverage,
     backfill_questions_presented,
     document_text_coverage,
@@ -217,6 +224,12 @@ from .pipeline.outcome import (
     interim_disposal_signal,
     snapshot_shows_disposition,
     snapshot_shows_judgment,
+)
+from .pipeline.party import (
+    PARTY_AS_OF_FIELDS,
+    PARTY_RULE_VERSION,
+    PARTY_RULES,
+    party_census,
 )
 from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
@@ -284,6 +297,7 @@ from .schemas import (
     Prediction,
     PredictionContext,
     ProcessVersion,
+    QpTopicLabels,
     QpTopicReference,
     RetrievalCall,
     RetrievalLog,
@@ -923,6 +937,37 @@ def reconcile_salience_selection_cmd(
     typer.echo(result.model_dump_json())
 
 
+def _census_corpus_sha(settings: Settings, db_path: Path) -> str:
+    """The provenance digest a census stamps on its result.
+
+    The one reading every census shares, so two censuses of the same corpus
+    can never disagree about which blob they read: under `local` the hash of
+    the file the census actually ran over (which can drift from the committed
+    pointer); under `ranged` the immutable blob IS the pointer's object, so the
+    digest of the pointer the read paths resolve — the out-of-band override
+    when set, else the committed file — names it exactly. Only a MISSING
+    committed pointer is excused (an empty digest); a malformed one raises
+    rather than blanking the field, which for the caption and distribution
+    censuses is a freeze-record input, and an override discloses itself on
+    stderr so a digest that came from one never reads like a committed-pointer
+    digest.
+    """
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+        return corpus_sha
+    if settings.corpus_pointer is None:
+        pointer_file = corpus_remote.pointer_path_for(db_path)
+        return (
+            corpus_ranged.read_index_pointer(pointer_file).sha256 if pointer_file.is_file() else ""
+        )
+    typer.echo(
+        "corpus provenance: out-of-band pointer override in effect — the "
+        "recorded corpus_sha256 names the override's blob",
+        err=True,
+    )
+    return corpus.resolve_read_pointer(db_path).sha256
+
+
 @app.command("caption-census")
 def caption_census_cmd(
     rule_version: str = typer.Option(
@@ -957,33 +1002,7 @@ def caption_census_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    # The provenance the freeze record needs: under `local` the hash of the
-    # file the census actually ran over (which can drift from the committed
-    # pointer); under `ranged` the immutable blob IS the pointer's object, so
-    # the digest of the pointer the read paths resolve — the out-of-band
-    # override when set, else the committed file — names it exactly.
-    if settings.corpus_backend == "local":
-        corpus_sha, _ = corpus_remote.digest_file(db_path)
-    else:
-        if settings.corpus_pointer is None:
-            # Only a MISSING committed pointer is excused (an empty digest); a
-            # malformed one must raise rather than blank a freeze-record input.
-            pointer_file = corpus_remote.pointer_path_for(db_path)
-            corpus_sha = (
-                corpus_ranged.read_index_pointer(pointer_file).sha256
-                if pointer_file.is_file()
-                else ""
-            )
-        else:
-            corpus_sha = corpus.resolve_read_pointer(db_path).sha256
-        # The census is a freeze-record input: a provenance digest that came
-        # from the override must never read like a committed-pointer one.
-        if settings.corpus_pointer is not None:
-            typer.echo(
-                "corpus provenance: out-of-band pointer override in effect — the "
-                "recorded corpus_sha256 names the override's blob",
-                err=True,
-            )
+    corpus_sha = _census_corpus_sha(settings, db_path)
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
         census = caption_census(conn, corpus_sha256=corpus_sha, rule_version=rule_version)
     typer.echo(f"caption census ({census.rule_version}), pooled:", err=True)
@@ -991,6 +1010,133 @@ def caption_census_cmd(
         rate = f"{cell.rate:.4f}" if cell.rate is not None else "-"
         typer.echo(
             f"{cell.petitioner_class}: n={cell.n} grant-family={cell.grant_family} rate={rate}",
+            err=True,
+        )
+    typer.echo(census.model_dump_json())
+
+
+@app.command("party-census")
+def party_census_cmd(
+    as_of: str = typer.Option(
+        ...,
+        "--as-of",
+        help=(
+            "Required — which date attributes the administration: 'filed' (who "
+            "held office when the petition arrived) or 'resolved' (who held "
+            "office when the Court acted on it). No default: the convention "
+            "belongs to the cut, not to the command."
+        ),
+    ),
+    rule_version: str = typer.Option(
+        PARTY_RULE_VERSION,
+        "--rule-version",
+        help="Which registered party-annotation rule cuts the frame (party-v1).",
+    ),
+) -> None:
+    """The party census: federal/state parties by side, and by administration.
+
+    A deterministic, read-only cut of the live slice's **unweighted** rows
+    (every SCOTUS row the live channel has polled — IFP and interim-docket rows
+    included, since a caption is a caption — bar the legacy one-in-ten sampled
+    denial block, which is counted whole and annotated nowhere, so a stratum
+    stored at a tenth of its size never reads as a tenth of its cells) under
+    one registered annotation rule
+    (`pipeline.party`), which reads both caption halves through the caption
+    classifier and attributes an administration from dates rather than from the
+    officer a caption names. Counts only: grant rates by government-party status
+    are an analytics cut with its own scope strings and reweighting, not a
+    number this command may publish.
+
+    `--as-of` is required and stamped on the output, because a petition filed
+    under one administration is routinely resolved under the next, so the two
+    conventions give different — both correct — counts and only cuts sharing a
+    stamp are comparable; under `resolved` a pending petition has no date at
+    all, so the newest window is right-censored and `pending` is the size of
+    that censoring. Every administration cell is keyed on a docket stratum
+    (paid cert / IFP cert / application / other) and printed against the
+    matching `frame_by_administration` denominator, because the windows hold
+    different mixes of those strata and a count compared across windows without
+    holding the stratum fixed compares the mix. The other coverage counters
+    travel with the cells too: captions with no ` v. ` half (In re / Ex parte)
+    annotate from one party, and rows carrying no date under the chosen
+    convention attribute no administration rather than an imputed one. Prints a
+    `PartyCensus`. Fails loud if the corpus is absent, or if the rule version or
+    the as-of convention is one this process does not know.
+    """
+    if rule_version not in PARTY_RULES:
+        typer.echo(
+            f"unregistered party rule {rule_version!r}; "
+            f"registered: {', '.join(sorted(PARTY_RULES))}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if as_of not in PARTY_AS_OF_FIELDS:
+        typer.echo(
+            f"unknown --as-of {as_of!r}; choose {' or '.join(PARTY_AS_OF_FIELDS)}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the party census.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    corpus_sha = _census_corpus_sha(settings, db_path)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        census = party_census(
+            conn, as_of_field=as_of, corpus_sha256=corpus_sha, rule_version=rule_version
+        )
+    # The corpus vintage rides on the human banner as well as in the JSON: a
+    # count read off a stale blob is a different number, and a reader of the
+    # terminal output must not have to go find that out.
+    pulled = census.latest_pull.isoformat() if census.latest_pull else "never pulled"
+    snapshot = census.latest_snapshot.isoformat() if census.latest_snapshot else "none"
+    # `pending` censors the `resolved` cut and nothing else — under `filed` those
+    # rows sit in their filing window with their outcomes merely unobserved — so
+    # the banner says which of the two it is rather than leaving a quoted count
+    # to carry the wrong implication.
+    pending = f"{census.pending} pending"
+    if census.as_of_field == "resolved":
+        pending += " (right-censoring this cut)"
+    typer.echo(
+        f"party census ({census.rule_version} over {census.caption_rule_version}, "
+        f"as-of {census.as_of_field}): "
+        f"{census.rows} unweighted live-slice row(s), {census.sampled_excluded} "
+        f"sampled row(s) excluded, {census.single_party} single-party caption(s), "
+        f"{census.undated} undated, {pending}; "
+        f"corpus latest pull {pulled}, latest snapshot {snapshot}",
+        err=True,
+    )
+    # The denominator prints BEFORE the federal cells it scales, and is cut the
+    # same way they are: the windows differ in size (the newest truncated by
+    # today, the oldest by the slice's own start) AND in stratum mix, and only
+    # the second is what a raw cross-window count most often mistakes for
+    # litigation.
+    for frame_cell in census.frame_by_administration:
+        typer.echo(
+            f"frame {frame_cell.administration or 'unattributed'} {frame_cell.stratum}: "
+            f"rows={frame_cell.rows} sampled-excluded={frame_cell.sampled_excluded}",
+            err=True,
+        )
+    for cell in census.federal_party:
+        typer.echo(f"federal_party {cell.side}: n={cell.n}", err=True)
+    for admin_cell in census.federal_by_administration:
+        label = admin_cell.administration or "unattributed"
+        typer.echo(
+            f"federal_party {admin_cell.federal_party} x {label} {admin_cell.stratum}: "
+            f"n={admin_cell.n}",
+            err=True,
+        )
+    for cell in census.state_party:
+        typer.echo(f"state_party {cell.side}: n={cell.n}", err=True)
+    for president_cell in census.named_president:
+        typer.echo(
+            f"named_president {president_cell.president} ({president_cell.side}): "
+            f"n={president_cell.n}",
             err=True,
         )
     typer.echo(census.model_dump_json())
@@ -1082,31 +1228,7 @@ def distribution_census_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    # The provenance the freeze record needs, read exactly as the caption census
-    # reads it: under `local` the hash of the file the census actually ran over,
-    # under `ranged` the parsed digest of the pointer the read paths resolve.
-    if settings.corpus_backend == "local":
-        corpus_sha, _ = corpus_remote.digest_file(db_path)
-    else:
-        if settings.corpus_pointer is None:
-            # Only a MISSING committed pointer is excused (an empty digest); a
-            # malformed one must raise rather than blank a freeze-record input.
-            pointer_file = corpus_remote.pointer_path_for(db_path)
-            corpus_sha = (
-                corpus_ranged.read_index_pointer(pointer_file).sha256
-                if pointer_file.is_file()
-                else ""
-            )
-        else:
-            corpus_sha = corpus.resolve_read_pointer(db_path).sha256
-        # The census is a freeze-record input: a provenance digest that came
-        # from the override must never read like a committed-pointer one.
-        if settings.corpus_pointer is not None:
-            typer.echo(
-                "corpus provenance: out-of-band pointer override in effect — the "
-                "recorded corpus_sha256 names the override's blob",
-                err=True,
-            )
+    corpus_sha = _census_corpus_sha(settings, db_path)
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
         census = distribution_census(
             conn,
@@ -3425,6 +3547,108 @@ def _work_tree_root() -> Path | None:
     return None
 
 
+def _labeling_batch(
+    frame: Sequence[QpExtractRow], *, data_root: Path, out: Path, scope: str
+) -> list[QpExtractRow]:
+    """The rows this dispatch labels, cut from the scoped frame by committed state.
+
+    Reads the committed reference set and, where one exists, the committed labels
+    artifact, then hands both to
+    :func:`~fedcourtsai.pipeline.qp_topics.derive_label_batch`. The reference set
+    is required rather than optional: the batch force-includes every member the
+    frame holds, and that share is the coverage the publication gate will grade
+    the run on.
+
+    Writes the batch's arithmetic to a sidecar beside the extract and prints it
+    to stderr, and exits non-zero on the two states where a dispatch would spend
+    a labeling run for nothing: a converged frame, and a frame holding too few of
+    the reference set for the run to clear the publication gate's coverage floor.
+    """
+    reference_file = qp_topics.reference_path(data_root)
+    if not reference_file.is_file():
+        typer.echo(
+            f"qp-corpus: no reference set at {reference_file} — the batch is derived from "
+            "committed state (every reference case in the frame, plus a stratified draw of "
+            "the not-yet-labeled remainder), so without it there is no measurable batch to "
+            "cut and no labeling run could pass the publication gate",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    reference = read_model(reference_file, QpTopicReference)
+    labels_file = qp_topics.labels_path(data_root)
+    prior = read_model(labels_file, QpTopicLabels) if labels_file.is_file() else None
+    try:
+        batch = qp_topics.derive_label_batch(
+            frame=[(row.case_id, row.docket_number) for row in frame],
+            reference=reference,
+            labeled={entry.case_id for entry in prior.entries} if prior is not None else (),
+        )
+    except qp_topics.QpTopicError as exc:
+        typer.echo(f"qp-corpus: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    # The publication gate's coverage floor, checked here where it is still free.
+    # Every reference case in the frame is in the batch and the labeler labels
+    # every extract row, so the coverage `qp-topics` will measure is exactly this
+    # ratio — knowable before the dispatch rather than after it. Enforcing the
+    # standing floor earlier is the point: a frame missing reference cases cannot
+    # publish however well the labeler reads, and finding that out costs a whole
+    # run. Usually the absentees are in scope with no stored questions-presented
+    # document, and the fix is upstream in the corpus; a case that has left the
+    # labeling scope needs a different one, so the message names the common cause
+    # rather than asserting the only one.
+    if batch.reference_covered < qp_topics.COVERAGE_FLOOR:
+        typer.echo(
+            f"qp-corpus: only {batch.reference_rows} of {batch.reference_total} reference "
+            f"case(s) are in the frame ({batch.reference_covered:.1%}), under the "
+            f"{qp_topics.COVERAGE_FLOOR:.0%} coverage floor `fedcourts qp-topics` enforces — "
+            "a labeling run over this frame would be refused at the gate whatever it "
+            "labeled. Nothing was written. A reference case is usually absent because it "
+            "is in the labeling scope but carries no stored questions-presented text, so "
+            "restoring those documents is what makes the frame measurable; one that has "
+            "left the scope entirely is a different repair.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if batch.converged:
+        # Loud, and non-zero: the frame is labeled out. Another dispatch would
+        # re-grade the reference set, publish not one new row, and spend a
+        # labeling run to do it. A pull that ingests new petitions is what makes
+        # the next batch, not a re-dispatch of this one.
+        typer.echo(
+            f"qp-corpus: converged — all {batch.frame} scoped row(s) outside the reference "
+            f"set are labeled ({batch.labeled} published), so this dispatch would re-grade "
+            "the reference and publish nothing. Nothing was written. The next batch arrives "
+            "with the next pull, when the frame grows.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if not batch.fill:
+        # Rows left to label, but no budget to label them with: the reference set
+        # fills the ceiling on its own. The run would read a full extract and
+        # publish nothing, repeatably — the converged waste without the converged
+        # refusal — so it stops here too. Unlike convergence this does not clear
+        # with the next pull; it clears by raising the caps or narrowing the
+        # reference set, both of which re-derive the gate.
+        typer.echo(
+            f"qp-corpus: the {batch.reference_rows} in-frame reference case(s) fill the "
+            f"{qp_topics.LABEL_ROW_CEILING}-row budget, leaving no room for any of the "
+            f"{batch.pool} unlabeled row(s). A dispatch would re-grade the reference and "
+            "publish nothing. Nothing was written.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    # Beside the extract, never inside it: the extract is the labeler's whole
+    # evidentiary input and the contract is text-only, so the selection rule and
+    # its Term x fee-class counts stay out of the file the labeler reads. The run
+    # mode uploads the extract by name, so this file does not travel to the
+    # labeling job either.
+    write_raw_json(out.with_name(out.stem + ".batch.json"), qp_topics.batch_metadata(batch))
+    typer.echo(f"qp-corpus: batch derived from committed state ({scope})", err=True)
+    typer.echo(qp_topics.render_batch(batch), err=True)
+    selected = set(batch.case_ids)
+    return [row for row in frame if row.case_id in selected]
+
+
 @app.command("qp-corpus")
 def qp_corpus(
     out: Annotated[Path, typer.Option(help="JSON output path for the extracted texts.")],
@@ -3470,14 +3694,33 @@ def qp_corpus(
     is half the key the reference join is checked on, and an empty extraction is
     nothing to label.
 
-    **Refuses an extract larger than the labeling ceiling**
-    (:data:`~fedcourtsai.pipeline.qp_topics.LABEL_ROW_CEILING`), printing the
-    count and the scope it would have had to label. A labeling dispatch is one
-    headless turn under a hard step cap, and only a *complete* label file yields
-    an artifact, so an over-budget extract does not buy partial coverage — it
-    buys a killed step, full spend, and no artifact. The refusal is the count:
-    it is what a maintainer needs to decide what to do next, and it costs the
-    extract job rather than the labeling one.
+    **The scoped form always cuts a batch**
+    (:func:`~fedcourtsai.pipeline.qp_topics.derive_label_batch`), sized to the
+    labeling ceiling (:data:`~fedcourtsai.pipeline.qp_topics.LABEL_ROW_CEILING`).
+    A labeling dispatch is one headless turn under a hard step cap and only a
+    *complete* label file yields an artifact, so an over-budget extract buys a
+    killed step and no artifact rather than partial coverage. The batch is
+    derived from committed state — every reference case in the frame,
+    force-included so the run stays measurable, plus a Term x
+    fee-class-stratified, seeded-hash draw of the rows the committed labels
+    artifact does not yet publish — so repeat dispatches clear the frame batch by
+    batch and each row is labeled once. A frame that fits under the ceiling with
+    nothing yet published cuts to itself, so this is one rule rather than a
+    branch, and the committed reference set is **required** either way. There are
+    no new dispatch inputs and nothing to choose: the same committed state always
+    cuts the same batch. The arithmetic goes to stderr and to a ``.batch.json``
+    sidecar beside the extract, deliberately not into the extract, which is the
+    labeler's text-only evidentiary input.
+
+    Two states end the run here rather than after a labeling dispatch has been
+    spent; both exit non-zero and write nothing. A frame with nothing left to
+    label outside the reference set is **converged** — a dispatch would re-grade
+    the reference and publish no new row. And a frame holding under
+    :data:`~fedcourtsai.pipeline.qp_topics.COVERAGE_FLOOR` of the reference set
+    could not clear the publication gate whatever the labeler did: the batch
+    carries every reference case the frame holds and the labeler labels every
+    row, so that coverage is exact at extract time. Neither moves the gate; the
+    second enforces it earlier and more cheaply.
 
     The extract is a working file for one labeler run, **never a committed
     artifact**: it enumerates the ingested corpus and republishes stored
@@ -3533,25 +3776,30 @@ def qp_corpus(
             err=True,
         )
         raise typer.Exit(code=1)
-    if len(extract.rows) > qp_topics.LABEL_ROW_CEILING:
-        typer.echo(
-            f"qp-corpus: refusing to write {len(extract.rows)} row(s) — over the "
-            f"{qp_topics.LABEL_ROW_CEILING}-row labeling ceiling. Scope: {scope}. "
-            "The labeler runs as one headless turn under a hard step cap and only a "
-            "complete label file yields an artifact, so this extract would spend the "
-            "run and produce nothing. Nothing was written, and there is no flag that "
-            "makes this proceed: labeling this population needs a deliberately "
-            "partial cut, which is a design decision and is not built (see "
-            "docs/qp-topic.md). Do not truncate the extract by hand — case_id order "
-            "is docket-number order, so a prefix selects on docket number.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
+    rows = extract.rows
+    if all_texts:
+        # The measurement form is not batched: it answers "what is in this blob",
+        # and a batch of that answer is not one. It keeps the flat refusal, so a
+        # maintainer who points a labeling run at it is stopped rather than
+        # handed an unmeasurable slice.
+        if len(rows) > qp_topics.LABEL_ROW_CEILING:
+            typer.echo(
+                f"qp-corpus: refusing to write {len(rows)} row(s) — over the "
+                f"{qp_topics.LABEL_ROW_CEILING}-row labeling ceiling. Scope: {scope}. "
+                "The measurement form is unbatched by design: it enumerates a file rather "
+                "than deriving a labeling population, so there is nothing to accrue against "
+                "and no reference set to measure with. Drop --all for the scoped, batched "
+                "labeling selection.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+    else:
+        rows = _labeling_batch(extract.rows, data_root=settings.data_root, out=out, scope=scope)
     write_raw_json(
         out,
         [
             {"case_id": row.case_id, "docket_number": row.docket_number, "text": row.text}
-            for row in extract.rows
+            for row in rows
         ],
     )
     if extract.skipped:
@@ -3559,7 +3807,7 @@ def qp_corpus(
             f"qp-corpus: skipped {extract.skipped} row(s) with no docket number or no text",
             err=True,
         )
-    typer.echo(f"qp-corpus: {len(extract.rows)} question(s) presented ({scope}) -> {out}")
+    typer.echo(f"qp-corpus: {len(rows)} question(s) presented ({scope}) -> {out}")
 
 
 @app.command("qp-topics")
@@ -3580,7 +3828,17 @@ def qp_topics_cmd(
         typer.Option(help="JSON output path (default: <data_root>/qp-topics/qp-topics.json)."),
     ] = None,
 ) -> None:
-    """Measure a topic labeler against the reference set and write its labels artifact.
+    """Measure a topic labeler against the reference set and accrue its labels artifact.
+
+    The artifact accumulates: one dispatch labels one derived batch
+    (``fedcourts qp-corpus``), and what is written is the union of the committed
+    artifact and this batch's new rows. Rows already published are carried
+    forward unchanged, so a later batch cannot rewrite an earlier one; the
+    exception is a row inside the hand reference set, which always publishes the
+    reference's **adjudicated** label rather than the labeler's. The labeler's
+    call on a reference row is measurement input only — it is scored into the
+    agreement rate and discarded — so a flip there moves this run's rate and
+    nothing else.
 
     Reads the labeler's JSONL intermediate, validates every label against the
     ``qp-topic-v0`` vocabulary, joins it to the hand reference set on ``case_id``
@@ -3602,17 +3860,34 @@ def qp_topics_cmd(
     if not reference_path.is_file():
         typer.echo(f"qp-topics: no reference set at {reference_path}", err=True)
         raise typer.Exit(code=1)
+    # The committed artifact is the accrual base, read from the data root rather
+    # than from `--out`: the artifact is the union of every batch, and a run that
+    # wrote somewhere else would still have to start from what is published.
+    prior_path = qp_topics.labels_path(settings.data_root)
+    prior = read_model(prior_path, QpTopicLabels) if prior_path.is_file() else None
     try:
         artifact = qp_topics.build_labels(
             entries=qp_topics.read_label_lines(labels),
             texts=qp_topics.read_texts(texts),
             reference=read_model(reference_path, QpTopicReference),
             labeler=labeler,
+            prior=prior,
         )
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-topics: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    typer.echo(f"qp-topics: {artifact.cases} labeled case(s) by {artifact.labeler}")
+    batch = artifact.batches[-1]
+    typer.echo(
+        f"qp-topics: batch {batch.batch} — {batch.measured} row(s) read by {artifact.labeler}, "
+        f"{batch.labeler_rows} newly published from its own calls and "
+        f"{batch.published - batch.labeler_rows} from the reference set's hand labels; "
+        f"{artifact.cases} labeled case(s) in the artifact across {len(artifact.batches)} batch(es)"
+    )
+    if batch.superseded:
+        typer.echo(
+            f"qp-topics: {batch.superseded} standing row(s) re-published from a changed "
+            "hand reference label"
+        )
     typer.echo(qp_topics.render_agreement(artifact.agreement))
     typer.echo(
         f"  shadow:    {artifact.shadow.disagreements} disagreement(s) on "
@@ -9189,10 +9464,21 @@ def corpus_integration_case(
         int,
         typer.Option(
             min=1,
-            help="How many candidates the bounded window admits — the cap on both "
-            "the index walk and the per-candidate snapshot reads.",
+            help="How many candidates the primary, snapshot-driven window admits "
+            "— the cap on both its index walk and its per-candidate snapshot "
+            "reads.",
         ),
     ] = integration_check.DEFAULT_CANDIDATE_SCAN,
+    probe_limit: Annotated[
+        int,
+        typer.Option(
+            min=1,
+            help="How many candidates the split-estate fallback window probes the "
+            "content store for — one key listing each, so this is the cap on that "
+            "window's network cost. Unused unless the primary window comes back "
+            "with no answer under the corpus-split mode.",
+        ),
+    ] = integration_check.DEFAULT_SPLIT_PROBE_LIMIT,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Resolve a case the integration suite can run on, and print it as `key=value`.
@@ -9212,10 +9498,10 @@ def corpus_integration_case(
     newest stamp is the case whose row and stored snapshot best reflect the
     live docket. (Not `last_pulled` — the pull governor rotates over the whole
     active set including the historical bulk import, so its freshest stamps are
-    ancient dockets a repair sweep happened to touch.) The window is driven from
-    the blob's snapshot index, which covers a tiny fraction of the corpus, so
-    the read stays bounded rather than walking the court's whole slice.
-    Deterministic given a corpus.
+    ancient dockets a repair sweep happened to touch.) The primary window is
+    driven from the blob's snapshot index, which covers a tiny fraction of the
+    corpus, so the read stays bounded rather than walking the court's whole
+    slice. Deterministic given a corpus.
 
     Prints exactly two lines on stdout, appendable straight to a step's
     ``$GITHUB_OUTPUT``:
@@ -9223,14 +9509,20 @@ def corpus_integration_case(
         court=scotus
         docket=71234567
 
-    The human line — the case, its live-poll stamp, its snapshot date, its open
-    events — goes to stderr. Exits 2 when nothing in the window qualifies,
-    naming what each candidate was rejected for, and 1 when the local backend
-    finds no pulled corpus. Runs on the local and ranged backends: the corpus
-    query service exposes no unresolved-first census surface, so resolve on
-    ranged and pass the case to the service leg. Under the corpus-split mode
-    the blob carries no snapshot rows, so the window cannot answer at all and
-    the command says so rather than reporting an absent case.
+    Where the blob carries no snapshot rows — an estate written *entirely*
+    under the **corpus-split** mode, the seeded staging slice among them — that
+    window is empty by construction and a second one answers instead: the same
+    still-predictable rows out of the index, bounded, with content-store
+    snapshot **presence** probed per candidate (a key listing, no payload
+    fetch). Same screens either way, so such an estate self-resolves like any
+    other, and the human line names which window answered.
+
+    The human line — the case, the window it came from, its live-poll stamp,
+    its snapshot date, its open events — goes to stderr. Exits 2 when nothing
+    qualifies, naming every window tried and what each candidate was rejected
+    for, and 1 when the local backend finds no pulled corpus. Runs on the local
+    and ranged backends: the corpus query service exposes no unresolved-first
+    census surface, so resolve on ranged and pass the case to the service leg.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -9257,14 +9549,16 @@ def corpus_integration_case(
             court=court,
             backend=backend,
             scan_limit=scan_limit,
+            probe_limit=probe_limit,
         )
     except integration_check.CaseResolutionError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
     polled = resolved.last_live_polled.isoformat() if resolved.last_live_polled else "never"
     typer.echo(
-        f"resolved {resolved.case_id} (candidate {resolved.scanned}): live-polled "
-        f"{polled}, snapshot {resolved.snapshot_date.isoformat()}, open "
+        f"resolved {resolved.case_id} (candidate {resolved.scanned}, from "
+        f"{resolved.window}): live-polled {polled}, snapshot "
+        f"{resolved.snapshot_date.isoformat()}, open "
         f"event(s) {', '.join(resolved.open_event_ids)}",
         err=True,
     )
@@ -12362,6 +12656,69 @@ def finalize_produced_cmd(
         run_id=run_id,
     )
     typer.echo("true" if produced else "false")
+
+
+@app.command("cell-outputs")
+def cell_outputs_cmd(
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id the cell acts on.")],
+    actor: Annotated[str, typer.Option(help="The predictor_id / evaluator_id for this cell.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+) -> None:
+    """Print this cell's output root, then every file a finished cell of it owes.
+
+    The engine watchdog's **completion sentinel** is what reads this: armed before
+    the agent starts, it waits for exactly these files to exist and parse, and
+    then for the output root to go quiet, before concluding a step that has
+    finished its work but will not end. So the list is emitted once, up front, on
+    the runner's own terms — the watchdog never re-derives it, and never reads a
+    file the agent could rewrite to say what it should wait for.
+
+    Stdout is a hand-over the arm step splits, like ``watchdog-checkin``'s: the
+    **first line** is the directory whose write quiescence is watched, and
+    **every line after it** is one required file, repo-relative. An evaluate cell
+    names its candidates by their staging aliases, since the un-aliasing runs in
+    the cell's tail, long after the sentinel has to recognize them; a cell with no
+    staged candidate has no completion to wait for and exits non-zero, which
+    leaves the watchdog on its deadline alone.
+    """
+    settings = get_settings()
+    candidates: list[str] = []
+    if role is FinalizeRole.evaluate:
+        candidates = blinded_candidates(data_root=settings.data_root, court=court, docket=docket)
+        if not candidates:
+            typer.echo(
+                "::error::no blinded candidates are staged for "
+                + f"{court}/{docket}; this cell has no completion set",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+    typer.echo(
+        str(
+            cell_output_root(
+                role,
+                data_root=settings.data_root,
+                court=court,
+                docket=docket,
+                event=event,
+                actor=actor,
+                run_id=run_id,
+            )
+        )
+    )
+    for path in required_outputs(
+        role,
+        data_root=settings.data_root,
+        court=court,
+        docket=docket,
+        event=event,
+        actor=actor,
+        run_id=run_id,
+        candidates=candidates,
+    ):
+        typer.echo(str(path))
 
 
 @app.command("assert-paths")

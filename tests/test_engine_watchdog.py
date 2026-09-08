@@ -1,19 +1,29 @@
-"""The codex cell watchdog, exercised against stand-ins for a wedged step.
+"""The engine cell watchdog, exercised against stand-ins for a wedged step.
 
-`scripts/codex-watchdog.sh` exists because a hung codex cell outlives the
-engine step's own `timeout-minutes` and takes the whole cell down with the job
-cap — no capture tail, no artifact, and no logs, since GitHub drops a cancelled
-job's. Killing the engine is not enough on its own: a wedge in the action's
-node wrapper, or one that never reaches the engine at all, leaves the step
-`in_progress` with nothing engine-shaped to match, so the watchdog escalates to
-the step's own process tree.
+`scripts/engine-watchdog.sh` exists because a hung cell outlives the engine
+step's own `timeout-minutes` and takes the whole cell down with the job cap — no
+capture tail, no artifact, and no logs, since GitHub drops a cancelled job's. It
+has two triggers, and both are driven here.
 
-Every claim about that is a claim about signals and process matching on a live
-runner, so it gets driven here rather than read: processes whose command lines
-and parentage the watchdog is pointed at, a one-second deadline, and the
-outcomes that matter — the engine dies, the wedged step's tree dies with it,
-the evidence lands, and nothing that names runner infrastructure is ever
-signalled.
+The **completion sentinel** is the one that fires on the observed failure: the
+agent writes every output its contract names and then the step's teardown never
+concludes, so a watchdog that waits for a deadline is documenting the death of
+work that had already succeeded. When the required outputs are all present,
+parse, and stop changing, the step's tree is ended and the cell's own tail
+salvages it.
+
+The **deadline** stays behind it for a wedge that completes nothing. Killing the
+engine is not enough on its own there: a wedge in the action's node wrapper, or
+one that never reaches the engine at all, leaves the step `in_progress` with
+nothing engine-shaped to match, so the watchdog escalates to the step's own
+process tree.
+
+Every claim about either is a claim about files and signals on a live runner, so
+it gets driven here rather than read: processes whose command lines and
+parentage the watchdog is pointed at, output files written and rewritten under
+its nose, and the outcomes that matter — the engine dies, the wedged step's tree
+dies with it, a finished cell's step is ended while its output is intact, the
+evidence lands, and nothing that names runner infrastructure is ever signalled.
 
 Every fixture here is a process this module spawned. The watchdog's discovery
 is pointed at fixture-scoped patterns in `_run`, never at the defaults that
@@ -32,7 +42,7 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-WATCHDOG = REPO_ROOT / "scripts" / "codex-watchdog.sh"
+WATCHDOG = REPO_ROOT / "scripts" / "engine-watchdog.sh"
 # Fast enough for a test, slow enough that a loaded machine cannot slip a
 # fixture's whole lifetime between two polls: everything here is a race between
 # the watchdog's clock and a fixture's, and a one-second margin is none.
@@ -72,6 +82,9 @@ def _run(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
     checkin_url: str = "",
     checkin_base: str = "",
     heartbeat_s: str = "0",
+    sentinel_paths: list[Path] | None = None,
+    output_dir: Path | None = None,
+    quiesce_s: str = "2",
 ) -> subprocess.CompletedProcess[str]:
     # Fail closed on the way in, so a future test cannot hand a discovery route
     # a pattern broad enough to name a process this suite did not spawn. Every
@@ -103,6 +116,12 @@ def _run(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
         "WATCHDOG_CHECKIN_TOKEN": CHECKIN_TOKEN if checkin_url else "",
         "WATCHDOG_CHECKIN_BASE": checkin_base,
         "WATCHDOG_HEARTBEAT_S": heartbeat_s,
+        # The completion sentinel, empty for every test that is not about it —
+        # spelled out for the same reason the check-in trio is, so an ambient
+        # value can never arm a reaper a test did not ask for.
+        "WATCHDOG_SENTINEL_PATHS": "\n".join(str(p) for p in sentinel_paths or ()),
+        "WATCHDOG_OUTPUT_DIR": str(output_dir) if output_dir else "",
+        "WATCHDOG_QUIESCE_S": quiesce_s,
     }
     # Left to derive itself from the deadline unless a test is about the floor,
     # so every other test inherits whatever shape ships.
@@ -223,7 +242,7 @@ def test_the_watchdog_kills_the_wedged_engine_and_leaves_its_evidence(tmp_path: 
     marker = f"fedcourts-watchdog-selftest-{os.getpid()}"
     victim = _named(marker)
     try:
-        watchdog_dir = tmp_path / "codex-watchdog"
+        watchdog_dir = tmp_path / "engine-watchdog"
         done = _run(watchdog_dir, marker)
         assert done.returncode == 0, done.stdout + done.stderr
 
@@ -299,7 +318,7 @@ def test_a_deadline_that_matched_nothing_still_ends_the_step(tmp_path: Path) -> 
     marker = f"fedcourts-watchdog-runner-{os.getpid()}"
     runner = _named(marker)
     try:
-        watchdog_dir = tmp_path / "codex-watchdog"
+        watchdog_dir = tmp_path / "engine-watchdog"
         done = _run(watchdog_dir, f"watchdog-selftest-absent-{os.getpid()}", runner_match=marker)
         assert done.returncode == 0, done.stdout + done.stderr
         assert runner.wait(timeout=30) != 0
@@ -325,7 +344,7 @@ def test_a_step_that_never_spawned_an_engine_is_ended_by_parentage(tmp_path: Pat
     worker_argv = f"Runner.Worker watchdog-selftest-{os.getpid()}"
     tree = WorkerTree(tmp_path, worker_argv, "sleep 300\n")
     try:
-        watchdog_dir = tmp_path / "codex-watchdog"
+        watchdog_dir = tmp_path / "engine-watchdog"
         done = _run(
             watchdog_dir,
             f"watchdog-selftest-absent-{os.getpid()}",
@@ -368,7 +387,7 @@ def test_a_step_that_outlives_the_engine_kill_has_its_tree_ended(tmp_path: Path)
     )
     try:
         grandchild_pid = _read_pid(tmp_path / "grandchild.pid")
-        watchdog_dir = tmp_path / "codex-watchdog"
+        watchdog_dir = tmp_path / "engine-watchdog"
         done = _run(
             watchdog_dir, marker, worker_match=f"watchdog-selftest-{os.getpid()}", grace_s="6"
         )
@@ -410,7 +429,7 @@ def test_a_step_that_ends_with_the_engine_is_not_escalated_to(tmp_path: Path) ->
     # just killed does.
     tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 8\n")
     try:
-        watchdog_dir = tmp_path / "codex-watchdog"
+        watchdog_dir = tmp_path / "engine-watchdog"
         started = time.monotonic()
         done = _run(
             watchdog_dir, marker, worker_match=f"watchdog-selftest-{os.getpid()}", grace_s="30"
@@ -448,7 +467,7 @@ def test_infrastructure_named_processes_are_never_signalled(tmp_path: Path) -> N
     ):
         infra = _named(argv)
         try:
-            watchdog_dir = tmp_path / f"codex-watchdog-{infra.pid}"
+            watchdog_dir = tmp_path / f"engine-watchdog-{infra.pid}"
             done = _run(
                 watchdog_dir,
                 f"watchdog-selftest-absent-{os.getpid()}",
@@ -499,7 +518,7 @@ def test_a_step_younger_than_the_deadline_is_not_the_step_it_guards(tmp_path: Pa
     """
     tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
     try:
-        watchdog_dir = tmp_path / "codex-watchdog"
+        watchdog_dir = tmp_path / "engine-watchdog"
         done = _run(
             watchdog_dir,
             f"watchdog-selftest-absent-{os.getpid()}",
@@ -525,7 +544,7 @@ def test_a_process_that_predates_the_arming_is_not_the_step_it_guards(tmp_path: 
     tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
     try:
         time.sleep(10)  # the fixture is now comfortably older than the watchdog
-        watchdog_dir = tmp_path / "codex-watchdog"
+        watchdog_dir = tmp_path / "engine-watchdog"
         done = _run(
             watchdog_dir,
             f"watchdog-selftest-absent-{os.getpid()}",
@@ -547,7 +566,7 @@ def test_a_step_that_ignores_sigterm_is_killed(tmp_path: Path) -> None:
     engine = _named(marker, DEAF)
     tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", DEAF + "\n")
     try:
-        watchdog_dir = tmp_path / "codex-watchdog"
+        watchdog_dir = tmp_path / "engine-watchdog"
         done = _run(watchdog_dir, marker, worker_match=f"watchdog-selftest-{os.getpid()}")
         assert done.returncode == 0, done.stdout + done.stderr
         assert engine.wait(timeout=60) != 0, "the engine survived a watchdog that gave up on TERM"
@@ -579,7 +598,7 @@ def test_a_descendant_outliving_the_step_entry_still_ends_the_step(tmp_path: Pat
     tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", step_script)
     try:
         grandchild_pid = _read_pid(tmp_path / "grandchild.pid")
-        watchdog_dir = tmp_path / "codex-watchdog"
+        watchdog_dir = tmp_path / "engine-watchdog"
         done = _run(
             watchdog_dir, marker, worker_match=f"watchdog-selftest-{os.getpid()}", grace_s="12"
         )
@@ -608,7 +627,7 @@ def test_parentage_never_proposes_an_infrastructure_named_step(tmp_path: Path) -
         f'exec -a "{infra_argv}" sleep 300\n',
     )
     try:
-        watchdog_dir = tmp_path / "codex-watchdog"
+        watchdog_dir = tmp_path / "engine-watchdog"
         done = _run(
             watchdog_dir,
             f"watchdog-selftest-absent-{os.getpid()}",
@@ -641,7 +660,7 @@ def test_a_descendant_the_step_spawned_late_is_still_ended(tmp_path: Path) -> No
         + "wait\n",
     )
     try:
-        watchdog_dir = tmp_path / "codex-watchdog"
+        watchdog_dir = tmp_path / "engine-watchdog"
         done = _run(
             watchdog_dir,
             f"watchdog-selftest-absent-{os.getpid()}",
@@ -660,6 +679,303 @@ def test_a_descendant_the_step_spawned_late_is_still_ended(tmp_path: Path) -> No
             "a process the step spawned mid-run was refused, so the step stays open"
         )
         assert tree.proc.poll() is None, "the watchdog signalled the runner's worker process"
+    finally:
+        tree.close()
+
+
+#: One cell's completion set, in the shape `fedcourts cell-outputs` emits it: a
+#: per-candidate pair under an alias directory plus the judge-level files beside
+#: them, which is the evaluate role's contract and the deeper of the two layouts.
+def _outputs(out_dir: Path) -> list[Path]:
+    return [
+        out_dir / "sentinel-alias" / "run" / "evaluation.json",
+        out_dir / "sentinel-alias" / "run" / "evaluation.md",
+        out_dir / "run" / "retrieval.md",
+        out_dir / "run" / "tooling.json",
+    ]
+
+
+def _write_outputs(paths: list[Path]) -> None:
+    for path in paths:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('{"graded": true}\n' if path.suffix == ".json" else "notes\n")
+
+
+def test_a_completed_cell_has_its_wedged_step_reaped(tmp_path: Path) -> None:
+    """The failure this exists for: the work is done and the step will not end.
+
+    An agent has been seen writing every file it owes, validating them, printing
+    its closing token count — and then the step froze in that state until the job
+    cap deleted the lot. So the reaper does not wait for a deadline it would only
+    use to document the loss: complete, parsing, quiescent output ends the step
+    while the output is still there, and the cell's own tail salvages it.
+
+    The fixture step is seconds old when this fires, far under the deadline's own
+    age floor — which is the point. The floor answers "did this begin after the
+    deadline started counting", and at a sentinel the sharper question is
+    available: the step that wrote the output began before the output was
+    complete, and no tail step can have.
+    """
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths)
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", DEAF + "\n")
+    try:
+        watchdog_dir = tmp_path / "engine-watchdog"
+        started = time.monotonic()
+        done = _run(
+            watchdog_dir,
+            f"watchdog-selftest-absent-{os.getpid()}",
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            deadline_s="120",
+            grace_s="6",
+            sentinel_paths=paths,
+            output_dir=out_dir,
+            quiesce_s="2",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert time.monotonic() - started < 60, "the reaper waited out the deadline it pre-empts"
+        assert _await(lambda: _gone(tree.step_pid)), "the finished cell's step was not ended"
+
+        reaped = (watchdog_dir / "REAPED").read_text()
+        assert "sentinel_at=" in reaped
+        assert "reaped_at=" in reaped
+        assert f"outputs={len(paths)}" in reaped
+        assert "escalation=the completed cell's step tree was ended" in reaped
+        # Neither deadline marker: the reap is a different verdict, and a cell
+        # that ends this way has to be readable as one whose work survived.
+        assert not (watchdog_dir / "FIRED").exists()
+        assert not (watchdog_dir / "STOOD_DOWN").exists()
+        # A process forest taken *after* the agent finished is the one capture
+        # that can name whatever is holding a completed step open.
+        assert (watchdog_dir / "process-tree.txt").stat().st_size > 0
+        assert tree.proc.poll() is None, "the watchdog signalled the runner's worker process"
+    finally:
+        tree.close()
+
+
+def test_continuing_writes_hold_the_reap_off(tmp_path: Path) -> None:
+    """Complete is not finished: an agent revising a draft must never be cut off.
+
+    Every output file exists and parses here from the first poll, so completeness
+    alone would reap immediately — and the cell is still writing. Quiescence is
+    what separates the two, and the deadline is left to be the bound instead,
+    which is the conservative outcome.
+    """
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths)
+    # A stand-in for the agent still rewriting a document it has already written.
+    churn = subprocess.Popen(["bash", "-c", f'while :; do touch "{paths[1]}"; sleep 1; done'])
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
+    try:
+        watchdog_dir = tmp_path / "engine-watchdog"
+        done = _run(
+            watchdog_dir,
+            f"watchdog-selftest-absent-{os.getpid()}",
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            deadline_s="14",
+            sentinel_paths=paths,
+            output_dir=out_dir,
+            quiesce_s="8",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert not (watchdog_dir / "REAPED").exists(), "a cell mid-edit was reaped"
+        # The observation itself still happened, and is still the durable proof
+        # that the output existed — it is the *reap* the writes hold off.
+        assert "completion sentinel observed at" in done.stdout
+        assert (watchdog_dir / "STOOD_DOWN").exists(), "the deadline did not stand in for the reap"
+    finally:
+        churn.kill()
+        churn.wait(timeout=10)
+        tree.close()
+
+
+def test_an_incomplete_output_set_is_a_cell_still_working(tmp_path: Path) -> None:
+    """One missing file is a cell that has not finished, whatever the rest says.
+
+    The sentinel is the *whole* contract, not a quorum of it: a judge that has
+    written two of its three candidates is mid-run, and reaping there would
+    destroy exactly the work the reaper exists to save.
+    """
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths[:-1])
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
+    try:
+        watchdog_dir = tmp_path / "engine-watchdog"
+        done = _run(
+            watchdog_dir,
+            f"watchdog-selftest-absent-{os.getpid()}",
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            deadline_s="8",
+            sentinel_paths=paths,
+            output_dir=out_dir,
+            quiesce_s="1",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert not (watchdog_dir / "REAPED").exists()
+        assert "completion sentinel observed at" not in done.stdout
+        assert (watchdog_dir / "STOOD_DOWN").exists()
+    finally:
+        tree.close()
+
+
+def test_output_that_does_not_parse_is_not_a_completion(tmp_path: Path) -> None:
+    """A half-written JSON file is the shape a mid-write poll actually sees.
+
+    Existence alone would call that finished. The parse is deliberately all the
+    sentinel asks — a schema check belongs in the tail's `validate`, which can
+    route a malformed cell to a draft PR, and which a reaper cannot do anything
+    with except decline to save the work.
+    """
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths)
+    (out_dir / "run" / "tooling.json").write_text('{"graded": tr')
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
+    try:
+        watchdog_dir = tmp_path / "engine-watchdog"
+        done = _run(
+            watchdog_dir,
+            f"watchdog-selftest-absent-{os.getpid()}",
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            deadline_s="8",
+            sentinel_paths=paths,
+            output_dir=out_dir,
+            quiesce_s="1",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert not (watchdog_dir / "REAPED").exists()
+        assert "completion sentinel observed at" not in done.stdout
+    finally:
+        tree.close()
+
+
+def test_an_empty_required_file_is_not_a_written_one(tmp_path: Path) -> None:
+    """A zero-byte file is what a truncated write leaves behind.
+
+    Existence alone would call it done — and for the two prose documents, which
+    no parse can vet, size is the only thing standing between "written" and
+    "created". The conservative reading is the whole point of the sentinel, so
+    the branch that enforces it gets its own fixture.
+    """
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths)
+    (out_dir / "run" / "retrieval.md").write_text("")
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
+    try:
+        watchdog_dir = tmp_path / "engine-watchdog"
+        done = _run(
+            watchdog_dir,
+            f"watchdog-selftest-absent-{os.getpid()}",
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            deadline_s="8",
+            sentinel_paths=paths,
+            output_dir=out_dir,
+            quiesce_s="1",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert not (watchdog_dir / "REAPED").exists()
+        assert "completion sentinel observed at" not in done.stdout
+    finally:
+        tree.close()
+
+
+def test_a_reap_with_no_step_to_end_writes_no_marker(tmp_path: Path) -> None:
+    """`REAPED` is a claim that the watchdog ended a step, so it must have.
+
+    The marker is not only a record: the disarm step reads it to set `AGENT_OK`,
+    which routes the cell to the run's ready PR rather than the draft one. A
+    marker written before discovery would make that claim on a path where the
+    watchdog signalled nothing — reachable whenever the engine step concludes on
+    its own between the poll that saw quiescence and the disarm step's signal,
+    and a cell that stopped early is exactly the one a maintainer should see.
+
+    Here the sentinel is satisfied with no step to find at all, and the run has
+    to fall through to its deadline rather than claim a reap.
+    """
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths)
+    sink = CheckinSink()
+    try:
+        watchdog_dir = tmp_path / "engine-watchdog"
+        done = _run(
+            watchdog_dir,
+            f"watchdog-selftest-absent-{os.getpid()}",
+            deadline_s="14",
+            sentinel_paths=paths,
+            output_dir=out_dir,
+            quiesce_s="2",
+            checkin_url=sink.url,
+            checkin_base=CHECKIN_BASE,
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert "completion sentinel observed at" in done.stdout
+        assert not (watchdog_dir / "REAPED").exists(), (
+            "a reap that ended nothing still claimed the step as its own"
+        )
+        # It said so once, off the runner, and then let the deadline stand.
+        phases = _phases(sink.bodies)
+        declined = [line for line in phases if line.startswith("reap declined:")]
+        assert len(declined) == 1, phases
+        assert (watchdog_dir / "STOOD_DOWN").exists()
+    finally:
+        sink.close()
+
+
+def test_the_sentinel_is_inert_before_the_cell_writes_anything(tmp_path: Path) -> None:
+    """Nothing on disk yet is the state the watchdog is armed in.
+
+    The output directory does not exist for the first minutes of every cell, and
+    the poll runs from the first second — so an absent tree has to be an ordinary
+    "not finished", never an error that stops the loop and takes the deadline
+    with it.
+    """
+    out_dir = tmp_path / "never-created"
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
+    try:
+        watchdog_dir = tmp_path / "engine-watchdog"
+        done = _run(
+            watchdog_dir,
+            f"watchdog-selftest-absent-{os.getpid()}",
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            deadline_s="6",
+            sentinel_paths=_outputs(out_dir),
+            output_dir=out_dir,
+            quiesce_s="1",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert not (watchdog_dir / "REAPED").exists()
+        # The deadline still ran and still ended the step, which is the property
+        # an exception in the poll would have silently cost.
+        assert (watchdog_dir / "STOOD_DOWN").exists()
+        assert _await(lambda: _gone(tree.step_pid))
+    finally:
+        tree.close()
+
+
+def test_no_sentinel_leaves_the_deadline_as_the_only_bound(tmp_path: Path) -> None:
+    """An arm step that could not compute the output set must still arm a deadline.
+
+    `cell-outputs` is bounded and best-effort in the workflows for the same
+    reason the check-in is: the kill duty is primary. An empty list therefore has
+    to read as "no reaper", never as "every required output is present".
+    """
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
+    try:
+        watchdog_dir = tmp_path / "engine-watchdog"
+        done = _run(
+            watchdog_dir,
+            f"watchdog-selftest-absent-{os.getpid()}",
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert "no completion sentinel was configured" in done.stdout
+        assert not (watchdog_dir / "REAPED").exists()
+        assert (watchdog_dir / "STOOD_DOWN").exists()
     finally:
         tree.close()
 
@@ -738,7 +1054,7 @@ def test_the_watchdog_reports_every_state_off_the_runner(tmp_path: Path) -> None
     sink = CheckinSink()
     try:
         done = _run(
-            tmp_path / "codex-watchdog",
+            tmp_path / "engine-watchdog",
             marker,
             worker_match=f"watchdog-selftest-{os.getpid()}",
             grace_s="4",
@@ -803,23 +1119,44 @@ def test_the_off_runner_payload_is_stricter_than_the_published_bundle(tmp_path: 
     the script's own variables for the same reason: WATCHDOG_DIR is writable by
     the very agent the watchdog may be about to kill, and a body read back off
     that directory would let the agent choose what a public issue says.
+
+    Driven with the sentinel armed, because the sentinel is the newest way for
+    file-derived text to reach the record: it is handed a list of paths and it
+    reads those files every poll. Neither the paths nor a byte of their contents
+    may appear — the counts and the observation timestamp are the whole of what
+    it may say — and the fixture writes a distinctive marker *into* an output
+    file so the contents half is checked rather than assumed.
     """
     marker = f"fedcourts-watchdog-engine-{os.getpid()}"
     engine = _named(marker)
     sink = CheckinSink()
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths)
+    content_marker = f"watchdog-selftest-file-content-{os.getpid()}"
+    (out_dir / "run" / "retrieval.md").write_text(f"{content_marker}\n")
     try:
         done = _run(
-            tmp_path / "codex-watchdog",
+            tmp_path / "engine-watchdog",
             marker,
             checkin_url=sink.url,
             checkin_base=CHECKIN_BASE,
             heartbeat_s="1",
+            sentinel_paths=paths,
+            output_dir=out_dir,
+            # Long enough that the deadline is reached first, so this exercises
+            # the sentinel's *observation* without the reap ending the run early.
+            quiesce_s="600",
         )
         assert done.returncode == 0, done.stdout + done.stderr
         assert engine.wait(timeout=30) != 0
         record = "\n".join(sink.bodies)
+        assert "completion sentinel observed at" in record, "the sentinel never fired here"
         assert marker not in record, "a matched process's argv reached the public record"
         assert str(tmp_path) not in record, "a runner path reached the public record"
+        assert "retrieval.md" not in record, "a sentinel path reached the public record"
+        assert content_marker not in record, "an output file's contents reached the public record"
+        assert content_marker not in done.stdout + done.stderr
         assert CHECKIN_TOKEN not in record, "the token was echoed into the record it authorises"
         # Nor into the watchdog's own log, which rides the published artifact.
         # (The process dump beside it cannot settle the argv question either way:
@@ -849,7 +1186,7 @@ def test_the_discovery_tally_separates_a_refusal_from_an_empty_field(tmp_path: P
     sink = CheckinSink()
     try:
         done = _run(
-            tmp_path / "codex-watchdog",
+            tmp_path / "engine-watchdog",
             f"watchdog-selftest-absent-{os.getpid()}",
             worker_match=f"watchdog-selftest-{os.getpid()}",
             min_step_age_s="600",  # the floor refuses the fixture step
@@ -878,7 +1215,7 @@ def test_no_check_in_url_leaves_the_kill_duty_untouched(tmp_path: Path) -> None:
     marker = f"fedcourts-watchdog-engine-{os.getpid()}"
     engine = _named(marker)
     try:
-        watchdog_dir = tmp_path / "codex-watchdog"
+        watchdog_dir = tmp_path / "engine-watchdog"
         done = _run(watchdog_dir, marker, heartbeat_s="1")  # no URL, no token
         assert done.returncode == 0, done.stdout + done.stderr
         assert engine.wait(timeout=30) != 0

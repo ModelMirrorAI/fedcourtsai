@@ -429,11 +429,17 @@ enumerate the wider ingested corpus. The `data/qp-topics/` artifacts are
 `qp-topic-v0` measurement baseline), edited only in an interactive session and
 only via its own reviewed staging PR — neither the deterministic writers nor any
 workflow regenerates it. `qp-topics.json` is machine-produced and appears once a
-labeling run has produced one: that run's per-case labels, written by
+labeling run has produced one: the per-case labels, written by
 `run-analytics`'s agent-backed `qp-topic-label` mode (`fedcourts qp-topics`,
 which refuses to write below the publication gate) and landed as a reviewed PR
-to `main` on the fixed `qp-topics/refresh` branch, never auto-merged. It is a
-whole-file replacement per run, not an accumulating ledger. The **docket
+to `main` on the fixed `qp-topics/refresh` branch, never auto-merged. It is an
+**accumulating** artifact — the labeling frame outruns one dispatch, so each run
+labels a batch derived from committed state and the file is the union of every
+batch, carrying a per-batch ledger and, on each row, the batch that first
+published it (`docs/qp-topic.md`). The write is still a whole-file replacement:
+the accrual happens in `fedcourts qp-topics`, from the committed copy in the
+run's own checkout, which is why that mode must be dispatched from the ref
+carrying the newest artifact. The **docket
 pack** (`fedcourts
 docket`) aggregates the whole corpus — it publishes counts and rates over every
 ingested row, never a row itself — so it moves whenever the corpus does, and the

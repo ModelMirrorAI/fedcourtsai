@@ -128,16 +128,26 @@ class EventPaths:
     def predicted_reasoning(self, predictor_id: str, run_id: str) -> Path:
         # The forecast of the Court's own reasoning (`predicted_reasoning_doc`) —
         # claims that resolve against the docket, kept out of the rationale above
-        # so the two can be read, and later scored, separately. The pointer is
-        # optional, so a prediction may name no document here.
+        # so the two can be read, and later scored, separately. The pointer in
+        # `prediction.json` is schema-optional; the prompt contract asks for the
+        # document every run, and the cell's completion sentinel counts it.
         return self.prediction_dir(predictor_id, run_id) / "predicted_reasoning.md"
+
+    def prediction_retrieval(self, predictor_id: str, run_id: str) -> Path:
+        # The predictor's own account of what it consulted beyond the provisioned
+        # inputs, in prose. Free-form, so no schema resolves it — the prompt
+        # contract requires one every run, and the cell's completion sentinel
+        # (:func:`fedcourtsai.finalize.required_outputs`) counts it.
+        return self.prediction_dir(predictor_id, run_id) / "retrieval.md"
 
     def prediction_flags(self, predictor_id: str, run_id: str) -> Path:
         # A predict cell's optional flags.json, alongside its prediction.
         return self.prediction_dir(predictor_id, run_id) / "flags.json"
 
     def prediction_tooling(self, predictor_id: str, run_id: str) -> Path:
-        # A predict cell's optional tooling.json self-report, alongside its prediction.
+        # A predict cell's tooling.json self-report, alongside its prediction.
+        # Schema-optional, contract-required every run, and counted by the cell's
+        # completion sentinel — a cell that skips it can never be reaped.
         return self.prediction_dir(predictor_id, run_id) / "tooling.json"
 
     def prediction_attempt(self, predictor_id: str, run_id: str) -> Path:
@@ -172,12 +182,19 @@ class EventPaths:
         # The harness-captured tool-call transcript, keyed like its usage.
         return self.evaluation_cell_dir(evaluator_id, run_id) / "retrieval_log.json"
 
+    def evaluation_retrieval(self, evaluator_id: str, run_id: str) -> Path:
+        # The judge's account of what it consulted, keyed like its tooling report:
+        # one per cell rather than one per candidate, since a judge retrieves for
+        # the event and then grades every prediction of it.
+        return self.evaluation_cell_dir(evaluator_id, run_id) / "retrieval.md"
+
     def evaluation_flags(self, evaluator_id: str, run_id: str) -> Path:
         # An evaluate cell's optional flags.json.
         return self.evaluation_cell_dir(evaluator_id, run_id) / "flags.json"
 
     def evaluation_tooling(self, evaluator_id: str, run_id: str) -> Path:
-        # An evaluate cell's optional tooling.json self-report.
+        # An evaluate cell's tooling.json self-report. Schema-optional,
+        # contract-required every run, and counted by the completion sentinel.
         return self.evaluation_cell_dir(evaluator_id, run_id) / "tooling.json"
 
     def evaluation_attempt(self, evaluator_id: str, run_id: str) -> Path:
@@ -195,6 +212,14 @@ class EventPaths:
 
     def evaluation(self, evaluator_id: str, predictor_id: str, run_id: str) -> Path:
         return self.evaluation_dir(evaluator_id, predictor_id, run_id) / "evaluation.json"
+
+    def evaluation_notes(self, evaluator_id: str, predictor_id: str, run_id: str) -> Path:
+        # The prose beside one candidate's evaluation.json, which that record
+        # names in its ``notes_doc``. Fixed rather than read back from the record:
+        # this is the name the prompt contract asks for and the name the cell's
+        # completion sentinel looks for, both of which must resolve before
+        # anything has parsed the JSON.
+        return self.evaluation_dir(evaluator_id, predictor_id, run_id) / "evaluation.md"
 
 
 class CasePaths:

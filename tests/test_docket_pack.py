@@ -28,10 +28,11 @@ from fedcourtsai.schemas import (
     DocketPack,
     GroupBy,
     QpTopicAgreement,
+    QpTopicBatchEntry,
     QpTopicLabel,
     QpTopicLabelAgreement,
-    QpTopicLabelEntry,
     QpTopicLabels,
+    QpTopicPublishedEntry,
     QpTopicShadow,
     StatPackSection,
 )
@@ -501,8 +502,20 @@ def _qp_corpus(db: Path) -> None:
         )
 
 
-def _qp_labels(path: Path, primaries: dict[str, QpTopicLabel], *, gate_passed: bool = True) -> Path:
-    """Write a labels artifact for ``case_id -> primary``, through the real model."""
+def _qp_labels(
+    path: Path,
+    primaries: dict[str, QpTopicLabel],
+    *,
+    gate_passed: bool = True,
+    reference_cases: frozenset[str] = frozenset(),
+    batches: int = 1,
+) -> Path:
+    """Write a labels artifact for ``case_id -> primary``, through the real model.
+
+    ``reference_cases`` marks rows published from the hand set rather than by the
+    labeler — the split the scope note's over-representation ratio is computed
+    from — and ``batches`` how many runs the file accrued over.
+    """
     artifact = QpTopicLabels(
         labeler="stub-labeler",
         cases=len(primaries),
@@ -519,9 +532,26 @@ def _qp_labels(path: Path, primaries: dict[str, QpTopicLabel], *, gate_passed: b
             gate_passed=gate_passed,
         ),
         shadow=QpTopicShadow(texts=len(primaries), fired=0, disagreements=0),
+        batches=[
+            QpTopicBatchEntry(
+                batch=number,
+                labeler="stub-labeler",
+                published=len(primaries) if number == batches else 0,
+                labeler_rows=len(primaries) - len(reference_cases) if number == batches else 0,
+                measured=len(primaries),
+                agree=170,
+                n=189,
+                floor=0.25,
+            )
+            for number in range(1, batches + 1)
+        ],
         entries=[
-            QpTopicLabelEntry(
-                case_id=case_id, docket_number=case_id.removeprefix("scotus/"), label=label
+            QpTopicPublishedEntry(
+                case_id=case_id,
+                docket_number=case_id.removeprefix("scotus/"),
+                label=label,
+                source="reference" if case_id in reference_cases else "labeler",
+                batch=batches,
             )
             for case_id, label in sorted(primaries.items())
         ],
@@ -621,6 +651,8 @@ def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) ->
     labels = _qp_labels(
         tmp_path / "qp-topics.json",
         {"scotus/101": "criminal-law", "scotus/103": "unclassifiable"},
+        reference_cases=frozenset({"scotus/101"}),
+        batches=2,
     )
     md = analytics.render_docket_markdown(_pack(db, labels))
     assert "## Cert petitions by question-presented topic (`qp-topic-v0`)" in md
@@ -632,10 +664,24 @@ def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) ->
     assert (
         "_Scope: scotus, modern discretionary-cert dockets, live/historical slice; "
         "counts are denial-reweighted estimates. QP-bearing rows only — 2 of 3 ingested "
-        "rows; grant-enriched; primaries only; not docket-representative." in md
+        "rows labeled; grant-enriched; primaries only; not docket-representative." in md
     )
     assert "no reweighting recovers the docket" in md
     assert "not comparable to the sections above" in md
+    # The labeling frame outruns one dispatch, so the labeled rows are two
+    # populations drawn on different terms — reference members with certainty,
+    # the remainder as its batch comes up — which the caveat has to name with the
+    # ratio between them, or the reference block's grant-enriched mix is read as
+    # the frame's. Here: 2 labeled of 3, one of them a reference row (scotus/101
+    # is in `_qp_reference`), so 1 drawn of a 2-row remainder = 2.0x.
+    assert (
+        "Labeling accrues in batches, so the labeled rows are two populations on different "
+        "terms: 1 hand reference-set members, carried in every batch and so included with "
+        "certainty, and 1 drawn from the remaining 2 by a Term x fee-class-stratified, "
+        "seeded-hash order. Both count once here, so the reference block — grant-enriched "
+        "by design and carrying no sampling weights — is over-represented by about 2.0x, "
+        "and this mix is not the frame's until every row is labeled." in md
+    )
     assert (
         "A naive share partly counts coordinated filing campaigns rather than subjects; "
         "no de-duplicated companion is published._" in md
@@ -650,6 +696,14 @@ def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) ->
         "against the 25.0% a constant labeler scores on the same entries" in md
     )
     assert "**agreement, not accuracy**" in md
+    # The artifact accrues, so the rate and the labeler are the latest batch's
+    # while the table's rows came from every batch. Crediting one labeler with
+    # the whole distribution is the misreading this line exists to stop.
+    assert (
+        "_Accrued over 2 labeling batches, whose labelers may differ. The most recent was "
+        "labeled by stub-labeler, whose primaries matched" in md
+    )
+    assert "certifies the batch that produced it, not every row in the table above" in md
     assert "2 reference entr(ies) went uncovered" in md
     assert "2 of 2 labeled case(s) joined a row" in md
     # The labels the reference set cannot measure are named beside the table that

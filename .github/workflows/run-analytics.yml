@@ -663,7 +663,31 @@ jobs:
           # stored petition text and enumerates the ingested corpus, so
           # `qp-corpus` refuses an --out anywhere inside the checkout (one
           # `git add -A` from being committed).
-          uv run fedcourts qp-corpus --out "$RUNNER_TEMP/qp-texts.json"
+          #
+          # The batch arithmetic goes to stderr, which is captured here and
+          # copied into the step summary: the frame is not committed, so how this
+          # batch was cut is not re-derivable once the runner is gone, and the
+          # summary is the durable channel. It carries counts and stratum keys
+          # only — no case id, no petition text — the same shape the sidecar
+          # holds. That sidecar stays on the runner deliberately: the upload
+          # below names the extract by file, so the selection rule never reaches
+          # the labeling job.
+          # Captured to a file rather than through a tee subprocess, so the
+          # summary is written from a complete file rather than racing a
+          # background writer. A refusal's message is the most valuable thing
+          # here, so the capture runs on both outcomes and the exit status is
+          # replayed afterwards.
+          status=0
+          uv run fedcourts qp-corpus --out "$RUNNER_TEMP/qp-texts.json" \
+            2> "$RUNNER_TEMP/qp-batch.txt" || status=$?
+          cat "$RUNNER_TEMP/qp-batch.txt" >&2
+          {
+            echo '### qp-topic extract'
+            echo '```'
+            cat "$RUNNER_TEMP/qp-batch.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
       - name: Upload the extract
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -939,11 +963,24 @@ jobs:
           set -euo pipefail
           rm -rf "$RUNNER_TEMP/qp-topics-oracle"
           # From the commit, not from the copy: whatever the agent did to the
-          # tree, the file the gate measures against is the reviewed one.
+          # tree, the files the gate measures against are the reviewed ones.
+          # The rm before the checkout is load-bearing for the accrual base:
+          # `git checkout --` restores tracked files only, and the measure
+          # step reads the committed labels artifact from this path — an
+          # untracked file the agent planted there would survive a bare
+          # restore, ride into the union as carried rows, and publish. Wipe
+          # the directory, restore the tracked truth, and refuse any
+          # untracked residue the porcelain still shows.
+          rm -rf data/qp-topics
           git checkout -- data/qp-topics
           if ! git diff --quiet || ! git diff --cached --quiet; then
             echo "::error::the labeler modified tracked files; refusing to measure"
             git status --porcelain
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain -- data/qp-topics)" ]; then
+            echo "::error::untracked content under data/qp-topics after the restore; refusing to measure"
+            git status --porcelain -- data/qp-topics
             exit 1
           fi
           echo "work tree pristine"
@@ -1273,9 +1310,56 @@ jobs:
           # the deterministic writers landed (or this dispatch's ref carried)
           # while the agent ran. -f discards the local tree, which is safe
           # because everything this step needs is already under $RUNNER_TEMP.
+          #
+          # The cut also decides which prior this file supersedes, and the
+          # artifact accrues: `qp-topics` built it by accruing onto the *dispatch
+          # ref's* committed copy, while the push replaces main's. Dispatch this
+          # mode from the ref carrying the newest artifact — on a ref that lags
+          # main, the pushed file would drop or rewrite rows main already
+          # publishes. The guard below refuses that push mechanically (ledger
+          # extension + row containment); the reviewed, never-auto-merged PR
+          # stays the human backstop behind it.
           cp data/qp-topics/qp-topics.json "$RUNNER_TEMP/qp-topics.json"
           git fetch --no-tags -q origin main
           git checkout -q -f -B "$BRANCH" origin/main
+          # Accrual makes the cut a supersession, so check it is one — on the
+          # ROWS, not the ledger counts. A run exactly one batch behind lands a
+          # ledger of the same length with the same {batch, labeler, published}
+          # tuples (every batch is ceiling-sized), so a tuple-prefix check
+          # passes in precisely the stale case it exists for; only row content
+          # separates the two. The rule the artifact registers is that a
+          # labeler-published row is immutable once landed (reference rows are
+          # legitimately superseded by a hand relabel), so the mechanical form
+          # is containment: every labeler-sourced row main publishes must
+          # appear byte-identically in the incoming file, and the ledger must
+          # extend main's.
+          if [ -f data/qp-topics/qp-topics.json ]; then
+            landed=$(jq -cS '[.batches[] | {batch, labeler, published}]' \
+              data/qp-topics/qp-topics.json)
+            landed_rows=$(jq -cS '[.entries[] | select(.source == "labeler")]' \
+              data/qp-topics/qp-topics.json)
+          else
+            landed='[]'
+            landed_rows='[]'
+          fi
+          incoming=$(jq -cS '[.batches[] | {batch, labeler, published}]' \
+            "$RUNNER_TEMP/qp-topics.json")
+          incoming_rows=$(jq -cS '[.entries[] | select(.source == "labeler")]' \
+            "$RUNNER_TEMP/qp-topics.json")
+          if [ "$(jq -n --argjson a "$landed" --argjson b "$incoming" \
+                  '($b[:($a | length)] == $a) and (($b | length) > ($a | length))')" != "true" ]; then
+            echo "::error::this run's batch ledger does not strictly extend main's —" \
+              "the run accrued onto a stale artifact, or published nothing new." \
+              "Dispatch qp-topic-label from the ref carrying the newest data/qp-topics/qp-topics.json."
+            exit 1
+          fi
+          if [ "$(jq -n --argjson a "$landed_rows" --argjson b "$incoming_rows" \
+                  '($a - $b) | length == 0')" != "true" ]; then
+            echo "::error::rows main already publishes are missing or changed in this run's" \
+              "artifact — pushing would rewrite published labels. The run accrued onto a" \
+              "stale or divergent artifact; dispatch from the ref carrying main's newest copy."
+            exit 1
+          fi
           mkdir -p data/qp-topics
           cp "$RUNNER_TEMP/qp-topics.json" data/qp-topics/qp-topics.json
           git add data/qp-topics/qp-topics.json
@@ -1283,17 +1367,27 @@ jobs:
             echo "Labels identical to main; nothing to open." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          cases=$(jq -r '.cases' data/qp-topics/qp-topics.json)
-          title="data(qp-topics): ${cases} qp-topic-v0 label(s) by ${LABELER}"
+          # The artifact accrues one batch a run, so the title counts what *this*
+          # run added and the total separately: attributing the whole file to
+          # this labeler would credit it with every earlier batch's rows. It
+          # counts `labeler_rows`, not `published` — on the first batch the
+          # reference rows are newly published too, and those carry the hand
+          # set's adjudicated labels, which no labeler assigned. `-e` so a shape
+          # change fails the step instead of titling the PR `null`.
+          cases=$(jq -er '.cases' data/qp-topics/qp-topics.json)
+          batch=$(jq -er '.batches[-1].batch' data/qp-topics/qp-topics.json)
+          labeled=$(jq -er '.batches[-1].labeler_rows' data/qp-topics/qp-topics.json)
+          title="data(qp-topics): batch ${batch} — ${labeled} new qp-topic-v0 label(s) by ${LABELER} (${cases} total)"
           # The body carries only CLI-rendered numbers and vocabulary labels —
           # no agent prose and no petition text — and so does the committed
-          # artifact: `QpTopicLabelEntry` is a strict pydantic model whose every
-          # field is a copied key, a vocabulary enum, or a bool, joined to the
-          # extract on both keys, so no agent-authored string can reach either.
-          # That mechanism, not reviewer attention, is why this step runs no
-          # secret scan where `collect-run` does.
+          # artifact: `QpTopicPublishedEntry` is a strict pydantic model whose
+          # every field is a copied key, a vocabulary enum, a bool, or a stamp
+          # the builder assigns, joined to the extract on both keys, so no
+          # agent-authored string can reach either. That mechanism, not reviewer
+          # attention, is why this step runs no secret scan where `collect-run`
+          # does.
           {
-            printf '%s\n\n' "One \`qp-topic-v0\` labeling run: primary labels for ${cases} stored questions-presented text(s), assigned by \`${LABELER}\` from the text alone and measured against the hand reference set by \`fedcourts qp-topics\`."
+            printf '%s\n\n' "Batch ${batch} of the \`qp-topic-v0\` labeling frame, by \`${LABELER}\` from the stored questions-presented text alone: ${labeled} new label(s), bringing the artifact to ${cases}. The artifact accrues one batch a run, so the block below is this batch's measurement and not the file's — the rest of what this batch read is the hand reference set, re-graded every run for that measurement and published from its own adjudicated labels rather than the labeler's. Prior batches' rows are carried forward unchanged."
             printf '%s\n\n' "The command enforces the publication gate, so this PR exists only because the run cleared it. What the numbers mean — agreement with a single v0 reference rater, **not** accuracy; a grant-enriched frame that certifies the grant stream only; per-label rates suppressed under the support floor — is in \`docs/qp-topic.md\`."
             printf '%s\n' '```'
             cat "$MEASURED_FILE"

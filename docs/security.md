@@ -42,7 +42,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 | `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its one issue write — the failure-only run-log issue — must trigger nothing and so rides the ambient token, never this one |
 | `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
 | `run-repair` | data | contents (both writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the validation job holds no credential |
-| `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the codex cells' arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner |
+| `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner. The watchdog brackets every engine; this token is minted on codex cells alone |
 | `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
 | `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
@@ -248,11 +248,16 @@ is acceptable here because `collect` runs no agent code and nothing
 agent-controlled steers which API it calls.
 
 One issue write in the cells does **not** ride the ambient token, because the
-process making it outlives every step that could hold one. The codex watchdog
+process making it outlives every step that could hold one. The engine watchdog
 (*Graceful degradation on limits* in [pipeline.md](pipeline.md)) is a detached
 shell that must report while its runner is still alive — a wedge is ended by the
 job cap, which drops the job's logs and skips its tail, so every runner-local
-channel is destroyed by the failure it documents. It therefore carries an App
+channel is destroyed by the failure it documents. It brackets every engine's
+cell step, but this credential is **codex-only**: the watchdog's first trigger
+concludes the step, so a cell it saves runs its own tail and reports through the
+artifact, and the off-runner record matters only where the escalation fails to
+end the step at all and the job cap cancels the runner regardless — the deadline
+path, which codex alone has taken. It therefore carries an App
 token minted with **`issues: write` and nothing else**, gated on the codex engine
 step's own condition and distributed only to the arm step, the disarm step, and
 the watchdog process; the job's `permissions` block is untouched and no agent
@@ -828,14 +833,20 @@ boundary `data/scope/scope.json` withholds from the committed public surface
 (it can enumerate keys for ingested-but-unpublished dockets). The stated,
 bounded exception to that boundary covers exactly two committed artifacts, both
 argued and accepted in `docs/qp-topic.md` and nowhere else: the
-hand-labeled qp-topic reference set, and a labeling run's per-case qp-topic
+hand-labeled qp-topic reference set, and the accrued per-case qp-topic
 labels file over the QP-bearing rows *in the labeling scope* — the live-slice
-modern discretionary-cert frame, bounded above by the extract ceiling
-`qp-corpus` enforces (`docs/qp-topic.md`), so **one** labels file's disclosure
-extent is capped rather than tracking corpus growth. Capped per artifact, not
-across history: successive cuts committed over time union in git to a wider
-enumeration, the same history-differencing residual the reference set already
-carries. Each names
+modern discretionary-cert frame. Its extent is bounded by that **frame**, not by
+the extract ceiling: the labels file accumulates one batch a dispatch and
+converges on the whole frame, so it tracks corpus growth in that scope and the
+committed file at any commit is the union of every batch landed so far. The
+ceiling bounds one extract — the non-committed channel below — and nothing else.
+That is a real widening over a single capped cut, and it is accepted on the
+ground already argued in `docs/qp-topic.md`: the frame's *contents* are public
+dockets, named on the Court's own site, and no QP text is republished — while
+its *membership* (which of those dockets this pipeline holds a QP text for) is
+the compilation extent, derivable from no public source, and disclosing exactly
+that is what the compilation-extent exception buys. Nothing further comes from history-differencing
+here, because the file's own accrual makes the union readable at HEAD. Each names
 ingested-but-unpublished dockets by public docket number; the reference set's
 membership is outcome-conditioned (presence predicts a cert grant), the labels
 file's is fetch- **and scope-**conditioned (a questions-presented document is
@@ -846,7 +857,13 @@ pair reconstructs that frame's QP-bearing non-grants by difference. That composi
 artifacts under the same one-day window, publicly downloadable on this
 repository: its extract of stored petition text, riding between the mode's two
 jobs, and the labeler's scanned turn-by-turn transcript, which embeds the same
-text plus the agent's own turns. A third run artifact rides the same one-day
+text plus the agent's own turns. Because every batch re-carries the reference
+rows, intersecting two extracts recovers the in-frame reference membership
+within their windows — `docs/qp-topic.md` carries that reading and its bound.
+The extract job's step summary is one more durable public surface, deliberately
+counts-only (batch sizes, stratum keys, the seed name — no case id, no text);
+that property holds for today's messages rather than by a stripping mechanism,
+since the summary tees the command's stderr verbatim. A third run artifact rides the same one-day
 window: the `distribution-census` JSON, which republishes no document text —
 counts, band labels, and changed-case ids only — but whose id lists name
 ingested dockets by public docket number, membership conditioned on a parse
@@ -1138,23 +1155,26 @@ the repoint. Read step 5's two ordering notes before doing either.
    *After step 5.* Then:
 
    ```bash
-   # substitute a docket from the seeded slice
-   gh workflow run integration-test.yml --ref staging -f scenario=stub-cascade \
-     -f court=scotus -f docket=74112233
+   gh workflow run integration-test.yml --ref staging -f scenario=stub-cascade
    ```
 
-   **Name a slice member explicitly.** A dispatch that leaves `docket` empty
-   resolves its case at run time, and the resolver's candidate window is
-   driven from the blob's snapshot index — which a slice seeded split-on does
-   not have, since its snapshots live in the content store. So the resolver
-   refuses on this pair (loudly, in the plan job, before any leg runs) and a
-   staging dispatch names its own case. The case must meet the same contract
-   the resolver would have enforced: an open event, a snapshot in the content
-   store, and — for the provisioning guard — a genuinely undisposed posture.
-   The apply run's per-case census
-   lists the slice's cases with their row/event/snapshot/document counts, so
-   it narrows the field to cases carrying events and snapshots; whether one
-   is *open* and *undisposed* is a `fedcourts query` against the pair.
+   **`docket` stays empty.** The dispatch resolves its own case at run time, on
+   this pair as on production. The resolver's primary candidate window is driven
+   from the blob's snapshot index, which a slice seeded split-on does not have —
+   its snapshots live in the content store — so a second, explicitly bounded
+   window answers there instead: the still-predictable cases the index does
+   carry, with content-store snapshot presence probed per candidate. The screens
+   are the same ones the primary window applies, so the case it hands over
+   already meets the contract (an open event, a snapshot in the store, and a
+   genuinely undisposed posture for the provisioning guard), and the plan job
+   echoes it to the run summary.
+
+   Pinning stays available as an override — `-f court=scotus -f
+   docket=<slice member>` — for aiming a dispatch at one particular case. A
+   pinned case must meet that contract by hand; the apply run's per-case census
+   lists the slice's cases with their row/event/snapshot/document counts, so it
+   narrows the field to cases carrying events and snapshots, and whether one is
+   *open* and *undisposed* is a `fedcourts query` against the pair.
 
    Green there is the full acceptance — provision → predict → validate over a
    real, split-on corpus that no production credential was involved in writing.

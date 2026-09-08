@@ -172,9 +172,9 @@ block shows you losing, and finish.
   `docs/qp-topic.md` rules out as an instrument for this vocabulary. Work in
   slices of roughly 50–100 texts against the budget (about 120 turns and a
   40-minute step). **The extract is bounded, not a fixed size**: the command
-  that built it refuses outright to write one larger than a labeling run can
-  finish, so whatever `$QP_TEXTS` holds fits the step — count its rows once at
-  the start and pace against that number, never against a figure quoted here.
+  that built it sizes it to what a labeling run can finish, so whatever
+  `$QP_TEXTS` holds fits the step — count its rows once at the start and pace
+  against that number, never against a figure quoted here.
   Append each slice's lines to
   `$LABELS_OUT` **exactly once** as it finishes, so a failed turn costs one
   slice rather than the run — though only the complete file yields an

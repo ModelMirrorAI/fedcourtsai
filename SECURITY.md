@@ -150,7 +150,7 @@ runbook, [docs/security.md](docs/security.md).
   the commit/PR, so a prompt injection in docket text cannot push code with the
   agent's token. Issue and docket text stay untrusted input.
 - **One credential in a codex cell is not the agent's: the watchdog's.** The
-  codex hang bound (`scripts/codex-watchdog.sh`; *Graceful degradation on
+  engine hang bound (`scripts/engine-watchdog.sh`; *Graceful degradation on
   limits* in [docs/pipeline.md](docs/pipeline.md)) is trusted
   repo code, and the failure it guards — a step that never ends until the *job*
   cap cancels the runner — destroys every runner-local account of itself, the
@@ -158,7 +158,16 @@ runbook, [docs/security.md](docs/security.md).
   the runner while the runner is still alive, onto one long-lived
   `codex-watchdog` issue, and that costs an App token minted with
   **`issues: write` and nothing else** — no `contents`, no `pull-requests`, and
-  no widening of the job's own `permissions` block. Everything it is used for is
+  no widening of the job's own `permissions` block. The watchdog itself brackets
+  **every** engine's cell step; this credential stays **codex-only**, which is
+  the narrower half of a deliberate split. The watchdog's first trigger
+  *concludes* the step, so a cell it saves runs its own tail and its whole
+  account rides the artifact it uploads; the off-runner record is load-bearing
+  only where the escalation fails to end the step at all and the job cap cancels
+  the runner regardless — the deadline path, which codex is the one engine to
+  have taken. Minting for every engine
+  would place an issues:write token in every cell of every round to buy a record
+  for a failure no other engine has shown. Everything it is used for is
   that one tracking issue, found-or-created under a non-triggering label, and
   one comment per cell on it; the detached watchdog holds it only to PATCH that
   comment. It is step-scoped in *distribution* rather than in lifetime — an
@@ -196,6 +205,22 @@ runbook, [docs/security.md](docs/security.md).
   bundle dumps every argument of every process this user owns, and the arm step
   checks the check-in URL against this repository's own comments endpoint before
   handing it over, so a credential cannot be aimed elsewhere.
+- **The reaper gives a cell one runner-local switch, and it is bounded by what a
+  cell already faces.** The watchdog ends a step whose required output files all
+  exist, parse, and stop changing — so an agent can end its own step early by
+  writing them and idling, and a prompt injection in docket text can ask it to.
+  It can also simply create the watchdog's `REAPED` marker: the agent runs as the
+  runner user, and claude (`bypassPermissions`) and gemini (`--yolo`) are
+  unsandboxed, so no runner-local path is out of its reach — the only channel a
+  cell cannot forge is the off-runner comment, which is codex-only by the split
+  above. What either buys is narrow and worth stating exactly: the marker sets
+  `agent_ok`, which routes the cell to the run's **ready** PR instead of the
+  draft one, and nothing else. `produced` and `validated` still have to hold, the
+  collect job still secret-scans and still enforces the `data/` path jail, the
+  cell's credential still carries no `contents: write`, and a compliant agent
+  could land the same bytes by finishing normally. The residual is that a cell
+  which stopped early can present as one that finished — a claim about review
+  routing, not a capability.
 - **No static cloud keys — OIDC for S3.** Workflows that touch the private S3
   stores (the corpus remote and the per-case content store) assume a
   least-privilege IAM role via GitHub OIDC. **Three roles, split by access:**
