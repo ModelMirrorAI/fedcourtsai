@@ -3601,12 +3601,18 @@ def still_predictable_open_cases(
     construction, so the snapshot screen cannot be a join and moves to the
     caller, which probes the store per candidate.
 
-    Unlike its sibling this is **not** self-bounding: nothing here restricts the
-    row count the way the tiny ``snapshots`` table does, so ``limit`` is the only
-    bound and a caller must pick one it is willing to pay a per-candidate probe
-    for. It is still an index read — ``idx_cases_priors_recency`` serves the
-    order — but over the court's whole undisposed slice, so a large estate wants
-    a small ``limit`` and a loud refusal at it rather than a scan.
+    Unlike its sibling this is **not** self-bounding, and ``limit`` bounds less
+    than it looks like it does. No index serves this ordering —
+    ``idx_cases_priors_recency`` is built over the resolution-date expression,
+    not ``last_live_polled`` — so the plan is a search of the court's
+    still-predictable slice feeding a temp-B-tree sort, and ``LIMIT`` caps the
+    rows *returned*, not the rows *visited*. The walk is therefore proportional
+    to the court's undisposed slice however small ``limit`` is; what ``limit``
+    genuinely caps is what the caller does *per returned row*, which for the
+    caller this exists for is a content-store round trip per candidate. Pick it
+    for that cost, and expect the index read underneath to be the same size
+    either way. (``tests/test_corpus_layout.py`` pins the plan, so a later index
+    that does serve the order will surface there rather than in this prose.)
     """
     if limit <= 0:
         return []

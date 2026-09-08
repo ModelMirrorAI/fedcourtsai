@@ -9352,9 +9352,19 @@ def corpus_integration_case(
             min=1,
             help="How many candidates the primary, snapshot-driven window admits "
             "— the cap on both its index walk and its per-candidate snapshot "
-            "reads. The split-estate fallback window's bound is fixed.",
+            "reads.",
         ),
     ] = integration_check.DEFAULT_CANDIDATE_SCAN,
+    probe_limit: Annotated[
+        int,
+        typer.Option(
+            min=1,
+            help="How many candidates the split-estate fallback window probes the "
+            "content store for — one key listing each, so this is the cap on that "
+            "window's network cost. Unused unless the primary window comes back "
+            "with no answer under the corpus-split mode.",
+        ),
+    ] = integration_check.DEFAULT_SPLIT_PROBE_LIMIT,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Resolve a case the integration suite can run on, and print it as `key=value`.
@@ -9425,13 +9435,14 @@ def corpus_integration_case(
             court=court,
             backend=backend,
             scan_limit=scan_limit,
+            probe_limit=probe_limit,
         )
     except integration_check.CaseResolutionError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
     polled = resolved.last_live_polled.isoformat() if resolved.last_live_polled else "never"
     typer.echo(
-        f"resolved {resolved.case_id} (candidate {resolved.scanned} of "
+        f"resolved {resolved.case_id} (candidate {resolved.scanned}, from "
         f"{resolved.window}): live-polled {polled}, snapshot "
         f"{resolved.snapshot_date.isoformat()}, open "
         f"event(s) {', '.join(resolved.open_event_ids)}",

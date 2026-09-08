@@ -257,6 +257,35 @@ def test_snapshot_bearing_open_cases_is_driven_by_the_snapshot_index(tmp_path: P
         assert "idx_cases_priors_recency" in detail, f"case lookup not index-served: {stmt}"
 
 
+def test_still_predictable_open_cases_sorts_the_courts_slice(tmp_path: Path) -> None:
+    """The split-estate fallback window's real cost, pinned so its prose stays true.
+
+    No index carries ``last_live_polled``, so this ordering needs a sorter and
+    ``LIMIT`` caps the rows *returned*, not the rows *visited*: the walk is the
+    court's whole still-predictable slice however small the limit is. That is
+    what makes the limit a bound on the caller's per-candidate content-store
+    round trips rather than on the index read — the claim
+    :data:`fedcourtsai.integration_check.DEFAULT_SPLIT_PROBE_LIMIT` and
+    :func:`fedcourtsai.corpus.still_predictable_open_cases` both make. The court
+    equality must still be index-served (a full ``SCAN cases`` would put every
+    court in the sorter), and if a later index ever serves the order outright,
+    the temp-B-tree assertion here fails and the prose gets corrected with it.
+    """
+    db = tmp_path / "corpus.db"
+    _populated(db)
+    with corpus.connect(db) as conn:
+        plans = _select_plans(
+            conn, partial(corpus.still_predictable_open_cases, conn, court="ca9", limit=5)
+        )
+    assert plans, "the window must issue a SELECT"
+    for stmt, detail in plans:
+        assert "SCAN cases" not in detail, f"the court filter must be index-served: {stmt}"
+    assert any("TEMP B-TREE FOR ORDER BY" in detail for _, detail in plans), (
+        "the ordering is expected to need a sorter; if an index now serves it, "
+        "`limit` bounds the walk and the docstrings saying otherwise must change"
+    )
+
+
 def test_latest_snapshot_is_index_served(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     _populated(db)

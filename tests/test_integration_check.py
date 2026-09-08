@@ -836,7 +836,9 @@ def test_split_estate_resolves_out_of_the_content_store(
     assert resolved.window == integration_check._STORE_WINDOW
     assert resolved.snapshot_date == SPLIT_SNAPSHOT
     assert resolved.open_event_ids == ("evt-petition-disposition",)
-    assert transport.gets == 0, "the probe must list keys, never fetch a payload"
+    # One body read, for the candidate about to be handed over — the emptiness
+    # screen its sibling window applies. The walk itself costs listings only.
+    assert transport.gets == 1
 
 
 def test_split_fallback_keeps_the_blob_window_predicates(
@@ -934,7 +936,8 @@ def test_split_fallback_refuses_at_its_bound_and_names_it(
     assert integration_check._BLOB_WINDOW in message
     assert integration_check._STORE_WINDOW in message
     assert "1-candidate bound" in message
-    assert "the content store holds no snapshot" in message
+    assert "the content store holds no snapshot (1)" in message
+    assert "Widen the probe limit" in message, "the settable bound is the one that bound"
 
 
 def test_split_fallback_probes_only_through_the_injected_seam(
@@ -944,7 +947,7 @@ def test_split_fallback_probes_only_through_the_injected_seam(
     a caller can stand in for the content store — and every candidate it screens
     reaches exactly that seam, once."""
     db = corpus.corpus_db_path(tmp_path / "split-seam")
-    _split_estate(db, [_open_row(851, last_live_polled=date(2026, 8, 1))], monkeypatch, stored=[])
+    _split_estate(db, [_open_row(851, last_live_polled=date(2026, 8, 1))], monkeypatch)
     asked: list[str] = []
 
     def probe(case_id: str) -> date | None:
@@ -995,8 +998,76 @@ def test_split_estate_with_nothing_usable_refuses_naming_both_windows(
     message = str(excinfo.value)
     assert integration_check._BLOB_WINDOW in message
     assert integration_check._STORE_WINDOW in message
-    assert "0 candidate(s) in a 25-row window" in message
+    assert "0 candidate(s) within a 25-row bound: it offered none" in message
     assert "the content store holds no snapshot (1)" in message
+
+
+def test_split_fallback_applies_the_empty_payload_screen(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A presence probe cannot see an empty body, and the primary window refuses
+    one — so the fallback must too, or it hands the cascade leg a snapshot that
+    provisions nothing. The screen costs one body read, on the candidate that has
+    already cleared everything else."""
+    db = corpus.corpus_db_path(tmp_path / "split-empty-body")
+    transport = _split_estate(
+        db,
+        [
+            _open_row(891, last_live_polled=date(2026, 8, 20)),
+            _open_row(892, last_live_polled=date(2026, 8, 1)),
+        ],
+        monkeypatch,
+        stored=[],
+    )
+    # 891's stored snapshot is present but decodes to an empty object.
+    casestore.write_snapshot(transport, "scotus/891", SPLIT_SNAPSHOT, {})
+    casestore.write_snapshot(transport, "scotus/892", SPLIT_SNAPSHOT, {"id": 1})
+
+    resolved = _resolve(db, tmp_path)
+
+    assert resolved.case_id == "scotus/892"
+
+
+def test_split_fallback_refuses_an_unreachable_content_store_by_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A store that is configured but cannot be built answers every probe "no
+    snapshot", which would report a setup failure as a census of absent
+    snapshots — the very misreport the split mode owes a named refusal."""
+    db = corpus.corpus_db_path(tmp_path / "split-unreachable")
+    _split_estate(db, [_open_row(901, last_live_polled=date(2026, 8, 1))], monkeypatch)
+    casestore.set_active_transport(None)
+    monkeypatch.setattr(casestore, "payload_store_unavailable", lambda: True)
+
+    with pytest.raises(CaseResolutionError) as excinfo:
+        _resolve(db, tmp_path)
+
+    message = str(excinfo.value)
+    assert "cannot be reached" in message
+    assert "content store" in message
+
+
+def test_split_fallback_runs_when_the_blob_window_answers_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The fallback is keyed on the primary window producing no *answer*, not on
+    it offering no *rows*: a partly-migrated blob whose few snapshot rows all
+    fail the screens still has the store to fall back to."""
+    db = corpus.corpus_db_path(tmp_path / "split-partial")
+    # 911 carries a blob snapshot row but is out of predict scope (an IFP
+    # serial), so the primary window offers it and the screens reject it.
+    blob_row = _open_row(911, docket_number="24-6001", last_live_polled=date(2026, 8, 20))
+    store_row = _open_row(912, last_live_polled=date(2026, 8, 1))
+    _seed(db, [blob_row, store_row], snapshotless=["scotus/912"])
+    transport = _GetCountingTransport()
+    casestore.write_snapshot(transport, "scotus/912", SPLIT_SNAPSHOT, {"id": 1})
+    casestore.set_active_transport(transport)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+
+    resolved = _resolve(db, tmp_path)
+
+    assert resolved.case_id == "scotus/912"
+    assert resolved.window == integration_check._STORE_WINDOW
 
 
 def test_unsplit_corpus_never_reaches_the_fallback(tmp_path: Path) -> None:

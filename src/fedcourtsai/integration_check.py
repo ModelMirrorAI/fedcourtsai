@@ -65,14 +65,17 @@ HYDRATION_SURVEY_LIMIT = 200
 # backend — and it caps the per-candidate snapshot reads too.
 DEFAULT_CANDIDATE_SCAN = 25
 
-# The bound on the split-estate fallback window (below), which is not
-# self-bounding the way the snapshot-driven one is: every candidate it admits
-# costs a content-store key listing, so the walk has to stop somewhere and say
-# it stopped. Wider than the primary scan because the fallback carries no
-# snapshot pre-screen — the property that eliminates most rows in the primary
-# window is exactly the one it has to probe for — and far wider than the seeded
-# staging slice it exists for (a dozen-odd cases), so on the estate that needs
-# it the bound never binds.
+# The bound on the split-estate fallback window (below). What it bounds is the
+# **network** cost: every candidate it admits costs a content-store key listing,
+# and that is the expense worth capping — the index read underneath is a local
+# (or ranged) walk of the court's still-predictable slice whose ORDER BY needs a
+# sorter, so SQLite's LIMIT caps the rows *returned*, not the rows *visited*
+# (`test_still_predictable_open_cases_sorts_the_courts_slice` pins that plan).
+# Wider than the primary scan because the fallback carries no snapshot
+# pre-screen — the property that eliminates most rows in the primary window is
+# exactly the one it has to probe for — and far wider than the seeded staging
+# slice it exists for (a dozen-odd cases), so on the estate that needs it the
+# bound never binds.
 DEFAULT_SPLIT_PROBE_LIMIT = 50
 
 # How the resolver names each candidate window in its diagnostics, so a refusal
@@ -180,6 +183,21 @@ def _screen_candidates(
     return None
 
 
+def _describe(window: str, offered: int, limit: int, unit: str, rejected: Counter[str]) -> str:
+    """One window's line in a refusal: what it offered, its bound, what it rejected on.
+
+    Per window rather than pooled, so a reader can tell which window a rejection
+    reason came from — the two do not offer the same rows, and a case both offer
+    would otherwise be counted twice.
+    """
+    tally = (
+        "; ".join(f"{reason} ({n})" for reason, n in sorted(rejected.items()))
+        if rejected
+        else "it offered none"
+    )
+    return f"{window} — {offered} candidate(s) within a {limit}-{unit} bound: {tally}"
+
+
 def _blob_snapshot_date(conn: corpus.ReadConnection, case_id: str) -> tuple[date | None, str]:
     """The newest snapshot the corpus read path serves for a case, and its payload screen."""
     found = corpus.latest_snapshot(conn, case_id)
@@ -247,10 +265,13 @@ def resolve_integration_case(
     :func:`fedcourtsai.corpus.still_predictable_open_cases` — the same
     predicates and the same ordering, minus the snapshot join — and probes
     ``snapshot_probe`` (content-store snapshot **presence**: a key listing, no
-    payload fetch) per candidate. Same screens, same verdict; only the source of
-    the snapshot fact moves, from a join to a probe. That window is not
-    self-bounding, so ``probe_limit`` bounds it explicitly and a refusal names
-    the bound rather than letting a large estate turn the walk into a scan.
+    payload fetch) per candidate. Same screens, same verdict: only the *source*
+    of the snapshot fact moves, from a join to a probe, and the one screen a
+    presence probe cannot see — a stored snapshot that decodes to an empty
+    object — is applied by a single body read on the candidate about to be
+    handed over, never on the ones the walk rejects. ``probe_limit`` bounds the
+    probing, so a large estate costs a stated number of content-store round
+    trips and then a loud refusal.
 
     Two checks the suite's later steps own stay theirs: the textual terminal
     scan over the payload, and the snapshot staleness bound (which the
@@ -261,21 +282,27 @@ def resolve_integration_case(
     """
     choice = corpus.resolve_backend(backend)
     probe = casestore.latest_stored_snapshot_date if snapshot_probe is None else snapshot_probe
-    rejected: Counter[str] = Counter()
     windows: list[str] = []
 
-    def _probed_snapshot_date(
-        _conn: corpus.ReadConnection, case_id: str
-    ) -> tuple[date | None, str]:
-        """Snapshot presence from the content store — no payload read, no connection."""
-        found = probe(case_id)
-        return (found, "") if found is not None else (None, "the content store holds no snapshot")
+    def _probed_snapshot_date(conn: corpus.ReadConnection, case_id: str) -> tuple[date | None, str]:
+        """Content-store snapshot presence, then the same body screen its sibling applies.
+
+        The probe is a key listing and costs no payload, which is what makes a
+        walk over candidates affordable — every case the walk *rejects* is
+        rejected on the listing alone. A candidate that gets this far has already
+        cleared every other screen, so it is about to be handed over, and the one
+        screen presence cannot see (a stored snapshot that decodes to an empty
+        object) is worth a single body read to apply. Skipping it would let the
+        fallback hand over a case its sibling window refuses — the cascade leg's
+        failure six legs later that this resolver exists to prevent.
+        """
+        if probe(case_id) is None:
+            return None, "the content store holds no snapshot"
+        return _blob_snapshot_date(conn, case_id)
 
     with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
         candidates = corpus.snapshot_bearing_open_cases(conn, court=court, limit=scan_limit)
-        windows.append(
-            f"{_BLOB_WINDOW} — {len(candidates)} candidate(s) in a {scan_limit}-row window"
-        )
+        rejected: Counter[str] = Counter()
         resolved = _screen_candidates(
             conn,
             candidates,
@@ -286,41 +313,46 @@ def resolve_integration_case(
         )
         if resolved is not None:
             return resolved
-        if not candidates and corpus.payload_reads_offloaded():
-            # The blob's `snapshots` table is empty under the split, so its
-            # window cannot answer — that is a mode, not an absent case. Ask the
-            # store instead: the same still-predictable rows out of the index,
-            # with snapshot presence probed per candidate rather than joined.
+        windows.append(_describe(_BLOB_WINDOW, len(candidates), scan_limit, "row", rejected))
+        if corpus.payload_reads_offloaded():
+            # The blob's `snapshots` table is empty on an estate written entirely
+            # under the split, so its window has nothing to offer — a mode, not
+            # an absent case. Ask the store instead: the same still-predictable
+            # rows out of the index, with snapshot presence probed per candidate
+            # rather than joined. Keyed on the primary window producing no
+            # *answer* rather than no *rows*, so a partly-migrated blob whose few
+            # snapshot rows all fail the screens still reaches the store.
+            if snapshot_probe is None and casestore.payload_store_unavailable():
+                # An unreachable store would answer every probe "no snapshot" and
+                # report a setup failure as a census. Refuse naming the mode.
+                raise CaseResolutionError(
+                    "cannot resolve a case: the blob carries no usable snapshot-bearing "
+                    "candidate and the content store that holds the snapshots under the "
+                    "corpus split cannot be reached, so its window cannot be asked. Fix "
+                    "the store's configuration or credentials, or name a case explicitly."
+                )
             probed = corpus.still_predictable_open_cases(conn, court=court, limit=probe_limit)
-            windows.append(
-                f"{_STORE_WINDOW} — {len(probed)} candidate(s) within the "
-                f"{probe_limit}-candidate bound"
-            )
+            store_rejected: Counter[str] = Counter()
             resolved = _screen_candidates(
                 conn,
                 probed,
                 data_root=data_root,
                 window=_STORE_WINDOW,
                 snapshot_date_of=_probed_snapshot_date,
-                rejected=rejected,
+                rejected=store_rejected,
             )
             if resolved is not None:
                 return resolved
-    tally = (
-        "; ".join(f"{reason} ({n})" for reason, n in sorted(rejected.items()))
-        if rejected
-        else "no unresolved, unlatched case with an open event carries a stored snapshot"
-    )
-    # `--scan-limit` reaches only the primary window's bound; the store window's
-    # is fixed, so say which lever the refusal is actually offering.
-    widen = (
-        "Refresh the corpus or name a case explicitly"
-        if len(windows) > 1
-        else "Widen the scan limit, refresh the corpus, or name a case explicitly"
-    )
+            windows.append(
+                _describe(_STORE_WINDOW, len(probed), probe_limit, "candidate", store_rejected)
+            )
+    # `--scan-limit` reaches only the primary window's bound, `--probe-limit`
+    # only the store window's, so name the one that actually just bound.
+    widen = "probe limit" if len(windows) > 1 else "scan limit"
     raise CaseResolutionError(
         f"no case in {court} is shaped for the integration suite. Tried "
-        f"{'; then '.join(windows)}; none usable — {tally}. {widen}."
+        f"{'; then '.join(windows)}. Widen the {widen}, refresh the corpus, or "
+        f"name a case explicitly."
     )
 
 
