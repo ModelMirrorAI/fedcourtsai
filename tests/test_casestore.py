@@ -114,6 +114,45 @@ def test_write_case_and_events_round_trip() -> None:
     assert _loads(t, eref.key)[0]["event_id"] == "evt-appeal-merits"
 
 
+def test_latest_snapshot_date_is_presence_without_a_body_read() -> None:
+    """The existence probe: the newest stored snapshot's date off the key listing
+    alone. Reading a body would defeat the point — a caller screening candidates
+    pays one listing each, not a docket JSON each."""
+
+    class _CountingTransport(casestore.InMemoryObjectTransport):
+        gets = 0
+
+        def get(self, key: str) -> bytes | None:
+            self.gets += 1
+            return super().get(key)
+
+    t = _CountingTransport()
+    assert casestore.read_latest_snapshot_date(t, "ca9/64512345") is None
+
+    casestore.write_snapshot(t, "ca9/64512345", date(2026, 5, 1), {"id": 1})
+    casestore.write_snapshot(t, "ca9/64512345", date(2026, 6, 2), {"id": 2})
+
+    assert casestore.read_latest_snapshot_date(t, "ca9/64512345") == date(2026, 6, 2)
+    assert t.gets == 0, "presence must come from the key listing, never a body"
+    # Another case's keys must not leak into the answer.
+    assert casestore.read_latest_snapshot_date(t, "ca9/64512346") is None
+
+
+def test_latest_stored_snapshot_date_reads_the_process_transport() -> None:
+    """The seam outside callers probe through: the active transport, and ``None``
+    with the store unbuilt — the same "reads as empty" an unconfigured store gets
+    everywhere else in this module."""
+    assert casestore.active_transport() is None
+    assert casestore.latest_stored_snapshot_date("ca9/64512345") is None
+
+    t = casestore.InMemoryObjectTransport()
+    casestore.write_snapshot(t, "ca9/64512345", date(2026, 5, 1), {"id": 1})
+    casestore.set_active_transport(t)
+
+    assert casestore.latest_stored_snapshot_date("ca9/64512345") == date(2026, 5, 1)
+    assert casestore.latest_stored_snapshot_date("ca9/64512346") is None
+
+
 def test_write_documents_content_addressed_leaf_and_manifest() -> None:
     t = casestore.InMemoryObjectTransport()
     refs = casestore.write_documents(t, "ca9/64512345", [_doc("petition", "the petition text")])

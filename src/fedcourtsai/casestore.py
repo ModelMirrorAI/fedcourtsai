@@ -717,6 +717,35 @@ def read_latest_snapshot(
     return latest, json.loads(body)
 
 
+def read_latest_snapshot_date(transport: ObjectTransport, case_id: str) -> date | None:
+    """The newest dated snapshot's **date**, or ``None`` — presence, not payload.
+
+    The existence probe a caller screening many candidates on "is this case
+    provisionable at all" reads, standing to :func:`read_latest_snapshot` as
+    :func:`read_has_documents` stands to :func:`read_documents`: it costs the
+    key listing alone and never fetches a body, so a bounded walk over an
+    estate pays one listing per candidate instead of a whole docket JSON.
+
+    The date rather than a bare ``bool`` because the answer is free — the keys
+    *are* the dates — and every caller that wants presence also wants to say
+    which snapshot it found. Read-only, like the rest of this section.
+    """
+    dates = _snapshot_dates(transport, case_id)
+    return max(dates) if dates else None
+
+
+def latest_stored_snapshot_date(case_id: str) -> date | None:
+    """:func:`read_latest_snapshot_date` over the process (active) transport.
+
+    ``None`` when the store is unbuilt, matching how
+    :class:`_CasestoreReadSource` reads an unconfigured store as empty. The
+    seam a caller outside this module probes snapshot presence through, so it
+    needs no transport of its own.
+    """
+    transport = active_transport()
+    return None if transport is None else read_latest_snapshot_date(transport, case_id)
+
+
 def read_snapshot_at(
     transport: ObjectTransport, case_id: str, *, before: date
 ) -> tuple[date, dict[str, Any]] | None:

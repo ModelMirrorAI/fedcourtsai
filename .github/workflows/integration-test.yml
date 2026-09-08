@@ -160,17 +160,22 @@ on:
       # matrix fans out, so a corpus with no usable case costs seconds rather
       # than the engine-smoke legs' tokens.
       #
-      # A non-empty `docket` pins one case instead and `court` is then its
-      # court half; the resolver is skipped entirely. Pin a case when the
-      # corpus cannot be resolved against, or when one particular case is the
-      # point of the dispatch. The first is not hypothetical: the candidate
+      # Resolving works on a split-on estate too, so a staging-ref dispatch
+      # leaves `docket` empty exactly like a main one. The primary candidate
       # window is driven from the *blob's* snapshot index (which is what keeps
-      # it bounded), so a pair whose blob carries no snapshot rows cannot
-      # answer at all — a slice seeded split-on, the staging pair among them,
-      # is exactly that, and the resolver refuses rather than naming an absent
-      # case. A staging-ref dispatch therefore names a member of the seeded
-      # slice; see the staging-corpus runbook in docs/security.md. A
-      # pinned case must satisfy by hand what the resolver checks: it exists
+      # it bounded), and a pair whose blob carries no snapshot rows — a slice
+      # seeded split-on, the staging pair among them — leaves it empty by
+      # construction; there a second, explicitly bounded window answers, walking
+      # the still-predictable cases the index does carry and probing the content
+      # store for snapshot presence per candidate. Same screens either way, and
+      # the run summary names which window answered.
+      #
+      # A non-empty `docket` pins one case instead and `court` is then its
+      # court half; the resolver is skipped entirely. It stays available as an
+      # override — for aiming a dispatch at one particular case, or for a
+      # corpus no window can answer out of (the resolver refuses loudly,
+      # naming every window it tried). A pinned case must satisfy by hand what
+      # the resolver checks: it exists
       # in the corpus, it (or the `event` the dispatch narrows to) is
       # genuinely undisposed — the stub-cascade provisioning guard rightly
       # refuses a snapshot that already shows the outcome — and it carries a

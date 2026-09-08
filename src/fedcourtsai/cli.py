@@ -9350,10 +9350,21 @@ def corpus_integration_case(
         int,
         typer.Option(
             min=1,
-            help="How many candidates the bounded window admits — the cap on both "
-            "the index walk and the per-candidate snapshot reads.",
+            help="How many candidates the primary, snapshot-driven window admits "
+            "— the cap on both its index walk and its per-candidate snapshot "
+            "reads.",
         ),
     ] = integration_check.DEFAULT_CANDIDATE_SCAN,
+    probe_limit: Annotated[
+        int,
+        typer.Option(
+            min=1,
+            help="How many candidates the split-estate fallback window probes the "
+            "content store for — one key listing each, so this is the cap on that "
+            "window's network cost. Unused unless the primary window comes back "
+            "with no answer under the corpus-split mode.",
+        ),
+    ] = integration_check.DEFAULT_SPLIT_PROBE_LIMIT,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Resolve a case the integration suite can run on, and print it as `key=value`.
@@ -9373,10 +9384,10 @@ def corpus_integration_case(
     newest stamp is the case whose row and stored snapshot best reflect the
     live docket. (Not `last_pulled` — the pull governor rotates over the whole
     active set including the historical bulk import, so its freshest stamps are
-    ancient dockets a repair sweep happened to touch.) The window is driven from
-    the blob's snapshot index, which covers a tiny fraction of the corpus, so
-    the read stays bounded rather than walking the court's whole slice.
-    Deterministic given a corpus.
+    ancient dockets a repair sweep happened to touch.) The primary window is
+    driven from the blob's snapshot index, which covers a tiny fraction of the
+    corpus, so the read stays bounded rather than walking the court's whole
+    slice. Deterministic given a corpus.
 
     Prints exactly two lines on stdout, appendable straight to a step's
     ``$GITHUB_OUTPUT``:
@@ -9384,14 +9395,20 @@ def corpus_integration_case(
         court=scotus
         docket=71234567
 
-    The human line — the case, its live-poll stamp, its snapshot date, its open
-    events — goes to stderr. Exits 2 when nothing in the window qualifies,
-    naming what each candidate was rejected for, and 1 when the local backend
-    finds no pulled corpus. Runs on the local and ranged backends: the corpus
-    query service exposes no unresolved-first census surface, so resolve on
-    ranged and pass the case to the service leg. Under the corpus-split mode
-    the blob carries no snapshot rows, so the window cannot answer at all and
-    the command says so rather than reporting an absent case.
+    Where the blob carries no snapshot rows — an estate written *entirely*
+    under the **corpus-split** mode, the seeded staging slice among them — that
+    window is empty by construction and a second one answers instead: the same
+    still-predictable rows out of the index, bounded, with content-store
+    snapshot **presence** probed per candidate (a key listing, no payload
+    fetch). Same screens either way, so such an estate self-resolves like any
+    other, and the human line names which window answered.
+
+    The human line — the case, the window it came from, its live-poll stamp,
+    its snapshot date, its open events — goes to stderr. Exits 2 when nothing
+    qualifies, naming every window tried and what each candidate was rejected
+    for, and 1 when the local backend finds no pulled corpus. Runs on the local
+    and ranged backends: the corpus query service exposes no unresolved-first
+    census surface, so resolve on ranged and pass the case to the service leg.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -9418,14 +9435,16 @@ def corpus_integration_case(
             court=court,
             backend=backend,
             scan_limit=scan_limit,
+            probe_limit=probe_limit,
         )
     except integration_check.CaseResolutionError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
     polled = resolved.last_live_polled.isoformat() if resolved.last_live_polled else "never"
     typer.echo(
-        f"resolved {resolved.case_id} (candidate {resolved.scanned}): live-polled "
-        f"{polled}, snapshot {resolved.snapshot_date.isoformat()}, open "
+        f"resolved {resolved.case_id} (candidate {resolved.scanned}, from "
+        f"{resolved.window}): live-polled {polled}, snapshot "
+        f"{resolved.snapshot_date.isoformat()}, open "
         f"event(s) {', '.join(resolved.open_event_ids)}",
         err=True,
     )
