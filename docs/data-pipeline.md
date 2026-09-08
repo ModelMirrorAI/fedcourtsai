@@ -869,8 +869,8 @@ shared with the ledger models.
 
 - **Back-testing** — replay predictors against historical *resolved* events
   (outcome hidden at predict time): `fedcourts backtest` (the `backtest`
-  stage → `metrics/backtest.json`) and the maintainer-triggered `cert-backtest`
-  engine replay.
+  stage → `metrics/backtest.json`) and the `cert-backtest` engine replay,
+  which runs biweekly and spends only on a maintainer's release.
 - **Base-rate aggregation** — `fedcourts stats` on demand, and the published
   **statpack** (`fedcourts statpack` → `metrics/statpack.{json,md}`, kept fresh
   by `run-analytics`'s weekly metrics-refresh job); its cert statistics count

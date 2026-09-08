@@ -43,7 +43,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 | `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
 | `run-repair` | data | contents (both writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the validation job holds no credential |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the codex cells' arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner |
-| `run-backtest` | dev | contents, pull-requests | open the reviewed back-test PR (minted after the replay ran) |
+| `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
 | `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
@@ -310,13 +310,14 @@ both store halves and the corpus-split mode follow from it; its value is
 out of band, never committed, and an environment missing it has no corpus at
 all rather than half of one. Every job that needs any of
 them declares an environment, and every job outside `integration-test` declares
-`prod` — with two deliberate exceptions, by environment. The `approval` jobs of run-predict
-and run-evaluate declare
+`prod` — with two deliberate exceptions, by environment. The `approval` jobs of run-predict,
+run-evaluate and run-backtest declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables, no role, and no deployment-branch
 policy; each job it gates runs one echo under `permissions: {}`, so the
-environment grants nothing and merely withholds that fan-out's matrix until
-a named reviewer releases it — one environment serves every spend hold
+environment grants nothing and merely withholds the spend behind it — a
+fan-out's matrix, or the back-test's fortnightly replay — until
+a named reviewer releases it; one environment serves every spend hold
 rather than each minting its own. It must be
 created **with required reviewers configured before the gate promotes**:
 GitHub auto-creates a referenced environment unprotected, and an unprotected
@@ -328,10 +329,14 @@ here, not two-person control, a call to revisit if a second maintainer
 joins. `staging-corpus-refresh` declares **`staging`** — the same environment
 the integration scenarios bind, because the staging read-write role's trust
 deliberately names it (see *The staging corpus* below). And among the fan-out
-workflows, the `rejected` reporters declare no environment at all and run under
+workflows and on run-backtest, the `rejected` reporters declare no environment
+at all and run under
 `permissions: {}`: writing "the hold did not release" to the run's Actions
 summary needs no secret and no token, and the step must work even when nothing
-else did.
+else did. run-backtest's `cadence` guard is the one other environment-less job:
+it decides whether the fortnight runs at all, holds `actions: read` on the
+ambient token to read this workflow's own run history, and reaches no
+credential, no corpus and no agent.
 
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
 sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer
@@ -674,9 +679,13 @@ pair the third one writes:
   full-pull consumers (`run-analytics` / the metrics refresh, and
   `run-backtest`). Two operational facts ride this role. Its IAM **maximum
   session duration** must allow the sessions its callers request —
-  `run-backtest` asks for 21600 s (6 h), the census for 8100 s — because a
+  `run-backtest`'s replay job asks for 21600 s (6 h), the census for 8100 s —
+  because a
   re-provisioned role at the AWS default hour fails both at their first
-  credentialed step. And `run-backtest` is the one `corpus-readonly` caller
+  credentialed step. (`run-backtest` calls the composite twice: its cadence
+  `plan` job pulls the index at the composite's default hour and reads it
+  locally, which is all a plan needs.) And that replay job is the one
+  `corpus-readonly` caller
   that also runs agents in the same job, so its job-wide credential export is
   the accepted exception to the agents-hold-nothing pattern; the step comment
   there states what the long session buys and costs.

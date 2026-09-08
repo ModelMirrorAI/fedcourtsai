@@ -13,6 +13,7 @@ from fedcourtsai.schemas import (
     Backtest,
     BacktestEntry,
     BaseRateBucket,
+    CalibrationBin,
     CertBacktest,
     CertBacktestEntry,
     ClaimJudgeAgreement,
@@ -378,6 +379,82 @@ def test_render_backtest_pr_empty_set_still_renders(tmp_path: Path) -> None:
     (tmp_path / "cert-backtest.json").write_text(empty.model_dump_json())
     pr = render_backtest_pr(tmp_path, "RID", limit=25, engine="stub")
     assert pr is not None and "no predictors scored" in pr.body
+
+
+def _grant_free_report(*, floor: float) -> CertBacktest:
+    """A ten-petition board whose calibration says nothing was granted.
+
+    ``floor`` is the always-deny share, which is *not* the complement of the
+    granted count: at 0.9 the tenth petition was disposed of some other way (a
+    dismissal), which is neither denied nor granted.
+    """
+    return CertBacktest(
+        events_scored=10,
+        predictors_evaluated=1,
+        always_denied_accuracy=floor,
+        entries=[
+            CertBacktestEntry(
+                predictor_id="claude-baseline",
+                rank=1,
+                events_scored=10,
+                accuracy=floor,
+                granted_accuracy=0.0,
+                mean_brier_score=0.02,
+                lift_over_always_denied=0.0,
+                calibration=[
+                    CalibrationBin(
+                        lower=0.0,
+                        upper=0.1,
+                        predictions=10,
+                        mean_probability=0.04,
+                        observed_granted_rate=0.0,
+                    )
+                ],
+            )
+        ],
+    )
+
+
+def test_render_backtest_pr_refuses_a_rank_over_a_grant_free_draw(tmp_path: Path) -> None:
+    """A set with nothing granted makes the ranking meaningless, and says so.
+
+    Cert's denial skew plus a small sample makes a grant-free draw an ordinary
+    outcome at the fortnightly limit: every denial-heavy predictor ties the
+    floor, and the lift ordering the headline would otherwise print ranks noise.
+    """
+    (tmp_path / "cert-backtest.json").write_text(_grant_free_report(floor=1.0).model_dump_json())
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert "not a measurement" in pr.body
+    assert "`claude-baseline`" not in pr.body
+    assert "(0 granted-side outcome(s) in 10)" in pr.body
+
+
+def test_the_granted_count_is_not_read_off_the_always_deny_floor(tmp_path: Path) -> None:
+    """A dismissal is neither denied nor granted, so `1 - floor` is the wrong count.
+
+    This is the draw that separates the two: floor 0.9 over ten petitions with
+    nothing granted. Counting non-denials would print one grant that does not
+    exist and would let the rank stand over a set with nothing to discriminate.
+    """
+    (tmp_path / "cert-backtest.json").write_text(_grant_free_report(floor=0.9).model_dump_json())
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert "(0 granted-side outcome(s) in 10)" in pr.body
+    assert "not a measurement" in pr.body
+    assert "`claude-baseline`" not in pr.body
+
+
+def test_render_backtest_pr_states_an_unrecoverable_granted_count(tmp_path: Path) -> None:
+    """No calibration view, no count — and no number invented in its place."""
+    report = _grant_free_report(floor=0.9)
+    report.entries[0].calibration = []
+    (tmp_path / "cert-backtest.json").write_text(report.model_dump_json())
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert "granted-side count unavailable" in pr.body
+    # The rank stands: an unknown count is not evidence the set was grant-free.
+    assert "`claude-baseline`" in pr.body
 
 
 def test_the_refresh_carries_the_scope_manifest(tmp_path: Path) -> None:

@@ -306,7 +306,10 @@ instead of across paid dispatches. `integration-test.yml`'s scenario roster
 above is the checklist: a new paid surface without a scenario is an incomplete
 change unless it ships an equally token-free dry-run mode of itself (the
 `run-backtest` replay's stub engine is that shape, and stronger evidence than
-a scenario would be), and the scenario ships in the same batch as the mode it
+a scenario would be — on its scheduled path, where the engine is pinned to
+`auto`, the token-free rehearsal is the cadence's own `plan` job, which pulls
+the corpus and renders what a release would spend without running a cell), and
+the scenario ships in the same batch as the mode it
 guards. A scenario that joins the promotion gate's **required** set moves the
 run counts below and the gate's own scenario roster with it — both
 maintainer-gated surfaces, so that batch is a maintainer-merged one by

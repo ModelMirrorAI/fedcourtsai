@@ -4245,9 +4245,15 @@ class CertBacktest(_Strict):
     distribution transition, most often the first. So the always-deny floor here
     is lower than the forward stratum's, and neither the top line nor the band mix
     estimates forward performance. ``metrics/README.md``'s stratum rule bars the
-    pooled comparison regardless. Produced by the maintainer-triggered
-    ``run-backtest`` workflow via ``fedcourts cert-backtest``
-    (it spends tokens when agentic engines are replayed), never by a schedule.
+    pooled comparison regardless. Produced by the ``run-backtest`` workflow via
+    ``fedcourts cert-backtest``, which spends tokens when agentic engines are
+    replayed — so its fortnightly schedule only ever *asks*: the run derives its
+    plan under pinned parameters and waits on a manual release, and no report is
+    written unless a maintainer released it. A gap between reports says only that
+    no report landed, and the artifact does not distinguish the reasons (a
+    fortnight nobody released, a cron GitHub never delivered, a run that found no
+    replayable petition, a review PR nobody merged); ``provenance.run_id``
+    identifies the sample that is standing, not why there is no newer one.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION

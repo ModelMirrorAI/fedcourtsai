@@ -2328,3 +2328,184 @@ def test_every_schedule_gate_names_a_cron_run_ops_declares() -> None:
         assert any(cron in gate for cron in declared), (
             f"the gate {gate!r} names no cron run-ops declares: {sorted(declared)}"
         )
+
+
+def _schedule(name: str) -> list[str]:
+    """The cron literals a workflow declares, in file order."""
+    workflow = _load(name)
+    triggers = workflow.get("on") or workflow.get(True) or {}
+    return [str(entry["cron"]) for entry in (triggers.get("schedule") or [])]
+
+
+def test_the_back_test_cron_is_one_weekend_slot_off_every_other_workflows() -> None:
+    """The fortnight's runway, and the offset grid it has to respect.
+
+    A released fortnight derives a plan, waits an unbounded human interval on
+    the hold, runs up to its 330-minute cap and then lands a **reviewed** PR —
+    all before the Monday digest tick reads the report. Only a weekend slot
+    leaves that much room, so the day is pinned here rather than left to a later
+    edit that would quietly cost the digest a fresh report. The minute is pinned
+    clear of every other workflow's for the reason the whole grid exists: GitHub
+    queues a repository's crons together, so slots that share a minute contend.
+    """
+    crons = _schedule("run-backtest.yml")
+    assert len(crons) == 1, f"run-backtest declares {len(crons)} crons; the cadence is one slot"
+    minute, hour, day_of_month, month, day_of_week = crons[0].split()
+    assert day_of_week == "6", "the back-test cron must fire on Saturday"
+    assert (day_of_month, month) == ("*", "*"), (
+        "a day-of-month stride resets every month and is not a fortnight; the "
+        "parity guard is what halves this cron"
+    )
+    # Ahead of run-ops' Monday digest tick with the weekend in between.
+    assert int(hour) < 12
+    others = [
+        cron
+        for path in sorted(WORKFLOWS.glob("*.y*ml"))
+        if path.name != "run-backtest.yml"
+        for cron in _schedule(path.name)
+    ]
+    assert others, "no other schedules to compare against — has the cron layout moved?"
+    assert all(cron.split()[0] != minute for cron in others), (
+        f"minute :{minute} is already taken by another workflow's schedule"
+    )
+
+
+def test_the_fortnight_parity_guard_is_a_step_because_it_has_to_be() -> None:
+    """Biweekly, computed where a fortnight can actually be computed.
+
+    GitHub cron has no fortnight and workflow expressions have no date
+    function, so neither the `on:` block nor a job-level `if` can express this
+    cadence: the guard runs in a shell, and the shell is where this pins it. An
+    odd week must end as a cheap SUCCESS — a failing guard would read as a
+    broken lane every other week and train the maintainer to ignore it — and
+    the job must stay cheap enough that half the year's runs cost nothing:
+    no checkout, no corpus, no credential.
+    """
+    cadence = _load("run-backtest.yml")["jobs"]["cadence"]
+    assert cadence["if"] == "github.event_name == 'schedule'", (
+        "the guards are the cron's; a dispatch is already a human's choice"
+    )
+    parity = next(step for step in cadence["steps"] if step.get("id") == "parity")
+    run = str(parity["run"])
+    assert "date -u +%V" in run, "the parity must key on the ISO week, not on a run counter"
+    assert "% 2" in run
+    # The direction is registered, not stylistic: the freeze record's cadence
+    # entry names the even weeks as the ones that run, so a flipped comparison
+    # would move every registered release date while staying green here.
+    assert "% 2)) -eq 0 ]; then run=true" in run, "even ISO weeks are the registered releases"
+    assert "10#" in run, "a leading-zero ISO week must be forced to base 10"
+    assert "exit 1" not in run, "a skipped fortnight is a success, not a failure"
+
+    body = yaml.safe_dump(cadence)
+    assert "actions/checkout" not in body
+    assert "corpus-readonly" not in body
+    assert "secrets." not in body
+    assert "create-github-app-token" not in body
+    # Both guards decide the fortnight, and an unrun guard leaves an empty
+    # output that compares false rather than a missing one that compares true.
+    proceed = str(_load("run-backtest.yml")["jobs"]["cadence"]["outputs"]["proceed"])
+    assert "steps.parity.outputs.run == 'true'" in proceed
+    assert "steps.overlap.outputs.clear == 'true'" in proceed
+
+
+def test_the_cadence_job_skips_a_fortnight_queued_behind_a_running_twin() -> None:
+    """The overlap guard, and its deliberate fail-open.
+
+    The concurrency group sits on the replay job alone, so it serializes the
+    spends and nothing else: without this guard two crons could both derive a
+    plan and both ask for a release while an earlier fortnight is wedged against
+    its 330-minute cap or parked on the hold. The guard reads this workflow's
+    own run history to recognise itself as that twin. It fails *open* on an
+    unreadable history on purpose — the hold, not this guard, is what stands
+    between a plan and a spend — so an API blip costs a maintainer one
+    declinable ask rather than a lost sample. A hung call is the same case,
+    which is why the API call carries its own `timeout`: without one it would
+    run out the job cap and fail the fortnight instead.
+    """
+    cadence = _load("run-backtest.yml")["jobs"]["cadence"]
+    assert cadence["permissions"] == {"actions": "read"}
+    overlap = next(step for step in cadence["steps"] if step.get("id") == "overlap")
+    run = str(overlap["run"])
+    assert "actions/workflows/run-backtest.yml/runs" in run
+    assert overlap["env"]["GH_TOKEN"] == "${{ github.token }}"
+    assert "timeout 30 gh api" in run, "an unbounded gh call fails the fortnight it guards"
+    assert "::warning::" in run and "exit 1" not in run, (
+        "an unreadable run history must warn and proceed, never fail the fortnight"
+    )
+
+
+def test_the_back_test_cron_path_pins_every_parameter_it_replays_under() -> None:
+    """A `schedule` carries no inputs, so the pins are the run.
+
+    On a cron the `inputs` context is empty: a step reading `inputs.engine`
+    would route no engine at all and one reading `inputs.limit` would pass an
+    empty `--limit`. So each parameter is resolved ONCE at workflow level and
+    every job reads from there — the plan the hold is judged on and the command
+    the release runs cannot describe different spends. The pinned values are the
+    standing measurement: consecutive fortnights are comparable only because
+    nothing about the dispatch moves between them, and the fortnightly budget
+    line in `docs/budget.md` is written against exactly this limit, scope and
+    engine.
+    """
+    workflow = _load("run-backtest.yml")
+    env = workflow["env"]
+    assert env["BT_REPLAY"] == "${{ github.event_name == 'schedule' && 'cert' || inputs.replay }}"
+    assert env["BT_ENGINE"] == "${{ github.event_name == 'schedule' && 'auto' || inputs.engine }}"
+    assert env["BT_LIMIT"] == "${{ github.event_name == 'schedule' && '10' || inputs.limit }}"
+    # `paid`, not the wider `all`: the paid class carries ~2.3x the grant-family
+    # mass per petition and is the only population the per-band segment
+    # breakdown scores, so ten unfiltered petitions would leave the lift reading
+    # against a near-pure-denial floor and the bands empty.
+    assert env["BT_SCOPE"] == "${{ github.event_name == 'schedule' && 'paid' || inputs.scope }}"
+    assert env["BT_SPREAD"] == "${{ github.event_name == 'schedule' && 'true' || inputs.spread }}"
+    # Unset IS the pin (no engine opted out), and the `x && y || z` idiom could
+    # not express it anyway: '' is falsy, so the true branch falls through.
+    assert env["BT_SKIP_ENGINES"] == "${{ inputs.skip_engines }}"
+
+    for job_id in ("plan", "backtest"):
+        for step in workflow["jobs"][job_id]["steps"]:
+            label = step.get("name", step.get("uses", "run step"))
+            assert "inputs." not in yaml.safe_dump(step), (
+                f"run-backtest:{job_id} step {label!r} reads a dispatch input directly — "
+                "on the cron path that value is empty"
+            )
+
+    # The plan a maintainer releases reads the pins rather than restating them:
+    # a retyped `--limit 10` is the one document able to describe a spend the
+    # run does not make.
+    plan = next(
+        step
+        for step in workflow["jobs"]["plan"]["steps"]
+        if step.get("name") == "Report the plan for release"
+    )
+    for variable in ("$BT_ENGINE", "$BT_LIMIT", "$BT_SCOPE"):
+        assert variable in str(plan["run"]), (
+            f"the plan report hardcodes {variable} instead of reading it"
+        )
+
+
+def test_the_back_test_dispatch_keeps_its_free_default_and_its_parameters() -> None:
+    """The cadence adds a way in; it takes none away.
+
+    The dispatch is the episodic campaign path and its `engine` default is the
+    free offline stub, so an accidental dispatch still spends nothing. Pinned
+    beside the cron pins above because the two paths are easy to conflate: a
+    default quietly moved to `auto` would turn every misclick into a campaign.
+    """
+    workflow = _load("run-backtest.yml")
+    # `on` parses to the truthy bool key in YAML; tolerate either spelling.
+    triggers = workflow.get("on") or workflow.get(True) or {}
+    inputs = triggers["workflow_dispatch"]["inputs"]
+    assert set(inputs) == {
+        "replay",
+        "engine",
+        "limit",
+        "terms",
+        "skip_engines",
+        "scope",
+        "spread",
+    }
+    assert inputs["engine"]["default"] == "stub"
+    assert inputs["replay"]["default"] == "cert"
+    assert inputs["limit"]["default"] == "25"
+    assert inputs["spread"]["default"] is False
