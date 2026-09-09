@@ -38,6 +38,7 @@ parses every flag it was given.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -626,3 +627,22 @@ def test_the_qp_convergence_grep_matches_a_converged_run(tmp_path: Path) -> None
             f"wording drifted, or the apply no longer converges (the counts are in "
             f"the output above)"
         )
+
+
+def test_the_writer_jobs_two_selector_allow_lists_agree() -> None:
+    """The credential gate and the corpus-write lock name one set of passes.
+
+    The writer job's `if:` and its concurrency group hold two hand-maintained
+    copies of the same pass list, and drift is dangerous in exactly one
+    direction: a pass named in the credential gate but missing from the lock
+    expression gets a throwaway concurrency group and writes the shared corpus
+    beside run-pull/run-seed, defeating the single-writer discipline the
+    pointer commit rests on. Both lists must also stay inside the dispatch
+    input's own vocabulary, or a listed pass is unreachable.
+    """
+    text = RUN_REPAIR.read_text()
+    lists = re.findall(r"contains\(fromJSON\('(\[[^']+\])'\)", text)
+    assert len(lists) == 2, f"expected the writer job's two allow-lists, found {len(lists)}"
+    gate, lock = (json.loads(found) for found in lists)
+    assert gate == lock, "the credential gate and the corpus-write lock have drifted apart"
+    assert set(gate) <= set(_passes()), "an allow-listed pass is not a dispatchable option"
