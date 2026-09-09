@@ -59,6 +59,12 @@ def test_every_modern_surname_is_a_single_token() -> None:
     assert all(" " not in surname for surname in ENTRY_SURNAMES)
     assert {"Van Devanter"} == COMPOUND_SURNAMES
     assert KNOWN_SURNAMES == ENTRY_SURNAMES | COMPOUND_SURNAMES
+    # The value side's tripwire: exactly one surname collision (the Jacksons),
+    # so a typo'd surname would add a distinct 40th value and fail here.
+    assert len(ENTRY_SURNAMES) == 39
+    # No two roster surnames differ only in case, so the case-blind index
+    # cannot silently collapse two Justices into one row.
+    assert len({surname.casefold() for surname in KNOWN_SURNAMES}) == len(KNOWN_SURNAMES)
 
 
 def test_resolve_surname_is_case_blind_and_returns_the_roster_spelling() -> None:

@@ -1385,16 +1385,19 @@ def check_scored_votes(data_root: Path) -> CorpusCheck:
 def check_outcome_votes_held(data_root: Path) -> CorpusCheck:
     """No committed outcome may carry votes or a vote-provenance block.
 
-    Every candidate vote source is pre-adoption: the SCDB entry in
-    ``docs/data-sources.md`` records unresolved redistribution terms as the
-    precondition of any import, and ``outcome.json`` lives in public git — so a
-    vote list reaching the ledger would publish another project's coded values
-    before the project can cite a license for them. This check is that
-    precondition made mechanical: it refuses the artifact, so neither an agent
-    cell nor an early import can land votes while the terms are open. The
-    import that first populates ``Outcome.votes`` retires it in the same PR
-    that registers its source's terms, replacing it with the source's own
-    conformance checks.
+    Provenance discipline, made mechanical: ``outcome.json`` lives in public
+    git, so a vote list reaching the ledger is published — and no vote source
+    is registered in ``docs/data-sources.md`` yet, so there is nothing a
+    published list could cite for where its values came from or on what terms.
+    What the registration must settle differs by source — for SCDB, the entry
+    records unresolved redistribution terms as the blocker (another project's
+    coded values); for an order-list or opinion-derived channel the records are
+    public and the registration is the provenance statement itself — but the
+    rule is one rule: no vote reaches git before its source is registered. The
+    check refuses the artifact, so neither an agent cell nor an early import
+    can land votes meanwhile; the channel that first populates
+    ``Outcome.votes`` retires it in the same PR that registers its source,
+    replacing it with the source's own conformance checks.
 
     Read raw rather than through ``Outcome``, like the judgment-routing check
     beside it: a file that does not parse is ``validate_ledger``'s concern

@@ -339,8 +339,9 @@ _TERMINATION_SHAPES: tuple[_TerminationShape, ...] = (
 
 #: The sentinel :func:`opinion_author` returns for a per curiam opinion —
 #: distinguishable from any parsed Justice name because no surname the roster
-#: (:mod:`fedcourtsai.pipeline.justices`) can produce is spelled ``per curiam``,
-#: and the fallback single-token parse can never capture a space.
+#: (:mod:`fedcourtsai.pipeline.justices`) resolves is spelled ``per curiam``
+#: (a test pins that), and the unknown-name fallback yields one token, which
+#: cannot carry the sentinel's space.
 PER_CURIAM = "per curiam"
 
 # "Gorsuch, J., delivered the opinion of the Court ..." — the modern authorship
@@ -478,7 +479,7 @@ def opinion_author(text: str) -> str | None:
     """Best-effort: who delivered the opinion of the Court, from the entry text.
 
     Returns the roster's spelling of the Justice's surname ("Gorsuch",
-    "Van Devanter" — whatever case the entry printed it in),
+    "Van Devanter" — however the entry cased it),
     :data:`PER_CURIAM` when the entry marks a per curiam opinion instead, and
     ``None`` when neither is present. The captured window is resolved to its
     **longest suffix that is a known surname**

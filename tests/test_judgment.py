@@ -23,6 +23,7 @@ from fedcourtsai.pipeline.judgment import (
     match_merits_termination,
     opinion_author,
 )
+from fedcourtsai.pipeline.justices import resolve_surname
 from fedcourtsai.schemas import Disposition, Judgment, MeritsTermination
 from tests.conftest import DictSnapshotSource
 
@@ -355,8 +356,9 @@ def test_opinion_author_best_effort() -> None:
     assert opinion_author(chief) == "Roberts"
     per_curiam = "Writ of certiorari DISMISSED as improvidently granted.  Opinion per curiam."
     assert opinion_author(per_curiam) == PER_CURIAM
-    # PER CURIAM is recognized distinctly from any single-token Justice name.
-    assert " " in PER_CURIAM
+    # The sentinel can never collide with a parsed name: no roster surname
+    # resolves to it, and the unknown-name fallback yields one token.
+    assert resolve_surname(PER_CURIAM) is None
     assert opinion_author("DISTRIBUTED for Conference of 1/10/2025.") is None
     assert opinion_author("") is None
     # A named author wins over a stray per curiam mention elsewhere in the entry.

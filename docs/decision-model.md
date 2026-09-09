@@ -535,7 +535,11 @@ register does not declare has no stage this code can state, so it is one that
 cannot be shown *not* to be cert. The consequence is that an ingestion channel
 populating `Outcome.votes` at the cert stage — noted dissents from denial are
 published on the order list and are the obvious candidate — changes nothing
-about what is scored. That is what makes the rule structural rather than a
+about what is scored. (Building that channel first passes a separate gate:
+`validate`'s `outcome_votes_await_a_registered_source` refuses any committed
+vote list until its source and terms are registered in
+[data-sources.md](data-sources.md), so the channel's own PR retires that check
+as it registers.) That is what makes the rule structural rather than a
 property of what a particular record contains. A third seam covers the one the
 first two cannot: `vote_accuracy` is the evaluator's own field to write, so
 `validate`'s `vote_accuracy_only_on_merits_events` refuses to let a scored vote
