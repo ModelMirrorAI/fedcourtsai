@@ -1387,6 +1387,15 @@ jobs:
           # what it loses; this leg is one dispatched observation, and cutting it
           # short costs the observation itself.
           WATCHDOG_DEADLINE_S: "4200"
+          # A denser beat than the cells' 300 s default, because on this leg the
+          # off-runner record is the observation: a runner that dies mid-cell
+          # leaves the record's last beat as the only timestamp of the death,
+          # and a watchdog whose own check-ins stop leaves the gap between two
+          # beats as the whole account of when. At 120 s an hour-long leg costs
+          # ~30 comment PATCHes — nothing against the API — and bounds either
+          # reading to two minutes for as long as the telemetry token lives
+          # (its hour; the deadline comment above carries that ceiling).
+          WATCHDOG_HEARTBEAT_S: "120"
         run: |
           set -euo pipefail
           mkdir -p "$WATCHDOG_DIR"
