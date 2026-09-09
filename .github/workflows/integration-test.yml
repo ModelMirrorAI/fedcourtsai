@@ -435,7 +435,7 @@ jobs:
 
       - name: Configure AWS credentials (read-only)
         if: ${{ env.RESOLVE_CASE == 'true' }}
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -597,7 +597,7 @@ jobs:
       # composite, whose pull serves jobs that read the local file.
       - name: Configure AWS credentials (read-only)
         if: ${{ matrix.scenario == 'ranged-reads' || matrix.scenario == 'stub-cascade' }}
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -1387,6 +1387,15 @@ jobs:
           # what it loses; this leg is one dispatched observation, and cutting it
           # short costs the observation itself.
           WATCHDOG_DEADLINE_S: "4200"
+          # A denser beat than the cells' 300 s default, because on this leg the
+          # off-runner record is the observation: a runner that dies mid-cell
+          # leaves the record's last beat as the only timestamp of the death,
+          # and a watchdog whose own check-ins stop leaves the gap between two
+          # beats as the whole account of when. At 120 s an hour-long leg costs
+          # ~30 comment PATCHes — nothing against the API — and bounds either
+          # reading to two minutes for as long as the telemetry token lives
+          # (its hour; the deadline comment above carries that ceiling).
+          WATCHDOG_HEARTBEAT_S: "120"
         run: |
           set -euo pipefail
           mkdir -p "$WATCHDOG_DIR"
@@ -1934,7 +1943,7 @@ jobs:
         # Far below the cell step's 50: one word is one turn, and a bound that
         # tight is what keeps a hung invocation from eating the job budget.
         timeout-minutes: 10
-        uses: anthropics/claude-code-action@a874e9ecd7bb36efdad65429c6b35815f5a08f10 # v1.0.210
+        uses: anthropics/claude-code-action@9c5ddab2e6d17b83ea679153b31f1d5f023cf636 # v1.0.217
         with:
           allowed_bots: "fedcourtsai-data[bot]"
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}

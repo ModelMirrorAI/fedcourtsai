@@ -599,7 +599,7 @@ for it and every cell minted over that case reads an empty petition — for as
 long as the docket serves the same URL, since the poller and the Term walker
 re-fetch a kind only when its link changes. It is the only pass that installs a
 binary dependency, in its own gated step (`tesseract` and poppler's `pdftoppm`,
-from the runner image's own archive), and one of the two whose bound is a
+from the runner image's own archive), and one of the three whose bound is a
 **slice size** rather than a refusal threshold: each case costs a re-fetch and a
 page-by-page recognition, and runner minutes are the whole cost. That makes the
 bound a *spend* cap, so the step hands the pass a wall-clock deadline as well —
@@ -644,6 +644,43 @@ cases are named rather than counted. Like the OCR recovery it writes documents,
 which under the corpus split live in the content store, so the step re-walks the
 class afterwards — an empty slice, which costs no round trip — and requires
 exactly what the apply's ledger said it would leave behind.
+
+`mirror-stored-documents` moves to the content store the document text that
+reached only the blob. Under the corpus split the per-case store is the system
+of record for documents and every production read is served from it, so a case
+whose text was written before the store existed has intact rows in the blob's
+`documents` table and no objects under its store prefix — provisioning, the
+questions-presented derivations and the QP-topic labeling pack all serve nothing
+for it. Nothing repairs that on its own:
+the poller re-fetches a kind only when its link changes, and these kinds are
+already stored. The gap does not grow either, since a document written under
+the split mirrors at upsert, so this is a finite historical class rather than a
+standing
+sweep. Its population is read by **direct SQL over the blob's own table**, which
+inverts every other document pass's reading — they walk `documents_for_case`
+precisely because a split-written blob's table is empty — and that is the point:
+the blob it is dispatched against is the pre-split-era full one, and the routed
+read would answer from the very store known to be missing. It is the third
+slice-bounded pass and the only one that reaches no upstream host at all: its
+cost is content-store round trips — one listing per case in the population, two
+such walks on an apply since the witness re-read is an entire second dry run,
+and per case in the slice a manifest read, a PUT per document, the manifest PUT
+and the re-probe listing. It is also the only slice-bounded pass with no
+wall-clock deadline, since nothing it does is paced and a store listing has no
+per-case cost to estimate: the step's own cap is the wall clock, and the bound
+is what a maintainer sizes against it. Its bound is
+**apply-only**, because the dry run has to enumerate the whole population — that
+ledger, which names each absent case with the rows and text bytes the blob holds
+for it, is what the bound is read off. The store's own writer is best-effort and
+swallows transport failures, so the pass **re-probes every case it mirrors** —
+with the production read, not a prefix listing, since the leaves are written
+before the manifest and a half-landed write leaves keys behind while serving
+nothing — and reports `verified` and `unverified` apart. Without that, a run
+whose credentials, store address or pointer override withheld every write would
+report exactly the clean slice a successful one does. Its writes never touch the blob, so the
+pointer cannot witness them and an unchanged one is reported rather than failed;
+the step re-walks the class afterwards and requires exactly what the apply's
+ledger said it would leave.
 
 `arrival-backfill` re-derives the interim baseline's arrival stamp — the day an
 application was submitted to a Justice, which is the moment that event declares
