@@ -2046,7 +2046,10 @@ every round to buy a record for a failure no other engine has shown. On a codex 
 on the long-lived **`codex-watchdog`**
 issue (`fedcourts watchdog-checkin`, a non-triggering label) *before* the engine
 starts, and the detached watchdog PATCHes that comment as it passes each state —
-whether the sentinel armed and over how many files, a heartbeat while it waits,
+whether the sentinel armed and over how many files, a heartbeat while it waits
+(each carrying the runner's memory headroom and load), a `send-failed:` line
+when a send's diagnosis changes — the HTTP result, and a bounded probe of the
+check-in host where the transport itself failed —
 **the moment the completion sentinel is observed** (the durable proof that the
 work existed, which survives even a reap that then fails), then the deadline or
 the reap, the discovery tally, each signal issued with its pids, the survivors
