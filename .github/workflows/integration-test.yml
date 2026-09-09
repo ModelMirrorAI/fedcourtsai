@@ -37,8 +37,9 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # spends three cells' worth plus three probes (the repro is dispatch-only and
 # joins no whole-suite run), and `all-offline` (the same suite with both engine
 # families dropped) spends nothing. The repro leg is the long one in wall-clock
-# as well: the judge cell it presents runs 40-50 minutes, so its bounds and its
-# job cap are set above that rather than at the suite's usual 45. The collect scenario is environment-free on top of token-free:
+# as well: the judge cell it presents runs 40-50 minutes on production cells
+# and has been measured past 50 here, so its bounds and its job cap are set
+# above that rather than at the suite's usual 45. The collect scenario is environment-free on top of token-free:
 # it exercises the collect-run composite against synthetic cell artifacts
 # with every write surface stubbed or diverted on the runner, so its job
 # binds no deployment environment and is the one scenario that still
@@ -259,8 +260,9 @@ on:
 # Least privilege by default; the job widens only to what the scenarios need.
 permissions: {}
 
-# A superseded check has no value (every scenario is idempotent and
-# side-effect free), so a newer dispatch cancels an in-flight one. The engine
+# A superseded check has no value (every scenario is idempotent and — but
+# for the repro leg's telemetry row, noted below — side-effect free), so a
+# newer dispatch cancels an in-flight one. The engine
 # is part of the key so per-engine smokes run side by side (scenario-only
 # grouping made simultaneous claude/gemini smoke dispatches cancel each
 # other); for the other scenarios the engine input is a constant default, so
@@ -531,9 +533,9 @@ jobs:
     # watchdog deadline sits at 70 and its step bound at 80 (see the leg's own
     # steps). 80 plus this job's setup — checkout, env, corpus provisioning,
     # blinded staging, the MCP sidecar — and the disarm, distill and upload
-    # tail lands near 85, and 95 keeps the ~10 minutes of room the cap has
-    # always held over that worst case, because a job that reaches its cap is
-    # cancelled and its log dropped. Per-leg rather than raised for everyone:
+    # tail lands near 85, and 95 holds ~10 minutes of room over that worst
+    # case, because a job that reaches its cap is cancelled and its log
+    # dropped. Per-leg rather than raised for everyone:
     # a 95-minute cap on the boot probes would turn a hung smoke into an hour
     # of billed silence.
     timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 95 || 45 }}
@@ -645,6 +647,11 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
+          # The repro leg's cell may still be querying the corpus up to its
+          # 80-minute step bound, past the sidecar's static default hour —
+          # 100 minutes covers this leg's 95-minute job cap. The short legs
+          # keep the stated default.
+          role-duration-seconds: ${{ matrix.scenario == 'codex-application-repro' && '6000' || '3600' }}
           # One address for the sidecar process itself: `full` query bodies
           # hydrate from the per-case content store the base derives, and the
           # sidecar is the credentialed process — a sidecar that could not
@@ -1495,7 +1502,7 @@ jobs:
       - name: Evaluate the pinned application-lane record with Codex
         id: repro_codex
         if: ${{ matrix.scenario == 'codex-application-repro' }}
-        # 80, above the 70-minute watchdog deadline and under the 90 this leg's
+        # 80, above the 70-minute watchdog deadline and under the 95 this leg's
         # job is capped at. The work has been measured past 50 minutes, so a
         # bound that made this leg fail *fast* would only ever fail it on
         # healthy work; the watchdog is what ends a step the runner cannot, and

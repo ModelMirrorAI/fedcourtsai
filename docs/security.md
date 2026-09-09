@@ -28,8 +28,9 @@ convention `AGENTS.md` carries, not something identity enforces):
   PR`, so the writers push corpus facts straight to `main`.
 - **dev App** — used by the agent workflows `run-predict` /
   `run-evaluate`, the reviewed-PR openers (`run-backtest`, and
-  `run-analytics`'s metrics-refresh job), and `integration-test`'s
-  application-repro leg (watchdog telemetry only). Its client id
+  `run-analytics`'s metrics-refresh job), `sync-staging`, and
+  `integration-test`'s application-repro leg (watchdog telemetry only).
+  Its client id
   is the `DEV_APP_CLIENT_ID`
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
   **not** a bypass actor, so nothing it holds can reach `main` except through a
@@ -259,9 +260,12 @@ cell step, but this credential is **codex-only**: the watchdog's first trigger
 concludes the step, so a cell it saves runs its own tail and reports through the
 artifact, and the off-runner record matters only where the escalation fails to
 end the step at all and the job cap cancels the runner regardless — the deadline
-path, which codex alone has taken. It therefore carries an App
+path, which codex alone has taken. The same mint, on the same terms, arms the
+integration suite's application-repro leg — itself a codex cell, gated there on
+the scenario rather than an engine condition. It carries an App
 token minted with **`issues: write` and nothing else**, gated on the codex engine
-step's own condition and distributed only to the arm step, the disarm step, and
+step's own condition (the repro leg's scenario gate is its equivalent) and
+distributed only to the arm step, the disarm step, and
 the watchdog process; the job's `permissions` block is untouched and no agent
 step inherits it. Everything it is used for is the non-triggering
 `codex-watchdog` issue — found or created — and one comment per cell on it, which

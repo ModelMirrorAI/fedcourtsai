@@ -325,6 +325,11 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
+          # 90 minutes, covering the 85-minute job cap: the sidecar's
+          # credentials are static for the whole job, and a codex cell may
+          # still be querying the corpus up to its 75-minute step bound —
+          # the OIDC default hour would expire mid-cell.
+          role-duration-seconds: "5400"
           # One address for the sidecar process itself: `full` query bodies
           # hydrate from the per-case content store the base derives, and the
           # sidecar is the credentialed process — a sidecar that could not
@@ -612,7 +617,7 @@ jobs:
           # The 65 minutes sits past the telemetry token's own one-hour life,
           # deliberately: the kill duty owns the deadline and the record
           # degrades soft. The armed row, the sentinel observation and the
-          # heartbeats all land inside the hour, and a row frozen mid-wait on a
+          # heartbeats up to the hour all land, and a row frozen mid-wait on a
           # run that never came back reads as the deadline path — the fire ETA
           # is in the armed body for exactly that reading. The detached
           # watchdog cannot re-mint, so no deadline above the hour can buy its
@@ -621,8 +626,8 @@ jobs:
           #
           # Claude and gemini get 47, knowingly inside the envelope this
           # record shape can present: no claude or gemini cell has ever
-          # tripped the 50-minute step bound that has always backstopped
-          # them, so nothing observed says they need more, and a longer
+          # tripped its own 50-minute step bound, so nothing observed says
+          # they need more, and a longer
           # deadline only delays wedge recovery for engines that have never
           # wedged. A cell of either engine seen near its bound is what moves
           # them. At 47 the watchdog stays a backstop *below* the step's own

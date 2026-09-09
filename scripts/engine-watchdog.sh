@@ -147,8 +147,8 @@ output_dir="${WATCHDOG_OUTPUT_DIR:-}"
 # committed retrieval logs show a predict cell going 104 s between the moment all
 # five of its required files first exist and its next write to one of them, so a
 # grace near that is at the edge of the observed distribution rather than clear
-# of it. Five minutes is clear of it and still costs a small fraction of the
-# headroom the cells' own deadlines leave above the work envelope. It is also
+# of it. Five minutes is clear of it and spends a third of the ~15 minutes the
+# codex deadline holds above the observed envelope. It is also
 # what keeps the reaper from racing the disarm step on a
 # healthy cell, whose step concludes within seconds of its agent.
 quiesce_s="${WATCHDOG_QUIESCE_S:-300}"

@@ -296,7 +296,7 @@ readable as the deadline path. What must stay well
 inside the job cap is the watchdog, since a job that runs to its cap is
 *cancelled* and GitHub drops a cancelled job's logs. The leg arms the
 **completion sentinel** too, so on a reproduced hang it is the *reap* that
-fires — about ninety seconds after the agent finishes — and its capture, a
+fires — about five minutes after the cell's last write, the quiescence grace — and its capture, a
 process forest and socket table taken while the work is already done, is what
 names the holder. Read the markers accordingly: `REAPED` is the defect
 reproducing and being handled, while `FIRED` or `STOOD_DOWN` says the completion
