@@ -1,0 +1,12 @@
+case_id: scotus/9526000304
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-motion-disposition
+kind: motion
+moment: arrival
+opened_at: '2026-09-04'
+resolved: true
+schema_version: '1.0'
+stage: interim
+title: Denny Hoskins, Secretary of State of Missouri v. Richard Von Glahn
