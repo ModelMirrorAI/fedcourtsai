@@ -17,7 +17,7 @@
       "problems": []
     },
     {
-      "checked": 4308791,
+      "checked": 4308792,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4305718,
+      "checked": 4305719,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4308791,
+      "checked": 4308792,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 13573,
+      "checked": 13574,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 92,
+      "checked": 93,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -174,6 +174,14 @@
       "problems": []
     },
     {
+      "checked": 12686,
+      "detail": "",
+      "failures": 0,
+      "name": "outcome_votes_await_a_registered_source",
+      "passed": true,
+      "problems": []
+    },
+    {
       "checked": 58,
       "detail": "",
       "failures": 0,
@@ -182,7 +190,7 @@
       "problems": []
     },
     {
-      "checked": 12685,
+      "checked": 12686,
       "detail": "",
       "failures": 0,
       "name": "judgment_only_on_merits_outcomes",
@@ -190,7 +198,7 @@
       "problems": []
     }
   ],
-  "corpus_events": 2152914,
+  "corpus_events": 2152915,
   "corpus_rows": 2152804,
   "ok": true,
   "schema_version": "1.0",
