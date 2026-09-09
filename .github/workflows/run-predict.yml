@@ -997,7 +997,7 @@ jobs:
         # (leaving the finalize step to salvage its work) instead of the job-level
         # timeout, which would cancel the runner and discard everything.
         timeout-minutes: 50
-        uses: anthropics/claude-code-action@a874e9ecd7bb36efdad65429c6b35815f5a08f10 # v1.0.210
+        uses: anthropics/claude-code-action@9c5ddab2e6d17b83ea679153b31f1d5f023cf636 # v1.0.217
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}

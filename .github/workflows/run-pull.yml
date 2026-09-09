@@ -186,7 +186,7 @@ jobs:
       # never wipe them. No static keys; the role ARN and region come from the
       # `prod` environment.
       - name: Configure AWS credentials (corpus S3 remote, read-write)
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -491,7 +491,7 @@ jobs:
       # Same read-write (append-only) role as `pull`: the live poller adds
       # snapshots and rows to the corpus blob but can never wipe remote objects.
       - name: Configure AWS credentials (corpus S3 remote, read-write)
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -732,7 +732,7 @@ jobs:
       - uses: ./.github/actions/setup-python-env
 
       - name: Configure AWS credentials (corpus S3 remote, read-write)
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
