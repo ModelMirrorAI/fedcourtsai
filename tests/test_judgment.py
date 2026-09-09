@@ -23,6 +23,7 @@ from fedcourtsai.pipeline.judgment import (
     match_merits_termination,
     opinion_author,
 )
+from fedcourtsai.pipeline.justices import resolve_surname
 from fedcourtsai.schemas import Disposition, Judgment, MeritsTermination
 from tests.conftest import DictSnapshotSource
 
@@ -355,8 +356,9 @@ def test_opinion_author_best_effort() -> None:
     assert opinion_author(chief) == "Roberts"
     per_curiam = "Writ of certiorari DISMISSED as improvidently granted.  Opinion per curiam."
     assert opinion_author(per_curiam) == PER_CURIAM
-    # PER CURIAM is recognized distinctly from any single-token Justice name.
-    assert " " in PER_CURIAM
+    # The sentinel can never collide with a parsed name: no roster surname
+    # resolves to it, and the unknown-name fallback yields one token.
+    assert resolve_surname(PER_CURIAM) is None
     assert opinion_author("DISTRIBUTED for Conference of 1/10/2025.") is None
     assert opinion_author("") is None
     # A named author wins over a stray per curiam mention elsewhere in the entry.
@@ -365,6 +367,38 @@ def test_opinion_author_best_effort() -> None:
         "(revising the per curiam order below)."
     )
     assert opinion_author(both) == "Kagan"
+
+
+def test_opinion_author_resolves_compound_surnames_without_bleed() -> None:
+    """The captured window resolves against the roster, not to the final token.
+
+    A compound surname survives whole; a joining word swept into the window is
+    dropped because only the known-surname suffix resolves; the roster's own
+    spelling comes back whatever case the entry printed; and an unknown
+    spelling yields its final token rather than reading as absent.
+    """
+    compound = "Judgment AFFIRMED.  Van Devanter, J., delivered the opinion of the Court."
+    assert opinion_author(compound) == "Van Devanter"
+    # A window that swept in joining words still resolves to the surname.
+    swept = "Judgment AFFIRMED and Gorsuch, J., delivered the opinion of the Court."
+    assert opinion_author(swept) == "Gorsuch"
+    # An all-caps order list resolves to the roster spelling — compound
+    # surnames included, which a case-sensitive lookup would split.
+    assert (
+        opinion_author("Judgment AFFIRMED.  GORSUCH, J., delivered the opinion of the Court.")
+        == "Gorsuch"
+    )
+    assert (
+        opinion_author("Judgment AFFIRMED.  VAN DEVANTER, J., delivered the opinion of the Court.")
+        == "Van Devanter"
+    )
+    # A sentence boundary cannot bleed into the window: the preceding token
+    # carries a period, which is not name-shaped.
+    bounded = "Case REMANDED.  Barrett, J., delivered the opinion of the Court."
+    assert opinion_author(bounded) == "Barrett"
+    # Unknown-but-name-shaped yields the final token, as the entry printed it.
+    unknown = "Judgment AFFIRMED.  Placeholder Stranger, J., delivered the opinion of the Court."
+    assert opinion_author(unknown) == "Stranger"
 
 
 # --- last_judgment_entry over both payload shapes ---------------------------------

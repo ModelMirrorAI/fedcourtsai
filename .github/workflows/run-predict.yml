@@ -393,7 +393,9 @@ jobs:
     needs: [plan, approval]
     if: needs.plan.outputs.has_jobs == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Above the codex step's 75-minute backstop with ~10 minutes for setup and
+    # the capture tail; the watchdog arm step carries the full arithmetic.
+    timeout-minutes: 85
     environment: prod
     permissions:
       # The cell no longer commits or opens a PR — it only reads the repo and
@@ -424,6 +426,11 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
+          # 90 minutes, covering the 85-minute job cap: the sidecar's
+          # credentials are static for the whole job, and a codex cell may
+          # still be querying the corpus up to its 75-minute step bound —
+          # the OIDC default hour would expire mid-cell.
+          role-duration-seconds: "5400"
           # One address for the sidecar process itself: `full` query bodies
           # hydrate from the per-case content store the base derives, and the
           # sidecar is the credentialed process — a sidecar that could not
@@ -828,25 +835,42 @@ jobs:
           # it fires whenever the work is done, so on the failure this exists for
           # the deadline is only ever reached by a cell that never finished.
           #
-          # The **deadline** is a kill on a guess, so it is set by what each
-          # engine has been observed to need. Codex gets 40 minutes: the cell job
-          # is capped at 60 and reaches this step inside its first minute
-          # (measured: +46s on a healthy cell), and the off-runner record below is
-          # bounded to 90s on top of that, so firing at +40 ends the engine ~43
-          # minutes into the job and leaves ~17 for the `if: !cancelled()` tail,
-          # which measures in single-digit minutes. It is the engine whose wedges
-          # are the reason any of this exists.
+          # The **deadline** is a kill on a guess, so it sits clear of what each
+          # engine has been observed to need — a deadline inside the work
+          # envelope kills healthy mid-work cells, and the kill is worse than
+          # the wedge it answers: it can take the whole job down, dropping every
+          # runner-local account. Codex gets 65 minutes: a codex judge cell on
+          # an application record has been measured working past 50, so 65
+          # clears the observed envelope with margin. The cell job is capped at
+          # 85 and reaches this step inside its first minute (measured: +46s on
+          # a healthy cell), and the off-runner record below is bounded to 90s
+          # on top of that, so firing at +65 ends the engine ~68 minutes into
+          # the job and leaves ~17 for the `if: !cancelled()` tail, which
+          # measures in single-digit minutes. It is the engine whose wedges are
+          # the reason any of this exists.
           #
-          # Claude and gemini get 47. Bracketing them is new, and a deadline is
-          # the one half of it that can *cost* a healthy cell — a judge cell on an
-          # application record runs 40-50 minutes, and neither engine has ever
-          # wedged, so a 40-minute kill would introduce a risk to fix a failure
-          # they have not had. At 47 the watchdog stays a backstop *below* the
-          # step's own `timeout-minutes: 50` (2820s plus the three 30s graces is
-          # 2910, inside 3000, and these cells make no check-in calls to pay for),
-          # which is the only thing it must be for them: the runner cannot end a
-          # tree, and this can.
-          WATCHDOG_DEADLINE_S: ${{ matrix.engine == 'codex' && '2400' || '2820' }}
+          # The 65 minutes sits past the telemetry token's own one-hour life,
+          # deliberately: the kill duty owns the deadline and the record
+          # degrades soft. The armed row, the sentinel observation and the
+          # heartbeats up to the hour all land, and a row frozen mid-wait on a
+          # run that never came back reads as the deadline path — the fire ETA
+          # is in the armed body for exactly that reading. The detached
+          # watchdog cannot re-mint, so no deadline above the hour can buy its
+          # own fire-time PATCHes; what it buys instead is never killing
+          # healthy work, which is the costlier failure.
+          #
+          # Claude and gemini get 47, knowingly inside the envelope this
+          # record shape can present: no claude or gemini cell has ever
+          # tripped its own 50-minute step bound, so nothing observed says
+          # they need more, and a longer
+          # deadline only delays wedge recovery for engines that have never
+          # wedged. A cell of either engine seen near its bound is what moves
+          # them. At 47 the watchdog stays a backstop *below* the step's own
+          # `timeout-minutes: 50` (2820s plus the three 30s graces is 2910,
+          # inside 3000, and these cells make no check-in calls to pay for),
+          # which is the only thing it must be for them: the runner cannot end
+          # a tree, and this can.
+          WATCHDOG_DEADLINE_S: ${{ matrix.engine == 'codex' && '3900' || '2820' }}
         run: |
           set -euo pipefail
           mkdir -p "$WATCHDOG_DIR"
@@ -929,7 +953,7 @@ jobs:
               checkin_base="${checkin_out#*$'\n'}"
             fi
           fi
-          # The URL is where a live credential gets sent for the next 40 minutes,
+          # The URL is where a live credential gets sent for the whole deadline,
           # and it arrived on a stdout this step does not otherwise police — so
           # it is checked against the one shape it may have before it is handed
           # over. Anything else is dropped, which costs the telemetry and never
@@ -951,13 +975,13 @@ jobs:
             echo "::warning::codex watchdog armed with no off-runner record (${EVENT_ID})"
           fi
           # The watchdog and its evidence both live outside the workspace: that
-          # tree belongs to the agent for the next 40 minutes, and bash reads a
+          # tree belongs to the agent for the whole of its turn, and bash reads a
           # script file as it executes it. The disarm step brings the bundle
           # back for the artifact.
           cp scripts/engine-watchdog.sh "$RUNNER_TEMP/engine-watchdog.sh"
           # `GH_TOKEN=` cleared: the watchdog reads WATCHDOG_CHECKIN_TOKEN and
           # never `gh`, so the credential need not sit in a process that
-          # outlives this step by forty minutes twice over.
+          # outlives this step by the whole deadline twice over.
           GH_TOKEN='' WATCHDOG_CHECKIN_URL="$checkin_url" \
             WATCHDOG_CHECKIN_BASE="$checkin_base" \
             WATCHDOG_OUTPUT_DIR="$sentinel_root" \
@@ -1054,10 +1078,12 @@ jobs:
       - name: Predict with Codex
         id: predict_codex
         if: matrix.engine == 'codex' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
-        # Same buffer as the Claude step: trip this step, not the job, on overrun.
-        # The watchdog armed above is the bound that actually bites a wedged
-        # engine; this stays as the backstop for an overrun the runner can end.
-        timeout-minutes: 50
+        # Same role as the Claude step's bound: trip this step, not the job, on
+        # overrun. Higher than theirs because codex's watchdog deadline is 65
+        # minutes (the arm step carries the arithmetic), and the watchdog armed
+        # above is the bound that actually bites a wedged engine; this stays as
+        # the backstop for an overrun the runner can end.
+        timeout-minutes: 75
         uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
         env:
           COURT_ID: ${{ matrix.court }}

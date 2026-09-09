@@ -356,7 +356,9 @@ each as its own least-privilege job holding only the credentials its mode needs:
 ## `integration-test` — the infrastructure preflight
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
-a strictly side-effect-free scenario runner — manual dispatch, plus one
+a side-effect-free scenario runner (one carve-out: the application-repro leg
+writes its watchdog's telemetry row onto the `codex-watchdog` issue —
+dispatch-only, marker-keyed, non-triggering) — manual dispatch, plus one
 scheduled canary — over the **corpus
 read backends, the two sidecars, cascade cells, the engines' own invocation
 blocks, the collect writer, and the
@@ -405,9 +407,10 @@ the canary, is the thing that blocks.
 
 **How a red canary reaches anyone.** Through GitHub's own scheduled-workflow
 failure notification and the workflow's run history — nothing else. It opens no
-issue and posts no comment, because the workflow's side-effect-free invariant
-is what lets it dispatch and run unattended at all, and an alarm that writes is
-a write. So the canary is a *shortened discovery window*, not an alerting
+issue and posts no comment (the repro leg's telemetry row is the workflow's one
+write, and no schedule reaches that leg), because the workflow's
+side-effect-free invariant is what lets it dispatch and run unattended at all,
+and an alarm that writes is a write. So the canary is a *shortened discovery window*, not an alerting
 system: what it guarantees is that the breakage is already in the run history
 when someone next looks, rather than being discovered by a paid round. Check it
 alongside the ops digest, and read a red one the way the run summary states it —
@@ -1997,7 +2000,8 @@ runner — which is the very failure the watchdog exists to convert, so it is
 exactly the evidence a wedge is best placed to destroy. (A *reaped* cell keeps
 it: concluding the step is what makes the tail that uploads it run.) The record
 that survives a cancellation is off the runner entirely, and it is **codex cells
-only**. The reaper needs no telemetry to work, and the record is load-bearing
+only** — the run workflows' cells and the integration suite's application-repro
+leg. The reaper needs no telemetry to work, and the record is load-bearing
 only where the escalation fails to end the step at all and the job cap cancels
 the runner regardless — the deadline path, which codex is the one engine to have
 taken. Widening the mint would put an issues:write App token in every cell of
@@ -2015,7 +2019,12 @@ line so the issue stays one readable row per cell. The armed record alone is
 already evidence: a comment that says only "armed", on a run that never came
 back, is a wedge the watchdog failed to convert — a different fault from one it
 converted and reported, and the only thing that tells the two apart is a record
-that outlives the runner.
+that outlives the runner. The record has one bound of its own, the
+credential's: an App installation token lives an hour and the detached watchdog
+cannot re-mint, so on the codex deadlines — set past the hour so healthy work
+is never killed — the PATCHes issued at the fire itself may not land. The armed
+row's deadline and fire ETA are written first for exactly that case: a record
+frozen mid-wait on a run that never came back reads as the deadline path.
 
 Which comment is *this cell's* is answered by a hidden marker **and** by App
 authorship, because the repository is public and every part of a marker is

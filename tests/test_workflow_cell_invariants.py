@@ -1855,15 +1855,24 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
 # thrown away with the runner.
 ENGINE_WATCHDOG_SCRIPT = "scripts/engine-watchdog.sh"
 ENGINE_WATCHDOG_DIR = "engine-watchdog"
-# Per engine, and both halves matter. Codex fires at 40 minutes — the engine
-# whose wedges are the reason any of this exists. Claude and gemini fire at 47,
-# because bracketing them is new and a deadline is the one half of the bracket
-# that can *cost* a healthy cell: the work a judge cell does on an application
-# record runs 40-50 minutes, so a 40-minute kill would introduce a risk to fix a
-# failure neither engine has had. Both stay under each step's 50-minute backstop
-# and inside the 60-minute job cap; the arm steps carry the arithmetic.
-ENGINE_WATCHDOG_DEADLINE_EXPR = "${{ matrix.engine == 'codex' && '2400' || '2820' }}"
-ENGINE_WATCHDOG_DEADLINES_S = (2400, 2820)
+# Per engine, and both halves matter. Codex fires at 65 minutes — the engine
+# whose wedges are the reason any of this exists, and the one whose work
+# envelope has been measured past 50 minutes on application records, so a
+# deadline inside that envelope kills healthy mid-work cells (and the kill can
+# take the whole job down, dropping every runner-local account). Claude and
+# gemini fire at 47, because a deadline is the one half of the bracket that can
+# *cost* a healthy cell and neither engine has ever wedged or been observed
+# near it. Each deadline stays under its own engine step's backstop and inside
+# the 85-minute job cap; the arm steps carry the arithmetic.
+ENGINE_WATCHDOG_DEADLINE_EXPR = "${{ matrix.engine == 'codex' && '3900' || '2820' }}"
+ENGINE_WATCHDOG_CODEX_DEADLINE_S = 3900
+ENGINE_WATCHDOG_OTHER_DEADLINE_S = 2820
+# The integers are what the bound check below runs on and the expression is
+# what the YAML is held to, so the two must be one claim: an expression raised
+# without its integer would leave the ordering check running against a stale
+# bound, silently.
+assert f"'{ENGINE_WATCHDOG_CODEX_DEADLINE_S}'" in ENGINE_WATCHDOG_DEADLINE_EXPR
+assert f"'{ENGINE_WATCHDOG_OTHER_DEADLINE_S}'" in ENGINE_WATCHDOG_DEADLINE_EXPR
 ENGINE_WATCHDOG_CELL_JOBS = {"run-predict.yml": "predict", "run-evaluate.yml": "evaluate"}
 # The arm step's whole configuration: the three the script has always read, the
 # cell's identifiers and run URL for the off-runner record, and the comment-only
@@ -1949,17 +1958,28 @@ def test_every_engine_step_of_a_cell_is_bracketed_by_the_watchdog() -> None:
         # it. The disarm step is what carries it back for the upload.
         assert arm["env"]["WATCHDOG_DIR"] == f"${{{{ runner.temp }}}}/{ENGINE_WATCHDOG_DIR}"
         assert arm["env"]["WATCHDOG_DEADLINE_S"] == ENGINE_WATCHDOG_DEADLINE_EXPR
-        # Every deadline the expression can yield < *every* engine step's own
-        # `timeout-minutes` < the job cap. The middle bound is a backstop for an
-        # overrun the runner can end, not evidence that it ends this one — a
-        # wedged step has run straight through it; what this pins is that the
-        # watchdog is the bound that comes first and that its kill still leaves
-        # the tail inside the job. Checked against the *longest* deadline, so
-        # raising either arm of the expression cannot quietly cross a step bound.
-        deadline_minutes = max(ENGINE_WATCHDOG_DEADLINES_S) / 60
-        for index in engines:
+        # Each engine step's own deadline < that step's `timeout-minutes` < the
+        # job cap. The middle bound is a backstop for an overrun the runner can
+        # end, not evidence that it ends this one — a wedged step has run
+        # straight through it; what this pins is that the watchdog is the bound
+        # that comes first and that its kill still leaves the tail inside the
+        # job. Per engine, because the deadlines are: codex's 65-minute
+        # deadline needs its 75-minute step backstop, while claude and gemini
+        # keep 47 under their own 50 — a single max-deadline check would force
+        # every step's bound up to codex's.
+        # The codex step is named by the same marker `_engine_step_indices`
+        # discovers it with, so the classifier and the discovery cannot drift
+        # apart — and exactly one step must classify as codex, so a spelling
+        # change fails red here rather than checking a 75-minute backstop
+        # against the shorter deadline, silently.
+        codex_flags = ["openai/codex-action@" in str(steps[i].get("uses") or "") for i in engines]
+        assert sum(codex_flags) == 1, f"{name}: expected exactly one codex engine step"
+        for index, is_codex in zip(engines, codex_flags, strict=True):
             engine = steps[index]
-            assert deadline_minutes < engine["timeout-minutes"] < job["timeout-minutes"], (
+            deadline_s = (
+                ENGINE_WATCHDOG_CODEX_DEADLINE_S if is_codex else ENGINE_WATCHDOG_OTHER_DEADLINE_S
+            )
+            assert deadline_s / 60 < engine["timeout-minutes"] < job["timeout-minutes"], (
                 f"{name}: {engine['name']}'s bounds do not sit under the watchdog and the job cap"
             )
         # `always()`, so an engine that failed, timed out, or never ran still
@@ -2164,7 +2184,7 @@ def test_the_codex_watchdog_reports_off_the_runner_on_a_comment_only_token() -> 
         # `gh`, so `GH_TOKEN` is cleared rather than inherited into a process
         # that outlives this step by the whole deadline.
         assert "GH_TOKEN=''" in arm_run, f"{name}: the watchdog inherits a credential it never uses"
-        # And the destination that credential is sent to for the next 40 minutes
+        # And the destination that credential is sent to for the whole deadline
         # is checked against this repository's own comments endpoint before it is
         # handed over: it arrived on a stdout this step does not otherwise police.
         assert '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"' in arm_run, (
@@ -2185,17 +2205,21 @@ def test_the_codex_watchdog_reports_off_the_runner_on_a_comment_only_token() -> 
 
 #: The repro leg's bounds, which the occurrence they reproduce inverted. The
 #: defect begins *after* the agent finishes, so every bound has to sit above the
-#: work envelope (40-50 minutes on this record shape) or the leg kills a healthy
+#: work envelope (see REPRO_WORK_ENVELOPE_MINUTES below) or the leg kills a healthy
 #: mid-grading cell and never reaches the phase it exists to observe — a red leg
 #: that certifies nothing, which is worse than no leg. Ordered, not merely
 #: large: watchdog < step < job, so the watchdog is what concludes a step the
 #: runner cannot, and the job cap is never what ends the leg.
 REPRO_SCENARIO = "codex-application-repro"
-REPRO_WATCHDOG_DEADLINE_S = "3000"
-REPRO_STEP_TIMEOUT_MINUTES = 58
-REPRO_JOB_TIMEOUT_MINUTES = 75
-#: The observed work envelope, in minutes. The watchdog deadline must clear it.
-REPRO_WORK_ENVELOPE_MINUTES = 50
+REPRO_WATCHDOG_DEADLINE_S = "4200"
+REPRO_STEP_TIMEOUT_MINUTES = 80
+REPRO_JOB_TIMEOUT_MINUTES = 95
+#: The observed work envelope, in minutes, which the watchdog deadline must
+#: clear. Production judge cells on this record shape run 40-50 minutes, and
+#: this leg has been observed still mid-work past 50 — a deadline that fired
+#: there killed a healthy cell and took the job with it — so the working
+#: ceiling sits at 60 and the 70-minute deadline clears it with margin.
+REPRO_WORK_ENVELOPE_MINUTES = 60
 
 
 def test_the_repro_legs_bounds_sit_above_the_work_it_reproduces() -> None:
@@ -2214,12 +2238,68 @@ def test_the_repro_legs_bounds_sit_above_the_work_it_reproduces() -> None:
     )
     assert engine["timeout-minutes"] == REPRO_STEP_TIMEOUT_MINUTES
     assert deadline_minutes < REPRO_STEP_TIMEOUT_MINUTES < REPRO_JOB_TIMEOUT_MINUTES
-    # The job cap is raised for this leg alone: an hour-and-a-quarter cap on the
+    # The job cap is raised for this leg alone: a cap this long on the
     # boot probes would turn a hung smoke into an hour of billed silence.
     cap = str(_load("integration-test.yml")["jobs"]["scenario"]["timeout-minutes"])
     assert f"'{REPRO_SCENARIO}' && {REPRO_JOB_TIMEOUT_MINUTES} ||" in cap, (
         f"the repro leg's job cap is not raised to {REPRO_JOB_TIMEOUT_MINUTES}: {cap}"
     )
+
+
+def test_the_repro_leg_arms_the_watchdogs_off_runner_record() -> None:
+    """The deadline path's only surviving account, armed on the leg that took it.
+
+    A deadline kill on this leg has been observed to end the whole job — the
+    disarm and upload tail skipped, the job log dropped — so every runner-local
+    account of what the watchdog did dies with exactly the failure it exists to
+    describe. The off-runner record is what survives that, and this pins the
+    leg to the cell workflows' arming: the same comment-only mint (issues
+    alone, failing soft, gated to this scenario, never reaching the agent
+    step), the same URL-shape check before a live credential is aimed anywhere,
+    the same bounded check-ins, and the same close-out on the disarm.
+    """
+    job = _load("integration-test.yml")["jobs"]["scenario"]
+    steps = job["steps"]
+    arm_at = next(i for i, s in enumerate(steps) if s.get("name") == "Arm the engine watchdog")
+    mint = steps[arm_at - 1]
+    assert mint.get("name") == CODEX_WATCHDOG_TOKEN_STEP, (
+        "nothing mints the repro watchdog's telemetry token before the arming"
+    )
+    # Exactly this scenario's window, so no other leg of the suite mints a live
+    # credential for a channel it does not use.
+    assert mint.get("if") == f"${{{{ matrix.scenario == '{REPRO_SCENARIO}' }}}}"
+    assert str(mint.get("uses", "")).startswith("actions/create-github-app-token@")
+    assert set(mint["with"]) == {"client-id", "private-key", "permission-issues"}, (
+        "the repro watchdog token asks for more than issues:write"
+    )
+    assert mint["with"]["permission-issues"] == "write"
+    assert mint.get("continue-on-error") is True, (
+        "a failed telemetry mint would skip the arm and engine steps"
+    )
+    # A step-scoped App mint, not a widening of what every step in the job may
+    # do — and it reaches the arm and disarm steps only, never the agent's.
+    assert "issues" not in job["permissions"]
+    holders = [s for s in steps if CODEX_WATCHDOG_TOKEN_REF in str(s.get("env", {}))]
+    assert [s.get("name") for s in holders] == [
+        "Arm the engine watchdog",
+        "Disarm the engine watchdog",
+    ], "the repro telemetry token reaches steps it has no business in"
+    for holder in holders:
+        assert CODEX_WATCHDOG_TOKEN_REF not in str(holder.get("run", ""))
+    arm_run = str(steps[arm_at]["run"])
+    assert "timeout 90 uv run fedcourts watchdog-checkin" in arm_run
+    assert "WATCHDOG_CHECKIN_BASE=" in arm_run
+    assert "GH_TOKEN=''" in arm_run, "the watchdog inherits a credential it never uses"
+    assert '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"' in arm_run, (
+        "the check-in URL is handed to the watchdog unvalidated"
+    )
+    # Unlike a cell, this leg always attempts the mint, so an empty token is a
+    # failure worth naming, never an engine that was not offered the channel.
+    assert 'if [ -z "${GH_TOKEN:-}" ]' in arm_run, (
+        "a credential-less repro leg would arm silently with no off-runner record"
+    )
+    disarm = next(s for s in steps if s.get("name") == "Disarm the engine watchdog")
+    assert "timeout 90 uv run fedcourts watchdog-checkin --disarm" in str(disarm["run"])
 
 
 def test_the_repro_leg_reports_its_two_halves_separately() -> None:
