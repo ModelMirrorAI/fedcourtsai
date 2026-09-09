@@ -165,7 +165,12 @@ runbook, [docs/security.md](docs/security.md).
   account rides the artifact it uploads; the off-runner record is load-bearing
   only where the escalation fails to end the step at all and the job cap cancels
   the runner regardless — the deadline path, which codex is the one engine to
-  have taken. Minting for every engine
+  have taken. The mint therefore lives on the codex cells of `run-predict` /
+  `run-evaluate` and on the integration suite's application-repro leg — itself
+  a codex cell against a pinned record, and the one place a deadline kill has
+  been observed to cancel the whole job — on identical terms: issues-only,
+  step-scoped in distribution, failing soft, never reaching the agent step.
+  Minting for every engine
   would place an issues:write token in every cell of every round to buy a record
   for a failure no other engine has shown. Everything it is used for is
   that one tracking issue, found-or-created under a non-triggering label, and

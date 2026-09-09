@@ -517,15 +517,16 @@ jobs:
     # 45, not 30: the engine-smoke scenario spans an npm CLI install plus one
     # real agent cell, which alone can run tens of minutes on a slow model day.
     #
-    # The application-repro leg gets 75 instead, and the arithmetic is its own:
+    # The application-repro leg gets 90 instead, and the arithmetic is its own:
     # the work it reproduces is a judge cell on an application record, measured
-    # at 40-50 minutes, so its watchdog deadline sits at 50 and its step bound at
-    # 58 (see the leg's own steps). 58 plus this job's setup — checkout, env,
-    # corpus provisioning, blinded staging, the MCP sidecar — and the disarm,
-    # distill and upload tail lands near 63, and 75 is that with room. Per-leg
-    # rather than raised for everyone: a 75-minute cap on the boot probes would
-    # turn a hung smoke into an hour of billed silence.
-    timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 75 || 45 }}
+    # at 40-50 minutes on production cells and past 50 on this leg, so its
+    # watchdog deadline sits at 70 and its step bound at 80 (see the leg's own
+    # steps). 80 plus this job's setup — checkout, env, corpus provisioning,
+    # blinded staging, the MCP sidecar — and the disarm, distill and upload
+    # tail lands near 85, and 90 is that with room. Per-leg rather than raised
+    # for everyone: a 90-minute cap on the boot probes would turn a hung smoke
+    # into an hour of billed silence.
+    timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 90 || 45 }}
     # Branch-resolved with an explicit override; keep this expression
     # identical to `run-name:`'s and the plan job's above (YAML anchors do not
     # work in workflows), and see the deploy-environment input for what
@@ -1303,8 +1304,29 @@ jobs:
       # `STOOD_DOWN` means the completion set was never satisfied — work still
       # running at the deadline, or a required file the judge never wrote — which
       # is a finding about the cell, not about teardown. The bounds below sit
-      # above the 40-50 minute work envelope precisely so that the deadline is
-      # never reached by a cell that simply took its time.
+      # above the observed work envelope — 40-50 minutes on production cells,
+      # and past 50 on this leg — precisely so that the deadline is never
+      # reached by a cell that simply took its time. And because a deadline
+      # kill can end the whole job — skipping the disarm and upload tail and
+      # dropping the job log — the leg arms the same off-runner record the
+      # production codex cells keep, so that path leaves an account a
+      # cancelled runner cannot erase.
+      #
+      # The mint is the cell workflows' step, on their terms: comment-only
+      # (issues alone), step-scoped, reaching the watchdog and the disarm step
+      # but never the agent step, and failing soft so a degraded API costs the
+      # telemetry and never the observation. This leg runs a codex cell, so
+      # the credential stays codex-only. SECURITY.md bounds the grant.
+      - name: Mint the codex watchdog telemetry token
+        id: watchdog-token
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-issues: write
+
       - name: Arm the engine watchdog
         if: ${{ matrix.scenario == 'codex-application-repro' }}
         env:
@@ -1315,18 +1337,29 @@ jobs:
           EVENT_ID: ${{ steps.repro.outputs.event }}
           EVALUATOR_ID: ${{ steps.repro.outputs.evaluator }}
           RUN_ID: ${{ steps.repro.outputs.run_id }}
-          # 3000 s. The work this leg presents runs 40-50 minutes, so a deadline
-          # under that would kill a healthy mid-grading cell and never reach the
-          # teardown phase where the defect lives. Fifty minutes clears the
-          # envelope; the step below is capped at 58, leaving the watchdog's own
-          # three graces (30 s each) inside that cap with room; and this leg's
-          # job cap is 75.
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # The comment-only mint above, twice: `gh` reads the first to open the
+          # record, and the second rides into the detached watchdog's env so it
+          # can PATCH that record as it passes each state. Both are env, never
+          # argv — the watchdog's own published bundle dumps every argument of
+          # every process this user owns.
+          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          WATCHDOG_CHECKIN_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          # 4200 s. This leg's work has been measured *past* the 50 minutes a
+          # production judge cell shows on the same record shape, and a deadline
+          # inside the envelope kills a healthy mid-grading cell before the
+          # teardown phase where the defect lives — worse, the kill can end the
+          # whole job, so the observation costs the run and leaves no evidence.
+          # Seventy minutes clears everything observed; the step below is capped
+          # at 80, leaving the watchdog's own three graces (30 s each) and its
+          # bounded check-ins inside that cap with room; and this leg's job cap
+          # is 90.
           #
-          # It is longer than the cells' 2400 s deliberately. A cell has a whole
+          # It is longer than the cells' 3900 s deliberately. A cell has a whole
           # round's budget to protect and a level-triggered lane that re-derives
           # what it loses; this leg is one dispatched observation, and cutting it
           # short costs the observation itself.
-          WATCHDOG_DEADLINE_S: "3000"
+          WATCHDOG_DEADLINE_S: "4200"
         run: |
           set -euo pipefail
           mkdir -p "$WATCHDOG_DIR"
@@ -1365,11 +1398,63 @@ jobs:
           else
             echo "::warning::no completion sentinel for this leg; the watchdog runs on its deadline alone"
           fi
+          # The armed record, written off the runner before the engine starts:
+          # one comment on the long-lived `codex-watchdog` issue, which the
+          # watchdog then updates in place — the cell workflows' arming,
+          # verbatim. On this leg it is what makes the deadline path legible at
+          # all: a deadline kill can cancel the job, and a cancelled job drops
+          # every runner-local account. Best-effort, and deliberately so: the
+          # kill duty is primary, so a degraded API costs the telemetry and
+          # never the deadline.
+          checkin_url=""
+          checkin_base=""
+          if [ -n "${GH_TOKEN:-}" ]; then
+            # `timeout` on top of the command's own bounded gh retry: that
+            # budget is per call and this makes several, so an API having a bad
+            # minute could otherwise push the whole arming — and with it the
+            # deadline this step exists to start — minutes later into a job cap
+            # the arithmetic above is measured against.
+            checkin_out="$(timeout 90 uv run fedcourts watchdog-checkin \
+              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
+              --court "$COURT_ID" --docket "$DOCKET_ID" --event-id "$EVENT_ID" \
+              --actor "$EVALUATOR_ID" --deadline-s "$WATCHDOG_DEADLINE_S" \
+              --run-url "$RUN_URL" || true)"
+            if [ -n "$checkin_out" ]; then
+              # Split without a pipeline: under `pipefail` a broken pipe here
+              # would be the one way a failed check-in could still abort arming.
+              checkin_url="${checkin_out%%$'\n'*}"
+              checkin_base="${checkin_out#*$'\n'}"
+            fi
+          fi
+          # The URL is where a live credential gets sent for the whole deadline,
+          # and it arrived on a stdout this step does not otherwise police — so
+          # it is checked against the one shape it may have before it is handed
+          # over. Anything else is dropped, which costs the telemetry and never
+          # the deadline. (The watchdog follows no redirects either, so the
+          # header cannot be forwarded onward from an accepted host.)
+          case "$checkin_url" in
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*) ;;
+            *)
+              if [ -n "$checkin_url" ]; then
+                echo "::warning::codex watchdog check-in URL was not this repository's; dropped"
+              fi
+              checkin_url=""
+              checkin_base=""
+              ;;
+          esac
+          if [ -n "${GH_TOKEN:-}" ] && [ -z "$checkin_url" ]; then
+            echo "::warning::codex watchdog armed with no off-runner record (${EVENT_ID})"
+          fi
           # The watchdog and its evidence both live outside the workspace: that
           # tree belongs to the agent for the whole of its turn, and bash reads a
           # script file as it executes it.
           cp scripts/engine-watchdog.sh "$RUNNER_TEMP/engine-watchdog.sh"
-          WATCHDOG_OUTPUT_DIR="$sentinel_root" \
+          # `GH_TOKEN=` cleared: the watchdog reads WATCHDOG_CHECKIN_TOKEN and
+          # never `gh`, so the credential need not sit in a process that
+          # outlives this step by the whole deadline twice over.
+          GH_TOKEN='' WATCHDOG_CHECKIN_URL="$checkin_url" \
+            WATCHDOG_CHECKIN_BASE="$checkin_base" \
+            WATCHDOG_OUTPUT_DIR="$sentinel_root" \
             WATCHDOG_SENTINEL_PATHS="$sentinel_paths" \
             nohup bash "$RUNNER_TEMP/engine-watchdog.sh" \
             > "$WATCHDOG_DIR/watchdog.log" 2>&1 &
@@ -1385,12 +1470,12 @@ jobs:
       - name: Evaluate the pinned application-lane record with Codex
         id: repro_codex
         if: ${{ matrix.scenario == 'codex-application-repro' }}
-        # 58, above the 50-minute watchdog deadline and under the 75 this leg's
-        # job is capped at. The work runs 40-50 minutes, so a bound that made
-        # this leg fail *fast* would only ever fail it on healthy work; the
-        # watchdog is what ends a step the runner cannot, and this stays the
-        # backstop for an overrun the runner can.
-        timeout-minutes: 58
+        # 80, above the 70-minute watchdog deadline and under the 90 this leg's
+        # job is capped at. The work has been measured past 50 minutes, so a
+        # bound that made this leg fail *fast* would only ever fail it on
+        # healthy work; the watchdog is what ends a step the runner cannot, and
+        # this stays the backstop for an overrun the runner can.
+        timeout-minutes: 80
         uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
         env:
           COURT_ID: ${{ steps.repro.outputs.court }}
@@ -1459,6 +1544,16 @@ jobs:
       - name: Disarm the engine watchdog
         id: repro_disarm
         if: ${{ always() && matrix.scenario == 'codex-application-repro' }}
+        env:
+          COURT_ID: ${{ steps.repro.outputs.court }}
+          DOCKET_ID: ${{ steps.repro.outputs.docket }}
+          EVENT_ID: ${{ steps.repro.outputs.event }}
+          EVALUATOR_ID: ${{ steps.repro.outputs.evaluator }}
+          RUN_ID: ${{ steps.repro.outputs.run_id }}
+          ENGINE_CONCLUSION: ${{ steps.repro_codex.conclusion }}
+          # The same mint the arm step used, to close the off-runner record out;
+          # env, never argv, for the bundle-dump reason the arm step states.
+          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
         run: |
           set -euo pipefail
           pid_file="$RUNNER_TEMP/engine-watchdog.pid"
@@ -1503,6 +1598,23 @@ jobs:
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           done
+          # Close the off-runner record out with the engine step's conclusion —
+          # the cell workflows' close-out, verbatim. A leg where nothing fired
+          # collapses to a single armed/disarmed line; a marker keeps the live
+          # record expanded, because a reaped or killed step is the reading this
+          # leg exists to produce. Bounded like the arming call, and ahead of
+          # the upload that carries the bundle out.
+          if [ -n "${GH_TOKEN:-}" ]; then
+            healthy_flag=--healthy
+            if [ -f "$bundle/REAPED" ] || [ -f "$bundle/FIRED" ] || [ -f "$bundle/STOOD_DOWN" ]; then
+              healthy_flag=--not-healthy
+            fi
+            timeout 90 uv run fedcourts watchdog-checkin --disarm "$healthy_flag" \
+              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
+              --court "$COURT_ID" --docket "$DOCKET_ID" --event-id "$EVENT_ID" \
+              --actor "$EVALUATOR_ID" --conclusion "${ENGINE_CONCLUSION:-unknown}" \
+              > /dev/null || true
+          fi
 
       # The verdict, stated rather than implied, and stated as **two halves**.
       # The defect is a step that will not conclude after its agent has already
