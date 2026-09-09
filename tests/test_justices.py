@@ -6,6 +6,7 @@ from fedcourtsai.pipeline.justices import (
     KNOWN_SURNAMES,
     SCDB_JUSTICE_SURNAMES,
     normalize_scdb_justice,
+    resolve_surname,
 )
 
 
@@ -58,3 +59,13 @@ def test_every_modern_surname_is_a_single_token() -> None:
     assert all(" " not in surname for surname in ENTRY_SURNAMES)
     assert {"Van Devanter"} == COMPOUND_SURNAMES
     assert KNOWN_SURNAMES == ENTRY_SURNAMES | COMPOUND_SURNAMES
+
+
+def test_resolve_surname_is_case_blind_and_returns_the_roster_spelling() -> None:
+    """Docket entries print in whatever case the order list used."""
+    assert resolve_surname("GORSUCH") == "Gorsuch"
+    assert resolve_surname("gorsuch") == "Gorsuch"
+    assert resolve_surname("O'CONNOR") == "O'Connor"
+    assert resolve_surname("VAN DEVANTER") == "Van Devanter"
+    assert resolve_surname("Stranger") is None
+    assert resolve_surname("") is None

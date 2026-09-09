@@ -16,12 +16,16 @@ Two facts this module is the single home for:
   map is deliberately **many-to-one** (``RHJackson`` and ``KBJackson`` both
   print as "Jackson"): the surname is the published spelling and the *Term*
   disambiguates, which the import's docket-number-plus-Term join already
-  carries. A new appointment adds one row here and nowhere else.
+  carries — and no two same-surname Justices sit in one Term anywhere in this
+  span (the Jacksons are separated by seven decades), so the join can never
+  face a surname it cannot settle. A new appointment adds one row here and
+  nowhere else.
 - **Which surnames span more than one token.** Every modern-span surname is a
-  single space-free token (a test pins this), but the parser must stay correct
-  over the full historical span a vote source can cover, and the Court's one
-  compound surname is Van Devanter's — so :data:`COMPOUND_SURNAMES` names it,
-  and the recital parser resolves a multi-token capture against this set
+  single space-free token (a test pins this); the Court's one compound surname
+  in its whole history is Van Devanter's, so :data:`COMPOUND_SURNAMES` carries
+  it defensively — no current source reaches past the modern span, and the
+  recital parser resolving against this set is what keeps it total if one ever
+  does — and the parser resolves a multi-token capture against the roster
   rather than truncating to the final token.
 """
 
@@ -91,6 +95,25 @@ COMPOUND_SURNAMES: Final[frozenset[str]] = frozenset({"Van Devanter"})
 
 #: Everything the recital parser may resolve a capture against.
 KNOWN_SURNAMES: Final[frozenset[str]] = ENTRY_SURNAMES | COMPOUND_SURNAMES
+
+# Casefolded index for the recital parser: docket entries print surnames in
+# whatever case the order list used (all-caps included), so membership is
+# case-blind while the resolved value is always the roster's own spelling —
+# without this, an all-caps compound surname would split and an all-caps
+# ordinary one would pass through un-normalized.
+_SURNAMES_BY_FOLD: Final[Mapping[str, str]] = MappingProxyType(
+    {surname.casefold(): surname for surname in KNOWN_SURNAMES}
+)
+
+
+def resolve_surname(candidate: str) -> str | None:
+    """The roster's spelling for a printed surname, however the entry cased it.
+
+    ``None`` for a name the roster does not carry — the caller decides its own
+    fallback, because "unknown surname" means different things to a best-effort
+    recital parse (keep the token) and to an import (refuse the row).
+    """
+    return _SURNAMES_BY_FOLD.get(candidate.casefold())
 
 
 def normalize_scdb_justice(justice_name: str) -> str | None:

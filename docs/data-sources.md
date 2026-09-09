@@ -120,18 +120,23 @@ one and is deliberately **not** primary: it reaches only the corpus rows whose
 as the opinion-cluster enrichment backlog (*Pull cadence* below) works through
 the cert-granted slice, not from anything SCDB controls. It stays a confirmation
 path, not the key. Justice names normalize to the **entry-printed surnames** the
-authorship parser already reads — `pipeline.judgment.opinion_author`'s
-vocabulary — rather than to SCDB's justice-name or numeric justice-id variables,
+authorship parser returns — the roster in `pipeline/justices.py` — rather than
+to SCDB's justice-name or numeric justice-id variables,
 so a single spelling serves both the docket-derived authorship recital and any
-imported vote list. The spelling map lives in `pipeline/justices.py`
+imported vote list. The spelling map lives beside the roster
 (`SCDB_JUSTICE_SURNAMES`, the modern-span `justiceName` values verbatim from
 the SCDB online codebook, onto the printed surnames;
 `normalize_scdb_justice` returns `None` for a spelling it does not carry, so
-an import refuses rather than guesses), and the recital parser resolves its
-capture against the same roster — compound surnames included — so the
-normalization target holds in fact. The map is many-to-one where surnames
-repeat across the span (two Jacksons); the docket-number-plus-Term join above
-is what disambiguates, never the name.
+an import would refuse rather than guess), and the recital parser resolves its
+capture case-blind against the map's surnames plus the one compound spelling
+the Court's history holds, so the normalization target holds in fact. The map
+is many-to-one where surnames repeat across the span (two Jacksons, seven
+decades apart — no two same-surname Justices sit in one Term); the
+docket-number-plus-Term join above is what disambiguates, never the name.
+Until the terms above are settled, the hold is mechanical as well as stated:
+`validate`'s `outcome_votes_await_a_registered_source` check refuses any
+committed outcome carrying votes or a provenance block, and the import retires
+it in the PR that registers its source's terms.
 
 Two layers of rights apply, and they are different:
 

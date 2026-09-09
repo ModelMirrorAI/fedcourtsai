@@ -371,20 +371,30 @@ def test_opinion_author_resolves_compound_surnames_without_bleed() -> None:
     """The captured window resolves against the roster, not to the final token.
 
     A compound surname survives whole; a joining word swept into the window is
-    dropped because only the known-surname suffix resolves; and an unknown
-    spelling falls back to the final token — the behaviour a name-shaped
-    stranger always had — rather than reading as absent.
+    dropped because only the known-surname suffix resolves; the roster's own
+    spelling comes back whatever case the entry printed; and an unknown
+    spelling yields its final token rather than reading as absent.
     """
     compound = "Judgment AFFIRMED.  Van Devanter, J., delivered the opinion of the Court."
     assert opinion_author(compound) == "Van Devanter"
     # A window that swept in joining words still resolves to the surname.
     swept = "Judgment AFFIRMED and Gorsuch, J., delivered the opinion of the Court."
     assert opinion_author(swept) == "Gorsuch"
+    # An all-caps order list resolves to the roster spelling — compound
+    # surnames included, which a case-sensitive lookup would split.
+    assert (
+        opinion_author("Judgment AFFIRMED.  GORSUCH, J., delivered the opinion of the Court.")
+        == "Gorsuch"
+    )
+    assert (
+        opinion_author("Judgment AFFIRMED.  VAN DEVANTER, J., delivered the opinion of the Court.")
+        == "Van Devanter"
+    )
     # A sentence boundary cannot bleed into the window: the preceding token
     # carries a period, which is not name-shaped.
     bounded = "Case REMANDED.  Barrett, J., delivered the opinion of the Court."
     assert opinion_author(bounded) == "Barrett"
-    # Unknown-but-name-shaped falls back to the final token, as before.
+    # Unknown-but-name-shaped yields the final token, as the entry printed it.
     unknown = "Judgment AFFIRMED.  Placeholder Stranger, J., delivered the opinion of the Court."
     assert opinion_author(unknown) == "Stranger"
 

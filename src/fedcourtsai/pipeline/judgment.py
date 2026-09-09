@@ -68,7 +68,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .. import corpus
 from ..schemas import Judgment, MeritsTermination
 from .cert_signals import entry_date, proceedings_entries
-from .justices import KNOWN_SURNAMES
+from .justices import resolve_surname
 from .prefetch import prefetch_by_case
 
 # A judgment shape may open the entry or any later sentence of it: the
@@ -347,9 +347,9 @@ PER_CURIAM = "per curiam"
 # recital. The capture is a short window of name-shaped tokens (no periods, so
 # a preceding sentence's "... case REMANDED." can never bleed in) rather than
 # one token, because a surname may span tokens ("Van Devanter"); which suffix
-# of the window is the name is resolved against the committed roster, and an
-# unknown spelling falls back to the final token — the single-token behaviour,
-# so joining words swept into the window ("and Gorsuch") cost nothing.
+# of the window is the name is resolved against the committed roster, so a
+# joining word swept into the window ("and Gorsuch") costs nothing, and an
+# entirely unknown spelling yields its final token — a single-token result.
 # Best-effort by design: a "The Chief Justice delivered ..." spelling parses
 # as absent. Advisory only; nothing stored or scored reads it.
 _AUTHOR_RE = re.compile(
@@ -477,24 +477,25 @@ def grant_term_year(granted: date) -> int:
 def opinion_author(text: str) -> str | None:
     """Best-effort: who delivered the opinion of the Court, from the entry text.
 
-    Returns the Justice's surname exactly as the entry prints it ("Gorsuch",
-    "Van Devanter"), :data:`PER_CURIAM` when the entry marks a per curiam
-    opinion instead, and ``None`` when neither is present. The captured window
-    is resolved to its **longest suffix that is a known surname**
-    (:data:`~fedcourtsai.pipeline.justices.KNOWN_SURNAMES`), so a compound
-    surname survives whole while a joining word swept into the window is
-    dropped; an entirely unrecognized spelling falls back to the window's final
-    token, reading as an unknown-but-name-shaped author rather than as absent.
-    This is what lets the surname spelling here be the normalization target
-    every vote surface shares (the SCDB entry in ``docs/data-sources.md``).
-    Advisory only: nothing stored or scored reads it.
+    Returns the roster's spelling of the Justice's surname ("Gorsuch",
+    "Van Devanter" — whatever case the entry printed it in),
+    :data:`PER_CURIAM` when the entry marks a per curiam opinion instead, and
+    ``None`` when neither is present. The captured window is resolved to its
+    **longest suffix that is a known surname**
+    (:func:`~fedcourtsai.pipeline.justices.resolve_surname`, case-blind), so a
+    compound surname survives whole while a joining word swept into the window
+    is dropped; an entirely unrecognized spelling yields the window's final
+    token as printed, reading as an unknown-but-name-shaped author rather than
+    as absent. This is what lets the surname spelling here be the
+    normalization target every vote surface shares (the SCDB entry in
+    ``docs/data-sources.md``). Advisory only: nothing stored or scored reads
+    it.
     """
     if match := _AUTHOR_RE.search(text):
         tokens = match.group(1).split()
         for start in range(len(tokens)):
-            candidate = " ".join(tokens[start:])
-            if candidate in KNOWN_SURNAMES:
-                return candidate
+            if resolved := resolve_surname(" ".join(tokens[start:])):
+                return resolved
         return tokens[-1]
     if _PER_CURIAM_RE.search(text):
         return PER_CURIAM
