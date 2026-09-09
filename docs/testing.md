@@ -292,7 +292,15 @@ record, both stated where they bind: the mint's credentials live on the `prod`
 environment, so a leg bound elsewhere arms no record and warns; and the token
 lives an hour, so on the deadline path the record may end at its last
 pre-expiry heartbeat — the armed row's fire ETA is what makes that frozen tail
-readable as the deadline path. What must stay well
+readable as the deadline path. Each heartbeat carries the runner's memory
+headroom and load, and a send whose failure diagnosis is new appends what it
+looked like from the runner — the transport and HTTP result, plus a bounded
+probe of the check-in host where the transport itself failed — to the body
+the next landed send uploads whole. What that buys: the resource trajectory
+up to the last landed beat, transport separated from HTTP in every failure,
+and the full failure history on any recovery; a record that stays frozen
+remains ambiguous between a dead watchdog process and a channel that never
+came back, which only a landed later send can split. What must stay well
 inside the job cap is the watchdog, since a job that runs to its cap is
 *cancelled* and GitHub drops a cancelled job's logs. The leg arms the
 **completion sentinel** too, so on a reproduced hang it is the *reap* that

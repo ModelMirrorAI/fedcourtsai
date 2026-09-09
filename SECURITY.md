@@ -186,9 +186,11 @@ runbook, [docs/security.md](docs/security.md).
   mid-wait be read as the deadline path. The agent step is a separate
   step and inherits neither the token nor the process. What it can say is
   narrower than what the published artifact carries: timestamps, phase names,
-  pid numbers, counts and the configured deadline, composed only from the
-  script's own variables and never read back off the agent-writable bundle
-  directory.
+  pid numbers, counts, the configured deadline, kernel-owned resource figures
+  (`/proc/meminfo`, `/proc/loadavg` — readable, not writable, from an agent
+  shell), and the exit codes of the script's own bounded probes of the
+  already-validated check-in host, composed only from sources the agent cannot
+  write and never read back off the agent-writable bundle directory.
   Two residuals, both stated rather than denied. The watchdog runs as the same
   runner user as the agent, so its environment is readable from an agent shell
   exactly as the MCP sidecar's CourtListener token is — the process-level class

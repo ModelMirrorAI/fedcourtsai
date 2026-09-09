@@ -71,10 +71,12 @@
 #                        the engine to a SIGTERM, then the step to the engine's
 #                        death, then the step's tree to its own SIGTERM. Those
 #                        run in sequence, so the deadline plus three of these —
-#                        plus the check-ins, each capped at curl's `--max-time`
-#                        and three of them between the deadline and the first
-#                        signal — is what has to stay inside the step's own
-#                        timeout
+#                        plus the check-ins, three of them between the deadline
+#                        and the first signal, each capped at curl's
+#                        `--max-time` and costing at most one more bounded
+#                        probe when its send fails with the transport (not the
+#                        API) as the diagnosis — is what has to stay inside the
+#                        step's own timeout
 #   WATCHDOG_ARM_SLACK_S  how far before this watchdog a process may have
 #                        started and still be the step it guards
 #   WATCHDOG_MIN_STEP_AGE_S  how long a process must already have been running
@@ -104,12 +106,14 @@
 # bundle below is exactly the evidence a wedge is best placed to destroy. Each
 # state this script passes is also PATCHed onto this cell's comment on the long-lived
 # `codex-watchdog` issue, opened by the arm step before the agent starts. That
-# body is composed **only** from this script's own variables and never from any
-# file: WATCHDOG_DIR is writable by the very agent the watchdog may be about to
-# kill, and a public issue is no place to let it choose what is said. It is
-# stricter than the bundle for the same reason it outlives it — timestamps,
-# phase names, pid numbers, counts and the configured deadline, never argv,
-# never a file listing, never anything the cell read.
+# body is composed **only** from sources the agent cannot write and never from
+# any file of the cell's: WATCHDOG_DIR is writable by the very agent the
+# watchdog may be about to kill, and a public issue is no place to let it
+# choose what is said. It is stricter than the bundle for the same reason it
+# outlives it — timestamps, phase names, pid numbers, counts, the configured
+# deadline, kernel-owned resource figures (/proc/meminfo, /proc/loadavg), and
+# the verdicts of this script's own bounded channel probes; never argv, never
+# a file listing, never anything the cell read.
 #
 # The bundle is published: it rides the cell artifact, which is downloadable by
 # anyone with a GitHub account for its retention window. So it holds shapes and
@@ -200,6 +204,9 @@ clk_tck="$(getconf CLK_TCK 2>/dev/null || echo 100)"
 checkin_url="${WATCHDOG_CHECKIN_URL:-}"
 checkin_token="${WATCHDOG_CHECKIN_TOKEN:-}"
 checkin_body="${WATCHDOG_CHECKIN_BASE:-}"
+# The last failed send's diagnosis, so a run of identical failures writes one
+# line rather than one per beat; cleared by any send that lands.
+last_send_failure=""
 # Long enough that an ordinary hour-plus wait costs on the order of a dozen
 # API calls,
 # short enough that a maintainer reading mid-round can tell a live watchdog from
@@ -227,13 +234,42 @@ unset _knob _value
 stamp() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 log() { echo "[$(stamp)] watchdog: $*"; }
 
+# The runner's headroom at the moment of a line, carried on the line itself:
+# runner-local accounts (this log included) drop when a hosted runner dies, so
+# a resource trajectory is only ever readable off the runner, one beat at a
+# time. Missing /proc reads degrade to `?` rather than to a failed beat.
+vitals() {
+  local mem="" load=""
+  [ -r /proc/meminfo ] && mem="$(awk '/^MemAvailable:/ {print int($2/1024); exit}' /proc/meminfo 2>/dev/null)"
+  [ -r /proc/loadavg ] && load="$(cut -d' ' -f1 /proc/loadavg 2>/dev/null)"
+  printf 'mem_avail_mb=%s load1=%s' "${mem:-?}" "${load:-?}"
+}
+
+# What a transport failure looked like from here: one bounded, unauthenticated,
+# body-discarded request to the check-in host (the arm step already validated
+# that URL against the one accepted shape), whose exit code separates the
+# diagnoses a dead channel can have — name resolution (6), connect (7),
+# timeout (28) — without a resolver call of its own, because the resolver path
+# is the one leg with no timeout of its own and this only ever runs when the
+# network is already suspect. Single call, `--max-time` bounded: a dead
+# network costs seconds here, never a late kill.
+channel_probe() {
+  local host rc=0
+  host="${checkin_url#*://}"
+  host="${host%%/*}"
+  curl --max-time 5 --silent --output /dev/null \
+    --url "${checkin_url%%://*}://${host}/" 2>/dev/null || rc=$?
+  printf 'probe_exit=%s' "$rc"
+}
+
 # Append one stamped line to the off-runner record and re-PATCH the whole of it.
 #
 # The whole body every time, because a comment has no append operation — and
 # accumulating it in a variable is also what keeps the payload composed from
 # this script alone. Bounded three ways so this can never become the reason a
-# kill is late: curl's own `--max-time`, an unconditional `|| true`, and the
-# no-op when the arm step handed over no URL or token.
+# kill is late: curl's own `--max-time` (on the send and on the at-most-one
+# probe a newly failing transport buys), the swallowed exit and unconditional
+# `return 0`, and the no-op when the arm step handed over no URL or token.
 #
 # The token reaches curl through a config file on a pipe, never as an argument:
 # `capture_runner_state` below dumps every argument of every process this user
@@ -259,14 +295,40 @@ checkin() {
     return 0
   fi
   [ -n "$payload" ] || return 0
-  if ! curl --max-time 10 --silent --output /dev/null \
+  # The HTTP status is read out rather than folded into curl's exit code: a
+  # 401 from an expired token and a transport that never reached the host are
+  # different diagnoses, and the send-failed line is where a maintainer reads
+  # which one this was.
+  local send_rc=0 http_code=""
+  http_code="$(curl --max-time 10 --silent --output /dev/null \
+    --write-out '%{http_code}' \
     --request PATCH \
     --header "Accept: application/vnd.github+json" \
     --header "X-GitHub-Api-Version: 2022-11-28" \
     --config <(printf 'header = "Authorization: Bearer %s"\n' "$checkin_token") \
     --data-binary @- \
-    --url "$checkin_url" <<<"$payload" 2>/dev/null; then
-    log "the off-runner check-in did not land"
+    --url "$checkin_url" <<<"$payload" 2>/dev/null)" || send_rc=$?
+  if [ "$send_rc" -eq 0 ] && [ "${http_code:0:1}" = "2" ]; then
+    last_send_failure=""
+    return 0
+  fi
+  local failure="curl_exit=${send_rc} http=${http_code:-none}"
+  log "the off-runner check-in did not land (${failure})"
+  # One line per *diagnosis*, not per failure: the body already carries every
+  # line whose send failed, so a run of identical failures is readable from
+  # the stamps between two send-failed lines, and a repeat would only bulk the
+  # body — which matters on the expected path where the token's hour has
+  # lapsed and every remaining send 401s by design. The probe runs only when
+  # the transport itself failed: an HTTP status in hand proves the host was
+  # reached, and re-asking costs seconds on the pre-kill path.
+  if [ "$failure" != "$last_send_failure" ]; then
+    last_send_failure="$failure"
+    local diagnosis="$failure"
+    if [ "$send_rc" -ne 0 ] || [ -z "$http_code" ] || [ "$http_code" = "000" ]; then
+      diagnosis="${diagnosis} $(channel_probe)"
+    fi
+    # Appended to the body, not sent now: the next send that lands carries it.
+    checkin_body="${checkin_body}"$'\n'"[$(stamp)] send-failed: ${diagnosis} $(vitals)"
   fi
   return 0
 }
@@ -771,7 +833,7 @@ quiesce_ref="$(mktemp 2>/dev/null)" || quiesce_ref=""
 trap '[ -n "$quiesce_ref" ] && rm -f "$quiesce_ref"' EXIT
 
 log "armed; firing in ${deadline_s}s unless disarmed"
-checkin "watching: deadline_s=${deadline_s} poll_s=${poll_s} grace_s=${step_grace_s}"
+checkin "watching: deadline_s=${deadline_s} poll_s=${poll_s} grace_s=${step_grace_s} $(vitals)"
 if [ "${#sentinel_paths[@]}" -eq 0 ]; then
   log "no completion sentinel was configured; the deadline is the only bound"
   checkin "sentinel: disabled (no required outputs were handed over)"
@@ -786,18 +848,23 @@ else
   checkin "sentinel: armed on ${#sentinel_paths[@]} required output(s), quiesce_s=${quiesce_s}"
 fi
 
+# Wall clock, not poll counting: every second a check-in spends on a dead
+# network would otherwise be pure drift on the fire time, and the drift is
+# paid exactly in the scenario the deadline exists for. Derived each pass, so
+# no amount of telemetry latency can move the fire past the step's cap.
+wait_started_epoch="$(date +%s)"
+last_beat_epoch="$wait_started_epoch"
 elapsed=0
-since_beat=0
 while [ "$elapsed" -lt "$deadline_s" ]; do
   sleep "$poll_s"
-  elapsed=$((elapsed + poll_s))
-  since_beat=$((since_beat + poll_s))
+  now_epoch="$(date +%s)"
+  elapsed=$((now_epoch - wait_started_epoch))
   # A beat is how a maintainer tells a watchdog that is still counting from one
   # whose runner was cancelled out from under it — the difference the whole
   # off-runner channel exists to make readable.
-  if [ "$heartbeat_s" -gt 0 ] && [ "$since_beat" -ge "$heartbeat_s" ]; then
-    since_beat=0
-    checkin "waiting: elapsed=${elapsed}s of ${deadline_s}s${sentinel_at:+ sentinel_at=${sentinel_at}}"
+  if [ "$heartbeat_s" -gt 0 ] && [ $((now_epoch - last_beat_epoch)) -ge "$heartbeat_s" ]; then
+    last_beat_epoch="$now_epoch"
+    checkin "waiting: elapsed=${elapsed}s of ${deadline_s}s${sentinel_at:+ sentinel_at=${sentinel_at}} $(vitals)"
   fi
   # Completeness is re-asked every poll, including after the sentinel has been
   # seen: an agent that goes back and rewrites a file leaves it briefly absent or

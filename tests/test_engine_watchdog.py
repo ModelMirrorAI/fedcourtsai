@@ -34,6 +34,7 @@ import contextlib
 import json
 import os
 import re
+import socket
 import subprocess
 import threading
 import time
@@ -990,9 +991,14 @@ class CheckinSink:
     token reaches the header and nowhere else.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, fail_first: int = 0) -> None:
         self.bodies: list[str] = []
         self.auth: list[str] = []
+        # PATCHes answered 500 instead of recorded, so a test can drive the
+        # HTTP-failure half of a send: curl exits 0 on an HTTP error, and what
+        # the watchdog does with that status is a behavior of its own.
+        self.rejected: list[str] = []
+        self._fail_first = fail_first
         sink = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -1001,6 +1007,13 @@ class CheckinSink:
             def do_PATCH(self) -> None:
                 length = int(self.headers.get("Content-Length") or 0)
                 payload = json.loads(self.rfile.read(length) or b"{}")
+                if len(sink.rejected) < sink._fail_first:
+                    sink.rejected.append(str(payload.get("body", "")))
+                    self.send_response(500)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(b"{}")
+                    return
                 sink.bodies.append(str(payload.get("body", "")))
                 sink.auth.append(self.headers.get("Authorization") or "")
                 self.send_response(200)
@@ -1084,6 +1097,10 @@ def test_the_watchdog_reports_every_state_off_the_runner(tmp_path: Path) -> None
         # A beat while it waits, which is what separates a live watchdog from
         # one whose runner was cancelled out from under it.
         assert any(line.startswith("waiting: elapsed=") for line in phases)
+        # Both carry the runner's headroom: the record is the only account of
+        # a resource trajectory that survives the runner.
+        assert any(line.startswith("watching:") and "mem_avail_mb=" in line for line in phases)
+        assert any(line.startswith("waiting:") and "load1=" in line for line in phases)
         # The deaf fixtures force both escalations, and both are reported.
         assert any("SIGKILL issued" in line for line in phases)
 
@@ -1111,14 +1128,109 @@ def test_the_watchdog_reports_every_state_off_the_runner(tmp_path: Path) -> None
             engine.wait(timeout=10)
 
 
+def test_a_failed_send_rides_the_next_landed_send(tmp_path: Path) -> None:
+    """An HTTP failure is read out, recorded once per diagnosis, delivered late.
+
+    curl exits 0 on an HTTP error, so a 500 — or the 401 every deadline-path
+    codex cell is expected to meet once its token's hour lapses — used to read
+    as a landed send. The failure appends a `send-failed:` line to the
+    accumulated body instead: one line per *diagnosis* rather than per failure
+    (the stamps between two such lines already say how long a diagnosis held),
+    no channel probe when the status itself proves the transport reached the
+    host, and the next send that lands uploads the whole history.
+    """
+    marker = f"fedcourts-watchdog-engine-{os.getpid()}"
+    engine = _named(marker, DEAF)
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", DEAF + "\n")
+    sink = CheckinSink(fail_first=2)
+    try:
+        done = _run(
+            tmp_path / "engine-watchdog",
+            marker,
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            grace_s="4",
+            checkin_url=sink.url,
+            checkin_base=CHECKIN_BASE,
+            heartbeat_s="1",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert engine.wait(timeout=60) != 0
+        assert _await(lambda: _gone(tree.step_pid))
+
+        assert len(sink.rejected) == 2, "the sink did not refuse the first two sends"
+        phases = _phases(sink.bodies)
+        failed = [line for line in phases if line.startswith("send-failed:")]
+        # Two consecutive identical 500s are one diagnosis, so one line.
+        assert len(failed) == 1, failed
+        assert failed[0].startswith("send-failed: curl_exit=0 http=500"), failed
+        # An HTTP status in hand proves the host was reached: no probe.
+        assert "probe_exit=" not in failed[0]
+        assert "mem_avail_mb=" in failed[0]
+        # The late-delivered record still opens with the whole armed base, and
+        # the check-in host never enters what the record says.
+        assert all(body.startswith(CHECKIN_BASE) for body in sink.bodies)
+        assert "127.0.0.1" not in sink.bodies[-1][len(CHECKIN_BASE) :]
+    finally:
+        sink.close()
+        tree.close()
+        if engine.poll() is None:  # pragma: no cover - only on a failed kill
+            engine.kill()
+            engine.wait(timeout=10)
+
+
+def test_a_dead_channel_cannot_delay_the_deadline(tmp_path: Path) -> None:
+    """Every send refused at the socket: the fire still lands on the wall clock.
+
+    The probe path runs exactly when the network is dead, so its cost has to
+    be bounded — at most one `--max-time`'d request per new diagnosis — and
+    the deadline is derived from the wall clock rather than counted in polls,
+    so no amount of telemetry latency can move the fire toward the step cap
+    whose kill would cancel the job and drop the record.
+    """
+    with socket.socket() as placeholder:
+        placeholder.bind(("127.0.0.1", 0))
+        closed_port = placeholder.getsockname()[1]
+    marker = f"fedcourts-watchdog-engine-{os.getpid()}"
+    engine = _named(marker, DEAF)
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", DEAF + "\n")
+    started = time.monotonic()
+    try:
+        done = _run(
+            tmp_path / "engine-watchdog",
+            marker,
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            grace_s="4",
+            checkin_url=f"http://127.0.0.1:{closed_port}/issues/comments/1",
+            checkin_base=CHECKIN_BASE,
+            heartbeat_s="1",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert engine.wait(timeout=60) != 0
+        assert _await(lambda: _gone(tree.step_pid))
+        # A refused connect is curl exit 7, and it is said locally even though
+        # nothing can land off the runner.
+        assert "the off-runner check-in did not land (curl_exit=7" in done.stdout
+        # Well under the budget a per-send stall would blow: the 3s deadline
+        # plus the graces and kill escalations, not the ~dozen failed sends.
+        assert time.monotonic() - started < 60
+    finally:
+        tree.close()
+        if engine.poll() is None:  # pragma: no cover - only on a failed kill
+            engine.kill()
+            engine.wait(timeout=10)
+
+
 def test_the_off_runner_payload_is_stricter_than_the_published_bundle(tmp_path: Path) -> None:
-    """Counts, pids, phases and timestamps — never argv, never a path, never the token.
+    """Counts, pids, phases, timestamps, kernel-owned vitals and probe exit
+    codes — never argv, never a path, never the token.
 
     The bundle rides a cell artifact and expires with it; this comment sits on a
     public issue forever, so it takes the harder rule. It is composed only from
-    the script's own variables for the same reason: WATCHDOG_DIR is writable by
-    the very agent the watchdog may be about to kill, and a body read back off
-    that directory would let the agent choose what a public issue says.
+    sources the agent cannot write — the script's own variables, plus
+    /proc/meminfo and /proc/loadavg — for the same reason: WATCHDOG_DIR is
+    writable by the very agent the watchdog may be about to kill, and a body
+    read back off that directory would let the agent choose what a public
+    issue says.
 
     Driven with the sentinel armed, because the sentinel is the newest way for
     file-derived text to reach the record: it is handed a list of paths and it
