@@ -61,6 +61,7 @@ on:
           - response-backfill
           - ocr-recovery
           - document-backfill
+          - mirror-stored-documents
           - arrival-backfill
           - merits-phantom-removal
           - disposition-convergence
@@ -161,6 +162,8 @@ jobs:
             document-backfill)
               bound_flag="--max-cases"; bound_required_on_apply=1
               bound_read_on_dry_run=1 ;;
+            mirror-stored-documents)
+              bound_flag="--max-cases"; bound_required_on_apply=1 ;;
             arrival-backfill)
               bound_flag="--max-fills"; bound_required_on_apply=1 ;;
             merits-phantom-removal)
@@ -310,7 +313,7 @@ jobs:
     # pass reaches them only by being named here. A deny-list would hand every
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
-    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) }}
+    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) }}
     # Join the repo-wide corpus-writer lock: one writer at a time across
     # run-pull, run-seed and this bench. cancel-in-progress:false so a
     # dispatch queues behind a running window rather than cancelling it.
@@ -322,7 +325,7 @@ jobs:
     # run's own real pass — before ever being skipped. The condition is the
     # `if:` above, repeated because no context available here can hold it once.
     concurrency:
-      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     # Headroom over the longest chain of capped steps a dispatch can run, which
@@ -1092,6 +1095,19 @@ jobs:
             grep -h '^{"applied"' "$1" | tail -n 1 \
               | uv run python -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$2"
           }
+          # The summary is capped: GitHub errors the file command past 1 MiB,
+          # and this pass's ledgers name whole classes — the dry run's, the
+          # largest, is exactly the one the apply's bound is read off. The head
+          # reaches the summary; the full ledger is already in the step log
+          # through the `cat` beside each call.
+          summarize() {
+            head -n 60 "$1" >> "$GITHUB_STEP_SUMMARY"
+            local total
+            total=$(wc -l < "$1")
+            if [ "$total" -gt 60 ]; then
+              echo "… $((total - 60)) more line(s) in the step log" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
           expected="$(ledger_field /tmp/ocr-apply.txt remaining)"
           found="$(ledger_field /tmp/ocr-verify.txt candidates)"
           # A slice that started nothing converges, pushes nothing and exits
@@ -1206,6 +1222,19 @@ jobs:
           ledger_field() {
             grep -h '^{"applied"' "$1" | tail -n 1 \
               | uv run python -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$2"
+          }
+          # The summary is capped: GitHub errors the file command past 1 MiB,
+          # and this pass's ledgers name whole classes — the dry run's, the
+          # largest, is exactly the one the apply's bound is read off. The head
+          # reaches the summary; the full ledger is already in the step log
+          # through the `cat` beside each call.
+          summarize() {
+            head -n 60 "$1" >> "$GITHUB_STEP_SUMMARY"
+            local total
+            total=$(wc -l < "$1")
+            if [ "$total" -gt 60 ]; then
+              echo "… $((total - 60)) more line(s) in the step log" >> "$GITHUB_STEP_SUMMARY"
+            fi
           }
           # A modern docket whose opening filing matched no entry is not a floor
           # but a selector regression — the class this pass exists to stop
@@ -1336,6 +1365,153 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "document backfill pointer"
 
+      # Mirror to the content store the document text that reached only the blob.
+      # Under the corpus split the per-case store is the system of record for
+      # documents and every production read is served from it, so a case whose
+      # text was written before the store existed has intact rows in the blob's
+      # `documents` table and no objects under its store prefix: provisioning,
+      # the questions-presented derivations and the QP-topic labeling pack all
+      # serve nothing for it. No fetching lane
+      # repairs that — the poller re-fetches a kind only when its link changes,
+      # and these kinds are already stored — and the gap does not grow either,
+      # since a document written under the split mirrors at upsert.
+      #
+      # Unlike the OCR recovery and the document back-fill this one reaches NO
+      # upstream host at all: its inputs are the blob's own rows and its writes
+      # are content-store PUTs, so it costs store round trips rather than paced
+      # GETs against the Court. Its bound is a slice size all the same — a
+      # manifest read and a PUT per document for every case in it — so the class
+      # clears across dispatches. It is the one slice bound that is APPLY-ONLY:
+      # the dry run has to enumerate the whole population, because that ledger is
+      # what the bound is read off, and the command refuses a bound without an
+      # apply rather than silently ignoring it.
+      #
+      # Its writes land in the content store and never in the blob, so the
+      # pointer cannot witness them and an unchanged one is reported rather than
+      # failed. Two witnesses instead: the pass re-probes every case it mirrors
+      # (the store writer is best-effort and swallows its failures, so a slice
+      # that wrote nothing would otherwise read exactly like one that worked),
+      # and the walk-only re-read below requires the class the apply's ledger
+      # said it would leave.
+      - name: Mirror blob-only documents to the content store
+        if: ${{ inputs.repair == 'mirror-stored-documents' && steps.dedupe-live-rows.outcome == 'success' }}
+        # One store listing per case in the population, and on an apply TWO full
+        # walks — the pass's own probe and the witness re-read below, which is an
+        # entire second dry run — plus, per case in the slice, a manifest read,
+        # a PUT per document, the manifest PUT, and the re-probe listing. No
+        # upstream fetch and no politeness pacing, so the walks are the bulk of
+        # it and the slice adds in proportion to the bound.
+        #
+        # Unlike both slice-bounded siblings this pass takes no
+        # `--deadline-seconds`, because nothing it does is paced and a store
+        # listing has no per-case cost to estimate: this cap is the only wall
+        # clock, and the bound is what the maintainer sizes against it. A cap hit
+        # keeps whatever the store already took — the PUTs are idempotent and an
+        # unverified case stays at the head of the class — but loses the apply's
+        # ledger, which is redirected to a file and tee'd only once the command
+        # returns.
+        timeout-minutes: 25
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # Validate the bound before anything else, including the corpus guard:
+          # a dispatch that cannot legally apply should say so in seconds, not
+          # after a full-population probe of the content store. `Validate the
+          # repair selector` duplicates it word for word so a bad dispatch dies
+          # before any credential is minted; this copy is the one of record,
+          # because the step has to be safe on whatever reaches it. The refusal
+          # names the pass through `${REPAIR}` rather than a literal so the two
+          # copies are identical as text, not merely equivalent once expanded.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to mirror from.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the document mirror"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Read off the machine-readable ledger each run prints last, rather
+          # than off the prose above it: the field name is passed as an argument
+          # so nothing from a file is interpolated into the program.
+          ledger_field() {
+            grep -h '^{"applied"' "$1" | tail -n 1 \
+              | uv run python -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$2"
+          }
+          # The summary is capped: GitHub errors the file command past 1 MiB,
+          # and this pass's ledgers name whole classes — the dry run's, the
+          # largest, is exactly the one the apply's bound is read off. The head
+          # reaches the summary; the full ledger is already in the step log
+          # through the `cat` beside each call.
+          summarize() {
+            head -n 60 "$1" >> "$GITHUB_STEP_SUMMARY"
+            local total
+            total=$(wc -l < "$1")
+            if [ "$total" -gt 60 ]; then
+              echo "… $((total - 60)) more line(s) in the step log" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+          # The dry run is unbounded by construction — it enumerates the whole
+          # population, and that ledger is what the apply's bound is read off, so
+          # `repair_bound` is not forwarded here and the command refuses it.
+          #
+          # Its stdout goes to a file for the reason the apply's does: the
+          # ledger's last line is JSON read back as data, and a merged stream can
+          # interleave a log line into it once the untruncated per-case list runs
+          # past a pipe buffer.
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            uv run fedcourts mirror-stored-documents > /tmp/mirror-dry.txt
+            cat /tmp/mirror-dry.txt
+          summarize /tmp/mirror-dry.txt
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts mirror-stored-documents --apply \
+            --max-cases "${REPAIR_BOUND}" > /tmp/mirror-apply.txt
+          cat /tmp/mirror-apply.txt
+          summarize /tmp/mirror-apply.txt
+          # A case the store did not take exits green: the pass reports it
+          # `unverified`, subtracts it from nothing, and the convergence check
+          # below still passes because the apply's own `remaining` already
+          # counted it. That is the one shape of this pass a reader can miss, so
+          # ANY unverified case is annotated — not only a slice that verified
+          # nothing, which would stay silent on a run that lost half its writes.
+          if [ "$(ledger_field /tmp/mirror-apply.txt unverified)" != "[]" ]; then
+            echo "::warning::the slice mirrored cases the store then served nothing for: $(ledger_field /tmp/mirror-apply.txt unverified). The write was withheld, failed, or landed without its manifest. Check the store address and the role's write access rather than re-dispatching; those cases stay at the head of the class."
+          fi
+          # The witness. The apply's ledger states the class it expects to leave
+          # behind, and a re-read must find exactly that: the store writer is
+          # best-effort, so a failed PUT leaves the case in the class and nothing
+          # in the pointer commit below would ever notice. The dry run IS the
+          # walk-only reading here — it writes nothing and takes no slice.
+          uv run fedcourts mirror-stored-documents > /tmp/mirror-verify.txt
+          cat /tmp/mirror-verify.txt
+          summarize /tmp/mirror-verify.txt
+          expected="$(ledger_field /tmp/mirror-apply.txt remaining)"
+          found="$(ledger_field /tmp/mirror-verify.txt absent)"
+          if [ "${found}" != "${expected}" ]; then
+            echo "::error::apply did not converge — the re-read finds ${found} case(s) with no stored documents where the apply's ledger left ${expected} (a content-store write may have failed; see the warnings above)"
+            exit 1
+          fi
+          # Blob before pointer commit, as everywhere. This pass writes only to
+          # the content store — the blob's own rows are read and never touched —
+          # so the index comes back byte-identical on every ordinary run and an
+          # unchanged pointer is reported rather than failed.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Mirrored documents are in the content store; the index pointer is unchanged."
+            exit 0
+          fi
+          git commit -m "repair: mirror blob-only documents to the content store"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "document mirror pointer"
+
       # Re-derive the interim baseline's arrival stamp. An interim event's
       # `opened_at` is the moment it declares — the day the application was
       # submitted to a Justice — and it is where provisioning cuts, so what is
@@ -1454,7 +1630,7 @@ jobs:
             --max-fills "${REPAIR_BOUND}" > /tmp/arrival-apply.txt 2>&1
           summarize /tmp/arrival-apply.txt
           # Blob before pointer commit, as everywhere. The index is where
-          # `events.opened_at` lives, so unlike the two document passes the
+          # `events.opened_at` lives, so unlike the three document passes the
           # pointer moving IS the witness that the write landed.
           uv run fedcourts corpus-push
           git add corpus/corpus.db.ref

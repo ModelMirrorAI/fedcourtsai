@@ -1,6 +1,6 @@
 """`run-repair`'s embedded CLI strings, executed against the fixture corpus.
 
-`run-repair.yml` is dispatch-only, so its twelve maintenance passes are argv that
+`run-repair.yml` is dispatch-only, so its thirteen maintenance passes are argv that
 nothing runs until a maintainer runs one — in front of the maintainer, at the
 moment they most want it to work. A flag renamed in `cli.py` leaves the workflow
 string behind, and the whole cost of that drift lands on the dispatch as a usage
@@ -29,6 +29,7 @@ The passes' own semantics are pinned at their unit seams
 `tests/test_attribution_migration.py`, `tests/test_disposition_convergence.py`,
 `tests/test_sampled_frame_repair.py`, `tests/test_documents.py`,
 `tests/test_document_backfill.py`,
+`tests/test_document_mirror.py`,
 `tests/test_arrival_backfill.py` and
 `tests/test_cli_stamp.py`), which is why a
 near-empty fixture corpus is enough here — a pass with nothing to do still
@@ -37,6 +38,7 @@ parses every flag it was given.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -51,6 +53,7 @@ from fedcourtsai.pipeline.document_backfill import (
     DocumentBackfillResult,
     estimated_candidate_seconds,
 )
+from fedcourtsai.pipeline.document_mirror import DocumentMirrorResult
 from fedcourtsai.pipeline.ocr_recovery import (
     DOCUMENT_BUDGET_SECONDS,
     ESTIMATED_CANDIDATE_OVERHEAD_SECONDS,
@@ -105,6 +108,12 @@ BENIGN_REFUSALS = {
     # Reaching it is also what keeps this pass's argv offline here — the refusal
     # fires on the walk, before a candidate, a docket fetch or a client exists.
     "backfill-documents": "no predict-relevant live-slice rows",
+    # And a fourth, from the blob's own `documents` table: the store mirror reads
+    # that table directly, and the fixture writes no document rows at all, so it
+    # is the wrong blob rather than a converged class. Reaching that refusal is
+    # also what keeps this pass's argv offline here — it fires on the SQL read,
+    # before a content-store probe or a mirror write.
+    "mirror-stored-documents": "no document rows",
 }
 
 
@@ -500,6 +509,46 @@ def test_the_document_backfills_witness_reads_the_ledger_fields_its_pass_writes(
     )
 
 
+def test_the_store_mirrors_witness_reads_the_ledger_fields_its_pass_writes() -> None:
+    """The mirror's convergence check and alarm name fields the result model has.
+
+    Same seam as the document back-fill's witness above, and the same cost if it
+    drifts: the step reads its verdict out of the ledger by field name in a shell
+    `grep`/`json` pipeline no type checker sees, so a renamed field turns the one
+    run that was going to prove the writes landed into a `KeyError`. It matters
+    more here than there, because this pass's writer swallows its own failures —
+    the ledger is the *only* place a withheld write is ever reported.
+    """
+    (step,) = [
+        step
+        for step in _steps_for("mirror-stored-documents")
+        if "ledger_field" in str(step.get("run", ""))
+    ]
+    read = set(re.findall(r"ledger_field /tmp/[a-z-]+\.txt ([a-z_]+)", str(step["run"])))
+    assert read, "the witness reads no ledger field; this test now covers nothing"
+    assert read <= set(DocumentMirrorResult.model_fields), (
+        f"the witness reads ledger field(s) the pass does not write: "
+        f"{sorted(read - set(DocumentMirrorResult.model_fields))}"
+    )
+
+
+def test_the_store_mirrors_dry_run_is_never_handed_a_bound() -> None:
+    """Its dry run enumerates the whole population, and the CLI refuses a bound.
+
+    The two halves are written in different languages — a `repair_bound` the step
+    chooses not to forward, and an exit-2 refusal in `cli.py` — so a step that
+    started forwarding it would turn every dry-run dispatch into a usage error,
+    after the corpus-write lock had been taken. Pinned where the choice is made.
+    """
+    (step,) = _steps_for("mirror-stored-documents")
+    bounded = [
+        argv
+        for argv in command_argv(str(step["run"]), FEDCOURTS)
+        if "--max-cases" in argv and "--apply" not in argv
+    ]
+    assert not bounded, f"the store mirror's dry run is handed a bound: {bounded}"
+
+
 def test_the_regrade_dry_run_preview_names_the_argv_it_would_run() -> None:
     """A dry-run re-grade invokes nothing — it echoes what an apply would run.
 
@@ -578,3 +627,22 @@ def test_the_qp_convergence_grep_matches_a_converged_run(tmp_path: Path) -> None
             f"wording drifted, or the apply no longer converges (the counts are in "
             f"the output above)"
         )
+
+
+def test_the_writer_jobs_two_selector_allow_lists_agree() -> None:
+    """The credential gate and the corpus-write lock name one set of passes.
+
+    The writer job's `if:` and its concurrency group hold two hand-maintained
+    copies of the same pass list, and drift is dangerous in exactly one
+    direction: a pass named in the credential gate but missing from the lock
+    expression gets a throwaway concurrency group and writes the shared corpus
+    beside run-pull/run-seed, defeating the single-writer discipline the
+    pointer commit rests on. Both lists must also stay inside the dispatch
+    input's own vocabulary, or a listed pass is unreachable.
+    """
+    text = RUN_REPAIR.read_text()
+    lists = re.findall(r"contains\(fromJSON\('(\[[^']+\])'\)", text)
+    assert len(lists) == 2, f"expected the writer job's two allow-lists, found {len(lists)}"
+    gate, lock = (json.loads(found) for found in lists)
+    assert gate == lock, "the credential gate and the corpus-write lock have drifted apart"
+    assert set(gate) <= set(_passes()), "an allow-listed pass is not a dispatchable option"
