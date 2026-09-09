@@ -165,7 +165,12 @@ runbook, [docs/security.md](docs/security.md).
   account rides the artifact it uploads; the off-runner record is load-bearing
   only where the escalation fails to end the step at all and the job cap cancels
   the runner regardless — the deadline path, which codex is the one engine to
-  have taken. Minting for every engine
+  have taken. The mint therefore lives on the codex cells of `run-predict` /
+  `run-evaluate` and on the integration suite's application-repro leg — itself
+  a codex cell against a pinned record, and the one place a deadline kill has
+  been observed to cancel the whole job — on identical terms: issues-only,
+  step-scoped in distribution, failing soft, never reaching the agent step.
+  Minting for every engine
   would place an issues:write token in every cell of every round to buy a record
   for a failure no other engine has shown. Everything it is used for is
   that one tracking issue, found-or-created under a non-triggering label, and
@@ -173,7 +178,12 @@ runbook, [docs/security.md](docs/security.md).
   comment. It is step-scoped in *distribution* rather than in lifetime — an
   installation token stays valid for its App's window, and this one is
   deliberately handed to a process that outlives the step that minted it — and
-  no step but the arm and disarm ones receives it. The agent step is a separate
+  no step but the arm and disarm ones receives it. The App window is also the
+  record's own bound: the detached watchdog cannot re-mint, so on a deadline
+  set past the token's hour — which the codex deadlines are, so that healthy
+  work is never killed — the check-ins issued at the fire itself fail soft,
+  and the armed row's deadline and fire ETA are what let a record frozen
+  mid-wait be read as the deadline path. The agent step is a separate
   step and inherits neither the token nor the process. What it can say is
   narrower than what the published artifact carries: timestamps, phase names,
   pid numbers, counts and the configured deadline, composed only from the

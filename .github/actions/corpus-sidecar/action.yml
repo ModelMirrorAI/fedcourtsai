@@ -41,6 +41,21 @@ inputs:
       half of its read configuration.
     required: false
     default: ""
+  role-duration-seconds:
+    description: >-
+      Credential lifetime for the assumed role, in seconds; the default is the
+      OIDC default hour, stated explicitly. The sidecar holds these
+      credentials statically for the whole job — boto3 cannot refresh them —
+      so a job whose cell can still be querying the corpus past this window
+      gets ExpiredToken mid-cell, after the work and with an error naming the
+      wrong cause. A caller whose engine step bound outlasts the hour must
+      pass a value covering it. A value above 3600 also needs the read-only
+      role's IAM maximum session duration to allow it (the long-reading
+      callers already assume this role for far longer); an excess request
+      fails at the assume step inside its 120s action timeout, not at the
+      hour mark.
+    required: false
+    default: "3600"
 
 outputs:
   aws-access-key-id:
@@ -72,6 +87,7 @@ runs:
       with:
         role-to-assume: ${{ inputs.role-to-assume }}
         aws-region: ${{ inputs.aws-region }}
+        role-duration-seconds: ${{ inputs.role-duration-seconds }}
         output-credentials: true
         output-env-credentials: false
         # Bound the assume-role wall clock: unbounded, its 12 retries over a

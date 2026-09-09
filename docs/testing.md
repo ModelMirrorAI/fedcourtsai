@@ -96,8 +96,9 @@ manual workflow dispatch, never on every iteration.
 That infrastructure has a dedicated path:
 [`integration-test.yml`](../.github/workflows/integration-test.yml) (manual
 dispatch plus one daily canary, read-only role — the collect scenario none at
-all — strictly
-side-effect free) runs one scenario per dispatch, or — `scenario=all` — the
+all — side-effect
+free but for the application-repro leg's watchdog telemetry row) runs one
+scenario per dispatch, or — `scenario=all` — the
 promotion gate's whole required suite as one run (every required scenario, with
 engine-smoke and engine-actions-smoke once per engine each, so three cells'
 token spend plus three boot probes; collect rides the
@@ -276,19 +277,30 @@ Three properties are the family's, not this member's. The record is **pinned in
 the scenario's own steps**, not taken from the `court`/`docket` inputs: the
 record is what the scenario is, and a dispatcher who could re-point it could
 make a red leg mean something else. The bounds sit **above the work envelope**
-— a 50-minute watchdog deadline inside a 58-minute step backstop inside a
-75-minute job cap for this leg, against a judge cell on this record shape that
-runs 40–50 minutes — because the defect being reproduced begins only *after*
-the agent finishes: a tighter bound would kill a healthy mid-grading cell and
-never reach the teardown phase the leg exists to observe. What must stay well
+— a 70-minute watchdog deadline inside an 80-minute step backstop inside a
+95-minute job cap for this leg, against a judge cell on this record shape that
+runs 40–50 minutes on production cells and has been observed still mid-work
+past 50 on this leg — because the defect being reproduced begins only *after*
+the agent finishes: a bound inside the envelope kills a healthy mid-grading
+cell and never reaches the teardown phase the leg exists to observe, and the
+deadline kill can end the whole *job*, which skips the disarm and upload tail
+and drops the log. That is also why the leg arms the **off-runner record** the
+production codex cells keep — the comment-only telemetry channel on the
+`codex-watchdog` issue — so a deadline path that destroys every runner-local
+account still leaves one a cancelled job cannot erase. Two bounds on that
+record, both stated where they bind: the mint's credentials live on the `prod`
+environment, so a leg bound elsewhere arms no record and warns; and the token
+lives an hour, so on the deadline path the record may end at its last
+pre-expiry heartbeat — the armed row's fire ETA is what makes that frozen tail
+readable as the deadline path. What must stay well
 inside the job cap is the watchdog, since a job that runs to its cap is
 *cancelled* and GitHub drops a cancelled job's logs. The leg arms the
 **completion sentinel** too, so on a reproduced hang it is the *reap* that
-fires — about ninety seconds after the agent finishes — and its capture, a
+fires — about five minutes after the cell's last write, the quiescence grace — and its capture, a
 process forest and socket table taken while the work is already done, is what
 names the holder. Read the markers accordingly: `REAPED` is the defect
 reproducing and being handled, while `FIRED` or `STOOD_DOWN` says the completion
-set was never satisfied — work still running at fifty minutes, or a required file
+set was never satisfied — work still running at the deadline, or a required file
 the judge never wrote — which is a finding about the cell rather than about
 teardown. The bundle and the rollout's item shapes ride the run's artifact either
 way. The leg reports **two halves separately**, because
