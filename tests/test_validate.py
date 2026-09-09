@@ -58,6 +58,7 @@ from fedcourtsai.validate import (
     CHECK_LEDGER_REFERENCES,
     CHECK_MERITS_PREDICTIONS,
     CHECK_NO_DUPLICATES,
+    CHECK_OUTCOME_VOTES_HELD,
     CHECK_PREDICTION_CLAIMS,
     CHECK_PREDICTION_DOCS,
     CHECK_PREDICTION_SEMANTIC,
@@ -1029,6 +1030,7 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
         CHECK_EVALUATION_SEMANTIC,
         CHECK_MERITS_PREDICTIONS,
         CHECK_SCORED_VOTES,
+        CHECK_OUTCOME_VOTES_HELD,
         CHECK_CORRECT_AGREES,
         CHECK_JUDGMENT_ONLY_MERITS,
     }
@@ -1868,6 +1870,46 @@ def _write_evaluation_with_votes(
 
 def _votes_check(data_root: Path) -> CorpusCheck:
     return next(c for c in run_ledger_referential_checks(data_root) if c.name == CHECK_SCORED_VOTES)
+
+
+def _votes_hold_check(data_root: Path) -> CorpusCheck:
+    return next(
+        c for c in run_ledger_referential_checks(data_root) if c.name == CHECK_OUTCOME_VOTES_HELD
+    )
+
+
+def test_an_outcome_carrying_votes_is_refused_while_no_source_is_registered(
+    tmp_path: Path,
+) -> None:
+    """The terms precondition made mechanical: votes cannot reach git early.
+
+    Every candidate vote source is pre-adoption with its redistribution terms
+    unresolved (the SCDB entry in docs/data-sources.md), so a vote list in a
+    committed outcome would publish coded values the project cannot yet cite a
+    license for — whoever wrote it. The import that lands the first source
+    retires this check in the same PR that registers its terms.
+    """
+    data_root = tmp_path / "data"
+    path = _write_outcome(data_root, "scotus", 22451, "evt-order-judgment")
+    payload = json.loads(path.read_text())
+    payload["votes"] = [{"justice": "Gorsuch", "vote": "majority"}]
+    path.write_text(json.dumps(payload))
+    check = _votes_hold_check(data_root)
+    assert not check.passed
+    assert any("no vote source's redistribution terms are registered" in p for p in check.problems)
+    # A provenance block alone is refused on the same ground.
+    payload["votes"] = []
+    payload["vote_provenance"] = {"source": "scdb", "complete": True}
+    path.write_text(json.dumps(payload))
+    check = _votes_hold_check(data_root)
+    assert not check.passed
+
+
+def test_a_voteless_outcome_passes_the_source_hold(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_outcome(data_root, "scotus", 22451, "evt-order-judgment")
+    check = _votes_hold_check(data_root)
+    assert check.passed and check.checked == 1
 
 
 def test_a_cert_stage_evaluation_scoring_votes_fails(tmp_path: Path) -> None:

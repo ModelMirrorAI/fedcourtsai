@@ -137,6 +137,8 @@ CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
 CHECK_CORRECT_AGREES = "evaluation_correct_agrees"
 # Only a merits outcome has a judgment to record, and the field routes `correct`.
 CHECK_JUDGMENT_ONLY_MERITS = "judgment_only_on_merits_outcomes"
+# Votes reach git only through a source whose redistribution terms are settled.
+CHECK_OUTCOME_VOTES_HELD = "outcome_votes_await_a_registered_source"
 CHECK_STALE_UNPARSED_GRANTS = "no_stale_unparsed_grants"
 # Advisory, not a failure: ingest strips the marking at the write site, but rows
 # written before it still carry one until they are re-ingested, and the verdict
@@ -1380,6 +1382,51 @@ def check_scored_votes(data_root: Path) -> CorpusCheck:
     return _check(CHECK_SCORED_VOTES, problems, checked=checked)
 
 
+def check_outcome_votes_held(data_root: Path) -> CorpusCheck:
+    """No committed outcome may carry votes or a vote-provenance block.
+
+    Provenance discipline, made mechanical: ``outcome.json`` lives in public
+    git, so a vote list reaching the ledger is published — and no vote source
+    is registered in ``docs/data-sources.md`` yet, so there is nothing a
+    published list could cite for where its values came from or on what terms.
+    What the registration must settle differs by source — for SCDB, the entry
+    records unresolved redistribution terms as the blocker (another project's
+    coded values); for an order-list or opinion-derived channel the records are
+    public and the registration is the provenance statement itself — but the
+    rule is one rule: no vote reaches git before its source is registered. The
+    check refuses the artifact, so neither an agent cell nor an early import
+    can land votes meanwhile; the channel that first populates
+    ``Outcome.votes`` retires it in the same PR that registers its source,
+    replacing it with the source's own conformance checks.
+
+    Read raw rather than through ``Outcome``, like the judgment-routing check
+    beside it: a file that does not parse is ``validate_ledger``'s concern
+    (schema law), and this check's question — is the key populated at all — is
+    answerable on the raw payload of any shape.
+    """
+    problems: list[str] = []
+    checked = 0
+    for path in _ledger_files(data_root, "*/*/events/*/outcome.json"):
+        try:
+            payload = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        checked += 1
+        if payload.get("votes"):
+            problems.append(
+                f"outcome {path}: carries a non-empty votes list, but no vote "
+                f"source's redistribution terms are registered (docs/data-sources.md)"
+            )
+        if payload.get("vote_provenance") is not None:
+            problems.append(
+                f"outcome {path}: carries a vote_provenance block, but no vote "
+                f"source's redistribution terms are registered (docs/data-sources.md)"
+            )
+    return _check(CHECK_OUTCOME_VOTES_HELD, problems, checked=checked)
+
+
 def check_evaluation_correct_agrees(data_root: Path) -> CorpusCheck:
     """One cell's current gradings must record the same ``correct`` bit.
 
@@ -1602,6 +1649,7 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
         check_evaluation_semantic_grades(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
+        check_outcome_votes_held(data_root),
         check_evaluation_correct_agrees(data_root),
         check_judgment_only_on_merits_outcomes(data_root),
     ]
@@ -1641,6 +1689,7 @@ def _run_checks(
         check_evaluation_semantic_grades(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
+        check_outcome_votes_held(data_root),
         check_evaluation_correct_agrees(data_root),
         check_judgment_only_on_merits_outcomes(data_root),
     ]
