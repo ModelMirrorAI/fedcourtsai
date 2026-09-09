@@ -203,6 +203,7 @@ from .pipeline.decision_dates import converge_decision_dates
 from .pipeline.discover import discover_cases
 from .pipeline.distribution_rederive import rederive_distribution_counts
 from .pipeline.document_backfill import backfill_documents
+from .pipeline.document_mirror import mirror_stored_documents
 from .pipeline.documents import (
     KIND_PETITION,
     QpExtractRow,
@@ -3489,6 +3490,150 @@ def backfill_documents_cmd(
         # this pass exists to stop producing rather than to absorb.
         typer.echo(f"  {case_id}: NO OPENING ENTRY on a modern docket (selector regression)")
     _echo_unreached(result.unreached)
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(result.model_dump_json())
+
+
+@app.command("mirror-stored-documents")
+def mirror_stored_documents_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Mirror the blob's document text to the content store; omit for a dry "
+            "run that probes every case and reports the class, writing nothing.",
+        ),
+    ] = False,
+    max_cases: Annotated[
+        int | None,
+        typer.Option(
+            "--max-cases",
+            help="Per-dispatch slice size, required with --apply: the number of cases "
+            "at the head of the class this run mirrors. Read it off a dry-run ledger. "
+            "Not read on a dry run, which always enumerates the whole population — a "
+            "bounded ledger would describe a smaller class than the apply acts on.",
+        ),
+    ] = None,
+) -> None:
+    """Mirror to the content store the documents that reached only the blob.
+
+    Under the corpus split the per-case content store is the system of record
+    for documents, and every production read is served from it. A case whose
+    text was written before the store existed has intact rows in the blob's
+    `documents` table and no objects under its store prefix, so provisioning,
+    the questions-presented derivations and the QP-topic labeling pack all serve
+    nothing for it — a gap no fetching lane
+    repairs, since the poller re-fetches a kind only when its link changes and
+    these kinds are already stored.
+
+    The population is read by **direct SQL over the blob's own table**, which
+    inverts every other document pass's reading — they walk `documents_for_case`
+    precisely because a split-written blob's table is empty. That is the point:
+    the blob this pass is dispatched against is the pre-split-era full one, and
+    the routed read would answer from the very store known to be missing. Each
+    case is then probed against its store prefix, and one listing no
+    `documents/` key at all is in the class.
+
+    The **dry run** enumerates the whole population and writes nothing: the
+    counts, plus every absent case named with the rows and text bytes the blob
+    holds for it — the ledger the apply's `--max-cases` is read off. The
+    **apply** takes the first that many of the class in `case_id` order and
+    mirrors each through the store's own batch writer, then **re-probes** every
+    one and reports `verified` and `unverified` apart. That split is not
+    ceremony: the mirror writer swallows transport failures by contract, so
+    without the re-probe a run whose credentials, store address or pointer
+    override withheld every write would report exactly the clean slice a
+    successful one does. An unverified case keeps its blob rows untouched and
+    heads the next slice.
+
+    Its apply half is a writer-lane pass by construction, since the corpus-write
+    credentials exist only there, and the lane invocation is run-repair's
+    `mirror-stored-documents` pass. Exits 1 when the corpus is absent, when the
+    blob holds no document rows at all (the wrong blob — a blob written entirely
+    under the split holds none), and when no content store could be built to
+    mirror to; 2 on an apply with no `--max-cases`, on a `--max-cases` given
+    without `--apply`, and on a negative one. Dry-run by default.
+    """
+    settings = get_settings()
+    if apply and max_cases is None:
+        typer.echo(
+            "mirror-stored-documents: --apply requires an explicit --max-cases. "
+            "Read the dry run first and pass the slice you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if not apply and max_cases is not None:
+        # Refused rather than ignored, the same rule the dispatch selector applies
+        # to a field its pass does not read: a bound accepted here would read as a
+        # preview of the slice an apply would take, and what it would actually
+        # produce is the full class the dry run always enumerates.
+        typer.echo(
+            "mirror-stored-documents: --max-cases is read only with --apply. The dry "
+            "run always enumerates the whole population — that ledger is what the "
+            "bound is read off, so a bounded one would describe a smaller class.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    max_cases = _slice_bound(max_cases, command="mirror-stored-documents")
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the document mirror.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if apply:
+        # The pointer the mirror is about to write beside — the corpus state the
+        # ledger below describes. The writes themselves land in the content
+        # store, so this names the index those documents were read out of.
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    with corpus.connect(db_path) as conn:
+        result = mirror_stored_documents(conn, apply=apply, max_cases=max_cases)
+    if not result.cases_with_blob_documents:
+        # The blob's own table is what this pass mirrors from, so an empty one is
+        # the wrong blob rather than a converged class: a corpus written entirely
+        # under the split holds no document rows anywhere, and there is nothing
+        # here to move.
+        typer.echo(
+            f"mirror-stored-documents: no document rows in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if result.store_unavailable:
+        # Refused rather than reported: with no store there is no prefix to probe,
+        # so every case would read as absent and the ledger would name the whole
+        # population as a class this run could never repair.
+        typer.echo(
+            "mirror-stored-documents: no content store is configured, so there is "
+            "nothing to mirror to and no prefix to probe. Address the store and re-run.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    typer.echo(
+        f"mirror-stored-documents ({'applied' if apply else 'dry-run'}): "
+        f"{result.absent} case(s) with blob documents and no stored ones, in a "
+        f"population of {result.cases_with_blob_documents} case(s) carrying document "
+        f"rows ({result.present} already mirrored) — "
+        f"{len(result.verified)} verified, {result.remaining} left for the next slice"
+    )
+    typer.echo(
+        f"  attempted {len(result.attempted)} "
+        f"(bound {'none' if result.bound is None else result.bound}); "
+        f"{result.unreached} case(s) beyond the bound, untouched"
+    )
+    for case_id, holdings in result.absent_cases.items():
+        typer.echo(f"  {case_id}: {holdings.rows} blob row(s), {holdings.text_bytes} text byte(s)")
+    for case_id in result.verified:
+        typer.echo(f"  {case_id}: mirrored and verified")
+    for case_id in result.unverified:
+        # Named, not counted: the mirror writer swallows its failures, so this
+        # line is the only report a withheld or failed write ever gets.
+        typer.echo(f"  {case_id}: MIRRORED BUT NOT VERIFIED — the store lists nothing for it")
     if apply:
         _ensure_corpus_layout(db_path)
     typer.echo(result.model_dump_json())
