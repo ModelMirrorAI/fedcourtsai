@@ -185,7 +185,9 @@ step_grace_s="${WATCHDOG_STEP_GRACE_S:-30}"
 # deadline was already counting, which is what a tail step is. The floor has to
 # stay longer than the salvage tail can run, or a tail step becomes selectable
 # again — so a much shorter deadline, or a much longer tail, is a reason to
-# revisit this ratio rather than to leave it deriving itself. It is deliberately
+# revisit this ratio rather than to leave it deriving itself; a much longer
+# deadline raises the floor with it, which only refuses more reaps and is the
+# safe direction. It is deliberately
 # generous in that direction: the cost of a floor that is too high is a wedge
 # this script declines to end, which is the failure we already have, while the
 # cost of one too low is killing the step that salvages the cell. Only a root is
@@ -198,7 +200,8 @@ clk_tck="$(getconf CLK_TCK 2>/dev/null || echo 100)"
 checkin_url="${WATCHDOG_CHECKIN_URL:-}"
 checkin_token="${WATCHDOG_CHECKIN_TOKEN:-}"
 checkin_body="${WATCHDOG_CHECKIN_BASE:-}"
-# Long enough that an ordinary 40-minute wait costs single-digit API calls,
+# Long enough that an ordinary hour-plus wait costs on the order of a dozen
+# API calls,
 # short enough that a maintainer reading mid-round can tell a live watchdog from
 # one whose runner is already gone.
 heartbeat_s="${WATCHDOG_HEARTBEAT_S:-300}"
@@ -629,7 +632,7 @@ identify_step() {
 #
 # Cheap by design, because it runs every poll for the whole deadline: existence
 # and size first, and the JSON parse only once every file is there — which on an
-# ordinary cell is the last minute of a forty-minute wait. Nothing here reads a
+# ordinary cell is the closing minutes of the wait. Nothing here reads a
 # file's *contents* into a variable, so nothing the agent writes can reach the
 # log or the off-runner record.
 #
@@ -754,8 +757,8 @@ ended_pids=""
 sentinel_at=""
 sentinel_ticks=""
 # Set once the first reap has found nothing to end, so the off-runner record
-# carries that fact one time rather than once per poll for the rest of a
-# forty-minute wait.
+# carries that fact one time rather than once per poll for the rest of the
+# wait.
 reap_refused=""
 # The quiescence cut-off's carrier, outside the bundle directory so it never
 # rides the published artifact. Empty on failure, which leaves the quiescence

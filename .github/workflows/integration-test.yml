@@ -22,9 +22,13 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # Live integration scenarios for the pieces a PR branch cannot exercise through
 # the trigger path: the corpus read backends, the credential-scoped corpus
 # sidecar, the tokenless CourtListener MCP sidecar, and cascade cells — stub or
-# one real engine — over them. Each scenario is one dispatch, strictly
-# side-effect free: no corpus write, no git
-# write, no PR, no issue — results go to the Actions step summary and the run
+# one real engine — over them. Each scenario is one dispatch, side-effect
+# free with a single carve-out: no corpus write, no git write, no PR, and the
+# one issue write is the application-repro leg's watchdog telemetry row on the
+# long-lived `codex-watchdog` issue — dispatch-only (no schedule or
+# whole-suite selection reaches that leg), marker-keyed so a re-dispatch
+# resets the row rather than stacking one, and on a label that triggers
+# nothing. Everything else goes to the Actions step summary and the run
 # log, and any cell output lands only in the runner's throwaway checkout. Every
 # scenario is also token-free except the three engine scenarios, which say so on
 # their inputs: engine-smoke spends about one predict cell's worth of the
@@ -82,10 +86,12 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # schedules are among the ones it drops — so a missed day is tolerable by
 # design: the canary narrows the window between a provider flip and its
 # discovery, and the promotion gate, not the canary, is what stands between a
-# broken invocation and `main`. It also raises no alarm of its own: this
-# workflow opens no issue and posts no comment, by the side-effect-free
-# invariant that lets it run unattended at all, so what the canary buys is a
-# breakage already sitting in the run history when someone next looks.
+# broken invocation and `main`. It also raises no alarm of its own: the canary
+# opens no issue and posts no comment (the repro leg's telemetry row is the
+# workflow's one write, and no schedule reaches that leg), by the
+# side-effect-free invariant that lets it run unattended at all, so what the
+# canary buys is a breakage already sitting in the run history when someone
+# next looks.
 #
 # The `deploy-environment` input is what lets a change be exercised against real
 # infrastructure before it is promoted, and its `auto` default resolves the
@@ -266,7 +272,9 @@ permissions: {}
 # spend for nothing. The two whole-suite scenarios keep
 # separate groups, and neither shares one with a single-scenario run: none can
 # cancel or queue behind another, and an overlap on the same scenario is
-# harmless because every scenario is idempotent and side-effect free. The
+# harmless because every scenario is idempotent and side-effect free — the one
+# carve-out, the repro leg's marker-keyed telemetry row, is reset rather than
+# stacked by a re-dispatch. The
 # canary keys on its own name for the whole-suite reason: a schedule supplies
 # no inputs, so the pair would collapse to a constant anyway, and naming it
 # says which runs supersede each other.
@@ -517,16 +525,18 @@ jobs:
     # 45, not 30: the engine-smoke scenario spans an npm CLI install plus one
     # real agent cell, which alone can run tens of minutes on a slow model day.
     #
-    # The application-repro leg gets 90 instead, and the arithmetic is its own:
+    # The application-repro leg gets 95 instead, and the arithmetic is its own:
     # the work it reproduces is a judge cell on an application record, measured
     # at 40-50 minutes on production cells and past 50 on this leg, so its
     # watchdog deadline sits at 70 and its step bound at 80 (see the leg's own
     # steps). 80 plus this job's setup — checkout, env, corpus provisioning,
     # blinded staging, the MCP sidecar — and the disarm, distill and upload
-    # tail lands near 85, and 90 is that with room. Per-leg rather than raised
-    # for everyone: a 90-minute cap on the boot probes would turn a hung smoke
-    # into an hour of billed silence.
-    timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 90 || 45 }}
+    # tail lands near 85, and 95 keeps the ~10 minutes of room the cap has
+    # always held over that worst case, because a job that reaches its cap is
+    # cancelled and its log dropped. Per-leg rather than raised for everyone:
+    # a 95-minute cap on the boot probes would turn a hung smoke into an hour
+    # of billed silence.
+    timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 95 || 45 }}
     # Branch-resolved with an explicit override; keep this expression
     # identical to `run-name:`'s and the plan job's above (YAML anchors do not
     # work in workflows), and see the deploy-environment input for what
@@ -1317,6 +1327,13 @@ jobs:
       # but never the agent step, and failing soft so a degraded API costs the
       # telemetry and never the observation. This leg runs a codex cell, so
       # the credential stays codex-only. SECURITY.md bounds the grant.
+      #
+      # The App's credentials live on the `prod` environment alone, so the
+      # record exists on a prod-bound dispatch and a leg bound elsewhere mints
+      # nothing — the arm step warns and the leg degrades to its runner-local
+      # account, which is the deliberate trade: provisioning an issues-write
+      # key onto `staging` would widen the staging-head radius docs/security.md
+      # bounds to corpus read, model spend, and the staging fixture.
       - name: Mint the codex watchdog telemetry token
         id: watchdog-token
         if: ${{ matrix.scenario == 'codex-application-repro' }}
@@ -1353,7 +1370,10 @@ jobs:
           # Seventy minutes clears everything observed; the step below is capped
           # at 80, leaving the watchdog's own three graces (30 s each) and its
           # bounded check-ins inside that cap with room; and this leg's job cap
-          # is 90.
+          # is 95. Like the cells' deadline, 70 minutes sits past the telemetry
+          # token's one-hour life, deliberately: the record degrades soft, and
+          # a row frozen mid-wait on a run that never came back reads as the
+          # deadline path (the fire ETA is in the armed body).
           #
           # It is longer than the cells' 3900 s deliberately. A cell has a whole
           # round's budget to protect and a level-triggered lane that re-derives
@@ -1442,7 +1462,12 @@ jobs:
               checkin_base=""
               ;;
           esac
-          if [ -n "${GH_TOKEN:-}" ] && [ -z "$checkin_url" ]; then
+          # Unlike a cell, this leg always attempts the mint, so an empty token
+          # is a failed or credential-less one (a non-prod-bound dispatch),
+          # never an engine that was not offered the channel — say which.
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::watchdog telemetry mint yielded no token (mint failed, or not a prod-bound dispatch); this leg has no off-runner record"
+          elif [ -z "$checkin_url" ]; then
             echo "::warning::codex watchdog armed with no off-runner record (${EVENT_ID})"
           fi
           # The watchdog and its evidence both live outside the workspace: that

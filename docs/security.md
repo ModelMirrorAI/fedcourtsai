@@ -27,8 +27,9 @@ convention `AGENTS.md` carries, not something identity enforces):
   `DATA_APP_PRIVATE_KEY` secret. This App **is** a bypass actor on `main: require
   PR`, so the writers push corpus facts straight to `main`.
 - **dev App** — used by the agent workflows `run-predict` /
-  `run-evaluate` and the reviewed-PR openers (`run-backtest`, and
-  `run-analytics`'s metrics-refresh job). Its client id
+  `run-evaluate`, the reviewed-PR openers (`run-backtest`, and
+  `run-analytics`'s metrics-refresh job), and `integration-test`'s
+  application-repro leg (watchdog telemetry only). Its client id
   is the `DEV_APP_CLIENT_ID`
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
   **not** a bypass actor, so nothing it holds can reach `main` except through a
@@ -43,6 +44,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 | `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
 | `run-repair` | data | contents (both writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the validation job holds no credential |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner. The watchdog brackets every engine; this token is minted on codex cells alone |
+| `integration-test` (codex-application-repro leg only) | dev | issues | the cell workflows' watchdog telemetry mint, on identical terms: arm/disarm steps and the detached watchdog only, never the agent step. The App's credentials live on `prod` alone, so the record exists on a prod-bound dispatch; a leg bound elsewhere mints nothing, warns, and degrades to its runner-local account — deliberately, rather than widening the staging-head radius with an issues-write key |
 | `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
 | `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |

@@ -178,7 +178,12 @@ runbook, [docs/security.md](docs/security.md).
   comment. It is step-scoped in *distribution* rather than in lifetime — an
   installation token stays valid for its App's window, and this one is
   deliberately handed to a process that outlives the step that minted it — and
-  no step but the arm and disarm ones receives it. The agent step is a separate
+  no step but the arm and disarm ones receives it. The App window is also the
+  record's own bound: the detached watchdog cannot re-mint, so on a deadline
+  set past the token's hour — which the codex deadlines are, so that healthy
+  work is never killed — the check-ins issued at the fire itself fail soft,
+  and the armed row's deadline and fire ETA are what let a record frozen
+  mid-wait be read as the deadline path. The agent step is a separate
   step and inherits neither the token nor the process. What it can say is
   narrower than what the published artifact carries: timestamps, phase names,
   pid numbers, counts and the configured deadline, composed only from the

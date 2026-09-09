@@ -844,13 +844,27 @@ jobs:
           # measures in single-digit minutes. It is the engine whose wedges are
           # the reason any of this exists.
           #
-          # Claude and gemini get 47. A deadline is the one half of the bracket
-          # that can *cost* a healthy cell, and neither engine has ever wedged
-          # or been observed near 47 — so their deadline stays a backstop
-          # *below* the step's own `timeout-minutes: 50` (2820s plus the three
-          # 30s graces is 2910, inside 3000, and these cells make no check-in
-          # calls to pay for), which is the only thing it must be for them: the
-          # runner cannot end a tree, and this can.
+          # The 65 minutes sits past the telemetry token's own one-hour life,
+          # deliberately: the kill duty owns the deadline and the record
+          # degrades soft. The armed row, the sentinel observation and the
+          # heartbeats all land inside the hour, and a row frozen mid-wait on a
+          # run that never came back reads as the deadline path — the fire ETA
+          # is in the armed body for exactly that reading. The detached
+          # watchdog cannot re-mint, so no deadline above the hour can buy its
+          # own fire-time PATCHes; what it buys instead is never killing
+          # healthy work, which is the costlier failure.
+          #
+          # Claude and gemini get 47, knowingly inside the envelope this
+          # record shape can present: no claude or gemini cell has ever
+          # tripped the 50-minute step bound that has always backstopped
+          # them, so nothing observed says they need more, and a longer
+          # deadline only delays wedge recovery for engines that have never
+          # wedged. A cell of either engine seen near its bound is what moves
+          # them. At 47 the watchdog stays a backstop *below* the step's own
+          # `timeout-minutes: 50` (2820s plus the three 30s graces is 2910,
+          # inside 3000, and these cells make no check-in calls to pay for),
+          # which is the only thing it must be for them: the runner cannot end
+          # a tree, and this can.
           WATCHDOG_DEADLINE_S: ${{ matrix.engine == 'codex' && '3900' || '2820' }}
         run: |
           set -euo pipefail

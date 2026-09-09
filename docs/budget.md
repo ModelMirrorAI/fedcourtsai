@@ -1221,9 +1221,9 @@ none rides a whole-suite dispatch, so like the qp-topic labeler they are
 bounded by being manual-dispatch-only: one cell of the named engine per
 deliberate dispatch, on the order of the design-mix mean above (≈$2.44–2.49),
 ledger-invisible and inside the buffer. Their *wall-clock* is the longer half:
-`codex-application-repro` presents work that runs 40–50 minutes, so its bounds
-and job cap are set above that and one dispatch occupies a runner for upwards of
-an hour. That costs wall clock and a matrix slot, not dollars — standard runners
+`codex-application-repro` presents work measured past 50 minutes, so its bounds
+and job cap sit above that and one dispatch occupies a runner for up to an hour
+and a half. That costs wall clock and a matrix slot, not dollars — standard runners
 are free on a public repo (above), and the leg's model tokens are the one cell's.
 
 > **Line item: $350/mo flat** (a fixed floor, not a variable), the ≈$14/mo
