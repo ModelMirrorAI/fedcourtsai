@@ -123,9 +123,15 @@ path, not the key. Justice names normalize to the **entry-printed surnames** the
 authorship parser already reads — `pipeline.judgment.opinion_author`'s
 vocabulary — rather than to SCDB's justice-name or numeric justice-id variables,
 so a single spelling serves both the docket-derived authorship recital and any
-imported vote list. That parser is advisory today and takes one name token, so
-it would have to be hardened for multi-token surnames before it could be the
-normalization target in fact rather than in intent.
+imported vote list. The spelling map lives in `pipeline/justices.py`
+(`SCDB_JUSTICE_SURNAMES`, the modern-span `justiceName` values verbatim from
+the SCDB online codebook, onto the printed surnames;
+`normalize_scdb_justice` returns `None` for a spelling it does not carry, so
+an import refuses rather than guesses), and the recital parser resolves its
+capture against the same roster — compound surnames included — so the
+normalization target holds in fact. The map is many-to-one where surnames
+repeat across the span (two Jacksons); the docket-number-plus-Term join above
+is what disambiguates, never the name.
 
 Two layers of rights apply, and they are different:
 
