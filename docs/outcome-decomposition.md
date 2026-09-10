@@ -867,7 +867,7 @@ the information set does, and that lives on the aggregation key.
 | `interim-disposition` | `Outcome.actual_granted` — the interim binary (relief granted), restating the headline `probability` so the set is self-describing, and voiding the block on a divergent pair exactly as its two siblings do. It reads the same committed field the cert `disposition` claim reads and reuses the same resolver; the id is distinct because baseline routing is keyed on it, and pooling the two under one id would average a cert grant rate with an interim one over populations resolving on different standards | The substantive slice's grant rate pooled over **application**-Terms strictly before the case's own (`base_rates.interim_base_rate`), read from the frozen context's Term. Version-free and band-free — an application freezes no salience band by rule, so there is nothing for the cert set's frozen-band pairing to condition on. `None` below the pooled floor, and its registered limitation travels with it: the pool is the whole substantive slice while the scored cells are reserve-selected in escalation-ladder order, so it is not conditioned as the predictor is (`docs/salience.md`) |
 | `response-requested-increment` | 1 iff `Outcome.interim_signals.response_requested`, given false — and observable — at prediction; masked as **vacuous** where the Court had already called for one, the flag being max-latched so there is nothing left to forecast. The CVSG increment's shape, over the interim docket's analogue of it | None yet. The pack's `response_requested` column is an **unconditional** count over the whole substantive slice — every application that had drawn a request as at the build, pending ones included. The claim needs the arrival-conditioned hazard: among prior-Term applications that had not yet drawn one at the disclosed posture, the rate that went on to. An unconditional level fails test 3 above; and because the column's denominator is the whole slice while the resolved counts beside it are the machine-matched-resolved subset, it is also **right-censored** — a still-pending application contributes a "no" it may yet reverse — which is test 5 |
 | `referral-increment` | 1 iff `Outcome.interim_signals.referred_to_court`, given false — and observable — at prediction; vacuous-masked on an application already referred, a referral never being undone | None yet, the same two gaps over `referred_to_court`: unconditional across the slice rather than the rate at which an unreferred application becomes a referred one, and censored by the same pending tail |
-| `amicus-increment` | 1 iff `Outcome.interim_signals.amicus_briefs` rose strictly past `Prediction.context.amicus_briefs`; masked where either end is undisclosed, and with **no** vacuity arm — the count is unbounded above, so a docket already carrying briefs can always carry another. The relist increment's shape rather than the CVSG's | None yet, and the gap is sharper. `with_amicus` *is* published per Term, so coverage is not the problem: it counts applications carrying *at least one* brief, collapsing the conditioning variable itself to a flag while the claim is a rise past a specific count — test 3 at its sharpest — and it carries the same pending-tail censoring |
+| `amicus-increment` | 1 iff `Outcome.interim_signals.amicus_briefs` rose strictly past `Prediction.context.amicus_briefs`; masked where either end is undisclosed, and with **no** vacuity arm — the count is unbounded above, so a docket already carrying briefs can always carry another. The relist increment's shape rather than the CVSG's. The two ends are cut differently — the resolution end at the end of the disposition day, the prediction end at its own moment — and on an `arrival-position` cell that asymmetry biases this claim upward; the paragraphs below Test 6 state both | None yet, and the gap is sharper. `with_amicus` *is* published per Term, so coverage is not the problem: it counts applications carrying *at least one* brief, collapsing the conditioning variable itself to a flag while the claim is a rise past a specific count — test 3 at its sharpest — and it carries the same pending-tail censoring |
 
 Against the eight tests, in order of what they decided here.
 
@@ -908,6 +908,35 @@ clear of the boundary where a season's total collapses to a Bernoulli draw.
 different channels: the resolution end is a latched corpus column frozen at
 resolution, the prediction end a re-parse of the provisioned snapshot's own
 entries. Neither is a function of the other.
+
+The two ends also take **different cuts**, which anyone reading an increment has
+to know. The resolution end stops at the **end of the disposition day**, so an
+amicus entry sharing that date is counted whatever its position on the docket.
+The prediction end stops earlier: at the entry that opened the cell's moment
+where `context.cut_kind` is `arrival-position`, and strictly before
+`context.cutoff` on the null arm that every cell committed to date takes.
+`docs/salience.md` records why each end is cut where it is — an information set
+is positional, a statement about the decided docket is not.
+
+**On the positional arm the asymmetry biases `amicus-increment` upward, and the
+bias is not a forecast.** The date rule and the resolution end agree about the
+opening day — the cutoff is the day *after* the moment opened, so a same-day
+entry is inside the information set however the docket orders it. The positional
+rule and the resolution end do not: the snapshot stops at the opening entry, so
+an amicus entry docketed later that same day is outside the cell's set while the
+resolution end counts it, and the claim resolves positive with no docket movement
+at all — the entry existed when the forecast was taken and was withheld from the
+forecaster. The effect concentrates on the fastest-moving applications, which are
+also the ones the interim reserve ladder funds first. On such a cell a resolution
+of 1 is therefore not by itself a hit; it is one only where the entry that moved
+the count postdates the anchor. `docs/freeze-record.md` registers this, and
+records that no committed cell takes the positional arm while the interim
+arrival moment's future cells will.
+
+One further consequence: the resolution end's bound is on the *derivation*, not
+on the stored column, which max-latches — so a row whose count latched before its
+disposition date was readable can carry a value the bound would not have
+produced, and only a corpus re-derivation moves it.
 
 One seam the set does not reach today. No published surface reads an
 `interim-v1` block: the claim board filters to the cert stage's first moment, so

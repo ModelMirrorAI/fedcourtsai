@@ -765,9 +765,13 @@ class PredictionContext(_Strict):
         default=None,
         ge=0,
         description="Amicus briefs the snapshot's entries recorded as at "
-        "provisioning; masked by `signals_observable` like the rest. Unbounded "
-        "above, so the increment claim over it is a strict rise with no vacuous "
-        "arm — unlike the two flags, which can only rise once",
+        "provisioning — the same reading the outcome's block takes (accepted-form "
+        "entries plus each distinct lead filer still docketed as submitted), over "
+        "entries this cell's own cutoff rule kept, which is earlier than the "
+        "outcome's end-of-disposition-day bound and so biases the increment "
+        "upward on same-day entries; masked by `signals_observable` like the "
+        "rest. Unbounded above, so the increment claim over it is a strict rise "
+        "with no vacuous arm — unlike the two flags, which can only rise once",
     )
     term: int | None = Field(
         default=None,
@@ -1080,8 +1084,12 @@ class InterimResolutionSignals(_Strict):
     amicus_briefs: int = Field(
         ge=0,
         description="How many amicus briefs the application's docket recorded as "
-        "at resolution — a stakes proxy, counted per entry naming amicus or amici "
-        "curiae (a multi-filer entry counts once)",
+        "at resolution — a stakes proxy. Counted per entry naming amicus or amici "
+        "curiae (a multi-filer entry counts once), plus each distinct lead filer "
+        "whose brief the docket shows as submitted and not yet accepted. 'As at "
+        "resolution' is end of the disposition day: an entry sharing that date is "
+        "counted whatever its position on the docket, and one filed after it is "
+        "not",
     )
 
 

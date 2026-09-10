@@ -54,6 +54,7 @@ from .interim_signals import (
     application_arrival_date,
     application_kind,
     escalation_signals,
+    interim_disposition_date,
     match_interim_disposition,
     response_filed_date,
     response_requested_date,
@@ -914,7 +915,6 @@ def map_live_docket(
         # from. Cert-form dockets leave all four None (never application-parsed).
         texts = [str(entry.get("description") or "") for entry in entries]
         ask = application_kind(texts).value
-        requested, referred, amici = escalation_signals(texts)
         # The three dated interim moments, read from the same entries the ladder
         # flags come from. Dates rather than flags because these open events.
         # The arrival is read here rather than left to the docketing date
@@ -924,6 +924,23 @@ def map_live_docket(
         # The submission entry is also the trigger the cut has to keep, which
         # the docketing date is only incidentally.
         dated = proceedings_entries(payload)
+        # The ladder itself, with the amicus count cut at the end of the
+        # disposition day. This is the one derivation whose output the outcome
+        # freezes as "the signals as at resolution", so it is the one that has to
+        # say when resolution was: a payload polled after the disposition can
+        # carry entries the Court filed once the application was already decided,
+        # and without the bound they would be counted into that frozen number.
+        #
+        # The cut date is re-read strictly rather than reusing `decided`, which
+        # is the leniently-parsed date the `date_terminated` column stores. A
+        # stored date only records; this one decides retention in a max-latched
+        # column, and a date defaulted from the day the parser ran would drop real
+        # entries permanently. It is `None` on an open application, and also on a
+        # resolved one whose disposing entry carries no readable date — in both
+        # cases nothing is cut.
+        requested, referred, amici = escalation_signals(
+            dated, through=interim_disposition_date(dated)
+        )
         application_filed_on = application_arrival_date(docket_number, dated)
         response_requested_on = response_requested_date(dated)
         response_filed_on = response_filed_date(dated)
