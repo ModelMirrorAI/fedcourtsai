@@ -9,9 +9,10 @@ name: integration-test
 # asks for — it tells the two apart, so the cheaper suite never satisfies the
 # fuller requirement. The
 # branch→environment resolution here is duplicated on the `environment:` key
-# of both jobs that bind one — plan, which resolves the case out of that
-# environment's corpus, and scenario (YAML anchors do not work in workflows);
-# keep the three expressions identical, or the title stops naming the
+# of every job that binds one — plan, which resolves the case out of that
+# environment's corpus, scenario, and qp-labeler-smoke (YAML anchors do not
+# work in workflows);
+# keep the four expressions identical, or the title stops naming the
 # environment the jobs actually bound. A schedule carries no inputs at all, so
 # the scenario half would render as the degenerate ` / ` pair: the canary
 # names itself instead, in a shape that matches no freshness prefix (there is
@@ -30,12 +31,14 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # resets the row rather than stacking one, and on a label that triggers
 # nothing. Everything else goes to the Actions step summary and the run
 # log, and any cell output lands only in the runner's throwaway checkout. Every
-# scenario is also token-free except the three engine scenarios, which say so on
+# scenario is also token-free except the four that spend, which say so on
 # their inputs: engine-smoke spends about one predict cell's worth of the
-# selected engine's model tokens, engine-actions-smoke a boot probe's, and
-# codex-application-repro one evaluate cell's — so a whole-suite `all` dispatch
-# spends three cells' worth plus three probes (the repro is dispatch-only and
-# joins no whole-suite run), and `all-offline` (the same suite with both engine
+# selected engine's model tokens, engine-actions-smoke a boot probe's,
+# codex-application-repro one evaluate cell's, and qp-labeler-smoke cents at
+# the labeler's default tier — so a whole-suite `all` dispatch
+# spends three cells' worth plus three probes (the repro and the labeler
+# smoke are dispatch-only and join no whole-suite run), and `all-offline`
+# (the same suite with both engine
 # families dropped) spends nothing. The repro leg is the long one in wall-clock
 # as well: the judge cell it presents runs 40-50 minutes on production cells
 # and has been measured past 50 here, so its bounds and its job cap are set
@@ -328,7 +331,8 @@ jobs:
     # a branch that names no configured environment (the read then finds no
     # role and no remote and the job fails, rather than resolving a case out
     # of some other environment's corpus). Keep this expression identical to
-    # `run-name:`'s and the scenario job's; see the deploy-environment input.
+    # `run-name:`'s, the scenario job's and the labeler smoke's; see the
+    # deploy-environment input.
     environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
     permissions:
       contents: read
@@ -553,9 +557,9 @@ jobs:
     # of billed silence.
     timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 95 || 45 }}
     # Branch-resolved with an explicit override; keep this expression
-    # identical to `run-name:`'s and the plan job's above (YAML anchors do not
-    # work in workflows), and see the deploy-environment input for what
-    # resolves.
+    # identical to `run-name:`'s, the plan job's and the labeler smoke's (YAML
+    # anchors do not work in workflows), and see the deploy-environment input
+    # for what resolves.
     environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
     permissions:
       contents: read
@@ -2602,10 +2606,15 @@ jobs:
   # part of the posture under test: the labeling job holds no cloud
   # credential and no id-token — stricter than a cell — while the matrix job
   # grants id-token for its corpus legs. Kept in lockstep with
-  # run-analytics's qp-topic-label job by a workflow-shape test: the action
-  # pin, the settings, the argument block (the model line aside), the IO
-  # paths, the prompt contract, and the CLI pin must all match, or the smoke
-  # answers a question about a configuration the paid lane does not run.
+  # run-analytics's qp-topic-label job by two workflow-shape tests: one pins
+  # the action pin, the settings, the argument block (the model line aside),
+  # the IO paths, the prompt contract, and both jobs' credential posture; the
+  # CLI pin is held equal across workflows by another — or the smoke answers
+  # a question about a configuration the paid lane does not run. The
+  # workflow-level concurrency group covers this job, so a re-dispatch
+  # cancels a smoke mid-run — deliberate, unlike the paid labeler's
+  # never-cancel group: a cancelled smoke costs cents and a re-dispatch,
+  # never an artifact.
   qp-labeler-smoke:
     if: ${{ inputs.scenario == 'qp-labeler-smoke' }}
     runs-on: ubuntu-latest
@@ -2715,7 +2724,10 @@ jobs:
       # paid lane's choice, for the paid lane's stated reason.
       - name: Run the labeler's invocation block over the synthetic extract
         id: smoke_label
-        timeout-minutes: 10
+        # 15 covers the block's fixed preamble — reading the labeling prompt
+        # and AGENTS.md — plus five short rows with margin; the job cap at 25
+        # holds the setup steps beside it.
+        timeout-minutes: 15
         uses: anthropics/claude-code-action@9c5ddab2e6d17b83ea679153b31f1d5f023cf636 # v1.0.217
         env:
           QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
@@ -2755,11 +2767,17 @@ jobs:
       # The read-only-tree half of the smoke's verdict, on every outcome the
       # runner survives. Unlike the paid lane's assertion this guards no
       # measurement of record — nothing publishes from this job and no gate
-      # reads the checkout after it — so the porcelain check is the whole of
-      # what is needed: the labeler's contract is that its one write is the
-      # granted directory, and a modified tree fails the smoke it was sent.
+      # reads the checkout after it — and it is deliberately *stricter* than
+      # the paid lane's tracked-diff pair: a whole-tree porcelain, because
+      # this leg exists to notice any write outside the grant, and a false
+      # red here costs cents and a re-dispatch rather than a paid batch.
+      # PATH pinned to root-owned directories: `git` comes off PATH, and
+      # `$GITHUB_PATH` written by the agent's subprocesses prepends ahead of
+      # everything for every later step.
       - name: Restore the oracle path and assert the tree is pristine
         if: ${{ !cancelled() }}
+        env:
+          PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
           set -euo pipefail
           git checkout -- data/qp-topics
@@ -2772,8 +2790,9 @@ jobs:
 
       # Runs this checkout's Python after the agent ran in it — acceptable
       # here where the paid lane builds a fresh-checkout scanner instead,
-      # because nothing publishes: the verdict gates only this leg's green,
-      # and the pristine assertion above has already refused a modified tree.
+      # for one reason alone: nothing publishes, so the verdict gates only
+      # this leg's green and a tampered checkout can buy nothing but a
+      # self-attested pass on a smoke.
       - name: Assert the declared output is complete and in vocabulary
         env:
           QP_IO: ${{ runner.temp }}/qp-io
@@ -2804,14 +2823,20 @@ jobs:
 
       # The action's own log carries turn progress but not what was denied;
       # the execution file does, and this leg exists to make a denial
-      # diagnosable from one staging dispatch. Digested into the job log
-      # rather than the step summary — error strings are agent-adjacent
-      # bytes — with every replayed line indented so nothing parses as a
-      # workflow command. The extract is synthetic, so no stored petition
-      # text can appear here.
+      # diagnosable from one staging dispatch — on any surviving outcome, a
+      # clean run's zero line included. Digested into the job log rather
+      # than the step summary, and the replayed strings are agent-adjacent
+      # bytes, so three controls apply: the extract is synthetic (no stored
+      # petition text exists on this runner), GitHub masks the environment's
+      # engine key in the log, and every `::` is split before printing —
+      # the runner trims leading whitespace before matching workflow
+      # commands, so the indent below is readability, not the control.
+      # Bounded both ways: a line cap on the output and a step cap on the
+      # clock, the paid lane's own bound for its post-agent readers.
       - name: Digest error tool results from the execution file
         if: ${{ !cancelled() && steps.smoke_label.outputs.execution_file != '' }}
         continue-on-error: true
+        timeout-minutes: 5
         env:
           EXECUTION_FILE: ${{ steps.smoke_label.outputs.execution_file }}
         run: |
@@ -2820,9 +2845,10 @@ jobs:
             echo "no readable execution file to digest"
             exit 0
           fi
-          jq -r '
+          digest=$(jq -r '
             [ .. | objects | select(.type? == "tool_result" and .is_error == true)
               | (.content | if type == "array" then (map(.text? // "") | join(" ")) else tostring end) ]
             | "error tool results: \(length)",
               (group_by(.[0:120])[] | "x\(length): \(.[0][0:200])")
-          ' "$EXECUTION_FILE" | sed 's/^/  /'
+          ' "$EXECUTION_FILE" | head -n 50)
+          printf '%s\n' "$digest" | sed 's/::/: :/g; s/^/  /'

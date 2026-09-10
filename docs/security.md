@@ -573,7 +573,13 @@ secret — the running engine's API key, chosen by expression ternary (or, on
 the engine-actions-smoke legs and each repro-family leg, by the step
 conditions the legs are
 partitioned on) so the
-other engines' keys never enter the job. An `all` dispatch fans one of each per
+other engines' keys never enter the job. A fourth job reads one of them
+outside that partition: the `qp-labeler-smoke` job reads the Claude key alone
+from its own resolved environment, and it is the one agent leg here that runs
+outside the runner-seam scrub — on the labeling lane's own terms, which are
+stricter than a cell's: no role, no `id-token`, the subprocess env scrub
+re-enabled in the action's settings, and a synthetic five-row extract as its
+entire input. An `all` dispatch fans one of each per
 engine, so a single run reads all three keys — each confined to its own job —
 and spends three cells plus three boot probes; `all-offline`, the same suite
 without either family, reads no engine key and spends nothing. The keys live on
@@ -725,6 +731,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
+| `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, no `id-token: write`, and the same pre-agent assertion that the AWS and OIDC variables are absent |
 | `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `prod`, and it can write nothing production owns |
 | `run-ops`                                 | none          | the report reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |

@@ -2844,42 +2844,93 @@ def test_the_labeler_smoke_sends_the_labeling_lanes_own_invocation_block() -> No
     action, the sandbox settings with the subprocess env scrub, the bypass
     permission mode, and the one --add-dir grant. Each half is separately
     silent when it drifts — the smoke still runs, still greens — so the
-    action pin, the settings, the argument block (the model line aside: the
-    smoke pins the lane's dispatch default), the IO paths, and the prompt
-    contract are pinned equal here, or the smoke answers a question about a
-    configuration the paid lane does not run. (The CLI version pin is already
-    held equal across workflows by the transcript-capture test above.)
+    whole `with:` and `env:` mappings are pinned equal (the argument block
+    modulo its one --model line: the smoke pins the lane's dispatch default,
+    read from the lane rather than restated), and so is the credential
+    posture the smoke's job comment calls part of what it tests: contents
+    read only, no id-token, and the no-cloud-credential tripwire and the
+    oracle fence both ahead of the agent, in both jobs. (The CLI version pin
+    is held equal across workflows by the transcript-capture test above.)
     """
-    lane_steps = _load("run-analytics.yml")["jobs"]["qp-topic-label"]["steps"]
-    smoke_steps = _load("integration-test.yml")["jobs"]["qp-labeler-smoke"]["steps"]
-    lane = next(s for s in lane_steps if "claude-code-action" in str(s.get("uses") or ""))
-    smoke = next(s for s in smoke_steps if "claude-code-action" in str(s.get("uses") or ""))
+    lane_wf = _load("run-analytics.yml")
+    lane_job = lane_wf["jobs"]["qp-topic-label"]
+    smoke_job = _load("integration-test.yml")["jobs"]["qp-labeler-smoke"]
+
+    def agent_index(steps: list[dict[str, Any]]) -> int:
+        return next(
+            i for i, s in enumerate(steps) if "claude-code-action" in str(s.get("uses") or "")
+        )
+
+    lane_steps, smoke_steps = lane_job["steps"], smoke_job["steps"]
+    lane, smoke = lane_steps[agent_index(lane_steps)], smoke_steps[agent_index(smoke_steps)]
     assert lane["uses"] == smoke["uses"], "the action pins diverge"
-    assert lane["with"]["settings"] == smoke["with"]["settings"], "the settings diverge"
-    for env_key in ("QP_TEXTS", "LABELS_OUT"):
-        assert lane["env"][env_key] == smoke["env"][env_key], env_key
+    assert lane["env"] == smoke["env"], "the agent-step env mappings diverge"
 
-    def args_without_model(step: dict[str, object]) -> list[str]:
-        with_block = step["with"]
-        assert isinstance(with_block, dict)
-        lines = [line.strip() for line in str(with_block["claude_args"]).splitlines()]
-        return [line for line in lines if line and not line.startswith("--model")]
-
-    assert args_without_model(lane) == args_without_model(smoke), "the argument blocks diverge"
-    # The smoke's model is the lane's own dispatch default, read from the lane
-    # rather than restated, so a default bump moves both or fails here.
-    wf = _load("run-analytics.yml")
-    triggers = wf.get("on") or wf.get(True) or {}
+    # The model is the one deliberate difference: the smoke pins the lane's
+    # own dispatch default, so a default bump moves both or fails here — and
+    # the lane's side is anchored to its input, so a hardcoded model there
+    # cannot leave the smoke certifying the wrong tier.
+    triggers = lane_wf.get("on") or lane_wf.get(True) or {}
     default_model = triggers["workflow_dispatch"]["inputs"]["label_model"]["default"]
-    smoke_model = next(
-        line.strip()
-        for line in str(smoke["with"]["claude_args"]).splitlines()
-        if line.strip().startswith("--model")
+
+    def split_args(step: dict[str, Any]) -> tuple[list[str], str]:
+        lines = [line.strip() for line in str(step["with"]["claude_args"]).splitlines()]
+        lines = [line for line in lines if line]
+        model = [line for line in lines if line.split(maxsplit=1)[0] == "--model"]
+        assert len(model) == 1, f"expected exactly one --model line, got {model}"
+        return [line for line in lines if line not in model], model[0]
+
+    lane_args, lane_model = split_args(lane)
+    smoke_args, smoke_model = split_args(smoke)
+    assert lane_args == smoke_args, "the argument blocks diverge"
+    assert lane_model == "--model ${{ inputs.label_model }}", (
+        "the lane's model line must read its dispatch input"
     )
     assert smoke_model == f"--model {default_model}", (
         "the smoke's model is not the labeling lane's dispatch default"
     )
-    # The prompt contract travels verbatim but for the LABELER literal, which
-    # carries the pinned default where the lane interpolates its input.
-    lane_prompt = str(lane["with"]["prompt"]).replace("${{ inputs.label_model }}", default_model)
-    assert lane_prompt == str(smoke["with"]["prompt"]), "the prompt contracts diverge"
+
+    # The rest of the `with:` mapping, wholesale: a key added to one side —
+    # an mcp config, an allowlist, a different token handoff — is a different
+    # block however equal the compared keys stay. The prompt travels verbatim
+    # but for the LABELER literal, which carries the pinned default where the
+    # lane interpolates its input.
+    lane_with = {k: v for k, v in lane["with"].items() if k != "claude_args"}
+    smoke_with = {k: v for k, v in smoke["with"].items() if k != "claude_args"}
+    lane_with["prompt"] = str(lane_with["prompt"]).replace(
+        "${{ inputs.label_model }}", default_model
+    )
+    assert lane_with == smoke_with, "the with: mappings diverge beyond the model"
+
+    # The credential posture, and the two fences the agent must run behind.
+    assert smoke_job["permissions"] == {"contents": "read"}, "the smoke job's grant widened"
+    assert lane_job["permissions"] == {"contents": "read"}, "the lane job's grant widened"
+    for job_name, steps, at in (
+        ("qp-topic-label", lane_steps, agent_index(lane_steps)),
+        ("qp-labeler-smoke", smoke_steps, agent_index(smoke_steps)),
+    ):
+        tripwire = next(
+            (
+                i
+                for i, s in enumerate(steps)
+                if "ACTIONS_ID_TOKEN_REQUEST_URL" in str(s.get("run") or "")
+            ),
+            None,
+        )
+        assert tripwire is not None and tripwire < at, (
+            f"{job_name}: the no-cloud-credential tripwire must precede the agent"
+        )
+        # The lane moves the oracle aside (its measure step needs it back);
+        # the smoke deletes it. Either way it must leave the tree pre-agent.
+        fence = next(
+            (
+                i
+                for i, s in enumerate(steps)
+                if 'mv data/qp-topics "$RUNNER_TEMP/qp-topics-oracle"' in str(s.get("run") or "")
+                or str(s.get("run") or "").strip() == "rm -rf data/qp-topics"
+            ),
+            None,
+        )
+        assert fence is not None and fence < at, (
+            f"{job_name}: the oracle must leave the tree before the agent starts"
+        )
