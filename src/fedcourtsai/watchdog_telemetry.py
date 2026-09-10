@@ -81,6 +81,10 @@ _CHANNEL_LABEL_DESCRIPTIONS = {
     "prod": _LABEL_DESCRIPTION,
     "staging": "Codex watchdog telemetry — staging rehearsal records",
 }
+# Distinct colours, because telling a rehearsal row from a production one at
+# a glance is the channel's whole purpose: production keeps its red, the
+# rehearsal channel renders yellow.
+_CHANNEL_LABEL_COLORS = {"prod": _LABEL_COLOR, "staging": "fbca04"}
 _CHANNEL_BODIES = {"prod": _ISSUE_BODY, "staging": _ISSUE_BODY + _STAGING_BODY_SUFFIX}
 
 #: Keys one comment to one cell of one run. A hidden HTML comment, so the body
@@ -328,7 +332,7 @@ def _issue_for(repo: str, runner: GhRunner, channel: str) -> int:
     return find_or_create_issue(
         repo=repo,
         label=_CHANNEL_LABELS[channel],
-        label_color=_LABEL_COLOR,
+        label_color=_CHANNEL_LABEL_COLORS[channel],
         label_description=_CHANNEL_LABEL_DESCRIPTIONS[channel],
         title=_CHANNEL_TITLES[channel],
         body=_CHANNEL_BODIES[channel],

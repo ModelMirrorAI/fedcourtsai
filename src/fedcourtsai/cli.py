@@ -13903,11 +13903,19 @@ def watchdog_checkin_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options 
         # the bounded runner's exhausted retries. Anything else is a bug here
         # rather than a degraded API, and a bug should fail loudly — the call
         # sites carry `|| true` regardless, so a loud failure still costs the
-        # record rather than the arming. The ValueError case is this module's
-        # own channel refusal, so its message is composed here and safe to
-        # print — and it names the registered set, which is what makes a
-        # typo'd channel debuggable from the one log a healthy run keeps.
-        detail = f": {exc}" if isinstance(exc, ValueError) else ""
+        # record rather than the arming. The channel refusal is the one case
+        # whose message is composed by this codebase and safe to print — it
+        # names the registered set, which is what makes a typo'd channel
+        # debuggable from the one log a healthy run keeps. JSONDecodeError
+        # subclasses ValueError and reaches here from a degraded gh response,
+        # so it is excluded: this is the lane's only place that prints an
+        # exception message into a public Actions log, and the printed set
+        # stays exactly the messages this codebase composes.
+        detail = (
+            f": {exc}"
+            if isinstance(exc, ValueError) and not isinstance(exc, json.JSONDecodeError)
+            else ""
+        )
         typer.echo(
             f"::warning::codex watchdog check-in failed ({type(exc).__name__}{detail})", err=True
         )

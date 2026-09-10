@@ -418,6 +418,10 @@ def test_the_disarm_flag_routes_to_the_disarm_record(monkeypatch: pytest.MonkeyP
     assert result.exit_code == 0, result.output
     assert seen["healthy"] is False
     assert seen["conclusion"] == "failure"
+    # The CLI's own default, which every production call site leans on: no
+    # workflow passes --channel, and a flipped default would land production
+    # telemetry on the rehearsal issue with every test still green.
+    assert seen["channel"] == "prod"
 
 
 def test_a_degraded_api_costs_the_record_and_not_the_arming(
@@ -480,11 +484,13 @@ def test_the_failure_note_stays_off_stdout(
 
 
 def test_the_staging_channel_opens_its_own_issue_under_its_own_label() -> None:
-    """A staging-bound repro dispatch records on the rehearsal channel's own
-    issue, so the production occurrence record stays one readable row per
-    production cell and a rehearsal's rows read as rehearsals. Same marker
-    format, different issue: the find-or-create is scoped by label, so the
-    channels cannot reset each other's rows."""
+    """The staging channel is its own label, title, and issue.
+
+    That separation is the point: rehearsal rows never mix into the
+    production off-runner record. Same marker format, different issue — the
+    find-or-create is scoped by label, so the channels cannot reset each
+    other's rows.
+    """
     gh = FakeGh()
     _arm(gh, channel="staging")
     assert gh.calls[0][:4] == ["gh", "label", "create", f"{LABEL}-staging"]
@@ -497,22 +503,30 @@ def test_the_staging_channel_opens_its_own_issue_under_its_own_label() -> None:
 
 
 def test_the_default_channel_is_the_production_issue() -> None:
-    """`prod` is the default on both entry points, so a caller that names no
-    channel — the cell workflows' arm/disarm steps — writes to the
-    production issue."""
+    """A caller that names no channel writes to the production issue.
+
+    Both entry points, and the production issue's own text stays free of the
+    rehearsal framing — the two channels must be tellable apart from either
+    side.
+    """
     gh = FakeGh()
     _arm(gh)
     assert gh.calls[0][:4] == ["gh", "label", "create", LABEL]
+    created = next(c for c in gh.calls if tuple(c[1:3]) == ("issue", "create"))
+    assert "rehearsal" not in created[created.index("--title") + 1]
+    assert "rehearsal" not in created[created.index("--body") + 1]
     gh2 = FakeGh()
     disarm_checkin(repo="o/r", **CELL, conclusion="success", healthy=True, now=NOW, runner=gh2)
     assert gh2.calls[0][:4] == ["gh", "label", "create", LABEL]
 
 
 def test_an_unregistered_channel_is_refused_before_any_write() -> None:
-    """The module refuses loudly — and names the registered set — before the
-    first `gh` call, so nothing lands on the wrong issue; the CLI's
-    best-effort contract then converts the refusal to a warning and a
-    record-less arming, the lane's standing degradation."""
+    """An unregistered channel is refused before the first `gh` call.
+
+    The refusal names the registered set, and nothing lands on the wrong
+    issue; the CLI's best-effort contract then converts it to a warning and
+    a record-less arming, the lane's standing degradation.
+    """
     gh = FakeGh()
     with pytest.raises(ValueError, match="registered"):
         _arm(gh, channel="production")
@@ -576,3 +590,43 @@ def test_the_channel_flag_routes_to_both_records(monkeypatch: pytest.MonkeyPatch
     )
     assert result.exit_code == 0, result.output
     assert seen["channel"] == "staging"
+
+
+def test_a_typoed_channel_degrades_at_the_cli_on_both_modes(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The published degradation contract, executed at the CLI seam.
+
+    Exit zero, an empty stdout (the arm step reads stdout's first line as the
+    watchdog's PATCH URL), and a warning that names the registered set — arm
+    and disarm alike. Offline by construction: the refusal precedes every
+    `gh` call.
+    """
+    result = runner.invoke(
+        cli.app,
+        [
+            "watchdog-checkin",
+            "--repo",
+            "o/r",
+            "--run-id",
+            CELL["run_id"],
+            "--court",
+            CELL["court"],
+            "--docket",
+            CELL["docket"],
+            "--event-id",
+            CELL["event_id"],
+            "--actor",
+            CELL["actor"],
+            "--channel",
+            "bogus",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "'prod'" in result.output and "'staging'" in result.output
+    assert "http" not in result.output  # nothing the arm step could read as a URL
+    # The disarm side, driven directly so stdout and stderr stay separable.
+    cli.watchdog_checkin_cmd(repo="o/r", **CELL, disarm=True, conclusion="failure", channel="bogus")  # type: ignore[arg-type]
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "'prod'" in captured.err and "'staging'" in captured.err

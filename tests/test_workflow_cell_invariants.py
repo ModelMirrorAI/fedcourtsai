@@ -84,6 +84,7 @@ from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest
 from fedcourtsai.registry import load_mcp_servers, load_predictors, resolve_mcp_servers
 from fedcourtsai.schemas import UsageRole
+from fedcourtsai.watchdog_telemetry import _CHANNEL_LABELS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
@@ -2603,19 +2604,20 @@ def test_the_daily_digest_job_keeps_its_narrow_permission_surface() -> None:
 
 
 def test_no_workflow_triggers_on_a_digest_label() -> None:
-    """The digests' labels must stay non-triggering, which is what makes the job safe.
+    """Every label the reporting surfaces create must stay non-triggering.
 
-    A reporting job holding `issues: write` opens an issue every day; if any
-    workflow ever keyed on that label, the daily report would start a run — and
-    a spending one, if the label were ever added to a fan-out. Nothing enforces
-    the property but this assertion, so it reads every workflow rather than the
-    one that posts.
+    A reporting job holding `issues: write` opens an issue every day, and the
+    watchdog's arm steps create their channels' labels with `--force`; if any
+    workflow ever keyed on one of those labels, a report or an arming would
+    start a run — a spending one, if the label were ever added to a fan-out.
+    Nothing enforces the property but this assertion, so it reads every
+    workflow rather than the ones that post.
     """
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         workflow = _load(path.name)
         # `on` parses to the truthy bool key in YAML; tolerate either spelling.
         triggers = workflow.get("on") or workflow.get(True) or {}
-        for label in (DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL):
+        for label in (DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL, *_CHANNEL_LABELS.values()):
             assert label not in yaml.safe_dump(triggers), (
                 f"{path.name} triggers on the non-triggering {label} label"
             )
