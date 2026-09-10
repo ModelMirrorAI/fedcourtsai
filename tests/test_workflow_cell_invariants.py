@@ -2834,3 +2834,60 @@ def test_the_back_test_dispatch_keeps_its_free_default_and_its_parameters() -> N
     assert inputs["replay"]["default"] == "cert"
     assert inputs["limit"]["default"] == "25"
     assert inputs["spread"]["default"] is False
+
+
+def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> None:
+    """A job that hard-pins `environment: prod` makes a new mode's first run
+    anywhere its production run — the rehearsability the branch resolution
+    exists to provide. Every environment-binding job must carry the exact
+    resolution `integration-test.yml` uses (`main` binds prod, `staging` binds
+    the staging pair, anything else binds nothing — fail-closed), `tool-usage`
+    must stay environment-free (it reads committed `data/` only), and every
+    concurrency group must carry the ref, because two refs are two
+    environments reading two corpus pairs and one must never cancel — or
+    queue behind — the other."""
+    resolved = "${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
+    for job_id, job in _load("run-analytics.yml")["jobs"].items():
+        if job_id == "tool-usage":
+            assert "environment" not in job, "tool-usage reaches nothing; no environment"
+        else:
+            assert job.get("environment") == resolved, (
+                f"{job_id} does not resolve its environment from the dispatching branch"
+            )
+        group = job["concurrency"]["group"]
+        assert group.endswith("-${{ github.ref_name }}"), (
+            f"{job_id}'s concurrency group is shared across refs: {group}"
+        )
+
+
+def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
+    """With the environments branch-resolved, what keeps a staging dispatch a
+    rehearsal is the fence on publication: every step that mints the App
+    token, sets the git identity, or opens the review PR must gate on the
+    `main` ref. The dev App's credentials live on the prod environment alone,
+    so an unfenced mint on staging fails rather than narrows — but the fence
+    is asserted, not inferred, because a future credential added to staging
+    would turn that failure into a publish."""
+    fence = "${{ github.ref_name == 'main' }}"
+    for job_id in ("metrics-refresh", "qp-topic-label"):
+        steps = _load("run-analytics.yml")["jobs"][job_id]["steps"]
+        publishers = [
+            step
+            for step in steps
+            if "create-github-app-token" in str(step.get("uses") or "")
+            or "configure-git-identity" in str(step.get("uses") or "")
+            or "gh pr create" in str(step.get("run") or "")
+        ]
+        assert len(publishers) == 3, (
+            f"{job_id}: expected mint + identity + PR steps, found {len(publishers)}"
+        )
+        for step in publishers:
+            assert step.get("if") == fence, (
+                f"{job_id}: publish step {step.get('name')!r} is not fenced to the main ref"
+            )
+        rehearsal_notes = [
+            step for step in steps if step.get("if") == "${{ github.ref_name != 'main' }}"
+        ]
+        assert rehearsal_notes, (
+            f"{job_id}: a rehearsal leaves no summary record that the fence held"
+        )

@@ -664,6 +664,15 @@ buys **variance reduction, not bias removal** — each batch's Term and fee-clas
 margins are exact rather than binomially noisy, which is what keeps an early
 batch from being read as a Term or stream statement it is not.
 
+**Rehearse from staging first.** The run mode's environments resolve from the
+dispatching branch (see the `run-analytics` section of
+[pipeline.md](pipeline.md)), so a staging-ref dispatch runs the whole lane —
+the extract over the staging pair, the labeler under its exact production
+posture, the pristine-tree fence, the scanner install, the transcript scan,
+the measurement gate — with the labels-PR steps fenced off: nothing publishes.
+That is the surface any change to this lane, or any diagnosis of a failed
+labeling run, exercises before a production dispatch pays for a full batch.
+
 **No dispatch inputs.** There is nothing to choose and nothing to pass: the same
 committed state always cuts the same batch, so the run mode carries no input for
 it. The arithmetic — frame size, labeled so far, batch size, the reference share

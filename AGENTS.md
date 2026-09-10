@@ -133,7 +133,13 @@ non-interactive** container. Two consequences shape everything you do:
   reaches production and fails there. A staging run is evidence too, but you
   cannot start one — compose the dispatch command for the maintainer, and the
   claim stays unverified until it runs. Where nothing can be executed before
-  promotion, say so and carry the command that settles it afterwards.
+  promotion, say so and carry the command that settles it afterwards. The norm
+  binds hardest exactly where it is most tempting to waive: a new lane or mode
+  that has never run anywhere ships **with its staging rehearsal path** —
+  branch-resolved environment, publication fenced to prod-bound runs — and the
+  rehearsal dispatch is the executed check its PR hands the maintainer; a
+  lane whose first run anywhere is its production run has skipped the check
+  precisely where a dry-run cannot stand in for it.
 - **Corpus-dependent claims state corpus freshness.** Anything concluded from
   corpus state states the vintage of the blob it was read from, which
   `fedcourts corpus-info` prints: the newest pull stamp and the newest stored

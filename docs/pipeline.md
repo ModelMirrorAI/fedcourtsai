@@ -224,7 +224,22 @@ call, no branch write.
 `run-analytics` is the **corpus analysis & derived metrics** surface, also outside
 the cascade: every task that reads the corpus and answers a question or refreshes a
 derived artifact is a mode here (dispatch `mode` input, or the weekly schedule),
-each as its own least-privilege job holding only the credentials its mode needs:
+each as its own least-privilege job holding only the credentials its mode needs.
+
+Every environment-binding job resolves its environment from the dispatching
+branch, the same resolution `integration-test` uses: a `main`-ref dispatch —
+and the weekly schedule, which runs only there — binds `prod`, while
+`gh workflow run run-analytics.yml --ref staging -f mode=<mode>` binds the
+`staging` environment and reads the staging corpus pair (any other ref
+resolves its own name, which names no configured environment and binds
+nothing — fail-closed). The two publishing jobs' App-token mint and review-PR
+steps are fenced to `main`-ref runs, so a staging dispatch is a
+**rehearsal**: the mode runs end to end — the extract, the labeler's full
+agent posture, the measurement gates — and publishes nothing, stating the
+fence in its step summary. A new mode's, or a changed mode's, first run
+belongs on a staging ref. Each mode's concurrency group carries the ref, so a
+rehearsal never cancels or queues behind the production run of the same mode.
+The modes:
 
 - **`corpus-stats`** (dispatch) assumes the read-only S3 role, pulls the
   corpus (`fedcourts corpus-pull`), and runs `fedcourts stats` to aggregate disposition base-rates (overall,
