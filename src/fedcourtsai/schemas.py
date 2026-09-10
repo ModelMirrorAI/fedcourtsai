@@ -767,11 +767,14 @@ class PredictionContext(_Strict):
         description="Amicus briefs the snapshot's entries recorded as at "
         "provisioning — the same reading the outcome's block takes (accepted-form "
         "entries plus each distinct lead filer still docketed as submitted), over "
-        "entries this cell's own cutoff rule kept, which is earlier than the "
-        "outcome's end-of-disposition-day bound and so biases the increment "
-        "upward on same-day entries; masked by `signals_observable` like the "
-        "rest. Unbounded above, so the increment claim over it is a strict rise "
-        "with no vacuous arm — unlike the two flags, which can only rise once",
+        "the entries this cell's own `cut_kind` rule kept. Under `date` that is "
+        "everything filed strictly before `cutoff`, so the opening day is "
+        "included and this end agrees with the outcome's end-of-disposition-day "
+        "bound about it; under `arrival-position` the opening day's later entries "
+        "are excluded here and counted there, which biases the increment claim "
+        "upward. Masked by `signals_observable` like the rest. Unbounded above, "
+        "so the increment claim over it is a strict rise with no vacuous arm — "
+        "unlike the two flags, which can only rise once",
     )
     term: int | None = Field(
         default=None,
