@@ -61,17 +61,26 @@ name: run-analytics
 # Every environment-binding job resolves its environment from the dispatching
 # branch — the resolution integration-test.yml states in full: `main` (and the
 # schedule, which runs only there) binds `prod`; `staging` binds the staging
-# environment, whose read-only-role trust and corpus base URL point the same
-# jobs at the staging corpus pair; any other branch resolves its own name,
-# which names no configured environment and so binds no role variables and no
-# keys — fail-closed. A staging-ref dispatch is therefore a **rehearsal**: it
-# runs a mode end to end against the staging pair — the extract, the agent
-# posture, the measurement gates — except publication, which is a production
-# act. The two publishing jobs fence their App-token mint and review-PR steps
-# to `main`-ref runs (the dev App's credentials live on the prod environment
-# alone, so an unfenced mint on staging would fail rather than narrow) and a
-# rehearsal states the fence in the step summary instead of opening a PR. A
-# new mode's first run belongs on a staging ref.
+# environment, whose read-only-role trust and corpus variables point the same
+# jobs at the staging corpus pair — each corpus job forwards the out-of-band
+# index pointer off `main` for this, because the committed corpus pointer
+# names the production blob, which the staging remote does not hold; any
+# other branch resolves its own name, which names no configured environment
+# and so binds no role variables and no keys — fail-closed. A staging-ref
+# dispatch is therefore a **rehearsal**: it runs a mode as far as the staging
+# pair's contents support — for the labeling mode that includes the extract's
+# reference-coverage floor, which refuses a slice not carrying the reference
+# texts before the labeler ever starts (and with it, via `needs`, the labeler
+# job), itself a rehearsal observation — and never publication, which is a
+# production act. The two publishing jobs fence their App-token mint,
+# git-identity and review-PR steps to runs on the `main` branch ref exactly
+# (`github.ref`, not `github.ref_name`, which a tag named `main` also
+# satisfies — the prod deployment-branch policy is the real gate; the fence
+# states the property without leaning on it), because the dev App's
+# credentials live on the prod environment alone and a rehearsal must report
+# that the fence held rather than fail a mint. A rehearsal states that
+# boundary in the step summary instead of opening a PR. A new mode's first
+# run belongs on a staging ref.
 on:
   schedule:
     # Weekly metrics refresh (Mon 05:41 UTC) — a quiet slot after run-pull's
@@ -172,6 +181,16 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
+    # The out-of-band staging index pointer, forwarded only off `main`: a
+    # staging-bound pull must resolve the staging pair's own digest — the
+    # committed corpus/corpus.db.ref names the production blob, which the
+    # staging remote does not hold — while a prod-bound run stays on the
+    # committed pointer even if the variable ever appears at repository
+    # scope. This lane publishes from `main`, so that fence is structural
+    # here where the scenario lane's is a provisioning discipline. Job-level
+    # so the composite's pull step inherits it.
+    env:
+      FEDCOURTS_CORPUS_POINTER: ${{ github.ref != 'refs/heads/main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -253,6 +272,11 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
+    # The fenced staging index pointer, on corpus-stats's terms: forwarded
+    # off `main` so a staging-bound pull resolves the staging pair's digest,
+    # empty on a prod-bound run whatever scope the variable acquires.
+    env:
+      FEDCOURTS_CORPUS_POINTER: ${{ github.ref != 'refs/heads/main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -419,6 +443,11 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
+    # The fenced staging index pointer, on corpus-stats's terms: forwarded
+    # off `main` so a staging-bound pull resolves the staging pair's digest,
+    # empty on a prod-bound run whatever scope the variable acquires.
+    env:
+      FEDCOURTS_CORPUS_POINTER: ${{ github.ref != 'refs/heads/main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -516,6 +545,11 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
+    # The fenced staging index pointer, on corpus-stats's terms: forwarded
+    # off `main` so a staging-bound pull resolves the staging pair's digest,
+    # empty on a prod-bound run whatever scope the variable acquires.
+    env:
+      FEDCOURTS_CORPUS_POINTER: ${{ github.ref != 'refs/heads/main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -533,7 +567,7 @@ jobs:
       # prod environment alone, and a rehearsal publishes nothing — it
       # regenerates and reports the diff instead (the fenced step at the end).
       - name: Mint app token
-        if: ${{ github.ref_name == 'main' }}
+        if: ${{ github.ref == 'refs/heads/main' }}
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
@@ -543,7 +577,7 @@ jobs:
           permission-pull-requests: write
 
       - name: Configure git identity
-        if: ${{ github.ref_name == 'main' }}
+        if: ${{ github.ref == 'refs/heads/main' }}
         uses: ./.github/actions/configure-git-identity
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -597,7 +631,7 @@ jobs:
       # a direct commit. The fixed branch is force-pushed so an unmerged refresh PR
       # updates in place rather than stacking.
       - name: Open or update the review PR
-        if: ${{ github.ref_name == 'main' }}
+        if: ${{ github.ref == 'refs/heads/main' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
@@ -642,7 +676,7 @@ jobs:
       # staged diff — reported as a stat, since the artifacts regenerate from
       # this ref's corpus pair and the numbers themselves are not the point.
       - name: Report the rehearsal diff (publish fenced off this ref)
-        if: ${{ github.ref_name != 'main' }}
+        if: ${{ github.ref != 'refs/heads/main' }}
         run: |
           set -euo pipefail
           git add -A metrics/ data/scope/
@@ -671,6 +705,11 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
+    # The fenced staging index pointer, on corpus-stats's terms: forwarded
+    # off `main` so a staging-bound pull resolves the staging pair's digest,
+    # empty on a prod-bound run whatever scope the variable acquires.
+    env:
+      FEDCOURTS_CORPUS_POINTER: ${{ github.ref != 'refs/heads/main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1323,7 +1362,7 @@ jobs:
       # the measured block in the step summary and the transcript artifact are
       # its record, and the fenced note below states the boundary.
       - name: Mint app token
-        if: ${{ github.ref_name == 'main' }}
+        if: ${{ github.ref == 'refs/heads/main' }}
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
@@ -1333,7 +1372,7 @@ jobs:
           permission-pull-requests: write
 
       - name: Configure git identity
-        if: ${{ github.ref_name == 'main' }}
+        if: ${{ github.ref == 'refs/heads/main' }}
         uses: ./.github/actions/configure-git-identity
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -1343,7 +1382,7 @@ jobs:
       # unmerged labeling PR updates in place rather than stacking, opened
       # against `main` and never auto-merged.
       - name: Open or update the review PR
-        if: ${{ github.ref_name == 'main' }}
+        if: ${{ github.ref == 'refs/heads/main' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
@@ -1461,12 +1500,13 @@ jobs:
             echo "Opened review PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
-      # The rehearsal's boundary, stated where the operator reads: the labeler
-      # ran under its production posture, the gate measured (its block is in
-      # the summary above), the transcript rode its artifact — and the labels
-      # went nowhere, which is the fence working rather than a failure.
+      # The rehearsal's boundary, stated where the operator reads — and on
+      # every outcome the runner survives, not only success: a measure-gate
+      # refusal is the single most informative rehearsal result, and it must
+      # not be the one that leaves the operator inferring whether publication
+      # was fenced or attempted.
       - name: Note the rehearsal boundary (publish fenced off this ref)
-        if: ${{ github.ref_name != 'main' }}
+        if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
         run: |
-          echo "qp-topic-label rehearsal: the labeler ran and the gate measured; the labels PR is fenced to main-ref runs, so nothing published." \
+          echo "qp-topic-label rehearsal: whatever ran above, the labels PR is fenced to main-branch runs — nothing published from this dispatch." \
             | tee -a "$GITHUB_STEP_SUMMARY"

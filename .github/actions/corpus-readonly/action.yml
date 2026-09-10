@@ -9,8 +9,10 @@ description: >-
   Corpus *writers* (run-pull's jobs) assume the read-write role and
   keep their own wiring. The calling job must run setup-python-env BEFORE this
   composite (corpus-pull runs from the synced environment), grant
-  `id-token: write`, and run in the `prod` environment so the role and the
-  corpus base URL are available to pass in.
+  `id-token: write`, and bind a deployment environment holding the role and
+  the corpus base URL to pass in — `prod` for the production lanes,
+  branch-resolved on run-analytics so a staging-ref dispatch rehearses
+  against the staging pair.
 
 inputs:
   role-to-assume:
@@ -74,9 +76,12 @@ runs:
         set -euo pipefail
         # corpus-pull resolves the committed pointer (corpus/corpus.db.ref)
         # against the index remote derived from the base URL, and verifies the
-        # blob's checksum + size
-        # before it lands — *committed*, because every caller of this composite
-        # hard-codes `environment: prod`, where the out-of-band pointer
-        # override is unset, and none forwards one. A shell carrying the
-        # override resolves that instead of the pointer file.
+        # blob's checksum + size before it lands. A job env carrying the
+        # out-of-band FEDCOURTS_CORPUS_POINTER override resolves that instead
+        # of the pointer file: the prod-bound callers leave it unset (or
+        # fence it empty) and read the committed pointer, while
+        # run-analytics's staging rehearsals forward it off `main` — the
+        # committed digest names the production blob, which the staging
+        # remote does not hold, so a staging-bound pull without the override
+        # fails on a missing key rather than reading the fixture.
         uv run fedcourts corpus-pull --missing-pointer "$MISSING_POINTER"

@@ -16,8 +16,12 @@ a `schedule` fires only from the **default branch**, so a cron can run only what
 a maintainer-merged promotion put on `main`; a `workflow_dispatch` is refused by
 GitHub to anyone without repository write; and every privileged job binds a
 deployment environment whose branch policy pins the ref it may run from (`prod`
-to `main`, `staging` to `staging`), so a dispatch from any other ref dies before
-a step runs. The trigger decides only
+to `main`, `staging` to `staging`) — a job naming one as a literal is refused at
+the deployment gate from any other ref before a step runs, and the two
+branch-resolving workflows (`integration-test`, `run-analytics`) resolve an
+off-list ref to an auto-created empty environment holding no role variables and
+no keys, failing closed at the first credential instead (the carve-out is in
+[security.md](security.md)). The trigger decides only
 *when* a round derives — never what it spends on, which is the `review` hold's.
 (CI, the workflow linters and CodeQL do take `pull_request`, which any fork
 contributor fires; none of them binds an environment, names a secret, or mints a
@@ -227,19 +231,23 @@ derived artifact is a mode here (dispatch `mode` input, or the weekly schedule),
 each as its own least-privilege job holding only the credentials its mode needs.
 
 Every environment-binding job resolves its environment from the dispatching
-branch, the same resolution `integration-test` uses: a `main`-ref dispatch —
-and the weekly schedule, which runs only there — binds `prod`, while
+branch — the branch-resolving tail of `integration-test`'s expression, with
+no override input: a `main`-ref dispatch — and the weekly schedule, which
+runs only there — binds `prod`, while
 `gh workflow run run-analytics.yml --ref staging -f mode=<mode>` binds the
-`staging` environment and reads the staging corpus pair (any other ref
-resolves its own name, which names no configured environment and binds
-nothing — fail-closed). The two publishing jobs' App-token mint and review-PR
-steps are fenced to `main`-ref runs, so a staging dispatch is a
-**rehearsal**: the mode runs end to end — the extract, the labeler's full
-agent posture, the measurement gates — and publishes nothing, stating the
-fence in its step summary. A new mode's, or a changed mode's, first run
-belongs on a staging ref. Each mode's concurrency group carries the ref, so a
-rehearsal never cancels or queues behind the production run of the same mode.
-The modes:
+`staging` environment and reads the staging corpus pair (each corpus job
+forwards the out-of-band index pointer off `main`, since the committed
+pointer names the production blob; any other ref resolves its own name,
+which names no configured environment and binds nothing — fail-closed). The
+two publishing jobs' App-token mint, git-identity and review-PR steps are
+fenced to `main`-branch runs, so a staging dispatch is a **rehearsal**: it
+runs a mode as far as the staging pair's contents support — the labeling
+mode's extract enforces its reference-coverage floor against that corpus, so
+a slice not carrying the reference texts stops there, itself a rehearsal
+observation — and publishes nothing, stating the fence in its step summary.
+A new mode's, or a changed mode's, first run belongs on a staging ref. Each
+mode's concurrency group carries the ref, so a rehearsal never cancels or
+queues behind the production run of the same mode. The modes:
 
 - **`corpus-stats`** (dispatch) assumes the read-only S3 role, pulls the
   corpus (`fedcourts corpus-pull`), and runs `fedcourts stats` to aggregate disposition base-rates (overall,
@@ -276,8 +284,8 @@ The modes:
   them instead of dying on an expired token after the whole walk. Raising the
   ceiling further is that composite input again, within the read-only role's
   IAM maximum session duration. And it holds its
-  **own** concurrency group — `run-analytics-census`, `cancel-in-progress:
-  false` — rather than sharing `corpus-stats`'s: a cancelled job runs no upload
+  **own** ref-suffixed concurrency group (`cancel-in-progress:
+  false`) rather than sharing `corpus-stats`'s: a cancelled job runs no upload
   step, so a sibling stats dispatch would otherwise take the artifact the mode
   exists to produce with it. Both jobs are read-only, so letting them overlap
   costs nothing.
@@ -988,7 +996,12 @@ agentic fan-outs, the corpus writers). Everything else — a new analysis, a new
 artifact, a new maintenance sweep — should land as a mode/job on `run-analytics`
 (or the closest existing surface), reusing the shared composite actions
 (`setup-python-env`, `corpus-readonly`, `corpus-ranged`, `corpus-sidecar`,
-`mcp-sidecar`, `configure-git-identity`).
+`mcp-sidecar`, `configure-git-identity`). A new mode also inherits — and must
+preserve — the lane's rehearsability: a branch-resolved environment, any
+publish step fenced to `main`-branch runs, and the fenced staging-pointer
+forward on any corpus job (the invariants are pinned in
+`tests/test_workflow_cell_invariants.py`), so the mode's first run can be a
+staging rehearsal rather than its production run.
 
 **A `workflow_dispatch` may declare at most 10 inputs, and the "Run workflow"
 form is where the limit bites** — inputs past it are reachable by API but the

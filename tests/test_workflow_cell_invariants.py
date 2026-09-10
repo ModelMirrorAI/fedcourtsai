@@ -452,11 +452,24 @@ def test_corpus_composite_call_sites_pass_the_base_url_with_the_same_spelling() 
 # variable already gives, and no respelling), and the exact set of surfaces
 # that may carry it.
 POINTER_ENV_EXPRESSION = "${{ vars.FEDCOURTS_CORPUS_POINTER }}"
-# The scenario lane alone. The production lanes read the pair the committed
+# The fenced form run-analytics carries: forwarded only off `main`, so a
+# pointer that ever appears at repository scope still cannot repoint a
+# prod-bound run of a publishing lane — the scenario lane accepts that
+# residual as a provisioning discipline (docs/security.md's "staging
+# environment only" rule); a lane that opens review PRs from `main` fences
+# it structurally instead.
+FENCED_POINTER_ENV_EXPRESSION = (
+    "${{ github.ref != 'refs/heads/main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}"
+)
+# The rehearsable lanes alone, each pinned to its one admitted expression.
+# The production lanes read the pair the committed
 # pointer names, so a pointer reaching run-predict/run-evaluate/the writers
-# would repoint a real run's corpus at another blob — hence a pinned set
+# would repoint a real run's corpus at another blob — hence a pinned map
 # rather than a count, exactly as the base URL is pinned above.
-POINTER_WORKFLOWS = {"integration-test.yml"}
+POINTER_WORKFLOWS = {
+    "integration-test.yml": POINTER_ENV_EXPRESSION,
+    "run-analytics.yml": FENCED_POINTER_ENV_EXPRESSION,
+}
 
 
 def test_the_corpus_pointer_is_spelled_once_and_scoped_to_the_scenario_lane() -> None:
@@ -473,12 +486,13 @@ def test_the_corpus_pointer_is_spelled_once_and_scoped_to_the_scenario_lane() ->
             if "FEDCOURTS_CORPUS_POINTER" not in env:
                 continue
             covered.add(name)
-            assert env["FEDCOURTS_CORPUS_POINTER"] == POINTER_ENV_EXPRESSION, (
+            expected = POINTER_WORKFLOWS.get(name)
+            assert expected is not None and env["FEDCOURTS_CORPUS_POINTER"] == expected, (
                 f"{context}: the corpus pointer must be exactly "
-                f"{POINTER_ENV_EXPRESSION!r}, got {env['FEDCOURTS_CORPUS_POINTER']!r}"
+                f"{expected!r}, got {env['FEDCOURTS_CORPUS_POINTER']!r}"
             )
-    assert covered == POINTER_WORKFLOWS, (
-        f"corpus pointer coverage drifted: {sorted(covered ^ POINTER_WORKFLOWS)}"
+    assert covered == set(POINTER_WORKFLOWS), (
+        f"corpus pointer coverage drifted: {sorted(covered ^ set(POINTER_WORKFLOWS))}"
     )
 
 
@@ -2839,9 +2853,12 @@ def test_the_back_test_dispatch_keeps_its_free_default_and_its_parameters() -> N
 def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> None:
     """A job that hard-pins `environment: prod` makes a new mode's first run
     anywhere its production run — the rehearsability the branch resolution
-    exists to provide. Every environment-binding job must carry the exact
-    resolution `integration-test.yml` uses (`main` binds prod, `staging` binds
-    the staging pair, anything else binds nothing — fail-closed), `tool-usage`
+    exists to provide. Every environment-binding job must carry the
+    branch-resolving tail of `integration-test.yml`'s expression, with no
+    override input (`main` binds prod, `staging` binds
+    the staging pair, anything else binds nothing — fail-closed; the same
+    literal `test_workflow_auth_gate.py` pins as BRANCH_RESOLVED_ENVIRONMENT),
+    `tool-usage`
     must stay environment-free (it reads committed `data/` only), and every
     concurrency group must carry the ref, because two refs are two
     environments reading two corpus pairs and one must never cancel — or
@@ -2854,10 +2871,25 @@ def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> Non
             assert job.get("environment") == resolved, (
                 f"{job_id} does not resolve its environment from the dispatching branch"
             )
-        group = job["concurrency"]["group"]
+        group = (job.get("concurrency") or {}).get("group", "")
         assert group.endswith("-${{ github.ref_name }}"), (
             f"{job_id}'s concurrency group is shared across refs: {group}"
         )
+        # Resolution alone does not make a staging dispatch read the staging
+        # pair: the committed corpus pointer names the production blob, so
+        # every job that pulls through the corpus composite must forward the
+        # out-of-band pointer — in the fenced spelling, so a repository-scoped
+        # value can never repoint a prod-bound run of this publishing lane.
+        pulls_corpus = any(
+            "actions/corpus-readonly" in str(step.get("uses") or "")
+            for step in job.get("steps", []) or []
+        )
+        if pulls_corpus:
+            assert (job.get("env") or {}).get(
+                "FEDCOURTS_CORPUS_POINTER"
+            ) == FENCED_POINTER_ENV_EXPRESSION, (
+                f"{job_id} pulls the corpus without the fenced staging pointer forward"
+            )
 
 
 def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
@@ -2867,16 +2899,30 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
     `main` ref. The dev App's credentials live on the prod environment alone,
     so an unfenced mint on staging fails rather than narrows — but the fence
     is asserted, not inferred, because a future credential added to staging
-    would turn that failure into a publish."""
-    fence = "${{ github.ref_name == 'main' }}"
-    for job_id in ("metrics-refresh", "qp-topic-label"):
-        steps = _load("run-analytics.yml")["jobs"][job_id]["steps"]
+    would turn that failure into a publish. The fence keys on the exact
+    branch ref (`github.ref`), not `github.ref_name`, which a tag named
+    `main` also satisfies — the prod deployment-branch policy is the real
+    gate for that case, and the fence states the property without leaning
+    on it. The publisher set is derived, not enumerated: every job holding a
+    mint step is a publishing job, and every step that mints or that touches
+    the minted token is a publisher — so a new consumer of the token, or a
+    mint added to a third job, lands inside the fence's sweep by default."""
+    fence = "${{ github.ref == 'refs/heads/main' }}"
+    wf = _load("run-analytics.yml")
+    publishing_jobs = {
+        job_id: job["steps"]
+        for job_id, job in wf["jobs"].items()
+        if any("create-github-app-token" in str(s.get("uses") or "") for s in job["steps"])
+    }
+    assert set(publishing_jobs) == {"metrics-refresh", "qp-topic-label"}, (
+        f"the publishing-job set moved: {sorted(publishing_jobs)}"
+    )
+    for job_id, steps in publishing_jobs.items():
         publishers = [
             step
             for step in steps
             if "create-github-app-token" in str(step.get("uses") or "")
-            or "configure-git-identity" in str(step.get("uses") or "")
-            or "gh pr create" in str(step.get("run") or "")
+            or "steps.app-token.outputs" in yaml.safe_dump(step)
         ]
         assert len(publishers) == 3, (
             f"{job_id}: expected mint + identity + PR steps, found {len(publishers)}"
@@ -2886,7 +2932,7 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
                 f"{job_id}: publish step {step.get('name')!r} is not fenced to the main ref"
             )
         rehearsal_notes = [
-            step for step in steps if step.get("if") == "${{ github.ref_name != 'main' }}"
+            step for step in steps if "github.ref != 'refs/heads/main'" in str(step.get("if") or "")
         ]
         assert rehearsal_notes, (
             f"{job_id}: a rehearsal leaves no summary record that the fence held"

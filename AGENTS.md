@@ -135,9 +135,14 @@ non-interactive** container. Two consequences shape everything you do:
   claim stays unverified until it runs. Where nothing can be executed before
   promotion, say so and carry the command that settles it afterwards. The norm
   binds hardest exactly where it is most tempting to waive: a new lane or mode
-  that has never run anywhere ships **with its staging rehearsal path** —
-  branch-resolved environment, publication fenced to prod-bound runs — and the
-  rehearsal dispatch is the executed check its PR hands the maintainer; a
+  that has never run anywhere ships with the strongest pre-production check
+  its risk class allows. For a lane whose radius is corpus read plus model
+  spend, that is **its staging rehearsal path** — branch-resolved environment,
+  publication fenced to prod-bound runs — and the rehearsal dispatch is the
+  executed check its PR asks the maintainer to run, the claim staying
+  unverified until it does. A corpus-writer lane is structurally prod-only
+  (the write credentials exist only in its jobs), so its equivalent is the
+  bounded dry-run pass a maintainer reads before the apply. Either way, a
   lane whose first run anywhere is its production run has skipped the check
   precisely where a dry-run cannot stand in for it.
 - **Corpus-dependent claims state corpus freshness.** Anything concluded from
