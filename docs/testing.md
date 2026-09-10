@@ -254,6 +254,24 @@ workflows' by a test, and the two deliberate deviations — the kickoff prompt,
 and handing claude the job's read-capped token instead of minting the cells'
 App token — are marked in the workflow where they are made.
 
+`qp-labeler-smoke` extends the actions-smoke doctrine to the one invocation
+block the engine legs cannot cover: the qp-topic labeler's, which is not a
+cell's — a pinned CLI handed to the action, a bubblewrap/socat sandbox with
+the subprocess env scrub, `bypassPermissions` in a checkout that is read-only
+by contract, and a single `--add-dir` grant. The leg sends that block, held
+in lockstep with `run-analytics`'s labeling job by a workflow-shape test, a
+five-row synthetic extract — invented question texts, so no stored petition
+text reaches the runner — and asserts the declared output exists, parses
+against the vocabulary, and joins back to the extract row for row; which
+label the model picked is deliberately not read, so the leg gates the
+posture and never model behaviour. It runs as its own job because the
+credential shape is part of that posture (no cloud credential, no id-token —
+stricter than a cell), SPENDS MODEL TOKENS (cents at the labeler's default
+tier, on the dispatching environment's own key), and on a failure digests
+the error tool results from the execution file into the job log — which
+makes a labeler permission regression diagnosable from one staging dispatch.
+Neither whole-suite selection fans it out.
+
 **The repro family** is the third token-spending class, and it exists because
 the two above share a blind spot: the resolver applies no stage screen, but
 what it settles on in practice is a cert-stage petition, so a defect keyed on
@@ -332,7 +350,9 @@ cell's `with:` block, or to the codex permission profile the cells select**,
 **collect around any change to the `collect-run` composite or the collect
 jobs that call it**, **qp-topic around any change to the `qp-topic-measure`
 composite, the labeling job, or the `qp_topics` module — and before any paid
-labeling dispatch**, **a repro-family scenario around any change aimed at the
+labeling dispatch**, **qp-labeler-smoke around any change to the labeler's
+invocation block, its sandbox or CLI install steps, or the labeling prompt —
+and to diagnose any labeling run that exited without writing its output**, **a repro-family scenario around any change aimed at the
 defect it reproduces, and once after the promotion that carries the fix**, and
 as a preflight **before a release dry run** and
 **before a prediction freeze** — the moments when a silent read regression

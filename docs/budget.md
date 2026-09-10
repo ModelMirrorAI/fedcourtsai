@@ -1149,7 +1149,9 @@ A flat **$350/mo** bucket for the individual-use items carried as one line: the
 domains (`modelmirror.ai`, `fedcourts.ai`), the email provider, the **Claude
 Max dev subscription** ($200/mo, interactive dev only, never automation — see
 driver #1), and other small fixed items — the qp-topic labeler's occasional
-dispatch (driver #1) rides inside the buffer too. A deliberate buffer over the
+dispatch (driver #1) rides inside the buffer too, and so does the
+`qp-labeler-smoke` integration leg: dispatch-only, five synthetic rows at the
+labeler's default tier, cents a run. A deliberate buffer over the
 actual items; its defining property is that it **does not scale** with events,
 corpus size, or predictor count.
 

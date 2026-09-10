@@ -2834,3 +2834,52 @@ def test_the_back_test_dispatch_keeps_its_free_default_and_its_parameters() -> N
     assert inputs["replay"]["default"] == "cert"
     assert inputs["limit"]["default"] == "25"
     assert inputs["spread"]["default"] is False
+
+
+def test_the_labeler_smoke_sends_the_labeling_lanes_own_invocation_block() -> None:
+    """The smoke certifies the paid labeler only while the two blocks agree.
+
+    integration-test's qp-labeler-smoke exists because the labeler's
+    invocation block is one nothing else sends: the pinned CLI handed to the
+    action, the sandbox settings with the subprocess env scrub, the bypass
+    permission mode, and the one --add-dir grant. Each half is separately
+    silent when it drifts — the smoke still runs, still greens — so the
+    action pin, the settings, the argument block (the model line aside: the
+    smoke pins the lane's dispatch default), the IO paths, and the prompt
+    contract are pinned equal here, or the smoke answers a question about a
+    configuration the paid lane does not run. (The CLI version pin is already
+    held equal across workflows by the transcript-capture test above.)
+    """
+    lane_steps = _load("run-analytics.yml")["jobs"]["qp-topic-label"]["steps"]
+    smoke_steps = _load("integration-test.yml")["jobs"]["qp-labeler-smoke"]["steps"]
+    lane = next(s for s in lane_steps if "claude-code-action" in str(s.get("uses") or ""))
+    smoke = next(s for s in smoke_steps if "claude-code-action" in str(s.get("uses") or ""))
+    assert lane["uses"] == smoke["uses"], "the action pins diverge"
+    assert lane["with"]["settings"] == smoke["with"]["settings"], "the settings diverge"
+    for env_key in ("QP_TEXTS", "LABELS_OUT"):
+        assert lane["env"][env_key] == smoke["env"][env_key], env_key
+
+    def args_without_model(step: dict[str, object]) -> list[str]:
+        with_block = step["with"]
+        assert isinstance(with_block, dict)
+        lines = [line.strip() for line in str(with_block["claude_args"]).splitlines()]
+        return [line for line in lines if line and not line.startswith("--model")]
+
+    assert args_without_model(lane) == args_without_model(smoke), "the argument blocks diverge"
+    # The smoke's model is the lane's own dispatch default, read from the lane
+    # rather than restated, so a default bump moves both or fails here.
+    wf = _load("run-analytics.yml")
+    triggers = wf.get("on") or wf.get(True) or {}
+    default_model = triggers["workflow_dispatch"]["inputs"]["label_model"]["default"]
+    smoke_model = next(
+        line.strip()
+        for line in str(smoke["with"]["claude_args"]).splitlines()
+        if line.strip().startswith("--model")
+    )
+    assert smoke_model == f"--model {default_model}", (
+        "the smoke's model is not the labeling lane's dispatch default"
+    )
+    # The prompt contract travels verbatim but for the LABELER literal, which
+    # carries the pinned default where the lane interpolates its input.
+    lane_prompt = str(lane["with"]["prompt"]).replace("${{ inputs.label_model }}", default_model)
+    assert lane_prompt == str(smoke["with"]["prompt"]), "the prompt contracts diverge"

@@ -138,7 +138,10 @@ on:
           engine-smoke skip set. `codex-application-repro` is the repro
           family's first member — one codex evaluate cell against a pinned
           application-lane record — and SPENDS MODEL TOKENS: one evaluate
-          cell's worth of codex. Neither whole-suite selection fans it out.
+          cell's worth of codex. `qp-labeler-smoke` sends the qp-topic
+          labeling lane's own invocation block a five-row synthetic extract
+          and SPENDS MODEL TOKENS: cents at the labeler's default tier.
+          Neither whole-suite selection fans out either of those two.
         type: choice
         default: ranged-reads
         options:
@@ -150,6 +153,7 @@ on:
           - mcp-sidecar
           - collect
           - qp-topic
+          - qp-labeler-smoke
           - codex-application-repro
           - all
           - all-offline
@@ -309,7 +313,11 @@ jobs:
     # what is meant, and survives someone hardening the inequality into the
     # fail-closed shape the scheduled-workflow trap in docs/pipeline.md asks
     # for everywhere it is a hazard rather than the intent.
-    if: ${{ github.event_name == 'schedule' || inputs.scenario != 'collect' }}
+    # qp-labeler-smoke is excluded beside collect: both run as standalone
+    # jobs below, needing no matrix, no case, and no corpus.
+    if: >-
+      ${{ github.event_name == 'schedule'
+      || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke') }}
     runs-on: ubuntu-latest
     # 15, not 5: the resolve path checks out, builds the Python env, assumes
     # the read-only role, and walks a bounded candidate window over the blob.
@@ -509,11 +517,16 @@ jobs:
           cat "$out" >> "$GITHUB_OUTPUT"
 
   scenario:
-    # Every dispatch-selected scenario except `collect`, which runs on its own
-    # environment-free job below: it needs no role variables, so binding it to
-    # this job's deployment environment would only add a needless gate. Plus
-    # the scheduled canary, named for the reason the plan job's gate carries.
-    if: ${{ github.event_name == 'schedule' || inputs.scenario != 'collect' }}
+    # Every dispatch-selected scenario except the two that run as standalone
+    # jobs below: `collect` (environment-free — it needs no role variables,
+    # so binding it to this job's deployment environment would only add a
+    # needless gate) and `qp-labeler-smoke` (environment-bound but
+    # deliberately without this job's id-token grant, which is part of the
+    # posture it smokes). Plus the scheduled canary, named for the reason the
+    # plan job's gate carries.
+    if: >-
+      ${{ github.event_name == 'schedule'
+      || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke') }}
     needs: plan
     runs-on: ubuntu-latest
     strategy:
@@ -2568,3 +2581,248 @@ jobs:
             echo "- rerun: identical branch trees and plan; PRs updated in place, none duplicated"
           } >> "$GITHUB_STEP_SUMMARY"
 
+
+  # --- qp-labeler-smoke: the labeling lane's invocation block, cents --------
+
+  # The qp-topic scenario exercises the labeling lane's post-label half
+  # token-free, and engine-actions-smoke sends each *cell* engine its own
+  # invocation block — but the labeler's block is a fourth one nothing sends:
+  # a pinned CLI handed to the action, a bubblewrap/socat sandbox with the
+  # subprocess env scrub, bypassPermissions in a checkout that is read-only
+  # by contract, and a single --add-dir grant. A refusal raised anywhere in
+  # that stack fires before or between model calls, so the token-free
+  # scenario passes it unseen and it surfaces first in a paid labeling
+  # dispatch. This job sends the labeler's own block a five-row synthetic
+  # extract — invented question texts, so no stored petition text reaches
+  # the runner, the log, or the engine — and asserts the declared output
+  # exists, parses against the vocabulary, and joins back to the extract row
+  # for row. Cents of spend at the labeler's default tier.
+  #
+  # Its own job rather than a matrix leg, because the credential shape is
+  # part of the posture under test: the labeling job holds no cloud
+  # credential and no id-token — stricter than a cell — while the matrix job
+  # grants id-token for its corpus legs. Kept in lockstep with
+  # run-analytics's qp-topic-label job by a workflow-shape test: the action
+  # pin, the settings, the argument block (the model line aside), the IO
+  # paths, the prompt contract, and the CLI pin must all match, or the smoke
+  # answers a question about a configuration the paid lane does not run.
+  qp-labeler-smoke:
+    if: ${{ inputs.scenario == 'qp-labeler-smoke' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Branch-resolved with an explicit override; keep this expression
+    # identical to `run-name:`'s, the plan job's and the scenario job's, and
+    # see the deploy-environment input for what resolves. What the
+    # environment supplies here is exactly one secret: the engine key the
+    # labeler spends — staging's own key on a staging-bound rehearsal.
+    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # data/qp-topics membership encodes cert outcomes (docs/qp-topic.md),
+      # so every job that starts an agent in a checkout deletes it first. A
+      # tracked deletion only: the pristine assertion below restores it from
+      # the commit before it reads the porcelain.
+      - name: Remove the labeling-measurement oracle from the agent's tree
+        run: rm -rf data/qp-topics
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The labeling job's own tripwire, verbatim: this job assumes no role
+      # and grants no id-token, and the assertion keeps that true even if a
+      # future edit adds a credentialed step above the agent.
+      - name: Assert no cloud credential in the agent env
+        run: |
+          set -euo pipefail
+          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables leaked into the job env"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the agent env"
+            exit 1
+          fi
+          echo "no cloud credential in the agent env"
+
+      # Five invented questions-presented texts in the exact extract shape
+      # `qp-corpus` hands the paid lane, staged in the one directory the
+      # labeler is granted. Synthetic by design, and the smoke's subject is
+      # the invocation posture, not the labels — no assertion reads which
+      # label the model picked, only that every row came back in vocabulary
+      # with its keys intact, so the leg stays green across model behaviour
+      # it has no business gating on.
+      - name: Seed a synthetic labeling extract
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/qp-io"
+          jq -n '[
+            {case_id: "scotus/9999000001", docket_number: "99-9001",
+             text: "Whether a federal agency may assess a civil tax penalty without prior written supervisory approval."},
+            {case_id: "scotus/9999000002", docket_number: "99-9002",
+             text: "Whether a noncitizen'"'"'s misdemeanor possession conviction is a removable offense under the immigration laws."},
+            {case_id: "scotus/9999000003", docket_number: "99-9003",
+             text: "Whether a municipal ordinance restricting door-to-door religious canvassing violates the Free Exercise Clause."},
+            {case_id: "scotus/9999000004", docket_number: "99-9004",
+             text: "Whether the district court erred in applying a sentencing enhancement for obstruction of justice."},
+            {case_id: "scotus/9999000005", docket_number: "99-9005",
+             text: "Whether the fair-use defense to copyright infringement presents a question of law reviewed de novo."}
+          ]' > "$RUNNER_TEMP/qp-io/qp-texts.json"
+
+      # The labeler's sandbox dependencies, its userns relaxation, and the
+      # pinned CLI, each on run-analytics's own terms (its qp-topic-label job
+      # states the full rationale per step; the CLI pin is held equal across
+      # workflows by a workflow-shape test).
+      - name: Install bubblewrap and socat for the labeler's sandbox
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap socat
+
+      - name: Install the pinned Claude Code CLI for the labeler
+        id: claude-cli
+        timeout-minutes: 5
+        # zizmor: ignore[adhoc-packages] — top-level exact-version pin,
+        # transitive scripts disabled, and a credential-free step environment
+        # are the practical controls for a global CLI; a lockfile is not
+        # expressible for `npm i -g`.
+        run: |
+          set -euo pipefail
+          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.259
+          node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs"
+          claude --version
+          path=$(command -v claude)
+          test -n "$path"
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      - name: Enable unprivileged user namespaces for the subprocess scrub
+        run: |
+          set -euo pipefail
+          if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          if sysctl -n kernel.unprivileged_userns_clone >/dev/null 2>&1; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+
+      # The paid lane's invocation block, verbatim but for the one line the
+      # lockstep test exempts: the model is pinned to the lane's dispatch
+      # default rather than read from an input this workflow does not carry.
+      # The github_token is the job's own, capped at `contents: read` — the
+      # paid lane's choice, for the paid lane's stated reason.
+      - name: Run the labeler's invocation block over the synthetic extract
+        id: smoke_label
+        timeout-minutes: 10
+        uses: anthropics/claude-code-action@9c5ddab2e6d17b83ea679153b31f1d5f023cf636 # v1.0.217
+        env:
+          QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
+          LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          path_to_claude_code_executable: ${{ steps.claude-cli.outputs.path }}
+          github_token: ${{ github.token }}
+          settings: |
+            {
+              "env": {
+                "ENABLE_PROMPT_CACHING_1H": "1",
+                "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "1"
+              }
+            }
+          prompt: |
+            Read .github/prompts/qp-topic-label.md and AGENTS.md, then label every
+            questions-presented text in the extract:
+
+            QP_TEXTS=${{ runner.temp }}/qp-io/qp-texts.json
+            LABELS_OUT=${{ runner.temp }}/qp-io/qp-labels.jsonl
+            LABELER=claude-code/claude-haiku-4-5-20251001
+
+            These values are authoritative; the same identifiers are exported as
+            environment variables on engines that pass them through, but if
+            `$QP_TEXTS` expands empty in your shell, use the literals above.
+            Write only $LABELS_OUT. Do not commit, push, or open a PR — the
+            workflow handles git. You run headless with no interactive input; if
+            you are blocked, say so plainly in your final message and stop — do
+            not wait for a reply.
+          claude_args: |
+            --model claude-haiku-4-5-20251001
+            --max-turns 120
+            --permission-mode bypassPermissions
+            --add-dir ${{ runner.temp }}/qp-io
+
+      # The read-only-tree half of the smoke's verdict, on every outcome the
+      # runner survives. Unlike the paid lane's assertion this guards no
+      # measurement of record — nothing publishes from this job and no gate
+      # reads the checkout after it — so the porcelain check is the whole of
+      # what is needed: the labeler's contract is that its one write is the
+      # granted directory, and a modified tree fails the smoke it was sent.
+      - name: Restore the oracle path and assert the tree is pristine
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          git checkout -- data/qp-topics
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::the labeler modified the checkout; its one granted write is the qp-io directory"
+            git status --porcelain
+            exit 1
+          fi
+          echo "work tree pristine"
+
+      # Runs this checkout's Python after the agent ran in it — acceptable
+      # here where the paid lane builds a fresh-checkout scanner instead,
+      # because nothing publishes: the verdict gates only this leg's green,
+      # and the pristine assertion above has already refused a modified tree.
+      - name: Assert the declared output is complete and in vocabulary
+        env:
+          QP_IO: ${{ runner.temp }}/qp-io
+        run: |
+          set -euo pipefail
+          uv run python - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import os
+          from pathlib import Path
+
+          from fedcourtsai.pipeline.qp_topics import read_label_lines, read_texts
+
+          io_dir = Path(os.environ["QP_IO"])
+          texts = read_texts(io_dir / "qp-texts.json")
+          entries = read_label_lines(io_dir / "qp-labels.jsonl")
+          labeled = {entry.case_id: entry for entry in entries}
+          missing = sorted(set(texts) - set(labeled))
+          extra = sorted(set(labeled) - set(texts))
+          assert not missing and not extra, f"row mismatch: missing={missing} extra={extra}"
+          for entry in entries:
+              assert entry.docket_number == texts[entry.case_id].docket_number, (
+                  f"{entry.case_id}: docket number not copied back intact"
+              )
+          print(
+              f"qp-labeler-smoke: {len(entries)} rows labeled under the production "
+              "posture — all in vocabulary, keys intact"
+          )
+          PY
+
+      # The action's own log carries turn progress but not what was denied;
+      # the execution file does, and this leg exists to make a denial
+      # diagnosable from one staging dispatch. Digested into the job log
+      # rather than the step summary — error strings are agent-adjacent
+      # bytes — with every replayed line indented so nothing parses as a
+      # workflow command. The extract is synthetic, so no stored petition
+      # text can appear here.
+      - name: Digest error tool results from the execution file
+        if: ${{ !cancelled() && steps.smoke_label.outputs.execution_file != '' }}
+        continue-on-error: true
+        env:
+          EXECUTION_FILE: ${{ steps.smoke_label.outputs.execution_file }}
+        run: |
+          set -euo pipefail
+          if [ ! -r "$EXECUTION_FILE" ]; then
+            echo "no readable execution file to digest"
+            exit 0
+          fi
+          jq -r '
+            [ .. | objects | select(.type? == "tool_result" and .is_error == true)
+              | (.content | if type == "array" then (map(.text? // "") | join(" ")) else tostring end) ]
+            | "error tool results: \(length)",
+              (group_by(.[0:120])[] | "x\(length): \(.[0][0:200])")
+          ' "$EXECUTION_FILE" | sed 's/^/  /'
