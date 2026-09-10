@@ -2937,10 +2937,15 @@ jobs:
   runner-idle-control:
     if: ${{ inputs.scenario == 'runner-idle-control' }}
     runs-on: ubuntu-latest
-    # Setup (~3) + the 4200 s idle + the disarm tail, with room; the watchdog
-    # deadline sits at 4500 s so it never fires on a healthy run — the idle
-    # step ends first — and a beat cadence of 120 s bounds the death
-    # timestamp to two minutes, the repro leg's own arithmetic.
+    # Setup (~3) + an 8-minute pre-arm wait + the 3720 s idle + the disarm
+    # tail, with room. The wait is experimental design, not padding: the
+    # telemetry token lives one hour from the mint, and the death window
+    # sits at minutes 58-64 of the JOB — minting at minute ~11 puts the
+    # token's whole hour over the window, so a beat cadence of 120 s bounds
+    # a death timestamp to two minutes everywhere it matters, instead of
+    # the token dying silently inside the window it exists to observe. The
+    # watchdog deadline sits at 4500 s from its launch so it never fires on
+    # a healthy run — the idle ends ~13 minutes first.
     timeout-minutes: 85
     # Branch-resolved with an explicit override; keep this expression
     # identical to `run-name:`'s and the other binding jobs', and see the
@@ -2954,6 +2959,13 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+
+      # See the job comment: the mint's hour must bracket the 58-64-minute
+      # window, so the clock spends its first stretch here, before any
+      # credential exists.
+      - name: Wait out the token-alignment margin
+        timeout-minutes: 10
+        run: sleep 480
 
       # The repro leg's mint, on its terms: per-environment credentials,
       # comment-only, fail-soft — a control with no record still answers the
@@ -3031,31 +3043,69 @@ jobs:
             > "$WATCHDOG_DIR/watchdog.log" 2>&1 &
           echo "$!" > "$RUNNER_TEMP/engine-watchdog.pid"
 
-      # The experiment: seventy idle minutes, spanning the whole 58-64 window
-      # with margin on both sides, under the watchdog's 75-minute deadline so
-      # a healthy run is never fired on.
+      # The experiment: sixty-two further idle minutes — minute ~11 through
+      # ~73 of the job, spanning the whole 58-64 window with margin on both
+      # sides and inside the token's hour throughout — under the watchdog's
+      # 75-minutes-from-launch deadline so a healthy run is never fired on.
       - name: Idle across the death window
-        timeout-minutes: 75
-        run: sleep 4200
+        id: idle
+        timeout-minutes: 70
+        run: sleep 3720
 
+      # `always()`, as the repro disarm: the workflow-level group cancels a
+      # superseded dispatch, and a cancelled control must still close its
+      # row rather than leave it armed forever. Health is derived from the
+      # watchdog's own markers and the idle step's conclusion — the record
+      # and the summary must never claim survival the run did not have.
       - name: Disarm and report
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         env:
           GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
           TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
           RUN_ID: idle-${{ github.run_id }}
+          IDLE_CONCLUSION: ${{ steps.idle.conclusion }}
+          WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
         run: |
           set -euo pipefail
+          # The repro disarm's ownership guard, verbatim: this pid is over an
+          # hour old, which is a long reuse window to signal blind.
           pid_file="$RUNNER_TEMP/engine-watchdog.pid"
           if [ -f "$pid_file" ]; then
-            kill "$(cat "$pid_file")" 2>/dev/null || true
+            pid="$(cat "$pid_file")"
+            if [[ "$pid" =~ ^[0-9]+$ ]] && grep -qa engine-watchdog.sh "/proc/$pid/cmdline" 2>/dev/null; then
+              kill "$pid" 2>/dev/null || true
+            fi
+            rm -f "$pid_file"
+          fi
+          healthy_flag=--healthy
+          if [ -f "$WATCHDOG_DIR/REAPED" ] || [ -f "$WATCHDOG_DIR/FIRED" ] \
+            || [ -f "$WATCHDOG_DIR/STOOD_DOWN" ] || [ "$IDLE_CONCLUSION" != "success" ]; then
+            healthy_flag=--not-healthy
           fi
           if [ -n "${GH_TOKEN:-}" ]; then
-            timeout 90 uv run fedcourts watchdog-checkin --disarm --healthy \
+            timeout 90 uv run fedcourts watchdog-checkin --disarm "$healthy_flag" \
               --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
               --court scotus --docket idle-control --event-id evt-idle-control \
-              --actor runner-idle-control --conclusion success \
+              --actor runner-idle-control --conclusion "${IDLE_CONCLUSION:-unknown}" \
               --channel "$TELEMETRY_CHANNEL" > /dev/null || true
           fi
-          echo "runner survived 4200 idle seconds across the 58-64-minute death window" \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$healthy_flag" = "--healthy" ]; then
+            echo "runner survived the idle span across the 58-64-minute death window" \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "idle control did NOT complete cleanly (idle=${IDLE_CONCLUSION:-unknown}; see the watchdog markers) — read the telemetry row and the log artifact" \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # The local half of the evidence — the per-beat resource trajectory the
+      # watchdog logged, which outlives the token's hour and survives every
+      # outcome except the runner death itself. Phase lines and kernel-owned
+      # resource figures only, so no disclosure window applies.
+      - name: Upload the watchdog log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: idle-control-watchdog-log
+          path: ${{ runner.temp }}/engine-watchdog/watchdog.log
+          if-no-files-found: warn
+          retention-days: 7

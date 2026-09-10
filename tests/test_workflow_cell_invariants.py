@@ -3084,7 +3084,7 @@ def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environmen
     issue exactly as the cell workflows do, and a staging-bound one mints
     from the Issues-only staging App with this step pair aiming it at the
     rehearsal channel alone. The staging credentials must also appear
-    nowhere else: docs/security.md's inventory says "exactly one step", and
+    nowhere else: docs/security.md's inventory says exactly which steps, and
     a copy-paste of that key onto another staging-bindable job is the
     realistic regression. The cell workflows keep the plain
     dev-App mint: cells bind `prod` from `main` only, and a ternary there
@@ -3119,6 +3119,9 @@ def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environmen
                 text = yaml.safe_dump(step)
                 if "STAGING_APP_CLIENT_ID" in text or "STAGING_APP_PRIVATE_KEY" in text:
                     holders.append((path.name, job_id, step))
+    assert len(holders) == 2, (
+        f"the staging telemetry credentials spread: {[(n, j) for n, j, _ in holders]}"
+    )
     assert {(n, j) for n, j, _ in holders} == {
         ("integration-test.yml", "scenario"),
         ("integration-test.yml", "runner-idle-control"),
@@ -3130,17 +3133,34 @@ def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environmen
     # The deadline override's reach: the input is read by the repro arm step
     # alone — the idle control keeps its own literal, and the cell workflows
     # never see it, so no production deadline can move from this dispatch
-    # surface.
+    # surface. The idle control's arm carries the repro leg's credential
+    # plumbing verbatim — URL-shape gate, cleared GH_TOKEN on the detached
+    # launch, bounded check-in, armed-body hand-over — each pinned because
+    # each is separately silent when it drifts; and its disarm must survive
+    # a cancellation and never signal an hour-old pid blind.
     for name in ("run-predict.yml", "run-evaluate.yml"):
         assert "repro_deadline_s" not in (WORKFLOWS / name).read_text(), name
     it_text = (WORKFLOWS / "integration-test.yml").read_text()
     assert it_text.count("inputs.repro_deadline_s") == 2  # one env line, 2 reads
-    idle_arm = next(
-        s
-        for s in _load("integration-test.yml")["jobs"]["runner-idle-control"]["steps"]
-        if s.get("id") == "arm"
-    )
+    idle_steps = _load("integration-test.yml")["jobs"]["runner-idle-control"]["steps"]
+    idle_arm = next(s for s in idle_steps if s.get("id") == "arm")
     assert idle_arm["env"]["WATCHDOG_DEADLINE_S"] == "4500"
+    idle_run = str(idle_arm["run"])
+    assert '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*' in idle_run, (
+        "the idle control lost the check-in URL-shape gate"
+    )
+    assert "GH_TOKEN='' WATCHDOG_CHECKIN_URL=" in idle_run, (
+        "the idle control's watchdog launch must clear GH_TOKEN"
+    )
+    assert "timeout 90 uv run fedcourts watchdog-checkin" in idle_run
+    assert "WATCHDOG_CHECKIN_BASE=" in idle_run, (
+        "the watchdog must be handed the armed body it appends to"
+    )
+    disarm = next(s for s in idle_steps if s.get("name") == "Disarm and report")
+    assert disarm.get("if") == "${{ always() }}", "a cancelled control must still close its row"
+    assert 'grep -qa engine-watchdog.sh "/proc/$pid/cmdline"' in str(disarm["run"]), (
+        "the hour-old pid must be ownership-checked before it is signalled"
+    )
     for name in ("run-predict.yml", "run-evaluate.yml"):
         jobs = _load(name)["jobs"]
         cell_steps = jobs[ENGINE_WATCHDOG_SENTINEL_ROLE[name]]["steps"]
