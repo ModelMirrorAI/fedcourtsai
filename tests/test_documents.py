@@ -531,6 +531,10 @@ def test_combined_bio_is_dated_by_its_earliest_brief_and_survives_a_later_cutoff
     # The consequence the date exists for: a cell cut after the first filing
     # still reads the opposition.
     assert documents_before([bio], date(2026, 7, 1)) == [bio]
+    # And the residual that buys, pinned rather than left implicit: the row is
+    # kept whole, so the later brief's text rides in with it. Dating the row at
+    # its last brief would drop both instead of neither.
+    assert "Northampton also says deny." in bio.text
 
 
 def test_combined_bio_is_dated_by_a_brief_it_actually_carries() -> None:
@@ -549,6 +553,35 @@ def test_combined_bio_is_dated_by_a_brief_it_actually_carries() -> None:
     bio = next(d for d in documents if d.kind == KIND_BRIEF_IN_OPPOSITION)
     assert bio.entry_date == "Aug 20 2026"
     assert documents_before([bio], date(2026, 7, 1)) == []
+
+
+def test_combined_bio_falls_back_to_a_date_it_cannot_order() -> None:
+    # A partial date ("2026") is not orderable — `cert_signals.entry_date`
+    # refuses it rather than filling the missing components from today — so with
+    # no constituent parseable the row keeps the first date string it was given
+    # and is placed on `fetched_at`, exactly as an unparseable single brief is.
+    served = {
+        "https://example/lead.pdf": _pdf("Lead respondents say deny."),
+        "https://example/second.pdf": _pdf("Northampton also says deny."),
+    }
+    payload = _two_bio_payload("Aug 20 2026")
+    entries = payload["ProceedingsandOrder"]
+    assert isinstance(entries, list)
+    entries[1]["Date"] = "2026"  # the lead brief: a year, no day
+    entries[2]["Date"] = ""  # the second: no date at all
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            payload,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 8, 25),
+        )
+    bio = next(d for d in documents if d.kind == KIND_BRIEF_IN_OPPOSITION)
+    assert bio.entry_date == "2026"
+    assert documents_before([bio], date(2026, 8, 26)) == [bio]  # placed on fetched_at
+    assert documents_before([bio], date(2026, 8, 25)) == []
 
 
 def test_fetch_case_documents_retries_a_bio_that_failed_to_fetch() -> None:

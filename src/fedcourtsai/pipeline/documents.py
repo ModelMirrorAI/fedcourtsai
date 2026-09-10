@@ -779,12 +779,15 @@ def _earliest_entry_date(refs: list[DocumentRef]) -> str | None:
     Ordered by that same strict parse, not by the string: the dates read as
     "Jun 01 2026", which sorts alphabetically into an order the calendar does not
     have. A ref whose date does not parse cannot be ordered, so it is not a
-    candidate for the minimum; where none of them parse the first ref's raw
-    string is returned, which places the row on ``fetched_at`` downstream exactly
-    as an unparseable single-brief row is placed.
+    candidate for the minimum; where none of them parse, the first ref carrying
+    any date string at all is returned, and where not even that exists ``None``
+    — both of which place the row on ``fetched_at`` downstream, exactly as an
+    unparseable single-brief row is placed.
     """
     parsed = [
-        (filed, ref.entry_date) for ref in refs if (filed := _parse_entry_date(ref.entry_date))
+        (filed, ref.entry_date)
+        for ref in refs
+        if (filed := _parse_entry_date(ref.entry_date)) is not None
     ]
     if parsed:
         return min(parsed, key=lambda pair: pair[0])[1]
@@ -807,12 +810,26 @@ def _combine_bio_documents(
     a fan-out reads the whole opposition as one byte-identical input. Idempotent
     on the *set* of URLs (a canonical join, so single-BIO cases stay
     byte-compatible with the old single-URL key): the set is re-fetched only
-    when a brief is added or superseded. The combined text is capped at
-    ``char_cap`` total, earliest brief first (the lead respondent's, typically),
-    and the row is **dated by the earliest brief it carries**
+    when a brief is added or superseded — so the dating below governs the rows
+    written from here on, and an already-stored row keeps the date it was
+    written with until its set of briefs changes. The combined text is capped at
+    ``char_cap`` total, in docket order (the lead respondent's brief first,
+    typically).
+
+    The row is **dated by the earliest brief it carries**
     (:func:`_earliest_entry_date`) — the date a moment cutoff then places the
-    whole row by; a failed fetch of one brief never drops the others, and each failure —
-    plus the case-level case where none of them fetched — is recorded
+    whole row by, and therefore the source of one accepted residual: a cutoff
+    falling *between* two constituents keeps the row entire, so the later
+    brief's text reaches a cell placed before it was filed. That is the
+    deliberate direction, because the alternative — dating the row at its last
+    brief — loses the lead respondent's brief, the most predictive one, from
+    every such cell rather than merely adding to it. What bounds the residual is
+    how far apart the constituents are filed, which is what keeps the selector's
+    arm for this kind narrow. The residual is stated again where the cut is made
+    (:func:`fedcourtsai.provision.documents_before`).
+
+    A failed fetch of one brief never drops the others, and each failure — plus
+    the case-level case where none of them fetched — is recorded
     (:func:`document_fetch_losses`).
     """
     if not bio_refs:
@@ -895,6 +912,12 @@ def _combine_bio_documents(
         # 404s this poll leaves the row holding a later respondent's brief
         # alone, and borrowing the absent brief's earlier date would admit that
         # text to a cell cut before it was filed.
+        #
+        # What the choice costs, stated where it is made: the row is kept or
+        # dropped whole, so a cutoff between two constituents now admits the
+        # later brief's text rather than dropping the whole opposition. The
+        # docstring above says why that is the direction taken, and
+        # `provision.documents_before` carries the same residual at the cut.
         entry_date=_earliest_entry_date(fetched_refs),
         fetched_at=today,
         pages=pages,

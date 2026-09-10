@@ -258,7 +258,20 @@ def documents_before(documents: Iterable[CaseDocument], cutoff: date) -> list[Ca
     document late), so the fallback drops documents a cell could have read rather
     than keeping ones it could not.
 
-    One residual the date cannot reach: documents are keyed ``(case_id, kind)``
+    Two residuals the date cannot reach, both from a row holding more text than
+    its one date describes.
+
+    The first is **combination**. A multi-respondent case's opposition briefs are
+    stored as one ``brief-in-opposition`` row dated by the earliest of them
+    (:mod:`fedcourtsai.pipeline.documents`), and a row is kept or dropped whole —
+    so a cutoff falling between two constituents admits the later one's text as
+    though it had been filed at the earlier date. Dating the row at its *last*
+    brief would close that at a price this cut is not willing to pay: the whole
+    opposition, lead respondent included, dropped from every cell placed between
+    the two. Nothing here can cut inside a stored row, so what bounds this
+    residual is how narrow the selector's arm for the kind is, not this function.
+
+    The second is **supersession**. Documents are keyed ``(case_id, kind)``
     and the latest fetch of a kind wins, so a *corrected* filing supersedes the
     original under the entry date of whichever fetch is stored. A pre-cutoff
     ``entry_date`` therefore admits the text as later amended, not necessarily
