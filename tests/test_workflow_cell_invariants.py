@@ -2950,3 +2950,39 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
         assert rehearsal_notes, (
             f"{job_id}: a rehearsal leaves no summary record that the fence held"
         )
+
+
+def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environment() -> None:
+    """The staging rehearsal's record rides the staging-only App and channel.
+
+    Both selections key on the same ref the environment resolution does, so
+    they cannot disagree: a prod-bound dispatch mints the dev App's pair and
+    writes the production issue exactly as the cell workflows do, and a
+    staging-bound one mints from the Issues-only staging App and writes the
+    rehearsal channel — an App token from one side structurally cannot dress
+    a rehearsal row as a production one. The cell workflows keep the plain
+    dev-App mint: cells bind `prod` from `main` only, and a ternary there
+    would imply a rehearsal lane those workflows do not have.
+    """
+    steps = _load("integration-test.yml")["jobs"]["scenario"]["steps"]
+    mint = next(s for s in steps if s.get("id") == "watchdog-token")
+    assert mint["with"]["client-id"] == (
+        "${{ github.ref_name == 'main' && vars.DEV_APP_CLIENT_ID || vars.STAGING_APP_CLIENT_ID }}"
+    )
+    assert mint["with"]["private-key"] == (
+        "${{ github.ref_name == 'main' && secrets.DEV_APP_PRIVATE_KEY"
+        " || secrets.STAGING_APP_PRIVATE_KEY }}"
+    )
+    channel = "${{ github.ref_name == 'main' && 'prod' || 'staging' }}"
+    for step_name in ("Arm the engine watchdog", "Disarm the engine watchdog"):
+        step = next(s for s in steps if s.get("name") == step_name)
+        assert step["env"]["TELEMETRY_CHANNEL"] == channel, step_name
+        assert '--channel "$TELEMETRY_CHANNEL"' in str(step["run"]), step_name
+    for name in ("run-predict.yml", "run-evaluate.yml"):
+        jobs = _load(name)["jobs"]
+        cell_steps = jobs[ENGINE_WATCHDOG_SENTINEL_ROLE[name]]["steps"]
+        cell_mint = next(s for s in cell_steps if s.get("name") == CODEX_WATCHDOG_TOKEN_STEP)
+        assert cell_mint["with"]["client-id"] == "${{ vars.DEV_APP_CLIENT_ID }}", name
+        assert '--channel "$TELEMETRY_CHANNEL"' not in str(
+            next(s for s in cell_steps if s.get("name") == "Arm the engine watchdog")["run"]
+        ), f"{name}: a cell arm step gained a channel it has no lane for"

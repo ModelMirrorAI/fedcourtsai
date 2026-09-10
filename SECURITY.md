@@ -155,8 +155,10 @@ runbook, [docs/security.md](docs/security.md).
   repo code, and the failure it guards — a step that never ends until the *job*
   cap cancels the runner — destroys every runner-local account of itself, the
   diagnostics bundle and the job log included. So the watchdog reports **off**
-  the runner while the runner is still alive, onto one long-lived
-  `codex-watchdog` issue, and that costs an App token minted with
+  the runner while the runner is still alive, onto the bound channel's
+  long-lived issue (`codex-watchdog`; a staging-bound repro dispatch writes
+  `codex-watchdog-staging` instead, under a separate staging-only App whose
+  App-level grant is Issues alone), and that costs an App token minted with
   **`issues: write` and nothing else** — no `contents`, no `pull-requests`, and
   no widening of the job's own `permissions` block. The watchdog itself brackets
   **every** engine's cell step; this credential stays **codex-only**, which is

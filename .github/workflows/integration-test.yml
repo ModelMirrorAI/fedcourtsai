@@ -24,10 +24,13 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # sidecar, the tokenless CourtListener MCP sidecar, and cascade cells — stub or
 # one real engine — over them. Each scenario is one dispatch, side-effect
 # free with a single carve-out: no corpus write, no git write, no PR, and the
-# one issue write is the application-repro leg's watchdog telemetry row on the
-# long-lived `codex-watchdog` issue — dispatch-only (no schedule or
+# one issue write is the application-repro leg's watchdog telemetry row on
+# the bound environment's own long-lived issue — `codex-watchdog` on a
+# prod-bound dispatch, `codex-watchdog-staging` on a staging-bound one, so a
+# rehearsal's rows never mix into the production record — dispatch-only (no
+# schedule or
 # whole-suite selection reaches that leg), marker-keyed so a re-dispatch
-# resets the row rather than stacking one, and on a label that triggers
+# resets the row rather than stacking one, and on labels that trigger
 # nothing. Everything else goes to the Actions step summary and the run
 # log, and any cell output lands only in the runner's throwaway checkout. Every
 # scenario is also token-free except the three engine scenarios, which say so on
@@ -1335,20 +1338,28 @@ jobs:
       # telemetry and never the observation. This leg runs a codex cell, so
       # the credential stays codex-only. SECURITY.md bounds the grant.
       #
-      # The App's credentials live on the `prod` environment alone, so the
-      # record exists on a prod-bound dispatch and a leg bound elsewhere mints
-      # nothing — the arm step warns and the leg degrades to its runner-local
-      # account, which is the deliberate trade: provisioning an issues-write
-      # key onto `staging` would widen the staging-head radius docs/security.md
-      # bounds to corpus read, model spend, and the staging fixture.
+      # The credentials select per bound environment, keyed on the ref that
+      # is one-to-one with it (a cross-bind is refused at the deployment
+      # gate): a prod-bound dispatch mints from the dev App as the cell
+      # workflows do, and a staging-bound one from the staging telemetry App
+      # — a separate App whose *App-level* grant is Issues read/write and
+      # nothing else, so the ceiling on what a staging-held key can mint is
+      # platform-enforced rather than a narrowing this step requests
+      # (docs/security.md's App inventory carries the terms, SECURITY.md the
+      # bound). Its credentials live on the staging environment alone, and
+      # its rows land on the rehearsal channel's own issue via the arm and
+      # disarm steps' channel flag, so the production occurrence record
+      # stays production's. A leg bound to neither environment resolves
+      # empty credentials, the mint fails soft, and the leg degrades to its
+      # runner-local account as before.
       - name: Mint the codex watchdog telemetry token
         id: watchdog-token
         if: ${{ matrix.scenario == 'codex-application-repro' }}
         continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
-          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          client-id: ${{ github.ref_name == 'main' && vars.DEV_APP_CLIENT_ID || vars.STAGING_APP_CLIENT_ID }}
+          private-key: ${{ github.ref_name == 'main' && secrets.DEV_APP_PRIVATE_KEY || secrets.STAGING_APP_PRIVATE_KEY }}
           permission-issues: write
 
       - name: Arm the engine watchdog
@@ -1369,6 +1380,10 @@ jobs:
           # every process this user owns.
           GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
           WATCHDOG_CHECKIN_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          # Which long-lived issue carries the record, matched to the mint's
+          # own selection above: the same ref keys both, so a staging App
+          # token can only ever write the staging channel's issue.
+          TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
           # 4200 s. This leg's work has been measured *past* the 50 minutes a
           # production judge cell shows on the same record shape, and a deadline
           # inside the envelope kills a healthy mid-grading cell before the
@@ -1435,9 +1450,9 @@ jobs:
             echo "::warning::no completion sentinel for this leg; the watchdog runs on its deadline alone"
           fi
           # The armed record, written off the runner before the engine starts:
-          # one comment on the long-lived `codex-watchdog` issue, which the
+          # one comment on the bound channel's long-lived issue, which the
           # watchdog then updates in place — the cell workflows' arming,
-          # verbatim. On this leg it is what makes the deadline path legible at
+          # verbatim but for the channel flag. On this leg it is what makes the deadline path legible at
           # all: a deadline kill can cancel the job, and a cancelled job drops
           # every runner-local account. Best-effort, and deliberately so: the
           # kill duty is primary, so a degraded API costs the telemetry and
@@ -1454,7 +1469,7 @@ jobs:
               --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
               --court "$COURT_ID" --docket "$DOCKET_ID" --event-id "$EVENT_ID" \
               --actor "$EVALUATOR_ID" --deadline-s "$WATCHDOG_DEADLINE_S" \
-              --run-url "$RUN_URL" || true)"
+              --run-url "$RUN_URL" --channel "$TELEMETRY_CHANNEL" || true)"
             if [ -n "$checkin_out" ]; then
               # Split without a pipeline: under `pipefail` a broken pipe here
               # would be the one way a failed check-in could still abort arming.
@@ -1594,7 +1609,10 @@ jobs:
           ENGINE_CONCLUSION: ${{ steps.repro_codex.conclusion }}
           # The same mint the arm step used, to close the off-runner record out;
           # env, never argv, for the bundle-dump reason the arm step states.
+          # The channel too, or the disarm would close a row on one issue
+          # that the arm opened on the other.
           GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
         run: |
           set -euo pipefail
           pid_file="$RUNNER_TEMP/engine-watchdog.pid"
@@ -1654,6 +1672,7 @@ jobs:
               --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
               --court "$COURT_ID" --docket "$DOCKET_ID" --event-id "$EVENT_ID" \
               --actor "$EVALUATOR_ID" --conclusion "${ENGINE_CONCLUSION:-unknown}" \
+              --channel "$TELEMETRY_CHANNEL" \
               > /dev/null || true
           fi
 

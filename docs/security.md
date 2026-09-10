@@ -35,9 +35,22 @@ convention `AGENTS.md` carries, not something identity enforces):
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
   **not** a bypass actor, so nothing it holds can reach `main` except through a
   PR that satisfies the required checks.
+- **staging telemetry App** (`fedcourtsai-staging`) — used by exactly one
+  step: `integration-test`'s application-repro leg mints from it on a
+  staging-bound dispatch, for the watchdog telemetry row on the rehearsal
+  channel's own issue. Its client id is the `STAGING_APP_CLIENT_ID` variable
+  and its private key the `STAGING_APP_PRIVATE_KEY` secret, both on the
+  **staging** environment alone. Its *App-level* repository grant is Issues —
+  read and write — and nothing else, which is the point of it being a
+  separate App rather than the dev App's key on staging: an App's key mints
+  anything up to the App-level union, so the ceiling on what a staging-held
+  key can reach is platform-enforced here, not a narrowing the mint requests.
+  Not a bypass actor; its comments carry a visibly distinct bot identity, so
+  a rehearsal row can never read as a production one.
 
-All four live on the `prod` environment (the two client ids as variables, the
-two keys as secrets). Each workflow mints a token scoped to only what it needs:
+The dev and data Apps' four credentials live on the `prod` environment (the
+two client ids as variables, the
+two keys as secrets); the staging telemetry App's pair lives on `staging`. Each workflow mints a token scoped to only what it needs:
 
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
@@ -45,7 +58,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 | `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
 | `run-repair` | data | contents (both writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the validation job holds no credential |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner. The watchdog brackets every engine; this token is minted on codex cells alone |
-| `integration-test` (codex-application-repro leg only) | dev | issues | the cell workflows' watchdog telemetry mint, on identical terms: arm/disarm steps and the detached watchdog only, never the agent step. The App's credentials live on `prod` alone, so the record exists on a prod-bound dispatch; a leg bound elsewhere mints nothing, warns, and degrades to its runner-local account — deliberately, rather than widening the staging-head radius with an issues-write key |
+| `integration-test` (codex-application-repro leg only) | dev on a prod-bound dispatch; staging telemetry App on a staging-bound one | issues | the cell workflows' watchdog telemetry mint, on identical terms: arm/disarm steps and the detached watchdog only, never the agent step. The credentials select per bound environment, and the arm/disarm steps pass the matching channel, so a staging rehearsal's rows land on the rehearsal channel's own issue under an App whose platform-enforced ceiling is Issues alone; a leg bound to neither environment mints nothing, warns, and degrades to its runner-local account |
 | `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
 | `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — and on `main`-branch (prod-bound) runs only, so a rehearsal that reaches the labeler runs the full agent posture and the gate with no App token in the job at all — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
@@ -61,6 +74,9 @@ the App level the union of what its workflows mint:
 - **dev App**: Contents, Issues, and Pull requests — all *read and write*. (No
   workflow mints a Workflows scope from it; dropping that grant at the App level
   is a safe tightening.)
+- **staging telemetry App**: Issues — *read and write*, and nothing else. The
+  narrow union is the App's whole design; widening it would quietly raise the
+  ceiling on every future holder of its staging key.
 
 After changing an App permission, **re-approve the installation** on the repo — a
 new permission stays pending until an owner accepts it, and the minted token is
@@ -267,8 +283,10 @@ token minted with **`issues: write` and nothing else**, gated on the codex engin
 step's own condition (the repro leg's scenario gate is its equivalent) and
 distributed only to the arm step, the disarm step, and
 the watchdog process; the job's `permissions` block is untouched and no agent
-step inherits it. Everything it is used for is the non-triggering
-`codex-watchdog` issue — found or created — and one comment per cell on it, which
+step inherits it. Everything it is used for is the bound channel's
+non-triggering telemetry issue — `codex-watchdog`, or `codex-watchdog-staging`
+for a staging-bound repro dispatch — found or created, and one comment per
+cell on it, which
 the watchdog then PATCHes in place. The mint is `continue-on-error`, because a
 hard failure would leave the arm and engine steps skipped on their implicit
 `success()` and so kill the cell to protect its own reporting; both consumers

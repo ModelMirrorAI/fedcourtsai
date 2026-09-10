@@ -380,7 +380,8 @@ queues behind the production run of the same mode. The modes:
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
 a side-effect-free scenario runner (one carve-out: the application-repro leg
-writes its watchdog's telemetry row onto the `codex-watchdog` issue —
+writes its watchdog's telemetry row onto the bound channel's telemetry
+issue (`codex-watchdog`, or its staging twin on a staging-bound dispatch) —
 dispatch-only, marker-keyed, non-triggering) — manual dispatch, plus one
 scheduled canary — over the **corpus
 read backends, the two sidecars, cascade cells, the engines' own invocation
