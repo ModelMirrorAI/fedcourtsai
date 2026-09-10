@@ -27,9 +27,9 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # one issue write is the application-repro leg's watchdog telemetry row on
 # the bound environment's own long-lived issue — `codex-watchdog` on a
 # prod-bound dispatch, `codex-watchdog-staging` on a staging-bound one, so a
-# rehearsal's rows never mix into the production record — dispatch-only (no
-# schedule or
-# whole-suite selection reaches that leg), marker-keyed so a re-dispatch
+# rehearsal's rows never mix into the production record — dispatch-only
+# (neither the schedule nor a whole-suite selection reaches that leg),
+# marker-keyed so a re-dispatch
 # resets the row rather than stacking one, and on labels that trigger
 # nothing. Everything else goes to the Actions step summary and the run
 # log, and any cell output lands only in the runner's throwaway checkout. Every
@@ -1344,14 +1344,14 @@ jobs:
       # workflows do, and a staging-bound one from the staging telemetry App
       # — a separate App whose *App-level* grant is Issues read/write and
       # nothing else, so the ceiling on what a staging-held key can mint is
-      # platform-enforced rather than a narrowing this step requests
-      # (docs/security.md's App inventory carries the terms, SECURITY.md the
-      # bound). Its credentials live on the staging environment alone, and
-      # its rows land on the rehearsal channel's own issue via the arm and
-      # disarm steps' channel flag, so the production occurrence record
-      # stays production's. A leg bound to neither environment resolves
-      # empty credentials, the mint fails soft, and the leg degrades to its
-      # runner-local account as before.
+      # platform-enforced rather than resting on the narrowing this step
+      # requests (docs/security.md's *The GitHub Apps* section carries the
+      # terms, SECURITY.md the bound). The selection does not even need the
+      # deployment gate to fail closed: each pair is scoped to its own
+      # environment, so a cross-bind would resolve the other side's
+      # credentials empty and the mint would fail soft either way. A leg
+      # bound to neither environment resolves empty credentials the same
+      # way, and the leg degrades to its runner-local account.
       - name: Mint the codex watchdog telemetry token
         id: watchdog-token
         if: ${{ matrix.scenario == 'codex-application-repro' }}
@@ -1381,8 +1381,10 @@ jobs:
           GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
           WATCHDOG_CHECKIN_TOKEN: ${{ steps.watchdog-token.outputs.token }}
           # Which long-lived issue carries the record, matched to the mint's
-          # own selection above: the same ref keys both, so a staging App
-          # token can only ever write the staging channel's issue.
+          # own selection above: the same ref keys both, so this step pair
+          # never aims a staging-minted token at the production channel. The
+          # token's own grant is repo-wide Issues — what confines it to the
+          # channel's issue is this wiring, reviewed as permission surface.
           TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
           # 4200 s. This leg's work has been measured *past* the 50 minutes a
           # production judge cell shows on the same record shape, and a deadline
@@ -1452,7 +1454,8 @@ jobs:
           # The armed record, written off the runner before the engine starts:
           # one comment on the bound channel's long-lived issue, which the
           # watchdog then updates in place — the cell workflows' arming,
-          # verbatim but for the channel flag. On this leg it is what makes the deadline path legible at
+          # verbatim but for the channel flag. On this leg it is what makes
+          # the deadline path legible at
           # all: a deadline kill can cancel the job, and a cancelled job drops
           # every runner-local account. Best-effort, and deliberately so: the
           # kill duty is primary, so a degraded API costs the telemetry and
@@ -1494,10 +1497,11 @@ jobs:
               ;;
           esac
           # Unlike a cell, this leg always attempts the mint, so an empty token
-          # is a failed or credential-less one (a non-prod-bound dispatch),
-          # never an engine that was not offered the channel — say which.
+          # is a failed or credential-less one (a leg bound to neither
+          # environment), never an engine that was not offered the channel —
+          # say which.
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::warning::watchdog telemetry mint yielded no token (mint failed, or not a prod-bound dispatch); this leg has no off-runner record"
+            echo "::warning::watchdog telemetry mint yielded no token (mint failed, or a dispatch bound to neither environment); this leg has no off-runner record"
           elif [ -z "$checkin_url" ]; then
             echo "::warning::codex watchdog armed with no off-runner record (${EVENT_ID})"
           fi

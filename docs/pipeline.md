@@ -381,7 +381,8 @@ queues behind the production run of the same mode. The modes:
 `integration-test` is the infrastructure preflight, also outside the cascade:
 a side-effect-free scenario runner (one carve-out: the application-repro leg
 writes its watchdog's telemetry row onto the bound channel's telemetry
-issue (`codex-watchdog`, or its staging twin on a staging-bound dispatch) —
+issue — `codex-watchdog`, or `codex-watchdog-staging` on a staging-bound
+dispatch —
 dispatch-only, marker-keyed, non-triggering) — manual dispatch, plus one
 scheduled canary — over the **corpus
 read backends, the two sidecars, cascade cells, the engines' own invocation
@@ -2073,7 +2074,9 @@ the runner regardless — the deadline path, which codex is the one engine to ha
 taken. Widening the mint would put an issues:write App token in every cell of
 every round to buy a record for a failure no other engine has shown. On a codex cell the arm step opens a comment
 on the long-lived **`codex-watchdog`**
-issue (`fedcourts watchdog-checkin`, a non-triggering label) *before* the engine
+issue (`fedcourts watchdog-checkin`, a non-triggering label; a staging-bound
+repro dispatch writes `codex-watchdog-staging` instead, via the command's
+channel flag) *before* the engine
 starts, and the detached watchdog PATCHes that comment as it passes each state —
 whether the sentinel armed and over how many files, a heartbeat while it waits
 (each carrying the runner's memory headroom and load), a `send-failed:` line

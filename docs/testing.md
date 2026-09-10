@@ -287,10 +287,11 @@ deadline kill can end the whole *job*, which skips the disarm and upload tail
 and drops the log. That is also why the leg arms the **off-runner record** the
 production codex cells keep — the comment-only telemetry channel, on the
 bound environment's own issue: `codex-watchdog` from a prod-bound dispatch,
-`codex-watchdog-staging` from a staging-bound one, minted from the
-Issues-only staging App so a rehearsal's rows never mix into the production
-record — and a deadline path that destroys every runner-local
-account still leaves one a cancelled job cannot erase. Two bounds on that
+or `codex-watchdog-staging` from a staging-bound one, whose token is minted
+from the Issues-only staging App and whose separation is the arm step's own
+channel selection — so a deadline path that destroys every runner-local
+account still leaves one a cancelled job cannot erase, and a rehearsal's
+rows never mix into the production record. Two bounds on that
 record, both stated where they bind: a leg bound to neither environment
 resolves no credentials, arms no record and warns; and the token
 lives an hour, so on the deadline path the record may end at its last
