@@ -202,6 +202,15 @@ def test_the_labeler_reaches_exactly_the_qp_io_directory() -> None:
     label = next(s for s in steps if "claude-code-action" in str(s.get("uses") or ""))
     args = label["with"]["claude_args"]
     assert "--add-dir ${{ runner.temp }}/qp-io" in args
+    # The scrub hardens the permission mode to `default` whatever the flag
+    # says and honors whole-tool grants alone, so the posture is declared as
+    # what runs: default mode, Write and Edit granted, Bash deliberately not
+    # — and a restored `bypassPermissions` would be dead text that reads as a
+    # wider grant than the one in force.
+    assert "--permission-mode default" in args
+    assert "--allowedTools Write,Edit" in args
+    assert "bypassPermissions" not in args
+    assert "Bash" not in args
     # The grant is the subdirectory, never the bare temp dir beside the oracle.
     assert "--add-dir ${{ runner.temp }}\n" not in args + "\n"
     for env_key in ("QP_TEXTS", "LABELS_OUT"):
@@ -874,7 +883,7 @@ def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() 
 
     `setup-python-env` installs this project editable, so a workspace `uv run`
     resolves `fedcourtsai` through the checkout and its gitignored venv — both
-    written to freely by a labeler running `bypassPermissions`, and the venv
+    written to freely by a labeler holding an unscoped Write grant, and the venv
     side is invisible to the tree-pristine assertion, which compares tracked
     files only. The scanner therefore comes from a second checkout taken after
     the agent finished and fetched from GitHub, with its own venv inside it.
