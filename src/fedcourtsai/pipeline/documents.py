@@ -71,6 +71,13 @@ from ..supremecourt import SupremeCourtClient
 # `supremecourt`, so nothing here closes a cycle.
 from .caption import _scored_segment
 
+# The strict entry-date parse provisioning places a document by, imported so the
+# date this module *writes* onto a combined row is chosen under the same reading
+# that later decides where the row falls against a moment cutoff
+# (:func:`fedcourtsai.provision.documents_before`). `cert_signals` is a leaf —
+# it reaches only `schemas` — so the import closes no cycle.
+from .cert_signals import entry_date as _parse_entry_date
+
 # The interim lane's own reading of what an application asks for. Imported
 # rather than restated so the selector fetches exactly the class the predict
 # queue admits (:func:`interim_signals.is_predictable_application`), and so a
@@ -760,6 +767,30 @@ def reset_document_fetch_losses() -> None:
     _fetch_losses.clear()
 
 
+def _earliest_entry_date(refs: list[DocumentRef]) -> str | None:
+    """The verbatim ``entry_date`` of the earliest of ``refs``, or ``None``.
+
+    Verbatim rather than normalized, because :class:`corpus.CaseDocument` stores
+    the proceedings entry's own date string and every reader parses it back
+    through the one strict parse (:func:`cert_signals.entry_date`) — writing a
+    normalized spelling here would make a combined row's date the only one in the
+    corpus that is not the docket's own.
+
+    Ordered by that same strict parse, not by the string: the dates read as
+    "Jun 01 2026", which sorts alphabetically into an order the calendar does not
+    have. A ref whose date does not parse cannot be ordered, so it is not a
+    candidate for the minimum; where none of them parse the first ref's raw
+    string is returned, which places the row on ``fetched_at`` downstream exactly
+    as an unparseable single-brief row is placed.
+    """
+    parsed = [
+        (filed, ref.entry_date) for ref in refs if (filed := _parse_entry_date(ref.entry_date))
+    ]
+    if parsed:
+        return min(parsed, key=lambda pair: pair[0])[1]
+    return next((ref.entry_date for ref in refs if ref.entry_date), None)
+
+
 def _combine_bio_documents(
     client: SupremeCourtClient,
     case_id: str,
@@ -777,8 +808,10 @@ def _combine_bio_documents(
     on the *set* of URLs (a canonical join, so single-BIO cases stay
     byte-compatible with the old single-URL key): the set is re-fetched only
     when a brief is added or superseded. The combined text is capped at
-    ``char_cap`` total, earliest brief first (the lead respondent's, typically);
-    a failed fetch of one brief never drops the others, and each failure —
+    ``char_cap`` total, earliest brief first (the lead respondent's, typically),
+    and the row is **dated by the earliest brief it carries**
+    (:func:`_earliest_entry_date`) — the date a moment cutoff then places the
+    whole row by; a failed fetch of one brief never drops the others, and each failure —
     plus the case-level case where none of them fetched — is recorded
     (:func:`document_fetch_losses`).
     """
@@ -793,7 +826,7 @@ def _combine_bio_documents(
     if stored_url == "|".join(sorted(ref.url for ref in bio_refs)):
         return None
     single = len(bio_refs) == 1
-    fetched_urls: list[str] = []
+    fetched_refs: list[DocumentRef] = []
     blocks: list[str] = []
     pages = 0
     truncated = False
@@ -808,7 +841,7 @@ def _combine_bio_documents(
             _record_fetch_loss(FETCH_LOSS_UNAVAILABLE, case_id, ref.kind, ref.url)
             continue
         extracted = extract_pdf_text(data, char_cap=char_cap)
-        fetched_urls.append(ref.url)
+        fetched_refs.append(ref)
         if single:
             blocks.append(extracted.text)  # a lone BIO stays raw (no header)
         else:
@@ -821,7 +854,7 @@ def _combine_bio_documents(
         # Any OCR-derived brief marks the whole combined row: the reader holds one
         # document, so the weaker provenance is the one that has to survive.
         ocr_derived = ocr_derived or extracted.ocr_derived
-    if not fetched_urls:
+    if not fetched_refs:
         # Every selected brief failed, so the case ends the pass with no
         # opposition row despite the docket listing one — recorded apart from
         # the per-brief failures because it is the outcome a reader cares about.
@@ -846,8 +879,23 @@ def _combine_bio_documents(
         # only because its population is petitions, whose stored URL is the one
         # link that was fetched. Widening that population to this kind would
         # hand it a pipe-joined set key as a URL.
-        url="|".join(sorted(fetched_urls)),
-        entry_date=bio_refs[-1].entry_date,  # the latest filing's date
+        url="|".join(sorted(ref.url for ref in fetched_refs)),
+        # The EARLIEST constituent's date, and of the briefs actually fetched.
+        #
+        # Earliest, because a combined row is one document from the moment its
+        # first brief was filed, and because that is the only reading a moment
+        # cutoff can act on: provisioning places a document by this date and
+        # keeps it only if it falls strictly before the cutoff
+        # (:func:`fedcourtsai.provision.documents_before`), so dating the row at
+        # its last constituent drops the WHOLE opposition from a cell cut
+        # between two of them — the lead respondent's brief included.
+        #
+        # Of the fetched briefs rather than the selected ones, because the date
+        # has to describe the text the row actually carries: a lead brief that
+        # 404s this poll leaves the row holding a later respondent's brief
+        # alone, and borrowing the absent brief's earlier date would admit that
+        # text to a cell cut before it was filed.
+        entry_date=_earliest_entry_date(fetched_refs),
         fetched_at=today,
         pages=pages,
         truncated=truncated,
