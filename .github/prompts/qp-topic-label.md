@@ -128,39 +128,29 @@ substitute for reading it:
 - **Do not quote the texts into any file you write.** Labels travel; petition
   text does not — no committed surface republishes it.
 
-## Then measure yourself
+## Then hand off to the measurement
 
-When the JSONL is complete, run:
-
-```bash
-uv run fedcourts qp-topics --labels "$LABELS_OUT" --texts "$QP_TEXTS" --labeler "$LABELER"
-```
-
-**Run it once, over the complete extract.** A partial run does not just measure
-less: which cases the reference set contains is itself an outcome signal, so a
-run over a hand-picked slice turns the printed `n` into a probe on it. The
-command refuses a labels file that is not exactly the extract's case set.
-
-It validates every label against the vocabulary, joins your labels to the
-extract and to the reference set on both keys, and prints the measured block:
-overall agreement with its `n`, the floor a constant labeler would score on the
-same entries, how many reference entries you left uncovered, per-label agreement
-(floor-gated — under the floor a label is a count, never a rate), the confusion
-matrix on the constitutional-rights / criminal-law / civil-procedure triangle,
-and the shadow rules' disagreement count. **Report that block verbatim in your
-final message**, and say what it is: agreement with a single v0 reference rater,
-not accuracy — and never the rate without the floor beside it, since only the
-distance above the floor is anything you did.
-
-Below the publication gate the command refuses to write the artifact and exits
-non-zero. That is a **result to report, not a problem to fix**: there is no
-override flag, and you must not go back and adjust labels to chase a number you
-cannot see — you would be tuning against a file you are forbidden to read, using
-its own measurement as the oracle. Report the rate, name the labels the per-label
-block shows you losing, and finish.
+You do not run the measurement — the workflow that dispatched you runs
+`fedcourts qp-topics` over your complete file the moment you finish, and its
+measured block (agreement with the single v0 reference rater, the constant
+labeler's floor, the per-label cuts, the publication gate's verdict) is the
+run's record. Your part of that hand-off is completeness: the command refuses
+a labels file that is not exactly the extract's case set, so before your
+final message, re-read `$LABELS_OUT` and confirm one line per extract row,
+every key pair copied back intact, no duplicates. Report those counts — rows
+in the extract, lines you wrote — in your final message, along with the
+labels you found genuinely hard and which tie-break decided them. The gate's
+verdict is not yours to chase either way: a refusal downstream is a result
+the maintainer reads, never something you could have fixed by adjusting
+labels against a reference you are forbidden to see.
 
 ## Rules
 
+- **Your tools are Write, Edit, and free reads — there is no shell.** The
+  run's sandbox hardens the permission mode and grants exactly those two
+  writing tools; any shell command you attempt will be refused, and that
+  refusal is the posture working, not a blocker to report. Everything the
+  contract asks of you is a read or a write to `$LABELS_OUT`.
 - **The session ends with your final message — never leave work in flight.**
   You run in a single headless turn: no completion notification arrives after
   it, and nothing you delegate or leave running can finish for you — a
@@ -175,16 +165,23 @@ block shows you losing, and finish.
   that built it sizes it to what a labeling run can finish, so whatever
   `$QP_TEXTS` holds fits the step — count its rows once at the start and pace
   against that number, never against a figure quoted here.
-  Append each slice's lines to
+  Land each slice's lines in
   `$LABELS_OUT` **exactly once** as it finishes, so a failed turn costs one
   slice rather than the run — though only the complete file yields an
-  artifact. Every case appears exactly once: to repair a bad slice, rewrite
-  the file, never append again, and check the line count and key uniqueness
-  before finishing. `$LABELS_OUT` is also the only file you write — its line
-  count is your progress record; keep no scratch files. Apart from the abort
-  paths this section names, never end the turn with a text unlabeled; once
-  the file holds exactly one line per extract row, run the measure command
-  and report its block as required above.
+  artifact. The tool mechanics matter here: **Write replaces the entire
+  file**, so it is for the first slice and for a deliberate full repair
+  only — a Write mid-run that carries anything less than every line written
+  so far silently truncates the run down to what it carries, and the loss
+  surfaces only as a refused measurement. Every later slice is an **Edit**
+  that appends: anchor on the file's current final line and replace it with
+  that line plus the new slice's lines. Every case appears exactly once: to
+  repair a bad slice, rewrite the whole file with one Write holding every
+  line, never append a correction, and check the line count and key
+  uniqueness before finishing. `$LABELS_OUT` is also the only file you
+  write — its line count is your progress record; keep no scratch files.
+  Apart from the abort paths this section names, never end the turn with a
+  text unlabeled; once the file holds exactly one line per extract row,
+  report your counts as the hand-off section asks.
 - **You run headless** (in CI, no interactive input). You cannot ask a question
   and wait, so never stall: if the extract is missing, malformed, or empty, say
   so in your final report and stop. Genuinely torn calls follow the doc's
@@ -194,5 +191,5 @@ block shows you losing, and finish.
   agent's output.
 - **Do not commit, push, or open a PR** — carrying the labels artifact off the
   runner belongs to whatever dispatched you, never to you.
-- Before finishing, make sure `uv run fedcourts validate data` would pass for the
-  artifact the command wrote.
+- The workflow validates the artifact it writes from your file; your own
+  completeness check before the final message is the part of that you can do.

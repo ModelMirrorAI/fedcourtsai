@@ -258,7 +258,8 @@ App token — are marked in the workflow where they are made.
 `qp-labeler-smoke` extends the actions-smoke doctrine to the one invocation
 block the engine legs cannot cover: the qp-topic labeler's, which is not a
 cell's — a pinned CLI handed to the action, a bubblewrap/socat sandbox with
-the subprocess env scrub, `bypassPermissions` in a checkout that is read-only
+the subprocess env scrub, the scrub-hardened `default` permission mode with
+its explicit Write/Edit grant in a checkout that is read-only
 by contract, and a single `--add-dir` grant. The leg sends that block, held
 in lockstep with `run-analytics`'s labeling job by a workflow-shape test, a
 five-row synthetic extract — invented question texts, so no stored petition

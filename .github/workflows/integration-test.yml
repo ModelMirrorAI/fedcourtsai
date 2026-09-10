@@ -2615,7 +2615,8 @@ jobs:
   # token-free, and engine-actions-smoke sends each *cell* engine its own
   # invocation block — but the labeler's block is a fourth one nothing sends:
   # a pinned CLI handed to the action, a bubblewrap/socat sandbox with the
-  # subprocess env scrub, bypassPermissions in a checkout that is read-only
+  # subprocess env scrub, the hardened default mode with its explicit
+  # Write/Edit grant in a checkout that is read-only
   # by contract, and a single --add-dir grant. A refusal raised anywhere in
   # that stack fires before or between model calls, so the token-free
   # scenario passes it unseen and it surfaces first in a paid labeling
@@ -2784,7 +2785,8 @@ jobs:
           claude_args: |
             --model claude-haiku-4-5-20251001
             --max-turns 120
-            --permission-mode bypassPermissions
+            --permission-mode default
+            --allowedTools Write,Edit
             --add-dir ${{ runner.temp }}/qp-io
 
       # The read-only-tree half of the smoke's verdict, on every outcome the

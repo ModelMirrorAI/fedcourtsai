@@ -936,9 +936,10 @@ jobs:
       # subprocesses must not inherit the engine API key), and the scrub's
       # isolation backend is bubblewrap, which the runner image does not
       # carry — without it the CLI refuses to start rather than degrade.
-      # socat is the CLI's other sandbox dependency: absent, the Bash sandbox
-      # fails to initialize ("Sandbox dependencies not available") and every
-      # shell command the labeler issues is refused.
+      # socat is the CLI's other sandbox dependency: absent, the sandbox
+      # fails to initialize ("Sandbox dependencies not available"). The
+      # labeler's grant carries no shell, but the CLI stands its sandbox up
+      # at startup regardless, so both packages stay load-bearing.
       - name: Install bubblewrap and socat for the labeler's sandbox
         run: |
           set -euo pipefail
@@ -1050,10 +1051,22 @@ jobs:
           # No `--mcp-config`: `qp-topic-v0` is a text-only vocabulary, so the
           # extract is the agent's entire evidentiary input and every retrieval
           # surface is off limits by contract.
+          # The permission posture is the scrub's: with
+          # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB set, the CLI hardens the
+          # permission mode to `default` whatever the flag says and honors
+          # explicit whole-tool grants alone — path-scoped rules are not
+          # matched under the hardening — so the mode is declared as
+          # what actually runs, and Write and Edit are granted outright.
+          # That grant is strictly narrower than the bypass this lane's
+          # fences were built to contain, and Bash is deliberately not
+          # granted: the contract needs reads — free in default mode, with
+          # the io directory reachable through the --add-dir grant — and one
+          # written file.
           claude_args: |
             --model ${{ inputs.label_model }}
             --max-turns 120
-            --permission-mode bypassPermissions
+            --permission-mode default
+            --allowedTools Write,Edit
             --add-dir ${{ runner.temp }}/qp-io
 
       # The labeler's only declared output is $LABELS_OUT, in the granted
@@ -1108,7 +1121,7 @@ jobs:
       # so every byte it imports has to be a byte the labeler could not have
       # written. `setup-python-env` installs this project *editable*, which
       # puts the workspace tree and its gitignored `.venv` on the import path
-      # — and the labeler runs `bypassPermissions` in that workspace. The
+      # — and the labeler holds an unscoped Write grant in that workspace. The
       # assertion above does not close this: it compares *tracked* files, so an
       # untracked module, or a `.pth` dropped into the venv, is invisible to
       # it. Nor would a venv built before the agent ran, wherever it sat: the

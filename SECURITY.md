@@ -225,8 +225,10 @@ runbook, [docs/security.md](docs/security.md).
   exist, parse, and stop changing — so an agent can end its own step early by
   writing them and idling, and a prompt injection in docket text can ask it to.
   It can also simply create the watchdog's `REAPED` marker: the agent runs as the
-  runner user, and claude (`bypassPermissions`) and gemini (`--yolo`) are
-  unsandboxed, so no runner-local path is out of its reach — the only channel a
+  runner user, and the cells' claude (`bypassPermissions`) and gemini
+  (`--yolo`) are
+  unsandboxed, so no runner-local path is out of its reach (the qp-topic
+  labeler is the one agent held to a narrower grant, and it is not a cell) — the only channel a
   cell cannot forge is the off-runner comment, which is codex-only by the split
   above. What either buys is narrow and worth stating exactly: the marker sets
   `agent_ok`, which routes the cell to the run's **ready** PR instead of the
