@@ -359,14 +359,21 @@ class CorpusRow(BaseModel):
     amicus_briefs: int | None = Field(
         default=None,
         description="How many amicus briefs an interim application's docket "
-        "records (counted per entry naming amicus or amici curiae — a stakes "
-        "proxy, and an approximation: a multi-filer entry counts once, a motion "
-        "reciting the phrase counts alongside the brief, a brief still awaiting "
-        "the Clerk counts only once accepted, and the max-latch makes any "
-        "overcount permanent; see `interim_signals.amicus_briefs`). None = "
+        "records (every entry naming amicus or amici curiae, plus every distinct "
+        "lead filer whose brief is docketed as submitted and not yet accepted — "
+        "a stakes proxy, and an approximation: a multi-filer entry counts once, "
+        "a motion reciting the phrase counts alongside the brief, a submission "
+        "the Clerk later refuses stays counted, and the max-latch makes any "
+        "overcount permanent; see `interim_signals.amicus_briefs`). On a "
+        "resolved application the derivation stops at the end of the disposition "
+        "day (`interim_signals.amicus_briefs_through`), so an entry the Court "
+        "filed afterwards is not read into the value an outcome freezes. None = "
         "never application-parsed; the upsert max-latches it (filings are "
-        "append-only, so the count only ever grows and a degraded parse's "
-        "confident 0 never regresses it). Live application branch only.",
+        "append-only, so under a fixed cut the count only ever grows and a "
+        "degraded parse's confident 0 never regresses it — the one fall a "
+        "derivation can produce is the poll that first reads a disposition date "
+        "and applies the cut, and the latch strands that row at its unbounded "
+        "value until a re-derivation). Live application branch only.",
     )
     sample_weight: int | None = Field(
         default=None,
@@ -1504,7 +1511,13 @@ def _update_clause(column: str) -> str:
         # advance and rejects the regression. The interim escalation signals
         # share the property exactly (the Court does not un-request a response,
         # un-refer an application, or un-file an amicus brief), so the boolean
-        # flags max-latch as 0/1 integers and the amicus count as a count.
+        # flags max-latch as 0/1 integers and the amicus count as a count. The
+        # amicus count carries one qualification the other two do not: its
+        # derivation is cut at the end of the disposition day, so the poll that
+        # first reads a disposition date can produce a value below an earlier
+        # unbounded one. The latch keeps the higher number, which is the accepted
+        # cost of protecting every other row from a degraded parse — bringing such
+        # a row down is a re-derivation, not a poll.
         # `has_opinion` is the same shape again: an opinion once linked is never
         # unlinked, and every writer asserts the bit (NOT NULL, default False),
         # so a channel that does not carry the body would otherwise flip a

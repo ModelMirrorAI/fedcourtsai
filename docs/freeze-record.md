@@ -2857,3 +2857,170 @@ freeze commit is recorded here.
   review PR are indistinguishable from the artifact alone. The stratum is
   unchanged throughout: retrospective by construction, an iteration
   instrument, never claimable performance.
+
+- **The interim amicus reading widens to submissions, and the resolution count
+  takes an end-of-day cut, 2026-09-10.** Two changes to the same number,
+  registered together because they move it in opposite directions and a reader
+  of either alone would mis-attribute the net. Both are **scoring-baseline**
+  members of [process-version.md](process-version.md)'s list, under an unmoved
+  digest and with no data-visible boundary — an outcome's `interim_signals`
+  records a count and not the reading that produced it, which is the shape that
+  paragraph refuses to leave in a commit message. No prompt byte moves, so no
+  predictor or evaluator digest moves and no re-bless is due — and that is a
+  **trade taken deliberately, not an absence of impact**. The predict prompt asks
+  an interim cell for the probability that "the amicus count rises past" the
+  number its record shows, and it does not say which entries that count reads.
+  Under the widened reading it now reads submissions too, and the cell is not
+  told. Saying so in the prompt would move all three predictor digests and force
+  a re-bless; the digests stay put and the elicitation stays slightly coarser
+  than the resolver, which is registered here rather than left silent.
+
+  **The reading.** `interim_signals.amicus_briefs` counted only the accepted
+  form, `amic(?:us|i)\s+curiae`. It now also counts each distinct **lead
+  filer** whose brief the docket shows as submitted and not yet accepted
+  ("Amicus brief of X submitted."), deduped against the filer the acceptance
+  entry names, so one brief's submitted → accepted lifecycle counts once. A
+  motion for leave and a refused brief stay out. The old exclusion was argued
+  from cert dockets alone — the corpus snapshots no application's proceedings —
+  and on an application docket the submission form is often the only shape a
+  brief is ever seen in before the matter resolves. `scotus/9526000203`'s
+  **`evt-brief-response-disposition`** cells, provisioned at `context.cutoff`
+  2026-08-19, carried six submissions (one 2026-08-16, five 2026-08-18) and
+  froze `amicus_briefs = 0`; the counter over the same entries now reads **6**.
+  The case's other two events were provisioned at cutoff 2026-08-15, before the
+  first submission, and read 0 under both readings — the correction is those
+  three cells, not the case. The widening is latch-compatible by construction:
+  the submitted arm is an addition over a set of entries disjoint from the
+  accepted one, so the new count is never below the old on any docket. It is
+  also not an overcount at the far end — the same docket at resolution, its six
+  submissions by then accepted and docketed in the Latin, reads **7** under both
+  readings. How large the correction is *across* application dockets stays
+  unmeasured, and cannot be measured from the corpus: the two dockets checked
+  here were both surfaced by cell flags, which is the most biased sample
+  available for the question.
+
+  **Those two docket readings are reconstructions, not corpus reads**, and carry
+  no blob vintage because none was taken. Application proceedings live only in
+  the content store, docket entry text is never committed, and the corpus was
+  unreachable from the checkout this entry was written in. The entry *shapes*
+  above are strings the two cases' committed predict and evaluate cells quote
+  verbatim; the filer names and dates come from the same cells' prose. Every
+  other figure in this entry — the 12,687 / 32 / 667 / 58 counts, the histograms,
+  the cutoffs, the pending and re-freeze cell lists — is read from committed
+  artifacts and is exact.
+
+  **The cut.** The ingest derivation now bounds counted entries to
+  `entry_date <= disposition date` where that date is known
+  (`interim_signals.amicus_briefs_through`) — **end of day**, so an entry sharing
+  the disposition's date counts however the docket orders it, and one filed after
+  that day does not. Undated entries always count. This states a cut the record
+  previously left unstated: the freeze copies the corpus column at
+  resolution-detection time, so without a bound a poll taken after the
+  disposition reads entries the Court filed once the matter was over into a value
+  labelled "as at resolution". `scotus/9526000275` is the worked case: its one
+  amicus entry is a submission dated the day of the denial and docketed *after*
+  the denial entry, so it counts (**0 → 1**), while the same docket plus an entry
+  dated two days later still reads 1 rather than 2.
+
+  Two limits on the cut's reach are registered with it. It is
+  **date-conditioned**: the derivation takes the disposing entry's own date, and
+  a resolved application whose disposing entry carries no readable date leaves
+  that date null and keeps the unbounded reading. The size of that arm is
+  unmeasured. And the column **max-latches**, so the bound governs derivations
+  from here and never a value already stored — a row polled before its
+  disposition date was readable keeps whatever the unbounded reading gave, and
+  only a corpus re-derivation can bring it down.
+
+  **The two cuts are asymmetric on one arm, and there the asymmetry has a
+  direction.** The resolution end stops at the end of the disposition day. The
+  prediction end depends on `context.cut_kind`, and the two arms differ in
+  exactly the way that matters here:
+
+  - On the **date** arm — `cut_kind` null, which every one of the 667 committed
+    `prediction.json` carries — the snapshot keeps every entry filed strictly
+    before `context.cutoff`, and the cutoff is the day *after* the moment opened.
+    The whole opening day is therefore inside the cell's information set,
+    however the docket orders it, and the two ends agree about same-day entries.
+    No bias arises on this arm.
+  - On the **`arrival-position`** arm the snapshot stops at the entry that opened
+    the event, so the opening day's *later* entries are outside the information
+    set while the resolution end counts them. There an amicus entry docketed the
+    same day as the moment being forecast, after the entry that opened it,
+    resolves `amicus-increment` **positive with no docket movement at all**: it
+    existed when the forecast was taken and was withheld from the forecaster.
+    The widened reading enlarges that arm, because a same-day *submission*
+    previously read 0 at both ends and now reads 0 at the prediction end and ≥1
+    at the resolution end.
+
+  No committed cell takes the second arm, but cells minted from here do:
+  `evt-motion-disposition` is the interim **arrival** moment
+  (`pipeline.moments`), which is the moment the positional cut is taken on. The
+  effect concentrates on the fastest-moving applications — the ones a whole
+  matter can be submitted and decided inside a day or two — which are also the
+  ones the interim reserve ladder funds first (`pipeline.salience`). **So on an
+  `arrival-position` cell the claim's positive rate is biased upward by a
+  mechanism that is not a forecast**, and no such resolution may be read as a hit
+  without checking that the entry which moved the count postdates the anchor.
+
+  **The affected set, as at this commit.** Of **12,687** committed
+  `outcome.json`, **32** carry a non-null `interim_signals` block, across 20
+  cases; their `amicus_briefs` values are {0: 20 rows, 1: 3, 2: 3, 6: 3, 7: 3}.
+  Of **667** committed `prediction.json`, **58** carry a non-null
+  `context.amicus_briefs`, across 10 cases: {0: 47, 2: 3, 6: 8}. **This change
+  re-derives none of them.** A `run-repair` pass that re-derives the column,
+  re-freezes the ≤32 committed outcome rows and regrades what moves is
+  deliberately outside this change; until it runs, every committed row is the old
+  reading, and its own entry carries its own declaration. What that pass would do
+  is already computable and is registered here rather than left to it:
+  `scotus/9526000275`'s three events would re-freeze from 0 to 1, flipping the
+  `amicus-increment` resolution of its **7** committed cells from 0 to 1. Those
+  seven **are** claimable, and the check is worth showing because it is the check
+  every reader of an increment now has to make. The docket's one amicus entry is
+  dated 2026-09-03; the three events' cutoffs are 2026-09-01, 2026-09-02 and
+  2026-09-03, and the date rule keeps only entries filed *strictly before* the
+  cutoff. The entry therefore postdates all three information sets, its frozen
+  context reads 0 under both readings, and the flip is docket movement the
+  widened counter can now see rather than measurement drift.
+  `scotus/9526000203`'s 9 cells resolve 1 under both
+  readings and do not flip. Its brief-response arm is worth one further note,
+  and it is about the *reading* rather than about the pass: re-derive both ends
+  and that cell's increment becomes 6 → 7 rather than 0 → 7 — the same binary hit
+  off a far smaller movement. The pass registered above re-derives only the
+  resolution end; a committed `context.amicus_briefs` is never re-derived, so
+  that comparison is hypothetical and is recorded here so a later reader does not
+  mistake the committed 0 → 7 for a large forecast movement.
+
+  **Two derived surfaces move with the column, and neither carries a boundary.**
+  `analytics.with_amicus` — the per-**application-Term** count of substantive
+  applications carrying at least one brief, published in `metrics/statpack.json`
+  (2024: 24/70, 2025: 24/227, 2026: 4/49 as at the committed pack) — is computed
+  from the same column, and only **open** rows re-derive, so from the first
+  post-promotion pull the series pools two readings with nothing in the artifact
+  to separate them. The 2026 arm is where any movement will appear; the pooled
+  total will not show it. And `pipeline.salience`'s interim reserve ladder orders
+  on the same column, so the widened reading changes **which** pending
+  applications the reserve funds — a selection change on the forward stratum, not
+  a value change. `fedcourts arrival-cut-ledger`'s `amicus_tail` /
+  `amicus_shift_*` readings also move, and a ledger produced after this change is
+  not comparable with one produced before it.
+
+  A fourth surface cannot be re-derived at all, and is recorded so a later reader
+  is not surprised by it: **committed cell prose reasons from the retired
+  reading**. Predict and evaluate documents on both worked dockets argue
+  explicitly that a pre-acceptance entry is not counted — that is what those
+  cells believed when they were written, it is an immutable record of the run,
+  and no repair pass touches it. After the re-derivation the committed reasoning
+  and the committed numbers on those cells will disagree, correctly.
+
+  **The prediction-end hazard.** `pipeline.asof` derives a cell's frozen
+  `context.amicus_briefs` through the same function, so the two ends of the
+  `amicus-increment` claim move at different times: an outcome frozen after this
+  change is a new-reading number, while every context already committed is an
+  old-reading one. **Nine pending cells** — `scotus/73279700`,
+  `scotus/9526000163`, and `scotus/9526000273`, one `evt-motion-disposition`
+  event each across the three baseline predictors — are frozen at
+  `amicus_briefs = 0` with no outcome yet written. When their applications
+  resolve, their `amicus-increment` compares an old-reading context against a
+  new-reading outcome, so a resolution of 1 on those cells is the measurement
+  widening rather than a docket movement, and **their increment is not claimable
+  as a forecast hit**.

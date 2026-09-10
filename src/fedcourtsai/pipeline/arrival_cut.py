@@ -361,7 +361,13 @@ class ArrivalCutRow(BaseModel):
         "read against.",
     )
     amicus_tail: int = Field(
-        default=0, ge=0, description="Amicus entries inside that tail (the interim-v1 claim)."
+        default=0,
+        ge=0,
+        description="How far the amicus count (the interim-v1 claim's conditioning "
+        "variable) falls when the tail is removed. A count difference rather than an "
+        "entry tally: the reading sums accepted-form entries and distinct pending lead "
+        "filers, so a tail holding a submission and its own acceptance moves it by less "
+        "than the number of entries dropped.",
     )
     response_requested_in_tail: bool = Field(
         default=False,
@@ -514,7 +520,10 @@ class ArrivalCutLedger(BaseModel):
         "amicus resolved positive under both readings.",
     )
     amicus_shift_entries: int = Field(
-        default=0, ge=0, description="Amicus entries removed across those rows."
+        default=0,
+        ge=0,
+        description="Total fall in the amicus count across those rows — summed "
+        "`amicus_tail`, so a count difference rather than a tally of dropped entries.",
     )
     response_requested_unmasked: int = Field(
         default=0,
@@ -628,9 +637,10 @@ def _read_row(row: _Row, snapshot: tuple[date, dict[str, Any]] | None) -> Arriva
     # difference between: the escalation trio as the date cut froze it, and as
     # the anchor bound freezes it. Both over the cell's own payload, so a shift
     # here is exactly the shift the cell's `context.json` will carry.
-    before_response, before_referral, before_amici = escalation_signals([t for t, _ in entries])
-    kept_texts = [t for t, _ in proceedings_entries(cut.payload)]
-    after_response, after_referral, after_amici = escalation_signals(kept_texts)
+    before_response, before_referral, before_amici = escalation_signals(entries)
+    after_response, after_referral, after_amici = escalation_signals(
+        proceedings_entries(cut.payload)
+    )
     return ArrivalCutRow(
         case_id=row.case_id,
         resolved=row.resolved,
