@@ -227,8 +227,23 @@ the docket form, so one function serves both lanes:
   a plain extension phrase misses), more pages, more words — is not selected,
   and neither is an ask the classifier cannot read, which costs no cell because
   the same reading keeps that docket out of the queue.
-- **`brief-in-opposition`** — every non-amicus opposition brief, combined into
-  one document.
+- **`brief-in-opposition`** — every non-amicus opposition brief **filed at the
+  cert stage**, combined into one document.
+- **`merits-brief-petitioner`** / **`merits-brief-respondent`** — each side's
+  brief on the merits, one row per side and one URL per row, taken from the
+  entry's `Main Document` link and from no other (a merits-brief entry posts its
+  certificate of word count and proof of service beside the filing). Selected
+  only on entries filed **after the cert grant**, because the Court writes a
+  merits brief and a cert-stage response in the same words — "Brief of respondent
+  United States filed." either way, with "on the merits" appearing on the
+  scheduling order and never on the brief entry — so the grant date is the only
+  thing that separates the two stages. That same bound is what keeps the cert
+  slot above from swallowing a merits brief and pipe-joining it into the
+  opposition. Per side rather than pooled: two adversarial briefs under one kind
+  would share one extraction cap, so the second would be cut by however long the
+  first ran. The first brief in docket order on each side is the opening one; the
+  reprint that rides the joint appendix is not a second brief, and the reply is a
+  separate entry family ("Reply [Brief] of …") that no arm selects.
 - **`questions-presented`** — derived from the `petition` text alone, never
   fetched and never derived from an `application`.
 

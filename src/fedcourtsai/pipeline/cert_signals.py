@@ -613,6 +613,36 @@ def entry_date(raw: str | None) -> date | None:
     return first if first == second else None
 
 
+def cert_grant_date(payload: Mapping[str, Any]) -> date | None:
+    """When this docket's petition was granted, read off its own proceedings.
+
+    The line between the cert stage and the merits stage, for a reader holding a
+    payload rather than a corpus row. It is the same reading the live channel
+    stores as ``date_cert_granted``, stated once here so the two cannot drift:
+    the **first** entry carrying a machine-readable cert disposition decides the
+    docket, and only a grant — a plain grant or a GVR, which grants the petition
+    — yields a date. A first disposition that denies or dismisses returns
+    ``None`` rather than letting a later entry stand in for it, because a docket
+    is disposed of once and what follows a denial is a rehearing sequence, not a
+    grant of the petition.
+
+    ``None`` also where the grant entry carries no fully specified date
+    (:func:`entry_date`) and where the payload discloses no proceedings at all —
+    a redacted replay snapshot among them. Every caller reads it the same way:
+    the merits stage is not locatable on this docket, so a rule keyed on the
+    grant does not fire. Distinguish that from "the petition was not granted"
+    only with the payload beside it.
+    """
+    for text, raw in proceedings_entries(payload):
+        matched = match_disposition_signal(text)
+        if matched is None:
+            continue
+        if matched[0] in (Disposition.granted, Disposition.gvr):
+            return entry_date(raw)
+        return None
+    return None
+
+
 def snapshot_carries_proceedings(payload: Mapping[str, Any]) -> bool:
     """Whether the payload discloses a proceedings list at all.
 

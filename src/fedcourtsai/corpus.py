@@ -620,13 +620,18 @@ class CaseDocument(BaseModel):
     kind: str = Field(
         description="petition (the case-opening filing on a cert-form docket, "
         "whichever writ it seeks) | application (the interim relief an "
-        "application-form docket is opened by) | brief-in-opposition | "
+        "application-form docket is opened by) | brief-in-opposition (the "
+        "cert-stage opposition, every respondent's in one row) | "
+        "merits-brief-petitioner | merits-brief-respondent (each side's brief on "
+        "the merits, one row per side, selected only after the cert grant) | "
         "questions-presented | …"
     )
     url: str = Field(
         description="The supremecourt.gov DocumentUrl fetched; for a combined "
         "brief-in-opposition (multiple respondents) the '|'-joined set of fetched "
-        "URLs, an idempotency key rather than a single fetchable link"
+        "URLs, an idempotency key rather than a single fetchable link. Every "
+        "other kind holds one fetchable URL, the merits briefs included — they "
+        "are stored per side precisely so no row has to join two filings"
     )
     entry_date: str | None = Field(
         default=None, description="The proceedings entry date the link rode on, verbatim"

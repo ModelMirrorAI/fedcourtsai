@@ -21,6 +21,8 @@ from fedcourtsai.pipeline.documents import (
     _QP_MIN_CHARS,
     KIND_APPLICATION,
     KIND_BRIEF_IN_OPPOSITION,
+    KIND_MERITS_BRIEF_PETITIONER,
+    KIND_MERITS_BRIEF_RESPONDENT,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
     _qp_stored_is_fragment,
@@ -34,6 +36,7 @@ from fedcourtsai.pipeline.documents import (
     reset_document_fetch_losses,
     select_documents,
 )
+from fedcourtsai.provision import documents_before
 from fedcourtsai.supremecourt import SupremeCourtClient
 from tests.conftest import FixtureCorpus, seed_prediction
 
@@ -537,6 +540,207 @@ def test_fetch_case_documents_retries_a_bio_that_failed_to_fetch() -> None:
     bio2 = next(d for d in second if d.kind == KIND_BRIEF_IN_OPPOSITION)
     assert bio2.url == "https://example/lead.pdf|https://example/second.pdf"
     assert "Northampton says deny too." in bio2.text
+
+
+# --- merits briefs, and the cert-stage bound on the opposition arm ------------------
+
+# The cert grant in the Court's own words, and a petition entry before it. Nothing
+# in a party's brief entry says which stage it belongs to, so these two are what
+# every case below is read against.
+_MERITS_PETITION_ENTRY = {
+    "Date": "Dec 17 2025",
+    "Text": "Petition for a writ of certiorari filed. (Response due January 21, 2026)",
+    "Links": [{"Description": "Petition", "DocumentUrl": "https://example/petition.pdf"}],
+}
+_GRANT_ENTRY = {"Date": "Apr 06 2026", "Text": "Petition GRANTED.", "Links": []}
+
+
+def _entry(date_: str, text: str, *, url: str, label: str = "Main Document") -> dict[str, object]:
+    """One proceedings entry carrying a single link under ``label``."""
+    return {"Date": date_, "Text": text, "Links": [{"Description": label, "DocumentUrl": url}]}
+
+
+def _granted_payload(*entries: dict[str, object]) -> dict[str, object]:
+    """A petition, the cert grant, then ``entries`` — a docket at the merits stage."""
+    return {"ProceedingsandOrder": [_MERITS_PETITION_ENTRY, _GRANT_ENTRY, *entries]}
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    [
+        # Real post-grant docket phrasings. Not one of them says "on the merits":
+        # that phrase rides the scheduling order, never the brief entry.
+        "Brief of petitioner Floyd Johnson filed.",  # 25-735
+        "Brief of petitioners Department of Labor, et al. filed.",  # 25-966
+        "Brief of petitioners Xavier Becerra, Secretary of Health and Human Services, "
+        + "et al. filed. VIDED.",
+        "Brief of petitioners TikTok Inc. and ByteDance Ltd. filed (as to 24-656). (Distributed)",
+    ],
+)
+def test_select_documents_takes_the_petitioner_merits_brief(entry_text: str) -> None:
+    payload = _granted_payload(_entry("Jun 01 2026", entry_text, url="https://example/brief.pdf"))
+    refs = {r.kind: r.url for r in select_documents(payload)}
+    assert refs.get(KIND_MERITS_BRIEF_PETITIONER) == "https://example/brief.pdf"
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    [
+        "Brief of respondent United States filed.",
+        "Brief of respondents Sony Music Entertainment, et al. filed.",
+        "Brief of respondent filed.  (Distributed)",  # no party named at all
+        "Brief of respondents Alliance for Hippocratic Medicine, et al. filed. "
+        + "VIDED. (Distributed)",
+    ],
+)
+def test_select_documents_takes_the_respondent_merits_brief(entry_text: str) -> None:
+    payload = _granted_payload(_entry("Sep 15 2026", entry_text, url="https://example/brief.pdf"))
+    refs = {r.kind: r.url for r in select_documents(payload)}
+    assert refs.get(KIND_MERITS_BRIEF_RESPONDENT) == "https://example/brief.pdf"
+    # And the cert slot no longer swallows it, which is what the bound is for.
+    assert KIND_BRIEF_IN_OPPOSITION not in refs
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    [
+        "Brief amicus curiae of Pacific Legal Foundation filed.",  # an amicus, either side
+        "Brief of amici curiae Kansas, et al. in support of petitioners filed.  VIDED.",
+        "Reply of petitioner Acme Corp. filed.",  # the reply is its own entry family
+        "Reply Brief of petitioner Acme Corp. filed. (Distributed)",
+        "Brief of respondents Mi Familia Vota, et al. in support of petitioners filed.",
+        "Brief of petitioner Acme Corp. in support of respondents filed.",
+        "Motion for an extension of time to file the briefs on the merits filed.",
+    ],
+)
+def test_select_documents_merits_arms_exclude_non_adversarial_briefs(entry_text: str) -> None:
+    payload = _granted_payload(_entry("Jun 01 2026", entry_text, url="https://example/brief.pdf"))
+    refs = {r.kind for r in select_documents(payload)}
+    assert KIND_MERITS_BRIEF_PETITIONER not in refs
+    assert KIND_MERITS_BRIEF_RESPONDENT not in refs
+
+
+def test_select_documents_reads_one_respondent_phrasing_at_two_stages() -> None:
+    # The same words twice: the cert-stage response the Court called for, and the
+    # respondent's brief on the merits. Only the grant tells them apart.
+    words = "Brief of respondent United States Congress filed."
+    payload = {
+        "ProceedingsandOrder": [
+            _MERITS_PETITION_ENTRY,
+            _entry("Mar 06 2026", words, url="https://example/response.pdf"),
+            _GRANT_ENTRY,
+            _entry("Jul 13 2026", words, url="https://example/merits.pdf"),
+        ]
+    }
+    refs = {r.kind: r.url for r in select_documents(payload)}
+    assert refs[KIND_BRIEF_IN_OPPOSITION] == "https://example/response.pdf"
+    assert refs[KIND_MERITS_BRIEF_RESPONDENT] == "https://example/merits.pdf"
+
+
+def test_select_documents_keeps_a_grant_day_opposition_brief() -> None:
+    # A brief filed the day the petition was granted is the cert-stage one: the
+    # order comes out of the conference that brief was already before.
+    payload = {
+        "ProceedingsandOrder": [
+            _MERITS_PETITION_ENTRY,
+            _entry(
+                "Apr 06 2026",
+                "Brief of respondent Washington in opposition filed.",
+                url="https://example/bio.pdf",
+            ),
+            _GRANT_ENTRY,
+        ]
+    }
+    refs = {r.kind for r in select_documents(payload)}
+    assert KIND_BRIEF_IN_OPPOSITION in refs
+    assert KIND_MERITS_BRIEF_RESPONDENT not in refs
+
+
+def test_select_documents_takes_no_merits_brief_without_a_grant() -> None:
+    # No locatable grant, no merits stage — the entry stays the cert-stage
+    # response rather than being mis-filed under a merits kind.
+    payload = {
+        "ProceedingsandOrder": [
+            _MERITS_PETITION_ENTRY,
+            _entry(
+                "Jul 13 2026",
+                "Brief of respondent United States Congress filed.",
+                url="https://example/response.pdf",
+            ),
+        ]
+    }
+    assert {r.kind for r in select_documents(payload)} == {
+        KIND_PETITION,
+        KIND_BRIEF_IN_OPPOSITION,
+    }
+
+
+def test_select_documents_merits_arms_take_the_main_document_only() -> None:
+    # A merits-brief entry posts its certificate of word count and its proof of
+    # service beside the filing; the first link is not the brief.
+    payload = _granted_payload(
+        _entry(
+            "Jun 01 2026",
+            "Brief of petitioner Floyd Johnson filed.",
+            url="https://example/service.pdf",
+            label="Proof of Service",
+        )
+    )
+    assert KIND_MERITS_BRIEF_PETITIONER not in {r.kind for r in select_documents(payload)}
+
+
+def test_select_documents_takes_each_side_once_in_docket_order() -> None:
+    payload = _granted_payload(
+        _entry(
+            "Jun 01 2026", "Brief of petitioner Floyd Johnson filed.", url="https://example/one.pdf"
+        ),
+        _entry(  # the reprint that rides the joint appendix is not a second brief
+            "Jun 20 2026",
+            "Brief of petitioner Floyd Johnson (reprinted), per filing of joint appendix, filed.",
+            url="https://example/two.pdf",
+        ),
+    )
+    refs = {r.kind: r.url for r in select_documents(payload)}
+    assert refs[KIND_MERITS_BRIEF_PETITIONER] == "https://example/one.pdf"
+
+
+def test_fetch_case_documents_stores_each_merits_brief_under_its_own_kind() -> None:
+    payload = _granted_payload(
+        _entry(
+            "Jun 01 2026", "Brief of petitioner Floyd Johnson filed.", url="https://example/pet.pdf"
+        ),
+        _entry(
+            "Jul 13 2026",
+            "Brief of respondent United States Congress filed.",
+            url="https://example/resp.pdf",
+        ),
+    )
+    served = {
+        "https://example/petition.pdf": _pdf("QUESTION PRESENTED Whether X. PARTIES TO THE Acme."),
+        "https://example/pet.pdf": _pdf("Petitioner says reverse."),
+        "https://example/resp.pdf": _pdf("Respondent says affirm."),
+    }
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            payload,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 7, 20),
+        )
+    by_kind = {d.kind: d for d in documents}
+    # One row per side, one URL each — no pipe-join, so each brief is extracted
+    # under its own cap rather than sharing one with the other side's.
+    assert by_kind[KIND_MERITS_BRIEF_PETITIONER].url == "https://example/pet.pdf"
+    assert by_kind[KIND_MERITS_BRIEF_RESPONDENT].url == "https://example/resp.pdf"
+    assert "Petitioner says reverse." in by_kind[KIND_MERITS_BRIEF_PETITIONER].text
+    assert "Respondent says affirm." in by_kind[KIND_MERITS_BRIEF_RESPONDENT].text
+    # Each is placed by its own filing date, so a grant-moment cell reads neither.
+    assert [d.kind for d in documents_before(list(by_kind.values()), date(2026, 4, 7))] == [
+        KIND_PETITION,
+        KIND_QUESTIONS_PRESENTED,
+    ]
 
 
 # --- extraction -------------------------------------------------------------------
@@ -2180,9 +2384,14 @@ def test_corpus_info_text_coverage_is_opt_in(
         "text frame: the pass read documents for 5 of the 7 live-slice case(s)" in measured.stdout
     )
     assert "a reach count, not a failure rate" in measured.stdout
-    assert "scored petition            n=3 empty=2 (66.67%)" in measured.stdout
-    assert "rest   brief-in-opposition n=1 empty=1 (100.00%)" in measured.stdout
-    assert "rest   questions-presented n=0 empty=0 (-)" in measured.stdout
+    # The kind column is sized from the data, so the widest kind sets the padding.
+    assert "scored petition                n=3 empty=2 (66.67%)" in measured.stdout
+    assert "rest   brief-in-opposition     n=1 empty=1 (100.00%)" in measured.stdout
+    assert "rest   questions-presented     n=0 empty=0 (-)" in measured.stdout
+    # A granted case's merits briefs are counted like every other fetched kind,
+    # and read as an empty cut rather than a measured zero where none is stored.
+    assert "scored merits-brief-petitioner n=0 empty=0 (-)" in measured.stdout
+    assert "rest   merits-brief-respondent n=0 empty=0 (-)" in measured.stdout
     # The questions-presented zero is structural, and the report says so.
     assert "structurally unable to carry a scan" in measured.stdout
     assert "empty text (3 case(s)):" in measured.stdout

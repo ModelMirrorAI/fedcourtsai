@@ -8007,7 +8007,8 @@ def corpus_info(
         typer.Option(
             "--text-coverage",
             help="Also count the stored documents whose text is empty, per kind "
-            "(petition / brief-in-opposition / questions-presented) and split on "
+            "(petition / application / brief-in-opposition / the two merits "
+            "briefs / questions-presented) and split on "
             "the salience gate's paid modern-cert segment. Opt-in and not cheap: "
             "it reads the documents of every live-slice case, tens of thousands of "
             "rows, which under the corpus split is a content-store manifest round "
