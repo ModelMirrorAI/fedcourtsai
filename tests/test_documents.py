@@ -597,7 +597,7 @@ def test_select_documents_takes_the_respondent_merits_brief(entry_text: str) -> 
     payload = _granted_payload(_entry("Sep 15 2026", entry_text, url="https://example/brief.pdf"))
     refs = {r.kind: r.url for r in select_documents(payload)}
     assert refs.get(KIND_MERITS_BRIEF_RESPONDENT) == "https://example/brief.pdf"
-    # And the cert slot no longer swallows it, which is what the bound is for.
+    # And the cert slot does not swallow it, which is what the bound is for.
     assert KIND_BRIEF_IN_OPPOSITION not in refs
 
 

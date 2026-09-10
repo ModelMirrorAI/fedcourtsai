@@ -75,7 +75,7 @@ _PETITIONER_BRIEF_RE = re.compile(
 #   argument is on the record, and a respondent supporting the petitioner leaves
 #   that still to come (sometimes from a Court-appointed amicus); the petitioner
 #   mirror is stated so one side is not read more loosely than the other.
-_NOT_THE_MERITS_BRIEF_RE = re.compile(
+_NOT_THE_RESPONDENT_MERITS_BRIEF_RE = re.compile(
     r"\bin\s+opposition\b"
     r"|\bamicus\b|\bamici\b"
     r"|\b(?:in\s+support\s+of|supporting)\s+(?:the\s+)?petitioners?\b",
@@ -98,7 +98,9 @@ def is_respondent_merits_brief(text: str) -> bool:
     callers do — :func:`respondent_brief_date` scans post-grant entries, and the
     document selector keys its ``merits-brief-respondent`` arm on the same bound.
     """
-    return bool(_RESPONDENT_BRIEF_RE.search(text)) and not _NOT_THE_MERITS_BRIEF_RE.search(text)
+    return bool(
+        _RESPONDENT_BRIEF_RE.search(text)
+    ) and not _NOT_THE_RESPONDENT_MERITS_BRIEF_RE.search(text)
 
 
 def is_petitioner_merits_brief(text: str) -> bool:

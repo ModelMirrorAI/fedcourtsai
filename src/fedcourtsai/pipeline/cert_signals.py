@@ -617,9 +617,11 @@ def cert_grant_date(payload: Mapping[str, Any]) -> date | None:
     """When this docket's petition was granted, read off its own proceedings.
 
     The line between the cert stage and the merits stage, for a reader holding a
-    payload rather than a corpus row. It is the same reading the live channel
-    stores as ``date_cert_granted``, stated once here so the two cannot drift:
-    the **first** entry carrying a machine-readable cert disposition decides the
+    payload rather than a corpus row. It is the same **rule** the live channel
+    dates ``date_cert_granted`` by — restated for a payload rather than shared
+    with it, since that reader walks a normalized entry list and takes its dates
+    off ``date_filed`` where this one parses the docket's own string: the
+    **first** entry carrying a machine-readable cert disposition decides the
     docket, and only a grant — a plain grant or a GVR, which grants the petition
     — yields a date. A first disposition that denies or dismisses returns
     ``None`` rather than letting a later entry stand in for it, because a docket

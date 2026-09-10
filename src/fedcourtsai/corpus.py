@@ -630,8 +630,10 @@ class CaseDocument(BaseModel):
         description="The supremecourt.gov DocumentUrl fetched; for a combined "
         "brief-in-opposition (multiple respondents) the '|'-joined set of fetched "
         "URLs, an idempotency key rather than a single fetchable link. Every "
-        "other kind holds one fetchable URL, the merits briefs included — they "
-        "are stored per side precisely so no row has to join two filings"
+        "other kind names a single link — the merits briefs included, stored per "
+        "side precisely so no row has to join two filings; on the derived "
+        "questions-presented row that link is the petition's, the filing its "
+        "text was cut out of rather than a link to the row itself"
     )
     entry_date: str | None = Field(
         default=None, description="The proceedings entry date the link rode on, verbatim"

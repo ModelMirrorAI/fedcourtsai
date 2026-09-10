@@ -236,6 +236,14 @@ def _is_bio_entry(text: str, *, filed: date | None, granted_on: date | None) -> 
     entry with no fully specified date — stays *in*. Losing the opposition is the
     worse error for a cert-stage cell, and the merits arms refuse the same
     unjudgeable entry (:func:`_is_post_grant`), so the two never both take one.
+
+    One class the bound drops rather than re-routes, stated because it is a
+    loss and not a hand-off: a post-grant filing that is itself opposition-shaped
+    — a supplemental brief in opposition, or an opposition to a petition for
+    rehearing — fails this arm on the date and the merits arm on its own "in
+    opposition" exclusion, so nothing selects it. That is the accepted reading:
+    both are filings of a stage no cell is placed at, and admitting them to the
+    cert row would date that row after the grant.
     """
     if _is_post_grant(filed, granted_on):
         return False
@@ -398,11 +406,14 @@ def _entry_link(
     fallback keeps an unforeseen label fetchable rather than dropping the entry,
     which is why the list is a preference and not a filter.
 
-    ``fallback=False`` makes it a filter, for the one caller whose entries carry
-    links that are reliably *not* the filing: an application entry posts
+    ``fallback=False`` makes it a filter, for the two callers whose entries carry
+    links that are reliably *not* the filing. An application entry posts
     ``Written Request`` and ``Proof of Service`` beside (or instead of) its
     ``Main Document``, and taking the first link there stores a covering letter
-    as the application's text.
+    as the application's text; a merits brief posts its certificate of word
+    count and proof of service the same way. Both fail in the direction the
+    coverage report can see — an absent row — where a mislabelled one would be
+    invisible to every consumer.
     """
     links = [link for link in entry.get("Links") or [] if isinstance(link, Mapping)]
     for label in prefer:
@@ -503,9 +514,16 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
       ``Main Document`` link and from no other — a merits-brief entry posts its
       certificate of word count and proof of service beside the filing. Per side
       and never combined, so each brief carries one URL and its own extraction
-      cap. The first in docket order is the opening brief; the reprint that rides
-      the joint appendix, and the reply (a separate entry family, "Reply [Brief]
-      of …"), are not taken.
+      cap. The first in docket order whose entry posts that link is the opening
+      brief; the reply is a separate entry family ("Reply [Brief] of …") no arm
+      reaches, and the reprint that rides the joint appendix is passed over
+      because the opening brief precedes it — where the opening brief's own entry
+      posts no ``Main Document``, the reprint fills the side instead, which is
+      the right degradation. **One per side is the accepted residual**, and it
+      differs from the opposition arm deliberately: a case with several
+      respondent groups files several merits briefs, and only the first is
+      stored. Combining them is what the per-side kinds exist to avoid, so the
+      later groups' briefs are a known loss rather than an oversight.
 
     ``QPLink`` is deliberately never selected: it is generated at grant time and
     leaks the outcome; the questions presented are derived from the petition
@@ -1026,7 +1044,7 @@ def fetch_case_documents(
             FETCH_LOSS_NOT_SELECTED,
             case_id,
             _NOT_SELECTED_KIND,
-            "no case-opening, application, opposition or merits-brief entry "
+            "no case-opening, application, opposition, or merits-brief entry "
             "carried a document link",
         )
         return []
