@@ -7515,7 +7515,9 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
         "petition-family kinds. An application-form docket is never modern-cert, "
         "so an `application` row sits in `rest` unless the application was filed "
         "into a paid cert docket, and that row's segment says nothing about fee "
-        "class)"
+        "class. The two merits-brief rows are counted over granted cases alone — "
+        "nothing selects them before a cert grant — so a near-zero `n` there is "
+        "the size of the granted slice and not a coverage gap)"
     )
     # The triage list an extraction fix works from, untruncated for the reason
     # the questions-presented backfill prints its whole ledger: the count says
@@ -8007,7 +8009,9 @@ def corpus_info(
         typer.Option(
             "--text-coverage",
             help="Also count the stored documents whose text is empty, per kind "
-            "(petition / brief-in-opposition / questions-presented) and split on "
+            "(petition / application / brief-in-opposition / "
+            "merits-brief-petitioner / merits-brief-respondent / "
+            "questions-presented) and split on "
             "the salience gate's paid modern-cert segment. Opt-in and not cheap: "
             "it reads the documents of every live-slice case, tens of thousands of "
             "rows, which under the corpus split is a content-store manifest round "

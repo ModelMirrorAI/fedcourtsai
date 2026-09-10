@@ -6,8 +6,9 @@ cert prediction actually turns on. What is selected is keyed on the **filing**,
 not on the docket form: the case-opening filing of a cert-form docket (a
 petition for certiorari, certiorari before judgment, mandamus or habeas corpus,
 or a direct appeal's statement as to jurisdiction — one ``petition`` kind, one
-role), the ``application`` an interim docket is opened by, and every
-non-amicus brief in opposition. Everything here is **pipeline-side** —
+role), the ``application`` an interim docket is opened by, every non-amicus
+brief in opposition, and — once the petition is granted — each side's brief on
+the merits. Everything here is **pipeline-side** —
 documents are fetched and text-extracted at ingest time (the live poller, on
 the same distribution transition that queues prediction), stored in the
 access-gated corpus, and materialized into the cell's gitignored ``record/``
@@ -71,11 +72,23 @@ from ..supremecourt import SupremeCourtClient
 # `supremecourt`, so nothing here closes a cycle.
 from .caption import _scored_segment
 
-# The strict entry-date parse provisioning places a document by, imported so the
-# date this module *writes* onto a combined row is chosen under the same reading
-# that later decides where the row falls against a moment cutoff
-# (:func:`fedcourtsai.provision.documents_before`). `cert_signals` is a leaf —
-# it reaches only `schemas` — so the import closes no cycle.
+# Two readings off the same leaf module, for the two questions this module has
+# to answer about a date.
+#
+# Where this docket's cert stage ends, read off the payload the selector was
+# handed rather than taken as an argument: the grant date is derivable from the
+# selector's own input, and a parameter would leave each of three callers free
+# to forget it.
+#
+# And the strict entry-date parse provisioning places a document by, imported so
+# the date this module *writes* onto a combined row, and the order it chooses it
+# in, are decided under the same reading that later places the row against a
+# moment cutoff (:func:`fedcourtsai.provision.documents_before`).
+#
+# `cert_signals` is a leaf — it reaches only `schemas` — so neither import
+# closes a cycle; `ingest`, which holds the same grant reading for the corpus
+# row, would.
+from .cert_signals import cert_grant_date
 from .cert_signals import entry_date as _parse_entry_date
 
 # The interim lane's own reading of what an application asks for. Imported
@@ -84,6 +97,12 @@ from .cert_signals import entry_date as _parse_entry_date
 # change to either moves both. The import direction is safe — `interim_signals`
 # reaches only `schemas` and `cert_signals`, neither of which reaches here.
 from .interim_signals import ApplicationKind, application_kind
+
+# The merits lane's reading of which entry is each side's brief. Imported rather
+# than restated so the selector fetches exactly the filing the merits signal
+# names, and so a change to the reading moves both. Leaf module, like the two
+# above it.
+from .merits_signals import is_petitioner_merits_brief, is_respondent_merits_brief
 from .prefetch import prefetch_by_case
 
 logger = logging.getLogger(__name__)
@@ -106,9 +125,18 @@ logger = logging.getLogger(__name__)
 # carries no questions-presented section, and keying it apart is what lets the
 # coverage report's application-form count read as a gap that drains rather
 # than a floor that cannot.
+#
+# The two merits briefs are kept **per side**, and each row holds one URL. A
+# granted case's two briefs are the adversarial pair — the argument and the
+# answer to it — and pooling them under one kind would mean either dropping one
+# or pipe-joining both into a single capped extraction, where the second brief's
+# text is cut by however long the first ran. One row per side gives each brief
+# its own cap budget and lets a reader ask for the side it wants.
 KIND_PETITION = "petition"
 KIND_APPLICATION = "application"
 KIND_BRIEF_IN_OPPOSITION = "brief-in-opposition"
+KIND_MERITS_BRIEF_PETITIONER = "merits-brief-petitioner"
+KIND_MERITS_BRIEF_RESPONDENT = "merits-brief-respondent"
 KIND_QUESTIONS_PRESENTED = "questions-presented"
 
 # The proceedings entry whose link carries the case-opening filing on a
@@ -197,18 +225,59 @@ _BIO_EXCLUDE_RE = re.compile(
 )
 
 
-def _is_bio_entry(text: str) -> bool:
-    """Whether a proceedings entry is a respondent's brief in opposition.
+def _is_bio_entry(text: str, *, filed: date | None, granted_on: date | None) -> bool:
+    """Whether an entry is a respondent's **cert-stage** brief in opposition.
 
     Requires a filed/submitted brief that is either explicitly "in opposition"
     or a respondent's brief (the response the Court called for), and is not an
     amicus, petitioner, reply, supplemental, or in-support brief.
+
+    Bounded to the cert stage, because the words alone cannot see the stage. Once
+    the Court has called for a response the respondent's cert-stage filing reads
+    "Brief of respondent United States Congress filed." — and so does that same
+    respondent's brief **on the merits** four months later, since the Court puts
+    "on the merits" on the scheduling order and never on the brief entry. Without
+    the bound the merits brief lands in the cert slot, is pipe-joined into the
+    combined opposition row, and is truncated against the cert briefs beside it;
+    with it, the merits arms take that filing under its own kind.
+
+    An entry the bound cannot judge — no readable grant on the docket, or an
+    entry with no fully specified date — stays *in*. Losing the opposition is the
+    worse error for a cert-stage cell, and the merits arms refuse the same
+    unjudgeable entry (:func:`_is_post_grant`), so the two never both take one.
+
+    One class the bound drops rather than re-routes, stated because it is a
+    loss and not a hand-off: a post-grant filing that is itself opposition-shaped
+    — a supplemental brief in opposition, or an opposition to a petition for
+    rehearing — fails this arm on the date and the merits arm on its own "in
+    opposition" exclusion, so nothing selects it. That is the accepted reading:
+    both are filings of a stage no cell is placed at, and admitting them to the
+    cert row would date that row after the grant.
     """
+    if _is_post_grant(filed, granted_on):
+        return False
     if "brief" not in text.lower() or not _BIO_VERB_RE.search(text):
         return False
     if _BIO_EXCLUDE_RE.search(text):
         return False
     return bool(_BIO_OPPOSITION_RE.search(text) or _BIO_RESPONDENT_BRIEF_RE.search(text))
+
+
+def _is_post_grant(filed: date | None, granted_on: date | None) -> bool:
+    """Whether an entry belongs to the merits stage: filed after the cert grant.
+
+    Strictly after, so a brief filed **on** the grant day stays cert-stage: the
+    order comes out of the conference the brief was already before, and the
+    Clerk dates both to the same day.
+
+    Both dates are required. A docket whose grant this reader cannot locate —
+    ungranted, or granted in words :func:`cert_signals.cert_grant_date` does not
+    parse — has no locatable merits stage, and an entry with no fully specified
+    date cannot be placed on either side of it. Answering ``False`` there costs a
+    merits document that is not fetched; answering ``True`` would cost a
+    cert-stage cell its opposition brief, mis-filed under a merits kind.
+    """
+    return granted_on is not None and filed is not None and filed > granted_on
 
 
 # Where the questions-presented section of a petition ends: the next standard
@@ -346,11 +415,14 @@ def _entry_link(
     fallback keeps an unforeseen label fetchable rather than dropping the entry,
     which is why the list is a preference and not a filter.
 
-    ``fallback=False`` makes it a filter, for the one caller whose entries carry
-    links that are reliably *not* the filing: an application entry posts
+    ``fallback=False`` makes it a filter, for the two callers whose entries carry
+    links that are reliably *not* the filing. An application entry posts
     ``Written Request`` and ``Proof of Service`` beside (or instead of) its
     ``Main Document``, and taking the first link there stores a covering letter
-    as the application's text.
+    as the application's text; a merits brief posts its certificate of word
+    count and proof of service the same way. Both fail in the direction the
+    coverage report can see — an absent row — where a mislabelled one would be
+    invisible to every consumer.
     """
     links = [link for link in entry.get("Links") or [] if isinstance(link, Mapping)]
     for label in prefer:
@@ -414,8 +486,12 @@ def _is_application_entry(text: str) -> bool:
 def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
     """The fetchable predict-input documents on one docket JSON (pure).
 
-    Three arms, all entry-keyed rather than form-keyed — the payload says which
-    filings it carries, and nothing here needs to be told the docket's form.
+    Five arms, all entry-keyed rather than form-keyed — the payload says which
+    filings it carries, and nothing here needs to be told the docket's form. Two
+    of them are additionally **stage**-keyed, on the grant date read off the same
+    payload (:func:`cert_signals.cert_grant_date`), because the cert stage and the
+    merits stage spell a party's brief identically and only the date separates
+    them.
 
     - The **case-opening filing** (:data:`_CASE_OPENING_ENTRY_RE`), stored as
       ``petition``: the ordinary cert petition, a petition for certiorari
@@ -432,19 +508,41 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
       too where an interim application was filed into one, which is the right
       reading: the filing is real and the cell should read it. An
       administrative application — more time, more pages — is not selected.
-    - **Every** non-amicus brief in opposition — a petition with multiple
-      respondents draws a BIO from each, and taking only the last silently
-      dropped the lead respondent's (the most predictive one) whenever a
-      secondary respondent filed later. All distinct-URL BIOs are returned, in
-      docket order; :func:`fetch_case_documents` combines them into the single
+    - **Every** non-amicus brief in opposition filed at the **cert stage**
+      (:func:`_is_bio_entry`) — a petition with multiple respondents draws a BIO
+      from each, and taking only the last silently dropped the lead respondent's
+      (the most predictive one) whenever a secondary respondent filed later. All
+      distinct-URL BIOs are returned, in docket order;
+      :func:`fetch_case_documents` combines them into the single
       ``brief-in-opposition`` document.
+    - The **petitioner's brief on the merits**
+      (:func:`merits_signals.is_petitioner_merits_brief`) and the
+      **respondent's** (:func:`~merits_signals.is_respondent_merits_brief`),
+      stored as ``merits-brief-petitioner`` and ``merits-brief-respondent``: one
+      per side, the first in docket order after the grant, each from its own
+      ``Main Document`` link and from no other — a merits-brief entry posts its
+      certificate of word count and proof of service beside the filing. Per side
+      and never combined, so each brief carries one URL and its own extraction
+      cap. The first in docket order whose entry posts that link is the opening
+      brief; the reply is a separate entry family ("Reply [Brief] of …") no arm
+      reaches, and the reprint that rides the joint appendix is passed over
+      because the opening brief precedes it — where the opening brief's own entry
+      posts no ``Main Document``, the reprint fills the side instead, which is
+      the right degradation. **One per side is the accepted residual**, and it
+      differs from the opposition arm deliberately: a case with several
+      respondent groups files several merits briefs, and only the first is
+      stored. Combining them is what the per-side kinds exist to avoid, so the
+      later groups' briefs are a known loss rather than an oversight.
 
     ``QPLink`` is deliberately never selected: it is generated at grant time and
     leaks the outcome; the questions presented are derived from the petition
     text instead (:func:`extract_questions_presented`).
     """
+    granted_on = cert_grant_date(payload)
     petition: DocumentRef | None = None
     application: DocumentRef | None = None
+    merits_petitioner: DocumentRef | None = None
+    merits_respondent: DocumentRef | None = None
     bios: list[DocumentRef] = []
     seen_bio_urls: set[str] = set()
     for entry in payload.get("ProceedingsandOrder") or []:
@@ -452,6 +550,7 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
             continue
         text = str(entry.get("Text") or "")
         entry_date = str(entry.get("Date") or "") or None
+        filed = _parse_entry_date(entry_date)
         if petition is None and _CASE_OPENING_ENTRY_RE.search(text):
             found = _entry_link(entry, prefer=_CASE_OPENING_LINK_LABELS)
             if found is not None:
@@ -466,7 +565,7 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
                 # names the ask and the Justice it went to, which is what a
                 # reader of the manifest needs to know the document is.
                 application = DocumentRef(KIND_APPLICATION, found[0], entry_date, text.strip())
-        elif _is_bio_entry(text):
+        elif _is_bio_entry(text, filed=filed, granted_on=granted_on):
             found = _entry_link(entry, prefer=("main document",))
             if found is not None and found[0] not in seen_bio_urls:
                 seen_bio_urls.add(found[0])
@@ -476,7 +575,44 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
                 bios.append(
                     DocumentRef(KIND_BRIEF_IN_OPPOSITION, found[0], entry_date, text.strip())
                 )
-    return [ref for ref in (petition, application, *bios) if ref is not None]
+        elif (
+            merits_petitioner is None
+            and _is_post_grant(filed, granted_on)
+            and is_petitioner_merits_brief(text)
+        ):
+            merits_petitioner = _merits_brief_ref(entry, KIND_MERITS_BRIEF_PETITIONER, entry_date)
+        elif (
+            merits_respondent is None
+            and _is_post_grant(filed, granted_on)
+            and is_respondent_merits_brief(text)
+        ):
+            merits_respondent = _merits_brief_ref(entry, KIND_MERITS_BRIEF_RESPONDENT, entry_date)
+    return [
+        ref
+        for ref in (petition, application, *bios, merits_petitioner, merits_respondent)
+        if ref is not None
+    ]
+
+
+def _merits_brief_ref(
+    entry: Mapping[str, Any], kind: str, entry_date: str | None
+) -> DocumentRef | None:
+    """One side's merits brief, from its ``Main Document`` link, or ``None``.
+
+    No any-link fallback, for the reason the application arm has none: a merits
+    brief posts its certificate of word count and its proof of service on the
+    same entry, and taking the first link would store a one-page compliance
+    letter as the brief. A filing whose main document is not labelled is left
+    unfetched rather than replaced by a paper about it.
+
+    The description is the entry's own text, which names the party — "Brief of
+    petitioners Department of Labor, et al. filed." — where the link label says
+    only "Main Document".
+    """
+    found = _entry_link(entry, prefer=("main document",), fallback=False)
+    if found is None:
+        return None
+    return DocumentRef(kind, found[0], entry_date, str(entry.get("Text") or "").strip())
 
 
 def primary_entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
@@ -944,7 +1080,10 @@ def fetch_case_documents(
     unchanged, while a superseding filing (a re-filed BIO at a new URL, or a new
     respondent's BIO joining the set) is. The multiple opposition briefs of a
     multi-respondent case are combined into the one ``brief-in-opposition``
-    document (:func:`_combine_bio_documents`). The questions presented are
+    document (:func:`_combine_bio_documents`); each side's merits brief is
+    fetched on its own, under its own kind and its own ``char_cap``, because a
+    pair of adversarial briefs sharing one cap would cut the second by however
+    long the first ran. The questions presented are
     **derived** from the petition text — never the outcome-bearing ``QPLink`` —
     whenever the petition itself was (re)fetched; a petition whose QP heading
     yields nothing usable stores the empty-text row the extractor's degraded
@@ -978,7 +1117,8 @@ def fetch_case_documents(
             FETCH_LOSS_NOT_SELECTED,
             case_id,
             _NOT_SELECTED_KIND,
-            "no case-opening, application, or opposition entry carried a document link",
+            "no case-opening, application, opposition, or merits-brief entry "
+            "carried a document link",
         )
         return []
     bio_refs = [ref for ref in refs if ref.kind == KIND_BRIEF_IN_OPPOSITION]
@@ -1285,11 +1425,11 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
 
 # The kinds a text-coverage measurement counts, fetched before derived — every
 # text a cell reads directly. The order matters to how the report reads, because
-# an empty row does not mean the same thing across it. The three fetched PDFs are
-# the scanned-filing reading: nothing extracted means no text layer — with one
+# an empty row does not mean the same thing across it. The fetched PDFs take the
+# scanned-filing reading: nothing extracted means no text layer — with one
 # asymmetry the table itself cannot show, since `ocr-recover-petitions`' own
-# population is stored *petitions*, so an empty `application` is measured with no
-# repair path behind it. The derived
+# population is stored *petitions*, so an empty `application` or merits brief is
+# measured with no repair path behind it. The derived
 # questions-presented row has a second cause — :func:`extract_questions_presented`
 # returns the empty string where the heading is present but no capture under it
 # is vouchable — so its column mixes scans with extraction refusals over
@@ -1300,10 +1440,17 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
 # exactly as a paper petition does, and leaving it out would make an
 # application docket that holds only its application read as a case the pass
 # never reached (``cases_read`` counts *these* kinds, not any document).
+# The two merits briefs are counted for the same reason `application` is — they
+# are text a cell reads directly — and they read differently from the kinds above
+# them in one way worth knowing before the column is interpreted: their
+# population is granted cases only, so a low count is the shape of the granted
+# slice rather than a coverage gap.
 TEXT_COVERAGE_KINDS: tuple[str, ...] = (
     KIND_PETITION,
     KIND_APPLICATION,
     KIND_BRIEF_IN_OPPOSITION,
+    KIND_MERITS_BRIEF_PETITIONER,
+    KIND_MERITS_BRIEF_RESPONDENT,
     KIND_QUESTIONS_PRESENTED,
 )
 

@@ -3024,3 +3024,110 @@ freeze commit is recorded here.
   new-reading outcome, so a resolution of 1 on those cells is the measurement
   widening rather than a docket movement, and **their increment is not claimable
   as a forecast hit**.
+
+- **The document selector reads the merits stage: per-side merits briefs, and a
+  cert-stage bound on the opposition row, 2026-09-10.** A **conditioning**
+  entry with no digest movement — no prompt byte and no registry field changes
+  — and, like the case-opening-family entry above it, with **no data-visible
+  boundary at all**: which documents a cell was provisioned with lives in its
+  gitignored `record/documents/`, and `prediction.json` carries no field
+  separating a cell that read a merits brief from one that did not. So the
+  boundary exists only here, and cells minted on the affected dockets before
+  and after it may not be pooled. It stays mechanically checkable the same way:
+  a stamped cell resolves to a side of it by asking whether its
+  `process_version.pipeline_sha` is an ancestor of the carrying promotion's
+  merge commit.
+
+  **What changed, and it moves in two directions.** `select_documents` had no
+  upper date bound on its opposition arm, and the Court writes a merits brief
+  and a cert-stage response in the same words — "Brief of respondent United
+  States filed." either way, with "on the merits" appearing on the *scheduling
+  order* and never on the brief entry. So the arm **widened** and **narrowed**
+  at once:
+
+  - Two new kinds, `merits-brief-petitioner` and `merits-brief-respondent`, one
+    row per side and one URL per row, selected only on entries filed strictly
+    after the cert grant that the payload's own first disposition entry dates.
+    The petitioner's brief on the merits was never fetched under any kind
+    before.
+  - The `brief-in-opposition` arm is bounded to filings at or before that grant,
+    so the respondent's merits brief stops being selected into the cert slot
+    (where it was pipe-joined into the combined row and truncated against the
+    cert briefs beside it).
+
+  **The population it moves, run over the stored payloads.** The real
+  `select_documents`, not a re-implementation, over every stored SCOTUS payload
+  in the blob whose newest pull stamp is `2026-09-09` (newest stored snapshot
+  `2026-07-13`). Of **269** cases whose payload dates a cert grant, the merits
+  arms reach **105**: 102 a petitioner-side brief, 96 a respondent-side one, 93
+  both. On the same population the old arm took a **post-grant** filing into the
+  `brief-in-opposition` row on **95** cases; the bounded arm takes none, and the
+  cert-stage brief it keeps is the same one in every case (25-735 is the shape
+  that makes the bound necessary rather than merely tidy: its cert-stage
+  response carries no "in opposition" words at all, so only the grant date tells
+  its two identically-worded respondent briefs apart).
+
+  **Nothing already stored changes.** Of the **410** stored
+  `brief-in-opposition` rows, **0** carry a `|`-joined URL and **0** are dated
+  after their case's grant: documents are fetched at the distribution
+  transition, before any grant, so no stored row is a cert/merits concatenation
+  today. The bound is therefore prospective in the strict sense — and it also
+  *prevents* a retroactive loss, because the combine's idempotency key is the
+  selected URL set: under the old arm the next re-provisioning of a granted case
+  would have found a selected set larger than the stored one, re-fetched, and
+  overwritten that case's cert-stage opposition row with the concatenation.
+
+  **The cells this boundary runs through, named.** Of the 105 cases, **8** carry
+  committed prediction cells — **45** in all, every one of them on a merits
+  event (`evt-order-judgment`, `evt-brief-judgment`): `scotus/73274859`,
+  `scotus/73277468`, `scotus/73278510`, `scotus/73278555`, `scotus/73279024`,
+  `scotus/73279865`, `scotus/73281007` at 6 cells each and `scotus/73279026` at
+  3. All 45 were stamped on **2026-08-16** and carry three digests (one per
+  engine, 15 cells each) that are **not** in `FROZEN_PROCESS_DIGESTS`, so every
+  one is de-counted by the membership filter — and, being stamped three weeks
+  before `FROZEN_SINCE` = `2026-09-07T00:00:00Z`, de-counted by timing as well.
+  **None of the 45 has ever been counted.** The committed cells stay as they
+  were minted; a merits cell minted on one of these cases after this lands reads
+  strictly more than one minted before it.
+
+  **The expected-skill corollary, registered so a rise cannot be read as more
+  than it is.** A post-change briefed-moment cell reads both sides' merits
+  advocacy where a pre-change one read the docket entries saying a brief was
+  filed. Expected skill on that population should therefore **rise**, and a rise
+  across this boundary **may not be read as a model improvement**. The negative
+  form is deliberate: the design supports excluding one reading, not asserting a
+  cause. The class is the granted docket, not the 8 cases above, so a case
+  granted between now and the carrying promotion joins it.
+
+  **The amendment debt this creates, and the ordering it constrains.**
+  `.github/prompts/predict.md` tells a merits cell that "any provisioned
+  `record/documents/` text is cert-stage … the merits advocacy is not on your
+  desk unless you go and get it". That sentence becomes **false** for a
+  briefed-moment cell the first time one is provisioned over a case carrying
+  these rows, and it points the cell at retrieval for material already on its
+  disk. The prompt is frozen bytes, so the correction is a **re-bless**, not a
+  drive-by edit, and it is registered here as owed: it must ride the next
+  process-version freeze, and that freeze must promote **before** the first
+  briefed-moment cell over a case holding provisioned merits briefs. Until then
+  the residual is a cell mis-describing its own provenance in `reasoning.md`,
+  not a disclosure: the cut is unaffected either way — a grant-moment cell's
+  cutoff drops both briefs and a briefed-moment cell's admits them, which
+  `provision.documents_before` decides and the selector cannot.
+
+  **No base rate re-prices, and no scored figure moves.** `pipeline.salience`
+  and `pipeline.base_rates` read no document text. `TEXT_COVERAGE_KINDS` gains
+  two kinds, so `corpus-info --text-coverage` grows from eight `kind` ×
+  `segment` cuts to twelve and `cases_read` rises where a granted case holds
+  only merits rows — a kind-list widening, not more reach — and
+  `metrics/live-frontier.json`'s `documents_provisioned` is untouched, since its
+  watchlist is pending petitions and a merits brief is post-grant by
+  construction.
+
+  The runnable effect check, for the promotion carrying this: `uv run pytest
+  tests/test_documents.py` green, and — on the next `run-pull` window whose
+  selection sweep re-provisions a granted case — `fedcourts corpus-info
+  --text-coverage` showing non-zero `n` on the `merits-brief-petitioner` and
+  `merits-brief-respondent` rows, which start at zero. This entry registers the
+  prospective half only: the granted cases already past their trigger are
+  reached by a document-gap scan widened to the merits kinds, which is not built
+  and will carry its own entry when it is.

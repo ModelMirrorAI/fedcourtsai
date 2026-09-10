@@ -101,11 +101,15 @@ ESTIMATED_DOCKET_SECONDS = 5.0
 # One selected filing: the GET, the download, and the PDF text extraction.
 ESTIMATED_DOCUMENT_SECONDS = 20.0
 # How many documents an apply is charged for per candidate. The primary filing
-# plus headroom for the opposition briefs `select_documents` returns beside it —
-# a multi-respondent case draws one per respondent. A high estimate of the
-# ordinary case rather than a ceiling: the deadline is what stops the slice
-# taking new work, and the caller's own cap is the backstop for a candidate that
-# runs past its estimate.
+# plus headroom for what `select_documents` returns beside it — the opposition
+# briefs, one per respondent on a multi-respondent case, and on a granted docket
+# each side's brief on the merits. A high estimate of the ordinary candidate
+# rather than a ceiling: this class is cases holding no primary document, which
+# skew early — a granted one, carrying the merits pair as well, is the exception
+# that overruns. Left an estimate of the ordinary case deliberately, because the
+# deadline is only what stops the slice taking *new* work and the caller's own
+# cap is the backstop for a candidate that runs past it; sizing for the outlier
+# would cost every ordinary candidate the difference.
 ESTIMATED_DOCUMENTS_PER_CASE = 3
 # The Term from which a docket's proceedings list reliably carries document
 # links, and so the line above which `no_entry` stops being a floor and starts

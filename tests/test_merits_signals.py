@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from datetime import date
 
-from fedcourtsai.pipeline.merits_signals import respondent_brief_date
+import pytest
+
+from fedcourtsai.pipeline.merits_signals import (
+    is_petitioner_merits_brief,
+    is_respondent_merits_brief,
+    respondent_brief_date,
+)
 
 GRANT = date(2025, 3, 4)
 
@@ -76,6 +82,49 @@ def test_the_first_qualifying_brief_wins() -> None:
         ("Jul 8 2025", "Brief of respondent B filed."),
     )
     assert respondent_brief_date(payload, granted_on=GRANT) == date(2025, 6, 2)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Brief of petitioner Floyd Johnson filed.",
+        "Brief of petitioners Department of Labor, et al. filed.",
+        "Brief of petitioners Kousisis, et al. filed.",
+        "Brief of the petitioner filed.  (Distributed)",
+        "Brief of petitioners Federal Communications Commission, et al. filed. VIDED.",
+    ],
+)
+def test_the_petitioners_merits_brief_reads_off_its_entry(text: str) -> None:
+    assert is_petitioner_merits_brief(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Brief amicus curiae of Institute for Justice filed.",  # the anchor refuses it
+        "Brief of amici curiae Kansas, et al. in support of petitioners filed.",
+        "Brief of petitioner Acme Corp. in support of respondents filed.",
+        "Brief of petitioner Acme Corp. in opposition filed.",
+        "Reply of petitioner Acme Corp. filed.",  # the reply is its own entry family
+        "Reply Brief of petitioner Acme Corp. filed. (Distributed)",
+        "Motion of petitioner to dismiss the petition filed.",
+        "Brief of respondent Acme Corp. filed.",  # the other side
+    ],
+)
+def test_the_petitioner_predicate_refuses_everything_else(text: str) -> None:
+    assert not is_petitioner_merits_brief(text)
+
+
+def test_the_two_side_predicates_never_take_the_same_entry() -> None:
+    # Whatever else they disagree about, no entry is both sides' brief — which is
+    # what lets the document selector run them as two arms of one chain.
+    for text in (
+        "Brief of petitioner Floyd Johnson filed.",
+        "Brief of respondent United States filed.",
+        "Brief of respondents Mi Familia Vota, et al. in support of petitioners filed.",
+        "Brief amicus curiae of Cato Institute filed.",
+    ):
+        assert not (is_petitioner_merits_brief(text) and is_respondent_merits_brief(text))
 
 
 def test_filings_that_merely_mention_a_respondent_do_not_match() -> None:

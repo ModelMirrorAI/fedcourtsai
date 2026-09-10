@@ -15,6 +15,7 @@ import pytest
 from fedcourtsai import corpus
 from fedcourtsai.pipeline.cert_signals import (
     DISTRIBUTION_PARSES,
+    cert_grant_date,
     dissent_from_denial,
     match_disposition_signal,
     mootness_disposition,
@@ -1051,3 +1052,44 @@ def test_a_payload_with_no_proceedings_is_unobservable_under_every_parse() -> No
     """Absence of a proceedings list is unknown, never zero — whichever reading asks."""
     for parse in DISTRIBUTION_PARSES:
         assert snapshot_distribution_count({}, parse=parse) is None
+
+
+# --- the grant date, read off a payload -------------------------------------------
+
+
+def _dated(*entries: tuple[str, str]) -> dict[str, object]:
+    return {"ProceedingsandOrder": [{"Date": d, "Text": t} for d, t in entries]}
+
+
+def test_the_grant_date_is_the_first_disposition_when_it_grants() -> None:
+    payload = _dated(
+        ("Feb 19 2026", "Petition for a writ of certiorari filed."),
+        ("Jun 29 2026", "Petition GRANTED."),
+        ("Sep 15 2026", "Brief of respondent United States filed."),
+    )
+    assert cert_grant_date(payload) == date(2026, 6, 29)
+
+
+def test_a_gvr_dates_the_grant_too() -> None:
+    # A GVR grants the petition, and the corpus row dates `date_cert_granted`
+    # from it; this reader says the same thing off the payload.
+    payload = _dated(("Jun 29 2026", "Petition GRANTED, judgment VACATED, and case REMANDED."))
+    assert cert_grant_date(payload) == date(2026, 6, 29)
+
+
+def test_a_denied_docket_has_no_grant_date() -> None:
+    payload = _dated(
+        ("Jun 29 2026", "Petition DENIED."),
+        ("Aug 01 2026", "Petition for Rehearing GRANTED."),
+    )
+    # The first disposition decides the docket: a later grant of something else
+    # never becomes this petition's cert grant.
+    assert cert_grant_date(payload) is None
+
+
+def test_a_grant_whose_entry_carries_no_full_date_is_unlocatable() -> None:
+    assert cert_grant_date(_dated(("2026", "Petition GRANTED."))) is None
+
+
+def test_a_payload_with_no_proceedings_names_no_grant() -> None:
+    assert cert_grant_date({}) is None
