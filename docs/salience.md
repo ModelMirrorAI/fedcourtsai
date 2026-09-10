@@ -115,8 +115,10 @@ Deferred, each with a stated reason:
   once the below-court signal is extracted.
 - **Amicus-brief count** is arguably the strongest pre-decision salience proxy,
   and it is **readable**: `pipeline.interim_signals.amicus_briefs` counts the
-  docket entries naming amicus or amici curiae, and the as-of projection counts
-  them on a cert docket too (`pipeline.asof`). What is deferred is the rest of
+  docket entries naming amicus or amici curiae, plus the distinct lead filers
+  whose briefs are docketed as submitted and not yet accepted. The as-of
+  projection counts them on a cert docket too
+  (`pipeline.asof`). What is deferred is the rest of
   the feature — the persisted `amicus_briefs` column is the live application
   branch's alone, so no cert-branch count is stored, and no weight for one has
   been fitted. A later-version enrichment; neither shipped scorer depends on
@@ -1599,7 +1601,7 @@ from the proceedings before an application resolves:
 | --- | --- |
 | the Court **requests** a response | an affirmative act of attention — the interim analogue of a CVSG, and *not* the same event as a response arriving uninvited |
 | the application is **referred to the Court** | the full bench takes it, rather than a Circuit Justice acting alone — which is also what selects the aggregation rule |
-| **amicus briefs** filed | a proxy for stakes, counted rather than flagged — per docket *entry*, so it is an approximation: an entry naming several filers counts once, and a few matched entries recite the phrase without being briefs |
+| **amicus briefs** filed | a proxy for stakes, counted rather than flagged — one per accepted-form docket *entry*, plus each distinct lead filer whose brief is docketed as submitted and not yet accepted, so it is an approximation in both directions: an entry naming several filers counts once, and a few matched entries recite the phrase without being briefs |
 
 The three sampled substantive applications separate on exactly that ladder — a
 two-entry summary denial with no signals, a referred denial with a response
@@ -1876,6 +1878,42 @@ refused rather than provisioned on the date rule alone —
 and same-day disposition — the split exists to test whether unanchorable, terse
 and summarily-disposed-of are one shape, which is a hypothesis about a small arm
 rather than an established property of it.
+
+**The resolution end takes a day bound, not a positional one.** The escalation
+trio the outcome freezes is derived at ingest and cut at the **end of the
+disposition day** (`interim_signals.amicus_briefs_through`): an amicus entry
+sharing the disposition's date counts however the docket orders it, and one filed
+after that day does not. The prediction end stops earlier because it is an
+information set — what a forecaster could have seen, on a docket where a whole
+application can be submitted and decided inside one day. The resolution end is
+not an information set at all: it is a statement about the docket the Court
+decided. Within-day docket *order* is observable, and the resolution end declines
+to use it rather than being unable to — bounding it positionally would have it
+answer a question about a forecaster nobody asked about. What the bound does
+remove is a real leak in the other direction: a poll taken after the disposition
+carries entries the Court filed once the matter was over, and unbounded those
+land in a column labelled "as at resolution".
+
+**On the positional arm the asymmetry has a direction, and it is not a
+forecast.** Under the date rule the two ends agree about the opening day: the
+cutoff is the day *after* the moment opened and the snapshot keeps everything
+strictly before it, so a same-day entry is inside the information set however the
+docket orders it. Under `arrival-position` it is not — the snapshot stops at the
+opening entry, so an amicus entry docketed later that same day is outside the
+cell's set while the resolution end counts it, and `amicus-increment` resolves
+positive with no docket movement at all. It concentrates on exactly the
+applications this section is about — the ones that move inside a day, which the
+reserve ladder funds first — so on such a cell a resolution of 1 is a hit only
+where the entry that moved the count postdates the anchor.
+`docs/outcome-decomposition.md` carries the claim-side reading and
+`docs/freeze-record.md` registers the bias.
+
+**The bound is date-conditioned and governs the derivation, not the stored
+value.** A resolved application whose disposing entry carries no readable date
+leaves the disposition date null and keeps the unbounded reading; the size of
+that arm is unmeasured. And the column max-latches, so a row whose count had
+already latched high on an earlier poll — before its disposition date was
+readable — keeps that value, and only a corpus re-derivation can bring it down.
 
 For those two cert moments the placement moves the **base rate**, not just the
 description. The cut removes the relists filed after the trigger, so the frozen

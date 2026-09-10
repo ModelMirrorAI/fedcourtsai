@@ -486,6 +486,106 @@ def test_fetch_case_documents_combines_multiple_bios() -> None:
     assert [d.kind for d in again] == []  # nothing changed → nothing re-fetched
 
 
+def _two_bio_payload(second_date: str) -> dict[str, object]:
+    """A petition plus two opposition briefs, the second filed on ``second_date``."""
+    return {
+        "ProceedingsandOrder": [
+            _PAYLOAD["ProceedingsandOrder"][0],  # petition
+            {
+                "Date": "Jun 01 2026",
+                "Text": "Brief of respondents Bette Eakin, et al. in opposition filed.",
+                "Links": [
+                    {"Description": "Main Document", "DocumentUrl": "https://example/lead.pdf"}
+                ],
+            },
+            {
+                "Date": second_date,
+                "Text": "Brief of respondent Northampton County in opposition filed.",
+                "Links": [
+                    {"Description": "Main Document", "DocumentUrl": "https://example/second.pdf"}
+                ],
+            },
+        ]
+    }
+
+
+def test_combined_bio_is_dated_by_its_earliest_brief_and_survives_a_later_cutoff() -> None:
+    # The combined row is one document from the moment its first brief was
+    # filed, and provisioning places the whole row by that one date. Dated at the
+    # last constituent instead, a cutoff falling between the two drops the
+    # opposition entirely — the lead respondent's brief with it.
+    served = {
+        "https://example/petition.pdf": _pdf("QUESTION PRESENTED Whether X. PARTIES TO THE Acme."),
+        "https://example/lead.pdf": _pdf("Lead respondents say deny."),
+        "https://example/second.pdf": _pdf("Northampton also says deny."),
+    }
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            _two_bio_payload("Aug 20 2026"),
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 8, 25),
+        )
+    bio = next(d for d in documents if d.kind == KIND_BRIEF_IN_OPPOSITION)
+    assert bio.entry_date == "Jun 01 2026"  # the earliest, not "Aug 20 2026"
+    # The consequence the date exists for: a cell cut after the first filing
+    # still reads the opposition.
+    assert documents_before([bio], date(2026, 7, 1)) == [bio]
+    # And the residual that buys, pinned rather than left implicit: the row is
+    # kept whole, so the later brief's text rides in with it. Dating the row at
+    # its last brief would drop both instead of neither.
+    assert "Northampton also says deny." in bio.text
+
+
+def test_combined_bio_is_dated_by_a_brief_it_actually_carries() -> None:
+    # The date has to describe the text the row holds: with the lead brief
+    # unfetchable, the row carries the later brief alone and must be placed at
+    # the later date, or a cell cut before that filing would read it.
+    with _doc_client({"https://example/second.pdf": _pdf("Northampton says deny.")}) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            _two_bio_payload("Aug 20 2026"),
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 8, 25),
+        )
+    bio = next(d for d in documents if d.kind == KIND_BRIEF_IN_OPPOSITION)
+    assert bio.entry_date == "Aug 20 2026"
+    assert documents_before([bio], date(2026, 7, 1)) == []
+
+
+def test_combined_bio_falls_back_to_a_date_it_cannot_order() -> None:
+    # A partial date ("2026") is not orderable — `cert_signals.entry_date`
+    # refuses it rather than filling the missing components from today — so with
+    # no constituent parseable the row keeps the first date string it was given
+    # and is placed on `fetched_at`, exactly as an unparseable single brief is.
+    served = {
+        "https://example/lead.pdf": _pdf("Lead respondents say deny."),
+        "https://example/second.pdf": _pdf("Northampton also says deny."),
+    }
+    payload = _two_bio_payload("Aug 20 2026")
+    entries = payload["ProceedingsandOrder"]
+    assert isinstance(entries, list)
+    entries[1]["Date"] = "2026"  # the lead brief: a year, no day
+    entries[2]["Date"] = ""  # the second: no date at all
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            payload,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 8, 25),
+        )
+    bio = next(d for d in documents if d.kind == KIND_BRIEF_IN_OPPOSITION)
+    assert bio.entry_date == "2026"
+    assert documents_before([bio], date(2026, 8, 26)) == [bio]  # placed on fetched_at
+    assert documents_before([bio], date(2026, 8, 25)) == []
+
+
 def test_fetch_case_documents_retries_a_bio_that_failed_to_fetch() -> None:
     # A brief that 404s this poll (the rolling-window "missing document is
     # expected" case) must not be lost forever: the stored key records only the

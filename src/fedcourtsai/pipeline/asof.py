@@ -124,9 +124,12 @@ def project_row(
     not one per registered parse.
     """
     observable = cert_signals.snapshot_carries_proceedings(payload)
-    texts = [text for text, _ in cert_signals.proceedings_entries(payload)]
+    entries = cert_signals.proceedings_entries(payload)
+    # No `through`: the payload is already the docket as at the cutoff, so the
+    # resolution-side day bound has nothing left to remove and no disposition
+    # date to take it from. The projection reports what this payload says.
     requested, referred, amicus = (
-        interim_signals.escalation_signals(texts) if observable else (None, None, None)
+        interim_signals.escalation_signals(entries) if observable else (None, None, None)
     )
     return AsOfRow(
         row=corpus.CorpusRow(

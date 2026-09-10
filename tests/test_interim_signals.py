@@ -7,6 +7,7 @@ from text that looked like something it was not.
 
 from __future__ import annotations
 
+import itertools
 from datetime import date
 
 from fedcourtsai.cert_backtest import truncate_snapshot
@@ -15,9 +16,11 @@ from fedcourtsai.pipeline.interim_signals import (
     ApplicationKind,
     ReferralPosture,
     amicus_briefs,
+    amicus_briefs_through,
     application_arrival_date,
     application_kind,
     escalation_signals,
+    interim_disposition_date,
     is_predictable_application,
     match_interim_disposition,
     referral_posture,
@@ -48,6 +51,16 @@ _STAY_CIRCUIT = [
     "Application (24A650) for a stay, submitted to Justice Kagan.",
     "Application (24A650) denied by Justice Kagan.",
 ]
+
+
+def _undated(texts: list[str]) -> list[tuple[str, str | None]]:
+    """Entry texts as the (text, date) pairs the ladder reads, with no dates.
+
+    The date half only bounds the amicus count, so a fixture testing the reading
+    rather than the cut carries none — and undated entries survive every cut by
+    rule, so the two readings coincide here.
+    """
+    return [(text, None) for text in texts]
 
 
 def test_an_extension_is_read_from_its_own_ask_not_the_writ_it_names() -> None:
@@ -177,13 +190,18 @@ def test_a_brief_filed_by_several_amici_counts_like_one_filed_by_one() -> None:
     )
 
 
-def test_an_attempt_at_a_brief_is_not_a_brief() -> None:
-    """The pre-acceptance shapes, verbatim — a motion for leave and its denial, a
-    submission awaiting the Clerk, a rejection — and none of them is a brief the
-    Court has. Each is also a state a real brief passes *through*, and the docket
-    appends the acceptance as its own later entry rather than rewriting the
-    earlier one — so counting one of these counts a single brief twice, and the
-    corpus column max-latches, which would make that overcount permanent."""
+def test_a_submission_is_a_brief_but_a_motion_and_a_rejection_are_not() -> None:
+    """The three pre-acceptance shapes, verbatim, and the line the counter draws
+    between them. A **submission** is a brief the Clerk has been handed and has
+    not yet docketed in the Latin — it is one of the briefs the docket records,
+    and on an application docket, whose entries the corpus never snapshots, it can
+    be the *only* shape a brief is ever seen in before the matter resolves. A
+    **motion for leave** is a request for permission with no brief attached, and
+    the docket says so in its own later entry when leave is denied. A
+    **rejection** is a brief the Clerk refused. Only the submission counts, and
+    the two exclusions fall out of the anchor and the verb rather than being
+    special-cased: the motion does not open with the brief, and the rejection's
+    only submission-shaped word is `resubmitted`."""
     assert (
         amicus_briefs(
             [
@@ -194,8 +212,103 @@ def test_an_attempt_at_a_brief_is_not_a_brief() -> None:
                 + "(To be corrected and resubmitted - April 9, 2025)",
             ]
         )
-        == 0
+        == 1
     )
+
+
+def test_a_submission_and_its_acceptance_are_one_brief() -> None:
+    """The lifecycle the dedup exists for, and the reason it is keyed on the
+    filer: the Clerk appends the acceptance as its own later entry rather than
+    rewriting the submission, so both stand on the record forever and a per-entry
+    count of both would count one brief twice — permanently, the column being
+    max-latched. The count is therefore the same before and after the acceptance
+    lands, which is what a max-latched column can carry."""
+    submitted = ["Amicus brief of Lepanto Institute submitted."]
+    accepted = ["Brief amicus curiae of Lepanto Institute filed."]
+    assert amicus_briefs(submitted) == 1
+    assert amicus_briefs(submitted + accepted) == 1
+    assert amicus_briefs(accepted) == 1
+    # The plural acceptance names the same lead amicus and a differently spelled
+    # tail, which is why the comparison is on the lead name and not the whole.
+    assert (
+        amicus_briefs(
+            [
+                "Amicus brief of American Atheist, Inc., et al. submitted.",
+                "Brief amici curiae of American Atheist, Inc., et al. filed. VIDED. (Distributed)",
+            ]
+        )
+        == 1
+    )
+    # Two submissions from one filer are one brief; two filers are two.
+    assert amicus_briefs(submitted * 2) == 1
+    assert amicus_briefs([*submitted, "Amicus brief of Cato Institute submitted."]) == 2
+    # And the same filer's submission followed by the Clerk refusing it: the
+    # submission stays counted, because un-counting it would make the reading
+    # fall as the docket grows, which the max-latched column cannot follow. The
+    # corrected refiling that usually follows lands in the accepted arm and the
+    # dedup absorbs the submission, so the count does not move again.
+    refused = "Amicus brief of Lepanto Institute not accepted for filing. (To be resubmitted)"
+    assert amicus_briefs([*submitted, refused]) == 1
+    assert amicus_briefs([*submitted, refused, *accepted]) == 1
+
+
+def test_the_widened_reading_never_falls_below_the_accepted_entry_count() -> None:
+    """The constraint the whole design is shaped by, asserted rather than argued:
+    the corpus column max-latches, so a reading that could return less than the
+    accepted-form entry count on some docket would leave the column and a fresh
+    read permanently disagreeing with no way down. The submitted arm is expressed
+    over a disjoint set of entries so that it can only ever add."""
+    for entries in (
+        _MIXED_AMICUS,
+        _MIXED_AMICUS[:5],
+        _MIXED_AMICUS[5:],
+        ["Amicus brief of Lepanto Institute submitted.", *_MIXED_AMICUS],
+        [
+            "Motion of Cato Institute for leave to participate in oral argument "
+            + "as amicus curiae GRANTED.",
+        ],
+    ):
+        latin_entries = sum(1 for text in entries if "curiae" in text.casefold())
+        assert amicus_briefs(entries) >= latin_entries, entries
+
+
+# Every shape the counter distinguishes, in both vocabularies and with a filer
+# that appears in two of them — the alphabet an append-monotonicity check has to
+# be built from, since the property only breaks where two entries interact.
+_AMICUS_SHAPES = [
+    "Brief amicus curiae of Lepanto Institute filed.",
+    "Brief amici curiae of American Atheist, Inc., et al. filed. VIDED. (Distributed)",
+    "Brief amicus curiae of United States filed.",
+    "Amicus brief of Lepanto Institute submitted.",
+    "Amicus brief of American Atheist, Inc., et al. submitted.",
+    "Amicus brief of Chamber of Commerce of the United States of America, "
+    + "Business Roundtable, and The ERISA Industry Committee submitted.",
+    "Amicus brief of Lepanto Institute not accepted for filing. "
+    + "(To be corrected and resubmitted - April 9, 2025)",
+    "Motion for leave to file amicus brief filed by Cato Institute.",
+    "Motion of Cato Institute for leave to participate in oral argument as amicus curiae GRANTED.",
+    "Reply of applicant filed.",
+]
+
+
+def test_the_count_never_falls_as_the_docket_grows() -> None:
+    """The property the max-latch actually needs, and the one the additive
+    formulation is *for*: a docket is append-only, so a reading that could fall
+    when an entry arrives would strand the column above a fresh read forever.
+    Exercised over every ordering of the shapes the counter distinguishes, which
+    is where it could break — the dedup is the only rule that can subtract, and it
+    subtracts only when an acceptance arrives and adds one in the same step."""
+    for ordering in itertools.permutations(_AMICUS_SHAPES[:6]):
+        running = 0
+        for size in range(len(ordering) + 1):
+            count = amicus_briefs(list(ordering[:size]))
+            assert count >= running, (ordering[:size], count, running)
+            running = count
+    # The three non-brief shapes appended to a full docket move nothing down.
+    full = list(_AMICUS_SHAPES[:6])
+    base = amicus_briefs(full)
+    for extra in _AMICUS_SHAPES[6:]:
+        assert amicus_briefs([*full, extra]) >= base, extra
 
 
 def test_the_rejected_brief_and_its_corrected_refiling_count_once() -> None:
@@ -234,12 +347,20 @@ _MIXED_AMICUS = [
 ]
 
 
-def test_a_mixed_docket_counts_the_briefs_on_the_record() -> None:
-    """Eleven entries naming an amicus, five briefs the Court has. The submissions
-    are three days old at this snapshot and not yet accepted; when the Clerk takes
-    them the docket says so in its own entries and the count rises then, which is
-    the direction a max-latched column can follow."""
-    assert amicus_briefs(_MIXED_AMICUS) == 5
+def test_a_mixed_docket_counts_every_brief_it_has_been_handed_once() -> None:
+    """Eleven briefs, arrived at rather than read off the entry count. Five are on
+    the record in the Latin. Six more are submissions, and the six are counted
+    because each names a lead filer no accepted entry names — not because there
+    are six entries: the number would still be eleven if one filer had submitted
+    twice, and it drops as each submission is accepted and the acceptance takes
+    over its filer. It coincides with the entry count here only because no
+    submission on this docket has been accepted yet, which is what makes this
+    docket the interesting one."""
+    assert amicus_briefs(_MIXED_AMICUS) == 11
+    # The same docket once the Clerk takes one of the six: a twelfth entry, and
+    # the count does not move. That is the whole point of the dedup.
+    accepted_one = [*_MIXED_AMICUS, "Brief amicus curiae of American Benefits Council filed."]
+    assert amicus_briefs(accepted_one) == 11
 
 
 def test_the_escalation_ladder_separates_the_sampled_outcomes() -> None:
@@ -247,16 +368,79 @@ def test_the_escalation_ladder_separates_the_sampled_outcomes() -> None:
     denial with no engagement, a referred denial, and a granted application that
     drew a requested response and an amicus brief. Suggestive of a structure, and
     far too few for a rate — which is why none is published."""
-    assert escalation_signals(_STAY_CIRCUIT) == (False, False, 0)
-    assert escalation_signals(_STAY_REFERRED) == (False, True, 0)
+    assert escalation_signals(_undated(_STAY_CIRCUIT)) == (False, False, 0)
+    assert escalation_signals(_undated(_STAY_REFERRED)) == (False, True, 0)
     assert escalation_signals(
-        [
-            "Application (23A350) for a stay, submitted to The Chief Justice.",
-            "Response to application (23A350) requested by The Chief Justice.",
-            "Brief amicus curiae of Energy Infrastructure Council filed.",
-            "Application (23A350) referred to the Court.",
-        ]
+        _undated(
+            [
+                "Application (23A350) for a stay, submitted to The Chief Justice.",
+                "Response to application (23A350) requested by The Chief Justice.",
+                "Brief amicus curiae of Energy Infrastructure Council filed.",
+                "Application (23A350) referred to the Court.",
+            ]
+        )
     ) == (True, True, 1)
+
+
+# 26A275 — a submission that arrived on the day the application was denied, and
+# is docketed *after* the denial entry. Verbatim shapes from the docket, dated as
+# the docket dates them.
+_SAME_DAY_SUBMISSION: list[tuple[str, str | None]] = [
+    ("Response to application (26A275) requested by Justice Kavanaugh.", "Sep 02 2026"),
+    ("Application (26A275) denied by Justice Kavanaugh.", "Sep 03 2026"),
+    ("Amicus brief of Initiative and Referendum Institute submitted.", "Sep 03 2026"),
+]
+
+
+def test_the_resolution_count_is_cut_at_the_end_of_the_disposition_day() -> None:
+    """End of day, not the disposing entry. A docket dates entries to the day and
+    never to the hour, so an entry sharing the disposition's date was on the
+    record the Court decided — and the resolution end of the increment claim is a
+    statement about the docket at resolution, not about an information set anyone
+    forecast from. The submission here is docketed *after* the denial and still
+    counts; an entry the Court filed the following day does not."""
+    assert amicus_briefs_through(_SAME_DAY_SUBMISSION, date(2026, 9, 3)) == 1
+    later = [*_SAME_DAY_SUBMISSION, ("Brief amicus curiae of Cato Institute filed.", "Sep 04 2026")]
+    assert amicus_briefs_through(later, date(2026, 9, 3)) == 1
+    # Unbounded, the same entries read one brief more — which is exactly the
+    # after-the-fact entry the cut exists to keep out of a column labelled
+    # "as at resolution".
+    assert amicus_briefs_through(later, None) == 2
+
+
+def test_an_unreadable_disposition_date_cuts_nothing() -> None:
+    """The cut date is read strictly, unlike the date the `date_terminated`
+    column stores: a stored date only records, while this one decides retention
+    in a max-latched column, so a date `dateutil` would fill in from the day the
+    parser ran would drop real entries and the latch would keep the drop. A
+    partial date therefore yields no cut at all — the conservative direction, and
+    the one that cannot make a run's output depend on when it ran."""
+    partial = [
+        ("Application (26A275) denied by Justice Kavanaugh.", "2026"),
+        ("Amicus brief of Initiative and Referendum Institute submitted.", "Sep 03 2026"),
+    ]
+    assert interim_disposition_date(partial) is None
+    assert amicus_briefs_through(partial, interim_disposition_date(partial)) == 1
+    # A readable one is taken, and the last disposing entry wins — an application
+    # can be deferred pending argument and decided months later.
+    deferred: list[tuple[str, str | None]] = [
+        ("Application (23A350) referred to the Court is deferred.", "Dec 20 2023"),
+        ("Applications for stays (23A349, 23A350) granted by the Court.", "Jun 27 2024"),
+    ]
+    assert interim_disposition_date(deferred) == date(2024, 6, 27)
+
+
+def test_an_undated_entry_survives_the_cut() -> None:
+    """Opposite to `_first_dated`, which skips undated entries, and the readings
+    differ because the stakes do: there a guessed date opens an event, here a
+    dropped entry silently lowers a max-latched column for a reason that has
+    nothing to do with the disposition day."""
+    entries = [
+        ("Brief amicus curiae of Energy Infrastructure Council filed.", None),
+        ("Application (26A275) denied by Justice Kavanaugh.", "Sep 03 2026"),
+        ("Brief amicus curiae of Cato Institute filed.", "Sep 04 2026"),
+    ]
+    assert amicus_briefs_through(entries, date(2026, 9, 3)) == 1
 
 
 # --- ingestion: an application maps to a resolved row -----------------------------
@@ -307,12 +491,14 @@ def test_an_application_carries_no_cert_stage_columns() -> None:
     assert record["distribution_count"] is None  # unobservable, not zero
 
 
-def test_the_amicus_column_takes_the_plural_off_the_docket_text() -> None:
+def test_the_amicus_column_takes_both_docket_vocabularies() -> None:
     """The column the escalation ladder and the increment claim both read is
     written here, from the proceedings text, so the counter's reading has to
     survive the trip: an application whose briefs were all filed by several amici
-    must not land as a zero. On the cert path the trio is never parsed at all,
-    which is what `None` means in that column."""
+    must not land as a zero, and neither must one whose briefs are all still
+    docketed as submissions — which on an application docket, where a matter can
+    resolve in days, is the shape the record is most often in. On the cert path
+    the trio is never parsed at all, which is what `None` means in that column."""
     entries = (
         ("May 14 2025", "Application (24A1099) for a stay, submitted to The Chief Justice."),
         ("Jun 02 2025", "Brief amici curiae of AARP, et al. filed."),
@@ -320,8 +506,46 @@ def test_the_amicus_column_takes_the_plural_off_the_docket_text() -> None:
         ("Jun 04 2025", "Amicus brief of American Benefits Council submitted."),
     )
     record = map_live_docket(_payload(*entries), 9_500_024_001, form="application")
-    assert record["amicus_briefs"] == 2
+    assert record["amicus_briefs"] == 3
     assert map_live_docket(_payload(*entries), 9_500_024_001)["amicus_briefs"] is None
+
+
+def test_the_column_stops_counting_at_the_end_of_the_disposition_day() -> None:
+    """The derivation, not just the counter: the column an outcome freezes as "the
+    signals as at resolution" is written on every poll, and a poll taken after the
+    disposition carries entries the Court filed once the matter was already
+    decided. Without the bound those land in the frozen number. 26A275's own
+    shape, with a brief arriving the day after: the same-day submission counts and
+    the next day's does not."""
+    record = map_live_docket(
+        _payload(
+            ("Sep 01 2026", "Application (26A275) for injunctive relief, submitted to Justice."),
+            ("Sep 03 2026", "Application (26A275) denied by Justice Kavanaugh."),
+            ("Sep 03 2026", "Amicus brief of Initiative and Referendum Institute submitted."),
+            ("Sep 04 2026", "Brief amicus curiae of Cato Institute filed."),
+        ),
+        9_500_026_275,
+        form="application",
+    )
+    assert record["date_terminated"] == "2026-09-03"
+    assert record["amicus_briefs"] == 1
+
+
+def test_an_open_application_counts_every_entry_it_has() -> None:
+    """`None` disposition date, nothing to cut at. The bound is a statement about
+    where an application ended, so an open one is read whole — which is also what
+    keeps the count rising on each poll while the matter is live."""
+    record = map_live_docket(
+        _payload(
+            ("Sep 01 2026", "Application (26A275) for injunctive relief, submitted to Justice."),
+            ("Sep 03 2026", "Amicus brief of Initiative and Referendum Institute submitted."),
+            ("Sep 04 2026", "Brief amicus curiae of Cato Institute filed."),
+        ),
+        9_500_026_275,
+        form="application",
+    )
+    assert record["date_terminated"] is None
+    assert record["amicus_briefs"] == 2
 
 
 def test_the_last_disposing_entry_wins_on_the_interim_docket() -> None:
