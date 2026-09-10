@@ -2262,7 +2262,17 @@ def test_the_codex_watchdog_reports_off_the_runner_on_a_comment_only_token() -> 
 #: large: watchdog < step < job, so the watchdog is what concludes a step the
 #: runner cannot, and the job cap is never what ends the leg.
 REPRO_SCENARIO = "codex-application-repro"
-REPRO_WATCHDOG_DEADLINE_S = "4200"
+#: The DEFAULT deadline the bounds arithmetic below runs on. The env carries
+#: it inside the dispatch override the discriminator experiments use — the
+#: expression is pinned whole so the fallback cannot drift from this number,
+#: and the override's reach is pinned to exactly this one step by the
+#: telemetry test below (the cell workflows' deadlines stay literals).
+REPRO_WATCHDOG_DEADLINE_DEFAULT_S = "4200"
+REPRO_WATCHDOG_DEADLINE_S = (
+    "${{ inputs.repro_deadline_s != '' && inputs.repro_deadline_s || '"
+    + REPRO_WATCHDOG_DEADLINE_DEFAULT_S
+    + "' }}"
+)
 REPRO_STEP_TIMEOUT_MINUTES = 80
 REPRO_JOB_TIMEOUT_MINUTES = 95
 #: The observed work envelope, in minutes, which the watchdog deadline must
@@ -2277,7 +2287,7 @@ def test_the_repro_legs_bounds_sit_above_the_work_it_reproduces() -> None:
     steps = _load("integration-test.yml")["jobs"]["scenario"]["steps"]
     arm = next(s for s in steps if s.get("name") == "Arm the engine watchdog")
     assert arm["env"]["WATCHDOG_DEADLINE_S"] == REPRO_WATCHDOG_DEADLINE_S
-    deadline_minutes = int(REPRO_WATCHDOG_DEADLINE_S) / 60
+    deadline_minutes = int(REPRO_WATCHDOG_DEADLINE_DEFAULT_S) / 60
     assert deadline_minutes >= REPRO_WORK_ENVELOPE_MINUTES, (
         "the repro leg's watchdog would kill a healthy cell before it finished"
     )
@@ -3074,7 +3084,7 @@ def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environmen
     issue exactly as the cell workflows do, and a staging-bound one mints
     from the Issues-only staging App with this step pair aiming it at the
     rehearsal channel alone. The staging credentials must also appear
-    nowhere else: docs/security.md's inventory says "exactly one step", and
+    nowhere else: docs/security.md's inventory says exactly which steps, and
     a copy-paste of that key onto another staging-bindable job is the
     realistic regression. The cell workflows keep the plain
     dev-App mint: cells bind `prod` from `main` only, and a ternary there
@@ -3099,8 +3109,9 @@ def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environmen
         step = next(s for s in steps if s.get("name") == step_name)
         assert step["env"]["TELEMETRY_CHANNEL"] == channel, step_name
         assert '--channel "$TELEMETRY_CHANNEL"' in str(step["run"]), step_name
-    # The staging pair appears in exactly one step of exactly one workflow,
-    # and that step requests issues:write and nothing else.
+    # The staging pair appears in exactly the telemetry mints — the repro
+    # leg's and the idle control's, both in this one workflow — and each
+    # requests issues:write and nothing else.
     holders = []
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         for job_id, job in _load(path.name)["jobs"].items():
@@ -3108,14 +3119,48 @@ def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environmen
                 text = yaml.safe_dump(step)
                 if "STAGING_APP_CLIENT_ID" in text or "STAGING_APP_PRIVATE_KEY" in text:
                     holders.append((path.name, job_id, step))
-    assert len(holders) == 1, (
-        f"the staging telemetry credentials spread beyond their one step: "
-        f"{[(n, j) for n, j, _ in holders]}"
+    assert len(holders) == 2, (
+        f"the staging telemetry credentials spread: {[(n, j) for n, j, _ in holders]}"
     )
-    holder_step = holders[0][2]
-    assert holder_step.get("id") == "watchdog-token"
-    assert set(holder_step["with"]) == {"client-id", "private-key", "permission-issues"}
-    assert holder_step["with"]["permission-issues"] == "write"
+    assert {(n, j) for n, j, _ in holders} == {
+        ("integration-test.yml", "scenario"),
+        ("integration-test.yml", "runner-idle-control"),
+    }, f"the staging telemetry credentials spread: {[(n, j) for n, j, _ in holders]}"
+    for _, _, holder_step in holders:
+        assert holder_step.get("id") == "watchdog-token"
+        assert set(holder_step["with"]) == {"client-id", "private-key", "permission-issues"}
+        assert holder_step["with"]["permission-issues"] == "write"
+    # The deadline override's reach: the input is read by the repro arm step
+    # alone — the idle control keeps its own literal, and the cell workflows
+    # never see it, so no production deadline can move from this dispatch
+    # surface. The idle control's arm carries the repro leg's credential
+    # plumbing verbatim — URL-shape gate, cleared GH_TOKEN on the detached
+    # launch, bounded check-in, armed-body hand-over — each pinned because
+    # each is separately silent when it drifts; and its disarm must survive
+    # a cancellation and never signal an hour-old pid blind.
+    for name in ("run-predict.yml", "run-evaluate.yml"):
+        assert "repro_deadline_s" not in (WORKFLOWS / name).read_text(), name
+    it_text = (WORKFLOWS / "integration-test.yml").read_text()
+    assert it_text.count("inputs.repro_deadline_s") == 2  # one env line, 2 reads
+    idle_steps = _load("integration-test.yml")["jobs"]["runner-idle-control"]["steps"]
+    idle_arm = next(s for s in idle_steps if s.get("id") == "arm")
+    assert idle_arm["env"]["WATCHDOG_DEADLINE_S"] == "4500"
+    idle_run = str(idle_arm["run"])
+    assert '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*' in idle_run, (
+        "the idle control lost the check-in URL-shape gate"
+    )
+    assert "GH_TOKEN='' WATCHDOG_CHECKIN_URL=" in idle_run, (
+        "the idle control's watchdog launch must clear GH_TOKEN"
+    )
+    assert "timeout 90 uv run fedcourts watchdog-checkin" in idle_run
+    assert "WATCHDOG_CHECKIN_BASE=" in idle_run, (
+        "the watchdog must be handed the armed body it appends to"
+    )
+    disarm = next(s for s in idle_steps if s.get("name") == "Disarm and report")
+    assert disarm.get("if") == "${{ always() }}", "a cancelled control must still close its row"
+    assert 'grep -qa engine-watchdog.sh "/proc/$pid/cmdline"' in str(disarm["run"]), (
+        "the hour-old pid must be ownership-checked before it is signalled"
+    )
     for name in ("run-predict.yml", "run-evaluate.yml"):
         jobs = _load(name)["jobs"]
         cell_steps = jobs[ENGINE_WATCHDOG_SENTINEL_ROLE[name]]["steps"]

@@ -279,6 +279,24 @@ production failure; the smoke is how the failure is reproduced and iterated
 on without paying for batches).
 Neither whole-suite selection fans it out.
 
+The repro family's watchdog deadline is also the discriminator lever: the
+`repro_deadline_s` dispatch input lowers that one leg's deadline — and
+nothing else's, the cell workflows' deadlines being untouched literals — so
+an experiment can set it below the 58-64-minute death window and read which
+of three worlds it lands in: a fired deadline whose job then survives (the
+watchdog lives; the runner-local diagnostics finally escape), a deadline
+that never fires (the watchdog process itself dies early), or a fired
+deadline whose runner dies anyway (the death is job-clock-tied, not the
+engine's). Its sibling control is **`runner-idle-control`**: a token-free
+standalone job that waits eight minutes, arms the same off-runner record,
+idles on across the window with no agent anywhere near the runner, and
+disarms — the wait is what puts the telemetry token's one-hour life over
+the whole 58-64-minute window, so a beat gap there is a death and never
+the token expiring. A
+runner that dies idle reframes the class at the infrastructure, and one
+that survives pins it to the codex workload and leaves its per-beat
+resource trajectory as a run artifact.
+
 **The repro family** is the fourth token-spending class, and it exists
 because the two engine families above share a blind spot: the resolver
 applies no stage screen, but
