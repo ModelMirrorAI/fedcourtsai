@@ -677,7 +677,9 @@ labeler (a staging pair seeded past the floor) runs it under the exact
 production posture, and at the same batch price on the staging environment's
 own engine key: a rehearsal is a real spend, and what it buys is the measured
 block in the step summary and the transcript artifact instead of a wasted
-production batch.
+production batch. The labeler's invocation posture itself needs no seeded
+pair: the integration suite's `qp-labeler-smoke` scenario runs it over a
+synthetic five-row extract at cents ([testing.md](testing.md)).
 
 **No dispatch inputs.** There is nothing to choose and nothing to pass: the same
 committed state always cuts the same batch, so the run mode carries no input for

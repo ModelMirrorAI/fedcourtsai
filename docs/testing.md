@@ -95,8 +95,9 @@ manual workflow dispatch, never on every iteration.
 
 That infrastructure has a dedicated path:
 [`integration-test.yml`](../.github/workflows/integration-test.yml) (manual
-dispatch plus one daily canary, read-only role — the collect scenario none at
-all — side-effect
+dispatch plus one daily canary, read-only role — collect binds no environment
+and no role at all, and the labeler smoke binds an environment but assumes no
+role — side-effect
 free but for the application-repro leg's watchdog telemetry row) runs one
 scenario per dispatch, or — `scenario=all` — the
 promotion gate's whole required suite as one run (every required scenario, with
@@ -198,7 +199,7 @@ force-include, the stratified fill's proportions, exclusion of already-published
 rows, a frame clearing over repeated dispatches without relabeling a row, and
 the converged and under-coverage refusals — all over corpora and frames built in
 `tmp_path`), and the model call is exactly what `run-analytics` pays for.
-`engine-smoke` is the first of the three token-spending scenarios: a single
+`engine-smoke` is the first of the four token-spending scenario classes: a single
 real-engine
 predictor cell (the `engine` input picks which — an `all` dispatch ignores it
 and runs one smoke per engine; one predict cell's spend
@@ -254,8 +255,32 @@ workflows' by a test, and the two deliberate deviations — the kickoff prompt,
 and handing claude the job's read-capped token instead of minting the cells'
 App token — are marked in the workflow where they are made.
 
-**The repro family** is the third token-spending class, and it exists because
-the two above share a blind spot: the resolver applies no stage screen, but
+`qp-labeler-smoke` extends the actions-smoke doctrine to the one invocation
+block the engine legs cannot cover: the qp-topic labeler's, which is not a
+cell's — a pinned CLI handed to the action, a bubblewrap/socat sandbox with
+the subprocess env scrub, `bypassPermissions` in a checkout that is read-only
+by contract, and a single `--add-dir` grant. The leg sends that block, held
+in lockstep with `run-analytics`'s labeling job by a workflow-shape test, a
+five-row synthetic extract — invented question texts, so no stored petition
+text reaches the runner — and asserts the declared output exists, parses
+against the vocabulary, and joins back to the extract row for row; which
+label the model picked is deliberately not read, so the leg gates the
+posture and never model behaviour. It runs as its own job because the
+credential shape is part of that posture (no cloud credential, no id-token —
+stricter than a cell), SPENDS MODEL TOKENS (cents at the labeler's default
+tier, on the dispatching environment's own key), and on any surviving
+outcome digests
+the error tool results from the execution file into the job log — a clean
+run's zero line is itself evidence, and a failing run's digest is what makes
+a labeler permission regression diagnosable from one staging dispatch (the
+paid lane's `qp-label-transcript` artifact stays the first read for a
+production failure; the smoke is how the failure is reproduced and iterated
+on without paying for batches).
+Neither whole-suite selection fans it out.
+
+**The repro family** is the fourth token-spending class, and it exists
+because the two engine families above share a blind spot: the resolver
+applies no stage screen, but
 what it settles on in practice is a cert-stage petition, so a defect keyed on
 a *record shape* they never present is invisible to them however green they
 run. Each member pins one record to the shape one diagnosed engine defect keys
@@ -332,15 +357,24 @@ cell's `with:` block, or to the codex permission profile the cells select**,
 **collect around any change to the `collect-run` composite or the collect
 jobs that call it**, **qp-topic around any change to the `qp-topic-measure`
 composite, the labeling job, or the `qp_topics` module — and before any paid
-labeling dispatch**, **a repro-family scenario around any change aimed at the
+labeling dispatch**, **qp-labeler-smoke around any change to the labeler's
+invocation block, its sandbox or CLI install steps, or the labeling prompt —
+and to reproduce any labeling run that exited without writing its output,
+after its transcript artifact has been read**, **a repro-family scenario
+around any change aimed at the
 defect it reproduces, and once after the promotion that carries the fix**, and
 as a preflight **before a release dry run** and
 **before a prediction freeze** — the moments when a silent read regression
 would be most expensive.
 
-The qp-topic clause generalizes: **a new token-spending run mode lands its
+The qp-topic scenario's clause generalizes: **a new token-spending run mode
+lands its
 token-free `integration-test.yml` scenario before its first paid dispatch,
-never after.** The scenario exercises the mode's plumbing — artifact hand-off,
+never after.** (`qp-labeler-smoke` does not satisfy that requirement for the
+labeling lane and is not meant to — `qp-topic` is the lane's token-free
+scenario, and the smoke complements it for the one seam a token-free run
+cannot reach, the invocation block itself.) The scenario exercises the
+mode's plumbing — artifact hand-off,
 IO staging, guards, the publication path — over canned or fixture inputs, the
 way `qp-topic` and `collect` do, so plumbing bugs surface for runner minutes
 instead of across paid dispatches. `integration-test.yml`'s scenario roster

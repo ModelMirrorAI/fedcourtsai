@@ -38,7 +38,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
-| `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), and each repro-family scenario one real cell against its pinned record |
+| `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
@@ -386,7 +386,8 @@ scheduled canary — over the **corpus
 read backends, the two sidecars, cascade cells, the engines' own invocation
 blocks, the collect writer, and the
 qp-topic measure path**,
-against the real corpus remote for every scenario but collect and qp-topic —
+against the real corpus remote for every scenario but collect, qp-topic and
+qp-labeler-smoke —
 the tested `fedcourts corpus-integration-check` read set, a
 cell's-eye probe of the service sidecar, the tokenless CourtListener MCP
 sidecar under the tested `mcp-integration-check` client, a stub
@@ -394,15 +395,17 @@ sidecar under the tested `mcp-integration-check` client, a stub
 artifacts (corpus-free and environment-free; every write surface stubbed or
 diverted on the runner), the `qp-topic-measure` composite over canned labels
 built from the committed reference set (token-free and credential-free), or
-(the three token-spending scenarios) a single real-engine cell over the service
-sidecar, a boot probe of each engine's own invocation block, and one
+(the token-spending scenarios) a single real-engine cell over the service
+sidecar, a boot probe of each engine's own invocation block, the qp-topic
+labeler's own invocation block over a five-row synthetic extract, and one
 **repro-family** cell — a real cell run against a record pinned to the shape a
 diagnosed engine defect keys on
 — dispatched around changes to corpus access, the sidecars, engine
 CLIs or engine actions, the collect contract, or the corpus-consuming
 workflows and before
 releases — from main, or via the `staging` deployment environment (collect
-binds none; qp-topic binds one it never reads) from the `staging` branch, which
+binds none; qp-topic binds one it never reads; the labeler smoke binds one
+and reads exactly its engine key) from the `staging` branch, which
 is the only branch that environment accepts (those runs are the promotion
 gate's freshness evidence; see *Promotion: staging → main* below). The deployment environment resolves from
 the dispatching branch by default — `main` gets `prod`, `staging` gets
