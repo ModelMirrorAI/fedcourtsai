@@ -1,5 +1,11 @@
 name: run-analytics
 
+# The run list must tell a staging rehearsal from a production run of the
+# same mode at a glance, or a rehearsal reads as production history. Both
+# components are server-validated vocabulary: `mode` is a closed choice, and
+# the environment half is the same branch resolution the jobs bind.
+run-name: "run-analytics: ${{ github.event_name == 'schedule' && 'metrics-refresh (schedule)' || inputs.mode }} @ ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
+
 # Corpus analysis & derived metrics. One surface for every task that reads the
 # corpus and answers a question or refreshes a derived artifact, selected by
 # `mode` (dispatch) or the weekly schedule:
@@ -57,6 +63,30 @@ name: run-analytics
 # write) for its review PR; qp-topic-label mints the same token but assumes no role
 # at all, because it is the one job here that runs an agent; and tool-usage binds no
 # environment and assumes no role — there is nothing for it to reach.
+#
+# Every environment-binding job resolves its environment from the dispatching
+# branch — the resolution integration-test.yml states in full: `main` (and the
+# schedule, which runs only there) binds `prod`; `staging` binds the staging
+# environment, whose read-only-role trust and corpus variables point the same
+# jobs at the staging corpus pair — each corpus job forwards the out-of-band
+# index pointer off `main` for this, because the committed corpus pointer
+# names the production blob, which the staging remote does not hold; any
+# other branch resolves its own name, which names no configured environment
+# and so binds no role variables and no keys — fail-closed. A staging-ref
+# dispatch is therefore a **rehearsal**: it runs a mode as far as the staging
+# pair's contents support — for the labeling mode that includes the extract's
+# reference-coverage floor, which refuses a slice not carrying the reference
+# texts before the labeler ever starts (and with it, via `needs`, the labeler
+# job), itself a rehearsal observation — and never publication, which is a
+# production act. The two publishing jobs fence their App-token mint,
+# git-identity and review-PR steps to runs on the `main` branch ref exactly
+# (`github.ref`, not `github.ref_name`, which a tag named `main` also
+# satisfies — the prod deployment-branch policy is the real gate; the fence
+# states the property without leaning on it), because the dev App's
+# credentials live on the prod environment alone and a rehearsal must report
+# that the fence held rather than fail a mint. A rehearsal states that
+# boundary in the step summary instead of opening a PR. A new mode's first
+# run belongs on a staging ref.
 on:
   schedule:
     # Weekly metrics refresh (Mon 05:41 UTC) — a quiet slot after run-pull's
@@ -140,15 +170,19 @@ permissions: {}
 # The labeling mode's two jobs take separate groups: they are already sequenced
 # by `needs`, and a shared group would let a second dispatch's extract slip
 # between the first dispatch's extract and its labeler.
+# Every group carries the dispatching ref, because the environments do too: a
+# staging rehearsal and a prod run of the same mode are different environments
+# reading different corpus pairs, and one must never cancel — or queue behind —
+# the other.
 
 jobs:
   corpus-stats:
     if: ${{ inputs.mode == 'corpus-stats' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: prod
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
-      group: run-analytics-analysis
+      group: run-analytics-analysis-${{ github.ref_name }}
       cancel-in-progress: true
     permissions:
       contents: read
@@ -167,6 +201,16 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The out-of-band staging index pointer, forwarded only off `main`:
+          # a staging-bound pull must resolve the staging pair's own digest —
+          # the committed corpus/corpus.db.ref names the production blob,
+          # which the staging remote does not hold — while a prod-bound run
+          # stays on the committed pointer even if the variable ever appears
+          # at repository scope. `ref_name`, the environment expression's own
+          # key, so the fence is its exact complement: whatever binds `prod`
+          # forwards nothing. (The publish fences use the stricter exact-ref
+          # spelling instead — under-inclusion is safe there, not here.)
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
 
       - name: Aggregate corpus base-rates
         env:
@@ -224,12 +268,12 @@ jobs:
     # mid-walk on ExpiredToken with no artifact and an error naming the wrong
     # cause. An 8100-second session, a 110-minute step, a 125-minute job.
     timeout-minutes: 125
-    environment: prod
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     # Its own group, never cancelled: a cancelled census runs no upload step,
     # so the artifact the mode exists to produce is lost to a sibling
     # corpus-stats dispatch. Both jobs are read-only, so overlap is harmless.
     concurrency:
-      group: run-analytics-census
+      group: run-analytics-census-${{ github.ref_name }}
       cancel-in-progress: false
     permissions:
       contents: read
@@ -248,6 +292,16 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The out-of-band staging index pointer, forwarded only off `main`:
+          # a staging-bound pull must resolve the staging pair's own digest —
+          # the committed corpus/corpus.db.ref names the production blob,
+          # which the staging remote does not hold — while a prod-bound run
+          # stays on the committed pointer even if the variable ever appears
+          # at repository scope. `ref_name`, the environment expression's own
+          # key, so the fence is its exact complement: whatever binds `prod`
+          # forwards nothing. (The publish fences use the stricter exact-ref
+          # spelling instead — under-inclusion is safe there, not here.)
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
           # Covers the census step's cap below plus everything before it —
           # checkout, env sync, up to 120s of assume-role retry, and the
           # composite's own uncapped corpus pull — so the step cap, not the
@@ -354,7 +408,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
-      group: run-analytics-tool-usage
+      group: run-analytics-tool-usage-${{ github.ref_name }}
       cancel-in-progress: true
     permissions:
       contents: read
@@ -390,12 +444,12 @@ jobs:
     # and a too-long walk must fail at the step cap, legibly, inside the
     # session, never mid-walk on ExpiredToken.
     timeout-minutes: 125
-    environment: prod
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     # Its own group, never cancelled: a cancelled walk uploads no ledgers, and
     # the ledgers are what the mode exists to produce. Read-only, so overlap
     # with a sibling mode is harmless.
     concurrency:
-      group: run-analytics-text-coverage
+      group: run-analytics-text-coverage-${{ github.ref_name }}
       cancel-in-progress: false
     permissions:
       contents: read
@@ -414,6 +468,16 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The out-of-band staging index pointer, forwarded only off `main`:
+          # a staging-bound pull must resolve the staging pair's own digest —
+          # the committed corpus/corpus.db.ref names the production blob,
+          # which the staging remote does not hold — while a prod-bound run
+          # stays on the committed pointer even if the variable ever appears
+          # at repository scope. `ref_name`, the environment expression's own
+          # key, so the fence is its exact complement: whatever binds `prod`
+          # forwards nothing. (The publish fences use the stricter exact-ref
+          # spelling instead — under-inclusion is safe there, not here.)
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
           # Covers the walk's cap below plus everything before it — checkout,
           # env sync, up to 120s of assume-role retry, and the composite's own
           # uncapped corpus pull — the census's sizing, for the census's
@@ -490,9 +554,9 @@ jobs:
     if: ${{ github.event_name == 'schedule' || inputs.mode == 'metrics-refresh' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: prod
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
-      group: run-analytics-metrics-refresh
+      group: run-analytics-metrics-refresh-${{ github.ref_name }}
       cancel-in-progress: false
     permissions:
       contents: read
@@ -510,7 +574,11 @@ jobs:
       # check, and it is never auto-merged — review is mandatory. The read-only
       # analysis modes above hold no write token at all; the only other job that
       # does is qp-topic-label, for the same reason and on the same terms.
+      # Minted on `main`-ref runs only: the dev App's credentials live on the
+      # prod environment alone, and a rehearsal publishes nothing — it
+      # regenerates and reports the diff instead (the fenced step at the end).
       - name: Mint app token
+        if: ${{ github.ref == 'refs/heads/main' }}
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
@@ -520,6 +588,7 @@ jobs:
           permission-pull-requests: write
 
       - name: Configure git identity
+        if: ${{ github.ref == 'refs/heads/main' }}
         uses: ./.github/actions/configure-git-identity
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -535,6 +604,16 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The out-of-band staging index pointer, forwarded only off `main`:
+          # a staging-bound pull must resolve the staging pair's own digest —
+          # the committed corpus/corpus.db.ref names the production blob,
+          # which the staging remote does not hold — while a prod-bound run
+          # stays on the committed pointer even if the variable ever appears
+          # at repository scope. `ref_name`, the environment expression's own
+          # key, so the fence is its exact complement: whatever binds `prod`
+          # forwards nothing. (The publish fences use the stricter exact-ref
+          # spelling instead — under-inclusion is safe there, not here.)
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
           missing-pointer: warn
 
       # The tested stage commands, run directly; each is deterministic, so an
@@ -545,6 +624,7 @@ jobs:
       # prior-vote baseline retrieves against a prebuilt index, so a full
       # replay costs a couple of resolved-slice scans, not a query per case.)
       - name: Regenerate the metrics artifacts
+        id: regenerate
         run: |
           set -euo pipefail
           if [ -f corpus/corpus.db ]; then
@@ -573,6 +653,7 @@ jobs:
       # a direct commit. The fixed branch is force-pushed so an unmerged refresh PR
       # updates in place rather than stacking.
       - name: Open or update the review PR
+        if: ${{ github.ref == 'refs/heads/main' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
@@ -612,6 +693,34 @@ jobs:
             echo "Opened review PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
+      # The rehearsal's record, on every outcome the runner survives — a
+      # regenerate that failed is an informative rehearsal result, and it
+      # must still leave the statement that publication was fenced, not
+      # attempted. On success the record adds what a prod run would have
+      # offered for review: the staged diff, as a stat, since the artifacts
+      # regenerate from this ref's corpus pair and the numbers themselves
+      # are not the point. (The staged index is deliberate residue: this is
+      # the job's last step, and nothing after it reads the tree.)
+      - name: Report the rehearsal record (publish fenced off this ref)
+        if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
+        env:
+          REGENERATED: ${{ steps.regenerate.outcome }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### metrics-refresh rehearsal — publish fenced to main-branch runs"
+            echo
+            echo "The review-PR mint did not run; nothing published from this dispatch."
+            if [ "$REGENERATED" = "success" ]; then
+              git add -A metrics/ data/scope/
+              echo '```'
+              git diff --cached --stat -- metrics/ data/scope/
+              echo '```'
+            else
+              echo "The regenerate step did not succeed (outcome: ${REGENERATED}); no diff to report."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   qp-topic-extract:
     # First half of the labeling mode, and the only half that holds a cloud
     # credential. `corpus-readonly` exports the assumed role's credentials
@@ -621,9 +730,9 @@ jobs:
     if: ${{ inputs.mode == 'qp-topic-label' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: prod
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
-      group: run-analytics-qp-topic-extract
+      group: run-analytics-qp-topic-extract-${{ github.ref_name }}
       cancel-in-progress: false
     permissions:
       contents: read
@@ -642,6 +751,16 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The out-of-band staging index pointer, forwarded only off `main`:
+          # a staging-bound pull must resolve the staging pair's own digest —
+          # the committed corpus/corpus.db.ref names the production blob,
+          # which the staging remote does not hold — while a prod-bound run
+          # stays on the committed pointer even if the variable ever appears
+          # at repository scope. `ref_name`, the environment expression's own
+          # key, so the fence is its exact complement: whatever binds `prod`
+          # forwards nothing. (The publish fences use the stricter exact-ref
+          # spelling instead — under-inclusion is safe there, not here.)
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
 
       - name: Extract the stored questions-presented texts
         env:
@@ -726,9 +845,9 @@ jobs:
     # that matters: the transcript steps deliberately run before measure, so
     # their worst case is charged before the labels artifact exists.
     timeout-minutes: 75
-    environment: prod
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
-      group: run-analytics-qp-topic-label
+      group: run-analytics-qp-topic-label-${{ github.ref_name }}
       cancel-in-progress: false
     permissions:
       contents: read
@@ -1275,7 +1394,12 @@ jobs:
       # does. The dev App is not a
       # branch-protection bypass actor, so the PR still faces the required
       # `gate` check and is never auto-merged.
+      # Minted on `main`-ref runs only: the dev App's credentials live on the
+      # prod environment alone, and a rehearsal's labels stay on the runner —
+      # the measured block in the step summary and the transcript artifact are
+      # its record, and the fenced note below states the boundary.
       - name: Mint app token
+        if: ${{ github.ref == 'refs/heads/main' }}
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
@@ -1285,6 +1409,7 @@ jobs:
           permission-pull-requests: write
 
       - name: Configure git identity
+        if: ${{ github.ref == 'refs/heads/main' }}
         uses: ./.github/actions/configure-git-identity
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -1294,6 +1419,7 @@ jobs:
       # unmerged labeling PR updates in place rather than stacking, opened
       # against `main` and never auto-merged.
       - name: Open or update the review PR
+        if: ${{ github.ref == 'refs/heads/main' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
@@ -1410,3 +1536,14 @@ jobs:
               --title "$title" --body-file pr-body.md)
             echo "Opened review PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
+
+      # The rehearsal's boundary, stated where the operator reads — and on
+      # every outcome the runner survives, not only success: a measure-gate
+      # refusal is the single most informative rehearsal result, and it must
+      # not be the one that leaves the operator inferring whether publication
+      # was fenced or attempted.
+      - name: Note the rehearsal boundary (publish fenced off this ref)
+        if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
+        run: |
+          echo "qp-topic-label rehearsal: whatever ran above, the labels PR is fenced to main-branch runs — nothing published from this dispatch." \
+            | tee -a "$GITHUB_STEP_SUMMARY"

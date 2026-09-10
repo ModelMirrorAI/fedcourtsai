@@ -84,6 +84,7 @@ from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest
 from fedcourtsai.registry import load_mcp_servers, load_predictors, resolve_mcp_servers
 from fedcourtsai.schemas import UsageRole
+from fedcourtsai.watchdog_telemetry import _CHANNEL_LABELS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
@@ -452,20 +453,35 @@ def test_corpus_composite_call_sites_pass_the_base_url_with_the_same_spelling() 
 # variable already gives, and no respelling), and the exact set of surfaces
 # that may carry it.
 POINTER_ENV_EXPRESSION = "${{ vars.FEDCOURTS_CORPUS_POINTER }}"
-# The scenario lane alone. The production lanes read the pair the committed
-# pointer names, so a pointer reaching run-predict/run-evaluate/the writers
-# would repoint a real run's corpus at another blob — hence a pinned set
-# rather than a count, exactly as the base URL is pinned above.
+# The fenced form run-analytics's corpus pulls carry, as the corpus-readonly
+# composite's explicit input (the sidecar composite's rule: every call site
+# shows its read configuration): forwarded only off `main`, so a pointer that
+# ever appears at repository scope still cannot repoint a prod-bound run of a
+# publishing lane — the scenario lane accepts that residual as a provisioning
+# discipline (docs/security.md's "staging environment only" rule). `ref_name`,
+# the environment expression's own key, so the fence is its exact complement:
+# whatever binds `prod` forwards nothing, tag refs included.
+FENCED_POINTER_INPUT_EXPRESSION = (
+    "${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}"
+)
+# The scenario lane alone may carry the variable as env. The production lanes
+# read the pair the committed pointer names, so a pointer reaching
+# run-predict/run-evaluate/the writers would repoint a real run's corpus at
+# another blob — hence a pinned set rather than a count, exactly as the base
+# URL is pinned above. run-analytics carries it only as the fenced composite
+# input, pinned by its own test below.
 POINTER_WORKFLOWS = {"integration-test.yml"}
 
 
 def test_the_corpus_pointer_is_spelled_once_and_scoped_to_the_scenario_lane() -> None:
-    """The pointer override travels in one spelling, on one workflow.
+    """The pointer override travels as env in one spelling, on one workflow.
 
     A copy-paste onto a production lane silently redirects that lane's corpus
     reads to whatever blob the variable names; a respelling forks the read
     path between the job env and the sidecar input, which must agree for the
-    sidecar to serve the same pair the in-process reads resolve.
+    sidecar to serve the same pair the in-process reads resolve. (The other
+    carrier — run-analytics's fenced composite input — has its own pin two
+    tests below.)
     """
     covered: set[str] = set()
     for name in sorted(p.name for p in WORKFLOWS.glob("*.y*ml")):
@@ -501,6 +517,31 @@ def test_sidecar_call_sites_pass_the_pointer_with_the_same_spelling() -> None:
                     f"{name}: job {job_id}: corpus-sidecar corpus-pointer must be "
                     f"exactly {POINTER_ENV_EXPRESSION!r}, got {pointer!r}"
                 )
+
+
+def test_corpus_readonly_call_sites_carry_the_pointer_only_on_the_rehearsable_lane() -> None:
+    """run-analytics's corpus pulls forward the out-of-band pointer as the
+    composite's fenced explicit input — resolution alone would leave a
+    staging-bound pull resolving the committed production digest against the
+    staging remote — and no production lane passes one at all: a pointer on
+    run-predict/run-evaluate/run-backtest would repoint a real run's corpus
+    at whatever blob the variable names."""
+    for name in sorted(p.name for p in WORKFLOWS.glob("*.y*ml")):
+        for job_id, job in _load(name)["jobs"].items():
+            for step in job.get("steps", []) or []:
+                if not str(step.get("uses", "")).endswith("actions/corpus-readonly"):
+                    continue
+                pointer = (step.get("with") or {}).get("corpus-pointer")
+                if name == "run-analytics.yml":
+                    assert pointer == FENCED_POINTER_INPUT_EXPRESSION, (
+                        f"{name}: job {job_id}: corpus-readonly must forward the fenced "
+                        f"pointer, got {pointer!r}"
+                    )
+                else:
+                    assert pointer is None, (
+                        f"{name}: job {job_id}: a production lane must not pass "
+                        f"corpus-pointer, got {pointer!r}"
+                    )
 
 
 # The codex cell's MCP wiring, in the one spelling every surface must share.
@@ -2603,19 +2644,20 @@ def test_the_daily_digest_job_keeps_its_narrow_permission_surface() -> None:
 
 
 def test_no_workflow_triggers_on_a_digest_label() -> None:
-    """The digests' labels must stay non-triggering, which is what makes the job safe.
+    """Every label the reporting surfaces create must stay non-triggering.
 
-    A reporting job holding `issues: write` opens an issue every day; if any
-    workflow ever keyed on that label, the daily report would start a run — and
-    a spending one, if the label were ever added to a fan-out. Nothing enforces
-    the property but this assertion, so it reads every workflow rather than the
-    one that posts.
+    A reporting job holding `issues: write` opens an issue every day, and the
+    watchdog's arm steps create their channels' labels with `--force`; if any
+    workflow ever keyed on one of those labels, a report or an arming would
+    start a run — a spending one, if the label were ever added to a fan-out.
+    Nothing enforces the property but this assertion, so it reads every
+    workflow rather than the ones that post.
     """
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         workflow = _load(path.name)
         # `on` parses to the truthy bool key in YAML; tolerate either spelling.
         triggers = workflow.get("on") or workflow.get(True) or {}
-        for label in (DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL):
+        for label in (DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL, *_CHANNEL_LABELS.values()):
             assert label not in yaml.safe_dump(triggers), (
                 f"{path.name} triggers on the non-triggering {label} label"
             )
@@ -2933,4 +2975,78 @@ def test_the_labeler_smoke_sends_the_labeling_lanes_own_invocation_block() -> No
         )
         assert fence is not None and fence < at, (
             f"{job_name}: the oracle must leave the tree before the agent starts"
+        )
+
+
+def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> None:
+    """A job that hard-pins `environment: prod` makes a new mode's first run
+    anywhere its production run — the rehearsability the branch resolution
+    exists to provide. Every environment-binding job must carry the
+    branch-resolving tail of `integration-test.yml`'s expression, with no
+    override input (`main` binds prod, `staging` binds
+    the staging pair, anything else binds nothing — fail-closed; the same
+    literal `test_workflow_auth_gate.py` pins as BRANCH_RESOLVED_ENVIRONMENT),
+    `tool-usage`
+    must stay environment-free (it reads committed `data/` only), and every
+    concurrency group must carry the ref, because two refs are two
+    environments reading two corpus pairs and one must never cancel — or
+    queue behind — the other."""
+    resolved = "${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
+    for job_id, job in _load("run-analytics.yml")["jobs"].items():
+        if job_id == "tool-usage":
+            assert "environment" not in job, "tool-usage reaches nothing; no environment"
+        else:
+            assert job.get("environment") == resolved, (
+                f"{job_id} does not resolve its environment from the dispatching branch"
+            )
+        group = (job.get("concurrency") or {}).get("group", "")
+        assert group.endswith("-${{ github.ref_name }}"), (
+            f"{job_id}'s concurrency group is shared across refs: {group}"
+        )
+
+
+def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
+    """With the environments branch-resolved, what keeps a staging dispatch a
+    rehearsal is the fence on publication: every step that mints the App
+    token, sets the git identity, or opens the review PR must gate on the
+    `main` ref. The dev App's credentials live on the prod environment alone,
+    so an unfenced mint on staging fails rather than narrows — but the fence
+    is asserted, not inferred, because a future credential added to staging
+    would turn that failure into a publish. The fence keys on the exact
+    branch ref (`github.ref`), not `github.ref_name`, which a tag named
+    `main` also satisfies — the prod deployment-branch policy is the real
+    gate for that case, and the fence states the property without leaning
+    on it. The publisher set is derived, not enumerated: every job holding a
+    mint step is a publishing job, and every step that mints or that touches
+    the minted token is a publisher — so a new consumer of the token, or a
+    mint added to a third job, lands inside the fence's sweep by default."""
+    fence = "${{ github.ref == 'refs/heads/main' }}"
+    wf = _load("run-analytics.yml")
+    publishing_jobs = {
+        job_id: job["steps"]
+        for job_id, job in wf["jobs"].items()
+        if any("create-github-app-token" in str(s.get("uses") or "") for s in job["steps"])
+    }
+    assert set(publishing_jobs) == {"metrics-refresh", "qp-topic-label"}, (
+        f"the publishing-job set moved: {sorted(publishing_jobs)}"
+    )
+    for job_id, steps in publishing_jobs.items():
+        publishers = [
+            step
+            for step in steps
+            if "create-github-app-token" in str(step.get("uses") or "")
+            or "steps.app-token.outputs" in yaml.safe_dump(step)
+        ]
+        assert len(publishers) == 3, (
+            f"{job_id}: expected mint + identity + PR steps, found {len(publishers)}"
+        )
+        for step in publishers:
+            assert step.get("if") == fence, (
+                f"{job_id}: publish step {step.get('name')!r} is not fenced to the main ref"
+            )
+        rehearsal_notes = [
+            step for step in steps if "github.ref != 'refs/heads/main'" in str(step.get("if") or "")
+        ]
+        assert rehearsal_notes, (
+            f"{job_id}: a rehearsal leaves no summary record that the fence held"
         )

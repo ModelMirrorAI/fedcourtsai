@@ -13835,6 +13835,18 @@ def watchdog_checkin_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options 
             help="Disarm mode: the watchdog never reached its deadline, so the record collapses.",
         ),
     ] = True,
+    channel: Annotated[
+        str,
+        typer.Option(
+            help=(
+                "Which long-lived issue carries the record: 'prod' (the production "
+                "cells' `codex-watchdog` issue, the default) or 'staging' (the "
+                "rehearsal channel's own issue, for staging-bound repro dispatches). "
+                "An unregistered value degrades to a record-less arming with a "
+                "warning, on the command's best-effort contract."
+            ),
+        ),
+    ] = "prod",
 ) -> None:
     """Record this codex cell on the long-lived `codex-watchdog` telemetry issue.
 
@@ -13843,8 +13855,8 @@ def watchdog_checkin_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options 
     the step summary, the job log — dies with the runner when the *job* cap
     cancels a step that never ended, so a hang erases its own evidence down to
     whether the watchdog fired at all. This writes the record **off the
-    runner** while the runner is still alive: find-or-create the single
-    `codex-watchdog` issue (a non-triggering label), then create this cell's
+    runner** while the runner is still alive: find-or-create the channel's
+    long-lived issue (a non-triggering label), then create this cell's
     comment or reset the one its marker already names.
 
     Stdout is the arm step's hand-over to the detached watchdog, and it is two
@@ -13872,6 +13884,7 @@ def watchdog_checkin_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options 
                 actor=actor,
                 conclusion=conclusion or "unknown",
                 healthy=healthy,
+                channel=channel,
             )
         else:
             url, base = arm_checkin(
@@ -13883,14 +13896,29 @@ def watchdog_checkin_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options 
                 actor=actor,
                 deadline_s=deadline_s,
                 run_url=run_url,
+                channel=channel,
             )
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         # Named exactly: a missing/unexecutable gh, an unparseable response, and
         # the bounded runner's exhausted retries. Anything else is a bug here
         # rather than a degraded API, and a bug should fail loudly — the call
         # sites carry `|| true` regardless, so a loud failure still costs the
-        # record rather than the arming.
-        typer.echo(f"::warning::codex watchdog check-in failed ({type(exc).__name__})", err=True)
+        # record rather than the arming. The channel refusal is the one case
+        # whose message is composed by this codebase and safe to print — it
+        # names the registered set, which is what makes a typo'd channel
+        # debuggable from the one log a healthy run keeps. JSONDecodeError
+        # subclasses ValueError and reaches here from a degraded gh response,
+        # so it is excluded: this is the lane's only place that prints an
+        # exception message into a public Actions log, and the printed set
+        # stays exactly the messages this codebase composes.
+        detail = (
+            f": {exc}"
+            if isinstance(exc, ValueError) and not isinstance(exc, json.JSONDecodeError)
+            else ""
+        )
+        typer.echo(
+            f"::warning::codex watchdog check-in failed ({type(exc).__name__}{detail})", err=True
+        )
         return
     typer.echo(url)
     typer.echo(base)

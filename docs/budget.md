@@ -941,24 +941,26 @@ a dispatch labels a derived batch and the artifact accrues one batch at a time
 ([qp-topic.md](qp-topic.md)). Every batch is ceiling-sized, so each costs the
 single-digit-dollar figure above and the rest is multiplication, not a new rate:
 
-- **Per batch**, 296 of the 1,200 rows are the reference cases the frame holds,
+- **Per batch**, 353 of the 1,200 rows are the reference cases the frame holds,
   re-graded every run for the agreement measurement and publishing nothing —
-  ≈25% of each batch's spend bought as *measurement* rather than as labels. That
+  ≈29% of each batch's spend bought as *measurement* rather than as labels. That
   is the standing price of the publication gate, not an overhead to trim: a batch
   that skipped it could not be measured, so it could not publish. The share moves
-  with how much of the reference set the frame holds, and rises if that shrinks.
-- **Clearing the historical backlog** — 8,183 frame rows against the blob pulled
-  2026-09-08 (newest stored snapshot 2026-07-13), leaving 7,887 to label at 904
-  new rows a batch, so **nine dispatches** — is **tens of dollars at the default
-  tier**. That is a projection, not a plan a maintainer can start today: at that
-  vintage the frame holds 296 of the 353 reference cases, under the coverage
-  floor, so the extract job refuses every dispatch until the missing
-  questions-presented documents are restored ([qp-topic.md](qp-topic.md)). Spend
-  begins at the first batch that clears that check. Single-digit tens at the
+  with how much of the reference set the frame holds, and falls if that shrinks.
+- **Clearing the historical backlog** — 8,452 frame rows against the blob pulled
+  2026-09-09 (newest stored snapshot 2026-07-13), leaving 8,099 to label at 847
+  new rows a batch, so **ten dispatches** — is **tens of dollars at the default
+  tier**. The frame holds all 353 reference cases at that vintage — 100.0%,
+  above the coverage floor the extract enforces
+  ([qp-topic.md](qp-topic.md)) — so spend begins at the first dispatch. Single-digit tens at the
   default tier; `claude-sonnet-4-6` is 3× that and `claude-fable-5` 10×, the same
-  tier ordering the table above prices. Those are nine manual dispatches at
+  tier ordering the table above prices. Those are ten manual dispatches at
   whatever cadence a maintainer chooses, not a queued campaign, and the count
-  falls as the frame clears and rises as it grows.
+  falls as the frame clears and rises as it grows. A **staging rehearsal** of
+  the mode (a `--ref staging` dispatch) that reaches the labeler pays the same
+  per-batch figure on the staging environment's own engine key and publishes
+  nothing — that spend buys the measurement and the transcript, and it is the
+  cheap alternative to a wasted production batch, not a free one.
 - **Then forward**, one batch absorbs a long stretch of new QP-bearing rows, so a
   dispatch every few months keeps up: a handful a year, still inside the misc
   floor's buffer (driver #5) rather than earning its own line.

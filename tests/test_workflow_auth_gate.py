@@ -79,16 +79,32 @@ UNPRIVILEGED_PULL_REQUEST_WORKFLOWS = ("ci.yml", "codeql.yml", "lint-actions.yml
 # which is why the sweep below is a membership test rather than a truthiness one.
 BRANCH_POLICIED_ENVIRONMENTS = frozenset({"prod", "staging"})
 
-# The one privileged job whose environment is an expression rather than a
-# literal: integration-test resolves it from its `deploy-environment` input,
-# falling back to the ref's own name. Pinned by its exact text so a change to it
-# has to come back through this file; the AWS role trust policies pin the OIDC
-# `sub` to the named environments, so a run under an auto-created one can assume
-# nothing (docs/security.md carries that carve-out).
+# The two admitted expression forms for a privileged job's environment, each
+# pinned by its exact text so a change has to come back through this file; the
+# AWS role trust policies pin the OIDC `sub` to the named environments, so a
+# run under an auto-created one can assume nothing (docs/security.md carries
+# that carve-out). This one is integration-test's: resolved from its
+# `deploy-environment` input, falling back to the ref's own name.
 COMPUTED_ENVIRONMENT = (
     "${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment "
     "|| (github.ref_name == 'main' && 'prod' || github.ref_name) }}"
 )
+
+# The other computed form, run-analytics's: pure branch resolution with no
+# input override — strictly narrower than the one above, since the dispatching
+# ref alone decides and the dispatcher chooses nothing. Same fail-closed tail:
+# a ref that is neither `main` nor `staging` resolves its own name, which
+# names no configured environment and binds nothing.
+BRANCH_RESOLVED_ENVIRONMENT = "${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
+
+# Which workflow may carry which computed form — per-workflow, never global: a
+# production lane's prod job quietly becoming branch-resolvable (its corpus
+# role assumable from a staging ref) must fail this sweep, not pass under a
+# form admitted for the two rehearsable lanes.
+COMPUTED_ENVIRONMENTS = {
+    "integration-test.yml": COMPUTED_ENVIRONMENT,
+    "run-analytics.yml": BRANCH_RESOLVED_ENVIRONMENT,
+}
 
 # Step markers that mean "privileged work has started": minting an App token,
 # assuming the S3 role, or handing control to a coding agent.
@@ -206,7 +222,8 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
                 continue
             environment = job.get("environment")
             assert (
-                environment in BRANCH_POLICIED_ENVIRONMENTS or environment == COMPUTED_ENVIRONMENT
+                environment in BRANCH_POLICIED_ENVIRONMENTS
+                or environment == COMPUTED_ENVIRONMENTS.get(path.name)
             ), (
                 f"{path.name}:{job_name} mints a token, assumes the S3 role or runs an "
                 f"agent under environment {environment!r} — not one whose branch policy "

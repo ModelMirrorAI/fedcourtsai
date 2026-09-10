@@ -21,6 +21,7 @@ from fedcourtsai.cli import CELL_MODES, app
 from fedcourtsai.config import CorpusBackend
 from fedcourtsai.pipeline.runner import available_backends
 from fedcourtsai.schemas import Engine, UsageRole
+from fedcourtsai.watchdog_telemetry import CHANNELS
 
 runner = CliRunner()
 
@@ -127,3 +128,12 @@ def test_every_command_help_renders() -> None:
         assert result.exit_code == 0, (
             f"`{name} --help` failed to render: {result.exception!r}\n{result.output}"
         )
+
+
+def test_the_watchdog_channel_help_names_every_channel() -> None:
+    """`CHANNELS` is the registered set the command validates against, so the
+    help must offer every value it accepts — it carries a gloss per channel,
+    which is why it cannot be a plain join."""
+    segment = _option_help(_help("watchdog-checkin"), "--channel")
+    missing = [channel for channel in CHANNELS if f"'{channel}'" not in segment]
+    assert not missing, f"--channel help omits channels the command accepts: {missing}"
