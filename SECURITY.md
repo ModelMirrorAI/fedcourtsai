@@ -301,10 +301,14 @@ runbook, [docs/security.md](docs/security.md).
   maintainer-merged promotion put on `main`. A `workflow_dispatch` is gated by
   GitHub on repository **write**. And every privileged job binds a deployment
   environment whose branch policy pins the ref it may run from — `prod` to
-  `main`, `staging` to `staging` (below) — so a dispatch from any other ref is
-  refused at the deployment-branch gate before a step runs: no role, no secret,
-  no agent. That is why no lane carries an actor gate of its own: there is no
-  trigger for one to judge.
+  `main`, `staging` to `staging` (below) — so a dispatch from any other ref
+  holds no role, no secret, no agent: a job naming an environment as a literal
+  is refused at the deployment-branch gate before a step runs, and the two
+  branch-resolving workflows (`integration-test`, `run-analytics` — the
+  carve-out `docs/security.md` describes) resolve an off-list ref to an empty
+  auto-created environment the role trusts do not name, failing closed at the
+  first credential instead. That is why no lane carries an actor gate of its
+  own: there is no trigger for one to judge.
   Three workflows *do* take an outside-reachable trigger — `ci.yml`,
   `lint-actions.yml` and `codeql.yml` on `pull_request`, which any fork
   contributor fires — and they are the shape that makes the rule readable rather

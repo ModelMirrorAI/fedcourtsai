@@ -28,8 +28,8 @@ convention `AGENTS.md` carries, not something identity enforces):
   PR`, so the writers push corpus facts straight to `main`.
 - **dev App** — used by the agent workflows `run-predict` /
   `run-evaluate`, the reviewed-PR openers (`run-backtest`, and
-  `run-analytics`'s metrics-refresh job), `sync-staging`, and
-  `integration-test`'s application-repro leg (watchdog telemetry only).
+  `run-analytics`'s metrics-refresh and qp-topic-label jobs), `sync-staging`,
+  and `integration-test`'s application-repro leg (watchdog telemetry only).
   Its client id
   is the `DEV_APP_CLIENT_ID`
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
@@ -47,8 +47,8 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner. The watchdog brackets every engine; this token is minted on codex cells alone |
 | `integration-test` (codex-application-repro leg only) | dev | issues | the cell workflows' watchdog telemetry mint, on identical terms: arm/disarm steps and the detached watchdog only, never the agent step. The App's credentials live on `prod` alone, so the record exists on a prod-bound dispatch; a leg bound elsewhere mints nothing, warns, and degrades to its runner-local account — deliberately, rather than widening the staging-head radius with an issues-write key |
 | `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
-| `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
-| `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
+| `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
+| `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — and on `main`-branch (prod-bound) runs only, so a rehearsal that reaches the labeler runs the full agent posture and the gate with no App token in the job at all — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
@@ -320,8 +320,11 @@ deployment environment and the sole corpus address every lane resolves, since
 both store halves and the corpus-split mode follow from it; its value is
 out of band, never committed, and an environment missing it has no corpus at
 all rather than half of one. Every job that needs any of
-them declares an environment, and every job outside `integration-test` declares
-`prod` — with two deliberate exceptions, by environment. The `approval` jobs of run-predict,
+them declares an environment, and every job outside `integration-test` and
+`run-analytics` declares `prod` — those two resolve the environment from the
+dispatching ref instead (the branch-resolution paragraph below), which is what
+makes their staging dispatches rehearsals — with two deliberate exceptions, by
+environment. The `approval` jobs of run-predict,
 run-evaluate and run-backtest declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables, no role, and no deployment-branch
@@ -402,6 +405,16 @@ it can assume nothing. The refusal keys on binding, not on the input string: the
 collect scenario binds no environment and so dispatches from anywhere regardless
 of what its input says.
 
+**`run-analytics` resolves its environments the same way, minus the input**:
+pure branch resolution, no override, so the dispatching ref alone decides —
+`main` (and the weekly schedule, which fires only there) binds `prod`,
+`staging` binds `staging`, and anything else binds the empty auto-created
+environment above. It binds `staging` on **dispatch only** — its one
+non-dispatch trigger, the schedule, always lands on `prod` — and its
+publish steps (the two dev-App mints, the git identities, the review-PR
+steps) are additionally fenced to `main`-branch runs, so a staging-bound
+dispatch is a read-and-spend rehearsal that can open nothing.
+
 **`staging` is restricted to the `staging` branch, and carries no reviewer
 rule** — the same shape as `prod`, one branch lower. The branch policy is the
 gate, and what it enforces is **code provenance**: only code that passed a pull
@@ -428,17 +441,20 @@ granted an Actions scope; the first workflow that binds `staging` on a
 would bind the environment on the merge itself, and agents merge their own PRs
 to `staging`, which since the environment carries the staging write role's
 trust would hand *write* reach on the fixture, not just read and spend, at an
-agent's own merge; or **the `staging` environment being repointed at the
-staging corpus** (the runbook's step 5), from which point the promotion gate's
-freshness evidence is produced against a corpus the staging lane can write,
-and the code that can write the evidence is the thing a reviewer would be
-approving. The premise is the repointing, not the code that makes it
-possible: an override no environment sets redirects nothing, so the wiring
-landing leaves the gate's evidence exactly where it was. The re-seed practice
-above keeps the evidence honest between reviews but does not answer that
-question, so step 5 is where it must be answered rather than left standing on
-this paragraph. No workflow filters on a
-staging ref today; every branch filter names `main`.
+agent's own merge. One premise **has** fired, and this paragraph answers the
+question it was holding: the `staging` environment is repointed at the
+staging corpus (the runbook's step 5), so the promotion gate's freshness
+evidence is now produced against a corpus the staging write role can reach.
+`staging` still carries no per-run reviewer rule, on three controls that
+together keep that evidence honest without one: the only write-capable path
+to the staging pair is the refresh lane's role, and its runs — like every
+evidence-bearing run — begin with a maintainer-only dispatch; the
+re-seed-before-evidence practice below resets the slice, so a poisoned
+fixture cannot persist into a promotion's evidence; and the permission
+surface that could quietly widen a staging job waits for the maintainer even
+into `staging` (the convention recorded below). A per-run reviewer rule is
+the escalation if any dispatch-side premise above breaks. No workflow
+filters on a staging ref today; every branch filter names `main`.
 
 What neither shape covers: the `staging` ruleset requires no workflow linter, so
 a workflow change that reads a secret is caught by no *required* check.
@@ -513,11 +529,9 @@ far from this agent as it does from a production one. The line to hold is that
 a repro leg may present a real record and nothing else may: a leg that wanted a
 real record *and* a probe's exemption from the cell posture would be neither.
 
-What corrupting it *costs* depends on a coupling worth stating rather than
-discovering. While the `staging` environment still names the production pair,
-nothing committed depends on the staging corpus — the scenarios read
-production's — so a corrupted slice is caught by the next integration run and
-fixed by another dispatch. **The moment step 5 repoints it, the coupling is
+What corrupting it *costs* is a coupling worth stating rather than
+discovering. With the `staging` environment pointed at the seeded pair (the
+runbook's step 5, done), **the coupling is
 immediate and not
 hypothetical**: the staging integration runs are the promotion gate's freshness
 evidence, so a staging corpus that is corrupt, empty, or subtly wrong makes
@@ -581,7 +595,10 @@ the `prod`
 environment and, as **separate per-environment secrets**, on `staging` — a
 smoke dispatched at the staging head spends against staging's own keys
 (independently revocable, isolated from tournament spend), so a promotion's
-freshness runs cannot touch the tournament's budget. Spend is gated the same way
+freshness runs cannot touch the tournament's budget. The staging keys have
+one consumer beyond these scenarios: a `run-analytics` staging rehearsal
+whose mode runs an agent (the qp-topic labeler) reads the same
+per-environment engine secret and spends against it on the same terms. Spend is gated the same way
 the read-only role is: by who may dispatch, and from which branch. A dispatch
 naming an environment without the keys gets an
 empty key and fails closed right alongside the role variables, independent of
@@ -742,7 +759,9 @@ Every role's OIDC trust is scoped to named environments of this repo
 (`...:sub` like `repo:<owner>/<repo>:environment:prod`), so only a job binding
 one of those environments can assume it. The production read-write role names
 `prod` alone; the read-only role also names `staging`, which is what lets the
-integration scenarios read the corpus from the staging branch; and the staging
+integration scenarios — and `run-analytics`'s staging rehearsals, whose
+environments resolve from the dispatching branch on the same terms — read the
+corpus from the staging branch; and the staging
 read-write role names `staging` alone. The trusts stay disjoint on
 the write side by construction — no environment names two write-capable roles,
 and no write-capable role names two environments — so "who can write which
@@ -951,8 +970,9 @@ closed (an unset role variable resolves empty and the assume-role step
 refuses). Do those four and the lane works — you can seed the staging corpus,
 and step 6's first half is its acceptance.
 
-**Step 5 and step 6's second half repoint the scenarios** at the seeded pair —
-and only the scenarios. Step 5 hands the `staging` environment both scenario
+**Step 5 and step 6's second half repoint the staging binders** at the seeded
+pair — the integration scenarios and `run-analytics`'s rehearsals, and
+nothing else. Step 5 hands the `staging` environment both
 corpus variables at once, the pointer among them (see *How a consumer
 resolves the staging index* below for why the pointer cannot be committed).
 The refresh lane's source is pinned to its own production-source variable,
@@ -1062,8 +1082,12 @@ the repoint. Read step 5's two ordering notes before doing either.
    consumer otherwise resolves the committed `corpus/corpus.db.ref`, whose
    digest names the production blob, and content addressing means a lean
    slice can never publish under that digest. With both set, the
-   integration scenarios dispatched from `staging` run split-on against the
-   staging corpus rather than production's.
+   integration scenarios and the `run-analytics` rehearsals dispatched from
+   `staging` run split-on against the
+   staging corpus rather than production's (`run-analytics`'s corpus jobs
+   forward the pointer fenced off `main`, so for them a stray wider-scoped
+   value is inert on `prod`-bound runs by construction; the warning below
+   still binds for the scenarios).
 
    **Set both on the `staging` environment only** — never repository- or
    organization-wide. `vars` resolves environment first and falls back to the
