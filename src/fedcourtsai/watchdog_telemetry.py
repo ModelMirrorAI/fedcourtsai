@@ -7,8 +7,9 @@ diagnostics bundle under ``WATCHDOG_DIR``, the disarm step that publishes it, th
 step summary, the job log — is erased by exactly the failure it documents, and
 nothing afterwards says whether the watchdog even fired. Evidence about a runner
 that may be cancelled has to leave the runner *while the runner is still
-running*, which is what this module opens: a long-lived ``codex-watchdog``
-tracking issue carrying one comment per cell, created here before the agent
+running*, which is what this module opens: a long-lived tracking issue —
+one per channel, see :data:`CHANNELS` — carrying one comment per cell,
+created here before the agent
 starts and then PATCHed in place by ``scripts/engine-watchdog.sh`` itself as it
 passes each state.
 
@@ -58,10 +59,11 @@ _ISSUE_BODY = (
 )
 
 #: Which long-lived issue carries the record. ``prod`` is the production
-#: cells' and a prod-bound repro leg's; ``staging`` is the rehearsal channel —
-#: a staging-bound repro dispatch records on its own issue, under its own
-#: label, so the production occurrence record stays one readable row per
-#: production cell and a rehearsal's rows read as rehearsals. Separate issues,
+#: cells' and a prod-bound repro leg's; ``staging`` routes the record to the
+#: rehearsal channel's own issue, under its own label, so rehearsal rows
+#: never mix into the production off-runner record and it stays one readable
+#: row per production cell. Which caller selects which channel is the
+#: workflows' business, not this module's. Separate issues,
 #: identical marker format: a marker keys a comment *within* its issue, so
 #: the channels cannot reset each other's rows.
 CHANNELS = ("prod", "staging")
@@ -71,10 +73,14 @@ _CHANNEL_TITLES = {
     "staging": f"{_ISSUE_TITLE} (staging rehearsals)",
 }
 _STAGING_BODY_SUFFIX = (
-    "\n\nThis is the **staging rehearsal channel**: its rows come from "
-    "staging-bound dispatches of the repro leg and assert nothing about "
-    "production cells — the production record is the `codex-watchdog` issue."
+    "\n\nThis is the **staging rehearsal channel**: its rows are rehearsal "
+    "records and assert nothing about production cells — the production "
+    "record is the `codex-watchdog` issue."
 )
+_CHANNEL_LABEL_DESCRIPTIONS = {
+    "prod": _LABEL_DESCRIPTION,
+    "staging": "Codex watchdog telemetry — staging rehearsal records",
+}
 _CHANNEL_BODIES = {"prod": _ISSUE_BODY, "staging": _ISSUE_BODY + _STAGING_BODY_SUFFIX}
 
 #: Keys one comment to one cell of one run. A hidden HTML comment, so the body
@@ -312,9 +318,10 @@ def _issue_for(repo: str, runner: GhRunner, channel: str) -> int:
     """The channel's own long-lived issue, refusing an unregistered channel.
 
     The refusal is a :class:`ValueError` on purpose: the CLI's best-effort
-    contract converts it to a warning and a record-less arming, which is the
-    lane's standing degradation — a typo'd channel costs the telemetry and
-    never the watchdog's kill duty, and the warning names the registered set.
+    contract converts it to a warning carrying this message — which names the
+    registered set — and a record-less arming, the lane's standing
+    degradation: a typo'd channel costs the telemetry and never the
+    watchdog's kill duty.
     """
     if channel not in CHANNELS:
         raise ValueError(f"unknown telemetry channel {channel!r}; registered: {CHANNELS}")
@@ -322,7 +329,7 @@ def _issue_for(repo: str, runner: GhRunner, channel: str) -> int:
         repo=repo,
         label=_CHANNEL_LABELS[channel],
         label_color=_LABEL_COLOR,
-        label_description=_LABEL_DESCRIPTION,
+        label_description=_CHANNEL_LABEL_DESCRIPTIONS[channel],
         title=_CHANNEL_TITLES[channel],
         body=_CHANNEL_BODIES[channel],
         runner=runner,

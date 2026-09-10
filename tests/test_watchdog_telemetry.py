@@ -497,9 +497,9 @@ def test_the_staging_channel_opens_its_own_issue_under_its_own_label() -> None:
 
 
 def test_the_default_channel_is_the_production_issue() -> None:
-    """`prod` stays the default on both entry points, so every existing caller
-    — the cell workflows' arm/disarm steps — keeps writing where it always
-    has without naming a channel."""
+    """`prod` is the default on both entry points, so a caller that names no
+    channel — the cell workflows' arm/disarm steps — writes to the
+    production issue."""
     gh = FakeGh()
     _arm(gh)
     assert gh.calls[0][:4] == ["gh", "label", "create", LABEL]

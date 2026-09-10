@@ -565,7 +565,10 @@ URL still kills on the same terms. `test_watchdog_telemetry` covers `fedcourts
 watchdog-checkin` beside the latch it is built on and off the same injectable
 `gh` seam — find-or-reset, the recency window that makes the page bound search
 the right end of a long-lived issue, the App-authorship test that stops a
-stranger pre-claiming a record on a public repo, and the exit-zero-with-a-warning
+stranger pre-claiming a record on a public repo, the channel routing (the
+staging rehearsal channel's own label and issue, the production default, and
+the pre-write refusal of an unregistered channel), and the
+exit-zero-with-a-warning
 contract a degraded API has to keep. For a heavier
 local check of the
 deterministic jobs (the `plan` job, matrix generation, the collect seam),

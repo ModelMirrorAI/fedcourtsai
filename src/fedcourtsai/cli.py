@@ -13855,8 +13855,8 @@ def watchdog_checkin_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options 
     the step summary, the job log — dies with the runner when the *job* cap
     cancels a step that never ended, so a hang erases its own evidence down to
     whether the watchdog fired at all. This writes the record **off the
-    runner** while the runner is still alive: find-or-create the single
-    `codex-watchdog` issue (a non-triggering label), then create this cell's
+    runner** while the runner is still alive: find-or-create the channel's
+    long-lived issue (a non-triggering label), then create this cell's
     comment or reset the one its marker already names.
 
     Stdout is the arm step's hand-over to the detached watchdog, and it is two
@@ -13903,8 +13903,14 @@ def watchdog_checkin_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options 
         # the bounded runner's exhausted retries. Anything else is a bug here
         # rather than a degraded API, and a bug should fail loudly — the call
         # sites carry `|| true` regardless, so a loud failure still costs the
-        # record rather than the arming.
-        typer.echo(f"::warning::codex watchdog check-in failed ({type(exc).__name__})", err=True)
+        # record rather than the arming. The ValueError case is this module's
+        # own channel refusal, so its message is composed here and safe to
+        # print — and it names the registered set, which is what makes a
+        # typo'd channel debuggable from the one log a healthy run keeps.
+        detail = f": {exc}" if isinstance(exc, ValueError) else ""
+        typer.echo(
+            f"::warning::codex watchdog check-in failed ({type(exc).__name__}{detail})", err=True
+        )
         return
     typer.echo(url)
     typer.echo(base)
