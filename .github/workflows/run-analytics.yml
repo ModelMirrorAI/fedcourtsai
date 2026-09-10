@@ -936,9 +936,10 @@ jobs:
       # subprocesses must not inherit the engine API key), and the scrub's
       # isolation backend is bubblewrap, which the runner image does not
       # carry — without it the CLI refuses to start rather than degrade.
-      # socat is the CLI's other sandbox dependency: absent, the Bash sandbox
-      # fails to initialize ("Sandbox dependencies not available") and every
-      # shell command the labeler issues is refused.
+      # socat is the CLI's other sandbox dependency: absent, the sandbox
+      # fails to initialize ("Sandbox dependencies not available"). The
+      # labeler's grant carries no shell, but the CLI stands its sandbox up
+      # at startup regardless, so both packages stay load-bearing.
       - name: Install bubblewrap and socat for the labeler's sandbox
         run: |
           set -euo pipefail
@@ -1053,8 +1054,8 @@ jobs:
           # The permission posture is the scrub's: with
           # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB set, the CLI hardens the
           # permission mode to `default` whatever the flag says and honors
-          # explicit whole-tool grants alone (path-scoped rules included are
-          # not matched under the hardening) — so the mode is declared as
+          # explicit whole-tool grants alone — path-scoped rules are not
+          # matched under the hardening — so the mode is declared as
           # what actually runs, and Write and Edit are granted outright.
           # That grant is strictly narrower than the bypass this lane's
           # fences were built to contain, and Bash is deliberately not

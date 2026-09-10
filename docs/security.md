@@ -632,7 +632,9 @@ outside that partition: the `qp-labeler-smoke` job reads the Claude key alone
 from its own resolved environment, and it is the one agent leg here that runs
 outside the runner-seam scrub — on the labeling lane's own terms, which are
 stricter than a cell's: no role, no `id-token`, the subprocess env scrub
-re-enabled in the action's settings, and a synthetic five-row extract as its
+re-enabled in the action's settings — which hardens the permission mode to
+`default`, leaving the agent a whole-tool Write/Edit grant where a cell runs
+`bypassPermissions` — and a synthetic five-row extract as its
 entire input. An `all` dispatch fans one of each per
 engine, so a single run reads all three keys — each confined to its own job —
 and spends three cells plus three boot probes; `all-offline`, the same suite

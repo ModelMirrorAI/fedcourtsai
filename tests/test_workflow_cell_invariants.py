@@ -2892,8 +2892,9 @@ def test_the_labeler_smoke_sends_the_labeling_lanes_own_invocation_block() -> No
 
     integration-test's qp-labeler-smoke exists because the labeler's
     invocation block is one nothing else sends: the pinned CLI handed to the
-    action, the sandbox settings with the subprocess env scrub, the bypass
-    permission mode, and the one --add-dir grant. Each half is separately
+    action, the sandbox settings with the subprocess env scrub, the
+    scrub-hardened default mode with its Write/Edit grant, and the one
+    --add-dir grant. Each half is separately
     silent when it drifts — the smoke still runs, still greens — so the
     whole `with:` and `env:` mappings are pinned equal (the argument block
     modulo its one --model line: the smoke pins the lane's dispatch default,
