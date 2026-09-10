@@ -84,7 +84,7 @@ from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest
 from fedcourtsai.registry import load_mcp_servers, load_predictors, resolve_mcp_servers
 from fedcourtsai.schemas import UsageRole
-from fedcourtsai.watchdog_telemetry import _CHANNEL_LABELS
+from fedcourtsai.watchdog_telemetry import _CHANNEL_LABELS, CHANNELS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
@@ -3050,3 +3050,68 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
         assert rehearsal_notes, (
             f"{job_id}: a rehearsal leaves no summary record that the fence held"
         )
+
+
+def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environment() -> None:
+    """The staging rehearsal's record rides the staging-only App and channel.
+
+    One ref keys both selections, and a cross-bind between that ref and the
+    environment (whose own expression admits an input override) is refused
+    at the deployment gate — with a second, independent floor: each App's
+    pair is scoped to its own environment, so a cross-bind would resolve the
+    other side's credentials empty and the mint would fail soft anyway. So a
+    prod-bound dispatch mints the dev App's pair and writes the production
+    issue exactly as the cell workflows do, and a staging-bound one mints
+    from the Issues-only staging App with this step pair aiming it at the
+    rehearsal channel alone. The staging credentials must also appear
+    nowhere else: docs/security.md's inventory says "exactly one step", and
+    a copy-paste of that key onto another staging-bindable job is the
+    realistic regression. The cell workflows keep the plain
+    dev-App mint: cells bind `prod` from `main` only, and a ternary there
+    would imply a rehearsal lane those workflows do not have.
+    """
+    steps = _load("integration-test.yml")["jobs"]["scenario"]["steps"]
+    mint = next(s for s in steps if s.get("id") == "watchdog-token")
+    assert mint["with"]["client-id"] == (
+        "${{ github.ref_name == 'main' && vars.DEV_APP_CLIENT_ID || vars.STAGING_APP_CLIENT_ID }}"
+    )
+    assert mint["with"]["private-key"] == (
+        "${{ github.ref_name == 'main' && secrets.DEV_APP_PRIVATE_KEY"
+        " || secrets.STAGING_APP_PRIVATE_KEY }}"
+    )
+    channel = "${{ github.ref_name == 'main' && 'prod' || 'staging' }}"
+    # The expression's two literals are the module's registered channels: a
+    # CHANNELS rename would otherwise leave the workflow naming a channel the
+    # command refuses, stranding the record under a green suite.
+    for registered in ("prod", "staging"):
+        assert registered in CHANNELS, f"{registered!r} fell out of watchdog CHANNELS"
+    for step_name in ("Arm the engine watchdog", "Disarm the engine watchdog"):
+        step = next(s for s in steps if s.get("name") == step_name)
+        assert step["env"]["TELEMETRY_CHANNEL"] == channel, step_name
+        assert '--channel "$TELEMETRY_CHANNEL"' in str(step["run"]), step_name
+    # The staging pair appears in exactly one step of exactly one workflow,
+    # and that step requests issues:write and nothing else.
+    holders = []
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        for job_id, job in _load(path.name)["jobs"].items():
+            for step in job.get("steps", []) or []:
+                text = yaml.safe_dump(step)
+                if "STAGING_APP_CLIENT_ID" in text or "STAGING_APP_PRIVATE_KEY" in text:
+                    holders.append((path.name, job_id, step))
+    assert len(holders) == 1, (
+        f"the staging telemetry credentials spread beyond their one step: "
+        f"{[(n, j) for n, j, _ in holders]}"
+    )
+    holder_step = holders[0][2]
+    assert holder_step.get("id") == "watchdog-token"
+    assert set(holder_step["with"]) == {"client-id", "private-key", "permission-issues"}
+    assert holder_step["with"]["permission-issues"] == "write"
+    for name in ("run-predict.yml", "run-evaluate.yml"):
+        jobs = _load(name)["jobs"]
+        cell_steps = jobs[ENGINE_WATCHDOG_SENTINEL_ROLE[name]]["steps"]
+        cell_mint = next(s for s in cell_steps if s.get("name") == CODEX_WATCHDOG_TOKEN_STEP)
+        assert cell_mint["with"]["client-id"] == "${{ vars.DEV_APP_CLIENT_ID }}", name
+        assert cell_mint["with"]["private-key"] == "${{ secrets.DEV_APP_PRIVATE_KEY }}", name
+        assert '--channel "$TELEMETRY_CHANNEL"' not in str(
+            next(s for s in cell_steps if s.get("name") == "Arm the engine watchdog")["run"]
+        ), f"{name}: a cell arm step gained a channel it has no lane for"

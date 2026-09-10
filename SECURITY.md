@@ -156,8 +156,10 @@ runbook, [docs/security.md](docs/security.md).
   repo code, and the failure it guards — a step that never ends until the *job*
   cap cancels the runner — destroys every runner-local account of itself, the
   diagnostics bundle and the job log included. So the watchdog reports **off**
-  the runner while the runner is still alive, onto one long-lived
-  `codex-watchdog` issue, and that costs an App token minted with
+  the runner while the runner is still alive, onto the bound channel's
+  long-lived issue (`codex-watchdog`; a staging-bound repro dispatch writes
+  `codex-watchdog-staging` instead, under a separate staging-only App whose
+  App-level grant is Issues alone), and that costs an App token minted with
   **`issues: write` and nothing else** — no `contents`, no `pull-requests`, and
   no widening of the job's own `permissions` block. The watchdog itself brackets
   **every** engine's cell step; this credential stays **codex-only**, which is
@@ -346,7 +348,7 @@ runbook, [docs/security.md](docs/security.md).
   platform enforces. Code and config reach `main` only as a gated promotion
   batch from `staging`, whose own ruleset requires a PR passing `gate` and
   `paths` (sole bypass: the repository admin role, for the maintainer's
-  deterministic sync push — neither App bypasses it, and the `sync-staging`
+  deterministic sync push — no App bypasses it, and the `sync-staging`
   workflow's write token reaches the branch only through a PR that satisfies
   the same checks). A ruleset with **no** bypass blocks force-pushes and branch
   deletion for everyone, so the committed *history* of the predictions,
@@ -361,8 +363,11 @@ runbook, [docs/security.md](docs/security.md).
   production S3 role ARNs live in the
   `prod` environment, whose deployment branches are restricted to `main`: a
   workflow authored on a PR branch runs without them. A second environment,
-  `staging`, is restricted to the `staging` branch and holds the read-only role
-  and its own engine keys for the pre-promotion integration runs. A third,
+  `staging`, is restricted to the `staging` branch and holds the read-only
+  role, its own engine keys for the pre-promotion integration runs, the
+  staging read-write role, and the staging telemetry App's client id and
+  private key — the Issues-only App the repro leg's rehearsal record is
+  minted from. A third,
   `review`, holds no secret, no role, and no branch policy: its entire content
   is a required-reviewer rule, and it exists only as the audit-logged hold
   between a plan that would spend and the spend — run-predict, run-evaluate and

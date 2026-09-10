@@ -310,11 +310,15 @@ the agent finishes: a bound inside the envelope kills a healthy mid-grading
 cell and never reaches the teardown phase the leg exists to observe, and the
 deadline kill can end the whole *job*, which skips the disarm and upload tail
 and drops the log. That is also why the leg arms the **off-runner record** the
-production codex cells keep — the comment-only telemetry channel on the
-`codex-watchdog` issue — so a deadline path that destroys every runner-local
-account still leaves one a cancelled job cannot erase. Two bounds on that
-record, both stated where they bind: the mint's credentials live on the `prod`
-environment, so a leg bound elsewhere arms no record and warns; and the token
+production codex cells keep — the comment-only telemetry channel, on the
+bound environment's own issue: `codex-watchdog` from a prod-bound dispatch,
+or `codex-watchdog-staging` from a staging-bound one, whose token is minted
+from the Issues-only staging App and whose separation is the arm step's own
+channel selection — so a deadline path that destroys every runner-local
+account still leaves one a cancelled job cannot erase, and a rehearsal's
+rows never mix into the production record. Two bounds on that
+record, both stated where they bind: a leg bound to neither environment
+resolves no credentials, arms no record and warns; and the token
 lives an hour, so on the deadline path the record may end at its last
 pre-expiry heartbeat — the armed row's fire ETA is what makes that frozen tail
 readable as the deadline path. Each heartbeat carries the runner's memory
