@@ -25,7 +25,8 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # sidecar, the tokenless CourtListener MCP sidecar, and cascade cells — stub or
 # one real engine — over them. Each scenario is one dispatch, side-effect
 # free with a single carve-out: no corpus write, no git write, no PR, and the
-# one issue write is the application-repro leg's watchdog telemetry row on
+# one issue write is a watchdog telemetry row — the application-repro leg's,
+# and the runner-idle-control job's — on
 # the bound environment's own long-lived issue — `codex-watchdog` on a
 # prod-bound dispatch, `codex-watchdog-staging` on a staging-bound one, so a
 # rehearsal's rows never mix into the production record — dispatch-only
@@ -147,7 +148,11 @@ on:
           cell's worth of codex. `qp-labeler-smoke` sends the qp-topic
           labeling lane's own invocation block a five-row synthetic extract
           and SPENDS MODEL TOKENS: cents at the labeler's default tier.
-          Neither whole-suite selection fans out either of those two.
+          `runner-idle-control` runs no agent and spends nothing: it arms
+          the watchdog's off-runner record and idles seventy minutes, so a
+          runner death in the 58-64-minute window with no engine anywhere
+          near it separates a runner-lifetime defect from a codex-workload
+          one. No whole-suite selection fans out any of those three.
         type: choice
         default: ranged-reads
         options:
@@ -160,6 +165,7 @@ on:
           - collect
           - qp-topic
           - qp-labeler-smoke
+          - runner-idle-control
           - codex-application-repro
           - all
           - all-offline
@@ -233,6 +239,16 @@ on:
           Optional event id to narrow the cascade scenarios to; empty runs
           every event the case defines. An event id belongs to one case, so
           pair it with a pinned `docket` rather than a resolved case.
+        type: string
+        default: ""
+      repro_deadline_s:
+        description: >-
+          codex-application-repro only: override the leg's 4200-second
+          watchdog deadline, digits only (empty = the default). The
+          death-window discriminator sets it BELOW the 58-64-minute window
+          (e.g. 2700) so a live watchdog fires before the runner dies; no
+          other scenario or workflow reads it, and the cell workflows'
+          deadlines are untouched literals.
         type: string
         default: ""
       deploy-environment:
@@ -319,11 +335,13 @@ jobs:
     # what is meant, and survives someone hardening the inequality into the
     # fail-closed shape the scheduled-workflow trap in docs/pipeline.md asks
     # for everywhere it is a hazard rather than the intent.
-    # qp-labeler-smoke is excluded beside collect: both run as standalone
-    # jobs below, needing no matrix, no case, and no corpus.
+    # qp-labeler-smoke and runner-idle-control are excluded beside collect:
+    # all three run as standalone jobs below, needing no matrix, no case,
+    # and no corpus.
     if: >-
       ${{ github.event_name == 'schedule'
-      || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke') }}
+      || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke'
+      && inputs.scenario != 'runner-idle-control') }}
     runs-on: ubuntu-latest
     # 15, not 5: the resolve path checks out, builds the Python env, assumes
     # the read-only role, and walks a bounded candidate window over the blob.
@@ -524,16 +542,20 @@ jobs:
           cat "$out" >> "$GITHUB_OUTPUT"
 
   scenario:
-    # Every dispatch-selected scenario except the two that run as standalone
-    # jobs below: `collect` (environment-free — it needs no role variables,
-    # so binding it to this job's deployment environment would only add a
-    # needless gate) and `qp-labeler-smoke` (environment-bound but
+    # Every dispatch-selected scenario except the three that run as
+    # standalone jobs below: `collect` (environment-free — it needs no role
+    # variables, so binding it to this job's deployment environment would
+    # only add a needless gate), `qp-labeler-smoke` (environment-bound but
     # deliberately without this job's id-token grant, which is part of the
-    # posture it smokes). Plus the scheduled canary, named for the reason the
+    # posture it smokes), and `runner-idle-control` (environment-bound for
+    # the telemetry mint alone, and deliberately empty of everything else —
+    # its subject is the runner, not the stack). Plus the scheduled canary,
+    # named for the reason the
     # plan job's gate carries.
     if: >-
       ${{ github.event_name == 'schedule'
-      || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke') }}
+      || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke'
+      && inputs.scenario != 'runner-idle-control') }}
     needs: plan
     runs-on: ubuntu-latest
     strategy:
@@ -1419,8 +1441,13 @@ jobs:
           # It is longer than the cells' 3900 s deliberately. A cell has a whole
           # round's budget to protect and a level-triggered lane that re-derives
           # what it loses; this leg is one dispatched observation, and cutting it
-          # short costs the observation itself.
-          WATCHDOG_DEADLINE_S: "4200"
+          # short costs the observation itself — except when cutting it short
+          # IS the observation: the dispatch input can lower this leg's (and
+          # only this leg's) deadline below the death window, so a live
+          # watchdog fires, captures, and concludes the step before the
+          # runner can die — which splits watchdog-process death from channel
+          # death, and engine-tied death from job-clock-tied, in one run.
+          WATCHDOG_DEADLINE_S: ${{ inputs.repro_deadline_s != '' && inputs.repro_deadline_s || '4200' }}
           # A denser beat than the cells' 300 s default, because on this leg the
           # off-runner record is the observation: a runner that dies mid-cell
           # leaves the record's last beat as the only timestamp of the death,
@@ -1432,6 +1459,12 @@ jobs:
           WATCHDOG_HEARTBEAT_S: "120"
         run: |
           set -euo pipefail
+          # The override is spliced into arithmetic the watchdog trusts, so
+          # anything but digits stops here, before a record is opened.
+          if ! [[ "$WATCHDOG_DEADLINE_S" =~ ^[0-9]+$ ]]; then
+            echo "::error::repro_deadline_s must be digits, got '${WATCHDOG_DEADLINE_S}'"
+            exit 1
+          fi
           mkdir -p "$WATCHDOG_DIR"
           # The cell workflows' sentinel arming, verbatim in what it asks for:
           # the required-output list from the same `cell-outputs` command, handed
@@ -1521,6 +1554,15 @@ jobs:
             echo "::warning::watchdog telemetry mint yielded no token (mint failed, or a dispatch bound to neither environment); this leg has no off-runner record"
           elif [ -z "$checkin_url" ]; then
             echo "::warning::codex watchdog armed with no off-runner record (${EVENT_ID})"
+          fi
+          # The arm outcome, on the one surface a runner death cannot erase:
+          # this step's summary uploads when the step completes, minutes
+          # before any death, where the log and its warnings die with the
+          # runner — a dead run must still say whether its record was armed.
+          if [ -n "$checkin_url" ]; then
+            echo "watchdog telemetry armed (deadline ${WATCHDOG_DEADLINE_S}s): ${checkin_url}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "watchdog telemetry NOT armed — mint or check-in failed; this run has no off-runner record" >> "$GITHUB_STEP_SUMMARY"
           fi
           # The watchdog and its evidence both live outside the workspace: that
           # tree belongs to the agent for the whole of its turn, and bash reads a
@@ -2877,3 +2919,143 @@ jobs:
               (group_by(.[0:120])[] | "x\(length): \(.[0][0:200])")
           ' "$EXECUTION_FILE" | head -n 50)
           printf '%s\n' "$digest" | sed 's/::/: :/g; s/^/  /'
+
+  # --- runner-idle-control: does an idle runner survive the death window? --
+
+  # Every death in the runner-death class sits 58-64 minutes into a job whose
+  # codex engine step is mid-run, and no job on this repository idles that
+  # long without one — so "the workload kills the runner" and "these runners
+  # die at the hour regardless" have never been separated. This job is the
+  # control: bind the environment, arm the same off-runner record the repro
+  # leg arms (the watchdog script verbatim, beating on the same cadence, with
+  # no sentinel to watch), then idle seventy minutes doing nothing at all. A
+  # runner that survives to a clean disarm localizes the class to the codex
+  # workload; one that dies in the window with no engine anywhere near it
+  # reframes the whole investigation at the infrastructure. Token-free: no
+  # agent, no corpus, no engine key — the environment supplies only the
+  # telemetry App credentials, and the record row is the run's one write.
+  runner-idle-control:
+    if: ${{ inputs.scenario == 'runner-idle-control' }}
+    runs-on: ubuntu-latest
+    # Setup (~3) + the 4200 s idle + the disarm tail, with room; the watchdog
+    # deadline sits at 4500 s so it never fires on a healthy run — the idle
+    # step ends first — and a beat cadence of 120 s bounds the death
+    # timestamp to two minutes, the repro leg's own arithmetic.
+    timeout-minutes: 85
+    # Branch-resolved with an explicit override; keep this expression
+    # identical to `run-name:`'s and the other binding jobs', and see the
+    # deploy-environment input for what resolves.
+    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The repro leg's mint, on its terms: per-environment credentials,
+      # comment-only, fail-soft — a control with no record still answers the
+      # survival question through its own job conclusion, just less legibly.
+      - name: Mint the codex watchdog telemetry token
+        id: watchdog-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ github.ref_name == 'main' && vars.DEV_APP_CLIENT_ID || vars.STAGING_APP_CLIENT_ID }}
+          private-key: ${{ github.ref_name == 'main' && secrets.DEV_APP_PRIVATE_KEY || secrets.STAGING_APP_PRIVATE_KEY }}
+          permission-issues: write
+
+      - name: Arm the watchdog over nothing
+        id: arm
+        env:
+          WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
+          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          WATCHDOG_CHECKIN_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
+          WATCHDOG_DEADLINE_S: "4500"
+          WATCHDOG_HEARTBEAT_S: "120"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # The record's identity row: synthetic on purpose, and spelled so a
+          # reader of the telemetry issue can never mistake it for a cell.
+          RUN_ID: idle-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$WATCHDOG_DIR"
+          checkin_url=""
+          checkin_base=""
+          if [ -n "${GH_TOKEN:-}" ]; then
+            checkin_out="$(timeout 90 uv run fedcourts watchdog-checkin \
+              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
+              --court scotus --docket idle-control --event-id evt-idle-control \
+              --actor runner-idle-control --deadline-s "$WATCHDOG_DEADLINE_S" \
+              --run-url "$RUN_URL" --channel "$TELEMETRY_CHANNEL" || true)"
+            if [ -n "$checkin_out" ]; then
+              checkin_url="${checkin_out%%$'\n'*}"
+              checkin_base="${checkin_out#*$'\n'}"
+            fi
+          fi
+          # The repro leg's URL-shape gate, verbatim: the token is PATCHed to
+          # this URL for the whole deadline, so only this repository's own
+          # comments endpoint may hold it.
+          case "$checkin_url" in
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*) ;;
+            *)
+              if [ -n "$checkin_url" ]; then
+                echo "::warning::idle-control check-in URL was not this repository's; dropped"
+              fi
+              checkin_url=""
+              checkin_base=""
+              ;;
+          esac
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::telemetry mint yielded no token (mint failed, or a dispatch bound to neither environment); the control runs record-less"
+          elif [ -z "$checkin_url" ]; then
+            echo "::warning::idle control armed with no off-runner record"
+          fi
+          if [ -n "$checkin_url" ]; then
+            echo "watchdog telemetry armed (deadline ${WATCHDOG_DEADLINE_S}s): ${checkin_url}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "watchdog telemetry NOT armed — mint or check-in failed; the control's only record is its job conclusion" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          cp scripts/engine-watchdog.sh "$RUNNER_TEMP/engine-watchdog.sh"
+          # No sentinel and no engine: the watchdog runs its deadline loop and
+          # beats, which is the whole point — the beats are the clock a dead
+          # runner cannot erase. GH_TOKEN cleared as on the repro leg.
+          GH_TOKEN='' WATCHDOG_CHECKIN_URL="$checkin_url" \
+            WATCHDOG_CHECKIN_BASE="$checkin_base" \
+            WATCHDOG_OUTPUT_DIR="" \
+            WATCHDOG_SENTINEL_PATHS="" \
+            nohup bash "$RUNNER_TEMP/engine-watchdog.sh" \
+            > "$WATCHDOG_DIR/watchdog.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/engine-watchdog.pid"
+
+      # The experiment: seventy idle minutes, spanning the whole 58-64 window
+      # with margin on both sides, under the watchdog's 75-minute deadline so
+      # a healthy run is never fired on.
+      - name: Idle across the death window
+        timeout-minutes: 75
+        run: sleep 4200
+
+      - name: Disarm and report
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
+          RUN_ID: idle-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          pid_file="$RUNNER_TEMP/engine-watchdog.pid"
+          if [ -f "$pid_file" ]; then
+            kill "$(cat "$pid_file")" 2>/dev/null || true
+          fi
+          if [ -n "${GH_TOKEN:-}" ]; then
+            timeout 90 uv run fedcourts watchdog-checkin --disarm --healthy \
+              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
+              --court scotus --docket idle-control --event-id evt-idle-control \
+              --actor runner-idle-control --conclusion success \
+              --channel "$TELEMETRY_CHANNEL" > /dev/null || true
+          fi
+          echo "runner survived 4200 idle seconds across the 58-64-minute death window" \
+            | tee -a "$GITHUB_STEP_SUMMARY"

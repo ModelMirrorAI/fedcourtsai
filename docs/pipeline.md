@@ -388,8 +388,8 @@ scheduled canary — over the **corpus
 read backends, the two sidecars, cascade cells, the engines' own invocation
 blocks, the collect writer, and the
 qp-topic measure path**,
-against the real corpus remote for every scenario but collect, qp-topic and
-qp-labeler-smoke —
+against the real corpus remote for every scenario but collect, qp-topic,
+qp-labeler-smoke and runner-idle-control —
 the tested `fedcourts corpus-integration-check` read set, a
 cell's-eye probe of the service sidecar, the tokenless CourtListener MCP
 sidecar under the tested `mcp-integration-check` client, a stub
@@ -407,7 +407,8 @@ CLIs or engine actions, the collect contract, or the corpus-consuming
 workflows and before
 releases — from main, or via the `staging` deployment environment (collect
 binds none; qp-topic binds one it never reads; the labeler smoke binds one
-and reads exactly its engine key) from the `staging` branch, which
+and reads exactly its engine key; the idle control binds one and reads
+exactly the telemetry App's pair) from the `staging` branch, which
 is the only branch that environment accepts (those runs are the promotion
 gate's freshness evidence; see *Promotion: staging → main* below). The deployment environment resolves from
 the dispatching branch by default — `main` gets `prod`, `staging` gets

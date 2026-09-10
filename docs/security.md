@@ -37,8 +37,10 @@ convention `AGENTS.md` carries, not something identity enforces):
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
   **not** a bypass actor, so nothing it holds can reach `main` except through a
   PR that satisfies the required checks.
-- **staging telemetry App** (`fedcourtsai-staging`) — used by exactly one
-  step: `integration-test`'s application-repro leg mints from it on a
+- **staging telemetry App** (`fedcourtsai-staging`) — used by exactly two
+  steps of one workflow, both the same watchdog-mint shape:
+  `integration-test`'s application-repro leg and its runner-idle-control
+  job mint from it on a
   staging-bound dispatch, for the watchdog telemetry row on the rehearsal
   channel's own issue. Its client id is the `STAGING_APP_CLIENT_ID` variable
   and its private key the `STAGING_APP_PRIVATE_KEY` secret, both on the
