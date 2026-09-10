@@ -13835,6 +13835,18 @@ def watchdog_checkin_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options 
             help="Disarm mode: the watchdog never reached its deadline, so the record collapses.",
         ),
     ] = True,
+    channel: Annotated[
+        str,
+        typer.Option(
+            help=(
+                "Which long-lived issue carries the record: 'prod' (the production "
+                "cells' `codex-watchdog` issue, the default) or 'staging' (the "
+                "rehearsal channel's own issue, for staging-bound repro dispatches). "
+                "An unregistered value degrades to a record-less arming with a "
+                "warning, on the command's best-effort contract."
+            ),
+        ),
+    ] = "prod",
 ) -> None:
     """Record this codex cell on the long-lived `codex-watchdog` telemetry issue.
 
@@ -13872,6 +13884,7 @@ def watchdog_checkin_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options 
                 actor=actor,
                 conclusion=conclusion or "unknown",
                 healthy=healthy,
+                channel=channel,
             )
         else:
             url, base = arm_checkin(
@@ -13883,6 +13896,7 @@ def watchdog_checkin_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options 
                 actor=actor,
                 deadline_s=deadline_s,
                 run_url=run_url,
+                channel=channel,
             )
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         # Named exactly: a missing/unexecutable gh, an unparseable response, and

@@ -474,3 +474,105 @@ def test_the_failure_note_stays_off_stdout(
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "::warning::" in captured.err
+
+
+# --- the rehearsal channel --------------------------------------------------
+
+
+def test_the_staging_channel_opens_its_own_issue_under_its_own_label() -> None:
+    """A staging-bound repro dispatch records on the rehearsal channel's own
+    issue, so the production occurrence record stays one readable row per
+    production cell and a rehearsal's rows read as rehearsals. Same marker
+    format, different issue: the find-or-create is scoped by label, so the
+    channels cannot reset each other's rows."""
+    gh = FakeGh()
+    _arm(gh, channel="staging")
+    assert gh.calls[0][:4] == ["gh", "label", "create", f"{LABEL}-staging"]
+    assert gh.created_issue()
+    listed = next(c for c in gh.calls if tuple(c[1:3]) == ("issue", "list"))
+    assert listed[listed.index("--label") + 1] == f"{LABEL}-staging"
+    created = next(c for c in gh.calls if tuple(c[1:3]) == ("issue", "create"))
+    assert "staging rehearsals" in created[created.index("--title") + 1]
+    assert "rehearsal channel" in created[created.index("--body") + 1]
+
+
+def test_the_default_channel_is_the_production_issue() -> None:
+    """`prod` stays the default on both entry points, so every existing caller
+    — the cell workflows' arm/disarm steps — keeps writing where it always
+    has without naming a channel."""
+    gh = FakeGh()
+    _arm(gh)
+    assert gh.calls[0][:4] == ["gh", "label", "create", LABEL]
+    gh2 = FakeGh()
+    disarm_checkin(repo="o/r", **CELL, conclusion="success", healthy=True, now=NOW, runner=gh2)
+    assert gh2.calls[0][:4] == ["gh", "label", "create", LABEL]
+
+
+def test_an_unregistered_channel_is_refused_before_any_write() -> None:
+    """The module refuses loudly — and names the registered set — before the
+    first `gh` call, so nothing lands on the wrong issue; the CLI's
+    best-effort contract then converts the refusal to a warning and a
+    record-less arming, the lane's standing degradation."""
+    gh = FakeGh()
+    with pytest.raises(ValueError, match="registered"):
+        _arm(gh, channel="production")
+    assert gh.calls == []
+
+
+def test_the_channel_flag_routes_to_both_records(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake(**kwargs: object) -> tuple[str, str]:
+        seen.update(kwargs)
+        return "u", "h"
+
+    monkeypatch.setattr(cli, "arm_checkin", fake)
+    result = runner.invoke(
+        cli.app,
+        [
+            "watchdog-checkin",
+            "--repo",
+            "o/r",
+            "--run-id",
+            CELL["run_id"],
+            "--court",
+            CELL["court"],
+            "--docket",
+            CELL["docket"],
+            "--event-id",
+            CELL["event_id"],
+            "--actor",
+            CELL["actor"],
+            "--channel",
+            "staging",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert seen["channel"] == "staging"
+    monkeypatch.setattr(cli, "disarm_checkin", fake)
+    seen.clear()
+    result = runner.invoke(
+        cli.app,
+        [
+            "watchdog-checkin",
+            "--disarm",
+            "--repo",
+            "o/r",
+            "--run-id",
+            CELL["run_id"],
+            "--court",
+            CELL["court"],
+            "--docket",
+            CELL["docket"],
+            "--event-id",
+            CELL["event_id"],
+            "--actor",
+            CELL["actor"],
+            "--conclusion",
+            "success",
+            "--channel",
+            "staging",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert seen["channel"] == "staging"
