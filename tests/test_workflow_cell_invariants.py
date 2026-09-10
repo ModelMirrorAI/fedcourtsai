@@ -452,33 +452,35 @@ def test_corpus_composite_call_sites_pass_the_base_url_with_the_same_spelling() 
 # variable already gives, and no respelling), and the exact set of surfaces
 # that may carry it.
 POINTER_ENV_EXPRESSION = "${{ vars.FEDCOURTS_CORPUS_POINTER }}"
-# The fenced form run-analytics carries: forwarded only off `main`, so a
-# pointer that ever appears at repository scope still cannot repoint a
-# prod-bound run of a publishing lane — the scenario lane accepts that
-# residual as a provisioning discipline (docs/security.md's "staging
-# environment only" rule); a lane that opens review PRs from `main` fences
-# it structurally instead.
-FENCED_POINTER_ENV_EXPRESSION = (
-    "${{ github.ref != 'refs/heads/main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}"
+# The fenced form run-analytics's corpus pulls carry, as the corpus-readonly
+# composite's explicit input (the sidecar composite's rule: every call site
+# shows its read configuration): forwarded only off `main`, so a pointer that
+# ever appears at repository scope still cannot repoint a prod-bound run of a
+# publishing lane — the scenario lane accepts that residual as a provisioning
+# discipline (docs/security.md's "staging environment only" rule). `ref_name`,
+# the environment expression's own key, so the fence is its exact complement:
+# whatever binds `prod` forwards nothing, tag refs included.
+FENCED_POINTER_INPUT_EXPRESSION = (
+    "${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}"
 )
-# The rehearsable lanes alone, each pinned to its one admitted expression.
-# The production lanes read the pair the committed
-# pointer names, so a pointer reaching run-predict/run-evaluate/the writers
-# would repoint a real run's corpus at another blob — hence a pinned map
-# rather than a count, exactly as the base URL is pinned above.
-POINTER_WORKFLOWS = {
-    "integration-test.yml": POINTER_ENV_EXPRESSION,
-    "run-analytics.yml": FENCED_POINTER_ENV_EXPRESSION,
-}
+# The scenario lane alone may carry the variable as env. The production lanes
+# read the pair the committed pointer names, so a pointer reaching
+# run-predict/run-evaluate/the writers would repoint a real run's corpus at
+# another blob — hence a pinned set rather than a count, exactly as the base
+# URL is pinned above. run-analytics carries it only as the fenced composite
+# input, pinned by its own test below.
+POINTER_WORKFLOWS = {"integration-test.yml"}
 
 
 def test_the_corpus_pointer_is_spelled_once_and_scoped_to_the_scenario_lane() -> None:
-    """The pointer override travels in one spelling, on one workflow.
+    """The pointer override travels as env in one spelling, on one workflow.
 
     A copy-paste onto a production lane silently redirects that lane's corpus
     reads to whatever blob the variable names; a respelling forks the read
     path between the job env and the sidecar input, which must agree for the
-    sidecar to serve the same pair the in-process reads resolve.
+    sidecar to serve the same pair the in-process reads resolve. (The other
+    carrier — run-analytics's fenced composite input — has its own pin two
+    tests below.)
     """
     covered: set[str] = set()
     for name in sorted(p.name for p in WORKFLOWS.glob("*.y*ml")):
@@ -486,13 +488,12 @@ def test_the_corpus_pointer_is_spelled_once_and_scoped_to_the_scenario_lane() ->
             if "FEDCOURTS_CORPUS_POINTER" not in env:
                 continue
             covered.add(name)
-            expected = POINTER_WORKFLOWS.get(name)
-            assert expected is not None and env["FEDCOURTS_CORPUS_POINTER"] == expected, (
+            assert env["FEDCOURTS_CORPUS_POINTER"] == POINTER_ENV_EXPRESSION, (
                 f"{context}: the corpus pointer must be exactly "
-                f"{expected!r}, got {env['FEDCOURTS_CORPUS_POINTER']!r}"
+                f"{POINTER_ENV_EXPRESSION!r}, got {env['FEDCOURTS_CORPUS_POINTER']!r}"
             )
-    assert covered == set(POINTER_WORKFLOWS), (
-        f"corpus pointer coverage drifted: {sorted(covered ^ set(POINTER_WORKFLOWS))}"
+    assert covered == POINTER_WORKFLOWS, (
+        f"corpus pointer coverage drifted: {sorted(covered ^ POINTER_WORKFLOWS)}"
     )
 
 
@@ -515,6 +516,31 @@ def test_sidecar_call_sites_pass_the_pointer_with_the_same_spelling() -> None:
                     f"{name}: job {job_id}: corpus-sidecar corpus-pointer must be "
                     f"exactly {POINTER_ENV_EXPRESSION!r}, got {pointer!r}"
                 )
+
+
+def test_corpus_readonly_call_sites_carry_the_pointer_only_on_the_rehearsable_lane() -> None:
+    """run-analytics's corpus pulls forward the out-of-band pointer as the
+    composite's fenced explicit input — resolution alone would leave a
+    staging-bound pull resolving the committed production digest against the
+    staging remote — and no production lane passes one at all: a pointer on
+    run-predict/run-evaluate/run-backtest would repoint a real run's corpus
+    at whatever blob the variable names."""
+    for name in sorted(p.name for p in WORKFLOWS.glob("*.y*ml")):
+        for job_id, job in _load(name)["jobs"].items():
+            for step in job.get("steps", []) or []:
+                if not str(step.get("uses", "")).endswith("actions/corpus-readonly"):
+                    continue
+                pointer = (step.get("with") or {}).get("corpus-pointer")
+                if name == "run-analytics.yml":
+                    assert pointer == FENCED_POINTER_INPUT_EXPRESSION, (
+                        f"{name}: job {job_id}: corpus-readonly must forward the fenced "
+                        f"pointer, got {pointer!r}"
+                    )
+                else:
+                    assert pointer is None, (
+                        f"{name}: job {job_id}: a production lane must not pass "
+                        f"corpus-pointer, got {pointer!r}"
+                    )
 
 
 # The codex cell's MCP wiring, in the one spelling every surface must share.
@@ -2875,21 +2901,6 @@ def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> Non
         assert group.endswith("-${{ github.ref_name }}"), (
             f"{job_id}'s concurrency group is shared across refs: {group}"
         )
-        # Resolution alone does not make a staging dispatch read the staging
-        # pair: the committed corpus pointer names the production blob, so
-        # every job that pulls through the corpus composite must forward the
-        # out-of-band pointer — in the fenced spelling, so a repository-scoped
-        # value can never repoint a prod-bound run of this publishing lane.
-        pulls_corpus = any(
-            "actions/corpus-readonly" in str(step.get("uses") or "")
-            for step in job.get("steps", []) or []
-        )
-        if pulls_corpus:
-            assert (job.get("env") or {}).get(
-                "FEDCOURTS_CORPUS_POINTER"
-            ) == FENCED_POINTER_ENV_EXPRESSION, (
-                f"{job_id} pulls the corpus without the fenced staging pointer forward"
-            )
 
 
 def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:

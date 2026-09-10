@@ -97,6 +97,15 @@ COMPUTED_ENVIRONMENT = (
 # names no configured environment and binds nothing.
 BRANCH_RESOLVED_ENVIRONMENT = "${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
 
+# Which workflow may carry which computed form — per-workflow, never global: a
+# production lane's prod job quietly becoming branch-resolvable (its corpus
+# role assumable from a staging ref) must fail this sweep, not pass under a
+# form admitted for the two rehearsable lanes.
+COMPUTED_ENVIRONMENTS = {
+    "integration-test.yml": COMPUTED_ENVIRONMENT,
+    "run-analytics.yml": BRANCH_RESOLVED_ENVIRONMENT,
+}
+
 # Step markers that mean "privileged work has started": minting an App token,
 # assuming the S3 role, or handing control to a coding agent.
 PRIVILEGED_USES = (
@@ -212,9 +221,9 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
             if not _is_privileged(job):
                 continue
             environment = job.get("environment")
-            assert environment in BRANCH_POLICIED_ENVIRONMENTS or environment in (
-                COMPUTED_ENVIRONMENT,
-                BRANCH_RESOLVED_ENVIRONMENT,
+            assert (
+                environment in BRANCH_POLICIED_ENVIRONMENTS
+                or environment == COMPUTED_ENVIRONMENTS.get(path.name)
             ), (
                 f"{path.name}:{job_name} mints a token, assumes the S3 role or runs an "
                 f"agent under environment {environment!r} — not one whose branch policy "

@@ -1,5 +1,11 @@
 name: run-analytics
 
+# The run list must tell a staging rehearsal from a production run of the
+# same mode at a glance, or a rehearsal reads as production history. Both
+# components are server-validated vocabulary: `mode` is a closed choice, and
+# the environment half is the same branch resolution the jobs bind.
+run-name: "run-analytics: ${{ github.event_name == 'schedule' && 'metrics-refresh (schedule)' || inputs.mode }} @ ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
+
 # Corpus analysis & derived metrics. One surface for every task that reads the
 # corpus and answers a question or refreshes a derived artifact, selected by
 # `mode` (dispatch) or the weekly schedule:
@@ -181,16 +187,6 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
-    # The out-of-band staging index pointer, forwarded only off `main`: a
-    # staging-bound pull must resolve the staging pair's own digest — the
-    # committed corpus/corpus.db.ref names the production blob, which the
-    # staging remote does not hold — while a prod-bound run stays on the
-    # committed pointer even if the variable ever appears at repository
-    # scope. This lane publishes from `main`, so that fence is structural
-    # here where the scenario lane's is a provisioning discipline. Job-level
-    # so the composite's pull step inherits it.
-    env:
-      FEDCOURTS_CORPUS_POINTER: ${{ github.ref != 'refs/heads/main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -205,6 +201,16 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The out-of-band staging index pointer, forwarded only off `main`:
+          # a staging-bound pull must resolve the staging pair's own digest —
+          # the committed corpus/corpus.db.ref names the production blob,
+          # which the staging remote does not hold — while a prod-bound run
+          # stays on the committed pointer even if the variable ever appears
+          # at repository scope. `ref_name`, the environment expression's own
+          # key, so the fence is its exact complement: whatever binds `prod`
+          # forwards nothing. (The publish fences use the stricter exact-ref
+          # spelling instead — under-inclusion is safe there, not here.)
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
 
       - name: Aggregate corpus base-rates
         env:
@@ -272,11 +278,6 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
-    # The fenced staging index pointer, on corpus-stats's terms: forwarded
-    # off `main` so a staging-bound pull resolves the staging pair's digest,
-    # empty on a prod-bound run whatever scope the variable acquires.
-    env:
-      FEDCOURTS_CORPUS_POINTER: ${{ github.ref != 'refs/heads/main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -291,6 +292,16 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The out-of-band staging index pointer, forwarded only off `main`:
+          # a staging-bound pull must resolve the staging pair's own digest —
+          # the committed corpus/corpus.db.ref names the production blob,
+          # which the staging remote does not hold — while a prod-bound run
+          # stays on the committed pointer even if the variable ever appears
+          # at repository scope. `ref_name`, the environment expression's own
+          # key, so the fence is its exact complement: whatever binds `prod`
+          # forwards nothing. (The publish fences use the stricter exact-ref
+          # spelling instead — under-inclusion is safe there, not here.)
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
           # Covers the census step's cap below plus everything before it —
           # checkout, env sync, up to 120s of assume-role retry, and the
           # composite's own uncapped corpus pull — so the step cap, not the
@@ -443,11 +454,6 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
-    # The fenced staging index pointer, on corpus-stats's terms: forwarded
-    # off `main` so a staging-bound pull resolves the staging pair's digest,
-    # empty on a prod-bound run whatever scope the variable acquires.
-    env:
-      FEDCOURTS_CORPUS_POINTER: ${{ github.ref != 'refs/heads/main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -462,6 +468,16 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The out-of-band staging index pointer, forwarded only off `main`:
+          # a staging-bound pull must resolve the staging pair's own digest —
+          # the committed corpus/corpus.db.ref names the production blob,
+          # which the staging remote does not hold — while a prod-bound run
+          # stays on the committed pointer even if the variable ever appears
+          # at repository scope. `ref_name`, the environment expression's own
+          # key, so the fence is its exact complement: whatever binds `prod`
+          # forwards nothing. (The publish fences use the stricter exact-ref
+          # spelling instead — under-inclusion is safe there, not here.)
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
           # Covers the walk's cap below plus everything before it — checkout,
           # env sync, up to 120s of assume-role retry, and the composite's own
           # uncapped corpus pull — the census's sizing, for the census's
@@ -545,11 +561,6 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
-    # The fenced staging index pointer, on corpus-stats's terms: forwarded
-    # off `main` so a staging-bound pull resolves the staging pair's digest,
-    # empty on a prod-bound run whatever scope the variable acquires.
-    env:
-      FEDCOURTS_CORPUS_POINTER: ${{ github.ref != 'refs/heads/main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -593,6 +604,16 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The out-of-band staging index pointer, forwarded only off `main`:
+          # a staging-bound pull must resolve the staging pair's own digest —
+          # the committed corpus/corpus.db.ref names the production blob,
+          # which the staging remote does not hold — while a prod-bound run
+          # stays on the committed pointer even if the variable ever appears
+          # at repository scope. `ref_name`, the environment expression's own
+          # key, so the fence is its exact complement: whatever binds `prod`
+          # forwards nothing. (The publish fences use the stricter exact-ref
+          # spelling instead — under-inclusion is safe there, not here.)
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
           missing-pointer: warn
 
       # The tested stage commands, run directly; each is deterministic, so an
@@ -603,6 +624,7 @@ jobs:
       # prior-vote baseline retrieves against a prebuilt index, so a full
       # replay costs a couple of resolved-slice scans, not a query per case.)
       - name: Regenerate the metrics artifacts
+        id: regenerate
         run: |
           set -euo pipefail
           if [ -f corpus/corpus.db ]; then
@@ -671,22 +693,32 @@ jobs:
             echo "Opened review PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
-      # The rehearsal's record: everything above ran against this ref's
-      # environment, and what a prod run would have offered for review is the
-      # staged diff — reported as a stat, since the artifacts regenerate from
-      # this ref's corpus pair and the numbers themselves are not the point.
-      - name: Report the rehearsal diff (publish fenced off this ref)
-        if: ${{ github.ref != 'refs/heads/main' }}
+      # The rehearsal's record, on every outcome the runner survives — a
+      # regenerate that failed is an informative rehearsal result, and it
+      # must still leave the statement that publication was fenced, not
+      # attempted. On success the record adds what a prod run would have
+      # offered for review: the staged diff, as a stat, since the artifacts
+      # regenerate from this ref's corpus pair and the numbers themselves
+      # are not the point. (The staged index is deliberate residue: this is
+      # the job's last step, and nothing after it reads the tree.)
+      - name: Report the rehearsal record (publish fenced off this ref)
+        if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
+        env:
+          REGENERATED: ${{ steps.regenerate.outcome }}
         run: |
           set -euo pipefail
-          git add -A metrics/ data/scope/
           {
-            echo "### metrics-refresh rehearsal — publish fenced to main-ref runs"
+            echo "### metrics-refresh rehearsal — publish fenced to main-branch runs"
             echo
-            echo "Regenerated against this ref's corpus pair; the review-PR mint did not run."
-            echo '```'
-            git diff --cached --stat -- metrics/ data/scope/
-            echo '```'
+            echo "The review-PR mint did not run; nothing published from this dispatch."
+            if [ "$REGENERATED" = "success" ]; then
+              git add -A metrics/ data/scope/
+              echo '```'
+              git diff --cached --stat -- metrics/ data/scope/
+              echo '```'
+            else
+              echo "The regenerate step did not succeed (outcome: ${REGENERATED}); no diff to report."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   qp-topic-extract:
@@ -705,11 +737,6 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
-    # The fenced staging index pointer, on corpus-stats's terms: forwarded
-    # off `main` so a staging-bound pull resolves the staging pair's digest,
-    # empty on a prod-bound run whatever scope the variable acquires.
-    env:
-      FEDCOURTS_CORPUS_POINTER: ${{ github.ref != 'refs/heads/main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -724,6 +751,16 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The out-of-band staging index pointer, forwarded only off `main`:
+          # a staging-bound pull must resolve the staging pair's own digest —
+          # the committed corpus/corpus.db.ref names the production blob,
+          # which the staging remote does not hold — while a prod-bound run
+          # stays on the committed pointer even if the variable ever appears
+          # at repository scope. `ref_name`, the environment expression's own
+          # key, so the fence is its exact complement: whatever binds `prod`
+          # forwards nothing. (The publish fences use the stricter exact-ref
+          # spelling instead — under-inclusion is safe there, not here.)
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
 
       - name: Extract the stored questions-presented texts
         env:

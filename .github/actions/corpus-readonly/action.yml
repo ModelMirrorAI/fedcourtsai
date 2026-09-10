@@ -2,7 +2,8 @@ name: Read-only corpus access
 description: >-
   Assume the read-only AWS role via OIDC and optionally pull the packed corpus
   from the S3 remote (`fedcourts corpus-pull`: boto3 credentials from the
-  environment, checksum-verified against the committed pointer — no remote
+  environment, checksum-verified against the resolved pointer — committed, or
+  the out-of-band override the `corpus-pointer` input carries — no remote
   config file is written). The shared first half of every corpus *consumer*
   job — analytics, the metrics refresh, and the predict/evaluate plan jobs,
   whose backlog scans need the pulled index on every round.
@@ -29,6 +30,18 @@ inputs:
       the whole estate and the two halves cannot be paired across
       environments.
     required: true
+  corpus-pointer:
+    description: >-
+      Out-of-band corpus index pointer (pass the staging pointer variable on a
+      rehearsable lane, fenced off `main`). An explicit input, not job-env
+      inheritance, on the sidecar composite's rule: every call site shows its
+      read configuration, and no caller inherits half of another estate's.
+      Empty means the committed pointer (corpus/corpus.db.ref) — the
+      production lanes' case, whose committed digest names the production
+      blob; a staging-bound pull without the override fails on a missing key
+      rather than reading the fixture.
+    required: false
+    default: ""
   missing-pointer:
     description: >-
       What to do when no corpus pointer is committed in the checkout: "fail"
@@ -71,17 +84,15 @@ runs:
       shell: bash
       env:
         FEDCOURTS_CORPUS_BASE_URL: ${{ inputs.corpus-base-url }}
+        FEDCOURTS_CORPUS_POINTER: ${{ inputs.corpus-pointer }}
         MISSING_POINTER: ${{ inputs.missing-pointer }}
       run: |
         set -euo pipefail
         # corpus-pull resolves the committed pointer (corpus/corpus.db.ref)
         # against the index remote derived from the base URL, and verifies the
-        # blob's checksum + size before it lands. A job env carrying the
-        # out-of-band FEDCOURTS_CORPUS_POINTER override resolves that instead
-        # of the pointer file: the prod-bound callers leave it unset (or
-        # fence it empty) and read the committed pointer, while
-        # run-analytics's staging rehearsals forward it off `main` — the
-        # committed digest names the production blob, which the staging
-        # remote does not hold, so a staging-bound pull without the override
-        # fails on a missing key rather than reading the fixture.
+        # blob's checksum + size before it lands — unless the `corpus-pointer`
+        # input carries the out-of-band override, which is resolved instead
+        # of the pointer file (step env outranks any inherited job env, so
+        # the input is the one source). See the input's description for who
+        # passes it and why empty is the production case.
         uv run fedcourts corpus-pull --missing-pointer "$MISSING_POINTER"

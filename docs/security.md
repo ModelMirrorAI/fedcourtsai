@@ -441,17 +441,20 @@ granted an Actions scope; the first workflow that binds `staging` on a
 would bind the environment on the merge itself, and agents merge their own PRs
 to `staging`, which since the environment carries the staging write role's
 trust would hand *write* reach on the fixture, not just read and spend, at an
-agent's own merge; or **the `staging` environment being repointed at the
-staging corpus** (the runbook's step 5), from which point the promotion gate's
-freshness evidence is produced against a corpus the staging lane can write,
-and the code that can write the evidence is the thing a reviewer would be
-approving. The premise is the repointing, not the code that makes it
-possible: an override no environment sets redirects nothing, so the wiring
-landing leaves the gate's evidence exactly where it was. The re-seed practice
-above keeps the evidence honest between reviews but does not answer that
-question, so step 5 is where it must be answered rather than left standing on
-this paragraph. No workflow filters on a
-staging ref today; every branch filter names `main`.
+agent's own merge. One premise **has** fired, and this paragraph answers the
+question it was holding: the `staging` environment is repointed at the
+staging corpus (the runbook's step 5), so the promotion gate's freshness
+evidence is now produced against a corpus the staging write role can reach.
+`staging` still carries no per-run reviewer rule, on three controls that
+together keep that evidence honest without one: the only write-capable path
+to the staging pair is the refresh lane's role, and its runs — like every
+evidence-bearing run — begin with a maintainer-only dispatch; the
+re-seed-before-evidence practice below resets the slice, so a poisoned
+fixture cannot persist into a promotion's evidence; and the permission
+surface that could quietly widen a staging job waits for the maintainer even
+into `staging` (the convention recorded below). A per-run reviewer rule is
+the escalation if any dispatch-side premise above breaks. No workflow
+filters on a staging ref today; every branch filter names `main`.
 
 What neither shape covers: the `staging` ruleset requires no workflow linter, so
 a workflow change that reads a secret is caught by no *required* check.
@@ -592,7 +595,10 @@ the `prod`
 environment and, as **separate per-environment secrets**, on `staging` — a
 smoke dispatched at the staging head spends against staging's own keys
 (independently revocable, isolated from tournament spend), so a promotion's
-freshness runs cannot touch the tournament's budget. Spend is gated the same way
+freshness runs cannot touch the tournament's budget. The staging keys have
+one consumer beyond these scenarios: a `run-analytics` staging rehearsal
+whose mode runs an agent (the qp-topic labeler) reads the same
+per-environment engine secret and spends against it on the same terms. Spend is gated the same way
 the read-only role is: by who may dispatch, and from which branch. A dispatch
 naming an environment without the keys gets an
 empty key and fails closed right alongside the role variables, independent of
