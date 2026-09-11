@@ -379,8 +379,9 @@ queues behind the production run of the same mode. The modes:
 ## `integration-test` — the infrastructure preflight
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
-a side-effect-free scenario runner (one carve-out: the application-repro leg
-writes its watchdog's telemetry row onto the bound channel's telemetry
+a side-effect-free scenario runner (one carve-out: the application-repro leg,
+the idle control and the freeze probe each
+write their watchdog's telemetry row onto the bound channel's telemetry
 issue — `codex-watchdog`, or `codex-watchdog-staging` on a staging-bound
 dispatch —
 dispatch-only, marker-keyed, non-triggering) — manual dispatch, plus one
@@ -389,7 +390,7 @@ read backends, the two sidecars, cascade cells, the engines' own invocation
 blocks, the collect writer, and the
 qp-topic measure path**,
 against the real corpus remote for every scenario but collect, qp-topic,
-qp-labeler-smoke and runner-idle-control —
+qp-labeler-smoke, runner-idle-control and codex-freeze-probe —
 the tested `fedcourts corpus-integration-check` read set, a
 cell's-eye probe of the service sidecar, the tokenless CourtListener MCP
 sidecar under the tested `mcp-integration-check` client, a stub
@@ -399,16 +400,18 @@ diverted on the runner), the `qp-topic-measure` composite over canned labels
 built from the committed reference set (token-free and credential-free), or
 (the token-spending scenarios) a single real-engine cell over the service
 sidecar, a boot probe of each engine's own invocation block, the qp-topic
-labeler's own invocation block over a five-row synthetic extract, and one
+labeler's own invocation block over a five-row synthetic extract, one
 **repro-family** cell — a real cell run against a record pinned to the shape a
-diagnosed engine defect keys on
+diagnosed engine defect keys on — and the freeze probe's one trivial codex
+turn with the watchdog armed around it
 — dispatched around changes to corpus access, the sidecars, engine
 CLIs or engine actions, the collect contract, or the corpus-consuming
 workflows and before
 releases — from main, or via the `staging` deployment environment (collect
 binds none; qp-topic binds one it never reads; the labeler smoke binds one
 and reads exactly its engine key; the idle control binds one and reads
-exactly the telemetry App's pair) from the `staging` branch, which
+exactly the telemetry App's pair; the freeze probe binds one and reads that
+pair plus the codex key) from the `staging` branch, which
 is the only branch that environment accepts (those runs are the promotion
 gate's freshness evidence; see *Promotion: staging → main* below). The deployment environment resolves from
 the dispatching branch by default — `main` gets `prod`, `staging` gets

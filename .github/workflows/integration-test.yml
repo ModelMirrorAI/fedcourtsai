@@ -26,7 +26,7 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # one real engine — over them. Each scenario is one dispatch, side-effect
 # free with a single carve-out: no corpus write, no git write, no PR, and the
 # one issue write is a watchdog telemetry row — the application-repro leg's,
-# and the runner-idle-control job's — on
+# the runner-idle-control job's, and the codex-freeze-probe job's — on
 # the bound environment's own long-lived issue — `codex-watchdog` on a
 # prod-bound dispatch, `codex-watchdog-staging` on a staging-bound one, so a
 # rehearsal's rows never mix into the production record — dispatch-only
@@ -35,13 +35,15 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # resets the row rather than stacking one, and on labels that trigger
 # nothing. Everything else goes to the Actions step summary and the run
 # log, and any cell output lands only in the runner's throwaway checkout. Every
-# scenario is also token-free except the four that spend, which say so on
+# scenario is also token-free except the five that spend, which say so on
 # their inputs: engine-smoke spends about one predict cell's worth of the
 # selected engine's model tokens, engine-actions-smoke a boot probe's,
-# codex-application-repro one evaluate cell's, and qp-labeler-smoke cents at
-# the labeler's default tier — so a whole-suite `all` dispatch
-# spends three cells' worth plus three probes (the repro and the labeler
-# smoke are dispatch-only and join no whole-suite run), and `all-offline`
+# codex-application-repro one evaluate cell's, qp-labeler-smoke cents at
+# the labeler's default tier, and codex-freeze-probe one further boot
+# probe's — so a whole-suite `all` dispatch
+# spends three cells' worth plus three probes (the repro, the labeler
+# smoke and the freeze probe are dispatch-only and join no whole-suite run),
+# and `all-offline`
 # (the same suite with both engine
 # families dropped) spends nothing. The repro leg is the long one in wall-clock
 # as well: the judge cell it presents runs 40-50 minutes on production cells
@@ -152,7 +154,12 @@ on:
           the watchdog's off-runner record and idles seventy minutes, so a
           runner death in the 58-64-minute window with no engine anywhere
           near it separates a runner-lifetime defect from a codex-workload
-          one. No whole-suite selection fans out any of those three.
+          one. `codex-freeze-probe` arms that same record around ONE trivial
+          codex turn and SPENDS MODEL TOKENS: a single boot probe's worth.
+          It reads what the watchdog's beat trail does while a codex sandbox
+          lives and after it exits — the observation a wedged production cell
+          destroys along with its runner. No whole-suite selection fans out
+          any of those four.
         type: choice
         default: ranged-reads
         options:
@@ -166,6 +173,7 @@ on:
           - qp-topic
           - qp-labeler-smoke
           - runner-idle-control
+          - codex-freeze-probe
           - codex-application-repro
           - all
           - all-offline
@@ -335,13 +343,14 @@ jobs:
     # what is meant, and survives someone hardening the inequality into the
     # fail-closed shape the scheduled-workflow trap in docs/pipeline.md asks
     # for everywhere it is a hazard rather than the intent.
-    # qp-labeler-smoke and runner-idle-control are excluded beside collect:
-    # all three run as standalone jobs below, needing no matrix, no case,
-    # and no corpus.
+    # qp-labeler-smoke, runner-idle-control and codex-freeze-probe are
+    # excluded beside collect: all four run as standalone jobs below, needing
+    # no matrix, no case, and no corpus.
     if: >-
       ${{ github.event_name == 'schedule'
       || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke'
-      && inputs.scenario != 'runner-idle-control') }}
+      && inputs.scenario != 'runner-idle-control'
+      && inputs.scenario != 'codex-freeze-probe') }}
     runs-on: ubuntu-latest
     # 15, not 5: the resolve path checks out, builds the Python env, assumes
     # the read-only role, and walks a bounded candidate window over the blob.
@@ -542,20 +551,23 @@ jobs:
           cat "$out" >> "$GITHUB_OUTPUT"
 
   scenario:
-    # Every dispatch-selected scenario except the three that run as
+    # Every dispatch-selected scenario except the four that run as
     # standalone jobs below: `collect` (environment-free — it needs no role
     # variables, so binding it to this job's deployment environment would
     # only add a needless gate), `qp-labeler-smoke` (environment-bound but
     # deliberately without this job's id-token grant, which is part of the
-    # posture it smokes), and `runner-idle-control` (environment-bound for
+    # posture it smokes), `runner-idle-control` (environment-bound for
     # the telemetry mint alone, and deliberately empty of everything else —
-    # its subject is the runner, not the stack). Plus the scheduled canary,
+    # its subject is the runner, not the stack), and `codex-freeze-probe`
+    # (the same mint plus one engine key, and nothing else: its subject is
+    # the watchdog process, not the stack either). Plus the scheduled canary,
     # named for the reason the
     # plan job's gate carries.
     if: >-
       ${{ github.event_name == 'schedule'
       || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke'
-      && inputs.scenario != 'runner-idle-control') }}
+      && inputs.scenario != 'runner-idle-control'
+      && inputs.scenario != 'codex-freeze-probe') }}
     needs: plan
     runs-on: ubuntu-latest
     strategy:
@@ -3106,6 +3118,432 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: idle-control-watchdog-log
+          path: ${{ runner.temp }}/engine-watchdog/watchdog.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  # --- codex-freeze-probe: the watchdog's beat trail across a codex turn ----
+
+  # The idle control's sibling on the other side of the same question. That
+  # leg asks what an idle runner does across the death window; this one asks
+  # what the *watchdog* does across a codex turn — and asks it on a runner
+  # that survives to answer.
+  #
+  # The obstacle everywhere else is that every direct witness dies with the
+  # runner: the watchdog's own log, its markers, and its escalation captures
+  # are all runner-local, so the state of a detached watchdog during a codex
+  # turn has only ever been read off the off-runner record's silence. A codex
+  # turn that EXITS CLEANLY keeps its runner. So the instrument is a short,
+  # trivial turn — the boot probe's own one-word prompt, under the cells' own
+  # invocation block — with the watchdog armed around it and idle margins on
+  # both sides: two clean beats before the sandbox starts, three minutes of
+  # room for beats after it exits.
+  #
+  # Every outcome is a finding, and the leg passes on all of them — its
+  # verdict is a measurement, not a gate:
+  #
+  #   * beats stop when the sandbox starts and resume after codex exits — the
+  #     watchdog is suspended for the turn rather than dead, observed
+  #     directly instead of inferred from silence;
+  #   * beats never break — suspension does not happen on a turn this short,
+  #     and the silence on full-length cells needs another cause;
+  #   * beats stop and never return — a dead watchdog, not a frozen one,
+  #     which is the reading the trailing-silence figure separates out.
+  #
+  # The off-runner record is the primary evidence (it is what outlives a
+  # runner at all); the step summary states the derived verdict, read back
+  # from that record.
+  #
+  # SPENDS MODEL TOKENS: one codex boot probe, the same order as one canary
+  # leg. Dispatch-only, like the repro family and the idle control — no
+  # whole-suite selection reaches it, and it stays out of the promotion
+  # gate's required set, because a probe whose result is a measurement is
+  # never freshness evidence.
+  codex-freeze-probe:
+    if: ${{ inputs.scenario == 'codex-freeze-probe' }}
+    runs-on: ubuntu-latest
+    # Setup (~3) + the 2-minute pre-arm beat window + the turn's own 7-minute
+    # cap + the 3-minute post-exit window + the disarm tail, with room. Far
+    # below the 58-64-minute death window on purpose: the probe's whole
+    # premise is a runner that lives long enough to publish its record, so
+    # the experiment must finish well before the window it is not testing.
+    timeout-minutes: 25
+    # Branch-resolved with an explicit override; keep this expression
+    # identical to `run-name:`'s and the other binding jobs', and see the
+    # deploy-environment input for what resolves.
+    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The scenario job's step, verbatim and for its reason: the codex
+      # sandbox is bubblewrap, and Ubuntu 24.04 runners restrict the
+      # unprivileged user namespaces it needs. Before the turn, because
+      # `safety-strategy: drop-sudo` takes sudo away for the rest of the job.
+      #
+      # It is also the step that makes this probe a probe: the sandbox
+      # startup is the event under test, so a leg that could not start one
+      # would measure nothing.
+      - name: Enable unprivileged user namespaces for the codex sandbox
+        run: |
+          set -euo pipefail
+          if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          if sysctl -n kernel.unprivileged_userns_clone >/dev/null 2>&1; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+
+      # The repro leg's mint, on its terms: per-environment credentials,
+      # comment-only, fail-soft. A probe with no record still runs, but it
+      # measures nothing — the beat trail IS the observation — so the arm
+      # step says so loudly rather than reporting a silent null result.
+      - name: Mint the codex watchdog telemetry token
+        id: watchdog-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ github.ref_name == 'main' && vars.DEV_APP_CLIENT_ID || vars.STAGING_APP_CLIENT_ID }}
+          private-key: ${{ github.ref_name == 'main' && secrets.DEV_APP_PRIVATE_KEY || secrets.STAGING_APP_PRIVATE_KEY }}
+          permission-issues: write
+
+      - name: Arm the watchdog around the turn
+        id: arm
+        env:
+          WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
+          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          WATCHDOG_CHECKIN_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
+          # A deadline the probe can never reach: the whole experiment is over
+          # inside fifteen minutes, so the watchdog spends every second of it
+          # in the wait loop, which is the state being observed. A deadline
+          # that fired would replace the measurement with an escalation.
+          WATCHDOG_DEADLINE_S: "1800"
+          # Half the idle control's cadence: the codex window is minutes, not
+          # an hour, so the gap this leg is looking for has to be resolvable
+          # at that scale. The poll interval stays the script's own default.
+          WATCHDOG_HEARTBEAT_S: "60"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # The record's identity row: synthetic on purpose, and spelled so a
+          # reader of the telemetry issue can never mistake it for a cell.
+          RUN_ID: freeze-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$WATCHDOG_DIR"
+          checkin_url=""
+          checkin_base=""
+          if [ -n "${GH_TOKEN:-}" ]; then
+            checkin_out="$(timeout 90 uv run fedcourts watchdog-checkin \
+              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
+              --court scotus --docket freeze-probe --event-id evt-freeze-probe \
+              --actor codex-freeze-probe --deadline-s "$WATCHDOG_DEADLINE_S" \
+              --run-url "$RUN_URL" --channel "$TELEMETRY_CHANNEL" || true)"
+            if [ -n "$checkin_out" ]; then
+              checkin_url="${checkin_out%%$'\n'*}"
+              checkin_base="${checkin_out#*$'\n'}"
+            fi
+          fi
+          # The repro leg's URL-shape gate, verbatim: the token is PATCHed to
+          # this URL for the whole deadline, so only this repository's own
+          # comments endpoint may hold it.
+          case "$checkin_url" in
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*) ;;
+            *)
+              if [ -n "$checkin_url" ]; then
+                echo "::warning::freeze-probe check-in URL was not this repository's; dropped"
+              fi
+              checkin_url=""
+              checkin_base=""
+              ;;
+          esac
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::telemetry mint yielded no token (mint failed, or a dispatch bound to neither environment); this probe can measure nothing"
+          elif [ -z "$checkin_url" ]; then
+            echo "::warning::freeze probe armed with no off-runner record; this probe can measure nothing"
+          fi
+          if [ -n "$checkin_url" ]; then
+            echo "watchdog telemetry armed (deadline ${WATCHDOG_DEADLINE_S}s): ${checkin_url}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "watchdog telemetry NOT armed — mint or check-in failed; this probe has no beat trail to read" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # A step output, not a file: the verdict step below reads this URL
+          # back, and the agent holds a shell on the runner's temp path for
+          # the whole of its turn. A step's outputs are closed before that
+          # turn starts, so this hand-over is one the agent cannot reach.
+          printf 'checkin_url=%s\n' "$checkin_url" >> "$GITHUB_OUTPUT"
+          cp scripts/engine-watchdog.sh "$RUNNER_TEMP/engine-watchdog.sh"
+          # No sentinel: the deadline loop and its beats are the whole
+          # instrument, and a reaper would introduce an action the experiment
+          # is not measuring. GH_TOKEN cleared as on the repro leg.
+          GH_TOKEN='' WATCHDOG_CHECKIN_URL="$checkin_url" \
+            WATCHDOG_CHECKIN_BASE="$checkin_base" \
+            WATCHDOG_OUTPUT_DIR="" \
+            WATCHDOG_SENTINEL_PATHS="" \
+            nohup bash "$RUNNER_TEMP/engine-watchdog.sh" \
+            > "$WATCHDOG_DIR/watchdog.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/engine-watchdog.pid"
+
+      # The baseline half of the trail. Two clean beats before the sandbox
+      # exists is what makes a later gap a *change* rather than a watchdog
+      # that never beat at all — the one reading a single post-hoc silence
+      # cannot rule out.
+      - name: Let two clean beats land before the turn
+        timeout-minutes: 5
+        run: sleep 120
+
+      # The boot probe's own identity resolution: the model a codex cell
+      # actually runs, read from the package rather than restated here, where
+      # a default bump would leave the probe asking about a model production
+      # stopped using.
+      - name: Resolve the codex cell identity
+        id: cell
+        run: |
+          set -euo pipefail
+          model=$(uv run python -c \
+            'from fedcourtsai.pricing import DEFAULT_MODELS; print(DEFAULT_MODELS["codex"])')
+          # Shape-screen before the append: this value becomes a step output
+          # that rides straight into an action's `with:` block.
+          case "$model" in
+            "" | *[!a-zA-Z0-9.-]*)
+              echo "::error::the resolved model id is not a bare identifier"
+              exit 1
+              ;;
+          esac
+          printf 'model=%s\n' "$model" >> "$GITHUB_OUTPUT"
+
+      # The turn runs under the cells' invocation block, and that block names
+      # a permission profile only `$CODEX_HOME/config.toml` can declare — so
+      # the config comes with it, and the config names the sidecar the cells
+      # name. Launched WITHOUT the CourtListener token, which the composite
+      # supports by design: the probe's prompt uses no tools, so an
+      # unauthenticated server that handshakes and lists tools is the whole
+      # requirement, and no credential of any kind reaches the agent's env.
+      - uses: ./.github/actions/mcp-sidecar
+        with:
+          role: predictor
+          actor: codex-baseline
+
+      - name: Configure the turn's MCP retrieval
+        run: |
+          set -euo pipefail
+          mkdir -p .codex
+          uv run fedcourts mcp-config --engine codex \
+            --role predictor --actor codex-baseline \
+            --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
+
+      # The event under test. The block is the cells' — a test holds every
+      # action-path leg to it, and a probe of the sandbox's effect on the
+      # runner is worth nothing against a sandbox posture nothing else runs.
+      # The prompt is the boot probe's, for its reason: what this leg needs
+      # from codex is that it STARTS and EXITS, not that it accomplishes
+      # anything. `continue-on-error` for the same reason — a turn that
+      # started and then failed still had a sandbox, which is the whole
+      # subject, so the measurement below decides the leg's verdict and this
+      # step does not.
+      - name: Run one trivial turn under the cells' codex block
+        id: turn
+        # Well under the job cap and far above a one-word turn: a wedge here
+        # would otherwise eat the post-exit window the measurement needs.
+        timeout-minutes: 7
+        continue-on-error: true
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        env:
+          # Pin codex's home to the workspace dir the config was written
+          # into, as the cell step does.
+          CODEX_HOME: ${{ github.workspace }}/.codex
+        with:
+          allow-bot-users: "fedcourtsai-data[bot]"
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # DEVIATION, as on the boot probe: a one-word turn, not a cell.
+          prompt: |
+            Reply with the single word: ok
+
+            Use no tools, read no files, and write no files. This is a boot
+            probe of the invocation path, not a task.
+          model: ${{ steps.cell.outputs.model }}
+          effort: high
+          safety-strategy: drop-sudo
+          permission-profile: fedcourts-cell
+          codex-version: "0.144.1"
+          codex-args: '["-c","web_search=live"]'
+
+      # The other half of the trail, and the step that makes the codex window
+      # locatable in it: stamp the moment the turn's step ended, then idle
+      # long enough for three beats to land after it. Beats that arrive here
+      # after a gap are the resumption; an absence is the negative result,
+      # and it is only a result because this margin exists.
+      - name: Stamp the turn's end and let post-exit beats land
+        if: ${{ always() }}
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          date -u +%s > "$RUNNER_TEMP/codex-turn-ended-epoch"
+          sleep 180
+
+      # `always()`, as the repro disarm: a cancelled probe must still close
+      # its row rather than leave it armed forever. The verdict is derived
+      # from the off-runner record — the beats live there and nowhere else,
+      # which is exactly why that record is the evidence a dead runner cannot
+      # erase — and read back BEFORE the disarm line is appended to it.
+      - name: Disarm and read the beat trail
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
+          RUN_ID: freeze-${{ github.run_id }}
+          TURN_CONCLUSION: ${{ steps.turn.conclusion }}
+          CHECKIN_URL: ${{ steps.arm.outputs.checkin_url }}
+          WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
+        run: |
+          set -euo pipefail
+          # The repro disarm's ownership guard, verbatim: a pid file on a path
+          # the agent held a shell on is a claim, not an identity.
+          pid_file="$RUNNER_TEMP/engine-watchdog.pid"
+          if [ -f "$pid_file" ]; then
+            pid="$(cat "$pid_file")"
+            if [[ "$pid" =~ ^[0-9]+$ ]] && grep -qa engine-watchdog.sh "/proc/$pid/cmdline" 2>/dev/null; then
+              kill "$pid" 2>/dev/null || true
+            fi
+            rm -f "$pid_file"
+          fi
+          # The arm step's URL-shape gate again, on the value as this step
+          # receives it: the token below is sent to whatever this names.
+          case "$CHECKIN_URL" in
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*) ;;
+            *) CHECKIN_URL="" ;;
+          esac
+          record="$RUNNER_TEMP/watchdog-record.txt"
+          : > "$record"
+          if [ -n "${GH_TOKEN:-}" ] && [ -n "$CHECKIN_URL" ]; then
+            timeout 60 gh api "$CHECKIN_URL" --jq .body > "$record" 2>/dev/null || : > "$record"
+          fi
+          # The record is a comment on a long-lived issue, so its body is
+          # writable by anyone who can edit that comment. Nothing from it is
+          # echoed: only lines matching the watchdog's own beat spelling are
+          # read, and only derived integers are printed.
+          verdict="$(
+            TURN_ENDED_FILE="$RUNNER_TEMP/codex-turn-ended-epoch" \
+            RECORD="$record" python3 - <<'PY'
+          import os
+          import re
+          from datetime import datetime, timezone
+
+          BEAT = re.compile(r"^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\] (?:waiting|watching): ")
+
+
+          def parse(line):
+              """One beat's stamp, or None for every line that is not one.
+
+              The regex fixes the shape but not the values — `12:99:99` matches
+              it and is not a time — so the parse is guarded too. A line this
+              cannot read is a line this ignores: a crash here would replace
+              the measurement with a failed step.
+              """
+              match = BEAT.match(line)
+              if match is None:
+                  return None
+              try:
+                  stamp = datetime.strptime(match.group(1), "%Y-%m-%dT%H:%M:%SZ")
+              except ValueError:
+                  return None
+              return stamp.replace(tzinfo=timezone.utc)
+
+
+          try:
+              with open(os.environ["RECORD"], encoding="utf-8", errors="replace") as handle:
+                  beats = [stamp for stamp in map(parse, handle) if stamp is not None]
+          except OSError:
+              beats = []
+
+          try:
+              with open(os.environ["TURN_ENDED_FILE"], encoding="utf-8") as handle:
+                  ended = datetime.fromtimestamp(int(handle.read().strip()), tz=timezone.utc)
+          except (OSError, ValueError):
+              ended = None
+
+          if len(beats) < 2:
+              print(f"freeze signature: INDETERMINATE (beats={len(beats)}) — no trail to read")
+              raise SystemExit(0)
+
+          beats.sort()
+          gap = max(int((b - a).total_seconds()) for a, b in zip(beats, beats[1:]))
+          # The silence still running when this reads the record. Without it a
+          # watchdog that stopped and never came back reports the cadence as
+          # its largest gap — the trailing silence sits between the last beat
+          # and nothing, so no PAIR of beats spans it.
+          tail = int((datetime.now(tz=timezone.utc) - beats[-1]).total_seconds())
+          resumed = "unknown" if ended is None else ("yes" if beats[-1] > ended else "no")
+          print(f"freeze signature: gap={gap} tail={tail} resumed={resumed} beats={len(beats)}")
+          PY
+          )"
+          # Said once, into both surfaces a reader reaches for.
+          printf '%s\n' "$verdict"
+          {
+            echo ""
+            echo "## codex-freeze-probe"
+            echo ""
+            echo '```'
+            printf '%s\n' "$verdict"
+            echo "turn conclusion: ${TURN_CONCLUSION:-unknown}"
+            echo '```'
+            echo ""
+            echo "A \`gap\` well above the 60-second beat cadence with \`resumed=yes\` is the"
+            echo "suspension read directly: the watchdog lost the turn's duration and came"
+            echo "back when the sandbox exited. An unbroken trail (\`gap\` at the cadence)"
+            echo "says suspension does not happen on a turn this short. A large \`tail\` with"
+            echo "\`resumed=no\` is the third world — the watchdog stopped and never returned,"
+            echo "which is a dead process rather than a suspended one."
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Health is the watchdog's own markers. The probe does not fail on a
+          # codex turn that failed — what it measures is the beat trail across
+          # a sandbox's life, and a turn that started and died still had one.
+          healthy_flag=--healthy
+          if [ -f "$WATCHDOG_DIR/REAPED" ] || [ -f "$WATCHDOG_DIR/FIRED" ] \
+            || [ -f "$WATCHDOG_DIR/STOOD_DOWN" ]; then
+            healthy_flag=--not-healthy
+          fi
+          if [ -n "${GH_TOKEN:-}" ]; then
+            timeout 90 uv run fedcourts watchdog-checkin --disarm "$healthy_flag" \
+              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
+              --court scotus --docket freeze-probe --event-id evt-freeze-probe \
+              --actor codex-freeze-probe --conclusion "${TURN_CONCLUSION:-unknown}" \
+              --channel "$TELEMETRY_CHANNEL" > /dev/null || true
+          fi
+
+      # The one thing that IS a gate here, and it is about the instrument
+      # rather than the result: a turn that never started put no sandbox on
+      # this runner, so the beat trail above spans nothing and the run's
+      # green would be vacuous — the same failure mode the actions-smoke
+      # leg's completion assertion exists to refuse. The rollout file appears
+      # when the session starts, so this evidences a session and not a
+      # finished turn, which is exactly the bar the probe needs. (The agent
+      # can write under its own CODEX_HOME, so this is evidence and not
+      # proof, on the same terms as that leg's.)
+      - name: Assert the turn started a sandbox to measure
+        if: ${{ always() }}
+        env:
+          CODEX_HOME: ${{ github.workspace }}/.codex
+        run: |
+          set -euo pipefail
+          if [ ! -d "$CODEX_HOME/sessions" ] \
+            || [ -z "$(find "$CODEX_HOME/sessions" -type f -name '*.jsonl' -print -quit)" ]; then
+            echo "::error::codex left no session rollout — the turn never started, so the beat trail spans no sandbox and this run measured nothing"
+            exit 1
+          fi
+
+      # The local half, for whatever it carries: the watchdog's own log holds
+      # its arm lines and any marker it wrote. Phase lines and kernel-owned
+      # resource figures only, so no disclosure window applies.
+      - name: Upload the watchdog log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: freeze-probe-watchdog-log
           path: ${{ runner.temp }}/engine-watchdog/watchdog.log
           if-no-files-found: warn
           retention-days: 7

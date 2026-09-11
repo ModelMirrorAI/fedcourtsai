@@ -1153,9 +1153,13 @@ Max dev subscription** ($200/mo, interactive dev only, never automation — see
 driver #1), and other small fixed items — the qp-topic labeler's occasional
 dispatch (driver #1) rides inside the buffer too, and so does the
 `qp-labeler-smoke` integration leg: dispatch-only, five synthetic rows at the
-labeler's default tier, cents a run. A deliberate buffer over the
-actual items; its defining property is that it **does not scale** with events,
-corpus size, or predictor count.
+labeler's default tier, cents a run. The `codex-freeze-probe` leg rides here
+too, and costs less: it sends the canary's own codex boot probe — one
+one-word turn under the cells' block — so its per-dispatch spend is the codex
+row of the canary table below, ≈$0.18, and it is dispatched when the runner
+question is being worked rather than on any cadence. A deliberate buffer over
+the actual items; its defining property is that it **does not scale** with
+events, corpus size, or predictor count.
 
 The one recurring *inference* item carried here rather than in driver #1: the
 **daily boot canary** — the `engine-actions-smoke` legs of `integration-test`,

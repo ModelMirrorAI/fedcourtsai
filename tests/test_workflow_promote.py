@@ -205,10 +205,16 @@ def test_deploy_environment_resolution_is_identical_at_every_site() -> None:
     workflow = _load(WORKFLOWS / "integration-test.yml")
     inputs = workflow[True]["workflow_dispatch"]["inputs"]
     assert inputs["deploy-environment"]["default"] == "auto"
-    for job in ("plan", "scenario", "qp-labeler-smoke", "runner-idle-control"):
+    for job in (
+        "plan",
+        "scenario",
+        "qp-labeler-smoke",
+        "runner-idle-control",
+        "codex-freeze-probe",
+    ):
         assert workflow["jobs"][job]["environment"] == f"${{{{ {ENV_RESOLUTION} }}}}", job
     assert f"@ ${{{{ {ENV_RESOLUTION} }}}}" in workflow["run-name"]
-    # No sixth consumer: anywhere else reading the raw input would bypass the
+    # No seventh consumer: anywhere else reading the raw input would bypass the
     # resolution and see the literal string `auto`. Comment lines are dropped
     # first — the input's own YAML comment discusses the expression, and
     # documenting a hazard is not consuming the value.
@@ -217,7 +223,7 @@ def test_deploy_environment_resolution_is_identical_at_every_site() -> None:
         for line in (WORKFLOWS / "integration-test.yml").read_text().splitlines()
         if not line.lstrip().startswith("#")
     )
-    assert body.count("inputs.deploy-environment") == 10  # 5 sites x 2 reads each
+    assert body.count("inputs.deploy-environment") == 12  # 6 sites x 2 reads each
 
 
 def _all_matrix_entries() -> list[dict[str, str]]:
@@ -337,12 +343,18 @@ def test_which_jobs_a_scheduled_run_admits_is_stated_not_coerced() -> None:
         assert jobs[name]["if"] == (
             "${{ github.event_name == 'schedule' || (inputs.scenario != 'collect' "
             "&& inputs.scenario != 'qp-labeler-smoke' "
-            "&& inputs.scenario != 'runner-idle-control') }}"
+            "&& inputs.scenario != 'runner-idle-control' "
+            "&& inputs.scenario != 'codex-freeze-probe') }}"
         ), name
     # The standalone jobs stay affirmative equalities, which an empty inputs
     # context satisfies none of — so the schedule excludes them by shape, with
     # no clause of their own to keep in step.
-    for name in ("collect-scenario", "qp-labeler-smoke", "runner-idle-control"):
+    for name in (
+        "collect-scenario",
+        "qp-labeler-smoke",
+        "runner-idle-control",
+        "codex-freeze-probe",
+    ):
         standalone_if = str(jobs[name]["if"])
         assert "github.event_name" not in standalone_if, name
         assert "!=" not in standalone_if, name
@@ -569,12 +581,15 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
     # A repro-family scenario reads a case too, but names it in its own steps
     # rather than through the resolver — the pinned record is what the
     # scenario is — so it stays out of the gate for a different reason than
-    # the corpus-free legs do.
+    # the corpus-free legs do. `codex-freeze-probe` is corpus-free in the
+    # plainest way: its subject is the watchdog process across a sandbox's
+    # life, and the turn it runs is the boot probe's one-word prompt.
     for scenario in (
         "mcp-sidecar",
         "qp-topic",
         "qp-labeler-smoke",
         "runner-idle-control",
+        "codex-freeze-probe",
         "engine-actions-smoke",
         "codex-application-repro",
     ):
@@ -588,6 +603,7 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
         "qp-topic",
         "qp-labeler-smoke",
         "runner-idle-control",
+        "codex-freeze-probe",
         "collect",
         "engine-actions-smoke",
         "codex-application-repro",

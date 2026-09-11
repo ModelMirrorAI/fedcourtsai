@@ -3110,8 +3110,13 @@ def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environmen
         assert step["env"]["TELEMETRY_CHANNEL"] == channel, step_name
         assert '--channel "$TELEMETRY_CHANNEL"' in str(step["run"]), step_name
     # The staging pair appears in exactly the telemetry mints — the repro
-    # leg's and the idle control's, both in this one workflow — and each
-    # requests issues:write and nothing else.
+    # leg's, the idle control's and the freeze probe's, all three in this one
+    # workflow — and each requests issues:write and nothing else. Those three
+    # are the whole of the watchdog investigation's surface: the leg that
+    # presents the wedge, the control that runs the clock with no agent near
+    # it, and the probe that reads the beat trail across one codex sandbox's
+    # life. A fourth holder is the copy-paste regression this count exists to
+    # catch.
     holders = []
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         for job_id, job in _load(path.name)["jobs"].items():
@@ -3119,19 +3124,21 @@ def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environmen
                 text = yaml.safe_dump(step)
                 if "STAGING_APP_CLIENT_ID" in text or "STAGING_APP_PRIVATE_KEY" in text:
                     holders.append((path.name, job_id, step))
-    assert len(holders) == 2, (
+    assert len(holders) == 3, (
         f"the staging telemetry credentials spread: {[(n, j) for n, j, _ in holders]}"
     )
     assert {(n, j) for n, j, _ in holders} == {
         ("integration-test.yml", "scenario"),
         ("integration-test.yml", "runner-idle-control"),
+        ("integration-test.yml", "codex-freeze-probe"),
     }, f"the staging telemetry credentials spread: {[(n, j) for n, j, _ in holders]}"
     for _, _, holder_step in holders:
         assert holder_step.get("id") == "watchdog-token"
         assert set(holder_step["with"]) == {"client-id", "private-key", "permission-issues"}
         assert holder_step["with"]["permission-issues"] == "write"
     # The deadline override's reach: the input is read by the repro arm step
-    # alone — the idle control keeps its own literal, and the cell workflows
+    # alone — the idle control and the freeze probe each keep their own
+    # literal, and the cell workflows
     # never see it, so no production deadline can move from this dispatch
     # surface. The idle control's arm carries the repro leg's credential
     # plumbing verbatim — URL-shape gate, cleared GH_TOKEN on the detached
