@@ -3596,7 +3596,9 @@ jobs:
           # `wchan` is the column this dump is really for: a wedged world
           # shows every stuck task parked in the same kernel function, and
           # that name is the closest thing to a mechanism a process table can
-          # give. `stat` separates D-state from frozen (D) from stopped (T).
+          # give. `stat` says which flavour of not-running each one is —
+          # uninterruptible sleep (D), stopped or traced (T), a frozen task
+          # parked in D — and `cgroup` says which tree it is parked in.
           timeout 10 ps -ww -eo pid,ppid,user,stat,wchan:32,etime,cgroup:80,args --forest 2>&1 \
             | cut -c1-200 | head -300 || true
 
