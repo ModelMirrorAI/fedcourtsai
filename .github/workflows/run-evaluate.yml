@@ -969,13 +969,16 @@ jobs:
       # `always()` and not the arm step's gate: a failed cell must disarm too, and
       # a cell whose arming never ran has simply no pid file to read.
       #
-      # It also publishes the watchdog's verdict, and one of the three is a
+      # It also publishes the watchdog's verdict, and one of the markers is a
       # *success*: `REAPED` says the cell's outputs were complete, parsing and
       # quiescent, and the step was ended because it would not end itself. The
       # engine step's own conclusion on that path is a failure — the watchdog
       # made it one — so this step's `reaped` output is what the tail below
       # reads instead, and a cell whose work finished is not demoted to a draft
-      # for the manner of its step's death.
+      # for the manner of its step's death. `SUSPENDED` is the neutral one: the
+      # watchdog lost wall clock beside the engine and withheld every signal,
+      # so the cell's outcome is whatever its step did on its own — the marker
+      # is surfaced for the reader and decides nothing about the cell.
       - name: Disarm the engine watchdog
         id: disarm
         if: ${{ always() }}
@@ -1042,24 +1045,29 @@ jobs:
           # read, so they are what a watchdog that acted hands the bundle. A
           # reap earns them too, and for the sharpest reason: that transcript
           # ends at a completed turn, so it is the account of a teardown hang.
+          # A suspension earns them for the same reason from the other side:
+          # the freeze brackets the sandbox's life, so that rollout's tail is
+          # the account of the very window the watchdog could not observe.
           # Codex-only because the distiller reads codex's own rollout format.
           if [ "$ENGINE" = "codex" ] \
-            && { [ -f engine-watchdog/REAPED ] || [ -f engine-watchdog/FIRED ] || [ -f engine-watchdog/STOOD_DOWN ]; }; then
+            && { [ -f engine-watchdog/REAPED ] || [ -f engine-watchdog/FIRED ] || [ -f engine-watchdog/STOOD_DOWN ] \
+              || [ -f engine-watchdog/SUSPENDED ]; }; then
             uv run fedcourts codex-item-shapes \
               --sessions-dir "$CODEX_HOME/sessions" \
               --out engine-watchdog/session-shapes.json \
               || echo "::warning::no codex item shapes distilled for ${EVENT_ID}"
           fi
-          # A watchdog that acted is a cell-level fact whichever way it went, so
-          # say it where the run is read; the bundle itself rides the cell
-          # artifact uploaded below. The marker is truncated on the way into the
+          # A watchdog that acted is a cell-level fact whichever way it went —
+          # and one that stood down is too — so say it where the run is read;
+          # the bundle itself rides the cell artifact uploaded below. The marker is truncated on the way into the
           # summary — the bundle directory is runner-writable, and a summary is
           # rendered markdown.
-          for marker in REAPED FIRED STOOD_DOWN; do
+          for marker in REAPED FIRED STOOD_DOWN SUSPENDED; do
             [ -f "engine-watchdog/$marker" ] || continue
             case "$marker" in
               REAPED) note="the cell finished its work and its step would not conclude; the watchdog ended the step and the output was salvaged" ;;
               FIRED) note="the engine was killed at its deadline" ;;
+              SUSPENDED) note="the watchdog lost wall clock beside the engine and stood down; nothing was signalled — the cell's outcome is its step's own" ;;
               *) note="the deadline passed with no engine process matched — check the watchdog still names the action's invocation" ;;
             esac
             echo "::warning::engine watchdog (${COURT_ID}/${DOCKET_ID} ${EVENT_ID}): ${note}"
@@ -1080,7 +1088,8 @@ jobs:
           # expanded even though its work survived.
           if [ -n "${GH_TOKEN:-}" ]; then
             healthy_flag=--healthy
-            if [ -f engine-watchdog/REAPED ] || [ -f engine-watchdog/FIRED ] || [ -f engine-watchdog/STOOD_DOWN ]; then
+            if [ -f engine-watchdog/REAPED ] || [ -f engine-watchdog/FIRED ] || [ -f engine-watchdog/STOOD_DOWN ] \
+              || [ -f engine-watchdog/SUSPENDED ]; then
               healthy_flag=--not-healthy
             fi
             # Bounded like the arming one, and for the sharper reason: this

@@ -2060,13 +2060,13 @@ otherwise have ended — and keep beating for a bounded observation window befor
 exiting.
 
 Which channel carries that is the reverse of the deadline's, and the reason is
-worth stating. The marker rides the cell artifact and survives; the off-runner
-lines are best-effort twice over here — a suspension long enough to expire the
-deadline has usually outlived the hour-long telemetry credential, and a cell
-whose step then concludes is closed out as one where nothing fired, which
-collapses the row. The beats are still worth issuing, since where the channel
-answers they are the only account of a runner about to be lost, but a stood-down
-cell is **read off its bundle**. The cost is stated in the same breath: that
+worth stating. The marker rides the cell artifact and survives, and the disarm
+step reads it like the acting markers — the telemetry row stays expanded and the
+run summary carries the note — but the off-runner lines themselves are
+best-effort: a suspension long enough to expire the deadline has usually
+outlived the hour-long telemetry credential. The beats are still worth issuing,
+since where the channel answers they are the only account of a runner about to
+be lost, but a stood-down cell is **read off its bundle**. The cost is stated in the same breath: that
 cell has no watchdog for the rest of its run, so a genuine wedge following a
 suspension is bounded by the engine step's own `timeout-minutes` rather than by
 the reaper — the safe direction while the kill is the act the deaths follow, and

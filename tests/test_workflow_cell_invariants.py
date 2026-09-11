@@ -2047,6 +2047,53 @@ def test_every_engine_step_of_a_cell_is_bracketed_by_the_watchdog() -> None:
         assert ENGINE_WATCHDOG_DIR in str(upload["with"]["path"]).split()
 
 
+# The workflows that read the watchdog's bundle: the two cell workflows plus
+# integration-test's three standalone disarm sites (the repro leg, the idle
+# control, the freeze probe).
+ENGINE_WATCHDOG_MARKER_WORKFLOWS = (
+    "run-predict.yml",
+    "run-evaluate.yml",
+    "integration-test.yml",
+)
+
+
+def test_every_disarm_surface_names_every_watchdog_marker() -> None:
+    """The script's marker set is the single source of truth for its readers.
+
+    A marker the watchdog grows that no disarm surface reads is invisible
+    exactly when it matters: the bundle still carries it, but the run summary,
+    the warning, and the telemetry close-out all report a cell where nothing
+    happened. So the set is derived from the script's own writes and asserted
+    against every surface that enumerates markers — the summary loops and the
+    health checks — rather than pinned twice by hand.
+    """
+    script = (REPO_ROOT / ENGINE_WATCHDOG_SCRIPT).read_text()
+    markers = set(re.findall(r'>>?\s*"\$dir/([A-Z][A-Z_]*)"', script))
+    # The exact set moves in lockstep with the script; asserting it here keeps
+    # the regex honest (a parse that finds nothing would vacuously pass below).
+    assert markers == {"REAPED", "FIRED", "STOOD_DOWN", "SUSPENDED"}
+    loops = 0
+    health_checks = 0
+    for name in ENGINE_WATCHDOG_MARKER_WORKFLOWS:
+        text = (WORKFLOWS / name).read_text()
+        for match in re.finditer(r"for marker in ([A-Z_ ]+); do", text):
+            assert set(match.group(1).split()) == markers, (
+                f"{name}: a marker summary loop enumerates {match.group(1)!r}"
+            )
+            loops += 1
+        # Each health check resets to --healthy and then tests marker files on
+        # the way to --not-healthy; every marker must appear in that window.
+        for match in re.finditer(
+            r"healthy_flag=--healthy\n((?:.*\n){1,8}?).*healthy_flag=--not-healthy", text
+        ):
+            window = match.group(1)
+            for marker in markers:
+                assert marker in window, f"{name}: a health check does not read {marker}"
+            health_checks += 1
+    assert loops == 3, f"marker summary loops found: {loops}"
+    assert health_checks == 5, f"marker health checks found: {health_checks}"
+
+
 def test_the_arm_step_hands_the_watchdog_this_cells_completion_sentinel() -> None:
     """The reaper's whole input, and where it may and may not come from.
 

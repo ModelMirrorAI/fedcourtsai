@@ -389,10 +389,12 @@ set was never satisfied — work still running at the deadline, or a required fi
 the judge never wrote — which is a finding about the cell rather than about
 teardown. `SUSPENDED` is a fourth reading and not a fourth escalation: the
 watchdog lost wall clock it did not observe, so it signalled nothing and became
-an observer. Read it off the **bundle** — the gaps it lost, the stand-down, and
-a process forest taken at the thaw — rather than off the telemetry row, which on
-a leg whose step then concludes is closed out as one where nothing fired. No
-marker of an action was written, and none should have been. The bundle rides the
+an observer. The disarm surfaces it like the others — the row stays expanded and
+the summary carries the note — but the **bundle** is still the primary evidence
+(the gaps it lost, the stand-down, and a process forest taken at the thaw),
+because the off-runner lines are best-effort and a suspension long enough to
+matter has often outlived the telemetry credential's hour. No marker of an
+action was written, and none should have been. The bundle rides the
 run's artifact whichever way the leg went; the rollout's item shapes are
 distilled where the watchdog acted. The leg reports **two halves separately**, because
 the finding is that they can disagree: `outputs:` counts the cell's produced
