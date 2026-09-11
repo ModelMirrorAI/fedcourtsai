@@ -159,7 +159,7 @@ on:
           probe's worth, whichever member runs. It reads what the watchdog's
           beat trail does while a codex sandbox lives and after it exits —
           the observation a wedged production cell destroys along with its
-          runner — and its three members each hold one thing still while
+          runner — and its four members each hold one thing still while
           varying the next. `codex-freeze-probe` is the armed turn with a
           three-minute post-exit idle margin. `codex-freeze-probe-unwatched`
           runs the same turn and the same margins with no telemetry mint,
@@ -167,7 +167,13 @@ on:
           is not the watchdog's doing. `codex-freeze-probe-smokeconfig` is
           armed and drops the post-exit margin, which is the suite smoke
           leg's own shape after its turn — the leg whose tail proceeds
-          green. No whole-suite selection fans out any of those.
+          green. `codex-freeze-probe-autopsy` is unwatched too, and spends
+          the seconds right after the turn dumping the sandbox's residue —
+          process forest, cgroup freezer states, kernel log, namespaces —
+          in short steps whose logs stream out before the wedge lands, then
+          idles on a ticking clock whose last printed second stamps the
+          moment the runner stopped. No whole-suite selection fans out any
+          of those.
         type: choice
         default: ranged-reads
         options:
@@ -184,6 +190,7 @@ on:
           - codex-freeze-probe
           - codex-freeze-probe-unwatched
           - codex-freeze-probe-smokeconfig
+          - codex-freeze-probe-autopsy
           - codex-application-repro
           - all
           - all-offline
@@ -3184,7 +3191,7 @@ jobs:
   # word — so it is the existing posture rather than a new exposure, and it
   # is stated here because this is where a reader looks for it.
   #
-  # One job, three scenario values, one axis varied at a time — the steps are
+  # One job, four scenario values, one axis varied at a time — the steps are
   # shared and the per-step `if:` conditions below are what separate them:
   #
   #   * `codex-freeze-probe` — armed, with the post-exit idle margin. The
@@ -3208,6 +3215,38 @@ jobs:
   #     smoke leg reproduced end to end. The beat trail is correspondingly
   #     short here, and reading the trailing-silence figure off it is
   #     meaningless: its verdict, too, is the step-progress stamp.
+  #   * `codex-freeze-probe-autopsy` — unwatched, and the only member that
+  #     asks WHAT the wedge is rather than WHETHER it happens. The other
+  #     three read the wedge from outside, off the run page; this one reads
+  #     the machine from inside it, in the seconds the sandbox's residue is
+  #     still there to read. It works because a step log streams as the step
+  #     runs: the wedge does not retract what already left the runner, it
+  #     only stops what would have come next. So the diagnostics are many
+  #     SHORT steps rather than one long one — each flushes its own log
+  #     before the next begins — and every command inside them is
+  #     `timeout`-bounded and fail-soft, because a diagnostic that fails the
+  #     leg destroys the observation it was there to make.
+  #
+  #     How to read one of its runs, top to bottom on the run page:
+  #       - every diagnostic step whose log is THERE ran before the wedge,
+  #         and what it printed is the pre-wedge state of the machine;
+  #       - the ticking clock's LAST printed second is the wedge itself —
+  #         the loop prints a stamp, sleeps fifteen seconds, prints again,
+  #         and the sleep that never returns is where the log stops;
+  #       - a step that never STARTED is post-wedge, and its absence is a
+  #         reading rather than a gap in the instrument.
+  #     The escape caveat, which is the whole reason the clock is there: on
+  #     a runner image with no fuse the member simply completes, green, in
+  #     about twelve minutes, the clock runs out its twelve ticks, and the
+  #     diagnostics read as a clean baseline. A green autopsy says the
+  #     machine it ran on does not wedge — not that the dump found nothing.
+  #
+  #     It prints system state and never secrets: no environment dump, no
+  #     process environs, and no workspace, config or credential file — the
+  #     only files it opens are kernel pseudo-files and its own kernel-log
+  #     capture. Argv is in scope (the watchdog's own escalation capture
+  #     takes the same), trimmed to 200 columns and token-redacted because
+  #     this one sweeps the whole machine rather than one uid.
   #
   # SPENDS MODEL TOKENS: one codex boot probe, the same order as one canary
   # leg, whichever member runs. Dispatch-only, like the repro family and the
@@ -3221,17 +3260,30 @@ jobs:
     # its own to keep in step.
     if: ${{ startsWith(inputs.scenario, 'codex-freeze-probe') }}
     runs-on: ubuntu-latest
-    # The bounded steps sum to at most 14 (3 + 7 + 4, the last of them 0 on
-    # the member that drops the post-exit margin) and setup, the sidecar and
-    # the disarm's own bounded calls add about 7 more, so 25 is the cap with
-    # room rather than the cap the arithmetic just fits under. The
-    # step-progress stamp carries no bound of its own on purpose: a step
+    # The cap is sized off the WORST BOUNDED case, not the expected one,
+    # because on this job a cap cancellation is not an accident — it is the
+    # wedge's signature, and any healthy run that could reach it would forge
+    # that signature. Three members sum their bounded steps to at most 14
+    # (3 + 7 + 4, the last of them 0 on the member that drops the post-exit
+    # margin); the autopsy member reaches 20 (3 + 7 + 6 for the clock + 4)
+    # and adds a diagnostic burst that carries per-COMMAND timeouts rather
+    # than step caps, worth about 2.5 minutes if every one of them is reached.
+    # Setup, the sidecar and the disarm's own bounded calls add about 7 more.
+    # So 35 is the cap with room above the worst case rather than the cap the
+    # arithmetic just fits under; the healthy autopsy path is nearer twelve
+    # minutes, and the other three finish inside fifteen.
+    #
+    # One case the cancellation cannot distinguish on its own: a one-word turn
+    # that somehow spends its whole seven-minute bound is pathological but not
+    # a wedge, so an autopsy cancelled at the cap whose TURN STEP ran long is
+    # not a wedge finding — read the clock's log, which says which happened.
+    # The step-progress stamp carries no bound of its own on purpose: a step
     # timeout there would turn a wedge into a failed step, and the reading
     # that stamp is written for is the job-cap cancellation. Far
     # below the 58-64-minute death window on purpose: the probe's whole
     # premise is a runner that lives long enough to publish its record, so
     # the experiment must finish well before the window it is not testing.
-    timeout-minutes: 25
+    timeout-minutes: 35
     # Branch-resolved with an explicit override; keep this expression
     # identical to `run-name:`'s and the other binding jobs', and see the
     # deploy-environment input for what resolves.
@@ -3262,6 +3314,75 @@ jobs:
           if sysctl -n kernel.unprivileged_userns_clone >/dev/null 2>&1; then
             sudo sysctl -w kernel.unprivileged_userns_clone=1
           fi
+
+      # The autopsy's kernel-log tap, opened HERE and nowhere later for one
+      # reason: the codex step below runs `safety-strategy: drop-sudo`, which
+      # takes sudo away for the rest of the job, so a root-only read after the
+      # turn is not available at all — and the kernel log is where a freezer
+      # message, an OOM kill or an AppArmor denial would say what the wedge
+      # is. A detached `dmesg --follow` started while sudo still exists writes
+      # each message into a runner-local file as it is emitted, across the
+      # turn and on into the fuse window, and every later step reads that file
+      # with no privilege. The kernel's own `dmesg_restrict` knob is left
+      # exactly as the image set it.
+      #
+      # The file sits under `RUNNER_TEMP`, which the sandboxed turn can reach
+      # — the same path and the same terms as the watchdog's own log on the
+      # armed members. What it holds is kernel-owned message text: resource
+      # lines, denials, namespace and cgroup events. No credential is written
+      # here, and on this member none exists on the runner to begin with. Two
+      # consequences worth stating rather than inferring: it hands the turn a
+      # ring-buffer view it could not otherwise take, and the turn could
+      # append to or truncate it — this dump is read as evidence because the
+      # turn is a fixed one-word probe, not because the file is
+      # tamper-evident.
+      #
+      # The baseline dump in the same step is the "before" half of every
+      # figure the post-turn steps take: a freezer survey, a namespace list
+      # and a ruleset size read when no sandbox has yet existed. Read the
+      # post-turn dumps against it — a state that was already there before
+      # codex started is the image's, not the sandbox's residue.
+      - name: "Autopsy: open the kernel-log tap and take the pre-turn baseline"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          # No `-e`: a diagnostic that fails the leg destroys the observation
+          # it exists to make. Every command is bounded and fail-soft instead.
+          set -uo pipefail
+          log="${RUNNER_TEMP:-/tmp}/autopsy-dmesg.log"
+          : > "$log"
+          # `stdbuf -oL` is not decoration: stdout here is a FILE, so libc
+          # full-buffers it, and the kernel lines that would name the wedge
+          # are exactly the ones that would sit unflushed in a 4 KiB buffer
+          # when the runner stops. Line buffering makes the one channel that
+          # outlives the wedge line-atomic. It runs under `sudo` rather than
+          # around it, because sudo resets the environment `stdbuf` works
+          # through.
+          # stderr goes to its own sink, so the file every later step presents
+          # as "the kernel log" holds kernel text and nothing else.
+          # shellcheck disable=SC2024  # the redirect is the runner user's on
+          # purpose: root reads the ring buffer, the runner owns the file, and
+          # every later step reads it after `drop-sudo` has taken sudo away.
+          sudo stdbuf -oL nohup dmesg -T --follow >> "$log" 2>> "$log.err" &
+          echo "kernel-log tap pid $!"
+          echo "== pre-turn baseline $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          echo "-- kernel log, ring-buffer tail before the turn --"
+          timeout 10 sudo dmesg -T 2>&1 | tail -20 || true
+          # Captured first, printed second: `pipefail` plus a `find` that
+          # exits non-zero on one unreadable subtree would otherwise print the
+          # frozen paths AND "(none frozen)" after them, contradicting itself
+          # on the most decisive signal in the burst.
+          echo "-- cgroups reporting a non-zero freeze state --"
+          frozen=$(timeout 10 find /sys/fs/cgroup -name cgroup.freeze \
+            -exec grep -H . {} + 2>/dev/null | grep -v ':0$' || true)
+          printf '%s\n' "${frozen:-(none frozen)}"
+          echo "-- network namespaces --"
+          timeout 5 ip netns list || true
+          echo "-- packet filter, rule count only --"
+          timeout 10 sudo nft list ruleset 2>&1 | wc -l || true
+          echo "-- process count, whole machine --"
+          timeout 5 ps -e --no-headers 2>/dev/null | wc -l || true
 
       # The repro leg's mint, on its terms: per-environment credentials,
       # comment-only, fail-soft. A probe with no record still runs, but it
@@ -3466,6 +3587,236 @@ jobs:
           codex-version: "0.144.1"
           codex-args: '["-c","web_search=live"]'
 
+      # --- the autopsy member's diagnostic burst ---------------------------
+      #
+      # Placed immediately after the turn and BEFORE the shared post-exit
+      # margin below, because the whole instrument is a race: the fuse lands
+      # about two minutes after the sandbox STARTED, the turn itself takes
+      # twenty-odd seconds of that, and what is left is the window in which
+      # the machine can still be read. A dump that waited out the margin
+      # would be a dump that never ran.
+      #
+      # Many short steps rather than one: a step's log reaches the run page
+      # while the step runs, so each of these has flushed before the next
+      # begins, and the wedge — which stops what comes next and retracts
+      # nothing already sent — cannot take back what is already on the page.
+      # Each step is read for BOTH its content and its existence; see the
+      # reading rules in the job comment above.
+      #
+      # No step cap on these: a `timeout-minutes` here would convert a wedge
+      # that lands mid-dump into a FAILED step, which is the one outcome that
+      # would make the run page lie. The per-command `timeout` calls are the
+      # bound that matters, and the job cap is the backstop. No `set -e`, and
+      # `|| true` throughout, for the same reason.
+      #
+      # None of these steps prints an environment or any process's environ,
+      # and none reads a workspace, config or credential file — the only
+      # files opened are kernel pseudo-files under `/sys/fs/cgroup` and this
+      # member's own kernel-log capture. `ps` argv only, and the sweep is
+      # whole-machine
+      # rather than one uid, because sandbox residue is exactly what would be
+      # running under some other one — the one place this departs from the
+      # watchdog's own capture, which stays inside its uid because its dump
+      # rides a published artifact. Three things stand under that departure:
+      # the runner is a single-tenant VM whose other uids run stock system
+      # daemons, this member mints no credential and uploads no artifact, and
+      # every argv line is trimmed to 200 columns and passed through a
+      # token-shaped redaction on the way out. The runner's own masking of
+      # secrets it issued is the fourth, and the only one this workflow does
+      # not have to do itself.
+      - name: "Autopsy: the process forest, whole machine"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          set -uo pipefail
+          echo "== post-turn $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          # `wchan` is the column this dump is really for: a wedged world
+          # shows every stuck task parked in the same kernel function, and
+          # that name is the closest thing to a mechanism a process table can
+          # give. `stat` says which flavour of not-running each one is —
+          # uninterruptible sleep (D), stopped or traced (T), a frozen task
+          # parked in D — and `cgroup` says which tree it is parked in. The
+          # column widths are a budget: the 200-column trim below is fixed, so
+          # every column before `args` is spent out of the argv the forest is
+          # named for, which is why `cgroup` is 48 rather than the full path.
+          #
+          # The redaction's alphabet (`sk-`, `gh?_`, a JWT head) is sized for
+          # THIS member, which holds only the codex key and mints nothing:
+          # extend it — AWS key ids, `github_pat_`, bare-hex API tokens —
+          # before reusing this line on a job that assumes a role or arms the
+          # telemetry mint. It runs after the trim on purpose, so a token the
+          # 200-column cut left half-written is still matched.
+          timeout 10 ps -ww -eo pid,ppid,user,stat,wchan:32,etime,cgroup:48,args --forest 2>&1 \
+            | cut -c1-200 \
+            | sed -E 's/(sk-|gh[pousr]_|eyJ)[A-Za-z0-9_.-]{8,}/<redacted>/g' \
+            | head -300 || true
+
+      - name: "Autopsy: cgroup freezer states and the runner slice"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          set -uo pipefail
+          echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          # The first hypothesis the shape suggests: something freezes a
+          # cgroup the runner's own work sits in. A non-zero `cgroup.freeze`
+          # anywhere — and especially one whose path is NOT the sandbox's —
+          # names the mechanism outright.
+          # Captured first, printed second: `pipefail` plus a `find` that
+          # exits non-zero on one unreadable subtree would otherwise print the
+          # frozen paths AND "(none frozen)" after them, contradicting itself
+          # on the most decisive signal in the burst.
+          echo "-- cgroups reporting a non-zero freeze state --"
+          frozen=$(timeout 10 find /sys/fs/cgroup -name cgroup.freeze \
+            -exec grep -H . {} + 2>/dev/null | grep -v ':0$' || true)
+          printf '%s\n' "${frozen:-(none frozen)}"
+          echo "-- controllers delegated at the root --"
+          timeout 5 cat /sys/fs/cgroup/cgroup.subtree_control 2>&1 || true
+          # Through the same trim and redaction as the process forest: this
+          # prints command lines too, and for the RUNNER'S OWN uid, which is
+          # where a secret-bearing argv would be if one existed anywhere.
+          # systemd's own 80-column truncation is implicit and depends on the
+          # terminal width it infers, so it is not the guarantee.
+          echo "-- the user slice's tree --"
+          timeout 10 systemd-cgls --no-pager -u user.slice 2>&1 | cut -c1-200 \
+            | sed -E 's/(sk-|gh[pousr]_|eyJ)[A-Za-z0-9_.-]{8,}/<redacted>/g' | head -120 || true
+
+      - name: "Autopsy: logind sessions and the user manager"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          set -uo pipefail
+          echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          # The second hypothesis: a session or a per-user manager that the
+          # sandbox's user-namespace work leaves in a state the runner's
+          # processes then inherit. `linger`, a session gone `closing`, or a
+          # user manager that is not running are each readable here. These
+          # may simply fail without a user bus — a bounded, fail-soft "no"
+          # is a fine answer and is itself part of the picture.
+          timeout 10 loginctl list-sessions --no-pager 2>&1 || true
+          timeout 10 loginctl list-users --no-pager 2>&1 || true
+          timeout 10 systemctl --user status --no-pager 2>&1 | head -30 || true
+
+      - name: "Autopsy: the kernel log across the turn"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          set -uo pipefail
+          echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          # Everything the kernel said from before the sandbox started until
+          # now, captured by the tap opened while sudo still existed. An
+          # AppArmor denial, an OOM kill, a freezer or userns message here is
+          # the answer the rest of this burst is only circling.
+          timeout 10 tail -80 "${RUNNER_TEMP:-/tmp}/autopsy-dmesg.log" 2>&1 | cut -c1-200 || true
+
+      - name: "Autopsy: namespaces, packet filter and sockets"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          set -uo pipefail
+          echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          # The third hypothesis, and the one the image's announced delta
+          # points at: the container/network machinery. Namespaces the
+          # sandbox left behind, a ruleset that grew across the turn, and a
+          # socket census whose orphan and timewait counts would show a
+          # network stack that stopped rather than a scheduler that did.
+          echo "-- network namespaces --"
+          timeout 5 ip netns list 2>&1 || true
+          echo "-- namespaces with processes in them --"
+          timeout 10 lsns -o NS,TYPE,NPROCS,PID,USER,COMMAND 2>&1 | cut -c1-200 \
+            | sed -E 's/(sk-|gh[pousr]_|eyJ)[A-Za-z0-9_.-]{8,}/<redacted>/g' | head -60 || true
+          echo "-- packet filter (root-only; drop-sudo refusing it is expected, and is data) --"
+          timeout 10 sudo -n nft list ruleset 2>&1 | head -80 || true
+          echo "-- socket census --"
+          timeout 5 ss -s 2>&1 || true
+
+      # The clock. Its output is the single most precise thing this member
+      # produces: a stamp, fifteen seconds of sleep, another stamp. On a
+      # runner with a fuse the sleep that never returns is where the log
+      # stops, so THE LAST LINE PRINTED IS THE WEDGE, to the second — and the
+      # kernel lines and freezer state each tick carries are the machine's
+      # state at that second rather than a minute before it. Twelve ticks,
+      # so on a runner with no fuse the step ends on its own and the member
+      # goes green.
+      - name: "Autopsy: the ticking clock into the fuse window"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        # The one bound in the burst, and it bounds only the HEALTHY path:
+        # twelve ticks of fifteen seconds is three minutes, and a wedge stops
+        # the step's own timer along with everything else — the observed
+        # deaths are cancelled at the JOB cap, never at a step's.
+        #
+        # Six, not four, and the tick's own reads are bounded at two seconds
+        # rather than five: the worst bounded tick is then 21 seconds and the
+        # worst bounded loop is 4.2 minutes, which leaves the cap above every
+        # case that is merely SLOW. A machine degrading but still alive is
+        # this experiment's near-miss, and a cap that fired there would mark
+        # the clock failed and make the survey below look like it never ran —
+        # turning the sharpest healthy observation this member can make into
+        # the wedge's own signature.
+        timeout-minutes: 6
+        run: |
+          set -uo pipefail
+          log="${RUNNER_TEMP:-/tmp}/autopsy-dmesg.log"
+          # Seeded, not zero: `dmesg --follow` prints the whole existing ring
+          # buffer before it follows, so a cursor starting at zero would spend
+          # tick 01 dumping the boot log into the one step whose precision is
+          # the entire point. The pre-turn baseline and the kernel-log step
+          # above have already shown that history; from here only deltas.
+          seen=$( { timeout 5 wc -l < "$log"; } 2>/dev/null || echo 0)
+          for i in $(seq 1 12); do
+            # Each tick is three cheap reads and a stamp: the second, which
+            # cgroups report themselves frozen, and whatever the kernel has
+            # said since the last tick. Bounded like every other command here,
+            # so a tick that cannot read the machine still prints its second.
+            printf 'tick %02d %s frozen=%s\n' "$i" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              "$(timeout 2 find /sys/fs/cgroup -name cgroup.freeze \
+                -exec grep -l '^1' {} + 2>/dev/null | tr '\n' ' ' || true)"
+            now=$( { timeout 2 wc -l < "$log"; } 2>/dev/null || echo 0)
+            if [ "$now" -gt "$seen" ]; then
+              timeout 2 tail -n "$((now - seen))" "$log" 2>/dev/null | cut -c1-200 || true
+              seen=$now
+            fi
+            sleep 15
+          done
+          echo "the clock ran out its ticks — this runner has no fuse"
+
+      # The step whose ABSENCE is the finding. On a runner with a fuse this
+      # never starts, and the run page showing the clock's log ending
+      # mid-sequence with nothing after it is the wedge stated twice. On a
+      # runner without one it is the after-picture: the same survey as the
+      # pre-turn baseline, three minutes past where the fuse would have been.
+      #
+      # `always()` is what makes that absence mean ONE thing. Without it a
+      # clock step that merely failed — its cap reached on a slow machine —
+      # would skip this step too, and a skipped step and an unreached step
+      # look identical on the run page. With it, the only way this step
+      # produces nothing is a runner that stopped executing steps.
+      - name: "Autopsy: the freezer survey again, past the fuse window"
+        if: >-
+          ${{ always() && github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          set -uo pipefail
+          echo "== past the fuse $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          # Captured first, printed second: `pipefail` plus a `find` that
+          # exits non-zero on one unreadable subtree would otherwise print the
+          # frozen paths AND "(none frozen)" after them, contradicting itself
+          # on the most decisive signal in the burst.
+          echo "-- cgroups reporting a non-zero freeze state --"
+          frozen=$(timeout 10 find /sys/fs/cgroup -name cgroup.freeze \
+            -exec grep -H . {} + 2>/dev/null | grep -v ':0$' || true)
+          printf '%s\n' "${frozen:-(none frozen)}"
+          echo "-- process count, whole machine --"
+          timeout 5 ps -e --no-headers 2>/dev/null | wc -l || true
+          echo "-- kernel log tail --"
+          timeout 10 tail -40 "${RUNNER_TEMP:-/tmp}/autopsy-dmesg.log" 2>&1 | cut -c1-200 || true
+
       # The other half of the trail, and the step that makes the codex window
       # locatable in it: stamp the moment the turn's step ended, then idle
       # long enough for three beats to land after it. Beats that arrive here
@@ -3476,6 +3827,18 @@ jobs:
       # duration rather than a condition: that member ends its turn and moves
       # on, as the suite's codex actions-smoke leg does. The stamp is written
       # either way — it is what the verdict below locates the turn by.
+      #
+      # The autopsy member inherits the full margin and idles it out after
+      # its own clock, which is the right side of the trade: no beats land in
+      # it there (it is unwatched) and its measuring is already done, so the
+      # three quiet minutes buy not special-casing the one expression in this
+      # job whose spelling decides whether a member measures what it claims.
+      # One consequence to know before writing a fifth member: because that
+      # member's diagnostic burst runs BEFORE this step, its turn-ended stamp
+      # lands minutes after the turn actually ended. Harmless while the only
+      # reader is the armed members' disarm — but a member that both arms the
+      # watchdog and runs the burst would read a skewed `resumed` off it, and
+      # would need this stamp moved back above the burst.
       #
       # The ternary is spelled so the margin is the TRUE branch, and the
       # QUOTES ARE LOAD-BEARING both ways. A GitHub `&&`/`||` pair yields its

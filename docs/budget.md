@@ -1156,7 +1156,7 @@ dispatch (driver #1) rides inside the buffer too, and so does the
 labeler's default tier, cents a run. The `codex-freeze-probe` family rides
 here too, and costs less: every member sends the canary's own codex boot probe
 — one one-word turn under the cells' block — so the per-dispatch spend is the
-codex row of the canary table below, ≈$0.18, whichever of the three is
+codex row of the canary table below, ≈$0.18, whichever of the four is
 selected, and they are dispatched when the runner question is being worked
 rather than on any cadence. A deliberate buffer over
 the actual items; its defining property is that it **does not scale** with

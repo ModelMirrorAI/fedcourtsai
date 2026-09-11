@@ -3257,6 +3257,7 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
         "codex-freeze-probe",
         "codex-freeze-probe-unwatched",
         "codex-freeze-probe-smokeconfig",
+        "codex-freeze-probe-autopsy",
     }
     arm = next(s for s in steps if s.get("id") == "arm")
     assert arm["env"]["WATCHDOG_DEADLINE_S"] == "1800", (
@@ -3293,10 +3294,17 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
     assert disarm.get("if") == (
         f"${{{{ always() && github.event_name == 'workflow_dispatch' && {armed_members} }}}}"
     ), "a cancelled probe must still close its row"
-    # The unwatched member's defining property, pinned: every telemetry
+    # The unwatched members' defining property, pinned: every telemetry
     # surface in the job is skipped together, so "no watchdog" cannot decay
     # into "a watchdog armed and then ignored" — nor into a log upload
-    # warning about a file no watchdog was there to write.
+    # warning about a file no watchdog was there to write. Two members hold
+    # it now, and the list above names neither: an unarmed member is one this
+    # list does not mention, which is what makes silence the safe default for
+    # anything added later.
+    assert "autopsy" not in armed_members, (
+        "the autopsy member is unwatched — its instrument is the step log, and "
+        "arming it would put a token on a runner the experiment expects to wedge"
+    )
     armed_only = f"${{{{ github.event_name == 'workflow_dispatch' && {armed_members} }}}}"
     for step_name in (
         "Mint the codex watchdog telemetry token",
@@ -3355,3 +3363,114 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
     assert "id-token" not in probe["permissions"], (
         "the freeze probe must hold no id-token — it reads no corpus and assumes no role"
     )
+
+
+def test_the_autopsy_members_dump_is_ordered_bounded_and_secret_free() -> None:
+    """The instrument the autopsy member IS, pinned in the three ways it can
+    silently stop being one.
+
+    Its diagnostics are read for their content and for their existence both:
+    a step whose log is on the run page ran before the wedge, the ticking
+    clock's last printed second is the wedge, and a step that never started is
+    after it. That reading rests on properties nothing else enforces — the
+    dump runs inside the fuse window rather than after the idle that outlasts
+    it, the kernel tap is opened while sudo still exists, no step cap can
+    convert a wedge into a failed step, and the burst prints machine state and
+    never an environment. Each of those is invisible when it drifts: the
+    member stays green and measures nothing.
+    """
+    steps = _load("integration-test.yml")["jobs"]["codex-freeze-probe"]["steps"]
+    names = [str(s.get("name") or s.get("uses") or "") for s in steps]
+    autopsy = [s for s in steps if str(s.get("name") or "").startswith("Autopsy: ")]
+    # The gate, on every one of them: an ungated diagnostic would fire on all
+    # four members, turning the three that are cheap controls into this one.
+    # Affirmative and conjoined with the dispatch event, the shape this
+    # repository requires of an input-gated step on a scheduled workflow.
+    autopsy_only = (
+        "${{ github.event_name == 'workflow_dispatch'"
+        " && inputs.scenario == 'codex-freeze-probe-autopsy' }}"
+    )
+    # One step carries `always()` in front of the same gate, and it is the one
+    # whose ABSENCE is a finding: a skipped step and an unreached step look
+    # identical on the run page, so the survey past the fuse must not be
+    # skippable by a predecessor that merely failed. Every other step takes
+    # the bare gate — `always()` on the dump itself would have it attempted
+    # during a cancellation, which is the one thing that would blur the
+    # reading it is there to make.
+    survey = "Autopsy: the freezer survey again, past the fuse window"
+    for step in autopsy:
+        expected = (
+            autopsy_only.replace("${{ ", "${{ always() && ")
+            if step["name"] == survey
+            else autopsy_only
+        )
+        assert str(step.get("if")) == expected, step["name"]
+    # The order IS the instrument. The tap has to be opened before the turn,
+    # because the turn's `drop-sudo` takes the privilege it needs; the burst
+    # has to run before the shared post-exit margin, because the fuse lands
+    # about two minutes after the sandbox starts and the margin is three; and
+    # the clock has to precede the survey whose absence is the finding.
+    order = [names.index(str(s["name"])) for s in autopsy]
+    assert order == sorted(order)
+    turn = names.index("Run one trivial turn under the cells' codex block")
+    margin = names.index("Stamp the turn's end and let post-exit beats land")
+    tap = names.index("Autopsy: open the kernel-log tap and take the pre-turn baseline")
+    clock = names.index("Autopsy: the ticking clock into the fuse window")
+    past_fuse = names.index("Autopsy: the freezer survey again, past the fuse window")
+    assert tap < turn, "the kernel tap must be opened before `drop-sudo` takes sudo away"
+    assert turn < min(i for i in order if i != tap), "the dump must start the moment the turn ends"
+    assert clock < past_fuse < margin, (
+        "the burst must finish inside the fuse window — a dump scheduled after "
+        "the post-exit margin is a dump that never runs on a wedged runner"
+    )
+    for step in autopsy:
+        run = str(step["run"])
+        # Fail-soft, and bounded per command rather than per step: `set -e`
+        # would let one refused diagnostic abort the rest of the dump, and a
+        # `timeout-minutes` would turn the wedge itself into a failed step —
+        # the one outcome that would make the run page lie about what
+        # happened. The clock is the single exception, and it bounds only the
+        # healthy path.
+        assert "set -uo pipefail" in run and "set -euo pipefail" not in run, step["name"]
+        assert "timeout " in run, step["name"]
+        if step["name"] != "Autopsy: the ticking clock into the fuse window":
+            assert "timeout-minutes" not in step, step["name"]
+        # Machine state, never an environment: no environ read, no printenv,
+        # and no secret anywhere near a job that deliberately mints none.
+        # Comment lines are dropped first — these blocks explain at length why
+        # they read no environment, and saying so is not doing it.
+        code = "\n".join(line for line in run.splitlines() if not line.lstrip().startswith("#"))
+        assert "environ" not in code, step["name"]
+        assert "printenv" not in code, step["name"]
+        assert "secrets." not in yaml.safe_dump(step), step["name"]
+        # Argv is in scope — the watchdog's own escalation capture takes the
+        # same for one uid — but trimmed AND redacted, because this sweep
+        # crosses uids and lands in a public step log rather than in that
+        # capture's uploaded bundle. The trigger list is by COMMAND, not by
+        # column name, because the command decides what gets printed: a tool
+        # added later that prints command lines under another spelling would
+        # otherwise inherit no requirement at all.
+        if any(
+            printer in run
+            for printer in ("args", "COMMAND", "systemd-cgls", "cgls", "pgrep -a", "top -b")
+        ):
+            assert "cut -c1-200" in run, step["name"]
+            assert "sed -E 's/(sk-|gh[pousr]_|eyJ)" in run, step["name"]
+    clock_run = str(steps[clock]["run"])
+    # A bounded loop, so the member ENDS on a runner with no fuse: twelve
+    # fifteen-second ticks is three minutes, past where the fuse would be.
+    # An unbounded clock would hang a healthy run to the job cap and report
+    # the escape as the wedge.
+    assert "seq 1 12" in clock_run and "sleep 15" in clock_run
+    # The cap must stay above the loop's WORST bounded case, not its nominal
+    # one: three two-second reads plus the sleep is 21 seconds a tick, 4.2
+    # minutes over twelve. A cap that fired on a merely slow machine would
+    # fail the clock, and this job reads a failure there as the wedge.
+    assert str(steps[clock]["timeout-minutes"]) == "6"
+    assert clock_run.count("timeout 2 ") == 3, (
+        "each tick read must stay inside the two-second bound"
+    )
+    # Seeded from the file, never from zero: `dmesg --follow` replays the
+    # whole ring buffer first, and a zero cursor would spend tick 01 printing
+    # the boot log into the one step whose value is its precision.
+    assert 'seen=$( { timeout 5 wc -l < "$log"; }' in clock_run
