@@ -34,13 +34,21 @@ import contextlib
 import json
 import os
 import re
+import signal
 import socket
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, ParamSpec
+
+#: The knobs of `_spawn`, carried through `_run` so a mistyped one at any call
+#: site below is still a type error. Spelled the pre-PEP-695 way on purpose:
+#: CodeQL's python extractor reads the `[**P]` form's uses as an uninitialized
+#: local and fails the scan on it.
+_P = ParamSpec("_P")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WATCHDOG = REPO_ROOT / "scripts" / "engine-watchdog.sh"
@@ -71,7 +79,7 @@ CHECKIN_BASE = (
 )
 
 
-def _run(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
+def _spawn(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
     watchdog_dir: Path,
     match: str,
     runner_match: str = NO_MATCH,
@@ -86,7 +94,10 @@ def _run(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
     sentinel_paths: list[Path] | None = None,
     output_dir: Path | None = None,
     quiesce_s: str = "2",
-) -> subprocess.CompletedProcess[str]:
+    suspension_gap_s: str | None = None,
+    observe_s: str | None = None,
+    log_path: Path | None = None,
+) -> subprocess.Popen[str]:
     # Fail closed on the way in, so a future test cannot hand a discovery route
     # a pattern broad enough to name a process this suite did not spawn. Every
     # fixture marker carries this process's pid.
@@ -130,15 +141,68 @@ def _run(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
         env["WATCHDOG_MIN_STEP_AGE_S"] = min_step_age_s
     if deadline_s is not None:
         env["WATCHDOG_DEADLINE_S"] = deadline_s
-    return subprocess.run(
+    # The thaw guard's two knobs are left at their shipped values unless a test
+    # is about the guard: no fixture here can produce a two-minute gap, so every
+    # other test runs against a watchdog that never detects a suspension — which
+    # is the property they are pinning.
+    if suspension_gap_s is not None:
+        env["WATCHDOG_SUSPENSION_GAP_S"] = suspension_gap_s
+    if observe_s is not None:
+        env["WATCHDOG_OBSERVE_S"] = observe_s
+    if log_path is not None:
+        # A file rather than a pipe, so a test can watch the watchdog's own log
+        # *while* it runs — which is the only way to know it has reached its
+        # wait loop before signalling it. Merged, since the script's stderr is
+        # the same account.
+        with log_path.open("w") as log:
+            return subprocess.Popen(
+                ["bash", str(WATCHDOG)], env=env, stdout=log, stderr=subprocess.STDOUT, text=True
+            )
+    return subprocess.Popen(
         ["bash", str(WATCHDOG)],
         env=env,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=180,
-        check=False,
     )
 
+
+def _completed(  # noqa: UP047 - the PEP 695 spelling reads as uninitialized to CodeQL
+    spawn: Callable[_P, subprocess.Popen[str]],
+) -> Callable[_P, subprocess.CompletedProcess[str]]:
+    """`_spawn`, waited out — the shape most tests here want, with its signature kept.
+
+    The suspension tests need the process *while* it runs, so every knob lives
+    on `_spawn`; this wrapper only waits. Typed through `ParamSpec` rather than
+    `*args: Any`, so a mistyped knob at any of the call sites below is still a
+    type error rather than a runtime one.
+    """
+
+    def run(*args: _P.args, **knobs: _P.kwargs) -> subprocess.CompletedProcess[str]:
+        proc = spawn(*args, **knobs)
+        try:
+            stdout, stderr = proc.communicate(timeout=180)
+        except subprocess.TimeoutExpired:  # pragma: no cover - only on a hung watchdog
+            # Killed rather than left behind: a watchdog that outlives its test
+            # is one more process on the box holding a deadline nothing will
+            # disarm. Bounded again, since the reap of a killed process is the
+            # one thing left that could hang here.
+            proc.kill()
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                proc.communicate(timeout=10)
+            raise
+        return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
+
+    return run
+
+
+_run = _completed(_spawn)
+
+
+#: How long a freeze test waits after the watchdog's arming line before stopping
+#: it. One poll plus margin: the line is written a few statements before the wait
+#: loop, and the gap the guard measures only starts when that loop does.
+LOOP_SETTLE_S = 1.5
 
 #: A wedged process that ignores SIGTERM, which is what makes the watchdog's
 #: SIGKILL escalation reachable — a `sleep` dies on the first signal and never
@@ -1348,3 +1412,237 @@ def test_the_shipped_floor_derives_from_the_deadline() -> None:
     bound that stands between the escalation and the steps that salvage a cell.
     """
     assert _shipped_default("WATCHDOG_MIN_STEP_AGE_S") == "$((deadline_s / 2))"
+
+
+# --- the thaw guard -----------------------------------------------------------
+#
+# A watchdog can lose wall clock without observing it: an engine sandbox can
+# suspend this process for as long as the agent runs, and the sandbox's exit
+# resumes it onto a deadline that expired while it was frozen. Firing then aims
+# the kill ladder at a step already in teardown, which is the act every runner
+# death in this class has followed. So the guard is driven the way the sandbox
+# drives it — SIGSTOP the real script, move the wall clock on, SIGCONT — and what
+# is asserted is that nothing at all was signalled afterwards.
+#
+# The unsuspended half needs no fixture of its own: every test above runs with
+# the shipped threshold, which no gap this suite can produce comes near, so they
+# already pin that a watchdog which never lost time behaves exactly as before.
+
+
+def _freeze(proc: subprocess.Popen[str], log_path: Path, frozen_s: float) -> None:
+    """Let the watchdog reach its wait loop, stop it where it stands, resume it.
+
+    Not a simulation of the freeze — it is the same signal pair, so what the
+    script sees is a pass that arrives with the wall clock moved on and nothing
+    in between to account for it.
+
+    The wait is anchored on the watchdog's own arming line rather than on a bare
+    sleep, because the gap is measured from the moment the *loop* starts: a
+    SIGSTOP that beat the script there would be a freeze the script never sees,
+    and the test would fail for the wrong reason on a loaded box. The line is
+    written just before the loop rather than inside it, so a poll's worth of
+    settling follows it — short, because what it has to cover is the handful of
+    statements in between, not process startup.
+    """
+    assert _await(lambda: "armed; firing in" in _text(log_path)), (
+        "the watchdog never reached its wait loop"
+    )
+    time.sleep(LOOP_SETTLE_S)
+    assert proc.poll() is None, "the watchdog exited before it could be suspended"
+    proc.send_signal(signal.SIGSTOP)
+    time.sleep(frozen_s)
+    proc.send_signal(signal.SIGCONT)
+
+
+def _text(path: Path) -> str:
+    """The watchdog's log so far, empty until it has written any of it."""
+    try:
+        return path.read_text()
+    except OSError:  # pragma: no cover - only before the first write
+        return ""
+
+
+def _unfrozen(proc: subprocess.Popen[str]) -> None:
+    """Never leave a watchdog behind, stopped or running, however the test went."""
+    if proc.poll() is None:  # pragma: no cover - only on a failed run
+        proc.send_signal(signal.SIGCONT)
+        proc.kill()
+        proc.wait(timeout=10)
+
+
+def test_a_watchdog_that_lost_wall_clock_signals_nothing(tmp_path: Path) -> None:
+    """The death window, reproduced: a deadline that expired while the process was frozen.
+
+    On the thaw the wall-clock check sees a long-expired deadline, and the tree
+    it would end is the step's teardown. Both the engine fixture and the step
+    fixture are discoverable and killable here — the same shapes every escalation
+    test above ends — and the assertion is that neither is touched.
+    """
+    marker = f"fedcourts-watchdog-engine-{os.getpid()}"
+    engine = _named(marker)
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
+    watchdog_dir = tmp_path / "engine-watchdog"
+    log_path = tmp_path / "watchdog.log"
+    proc = _spawn(
+        watchdog_dir,
+        marker,
+        worker_match=f"watchdog-selftest-{os.getpid()}",
+        deadline_s="8",
+        suspension_gap_s="4",
+        observe_s="1",
+        log_path=log_path,
+    )
+    try:
+        _freeze(proc, log_path, frozen_s=10.0)
+        assert proc.wait(timeout=120) == 0, _text(log_path)
+        stdout = _text(log_path)
+
+        assert engine.poll() is None, "a watchdog that lost time killed the engine"
+        assert not _gone(tree.step_pid), "a watchdog that lost time ended the step's tree"
+        assert tree.proc.poll() is None
+
+        assert (watchdog_dir / "SUSPENDED").exists(), (
+            f"the gap was never detected; the watchdog's own log says: {stdout}"
+        )
+        suspended = (watchdog_dir / "SUSPENDED").read_text()
+        assert "suspended_at=" in suspended
+        assert "gap_s=" in suspended
+        assert "suspensions=1" in suspended
+        assert "stood_down_at=" in suspended
+        # None of the three markers the disarm step reads as "the watchdog
+        # acted", because it did not: claiming one here would route a cell whose
+        # step nobody ended as one the watchdog concluded.
+        for absent in ("FIRED", "STOOD_DOWN", "REAPED"):
+            assert not (watchdog_dir / absent).exists(), f"{absent} was written after a suspension"
+        # The read-only half still runs: a process forest taken between the thaw
+        # and the runner's loss is the one capture the death window has never had.
+        assert (watchdog_dir / "process-tree.txt").stat().st_size > 0
+        assert "standing down" in stdout
+    finally:
+        _unfrozen(proc)
+        tree.close()
+        if engine.poll() is None:
+            engine.kill()
+            engine.wait(timeout=10)
+
+
+def test_a_completed_cell_is_not_reaped_by_a_watchdog_that_lost_time(tmp_path: Path) -> None:
+    """The reap stands down too, and outputs complete at the thaw is why.
+
+    Complete output on resume is the *expected* reading of this failure — the
+    agent finished while the watchdog was frozen — so a reap that took it as its
+    cue would fire on every suspended run, into the teardown the agent's finish
+    just started. The rule is therefore absolute rather than conditional on the
+    sentinel: the sentinel is satisfied here, and observed to be, and the reap is
+    still withheld.
+
+    Where in a pass the freeze lands is not the fixture's to choose — the poll's
+    sleep is most of a pass, but the sentinel's own reads are the rest — so this
+    holds either way only because the clock is re-read at the reaper's door as
+    well as at the top of the loop. A guard that asked once per pass would thaw
+    straight into the reap it was interrupted in.
+    """
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths)
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
+    watchdog_dir = tmp_path / "engine-watchdog"
+    log_path = tmp_path / "watchdog.log"
+    proc = _spawn(
+        watchdog_dir,
+        f"watchdog-selftest-absent-{os.getpid()}",
+        worker_match=f"watchdog-selftest-{os.getpid()}",
+        deadline_s="16",
+        sentinel_paths=paths,
+        output_dir=out_dir,
+        # Longer than the watchdog is awake before the freeze, so the reap
+        # cannot have fired on its own beforehand — and well under the age of
+        # the writes by the time it thaws, so quiescence is satisfied there.
+        quiesce_s="6",
+        suspension_gap_s="4",
+        observe_s="1",
+        log_path=log_path,
+    )
+    try:
+        _freeze(proc, log_path, frozen_s=10.0)
+        assert proc.wait(timeout=120) == 0, _text(log_path)
+        stdout = _text(log_path)
+
+        assert "completion sentinel observed at" in stdout, "the sentinel was never satisfied here"
+        assert not (watchdog_dir / "REAPED").exists(), "a resumed watchdog reaped a step"
+        assert not _gone(tree.step_pid), "a resumed watchdog ended the step it was reaping for"
+        assert "the reap is withheld" in stdout
+        suspended = (watchdog_dir / "SUSPENDED").read_text()
+        assert "reap_withheld_at=" in suspended
+        assert "stood_down_at=" in suspended
+        for absent in ("FIRED", "STOOD_DOWN"):
+            assert not (watchdog_dir / absent).exists(), f"{absent} was written after a suspension"
+    finally:
+        _unfrozen(proc)
+        tree.close()
+
+
+def test_a_stood_down_watchdog_keeps_beating_inside_a_bounded_window(tmp_path: Path) -> None:
+    """After standing down it is an instrument, and instruments report.
+
+    Every runner-local account of this failure dies with the runner, and the
+    runner is lost minutes after the thaw — so a beat that lands from inside that
+    window is evidence nothing else can carry out. It is bounded rather than
+    endless: the window closes and the process exits on its own, which is what
+    the tiny window here is checking as much as the beats are.
+    """
+    sink = CheckinSink()
+    watchdog_dir = tmp_path / "engine-watchdog"
+    log_path = tmp_path / "watchdog.log"
+    proc = _spawn(
+        watchdog_dir,
+        f"watchdog-selftest-absent-{os.getpid()}",
+        deadline_s="8",
+        suspension_gap_s="4",
+        # Wide enough that a loaded box still fits several beats inside it, and
+        # still small enough that the window closing is what ends this test.
+        observe_s="10",
+        heartbeat_s="1",
+        checkin_url=sink.url,
+        checkin_base=CHECKIN_BASE,
+        log_path=log_path,
+    )
+    try:
+        _freeze(proc, log_path, frozen_s=10.0)
+        resumed = time.monotonic()
+        assert proc.wait(timeout=120) == 0, _text(log_path)
+        stdout = _text(log_path)
+
+        # The window is what ends this process, and it ends it on its own: the
+        # log says both halves, and neither reading depends on the channel.
+        assert "observing for up to 10s" in stdout
+        assert "the observation window closed" in stdout
+        assert time.monotonic() - resumed < 60, "the observation window did not close on its own"
+
+        phases = _phases(sink.bodies)
+        assert any(line.startswith("SUSPENDED: lost ") for line in phases), phases
+        assert any(line.startswith("outcome: stood_down_suspended") for line in phases), phases
+        # Beats that landed *off* the runner, read across every body the sink
+        # recorded rather than only the last: a send the transport dropped is the
+        # ordinary degraded state of this channel, and it must not read as a
+        # watchdog that stopped beating.
+        assert any("] observing: " in body for body in sink.bodies), sink.bodies
+    finally:
+        _unfrozen(proc)
+        sink.close()
+
+
+def test_the_shipped_thaw_guard_is_armed_and_clear_of_an_ordinary_pass() -> None:
+    """The threshold has to sit between two things it cannot be confused with.
+
+    Below it, an ordinary pass — a poll plus the bounded check-in it may pay —
+    which must never read as suspension, or a healthy watchdog disarms itself.
+    Above it, a freeze that lasts as long as the agent does. Nothing else pins
+    the gap: every test that drives the guard sets a threshold of its own, so a
+    shipped value narrowed to nothing, or zeroed into an unarmed guard, would
+    pass the suite either way.
+    """
+    gap = int(_shipped_default("WATCHDOG_SUSPENSION_GAP_S"))
+    assert gap > 0, "a zero threshold leaves the guard unarmed"
+    assert gap >= 10 * int(_shipped_default("WATCHDOG_POLL_S"))
+    assert int(_shipped_default("WATCHDOG_OBSERVE_S")) > 0

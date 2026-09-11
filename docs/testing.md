@@ -358,8 +358,14 @@ names the holder. Read the markers accordingly: `REAPED` is the defect
 reproducing and being handled, while `FIRED` or `STOOD_DOWN` says the completion
 set was never satisfied — work still running at the deadline, or a required file
 the judge never wrote — which is a finding about the cell rather than about
-teardown. The bundle and the rollout's item shapes ride the run's artifact either
-way. The leg reports **two halves separately**, because
+teardown. `SUSPENDED` is a fourth reading and not a fourth escalation: the
+watchdog lost wall clock it did not observe, so it signalled nothing and became
+an observer. Read it off the **bundle** — the gaps it lost, the stand-down, and
+a process forest taken at the thaw — rather than off the telemetry row, which on
+a leg whose step then concludes is closed out as one where nothing fired. No
+marker of an action was written, and none should have been. The bundle rides the
+run's artifact whichever way the leg went; the rollout's item shapes are
+distilled where the watchdog acted. The leg reports **two halves separately**, because
 the finding is that they can disagree: `outputs:` counts the cell's produced
 files against the same `cell-outputs` list the watchdog's sentinel waits on, and
 `step:` says whether it concluded on its own, was reaped by the watchdog, or did
