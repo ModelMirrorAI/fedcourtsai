@@ -3193,8 +3193,24 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
     retrieval sidecar and no OIDC — are asserted in docs/security.md and were
     enforced by nothing until here.
     """
-    probe = _load("integration-test.yml")["jobs"]["codex-freeze-probe"]
+    workflow = _load("integration-test.yml")
+    probe = workflow["jobs"]["codex-freeze-probe"]
     steps = probe["steps"]
+    # One job serves the whole family, so the gate is a prefix test — and
+    # every dispatchable value carrying that prefix must reach it, or a
+    # scenario added to the options and to nothing else would dispatch a run
+    # in which no job at all is selected.
+    assert probe["if"] == "${{ startsWith(inputs.scenario, 'codex-freeze-probe') }}"
+    family = {
+        option
+        for option in workflow[True]["workflow_dispatch"]["inputs"]["scenario"]["options"]
+        if option.startswith("codex-freeze-probe")
+    }
+    assert family == {
+        "codex-freeze-probe",
+        "codex-freeze-probe-unwatched",
+        "codex-freeze-probe-smokeconfig",
+    }
     arm = next(s for s in steps if s.get("id") == "arm")
     assert arm["env"]["WATCHDOG_DEADLINE_S"] == "1800", (
         "the probe's deadline must stay far above the whole experiment — one "
@@ -3213,7 +3229,28 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
     )
     disarm = next(s for s in steps if s.get("name") == "Disarm and read the beat trail")
     disarm_run = str(disarm["run"])
-    assert disarm.get("if") == "${{ always() }}", "a cancelled probe must still close its row"
+    # `always()` first, then the schedule's fail-closed conjunct, then the
+    # member exclusion: a cancelled probe must still close its row, and the
+    # unwatched member has no row to close because its mint and arm never
+    # ran. A disarm that lost the `always()` would strand an armed record on
+    # a long-lived issue, where a reader would later take it for a hang.
+    unwatched = "inputs.scenario != 'codex-freeze-probe-unwatched'"
+    assert disarm.get("if") == (
+        f"${{{{ always() && github.event_name == 'workflow_dispatch' && {unwatched} }}}}"
+    ), "a cancelled probe must still close its row"
+    # The unwatched member's defining property, pinned: every telemetry
+    # surface in the job is skipped together, so "no watchdog" cannot decay
+    # into "a watchdog armed and then ignored" — nor into a log upload
+    # warning about a file no watchdog was there to write.
+    armed_only = f"${{{{ github.event_name == 'workflow_dispatch' && {unwatched} }}}}"
+    for step_name in (
+        "Mint the codex watchdog telemetry token",
+        "Arm the watchdog around the turn",
+    ):
+        step = next(s for s in steps if s.get("name") == step_name)
+        assert str(step.get("if")) == armed_only, step_name
+    upload = next(s for s in steps if s.get("name") == "Upload the watchdog log")
+    assert unwatched in str(upload["if"])
     assert 'grep -qa engine-watchdog.sh "/proc/$pid/cmdline"' in disarm_run, (
         "the pid must be ownership-checked before it is signalled — the agent "
         "held a shell on the path that pid file sits on"
