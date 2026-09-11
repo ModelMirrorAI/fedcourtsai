@@ -17,10 +17,11 @@ name: run-pull
 #   granted SCOTUS rows to their published opinion cluster and lands the
 #   reporter citations and the opinion body (`fedcourts enrich-opinions`,
 #   docs/data-pipeline.md). Dispatch-only because the pass spends the shared
-#   CourtListener budget (~3 requests/case against the same daily ceiling the
-#   pull windows draw on) and re-walks opinion-less grants (GVR/DIG residue)
-#   every run — an operator sizes and times each run deliberately, in a dead
-#   zone between pull windows.
+#   CourtListener budget (~4 requests/case against the same daily ceiling the
+#   pull windows draw on) and keeps retrying opinion-less grants (GVR/DIG
+#   residue) — rotated stalest-first behind the never-attempted, so the cap
+#   reaches fresh candidates every run — and an operator sizes and times each
+#   run deliberately, in a dead zone between pull windows.
 #
 # The historical Term walker (the backfill of past Terms) lives in its own
 # workflow, run-seed.yml, so its schedule is independent of these forward
@@ -79,7 +80,7 @@ on:
         options: [pull, live, enrich-opinions]
         default: pull
       max_cases:
-        description: "enrich-opinions only: granted dockets to walk this run (~3 API requests each; ~100 exhausts the hourly tier ceiling)"
+        description: "enrich-opinions only: granted dockets to walk this run (~4 API requests each; ~75 exhausts the hourly tier ceiling)"
         type: string
         default: "50"
 
