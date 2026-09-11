@@ -26,7 +26,10 @@ from fedcourtsai.pipeline.opinion_enrichment import (
     MAX_OPINION_CHARS,
     OpinionEnrichmentResult,
     citation_strings,
+    cluster_docket_id,
     cluster_names_docket,
+    docket_court,
+    docket_names_case,
     enrich_opinions,
     is_separate_writing,
     resource_id,
@@ -101,7 +104,12 @@ def test_citation_strings_assembles_reporter_cites() -> None:
 
 
 class _Upstream:
-    """Canned cluster/opinion/docket payloads, served by request path."""
+    """Canned cluster/opinion/docket payloads, served by request path.
+
+    ``cluster_pages`` answers the docket-number route: a ``(court, number)``
+    filter maps to the list page upstream would serve for it, and an unmapped
+    filter comes back empty, as a number upstream joins no cluster to does.
+    """
 
     def __init__(
         self,
@@ -109,15 +117,26 @@ class _Upstream:
         clusters: Mapping[int, dict[str, Any]],
         opinions: Mapping[int, dict[str, Any]],
         dockets: Mapping[int, dict[str, Any]] | None = None,
+        cluster_pages: Mapping[tuple[str, str], dict[str, Any]] | None = None,
     ) -> None:
         self.clusters = clusters
         self.opinions = opinions
         self.dockets = dockets or {}
+        self.cluster_pages = cluster_pages or {}
         self.paths: list[str] = []
+        self.filters: list[tuple[str, str]] = []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.paths.append(request.url.path)
         parts = request.url.path.strip("/").split("/")
+        if parts[-1] == "clusters":
+            # The list route: the filter is in the query string, not the path.
+            wanted = (
+                request.url.params.get("docket__court", ""),
+                request.url.params.get("docket__docket_number", ""),
+            )
+            self.filters.append(wanted)
+            return httpx.Response(200, json=self.cluster_pages.get(wanted, {"results": []}))
         resource, ident = parts[-2], int(parts[-1])
         table: Mapping[int, dict[str, Any]] = {
             "clusters": self.clusters,
@@ -407,8 +426,10 @@ def test_several_clusters_are_refused_not_guessed_at(tmp_path: Path) -> None:
     }
     result = _run(db, upstream, apply=True, today=_TODAY)
     assert result.ambiguous_cluster == 1 and result.enriched == 1
-    # The ambiguity cost one docket fetch and no cluster fetch.
+    # The ambiguity cost one docket fetch, no cluster fetch, and — the refusal
+    # being the walk's answer about the case — no second route either.
     assert not any(path.endswith("/clusters/5555/") for path in upstream.paths)
+    assert upstream.filters == []
     with corpus.connect(db) as conn:
         row = corpus.get_row(conn, "scotus/102")
     assert row is not None and row.has_opinion is False
@@ -450,6 +471,368 @@ def test_a_cluster_naming_no_docket_is_accepted() -> None:
         cluster_names_docket({"docket": _link("dockets", 999)}, base_url=_BASE, docket_id=101)
         is False
     )
+
+
+# --- the docket-number route ---------------------------------------------------
+
+# The shape upstream actually serves for a granted case: the tracked docket is
+# the cert-stage row and links no cluster, while the published merits cluster
+# hangs on a sibling row for the same docket number.
+_NUMBER = "17-1657"
+_TRACKED = 14564957
+_SIBLING = 15645451
+_MERITS = 4621278
+_LEAD = 7654321
+
+
+def _sibling_docket(**overrides: Any) -> dict[str, Any]:
+    return {
+        "id": _SIBLING,
+        "court_id": "scotus",
+        "docket_number": _NUMBER,
+        "clusters": [_link("clusters", _MERITS)],
+        **overrides,
+    }
+
+
+def _by_number(
+    *,
+    results: list[dict[str, Any]] | None = None,
+    next_page: str | None = None,
+    sibling: dict[str, Any] | None = None,
+) -> _Upstream:
+    """Upstream serving the case's cluster only by its docket number."""
+    page: dict[str, Any] = {
+        "results": [_cluster(_MERITS, docket_id=_SIBLING, opinion_id=_LEAD)]
+        if results is None
+        else results
+    }
+    if next_page is not None:
+        page["next"] = next_page
+    return _Upstream(
+        clusters={},
+        opinions={_LEAD: {"id": _LEAD, "type": "020lead", "plain_text": _BODY}},
+        dockets={
+            _TRACKED: {"id": _TRACKED, "clusters": []},
+            _SIBLING: _sibling_docket() if sibling is None else sibling,
+        },
+        cluster_pages={("scotus", _NUMBER): page},
+    )
+
+
+def _tracked(tmp_path: Path, docket_number: str = _NUMBER) -> Path:
+    """A corpus holding one granted, unenriched case with a docket number."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(f"scotus/{_TRACKED}", docket_number=docket_number)])
+    return db
+
+
+def test_a_cluster_on_a_sibling_docket_is_reached_by_number(tmp_path: Path) -> None:
+    """The dominant refusal, resolved: the tracked cert-stage docket links no
+    cluster, so the walk asks which clusters upstream joins to this court and
+    number — and the one it names hangs on another of upstream's docket rows."""
+    db = _tracked(tmp_path)
+    upstream = _by_number()
+    result = _run(db, upstream, apply=True, today=_TODAY)
+
+    assert result.enriched == 1 and result.no_cluster == 0
+    assert upstream.filters == [("scotus", _NUMBER)]
+    # Four requests: the docket, the filtered list (which carries the cluster
+    # itself, so no cluster fetch), the docket that cluster names, and the
+    # lead opinion.
+    assert upstream.paths == [
+        f"/api/rest/v4/dockets/{_TRACKED}/",
+        "/api/rest/v4/clusters/",
+        f"/api/rest/v4/dockets/{_SIBLING}/",
+        f"/api/rest/v4/opinions/{_LEAD}/",
+    ]
+    assert result.requests == 4
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, f"scotus/{_TRACKED}")
+    assert row is not None
+    assert row.opinion_text == _BODY and row.has_opinion is True
+    assert row.citations == ["602 U.S. 137"]
+    assert row.opinion_enrich_attempted_at == _TODAY
+
+
+def test_the_number_route_accepts_the_cases_own_docket_without_a_fetch(tmp_path: Path) -> None:
+    """A cluster the filter finds on the tracked row itself needs no second
+    docket read: the row already is this court and this number."""
+    db = _tracked(tmp_path)
+    upstream = _by_number(results=[_cluster(_MERITS, docket_id=_TRACKED, opinion_id=_LEAD)])
+    result = _run(db, upstream, apply=True)
+
+    assert result.enriched == 1
+    assert upstream.paths.count(f"/api/rest/v4/dockets/{_TRACKED}/") == 1
+    assert result.requests == 3
+
+
+def test_several_clusters_for_one_number_are_refused_not_guessed_at(tmp_path: Path) -> None:
+    """The docket route's refusal, preserved on the number route."""
+    db = _tracked(tmp_path)
+    upstream = _by_number(
+        results=[
+            _cluster(_MERITS, docket_id=_SIBLING, opinion_id=_LEAD),
+            _cluster(9999, docket_id=_SIBLING, opinion_id=_LEAD),
+        ]
+    )
+    result = _run(db, upstream, apply=True, today=_TODAY)
+
+    assert result.ambiguous_cluster == 1 and result.enriched == 0
+    # The ambiguity cost the docket and the list, and nothing else.
+    assert result.requests == 2
+    assert not any(path.startswith("/api/rest/v4/opinions/") for path in upstream.paths)
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, f"scotus/{_TRACKED}")
+    assert row is not None and row.has_opinion is False
+    assert row.opinion_enrich_attempted_at == _TODAY
+
+
+def test_a_further_page_of_clusters_is_the_same_ambiguity(tmp_path: Path) -> None:
+    """One result with a page behind it means upstream holds more, so the pass
+    refuses rather than taking the first of an unseen set — which is also what
+    a filter upstream ignored rather than applied looks like."""
+    db = _tracked(tmp_path)
+    upstream = _by_number(next_page=f"{_BASE}clusters/?cursor=next")
+    result = _run(db, upstream, apply=True)
+
+    assert result.ambiguous_cluster == 1 and result.enriched == 0
+    assert result.requests == 2
+
+
+@pytest.mark.parametrize(
+    ("sibling", "why"),
+    [
+        (_sibling_docket(docket_number="17-1650"), "another number"),
+        (_sibling_docket(court_id="ca9"), "another court"),
+        (_sibling_docket(court_id=None, court=f"{_BASE}courts/ca9/"), "another court by link"),
+        (_sibling_docket(docket_number=None), "no number served"),
+        (_sibling_docket(court_id=None, court=None), "no court served"),
+    ],
+    ids=["number", "court", "court-link", "number-absent", "court-absent"],
+)
+def test_a_cluster_on_a_docket_that_is_not_the_cases_is_refused(
+    tmp_path: Path, sibling: dict[str, Any], why: str
+) -> None:
+    """The retargeted misjoin guard: the filter found it, but the pass checks
+    the docket the cluster names against the case's own court and number
+    itself — `has_opinion` latches, so upstream's matching cannot be the test."""
+    db = _tracked(tmp_path)
+    upstream = _by_number(sibling=sibling)
+    result = _run(db, upstream, apply=True, today=_TODAY)
+
+    assert result.foreign_cluster == 1 and result.enriched == 0, why
+    # The refusal came before the body: docket, list, the named docket.
+    assert result.requests == 3
+    assert not any(path.startswith("/api/rest/v4/opinions/") for path in upstream.paths)
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, f"scotus/{_TRACKED}")
+    assert row is not None and row.has_opinion is False
+    assert row.opinion_enrich_attempted_at == _TODAY
+
+
+def test_a_cluster_naming_no_docket_is_refused_on_the_number_route(tmp_path: Path) -> None:
+    """The docket route can fail open on an absent `docket` — it reached the
+    cluster from the docket's own list. The number route cannot: the docket the
+    cluster names is the only evidence of identity it has."""
+    db = _tracked(tmp_path)
+    upstream = _by_number(results=[{"id": _MERITS, "sub_opinions": [_link("opinions", _LEAD)]}])
+    result = _run(db, upstream, apply=True)
+
+    assert result.foreign_cluster == 1 and result.enriched == 0
+    assert result.requests == 2
+
+
+def test_the_docket_route_short_circuits_the_number_query(tmp_path: Path) -> None:
+    """A docket that links its own cluster never reaches the second route."""
+    db = _tracked(tmp_path)
+    upstream = _by_number()
+    upstream.dockets = {
+        _TRACKED: {"id": _TRACKED, "clusters": [_link("clusters", _MERITS)]},
+        _SIBLING: _sibling_docket(),
+    }
+    upstream.clusters = {_MERITS: _cluster(_MERITS, docket_id=_TRACKED, opinion_id=_LEAD)}
+    result = _run(db, upstream, apply=True)
+
+    assert result.enriched == 1
+    assert upstream.filters == []
+    assert result.requests == 3
+
+
+def test_a_number_that_matches_no_cluster_is_retried_by_design(tmp_path: Path) -> None:
+    """A miss on both routes is a coverage report, not a failure: nothing
+    latches, so the case stays eligible and picks up its opinion once one
+    publishes — it just rotates behind everything else owed a turn."""
+    db = _tracked(tmp_path)
+    upstream = _by_number()
+    upstream.cluster_pages = {}
+    result = _run(db, upstream, apply=True, today=_TODAY)
+
+    assert result.no_cluster == 1 and result.enriched == 0
+    assert result.requests == 2
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, f"scotus/{_TRACKED}")
+    assert row is not None and row.has_opinion is False
+    assert row.opinion_enrich_attempted_at == _TODAY
+    # Still eligible: the next run re-derives the same predicate.
+    assert _run(db, _by_number(), apply=False).eligible == 1
+
+
+def test_a_row_without_a_docket_number_stops_at_its_docket(tmp_path: Path) -> None:
+    """There is nothing to ask the second route with, so the walk spends nothing on it."""
+    db = _tracked(tmp_path, docket_number="")
+    upstream = _by_number()
+    result = _run(db, upstream, apply=True)
+
+    assert result.no_cluster == 1
+    assert upstream.filters == []
+    assert result.requests == 1
+
+
+def test_a_snapshot_linked_cluster_never_reaches_the_number_route(tmp_path: Path) -> None:
+    """The cheapest route still wins: a stored REST-shaped snapshot resolves the
+    case with no docket fetch and no list query."""
+    db = _tracked(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_snapshot(
+            conn,
+            f"scotus/{_TRACKED}",
+            date(2024, 6, 1),
+            {"id": _TRACKED, "clusters": [_link("clusters", _MERITS)]},
+        )
+    upstream = _by_number()
+    upstream.clusters = {_MERITS: _cluster(_MERITS, docket_id=_TRACKED, opinion_id=_LEAD)}
+    result = _run(db, upstream, apply=True)
+
+    assert result.enriched == 1 and result.requests == 2
+    assert upstream.filters == []
+
+
+def test_the_capital_case_marking_never_reaches_the_filter(tmp_path: Path) -> None:
+    """The Court's `*** CAPITAL CASE ***` marking is a flag on the case, not part
+    of the number upstream knows it by, so the filter carries the stripped
+    spelling — and the docket check, which normalizes, still agrees."""
+    db = _tracked(tmp_path, docket_number=f"{_NUMBER} *** CAPITAL CASE ***")
+    upstream = _by_number()
+    result = _run(db, upstream, apply=True)
+
+    assert upstream.filters == [("scotus", _NUMBER)]
+    assert result.enriched == 1
+
+
+@pytest.mark.parametrize(
+    "page",
+    [{}, {"results": "not a list"}, {"results": [42]}, {"results": [None]}],
+    ids=["no-results-key", "results-not-a-list", "result-not-an-object", "result-null"],
+)
+def test_a_list_page_this_pass_cannot_read_is_no_cluster(tmp_path: Path, page: Any) -> None:
+    """A served shape the pass does not recognize is a coverage gap, not a crash
+    and not a guess: the case reports `no_cluster` and stays eligible."""
+    db = _tracked(tmp_path)
+    upstream = _by_number()
+    upstream.cluster_pages = {("scotus", _NUMBER): page}
+    result = _run(db, upstream, apply=True)
+
+    assert result.no_cluster == 1 and result.enriched == 0
+    assert result.requests == 2
+
+
+def test_a_refused_filter_does_not_take_the_cursor(tmp_path: Path) -> None:
+    """A 4xx on the list query is upstream refusing the *question*, not
+    answering about the case — so the case keeps its place instead of the whole
+    slice rotating on a fault that recurs identically next run, and the refusal
+    stays visible in `failed`."""
+    db = _tracked(tmp_path)
+    upstream = _by_number()
+
+    def refuse_the_filter(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/clusters/"):
+            return httpx.Response(400, json={"detail": "Invalid filter field."})
+        return upstream(request)
+
+    with corpus.connect(db) as conn, _client(httpx.MockTransport(refuse_the_filter)) as client:
+        result = enrich_opinions(conn, client, apply=True, today=_TODAY)
+
+    assert [entry["case_id"] for entry in result.failed] == [f"scotus/{_TRACKED}"]
+    assert "400" in result.failed[0]["reason"]
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, f"scotus/{_TRACKED}")
+    assert row is not None and row.opinion_enrich_attempted_at is None
+
+
+def test_a_4xx_on_a_record_still_takes_the_cursor(tmp_path: Path) -> None:
+    """The other half of that rule: a 404 on the docket *is* an answer about the
+    case, so it rotates to the back as before."""
+    db = _tracked(tmp_path)
+    upstream = _by_number()
+    upstream.dockets = {}
+    result = _run(db, upstream, apply=True, today=_TODAY)
+
+    assert [entry["case_id"] for entry in result.failed] == [f"scotus/{_TRACKED}"]
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, f"scotus/{_TRACKED}")
+    assert row is not None and row.opinion_enrich_attempted_at == _TODAY
+
+
+def test_a_cluster_naming_its_docket_by_id_is_followed(tmp_path: Path) -> None:
+    """Upstream may spell the relation as an id rather than a hyperlink. Reading
+    only the hyperlink would turn that shape into a silent zero-yield route,
+    since an unnamed docket is a refusal here."""
+    db = _tracked(tmp_path)
+    cluster = _cluster(_MERITS, docket_id=_SIBLING, opinion_id=_LEAD)
+    del cluster["docket"]
+    cluster["docket_id"] = _SIBLING
+    upstream = _by_number(results=[cluster])
+    result = _run(db, upstream, apply=True)
+
+    assert result.enriched == 1 and result.foreign_cluster == 0
+    assert f"/api/rest/v4/dockets/{_SIBLING}/" in upstream.paths
+
+
+def test_cluster_docket_id_reads_either_spelling() -> None:
+    assert cluster_docket_id({"docket": _link("dockets", 101)}, base_url=_BASE) == 101
+    assert cluster_docket_id({"docket": 101}, base_url=_BASE) == 101
+    assert cluster_docket_id({"docket_id": 101}, base_url=_BASE) == 101
+    # A link off the API is not an id, and neither is a bool or a negative.
+    assert cluster_docket_id({"docket": "https://evil.test/dockets/1/"}, base_url=_BASE) is None
+    assert cluster_docket_id({"docket": True}, base_url=_BASE) is None
+    assert cluster_docket_id({"docket_id": -1}, base_url=_BASE) is None
+    assert cluster_docket_id({}, base_url=_BASE) is None
+
+
+def test_docket_names_case_compares_normalized_numbers() -> None:
+    served = {"court_id": "scotus", "docket_number": "No. 17-1657"}
+    assert docket_names_case(served, base_url=_BASE, court="scotus", docket_number=_NUMBER)
+    # A consolidated string matches nothing rather than matching loosely.
+    assert not docket_names_case(
+        {"court_id": "scotus", "docket_number": "17-1657, 17-1658"},
+        base_url=_BASE,
+        court="scotus",
+        docket_number=_NUMBER,
+    )
+    # A blank number on either side is a refusal, never a pass by equal absence.
+    assert not docket_names_case(
+        {"court_id": "scotus", "docket_number": ""},
+        base_url=_BASE,
+        court="scotus",
+        docket_number="",
+    )
+
+
+def test_docket_court_reads_the_slug_or_a_guarded_link() -> None:
+    assert docket_court({"court_id": "scotus"}, base_url=_BASE) == "scotus"
+    assert docket_court({"court": f"{_BASE}courts/scotus/"}, base_url=_BASE) == "scotus"
+    # A court link off the API says nothing about the docket's court.
+    assert (
+        docket_court({"court": "https://evil.test/api/rest/v4/courts/scotus/"}, base_url=_BASE)
+        is None
+    )
+    assert docket_court({}, base_url=_BASE) is None
+    # Only a well-formed slug leaves the guard: the path segment arrives as
+    # served, percent-encoding included, and is never an arbitrary string.
+    assert docket_court({"court": f"{_BASE}courts/..%2Fscotus/"}, base_url=_BASE) is None
+    assert docket_court({"court_id": "SCOTUS/../x"}, base_url=_BASE) is None
 
 
 def test_a_non_json_response_costs_one_case(tmp_path: Path) -> None:

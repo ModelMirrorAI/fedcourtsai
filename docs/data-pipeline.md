@@ -643,10 +643,12 @@ satisfies both: `has_opinion` is set only from a non-empty `opinion_text` at row
 construction, and `case.json` is mirrored only by `upsert_rows` — so a body that
 does not arrive through the ingestion upsert reaches neither the bit nor the
 store. **Opinion enrichment** (`enrich-opinions`) is the channel that supplies
-it. Per case it resolves the docket's published opinion cluster — from a stored
-REST-shaped snapshot's `clusters` links where there is one, else a docket fetch
-— takes the cluster's reporter citations and `citation_count`, and takes the
-first sub-opinion's `plain_text` as the body; the row then goes through the same
+it. Per case it resolves the published opinion cluster by either of two routes —
+the docket's own `clusters` links (a stored REST-shaped snapshot's where there
+is one, else a docket fetch's) and, where those are empty, the clusters
+upstream joins to the case's court and docket number — takes the cluster's
+reporter citations and `citation_count`, and takes the first sub-opinion's
+`plain_text` as the body; the row then goes through the same
 upsert every other channel writes through, so the presence bit derives and the
 content store re-mirrors in the same step. Only the *body* is conditional: a
 cluster whose opinion carries no extracted text still lands its citations,
@@ -654,44 +656,50 @@ rather than having a body scraped out of the HTML rendering.
 
 Because `has_opinion` latches, a wrong body is permanent — the row stops
 matching the pass's own predicate and no later run revisits it — so the pass
-**refuses rather than guesses**: a docket linking several clusters is skipped
-(nothing in the list says which is the decision), a fetched cluster must name
-the docket it was reached from, and an opinion whose upstream `type` marks it a
+**refuses rather than guesses**: several candidate clusters are skipped
+(nothing about them says which is the decision), a resolved cluster must name a
+docket its route can vouch for — the one it was reached from on the docket
+route, and on the number route a docket the pass fetches and finds to be in
+this court carrying this number, since upstream's filter semantics are its own
+and the presence bit latches — and an opinion whose upstream `type` marks it a
 separate writing (a concurrence, a dissent) never becomes the case's body. Each
 refusal is a counted line in the run's report.
 
 Its **scope is its budget argument**. The pass walks the cert-granted SCOTUS
 slice only — rows carrying `date_cert_granted`, which is grants and GVRs
-together: ≈1,250 all-time and ≈120–130 a Term — at up to three REST requests a
-case (docket, cluster, opinion), dropping to two on the rare row whose newest
-snapshot is REST-shaped rather than the live channel's, and to one on a case
-that stops at the docket. So ≈3,750 requests bounds a sweep of the standing
-backlog in which every case reaches its opinion, and ≈400 a Term bounds a
+together: ≈1,250 all-time and ≈120–130 a Term — at up to four REST requests a
+case resolved by docket number (docket, cluster list, the docket that cluster
+names, opinion) and three by the docket route (docket, cluster, opinion),
+dropping to two on the rare row whose newest snapshot is REST-shaped rather
+than the live channel's, and to two on a case neither route resolves. So
+≈5,000 requests bounds a sweep of the standing backlog in which every case
+reaches its opinion, and ≈520 a Term bounds a
 Term's new grants, against the held
 Tier-4 ceiling of 1,400/day of which the four daily pull windows commit ≈360
 (30 dockets × ~3 requests × 4 windows — see [`config/tracking.yaml`](../config/tracking.yaml)
 and [budget.md](budget.md)). `--max-cases`
-(default 50, ≈half the 300/hr ceiling at three requests a case) bounds one
+(default 50, ≈two-thirds of the 300/hr ceiling at four requests a case) bounds one
 run's spend ahead of the client's own governor, so the
 pace is the operator's choice rather than a race with the pull rotation — and
 because the governor is per-process, not shared across runs, the pass is run
 outside a pull window rather than beside one. Convergence is not monotone: a
 grant that never publishes an opinion (a GVR, a DIG) is retried whenever its
-turn comes round, and so is a decided grant whose docket links no cluster
-upstream — the walk's dominant refusal, since the id a granted row carries is its petition-stage
-docket and the published cluster hangs off it only sometimes. A **last-attempted
+turn comes round, and so is a decided grant neither route resolves — one
+carrying no docket number to ask with, or one whose number upstream joins
+several clusters to. A **last-attempted
 cursor** is what keeps those residues from holding the head of every run: an
 applied run stamps `opinion_enrich_attempted_at` on every case it classifies —
-enriched, no cluster, refused, 4xx on its docket — through the same upsert the
+enriched, no cluster, refused, 4xx on one of its records — through the same upsert the
 enrichment itself writes through, and it takes never-attempted rows first (in
 `case_id` order) and then the stalest stamp, so a case walked today sorts behind
 everything still owed a turn. What stamps is what upstream answered *about the
-case*: a 5xx, a transport failure, or an unparseable body says nothing about the
+case*: a 5xx, a transport failure, an unparseable body, or a 4xx on a collection
+query — the question refused rather than the case — says nothing about the
 docket, so such a case keeps its place — as does one the run never reached,
 deferred behind a wall or left outside `--max-cases`. So the backlog
 converges by re-running rather than by raising the cap past a fixed head — and
-because a refused case stops at its first request, a sweep's spend sits
-nearer the row count than the bound above while the coverage it buys is only
+because a refused case stops before its opinion, a sweep's spend sits
+below the bound above while the coverage it buys is only
 the rows that reach a cluster. The
 same arithmetic is why the pass is *not* pointed at the whole corpus: opinion
 coverage at bulk scale is the replication channel's problem

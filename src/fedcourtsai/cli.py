@@ -1855,43 +1855,57 @@ def enrich_opinions_cmd(
     """Fill each granted SCOTUS case's reporter cites and opinion body from REST.
 
     Over the cert-granted slice — SCOTUS rows carrying `date_cert_granted` and
-    not yet an opinion — resolve the docket's published opinion cluster (from a
-    stored REST-shaped snapshot's `clusters` links where it has one, else a
-    docket fetch), take the cluster's reporter `citations` and
-    `citation_count`, and take the cluster's first sub-opinion's `plain_text`
-    as the body. Each case is written through the corpus's own upsert as it
-    converges (casestore mirror included), so `has_opinion` derives and `query
-    --full` can hydrate the body.
+    not yet an opinion — resolve the case's published opinion cluster, take its
+    reporter `citations` and `citation_count`, and take the cluster's first
+    sub-opinion's `plain_text` as the body. Each case is written through the
+    corpus's own upsert as it converges (casestore mirror included), so
+    `has_opinion` derives and `query --full` can hydrate the body.
+
+    The cluster is reached by either of two routes. First the docket's own
+    `clusters` links — a stored REST-shaped snapshot's where it has one, else a
+    docket fetch's. Where those are empty, the clusters upstream joins to the
+    case's court and docket number: the id a granted row carries is its
+    cert-stage docket, and upstream hangs the merits cluster on whichever of
+    its rows for that number holds it, commonly a sibling row the corpus does
+    not track. A list result carries the whole cluster, so that route reads it
+    without a second fetch; a row with no docket number stops at the first
+    route.
 
     Because `has_opinion` latches, a wrong body is permanent — so the pass
-    refuses rather than guesses: a docket linking several clusters is skipped,
-    a fetched cluster must name the docket it was reached from, and an opinion
-    whose upstream `type` marks it a separate writing (a concurrence, a
-    dissent) never becomes the body. Each refusal is counted and the citations
-    still land — a coverage gap, never fatal, as are a docket linking no
-    cluster and a per-case non-429 REST or parse failure.
+    refuses rather than guesses: several candidate clusters (linked on the
+    docket, or matching the number) are skipped; a resolved cluster must name
+    the docket it was reached from on the docket route, and on the number route
+    a docket this pass fetches and finds to be in this court carrying this
+    number; and an opinion whose upstream `type` marks it a separate writing (a
+    concurrence, a dissent) never becomes the body. Each refusal is counted and
+    the citations still land — a coverage gap, never fatal, as are a case
+    neither route reaches and a per-case non-429 REST or parse failure.
 
-    Three REST requests a case (two where a REST-shaped snapshot already links
-    the cluster), so `--max-cases` bounds the run's spend on top of the
-    client's rate governor; the walk stops cleanly when the API budget is
-    exhausted — or when a 429 survives the client's retries, a quota wall
-    either way — deferring the unfinished cases for a re-run in a genuine
-    dead zone. Run it outside a pull
+    Four REST requests a case resolved by docket number (the docket, the
+    cluster list, the docket that cluster names, the opinion) and three by the
+    docket route (two where a REST-shaped snapshot already links the cluster);
+    a case neither route resolves stops at two. So `--max-cases` bounds the
+    run's spend on top of the client's rate governor; the walk stops cleanly
+    when the API budget is exhausted — or when a 429 survives the client's
+    retries, a quota wall either way — deferring the unfinished cases for a
+    re-run in a genuine dead zone. Run it outside a pull
     window: the governor is per-process, so two runs would each stay under the
     ceiling while the account did not.
 
     Idempotent: an enriched row no longer matches, while one that found no
     cluster is retried, so a grant picks up its opinion the run after
     publication. A grant that never publishes one (a GVR, a DIG) never
-    converges, and neither does a decided grant whose petition-stage docket
-    links no cluster upstream — so the walk rotates on a last-attempted cursor
+    converges, and neither does a decided grant that neither route resolves —
+    so the walk rotates on a last-attempted cursor
     (`opinion_enrich_attempted_at`, stamped on every case an applied run
-    classifies — a landed body, no cluster, a refusal, a 4xx on its docket):
+    classifies — a landed body, no cluster, a refusal, a 4xx on one of its
+    records):
     never-attempted cases first, then the stalest stamp, which is what keeps
     that residue off the head of every run. A case the run never reached —
     deferred behind a wall, or past `--max-cases` — keeps its place at the
     front of the next run's queue, and so does one whose fault said nothing
-    about the docket (a 5xx, a transport failure, an unparseable body).
+    about the docket (a 5xx, a transport failure, an unparseable body, or a
+    4xx on a collection query — the question refused, not the case).
 
     Dry-run by default (the requests are spent either way — the dry run is how
     the spend is inspected, and it moves no cursor); run where the corpus is
@@ -1921,8 +1935,8 @@ def enrich_opinions_cmd(
     )
     if result.ambiguous_cluster or result.foreign_cluster:
         typer.echo(
-            f"  refused: {result.ambiguous_cluster} docket(s) linking several clusters, "
-            f"{result.foreign_cluster} cluster(s) naming another docket"
+            f"  refused: {result.ambiguous_cluster} case(s) matching several clusters, "
+            f"{result.foreign_cluster} cluster(s) naming a docket that is not the case's"
         )
     if result.live_only:
         typer.echo(
