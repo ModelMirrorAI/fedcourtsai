@@ -1102,7 +1102,11 @@ pattern rather than rediscovering it:
   signalling those force-kills the job the watchdog exists to save. A
   background process launched in one step survives into the later
   ones — the sidecars rely on the same property — so the disarm half is what
-  keeps the killer from outliving its window.
+  keeps the killer from outliving its window. And a detached guard can be
+  *suspended* by what it guards, so it also has to ask whether the time it
+  measured is time it was awake for: a pass that lands long after the one before
+  it means the deadline expired unobserved, and a guard in that state reports
+  rather than signals (the thaw guard, under *Graceful degradation on limits*).
 - **A watchdog that reports only onto the runner reports nothing.** The same
   cancellation that makes a runner-level watchdog necessary destroys every
   channel that lives on the runner: the diagnostics bundle, the disarm step that
@@ -2025,6 +2029,30 @@ the runner starts each step as a child of its per-job worker process and runs
 one step at a time, and one job owns the whole hosted machine, so the worker's
 live children are the step, whatever the pinned action's command line happens
 to look like.
+
+**The thaw guard** sits over both triggers, and it is the one condition under
+which neither of them ever signals. An engine sandbox can suspend the watchdog
+process wholesale — SIGSTOP, or a cgroup freeze — for as long as the agent runs,
+and the sandbox's exit at the agent's finish resumes it. The deadline is
+measured against the wall clock rather than counted in polls, so that telemetry
+latency can never delay a fire; the same property means a resumed process reads
+an expired deadline the instant it thaws, and the tree it would end is the
+step's *teardown*, which is exactly where the sandbox's exit has just left it.
+So the loop also reads the wall clock **between its own passes**: a pass that
+arrives more than a threshold after the one before it is time this process slept
+through, and from there on the watchdog observes rather than acts. No engine
+kill, no tree kill, no reap, and none of the three markers the disarm step reads
+as an action — because none was taken. The rule is absolute rather than
+conditional on how finished the outputs look at the thaw: complete output on
+resume is the *expected* reading of a suspension, so a reap keyed on it would
+fire on every suspended run, and the time the watchdog slept through is the time
+the step spent doing the very thing the kill interacts with. What it does
+instead is record the lost seconds in a `SUSPENDED` marker and on the off-runner
+record, capture the runner's state read-only — the one process forest ever taken
+inside that window — and keep beating for a bounded observation window before
+exiting, since a watchdog whose egress recovers is the only account of a runner
+about to be lost. A run that is never suspended detects nothing and both
+triggers behave exactly as above.
 
 Two questions decide what is signalled, and the refusals that answer them are
 what make a kill on a live runner safe. The first is asked of **every** target.

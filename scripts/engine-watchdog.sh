@@ -33,6 +33,30 @@
 # failed step is the same shape as a max-turns stop, which the tail already
 # salvages.
 #
+# **The thaw guard** stands over both triggers, because this process can lose
+# wall clock without observing it: an engine sandbox can suspend it wholesale —
+# SIGSTOP, or a cgroup freeze — for as long as the agent runs, and the sandbox's
+# exit at the agent's finish resumes it. The deadline is measured against the
+# wall clock rather than counted in polls, deliberately, so that telemetry
+# latency can never delay a fire; the same property means a resumed process sees
+# an expired deadline the instant it is thawed, and what it would fire into is
+# the step's teardown, which is exactly where the sandbox's exit has just left
+# it. So the loop reads the wall clock between its own passes. A pass that
+# arrives a threshold later than the one before it is time this process slept
+# through, and **a watchdog that lost time kills nothing**: neither trigger
+# signals again for the rest of the run. It records the gap (a `SUSPENDED`
+# marker and the off-runner record), captures the runner's state — read-only,
+# and the one process forest anybody has ever taken inside that window — and
+# then keeps beating for a bounded observation window before exiting, since a
+# watchdog whose egress recovers is the only account of a runner that is about
+# to be lost. The disarm step ends it long before that window on a healthy cell.
+#
+# The rule is absolute rather than conditional on how complete the outputs look
+# at the thaw: time the watchdog slept through is time the step spent doing the
+# very thing whose kill interaction the death class follows, so a resumed
+# watchdog is an observer and never a killer. A run that is never suspended
+# detects nothing and behaves exactly as above.
+#
 # Neither trigger is engine-specific: the reaper reads files the contract names
 # and the deadline reads the runner's own process shapes, so every cell of every
 # engine is bracketed. The engine-match pattern below still names codex's
@@ -95,6 +119,16 @@
 #                        the tail uploads — which a *reaped* cell keeps, since
 #                        a concluded step is exactly what runs its own tail
 #   WATCHDOG_HEARTBEAT_S how often to beat while waiting out the deadline
+#   WATCHDOG_SUSPENSION_GAP_S  how much wall clock may pass between two passes
+#                        of the wait loop before the gap reads as suspension
+#                        rather than as a slow pass. Comfortably above a poll
+#                        plus the check-in bound, far below any gap a running
+#                        process could produce. Zero leaves the guard unarmed
+#                        rather than making every pass cross it, since a
+#                        threshold nothing can stay under would disarm the
+#                        watchdog itself
+#   WATCHDOG_OBSERVE_S   how long to keep beating after standing down, before
+#                        exiting zero
 #
 # The workflows set the first three, the sentinel pair, and the check-in trio,
 # and leave the overrides at their defaults; the overrides exist so a test can
@@ -212,6 +246,22 @@ last_send_failure=""
 # short enough that a maintainer reading mid-round can tell a live watchdog from
 # one whose runner is already gone.
 heartbeat_s="${WATCHDOG_HEARTBEAT_S:-300}"
+# Two minutes: a pass costs a poll plus, at worst, a check-in bounded by curl's
+# own `--max-time` and one probe of the same size, so an unsuspended pass cannot
+# approach this — while a suspension lasts as long as the agent it is slaved to,
+# which is tens of minutes. The asymmetry is what makes the threshold safe in
+# both directions: too low and a healthy watchdog disarms itself over ordinary
+# latency, too high and it fires into a teardown it slept through, and two
+# minutes is orders of magnitude clear of the first and far under the second.
+suspension_gap_s="${WATCHDOG_SUSPENSION_GAP_S:-120}"
+# Half an hour of beating after a stand-down. The watchdog has no duty left at
+# that point — it will not signal again — so this is instrumentation only: on the
+# death class the runner is lost within minutes of the thaw, and a beat that
+# lands from inside that window is evidence no runner-local account can carry
+# out. Bounded rather than endless so a run that somehow survives it leaves a
+# process that exits on its own; the disarm step ends this far sooner whenever
+# the step concludes.
+observe_s="${WATCHDOG_OBSERVE_S:-1800}"
 
 # Every knob below is expanded inside `$(( ))` somewhere, and arithmetic
 # expansion evaluates a variable's *value* as an expression — so a non-numeric
@@ -220,7 +270,7 @@ heartbeat_s="${WATCHDOG_HEARTBEAT_S:-300}"
 # fails the watchdog loudly rather than arming one that computes nonsense.
 for _knob in WATCHDOG_DEADLINE_S WATCHDOG_POLL_S WATCHDOG_STEP_GRACE_S \
   WATCHDOG_ARM_SLACK_S WATCHDOG_MIN_STEP_AGE_S WATCHDOG_QUIESCE_S \
-  WATCHDOG_HEARTBEAT_S; do
+  WATCHDOG_HEARTBEAT_S WATCHDOG_SUSPENSION_GAP_S WATCHDOG_OBSERVE_S; do
   _value="${!_knob:-0}"
   case "$_value" in
     "" | *[!0-9]*)
@@ -641,6 +691,51 @@ note_escalation() {
   } >>"$dir/$marker"
 }
 
+# Time this process did not observe, recorded and then never forgotten: the flag
+# it sets disarms both triggers for the rest of the run.
+#
+# The marker is appended to rather than written, since a second suspension is a
+# fact about the same run. The off-runner line is written once — the record is a
+# public comment and one line is enough to say the state was entered; the
+# stand-down line below carries the totals, and the marker carries each gap.
+note_suspension() {
+  local gap="$1" elapsed_s="$2"
+  {
+    echo "suspended_at=$(stamp)"
+    echo "gap_s=${gap}"
+    echo "elapsed_s=${elapsed_s}"
+  } >>"$dir/SUSPENDED"
+  suspensions=$((suspensions + 1))
+  lost_s=$((lost_s + gap))
+  log "resumed after ${gap}s of wall clock this process did not observe; no trigger will signal"
+  if [ -z "$suspended" ]; then
+    suspended=1
+    checkin "SUSPENDED: lost ${gap}s of wall clock; this watchdog will not signal $(vitals)"
+  fi
+}
+
+# What a stood-down watchdog does with the rest of its life: beat, and say what
+# the runner looks like while it still can. No signal is ever issued from here,
+# so the check-in latency that the wait loop must never pay costs nothing —
+# there is no fire left for it to delay.
+observe_after_stand_down() {
+  local started now
+  [ "$observe_s" -gt 0 ] || return 0
+  log "observing for up to ${observe_s}s; this watchdog will not signal"
+  started="$(date +%s)"
+  while :; do
+    sleep "$poll_s"
+    now="$(date +%s)"
+    [ $((now - started)) -lt "$observe_s" ] || break
+    if [ "$heartbeat_s" -gt 0 ] && [ $((now - last_beat_epoch)) -ge "$heartbeat_s" ]; then
+      last_beat_epoch="$now"
+      checkin "observing: $((now - started))s of ${observe_s}s since the stand-down $(vitals)"
+    fi
+  done
+  log "the observation window closed after ${observe_s}s"
+  checkin "observation window closed after ${observe_s}s $(vitals)"
+}
+
 # The state at the moment of the escalation: whether the engine kill landed,
 # and what is still holding the step open. Same shapes-only rules as the first
 # capture.
@@ -760,6 +855,24 @@ outputs_quiescent() {
 # process forest and socket table taken *after* the agent finished is what names
 # whatever is holding a finished step open.
 reap_completed_step() {
+  # The thaw guard applies here too, and without an exception for how finished
+  # the outputs look. Outputs complete at a thaw is the *expected* reading of
+  # this failure — the agent finished while this process was frozen — so a reap
+  # conditioned on them would fire on every suspended run, which is the one
+  # thing the guard exists to stop. Withheld rather than exited: the loop keeps
+  # polling, and the deadline's own stand-down is what concludes this process.
+  if [ -n "$suspended" ]; then
+    log "the outputs are complete, but this watchdog lost wall clock; the reap is withheld"
+    if [ -z "$reap_withheld" ]; then
+      reap_withheld=1
+      {
+        echo "reap_withheld_at=$(stamp)"
+        echo "outputs=${#sentinel_paths[@]}"
+      } >>"$dir/SUSPENDED"
+      checkin "outputs complete; reap withheld after suspension"
+    fi
+    return 1
+  fi
   log "the cell's outputs are complete and quiescent; ending the step"
   checkin "REAPING: outputs complete and quiescent for ${quiesce_s}s"
   # The sentinel's own moment is the ceiling: the step that wrote the output
@@ -822,6 +935,16 @@ sentinel_ticks=""
 # carries that fact one time rather than once per poll for the rest of the
 # wait.
 reap_refused=""
+# Set by the thaw guard the first time a pass arrives after a gap no running
+# process could have produced. It is never cleared: a watchdog that lost time
+# once cannot tell what happened in the time it lost, so the stand-down is for
+# the rest of the run. The counters ride the stand-down's own record.
+suspended=""
+suspensions=0
+lost_s=0
+# Set once the reap has been withheld, so the off-runner record carries that
+# fact one time rather than once per poll.
+reap_withheld=""
 # The quiescence cut-off's carrier, outside the bundle directory so it never
 # rides the published artifact. Empty on failure, which leaves the quiescence
 # test unsatisfiable and so the reaper off — the deadline is then the only bound,
@@ -854,11 +977,21 @@ fi
 # no amount of telemetry latency can move the fire past the step's cap.
 wait_started_epoch="$(date +%s)"
 last_beat_epoch="$wait_started_epoch"
+last_pass_epoch="$wait_started_epoch"
 elapsed=0
 while [ "$elapsed" -lt "$deadline_s" ]; do
   sleep "$poll_s"
   now_epoch="$(date +%s)"
   elapsed=$((now_epoch - wait_started_epoch))
+  # The same wall clock read a second way, and it answers a different question:
+  # how much of that elapsed time this process was actually awake for. A pass
+  # that lands a threshold after the one before it is a pass that was suspended
+  # through, and from here on this watchdog observes rather than acts.
+  pass_gap=$((now_epoch - last_pass_epoch))
+  last_pass_epoch="$now_epoch"
+  if [ "$suspension_gap_s" -gt 0 ] && [ "$pass_gap" -ge "$suspension_gap_s" ]; then
+    note_suspension "$pass_gap" "$elapsed"
+  fi
   # A beat is how a maintainer tells a watchdog that is still counting from one
   # whose runner was cancelled out from under it — the difference the whole
   # off-runner channel exists to make readable.
@@ -887,6 +1020,26 @@ while [ "$elapsed" -lt "$deadline_s" ]; do
   fi
 done
 checkin "deadline reached after ${deadline_s}s"
+
+# The deadline expired on a clock this process did not keep, so it is not
+# evidence of a wedge — it is evidence of the suspension already recorded. No
+# part of the escalation runs: no engine kill, no tree kill, no reap, and none
+# of the markers the disarm step reads as "the watchdog acted", because it did
+# not. What does run is the capture, which signals nothing and is the only
+# process forest ever taken from inside this window, and then the beating.
+if [ -n "$suspended" ]; then
+  log "the deadline expired across ${lost_s}s this process did not observe; standing down"
+  capture_runner_state
+  {
+    echo "stood_down_at=$(stamp)"
+    echo "deadline_s=${deadline_s}"
+    echo "suspensions=${suspensions}"
+    echo "lost_s=${lost_s}"
+  } >>"$dir/SUSPENDED"
+  checkin "outcome: stood_down_suspended suspensions=${suspensions} lost_s=${lost_s} $(vitals)"
+  observe_after_stand_down
+  exit 0
+fi
 
 # Everything the escalation may signal is decided now, at the deadline, while
 # the wedged step is still the step the runner is waiting on. The ceiling is the
