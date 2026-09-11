@@ -3110,8 +3110,13 @@ def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environmen
         assert step["env"]["TELEMETRY_CHANNEL"] == channel, step_name
         assert '--channel "$TELEMETRY_CHANNEL"' in str(step["run"]), step_name
     # The staging pair appears in exactly the telemetry mints — the repro
-    # leg's and the idle control's, both in this one workflow — and each
-    # requests issues:write and nothing else.
+    # leg's, the idle control's and the freeze probe's, all three in this one
+    # workflow — and each requests issues:write and nothing else. Those three
+    # are the whole of the watchdog investigation's surface: the leg that
+    # presents the wedge, the control that runs the clock with no agent near
+    # it, and the probe that reads the beat trail across one codex sandbox's
+    # life. A fourth holder is the copy-paste regression this count exists to
+    # catch.
     holders = []
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         for job_id, job in _load(path.name)["jobs"].items():
@@ -3119,19 +3124,21 @@ def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environmen
                 text = yaml.safe_dump(step)
                 if "STAGING_APP_CLIENT_ID" in text or "STAGING_APP_PRIVATE_KEY" in text:
                     holders.append((path.name, job_id, step))
-    assert len(holders) == 2, (
+    assert len(holders) == 3, (
         f"the staging telemetry credentials spread: {[(n, j) for n, j, _ in holders]}"
     )
     assert {(n, j) for n, j, _ in holders} == {
         ("integration-test.yml", "scenario"),
         ("integration-test.yml", "runner-idle-control"),
+        ("integration-test.yml", "codex-freeze-probe"),
     }, f"the staging telemetry credentials spread: {[(n, j) for n, j, _ in holders]}"
     for _, _, holder_step in holders:
         assert holder_step.get("id") == "watchdog-token"
         assert set(holder_step["with"]) == {"client-id", "private-key", "permission-issues"}
         assert holder_step["with"]["permission-issues"] == "write"
     # The deadline override's reach: the input is read by the repro arm step
-    # alone — the idle control keeps its own literal, and the cell workflows
+    # alone — the idle control and the freeze probe each keep their own
+    # literal, and the cell workflows
     # never see it, so no production deadline can move from this dispatch
     # surface. The idle control's arm carries the repro leg's credential
     # plumbing verbatim — URL-shape gate, cleared GH_TOKEN on the detached
@@ -3170,3 +3177,70 @@ def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environmen
         assert '--channel "$TELEMETRY_CHANNEL"' not in str(
             next(s for s in cell_steps if s.get("name") == "Arm the engine watchdog")["run"]
         ), f"{name}: a cell arm step gained a channel it has no lane for"
+
+
+def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> None:
+    """The third holder of the watchdog telemetry token, pinned like the other
+    two — and with one thing neither of them has to prove.
+
+    The repro leg and the idle control hold this token around a cell and
+    around nothing respectively. The freeze probe holds it around a *sandboxed
+    agent on the same runner*, so every piece of the plumbing below costs more
+    here when it drifts: the URL-shape gate that decides where the token is
+    sent, the cleared `GH_TOKEN` on the detached launch, the ownership guard on
+    a pid file sitting on a path the agent had a shell on, and the disarm that
+    has to survive a cancellation. Its two credential floors — a token-free
+    retrieval sidecar and no OIDC — are asserted in docs/security.md and were
+    enforced by nothing until here.
+    """
+    probe = _load("integration-test.yml")["jobs"]["codex-freeze-probe"]
+    steps = probe["steps"]
+    arm = next(s for s in steps if s.get("id") == "arm")
+    assert arm["env"]["WATCHDOG_DEADLINE_S"] == "1800", (
+        "the probe's deadline must stay far above the whole experiment — one "
+        "that fires replaces the measurement with an escalation"
+    )
+    arm_run = str(arm["run"])
+    assert '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*' in arm_run, (
+        "the freeze probe lost the check-in URL-shape gate"
+    )
+    assert "GH_TOKEN='' WATCHDOG_CHECKIN_URL=" in arm_run, (
+        "the freeze probe's watchdog launch must clear GH_TOKEN"
+    )
+    assert "timeout 90 uv run fedcourts watchdog-checkin" in arm_run
+    assert "WATCHDOG_CHECKIN_BASE=" in arm_run, (
+        "the watchdog must be handed the armed body it appends to"
+    )
+    disarm = next(s for s in steps if s.get("name") == "Disarm and read the beat trail")
+    disarm_run = str(disarm["run"])
+    assert disarm.get("if") == "${{ always() }}", "a cancelled probe must still close its row"
+    assert 'grep -qa engine-watchdog.sh "/proc/$pid/cmdline"' in disarm_run, (
+        "the pid must be ownership-checked before it is signalled — the agent "
+        "held a shell on the path that pid file sits on"
+    )
+    # The gate is re-applied where the token is actually spent, not only where
+    # the URL was minted: the hand-over crosses an agent's turn.
+    assert '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*' in disarm_run, (
+        "the freeze probe must re-check the URL shape before sending the token to it"
+    )
+    # `outcome`, not `conclusion`: the turn carries `continue-on-error`, which
+    # rewrites `conclusion` to success — and this value reaches a durable
+    # telemetry row, where it would report a turn that died as a clean one.
+    assert disarm["env"]["TURN_OUTCOME"] == "${{ steps.turn.outcome }}", (
+        "the probe must read the turn's outcome, not the conclusion `continue-on-error` rewrites"
+    )
+    # The retrieval posture the probe's whole credential story rests on: its
+    # sidecar is launched with NO CourtListener token, so the config.toml the
+    # turn reads names a localhost URL and no credential exists for the agent
+    # to find. A token input added here would contradict docs/security.md
+    # under a green suite.
+    sidecar = next(s for s in steps if str(s.get("uses") or "") == "./.github/actions/mcp-sidecar")
+    assert "courtlistener-api-token" not in (sidecar.get("with") or {}), (
+        "the freeze probe's sidecar must stay token-free: its turn uses no "
+        "tools, and a handshake is the whole requirement"
+    )
+    # No OIDC: without it even an action's credential fallback cannot mint an
+    # installation token, which is the floor under a job that runs an agent.
+    assert "id-token" not in probe["permissions"], (
+        "the freeze probe must hold no id-token — it reads no corpus and assumes no role"
+    )

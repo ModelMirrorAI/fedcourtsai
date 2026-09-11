@@ -297,6 +297,35 @@ runner that dies idle reframes the class at the infrastructure, and one
 that survives pins it to the codex workload and leaves its per-beat
 resource trajectory as a run artifact.
 
+**`codex-freeze-probe`** is the control's opposite number: it arms the same
+off-runner record around ONE trivial codex turn — the boot probe's one-word
+prompt under the cells' own invocation block, so what it spends is a boot
+probe — and reads what the beat trail does while a sandbox lives and after it
+exits. The design constraint it answers is that every runner-local witness
+(the watchdog's log, its markers, its captures) dies with the runner, so on a
+wedged cell the watchdog's state during the turn can only be inferred from
+silence. A turn that exits cleanly keeps its runner, which is what makes the
+trail readable at all: two clean beats land before the sandbox starts, and
+the leg idles three minutes after it exits so post-exit beats have room. The
+step summary states the derived verdict — `gap` (the largest silence between
+two beats), `tail` (the silence still running when the record is read), and
+`resumed` — computed from the record itself. A `gap` far above the 60-second
+cadence with `resumed=yes` is a suspended watchdog observed directly rather
+than inferred; an unbroken trail says suspension does not happen on a turn
+this short; a large `tail` with `resumed=no` is the third world, a watchdog
+that stopped and never came back, which is a dead process and not a frozen
+one. All three are results and none is a failure. So the leg's own
+conclusion gates nothing about the measurement: a codex turn that started
+and then failed still had a sandbox, and the trail across it is the whole
+subject. What the leg does fail on is a turn that never started — no session
+rollout means no sandbox, so the trail spans nothing and a green would be
+vacuous. Read the figures for what they are: the record is a comment anyone
+with write access can edit, so the trail is only as trustworthy as that
+comment — forged beat lines would skew all three figures, though nothing from
+the body is ever echoed or executed. It is
+dispatch-only, out of the promotion gate's required set, and neither
+whole-suite selection fans it out.
+
 **The repro family** is the fourth token-spending class, and it exists
 because the two engine families above share a blind spot: the resolver
 applies no stage screen, but

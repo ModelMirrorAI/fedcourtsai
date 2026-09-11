@@ -37,10 +37,10 @@ convention `AGENTS.md` carries, not something identity enforces):
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
   **not** a bypass actor, so nothing it holds can reach `main` except through a
   PR that satisfies the required checks.
-- **staging telemetry App** (`fedcourtsai-staging`) — used by exactly two
-  steps of one workflow, both the same watchdog-mint shape:
-  `integration-test`'s application-repro leg and its runner-idle-control
-  job mint from it on a
+- **staging telemetry App** (`fedcourtsai-staging`) — used by exactly three
+  steps of one workflow, all the same watchdog-mint shape:
+  `integration-test`'s application-repro leg, its runner-idle-control
+  job and its codex-freeze-probe job mint from it on a
   staging-bound dispatch, for the watchdog telemetry row on the rehearsal
   channel's own issue. Its client id is the `STAGING_APP_CLIENT_ID` variable
   and its private key the `STAGING_APP_PRIVATE_KEY` secret, both on the
@@ -66,7 +66,7 @@ environment-scoped one correctly resolves empty. Each workflow mints a token sco
 | `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
 | `run-repair` | data | contents (both writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the validation job holds no credential |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner. The watchdog brackets every engine; this token is minted on codex cells alone |
-| `integration-test` (codex-application-repro leg, and the runner-idle-control job) | dev on a prod-bound dispatch; staging telemetry App on a staging-bound one | issues | the cell workflows' watchdog telemetry mint, on identical terms: arm/disarm steps and the detached watchdog only, never the agent step. The credentials select per bound environment, and the arm/disarm steps pass the matching channel, so a staging rehearsal's rows land on the rehearsal channel's own issue under an App whose platform-enforced ceiling is Issues alone; a leg bound to neither environment mints nothing, warns, and degrades to its runner-local account |
+| `integration-test` (codex-application-repro leg, and the runner-idle-control and codex-freeze-probe jobs) | dev on a prod-bound dispatch; staging telemetry App on a staging-bound one | issues | the cell workflows' watchdog telemetry mint, on identical terms: arm/disarm steps and the detached watchdog only, never the agent step. The credentials select per bound environment, and the arm/disarm steps pass the matching channel, so a staging rehearsal's rows land on the rehearsal channel's own issue under an App whose platform-enforced ceiling is Issues alone; a leg bound to neither environment mints nothing, warns, and degrades to its runner-local account |
 | `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
 | `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — and on `main`-branch (prod-bound) runs only, so a rehearsal that reaches the labeler runs the full agent posture and the gate with no App token in the job at all — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
@@ -629,15 +629,18 @@ secret — the running engine's API key, chosen by expression ternary (or, on
 the engine-actions-smoke legs and each repro-family leg, by the step
 conditions the legs are
 partitioned on) so the
-other engines' keys never enter the job. A fourth job reads one of them
-outside that partition: the `qp-labeler-smoke` job reads the Claude key alone
+other engines' keys never enter the job. Two further jobs read one of them
+outside that partition. The `qp-labeler-smoke` job reads the Claude key alone
 from its own resolved environment, and it is the one agent leg here that runs
 outside the runner-seam scrub — on the labeling lane's own terms, which are
 stricter than a cell's: no role, no `id-token`, the subprocess env scrub
 re-enabled in the action's settings — which hardens the permission mode to
 `default`, leaving the agent a whole-tool Write/Edit grant where a cell runs
 `bypassPermissions` — and a synthetic five-row extract as its
-entire input. An `all` dispatch fans one of each per
+entire input. The `codex-freeze-probe` job reads the codex key alone, on the
+cells' own invocation block, for one one-word turn; its subject is the
+watchdog process rather than the stack, so it assumes no role, holds no
+`id-token`, and launches its retrieval sidecar token-free. An `all` dispatch fans one of each per
 engine, so a single run reads all three keys — each confined to its own job —
 and spends three cells plus three boot probes; `all-offline`, the same suite
 without either family, reads no engine key and spends nothing. The keys live on
@@ -646,7 +649,8 @@ environment and, as **separate per-environment secrets**, on `staging` — a
 smoke dispatched at the staging head spends against staging's own keys
 (independently revocable, isolated from tournament spend), so a promotion's
 freshness runs cannot touch the tournament's budget. The staging keys have
-two consumers beyond these scenario legs: the labeler smoke above, and a
+three consumers beyond these scenario legs: the labeler smoke above, the
+freeze probe above, and a
 `run-analytics` staging rehearsal
 whose mode runs an agent (the qp-topic labeler) — each reads the same
 per-environment engine secret and spends against it on the same terms. Spend is gated the same way
@@ -795,6 +799,7 @@ Access mirrors each workflow's role in the pipeline:
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
 | `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, no `id-token: write`, and the same pre-agent assertion that the AWS and OIDC variables are absent |
 | `integration-test` — runner-idle-control  | none          | the idle control assumes no role and holds no `id-token`: it reads nothing — its whole reach is the telemetry mint, and its product is the record row plus its own job conclusion |
+| `integration-test` — codex-freeze-probe   | none          | the freeze probe assumes no role and holds no `id-token` either: it reads no corpus, and its reach is the telemetry mint plus the engine key one trivial turn spends. Its MCP sidecar is launched deliberately **token-free** — the turn uses no tools, so an unauthenticated server that handshakes is the whole requirement, and no CourtListener token reaches the agent's env or any config file it can read |
 | `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `prod`, and it can write nothing production owns |
 | `run-ops`                                 | none          | the report reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
