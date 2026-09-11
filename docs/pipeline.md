@@ -2047,12 +2047,25 @@ conditional on how finished the outputs look at the thaw: complete output on
 resume is the *expected* reading of a suspension, so a reap keyed on it would
 fire on every suspended run, and the time the watchdog slept through is the time
 the step spent doing the very thing the kill interacts with. What it does
-instead is record the lost seconds in a `SUSPENDED` marker and on the off-runner
-record, capture the runner's state read-only — the one process forest ever taken
-inside that window — and keep beating for a bounded observation window before
-exiting, since a watchdog whose egress recovers is the only account of a runner
-about to be lost. A run that is never suspended detects nothing and both
-triggers behave exactly as above.
+instead is record the lost seconds in a `SUSPENDED` marker, capture the runner's
+state read-only — a process forest from inside a window the escalation would
+otherwise have ended — and keep beating for a bounded observation window before
+exiting.
+
+Which channel carries that is the reverse of the deadline's, and the reason is
+worth stating. The marker rides the cell artifact and survives; the off-runner
+lines are best-effort twice over here — a suspension long enough to expire the
+deadline has usually outlived the hour-long telemetry credential, and a cell
+whose step then concludes is closed out as one where nothing fired, which
+collapses the row. The beats are still worth issuing, since where the channel
+answers they are the only account of a runner about to be lost, but a stood-down
+cell is **read off its bundle**. The cost is stated in the same breath: that
+cell has no watchdog for the rest of its run, so a genuine wedge following a
+suspension is bounded by the engine step's own `timeout-minutes` rather than by
+the reaper — the safe direction while the kill is the act the deaths follow, and
+the reason the threshold is set where no ordinary latency can reach it. A run
+that is never suspended detects nothing and both triggers behave exactly as
+above.
 
 Two questions decide what is signalled, and the refusals that answer them are
 what make a kill on a live runner safe. The first is asked of **every** target.

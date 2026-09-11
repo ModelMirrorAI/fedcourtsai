@@ -39,6 +39,7 @@ import socket
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -89,6 +90,7 @@ def _spawn(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
     quiesce_s: str = "2",
     suspension_gap_s: str | None = None,
     observe_s: str | None = None,
+    log_path: Path | None = None,
 ) -> subprocess.Popen[str]:
     # Fail closed on the way in, so a future test cannot hand a discovery route
     # a pattern broad enough to name a process this suite did not spawn. Every
@@ -141,6 +143,15 @@ def _spawn(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
         env["WATCHDOG_SUSPENSION_GAP_S"] = suspension_gap_s
     if observe_s is not None:
         env["WATCHDOG_OBSERVE_S"] = observe_s
+    if log_path is not None:
+        # A file rather than a pipe, so a test can watch the watchdog's own log
+        # *while* it runs — which is the only way to know it has reached its
+        # wait loop before signalling it. Merged, since the script's stderr is
+        # the same account.
+        with log_path.open("w") as log:
+            return subprocess.Popen(
+                ["bash", str(WATCHDOG)], env=env, stdout=log, stderr=subprocess.STDOUT, text=True
+            )
     return subprocess.Popen(
         ["bash", str(WATCHDOG)],
         env=env,
@@ -150,23 +161,42 @@ def _spawn(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
     )
 
 
-def _run(*args: Any, **knobs: Any) -> subprocess.CompletedProcess[str]:
-    """One watchdog, run to completion — the shape most tests here want.
+def _completed[**P](
+    spawn: Callable[P, subprocess.Popen[str]],
+) -> Callable[P, subprocess.CompletedProcess[str]]:
+    """`_spawn`, waited out — the shape most tests here want, with its signature kept.
 
-    The suspension tests need the process *while* it runs, so the knobs live on
-    `_spawn` and this waits one out; nothing else about a run differs.
+    The suspension tests need the process *while* it runs, so every knob lives
+    on `_spawn`; this wrapper only waits. Typed through `ParamSpec` rather than
+    `*args: Any`, so a mistyped knob at any of the call sites below is still a
+    type error rather than a runtime one.
     """
-    proc = _spawn(*args, **knobs)
-    try:
-        stdout, stderr = proc.communicate(timeout=180)
-    except subprocess.TimeoutExpired:  # pragma: no cover - only on a hung watchdog
-        # Killed rather than left behind: a watchdog that outlives its test is
-        # one more process on the box holding a deadline nothing will disarm.
-        proc.kill()
-        proc.communicate()
-        raise
-    return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
 
+    def run(*args: P.args, **knobs: P.kwargs) -> subprocess.CompletedProcess[str]:
+        proc = spawn(*args, **knobs)
+        try:
+            stdout, stderr = proc.communicate(timeout=180)
+        except subprocess.TimeoutExpired:  # pragma: no cover - only on a hung watchdog
+            # Killed rather than left behind: a watchdog that outlives its test
+            # is one more process on the box holding a deadline nothing will
+            # disarm. Bounded again, since the reap of a killed process is the
+            # one thing left that could hang here.
+            proc.kill()
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                proc.communicate(timeout=10)
+            raise
+        return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
+
+    return run
+
+
+_run = _completed(_spawn)
+
+
+#: How long a freeze test waits after the watchdog's arming line before stopping
+#: it. One poll plus margin: the line is written a few statements before the wait
+#: loop, and the gap the guard measures only starts when that loop does.
+LOOP_SETTLE_S = 1.5
 
 #: A wedged process that ignores SIGTERM, which is what makes the watchdog's
 #: SIGKILL escalation reachable — a `sleep` dies on the first signal and never
@@ -1393,18 +1423,37 @@ def test_the_shipped_floor_derives_from_the_deadline() -> None:
 # already pin that a watchdog which never lost time behaves exactly as before.
 
 
-def _freeze(proc: subprocess.Popen[str], awake_s: float, frozen_s: float) -> None:
+def _freeze(proc: subprocess.Popen[str], log_path: Path, frozen_s: float) -> None:
     """Let the watchdog reach its wait loop, stop it where it stands, resume it.
 
     Not a simulation of the freeze — it is the same signal pair, so what the
     script sees is a pass that arrives with the wall clock moved on and nothing
     in between to account for it.
+
+    The wait is anchored on the watchdog's own arming line rather than on a bare
+    sleep, because the gap is measured from the moment the *loop* starts: a
+    SIGSTOP that beat the script there would be a freeze the script never sees,
+    and the test would fail for the wrong reason on a loaded box. The line is
+    written just before the loop rather than inside it, so a poll's worth of
+    settling follows it — short, because what it has to cover is the handful of
+    statements in between, not process startup.
     """
-    time.sleep(awake_s)
+    assert _await(lambda: "armed; firing in" in _text(log_path)), (
+        "the watchdog never reached its wait loop"
+    )
+    time.sleep(LOOP_SETTLE_S)
     assert proc.poll() is None, "the watchdog exited before it could be suspended"
     proc.send_signal(signal.SIGSTOP)
     time.sleep(frozen_s)
     proc.send_signal(signal.SIGCONT)
+
+
+def _text(path: Path) -> str:
+    """The watchdog's log so far, empty until it has written any of it."""
+    try:
+        return path.read_text()
+    except OSError:  # pragma: no cover - only before the first write
+        return ""
 
 
 def _unfrozen(proc: subprocess.Popen[str]) -> None:
@@ -1427,6 +1476,7 @@ def test_a_watchdog_that_lost_wall_clock_signals_nothing(tmp_path: Path) -> None
     engine = _named(marker)
     tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
     watchdog_dir = tmp_path / "engine-watchdog"
+    log_path = tmp_path / "watchdog.log"
     proc = _spawn(
         watchdog_dir,
         marker,
@@ -1434,16 +1484,20 @@ def test_a_watchdog_that_lost_wall_clock_signals_nothing(tmp_path: Path) -> None
         deadline_s="8",
         suspension_gap_s="4",
         observe_s="1",
+        log_path=log_path,
     )
     try:
-        _freeze(proc, awake_s=2.0, frozen_s=10.0)
-        stdout, stderr = proc.communicate(timeout=120)
-        assert proc.returncode == 0, stdout + stderr
+        _freeze(proc, log_path, frozen_s=10.0)
+        assert proc.wait(timeout=120) == 0, _text(log_path)
+        stdout = _text(log_path)
 
         assert engine.poll() is None, "a watchdog that lost time killed the engine"
         assert not _gone(tree.step_pid), "a watchdog that lost time ended the step's tree"
         assert tree.proc.poll() is None
 
+        assert (watchdog_dir / "SUSPENDED").exists(), (
+            f"the gap was never detected; the watchdog's own log says: {stdout}"
+        )
         suspended = (watchdog_dir / "SUSPENDED").read_text()
         assert "suspended_at=" in suspended
         assert "gap_s=" in suspended
@@ -1475,12 +1529,19 @@ def test_a_completed_cell_is_not_reaped_by_a_watchdog_that_lost_time(tmp_path: P
     just started. The rule is therefore absolute rather than conditional on the
     sentinel: the sentinel is satisfied here, and observed to be, and the reap is
     still withheld.
+
+    Where in a pass the freeze lands is not the fixture's to choose — the poll's
+    sleep is most of a pass, but the sentinel's own reads are the rest — so this
+    holds either way only because the clock is re-read at the reaper's door as
+    well as at the top of the loop. A guard that asked once per pass would thaw
+    straight into the reap it was interrupted in.
     """
     out_dir = tmp_path / "cell"
     paths = _outputs(out_dir)
     _write_outputs(paths)
     tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
     watchdog_dir = tmp_path / "engine-watchdog"
+    log_path = tmp_path / "watchdog.log"
     proc = _spawn(
         watchdog_dir,
         f"watchdog-selftest-absent-{os.getpid()}",
@@ -1494,11 +1555,12 @@ def test_a_completed_cell_is_not_reaped_by_a_watchdog_that_lost_time(tmp_path: P
         quiesce_s="6",
         suspension_gap_s="4",
         observe_s="1",
+        log_path=log_path,
     )
     try:
-        _freeze(proc, awake_s=2.0, frozen_s=10.0)
-        stdout, stderr = proc.communicate(timeout=120)
-        assert proc.returncode == 0, stdout + stderr
+        _freeze(proc, log_path, frozen_s=10.0)
+        assert proc.wait(timeout=120) == 0, _text(log_path)
+        stdout = _text(log_path)
 
         assert "completion sentinel observed at" in stdout, "the sentinel was never satisfied here"
         assert not (watchdog_dir / "REAPED").exists(), "a resumed watchdog reaped a step"
@@ -1525,6 +1587,7 @@ def test_a_stood_down_watchdog_keeps_beating_inside_a_bounded_window(tmp_path: P
     """
     sink = CheckinSink()
     watchdog_dir = tmp_path / "engine-watchdog"
+    log_path = tmp_path / "watchdog.log"
     proc = _spawn(
         watchdog_dir,
         f"watchdog-selftest-absent-{os.getpid()}",
@@ -1536,12 +1599,13 @@ def test_a_stood_down_watchdog_keeps_beating_inside_a_bounded_window(tmp_path: P
         heartbeat_s="1",
         checkin_url=sink.url,
         checkin_base=CHECKIN_BASE,
+        log_path=log_path,
     )
     try:
-        _freeze(proc, awake_s=2.0, frozen_s=10.0)
+        _freeze(proc, log_path, frozen_s=10.0)
         resumed = time.monotonic()
-        stdout, stderr = proc.communicate(timeout=120)
-        assert proc.returncode == 0, stdout + stderr
+        assert proc.wait(timeout=120) == 0, _text(log_path)
+        stdout = _text(log_path)
 
         # The window is what ends this process, and it ends it on its own: the
         # log says both halves, and neither reading depends on the channel.

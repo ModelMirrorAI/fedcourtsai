@@ -360,11 +360,12 @@ set was never satisfied — work still running at the deadline, or a required fi
 the judge never wrote — which is a finding about the cell rather than about
 teardown. `SUSPENDED` is a fourth reading and not a fourth escalation: the
 watchdog lost wall clock it did not observe, so it signalled nothing and became
-an observer. It is read off the bundle and the telemetry row rather than off an
-action marker — the gaps it lost, a process forest taken at the thaw, and the
-beats of its observation window — because no marker of an action was written and
-none should have been. The bundle rides the run's artifact whichever way the leg
-went; the rollout's item shapes are distilled where the watchdog acted. The leg reports **two halves separately**, because
+an observer. Read it off the **bundle** — the gaps it lost, the stand-down, and
+a process forest taken at the thaw — rather than off the telemetry row, which on
+a leg whose step then concludes is closed out as one where nothing fired. No
+marker of an action was written, and none should have been. The bundle rides the
+run's artifact whichever way the leg went; the rollout's item shapes are
+distilled where the watchdog acted. The leg reports **two halves separately**, because
 the finding is that they can disagree: `outputs:` counts the cell's produced
 files against the same `cell-outputs` list the watchdog's sentinel waits on, and
 `step:` says whether it concluded on its own, was reaped by the watchdog, or did
