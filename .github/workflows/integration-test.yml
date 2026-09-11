@@ -1370,12 +1370,17 @@ jobs:
       # finished step open. A green leg is then the precise certification that
       # completed work is concluded and picked up.
       #
-      # So the two markers read differently here, and the difference is the whole
+      # So the markers read differently here, and the difference is the whole
       # verdict. `REAPED` is the defect reproducing and being handled. `FIRED` or
       # `STOOD_DOWN` means the completion set was never satisfied — work still
       # running at the deadline, or a required file the judge never wrote — which
-      # is a finding about the cell, not about teardown. The bounds below sit
-      # above the observed work envelope — 40-50 minutes on production cells,
+      # is a finding about the cell, not about teardown. `SUSPENDED` is the
+      # watchdog reporting that it lost wall clock beside the engine and
+      # withheld every signal; the step's own ending then shows whether the
+      # teardown resolves without a kill — a reading this leg can produce.
+      #
+      # The bounds below sit above the observed work envelope — 40-50 minutes
+      # on production cells,
       # and past 50 on this leg — precisely so that the deadline is never
       # reached by a cell that simply took its time. And because a deadline
       # kill can end the whole job — skipping the disarm and upload tail and
@@ -1713,12 +1718,13 @@ jobs:
             find "$RUNNER_TEMP/engine-watchdog" -maxdepth 1 -type f \
               -exec cp -p {} "$bundle/" \;
           fi
-          for marker in REAPED FIRED STOOD_DOWN; do
+          for marker in REAPED FIRED STOOD_DOWN SUSPENDED; do
             file="$bundle/$marker"
             [ -f "$file" ] || continue
             case "$marker" in
               REAPED) note="the cell's outputs were complete and quiescent and the step would not conclude; the watchdog ended it" ;;
               FIRED) note="the engine did not finish inside the bound and was killed at the deadline" ;;
+              SUSPENDED) note="the watchdog lost wall clock beside the engine and stood down; nothing was signalled — the bundle is the evidence" ;;
               *) note="the deadline passed with no engine process matched — check the watchdog still names the action's invocation" ;;
             esac
             echo "::warning::codex-application-repro: ${note}"
@@ -1735,12 +1741,14 @@ jobs:
           # Close the off-runner record out with the engine step's conclusion —
           # the cell workflows' close-out, verbatim. A leg where nothing fired
           # collapses to a single armed/disarmed line; a marker keeps the live
-          # record expanded, because a reaped or killed step is the reading this
-          # leg exists to produce. Bounded like the arming call, and ahead of
+          # record expanded — a reaped or killed step, or a suspension the
+          # watchdog observed and stood down from, each a reading this leg
+          # exists to produce. Bounded like the arming call, and ahead of
           # the upload that carries the bundle out.
           if [ -n "${GH_TOKEN:-}" ]; then
             healthy_flag=--healthy
-            if [ -f "$bundle/REAPED" ] || [ -f "$bundle/FIRED" ] || [ -f "$bundle/STOOD_DOWN" ]; then
+            if [ -f "$bundle/REAPED" ] || [ -f "$bundle/FIRED" ] || [ -f "$bundle/STOOD_DOWN" ] \
+              || [ -f "$bundle/SUSPENDED" ]; then
               healthy_flag=--not-healthy
             fi
             timeout 90 uv run fedcourts watchdog-checkin --disarm "$healthy_flag" \
@@ -3091,7 +3099,8 @@ jobs:
           fi
           healthy_flag=--healthy
           if [ -f "$WATCHDOG_DIR/REAPED" ] || [ -f "$WATCHDOG_DIR/FIRED" ] \
-            || [ -f "$WATCHDOG_DIR/STOOD_DOWN" ] || [ "$IDLE_CONCLUSION" != "success" ]; then
+            || [ -f "$WATCHDOG_DIR/STOOD_DOWN" ] || [ -f "$WATCHDOG_DIR/SUSPENDED" ] \
+            || [ "$IDLE_CONCLUSION" != "success" ]; then
             healthy_flag=--not-healthy
           fi
           if [ -n "${GH_TOKEN:-}" ]; then
@@ -3526,9 +3535,13 @@ jobs:
           # Health is the watchdog's own markers. The probe does not fail on a
           # codex turn that failed — what it measures is the beat trail across
           # a sandbox's life, and a turn that started and died still had one.
+          # `SUSPENDED` joins the list with the opposite valence and the same
+          # effect: it is the probe's expected positive finding, and the flag
+          # here means "keep the off-runner record expanded so it is read",
+          # not "the leg failed".
           healthy_flag=--healthy
           if [ -f "$WATCHDOG_DIR/REAPED" ] || [ -f "$WATCHDOG_DIR/FIRED" ] \
-            || [ -f "$WATCHDOG_DIR/STOOD_DOWN" ]; then
+            || [ -f "$WATCHDOG_DIR/STOOD_DOWN" ] || [ -f "$WATCHDOG_DIR/SUSPENDED" ]; then
             healthy_flag=--not-healthy
           fi
           if [ -n "${GH_TOKEN:-}" ]; then
