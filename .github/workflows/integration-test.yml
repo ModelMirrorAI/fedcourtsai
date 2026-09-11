@@ -159,7 +159,7 @@ on:
           probe's worth, whichever member runs. It reads what the watchdog's
           beat trail does while a codex sandbox lives and after it exits —
           the observation a wedged production cell destroys along with its
-          runner — and its four members each hold one thing still while
+          runner — and its five members each hold one thing still while
           varying the next. `codex-freeze-probe` is the armed turn with a
           three-minute post-exit idle margin. `codex-freeze-probe-unwatched`
           runs the same turn and the same margins with no telemetry mint,
@@ -172,8 +172,11 @@ on:
           process forest, cgroup freezer states, kernel log, namespaces —
           in short steps whose logs stream out before the wedge lands, then
           idles on a ticking clock whose last printed second stamps the
-          moment the runner stopped. No whole-suite selection fans out any
-          of those.
+          moment the runner stopped. `codex-freeze-probe-nosudo` is the base
+          armed turn with ONE field changed — `safety-strategy: read-only`
+          rather than `drop-sudo` — the decisive test of whether that account
+          drop is what wedges the runner. No whole-suite selection fans out
+          any of those.
         type: choice
         default: ranged-reads
         options:
@@ -191,6 +194,7 @@ on:
           - codex-freeze-probe-unwatched
           - codex-freeze-probe-smokeconfig
           - codex-freeze-probe-autopsy
+          - codex-freeze-probe-nosudo
           - codex-application-repro
           - all
           - all-offline
@@ -3189,13 +3193,37 @@ jobs:
   # runs under. That is exact parity with every production cell — the cells
   # arm the same way around a full turn, and this one's prompt is a single
   # word — so it is the existing posture rather than a new exposure, and it
-  # is stated here because this is where a reader looks for it.
+  # is stated here because this is where a reader looks for it. The one
+  # deviation is the nosudo member: its turn keeps the runner user's sudo
+  # (`read-only`, not `drop-sudo`), so the agent shell runs at a higher
+  # privilege than a cell's dropped one. The watchdog's environ is readable
+  # from an agent shell on the cells too — that is already the accepted model
+  # — and this member's token is the same comment-only issues:write one, so
+  # the deviation widens no reach the model has not already conceded.
   #
-  # One job, four scenario values, one axis varied at a time — the steps are
+  # One job, five scenario values, one axis varied at a time — the steps are
   # shared and the per-step `if:` conditions below are what separate them:
   #
   #   * `codex-freeze-probe` — armed, with the post-exit idle margin. The
   #     shape described above.
+  #   * `codex-freeze-probe-nosudo` — the base shape exactly, armed and with
+  #     the same margins, differing in ONE field: the codex turn runs
+  #     `safety-strategy: read-only` instead of `drop-sudo`. It is the
+  #     decisive test of the leading hypothesis — that `drop-sudo`'s
+  #     irreversible runner-user account and socket mutation, made mid-job
+  #     rather than as the job's last step, is what wedges the runner a few
+  #     minutes after the sandbox tears down. This member runs the IDENTICAL
+  #     one-word turn but drops nothing from the account, so the two members
+  #     differ in exactly that mutation; `read-only` is expected to build and
+  #     tear down a codex sandbox as `drop-sudo` does — that teardown is the
+  #     event under test, confirmed on the first dispatch. The turn's own step
+  #     is a distinct one held OUT of the cross-surface codex lockstep pin while
+  #     every real member stays in it. A wedge gone here confirms the cause
+  #     and names the fix; a wedge still present exonerates `drop-sudo` and
+  #     the hunt continues. Read-only disables the sandbox's network, so the
+  #     turn's model call may fail — harmless here, because the session
+  #     rollout lands when the session starts and the verdict is the beat
+  #     trail across the sandbox's life, not the turn's success.
   #   * `codex-freeze-probe-unwatched` — the same turn and the same margins
   #     with the mint, the arm and the disarm all skipped, so no telemetry
   #     call of any kind runs and no watchdog process exists. It gives up the
@@ -3217,7 +3245,7 @@ jobs:
   #     meaningless: its verdict, too, is the step-progress stamp.
   #   * `codex-freeze-probe-autopsy` — unwatched, and the only member that
   #     asks WHAT the wedge is rather than WHETHER it happens. The other
-  #     three read the wedge from outside, off the run page; this one reads
+  #     four read the wedge from outside, off the run page; this one reads
   #     the machine from inside it, in the seconds the sandbox's residue is
   #     still there to read. It works because a step log streams as the step
   #     runs: the wedge does not retract what already left the runner, it
@@ -3263,7 +3291,7 @@ jobs:
     # The cap is sized off the WORST BOUNDED case, not the expected one,
     # because on this job a cap cancellation is not an accident — it is the
     # wedge's signature, and any healthy run that could reach it would forge
-    # that signature. Three members sum their bounded steps to at most 14
+    # that signature. Four members sum their bounded steps to at most 14
     # (3 + 7 + 4, the last of them 0 on the member that drops the post-exit
     # margin); the autopsy member reaches 20 (3 + 7 + 6 for the clock + 4)
     # and adds a diagnostic burst that carries per-COMMAND timeouts rather
@@ -3271,7 +3299,7 @@ jobs:
     # Setup, the sidecar and the disarm's own bounded calls add about 7 more.
     # So 35 is the cap with room above the worst case rather than the cap the
     # arithmetic just fits under; the healthy autopsy path is nearer twelve
-    # minutes, and the other three finish inside fifteen.
+    # minutes, and the other four finish inside fifteen.
     #
     # One case the cancellation cannot distinguish on its own: a one-word turn
     # that somehow spends its whole seven-minute bound is pathological but not
@@ -3412,7 +3440,7 @@ jobs:
         id: watchdog-token
         if: >-
           ${{ github.event_name == 'workflow_dispatch'
-          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
         continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
@@ -3424,7 +3452,7 @@ jobs:
         id: arm
         if: >-
           ${{ github.event_name == 'workflow_dispatch'
-          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
         env:
           WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
           GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
@@ -3560,8 +3588,18 @@ jobs:
       # started and then failed still had a sandbox, which is the whole
       # subject, so the measurement below decides the leg's verdict and this
       # step does not.
+      #
+      # Every member but the nosudo one runs THIS step, on `drop-sudo`; the
+      # nosudo member runs the sibling step below it instead, identical in
+      # every field but `safety-strategy`. The gate carries the
+      # `workflow_dispatch` conjunct the scheduled-workflow fail-closed rule
+      # requires of any input-gated step, even though the job's own gate
+      # already excludes a scheduled run — the hazard is in the shape.
       - name: Run one trivial turn under the cells' codex block
         id: turn
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario != 'codex-freeze-probe-nosudo' }}
         # Well under the job cap and far above a one-word turn: a wedge here
         # would otherwise eat the post-exit window the measurement needs.
         timeout-minutes: 7
@@ -3583,6 +3621,52 @@ jobs:
           model: ${{ steps.cell.outputs.model }}
           effort: high
           safety-strategy: drop-sudo
+          permission-profile: fedcourts-cell
+          codex-version: "0.144.1"
+          codex-args: '["-c","web_search=live"]'
+
+      # The nosudo member's turn: identical to the block above in every field
+      # but `safety-strategy`, which is `read-only` rather than `drop-sudo`.
+      # The turn itself is identical, so the two members differ in exactly one
+      # thing: `read-only` drops NOTHING from the runner user's account and
+      # sockets. It is expected to build and tear down a codex sandbox as
+      # `drop-sudo` does (that teardown is the event under test, confirmed on
+      # dispatch), which isolates the one variable the leading wedge hypothesis
+      # names: `drop-sudo`'s irreversible mid-job account/socket mutation. It runs only on the nosudo dispatch, and its
+      # id is deliberately not `turn`: it is the one codex invocation in this
+      # repository held OUT of the cross-surface lockstep pin, so the pin can
+      # keep enforcing the cells' block on every REAL member (the `turn` step
+      # above included) while this one varies exactly one field. `read-only`
+      # also has no network, so the model call may fail — harmless: the
+      # session rollout lands when the session starts (the sandbox-started
+      # assertion reads that, not the reply), `continue-on-error` keeps the
+      # leg alive to idle out its margin, and the verdict is the beat trail.
+      - name: Run one trivial turn under the cells' codex block — without drop-sudo
+        id: turn_nosudo
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-nosudo' }}
+        timeout-minutes: 7
+        continue-on-error: true
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        env:
+          # Pin codex's home to the workspace dir the config was written
+          # into, as the cell step does.
+          CODEX_HOME: ${{ github.workspace }}/.codex
+        with:
+          allow-bot-users: "fedcourtsai-data[bot]"
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # DEVIATION, as on the boot probe: a one-word turn, not a cell.
+          prompt: |
+            Reply with the single word: ok
+
+            Use no tools, read no files, and write no files. This is a boot
+            probe of the invocation path, not a task.
+          model: ${{ steps.cell.outputs.model }}
+          effort: high
+          # THE ONE VARIED FIELD. See the block above: this is the whole
+          # experiment — a codex sandbox without `drop-sudo`'s account drop.
+          safety-strategy: read-only
           permission-profile: fedcourts-cell
           codex-version: "0.144.1"
           codex-args: '["-c","web_search=live"]'
@@ -3833,12 +3917,13 @@ jobs:
       # it there (it is unwatched) and its measuring is already done, so the
       # three quiet minutes buy not special-casing the one expression in this
       # job whose spelling decides whether a member measures what it claims.
-      # One consequence to know before writing a fifth member: because that
-      # member's diagnostic burst runs BEFORE this step, its turn-ended stamp
-      # lands minutes after the turn actually ended. Harmless while the only
-      # reader is the armed members' disarm — but a member that both arms the
-      # watchdog and runs the burst would read a skewed `resumed` off it, and
-      # would need this stamp moved back above the burst.
+      # One consequence to know before adding a member that both arms the
+      # watchdog AND runs the diagnostic burst: because the burst runs BEFORE
+      # this step, its turn-ended stamp lands minutes after the turn actually
+      # ended, so such a member would read a skewed `resumed` off it and would
+      # need this stamp moved back above the burst. No current member is both:
+      # the autopsy member runs the burst but is unwatched, and the armed
+      # members (base, smokeconfig, nosudo) run no burst.
       #
       # The ternary is spelled so the margin is the TRUE branch, and the
       # QUOTES ARE LOAD-BEARING both ways. A GitHub `&&`/`||` pair yields its
@@ -3882,7 +3967,11 @@ jobs:
         env:
           # `outcome`, not `conclusion`, for the turn step's own reason: the
           # turn carries `continue-on-error`, which rewrites the conclusion.
-          TURN_OUTCOME: ${{ steps.turn.outcome }}
+          # The nosudo member's turn is a separate step, so read whichever of
+          # the two ran — the ternary picks `turn_nosudo` on that member and
+          # `turn` on every other, and reads `.outcome` on both, so the
+          # not-the-rewritten-conclusion invariant holds either way.
+          TURN_OUTCOME: ${{ inputs.scenario == 'codex-freeze-probe-nosudo' && steps.turn_nosudo.outcome || steps.turn.outcome }}
         run: |
           set -euo pipefail
           {
@@ -3909,7 +3998,7 @@ jobs:
       - name: Disarm and read the beat trail
         if: >-
           ${{ always() && github.event_name == 'workflow_dispatch'
-          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
         env:
           GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
           TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
@@ -3919,8 +4008,11 @@ jobs:
           # whenever that swallows a failure or a timeout. Reading it would
           # write "the turn was clean" into a durable telemetry row for a turn
           # that started and died — erasing the very distinction this leg is
-          # built to keep. `outcome` is the value before the swallow.
-          TURN_OUTCOME: ${{ steps.turn.outcome }}
+          # built to keep. `outcome` is the value before the swallow. The
+          # ternary reads whichever turn step ran — `turn_nosudo` on the
+          # nosudo member, `turn` on every other armed member — and `.outcome`
+          # on both branches, so the read stays outcome-not-conclusion.
+          TURN_OUTCOME: ${{ inputs.scenario == 'codex-freeze-probe-nosudo' && steps.turn_nosudo.outcome || steps.turn.outcome }}
           CHECKIN_URL: ${{ steps.arm.outputs.checkin_url }}
           WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
         run: |
@@ -4083,7 +4175,7 @@ jobs:
       - name: Upload the watchdog log
         if: >-
           ${{ always() && github.event_name == 'workflow_dispatch'
-          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: freeze-probe-watchdog-log
