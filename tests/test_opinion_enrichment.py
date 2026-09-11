@@ -405,13 +405,16 @@ def test_several_clusters_are_refused_not_guessed_at(tmp_path: Path) -> None:
     upstream.dockets = {
         102: {"id": 102, "clusters": [_link("clusters", 5555), _link("clusters", 4321)]}
     }
-    result = _run(db, upstream, apply=True)
+    result = _run(db, upstream, apply=True, today=_TODAY)
     assert result.ambiguous_cluster == 1 and result.enriched == 1
     # The ambiguity cost one docket fetch and no cluster fetch.
     assert not any(path.endswith("/clusters/5555/") for path in upstream.paths)
     with corpus.connect(db) as conn:
         row = corpus.get_row(conn, "scotus/102")
     assert row is not None and row.has_opinion is False
+    # A refusal is a verdict about the case, so it rotates behind the queue —
+    # a docket linking several clusters is permanent residue of its own.
+    assert row.opinion_enrich_attempted_at == _TODAY
 
 
 def test_a_cluster_naming_another_docket_is_skipped(tmp_path: Path) -> None:
@@ -422,13 +425,16 @@ def test_a_cluster_naming_another_docket_is_skipped(tmp_path: Path) -> None:
         4321: _cluster(4321, docket_id=999, opinion_id=8765),  # a different docket
         5555: _cluster(5555, docket_id=102, opinion_id=9999, count=3),
     }
-    result = _run(db, upstream, apply=True)
+    result = _run(db, upstream, apply=True, today=_TODAY)
     assert result.foreign_cluster == 1 and result.enriched == 1
     # The misjoined cluster's opinion was never fetched.
     assert not any(path.endswith("/opinions/8765/") for path in upstream.paths)
     with corpus.connect(db) as conn:
         row = corpus.get_row(conn, "scotus/101")
     assert row is not None and row.citations == []
+    # A misjoin does not converge either, so it takes the cursor like any
+    # other refusal rather than re-heading every walk.
+    assert row.opinion_enrich_attempted_at == _TODAY
 
 
 def test_a_cluster_naming_no_docket_is_accepted() -> None:
@@ -714,6 +720,64 @@ def test_a_failed_case_takes_the_cursor(tmp_path: Path) -> None:
 
     assert [entry["case_id"] for entry in result.failed] == ["scotus/101"]
     assert _cursors(db) == {"scotus/101": _TODAY, "scotus/102": _TODAY}
+
+
+def test_successive_runs_walk_past_a_permanent_residue(tmp_path: Path) -> None:
+    """The defect this cursor exists for, end to end.
+
+    Both eligible cases are pure permanent residue — each docket links no
+    cluster, so neither ever converges and neither leaves the predicate. Under a
+    `case_id` order a capped run would re-walk `scotus/101` forever. Four runs,
+    a cap of one: the walk must alternate, including for two runs on the same
+    day (the second of which finds the first's case already stamped today).
+    """
+    db = _seeded(tmp_path)
+    upstream = _upstream()
+    upstream.clusters = {}
+    upstream.dockets = {
+        101: {"id": 101, "clusters": []},
+        102: {"id": 102, "clusters": []},
+    }
+    # `scotus/101`'s stored snapshot links a cluster, which would spare its
+    # docket fetch and hide the walk's choice; drop it so both cases fetch.
+    with corpus.connect(db) as conn:
+        conn.execute("DELETE FROM snapshots WHERE case_id = 'scotus/101'")
+        conn.commit()
+
+    walked: list[str] = []
+    for day in (date(2024, 7, 1), date(2024, 7, 2), date(2024, 7, 3), date(2024, 7, 3)):
+        upstream.paths.clear()
+        result = _run(db, upstream, apply=True, max_cases=1, today=day)
+        assert result.no_cluster == 1 and result.enriched == 0
+        walked.extend(upstream.paths)
+
+    assert walked == [
+        "/api/rest/v4/dockets/101/",
+        "/api/rest/v4/dockets/102/",
+        "/api/rest/v4/dockets/101/",
+        "/api/rest/v4/dockets/102/",
+    ]
+
+
+def test_a_fault_that_says_nothing_about_the_docket_keeps_its_place(tmp_path: Path) -> None:
+    """A degraded upstream must not rotate away the cases it taught nothing about.
+
+    A 5xx is a fact about the moment, not about the docket, and it is
+    deliberately not a batch wall (`max_cases` bounds what a degraded upstream
+    can burn) — so every admitted case would otherwise be stamped and sent to
+    the back of the rotation by an outage.
+    """
+    db = _seeded(tmp_path)
+
+    def failing(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"detail": "upstream is down"})
+
+    with corpus.connect(db) as conn, _client(httpx.MockTransport(failing)) as client:
+        result = enrich_opinions(conn, client, apply=True, today=_TODAY)
+
+    assert result.stopped is None
+    assert [entry["case_id"] for entry in result.failed] == ["scotus/101", "scotus/102"]
+    assert _cursors(db) == {"scotus/101": None, "scotus/102": None}
 
 
 def test_a_converged_case_takes_the_cursor(tmp_path: Path) -> None:

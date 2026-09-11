@@ -116,7 +116,7 @@ source.
 | `response_filed_at`   | date            | when a response to the application was filed (live channel only, fill-in latched) — the interim stage's third forecast moment; a different event from the Court asking, since a respondent may answer uninvited and a requested response may never arrive |
 | `merits_terminated`   | text            | why a granted case's merits proceeding ended **without** a disposition (the `MeritsTermination` vocabulary — a post-grant Rule 46 dismissal, a dismissal as moot, an abatement on the petitioner's death, a grant the Court vacated, a bare mandate notation), written by the backfill sweep alone; null = not known to have terminated |
 | `capital_case`        | integer (0/1)   | the Court's `*** CAPITAL CASE ***` marking, read from the annotation upstream appends to the case number and latched here as ingest strips the number to its canonical spelling; max-latched, since only one channel serves the annotation — 0 = not marked by any channel that wrote the row, which on a CourtListener-only row is silence rather than a denial |
-| `opinion_enrich_attempted_at` | date    | tracking state: when the opinion-enrichment walk (`enrich-opinions`) last attempted this case, whatever it concluded — the walk's rotation key, read never-attempted-first then stalest-stamp-first, so the grants that can never converge (a GVR or DIG that publishes no opinion; a decided grant whose petition-stage docket links no cluster upstream) cannot hold the head of every run; null = never attempted |
+| `opinion_enrich_attempted_at` | date    | tracking state: when the opinion-enrichment walk (`enrich-opinions`) last reached a verdict about this case (a body, no cluster, a refusal, a 4xx) — the walk's rotation key, read never-attempted-first then stalest-stamp-first, so the grants that can never converge (a GVR or DIG that publishes no opinion; a decided grant whose petition-stage docket links no cluster upstream) cannot hold the head of every run; null = never attempted |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on, while `panel` carries the structured detail.
@@ -160,10 +160,10 @@ on every refresh and the budget governor rotates the oldest-`last_pulled`-first
 slice of the unresolved set within the API budget (see
 [docs/data-pipeline.md](../docs/data-pipeline.md)).
 `opinion_enrich_attempted_at` is the same kind of column for a different walk:
-the opinion enrichment stamps it on every case an applied run classified, and
+the opinion enrichment stamps it on every case an applied run reached a verdict about, and
 rotates never-attempted-first then stalest-first over it. Both are fill-in
-latched, so a writer carrying no stamp preserves the other channel's. `embedding[]` (semantic
-retrieval) is a later upgrade and is not stored yet.
+latched, so a writer carrying no stamp preserves the stored one.
+`embedding[]` (semantic retrieval) is a later upgrade and is not stored yet.
 
 The live-parsed signal family (`distributed_for_conference`,
 `distribution_count`, `cvsg_date`, `originating_court_name`) is supplied only by

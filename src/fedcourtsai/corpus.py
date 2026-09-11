@@ -294,9 +294,10 @@ class CorpusRow(BaseModel):
     opinion_enrich_attempted_at: date | None = Field(
         default=None,
         description="Tracking state: date the opinion-enrichment walk "
-        "(`pipeline/opinion_enrichment.py`) last attempted this case, whatever it "
-        "concluded — a landed body, no linked cluster, a refusal, a per-case "
-        "failure; None until first attempted. It is that walk's rotation key, "
+        "(`pipeline/opinion_enrichment.py`) last reached a verdict about this case "
+        "— a landed body, no linked cluster, a refusal, a 4xx on its docket; None "
+        "until first attempted, and left alone where the fault said nothing about "
+        "the docket (a 5xx, a transport failure). It is that walk's rotation key, "
         "read never-attempted-first then stalest-stamp-first, which is what keeps "
         "the grants that can never converge (a GVR or DIG that publishes no "
         "opinion; a decided grant whose petition-stage docket links no cluster "
@@ -773,7 +774,7 @@ CREATE TABLE IF NOT EXISTS cases (
     capital_case        INTEGER NOT NULL DEFAULT 0,
     -- The opinion-enrichment walk's rotation key (see CorpusRow and
     -- pipeline/opinion_enrichment.py): the date that pass last attempted this
-    -- case, stamped on every classified candidate whatever it concluded. The
+    -- case, stamped on every candidate the walk reached a verdict about. The
     -- walk takes never-attempted rows first and then the stalest stamp, so its
     -- permanent residue rotates to the back instead of heading every run.
     -- NULL = never attempted.

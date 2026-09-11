@@ -1886,13 +1886,17 @@ def enrich_opinions_cmd(
     converges, and neither does a decided grant whose petition-stage docket
     links no cluster upstream — so the walk rotates on a last-attempted cursor
     (`opinion_enrich_attempted_at`, stamped on every case an applied run
-    classifies): never-attempted cases first, then the stalest stamp, which is
-    what keeps that residue off the head of every run. A deferred or uncapped
-    A case the run never reached — deferred behind a wall, or past
-    `--max-cases` — is left unstamped and heads the next one. Dry-run by default (the
-    requests are spent either way — the dry run is how the spend is
-    inspected); run where the corpus is pulled, `corpus-push` after an
-    `--apply`. Fails loud if the corpus is absent.
+    classifies — a landed body, no cluster, a refusal, a 4xx on its docket):
+    never-attempted cases first, then the stalest stamp, which is what keeps
+    that residue off the head of every run. A case the run never reached —
+    deferred behind a wall, or past `--max-cases` — keeps its place at the
+    front of the next run's queue, and so does one whose fault said nothing
+    about the docket (a 5xx, a transport failure, an unparseable body).
+
+    Dry-run by default (the requests are spent either way — the dry run is how
+    the spend is inspected, and it moves no cursor); run where the corpus is
+    pulled, `corpus-push` after an `--apply`. Fails loud if the corpus is
+    absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)

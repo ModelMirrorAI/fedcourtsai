@@ -42,11 +42,16 @@ whose docket links no cluster upstream, the dominant refusal since the id a
 granted row carries is its petition-stage docket and the published cluster
 hangs off it only sometimes — so under a plain ``case_id`` order that residue
 would head every run and, once it exceeded ``max_cases``, the cap could never
-reach past it. So each candidate the walk *classifies* — a landed body, no
-cluster, a refusal, a per-case failure — is stamped with the run's date in
+reach past it. The cursor is what unsticks it: each candidate the walk
+*classifies* — a landed body, no cluster, a refusal, a 4xx on its docket — is
+stamped with the run's date in
 ``corpus.CorpusRow.opinion_enrich_attempted_at``, through the same upsert the
 enrichment itself writes through, and candidates are taken never-attempted
-first, then stalest stamp first, ``case_id`` breaking ties. The residue
+first, then stalest stamp first, ``case_id`` breaking ties. What may stamp is
+what upstream *answered about the case*: a 5xx, a transport failure, or an
+unparseable body says nothing about this docket, so such a case keeps its
+place rather than rotating to the back of a queue a degraded upstream never
+really walked it in (:func:`_answers_about_the_case`). The residue
 therefore rotates to the back of the queue for as long as anything else is
 owed a turn, and successive runs advance through the slice instead of
 re-spending on one head. A candidate the walk did **not** reach — deferred
@@ -79,7 +84,10 @@ rather than re-serving it, and each case is written as it converges so a run cut
 short keeps the coverage it already paid for. The cursor stamp rides that same
 write — one upsert per classified case, carrying the enrichment where there was
 one — so the record of what was attempted cannot drift from the record of what
-landed.
+landed. The cost is that a refusal now writes a row (and re-mirrors its
+``case.json``) where it wrote nothing before, bounded by ``max_cases`` and
+paid in small local writes rather than REST: the alternative, a direct
+``UPDATE`` of the cursor alone, is the one thing this seam exists to refuse.
 
 **A stored hyperlink is a claim, not a target.** Snapshot payloads carry
 upstream URLs, and none of them is ever fetched as given: :func:`resource_id`
@@ -422,6 +430,22 @@ def _stop_reason(exc: Exception) -> str | None:
     return None
 
 
+def _answers_about_the_case(exc: Exception) -> bool:
+    """Whether a per-case fault is upstream's answer *about this docket*.
+
+    The cursor records a verdict the walk reached about a case, so what may
+    stamp it is what upstream said about the case: a 4xx — the resource is not
+    there, or is not one this client may have — is as much an answer as an
+    empty ``clusters`` list, and a case that 404s every run must not re-take the
+    head of the queue. A 5xx, a transport failure, or a body that would not
+    parse is a fact about the network or the moment instead, so the case keeps
+    its place and is retried at the front rather than rotated to the back of a
+    queue it was never really walked in. (A 429 never reaches here — it is a
+    batch wall, see :func:`_stop_reason`.)
+    """
+    return isinstance(exc, httpx.HTTPStatusError) and 400 <= exc.response.status_code < 500
+
+
 def _candidates(conn: sqlite3.Connection) -> tuple[list[tuple[corpus.CorpusRow, int]], int]:
     """The walk's queue, stalest-first, and the count of unaddressable grants.
 
@@ -430,8 +454,8 @@ def _candidates(conn: sqlite3.Connection) -> tuple[list[tuple[corpus.CorpusRow, 
     case id names a CourtListener docket. A granted row whose id is the live
     channel's reserved-range mint addresses nothing upstream, so it is counted
     (``live_only``) rather than queued. The queue is ordered by
-    :func:`_walk_order`; ``iter_rows`` yields in ``case_id`` order, which the
-    stable sort keeps within each rank.
+    :func:`_walk_order`, whose key carries ``case_id`` as its own last element —
+    so the order holds whatever order ``iter_rows`` yielded in.
     """
     queue: list[tuple[corpus.CorpusRow, int]] = []
     live_only = 0
@@ -465,8 +489,9 @@ def enrich_opinions(
     ``max_cases``; the rest are left for the next run, which re-derives the same
     predicate against the stamps this one wrote. Every candidate the walk
     classifies is stamped with ``today`` (the current date unless a caller pins
-    one) in the same upsert that carries its enrichment, and a candidate the
-    walk never reached is left unstamped, so it heads the next run.
+    one) in the same upsert that carries its enrichment; a candidate the walk
+    never reached, or whose fault said nothing about its docket, is left
+    unstamped and keeps its place at the front.
 
     Every way a case can fail to yield a document is counted and left alone —
     no cluster, several clusters, a cluster naming another docket, an opinion
@@ -562,11 +587,10 @@ def enrich_opinions(
             # A non-batch fault: a non-429 REST failure, or the ValueError an
             # untrusted response body can raise on the way in (a 200 that is
             # not JSON, most of all). Either is one case's problem, so it
-            # costs that case and nothing else — and the walk reached a verdict
-            # about it, so the cursor moves and a case that fails every run
-            # cannot re-take the head of the queue.
+            # costs that case and nothing else.
             result.failed.append({"case_id": row.case_id, "reason": f"{type(exc).__name__}: {exc}"})
-            record(row)
+            if _answers_about_the_case(exc):
+                record(row)
             continue
     result.requests = walk.requests
     return result
