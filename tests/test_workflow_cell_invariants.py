@@ -3390,8 +3390,21 @@ def test_the_autopsy_members_dump_is_ordered_bounded_and_secret_free() -> None:
         "${{ github.event_name == 'workflow_dispatch'"
         " && inputs.scenario == 'codex-freeze-probe-autopsy' }}"
     )
+    # One step carries `always()` in front of the same gate, and it is the one
+    # whose ABSENCE is a finding: a skipped step and an unreached step look
+    # identical on the run page, so the survey past the fuse must not be
+    # skippable by a predecessor that merely failed. Every other step takes
+    # the bare gate — `always()` on the dump itself would have it attempted
+    # during a cancellation, which is the one thing that would blur the
+    # reading it is there to make.
+    survey = "Autopsy: the freezer survey again, past the fuse window"
     for step in autopsy:
-        assert str(step.get("if")) == autopsy_only, step["name"]
+        expected = (
+            autopsy_only.replace("${{ ", "${{ always() && ")
+            if step["name"] == survey
+            else autopsy_only
+        )
+        assert str(step.get("if")) == expected, step["name"]
     # The order IS the instrument. The tap has to be opened before the turn,
     # because the turn's `drop-sudo` takes the privilege it needs; the burst
     # has to run before the shared post-exit margin, because the fuse lands
@@ -3424,14 +3437,23 @@ def test_the_autopsy_members_dump_is_ordered_bounded_and_secret_free() -> None:
             assert "timeout-minutes" not in step, step["name"]
         # Machine state, never an environment: no environ read, no printenv,
         # and no secret anywhere near a job that deliberately mints none.
-        assert "environ" not in run, step["name"]
-        assert "printenv" not in run, step["name"]
+        # Comment lines are dropped first — these blocks explain at length why
+        # they read no environment, and saying so is not doing it.
+        code = "\n".join(line for line in run.splitlines() if not line.lstrip().startswith("#"))
+        assert "environ" not in code, step["name"]
+        assert "printenv" not in code, step["name"]
         assert "secrets." not in yaml.safe_dump(step), step["name"]
-        # Whole-machine `ps`/`lsns` argv is in scope — the watchdog's own
-        # escalation capture takes the same for one uid — but trimmed AND
-        # redacted, because this sweep crosses uids and lands in a public
-        # step log rather than in that capture's uploaded bundle.
-        if "args" in run or "COMMAND" in run:
+        # Argv is in scope — the watchdog's own escalation capture takes the
+        # same for one uid — but trimmed AND redacted, because this sweep
+        # crosses uids and lands in a public step log rather than in that
+        # capture's uploaded bundle. The trigger list is by COMMAND, not by
+        # column name, because the command decides what gets printed: a tool
+        # added later that prints command lines under another spelling would
+        # otherwise inherit no requirement at all.
+        if any(
+            printer in run
+            for printer in ("args", "COMMAND", "systemd-cgls", "cgls", "pgrep -a", "top -b")
+        ):
             assert "cut -c1-200" in run, step["name"]
             assert "sed -E 's/(sk-|gh[pousr]_|eyJ)" in run, step["name"]
     clock_run = str(steps[clock]["run"])
@@ -3440,4 +3462,15 @@ def test_the_autopsy_members_dump_is_ordered_bounded_and_secret_free() -> None:
     # An unbounded clock would hang a healthy run to the job cap and report
     # the escape as the wedge.
     assert "seq 1 12" in clock_run and "sleep 15" in clock_run
-    assert str(steps[clock]["timeout-minutes"]) == "4"
+    # The cap must stay above the loop's WORST bounded case, not its nominal
+    # one: three two-second reads plus the sleep is 21 seconds a tick, 4.2
+    # minutes over twelve. A cap that fired on a merely slow machine would
+    # fail the clock, and this job reads a failure there as the wedge.
+    assert str(steps[clock]["timeout-minutes"]) == "6"
+    assert clock_run.count("timeout 2 ") == 3, (
+        "each tick read must stay inside the two-second bound"
+    )
+    # Seeded from the file, never from zero: `dmesg --follow` replays the
+    # whole ring buffer first, and a zero cursor would spend tick 01 printing
+    # the boot log into the one step whose value is its precision.
+    assert 'seen=$( { timeout 5 wc -l < "$log"; }' in clock_run

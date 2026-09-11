@@ -384,11 +384,12 @@ The escape caveat is why the clock is bounded at twelve ticks: on a runner
 image with no fuse the member simply completes, green, in about twelve
 minutes, and the dumps read as a clean baseline. A green autopsy says the
 machine it ran on does not wedge — not that the dump found nothing. It prints
-system state and never secrets: no environment dump, no file contents, no
-process environs, and `ps`/`lsns` argv trimmed to 200 columns and passed
-through a token-shaped redaction — this sweep crosses uids and lands in a
-public step log, where the watchdog's own capture stays inside one uid and
-rides an uploaded bundle.
+system state and never secrets: no environment dump, no process environs, and
+no workspace, config or credential file — the only files it opens are kernel
+pseudo-files and its own kernel-log capture. Every command line it prints is
+trimmed to 200 columns and passed through a token-shaped redaction, because
+this sweep crosses uids and lands in a public step log where the watchdog's
+own capture stays inside one uid and rides an uploaded bundle.
 
 **The repro family** is the fourth token-spending class, and it exists
 because the two engine families above share a blind spot: the resolver
