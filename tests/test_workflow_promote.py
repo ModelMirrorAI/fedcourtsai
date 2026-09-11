@@ -344,11 +344,17 @@ def test_which_jobs_a_scheduled_run_admits_is_stated_not_coerced() -> None:
             "${{ github.event_name == 'schedule' || (inputs.scenario != 'collect' "
             "&& inputs.scenario != 'qp-labeler-smoke' "
             "&& inputs.scenario != 'runner-idle-control' "
-            "&& inputs.scenario != 'codex-freeze-probe') }}"
+            "&& !startsWith(inputs.scenario, 'codex-freeze-probe')) }}"
         ), name
-    # The standalone jobs stay affirmative equalities, which an empty inputs
-    # context satisfies none of — so the schedule excludes them by shape, with
-    # no clause of their own to keep in step.
+    # The freeze-probe family shares one standalone job across its scenario
+    # values, so its exclusion is a prefix test rather than one inequality per
+    # member — and a prefix test against the empty inputs context is a plain
+    # string comparison, so that clause carries none of the coercion hazard
+    # the three beside it do.
+    # The standalone jobs stay affirmative — equalities, or the family's
+    # affirmative prefix test — and an empty inputs context satisfies none of
+    # them, so the schedule excludes them by shape, with no clause of their
+    # own to keep in step.
     for name in (
         "collect-scenario",
         "qp-labeler-smoke",
@@ -581,15 +587,18 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
     # A repro-family scenario reads a case too, but names it in its own steps
     # rather than through the resolver — the pinned record is what the
     # scenario is — so it stays out of the gate for a different reason than
-    # the corpus-free legs do. `codex-freeze-probe` is corpus-free in the
-    # plainest way: its subject is the watchdog process across a sandbox's
-    # life, and the turn it runs is the boot probe's one-word prompt.
+    # the corpus-free legs do. The `codex-freeze-probe` family is corpus-free
+    # in the plainest way: its subject is the watchdog process across a
+    # sandbox's life, and the turn every member runs is the boot probe's
+    # one-word prompt.
     for scenario in (
         "mcp-sidecar",
         "qp-topic",
         "qp-labeler-smoke",
         "runner-idle-control",
         "codex-freeze-probe",
+        "codex-freeze-probe-unwatched",
+        "codex-freeze-probe-smokeconfig",
         "engine-actions-smoke",
         "codex-application-repro",
     ):
@@ -604,6 +613,8 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
         "qp-labeler-smoke",
         "runner-idle-control",
         "codex-freeze-probe",
+        "codex-freeze-probe-unwatched",
+        "codex-freeze-probe-smokeconfig",
         "collect",
         "engine-actions-smoke",
         "codex-application-repro",

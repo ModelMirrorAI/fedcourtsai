@@ -326,6 +326,32 @@ the body is ever echoed or executed. It is
 dispatch-only, out of the promotion gate's required set, and neither
 whole-suite selection fans it out.
 
+The probe is a family of three scenario values over one job, each holding one
+thing still while varying the next, and all three carry a second instrument
+the trail cannot supply: a step-progress stamp written into the step summary
+after the turn and its margin. A wedge fails no step — the runner stops
+executing steps at all and the job is cancelled at its `timeout-minutes` with
+the turn green and nothing after it — so the stamp's presence says the runner
+was still running steps, and its absence under a timed-out job with a green
+turn is the wedge itself, read off the run page with no on-runner witness
+needed. **`codex-freeze-probe`** is the armed shape above.
+**`codex-freeze-probe-unwatched`** runs the same turn and the same margins
+with the mint, the arm and the disarm all skipped, so no telemetry call of any
+kind happens and no watchdog process exists; it gives up the beat trail to buy
+the one thing the trail cannot say, whether the watchdog is the pathogen or
+another victim.
+**`codex-freeze-probe-smokeconfig`** is armed and drops the post-exit margin,
+which is the shape the suite's own codex actions-smoke leg has after its turn:
+assert and end. The invocation is not what separates those two legs — the
+smoke's codex `with:` block is the cells' block verbatim, held there by the
+same lockstep test — so what is left to vary is idle time, and this member
+takes the half of it that follows the sandbox. The two-minute baseline idle
+*before* the turn stays, because the beats it buys are what make a later gap a
+change rather than a watchdog that never beat at all: the member is the
+smoke's shape after the turn, not the smoke leg reproduced end to end. Its
+beat trail is correspondingly short, and `tail` and `resumed` say nothing on
+it; the step-progress stamp is that member's verdict.
+
 **The repro family** is the fourth token-spending class, and it exists
 because the two engine families above share a blind spot: the resolver
 applies no stage screen, but

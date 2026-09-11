@@ -154,12 +154,20 @@ on:
           the watchdog's off-runner record and idles seventy minutes, so a
           runner death in the 58-64-minute window with no engine anywhere
           near it separates a runner-lifetime defect from a codex-workload
-          one. `codex-freeze-probe` arms that same record around ONE trivial
-          codex turn and SPENDS MODEL TOKENS: a single boot probe's worth.
-          It reads what the watchdog's beat trail does while a codex sandbox
-          lives and after it exits — the observation a wedged production cell
-          destroys along with its runner. No whole-suite selection fans out
-          any of those four.
+          one. The `codex-freeze-probe` family arms that same record around
+          ONE trivial codex turn and SPENDS MODEL TOKENS: a single boot
+          probe's worth, whichever member runs. It reads what the watchdog's
+          beat trail does while a codex sandbox lives and after it exits —
+          the observation a wedged production cell destroys along with its
+          runner — and its three members each hold one thing still while
+          varying the next. `codex-freeze-probe` is the armed turn with a
+          three-minute post-exit idle margin. `codex-freeze-probe-unwatched`
+          runs the same turn and the same margins with no telemetry mint,
+          arm or disarm anywhere in the job, so a wedge that still happens
+          is not the watchdog's doing. `codex-freeze-probe-smokeconfig` is
+          armed and drops the post-exit margin, which is the suite smoke
+          leg's own shape after its turn — the leg whose tail proceeds
+          green. No whole-suite selection fans out any of those.
         type: choice
         default: ranged-reads
         options:
@@ -174,6 +182,8 @@ on:
           - qp-labeler-smoke
           - runner-idle-control
           - codex-freeze-probe
+          - codex-freeze-probe-unwatched
+          - codex-freeze-probe-smokeconfig
           - codex-application-repro
           - all
           - all-offline
@@ -343,14 +353,17 @@ jobs:
     # what is meant, and survives someone hardening the inequality into the
     # fail-closed shape the scheduled-workflow trap in docs/pipeline.md asks
     # for everywhere it is a hazard rather than the intent.
-    # qp-labeler-smoke, runner-idle-control and codex-freeze-probe are
-    # excluded beside collect: all four run as standalone jobs below, needing
-    # no matrix, no case, and no corpus.
+    # qp-labeler-smoke, runner-idle-control and the codex-freeze-probe family
+    # are excluded beside collect: all of them run as standalone jobs below,
+    # needing no matrix, no case, and no corpus. The probe family is excluded
+    # by prefix because its members share one job below, and a prefix test is
+    # a genuine string comparison rather than the null-coercion the inequality
+    # beside it leans on.
     if: >-
       ${{ github.event_name == 'schedule'
       || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke'
       && inputs.scenario != 'runner-idle-control'
-      && inputs.scenario != 'codex-freeze-probe') }}
+      && !startsWith(inputs.scenario, 'codex-freeze-probe')) }}
     runs-on: ubuntu-latest
     # 15, not 5: the resolve path checks out, builds the Python env, assumes
     # the read-only role, and walks a bounded candidate window over the blob.
@@ -558,16 +571,17 @@ jobs:
     # deliberately without this job's id-token grant, which is part of the
     # posture it smokes), `runner-idle-control` (environment-bound for
     # the telemetry mint alone, and deliberately empty of everything else —
-    # its subject is the runner, not the stack), and `codex-freeze-probe`
-    # (the same mint plus one engine key, and nothing else: its subject is
-    # the watchdog process, not the stack either). Plus the scheduled canary,
+    # its subject is the runner, not the stack), and the `codex-freeze-probe`
+    # family (the same mint plus one engine key, and nothing else: its subject
+    # is the watchdog process, not the stack either — and its members share
+    # one job, so the exclusion is by prefix). Plus the scheduled canary,
     # named for the reason the
     # plan job's gate carries.
     if: >-
       ${{ github.event_name == 'schedule'
       || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke'
       && inputs.scenario != 'runner-idle-control'
-      && inputs.scenario != 'codex-freeze-probe') }}
+      && !startsWith(inputs.scenario, 'codex-freeze-probe')) }}
     needs: plan
     runs-on: ubuntu-latest
     strategy:
@@ -3170,17 +3184,50 @@ jobs:
   # word — so it is the existing posture rather than a new exposure, and it
   # is stated here because this is where a reader looks for it.
   #
+  # One job, three scenario values, one axis varied at a time — the steps are
+  # shared and the per-step `if:` conditions below are what separate them:
+  #
+  #   * `codex-freeze-probe` — armed, with the post-exit idle margin. The
+  #     shape described above.
+  #   * `codex-freeze-probe-unwatched` — the same turn and the same margins
+  #     with the mint, the arm and the disarm all skipped, so no telemetry
+  #     call of any kind runs and no watchdog process exists. It gives up the
+  #     beat trail (there is none) and buys the one thing the trail cannot
+  #     say: whether the watchdog is the pathogen or another victim. The
+  #     verdict is carried by the job itself — see the step-progress stamp.
+  #   * `codex-freeze-probe-smokeconfig` — armed, with the post-exit margin
+  #     dropped to nothing, which is the suite's own codex actions-smoke leg
+  #     shape after its turn: assert and end. That leg's tail proceeds green,
+  #     and the invocation is not what separates the two — the smoke's codex
+  #     `with:` block is the cells' block verbatim, held there by the same
+  #     lockstep test — so what is left to vary is idle time, and this member
+  #     takes the half of it that follows the sandbox. The two-minute
+  #     baseline idle BEFORE the turn stays, because the beats it buys are
+  #     what make a later gap a change rather than a watchdog that never
+  #     beat; so this member is the smoke's shape after the turn, not the
+  #     smoke leg reproduced end to end. The beat trail is correspondingly
+  #     short here, and reading the trailing-silence figure off it is
+  #     meaningless: its verdict, too, is the step-progress stamp.
+  #
   # SPENDS MODEL TOKENS: one codex boot probe, the same order as one canary
-  # leg. Dispatch-only, like the repro family and the idle control — no
-  # whole-suite selection reaches it, and it stays out of the promotion
-  # gate's required set, because a probe whose result is a measurement is
-  # never freshness evidence.
+  # leg, whichever member runs. Dispatch-only, like the repro family and the
+  # idle control — no whole-suite selection reaches any of them, and they stay
+  # out of the promotion gate's required set, because a probe whose result is
+  # a measurement is never freshness evidence.
   codex-freeze-probe:
-    if: ${{ inputs.scenario == 'codex-freeze-probe' }}
+    # A prefix test, not three equalities: the family shares this job, and
+    # `startsWith` against the empty `inputs` context a scheduled run carries
+    # is plain false — so the canary is excluded by shape, with no clause of
+    # its own to keep in step.
+    if: ${{ startsWith(inputs.scenario, 'codex-freeze-probe') }}
     runs-on: ubuntu-latest
-    # The bounded steps sum to 14 (3 + 7 + 4) and setup, the sidecar and the
-    # disarm's own bounded calls add about 7 more, so 25 is the cap with
-    # room rather than the cap the arithmetic just fits under. Far
+    # The bounded steps sum to at most 14 (3 + 7 + 4, the last of them 0 on
+    # the member that drops the post-exit margin) and setup, the sidecar and
+    # the disarm's own bounded calls add about 7 more, so 25 is the cap with
+    # room rather than the cap the arithmetic just fits under. The
+    # step-progress stamp carries no bound of its own on purpose: a step
+    # timeout there would turn a wedge into a failed step, and the reading
+    # that stamp is written for is the job-cap cancellation. Far
     # below the 58-64-minute death window on purpose: the probe's whole
     # premise is a runner that lives long enough to publish its record, so
     # the experiment must finish well before the window it is not testing.
@@ -3220,8 +3267,31 @@ jobs:
       # comment-only, fail-soft. A probe with no record still runs, but it
       # measures nothing — the beat trail IS the observation — so the arm
       # step says so loudly rather than reporting a silent null result.
+      # Skipped whole on the unwatched member, with the arm and the disarm
+      # below it: "no watchdog" has to mean no telemetry call of any kind, or
+      # the variant would still be exercising the mint path it exists to
+      # remove. A skipped step's outputs are empty, so nothing downstream
+      # needs a second condition to stay safe — but each carries one anyway,
+      # because a step that ran and found an empty token would warn about a
+      # failure that did not happen.
+      #
+      # This is the step that produces a credential, so the armed members are
+      # NAMED rather than excluded: a deny-list would arm a fourth member the
+      # day someone adds one, which is the wrong default for a token. The
+      # unwatched member is absent from the list, and so is anything not yet
+      # written.
+      #
+      # The `workflow_dispatch` conjunct is the fail-closed shape this
+      # repository requires of every input-gated step on a workflow that also
+      # has a schedule: a scheduled run carries an empty `inputs` context.
+      # Doubly redundant with an affirmative list and the job's own gate —
+      # and stated anyway, because the hazard is in the shape rather than in
+      # this job's luck.
       - name: Mint the codex watchdog telemetry token
         id: watchdog-token
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
         continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
@@ -3231,6 +3301,9 @@ jobs:
 
       - name: Arm the watchdog around the turn
         id: arm
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
         env:
           WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
           GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
@@ -3398,21 +3471,82 @@ jobs:
       # long enough for three beats to land after it. Beats that arrive here
       # after a gap are the resumption; an absence is the negative result,
       # and it is only a result because this margin exists.
+      #
+      # The margin is the smoke-shaped member's whole variable, so it is a
+      # duration rather than a condition: that member ends its turn and moves
+      # on, as the suite's codex actions-smoke leg does. The stamp is written
+      # either way — it is what the verdict below locates the turn by.
+      #
+      # The ternary is spelled so the margin is the TRUE branch, and the
+      # QUOTES ARE LOAD-BEARING both ways. A GitHub `&&`/`||` pair yields its
+      # right operand when the left is falsy, and an unquoted `0` is a Number
+      # and falsy where `'0'` is a non-empty string and true — so writing the
+      # drop as the `&&` branch would make this whole member collapse back
+      # into the base one, green and plausible, with nothing anywhere saying
+      # the experiment measured the wrong thing. This way the drop sits in
+      # the `||` tail, where no casting rule decides it, and a member added
+      # later inherits the full margin rather than silently losing it. A test
+      # pins the expression verbatim.
       - name: Stamp the turn's end and let post-exit beats land
         if: ${{ always() }}
         timeout-minutes: 4
+        env:
+          POST_EXIT_MARGIN_S: ${{ inputs.scenario != 'codex-freeze-probe-smokeconfig' && '180' || '0' }}
         run: |
           set -euo pipefail
           date -u +%s > "$RUNNER_TEMP/codex-turn-ended-epoch"
-          sleep 180
+          sleep "$POST_EXIT_MARGIN_S"
+
+      # The instrument that needs nothing on the runner to read, and the only
+      # one the unwatched member has. A wedge does not fail a step: the runner
+      # stops executing steps at all, and the job is cancelled at its
+      # `timeout-minutes` with the turn step green and NOTHING after it. So
+      # this line's presence in the step summary says the runner was still
+      # executing steps after the turn and its margin — not wedged — and its
+      # absence under a timed-out job with a green turn IS the wedge,
+      # readable straight off the run page. It costs a `date` call, and it
+      # doubles the instrument on the armed members too: a beat trail says
+      # what the watchdog did, this says what the runner did, and the two
+      # disagreeing is itself a finding.
+      #
+      # It also carries the turn's outcome, because on the unwatched member
+      # this section is the whole summary — the disarm that would otherwise
+      # report it never runs — and because under `always()` this step is
+      # reached by a turn that never started, where the prose alone would
+      # overstate what happened.
+      - name: Stamp that the runner was still executing steps
+        if: ${{ always() }}
+        env:
+          # `outcome`, not `conclusion`, for the turn step's own reason: the
+          # turn carries `continue-on-error`, which rewrites the conclusion.
+          TURN_OUTCOME: ${{ steps.turn.outcome }}
+        run: |
+          set -euo pipefail
+          {
+            echo ""
+            echo "## runner step progress"
+            echo ""
+            echo "Still executing steps at $(date -u +%Y-%m-%dT%H:%M:%SZ) — after the"
+            echo "turn (outcome: ${TURN_OUTCOME:-unknown}) and its post-exit margin, so"
+            echo "this runner did not wedge across them. A run missing this section"
+            echo "whose turn step is green and whose job was cancelled AT ITS TIMEOUT"
+            echo "is the wedge itself — the elapsed time is what separates that from a"
+            echo "run the concurrency group evicted, which is cancelled early and says"
+            echo "so on the run page."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # `always()`, as the repro disarm: a cancelled probe must still close
       # its row rather than leave it armed forever. The verdict is derived
       # from the off-runner record — the beats live there and nowhere else,
       # which is exactly why that record is the evidence a dead runner cannot
       # erase — and read back BEFORE the disarm line is appended to it.
+      # Skipped on the unwatched member with the mint and the arm: there is no
+      # row to close and no trail to read, and the step-progress stamp above
+      # is that member's whole verdict.
       - name: Disarm and read the beat trail
-        if: ${{ always() }}
+        if: >-
+          ${{ always() && github.event_name == 'workflow_dispatch'
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
         env:
           GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
           TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
@@ -3531,6 +3665,10 @@ jobs:
             echo "says suspension does not happen on a turn this short. A large \`tail\` with"
             echo "\`resumed=no\` is the third world — the watchdog stopped and never returned,"
             echo "which is a dead process rather than a suspended one."
+            echo ""
+            echo "On the smoke-shaped member there is no post-exit margin by design, so the"
+            echo "trail ends with the turn: \`tail\` and \`resumed\` say nothing there, and the"
+            echo "step-progress section is that member's verdict."
           } >> "$GITHUB_STEP_SUMMARY"
           # Health is the watchdog's own markers. The probe does not fail on a
           # codex turn that failed — what it measures is the beat trail across
@@ -3575,9 +3713,14 @@ jobs:
 
       # The local half, for whatever it carries: the watchdog's own log holds
       # its arm lines and any marker it wrote. Phase lines and kernel-owned
-      # resource figures only, so no disclosure window applies.
+      # resource figures only, so no disclosure window applies. Skipped on the
+      # unwatched member, which launches no watchdog and so writes no log —
+      # an upload there would report a missing file as a warning rather than
+      # as the design.
       - name: Upload the watchdog log
-        if: ${{ always() }}
+        if: >-
+          ${{ always() && github.event_name == 'workflow_dispatch'
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: freeze-probe-watchdog-log
