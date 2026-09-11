@@ -3583,9 +3583,17 @@ jobs:
       # `|| true` throughout, for the same reason.
       #
       # None of these steps prints an environment, a file's contents, or any
-      # process's environ. `ps` argv only, trimmed to 200 columns: this sweep
-      # is whole-machine rather than one uid, because sandbox residue is
-      # exactly what would be running under some other one.
+      # process's environ. `ps` argv only, and the sweep is whole-machine
+      # rather than one uid, because sandbox residue is exactly what would be
+      # running under some other one — the one place this departs from the
+      # watchdog's own capture, which stays inside its uid because its dump
+      # rides a published artifact. Three things stand under that departure:
+      # the runner is a single-tenant VM whose other uids run stock system
+      # daemons, this member mints no credential and uploads no artifact, and
+      # every argv line is trimmed to 200 columns and passed through a
+      # token-shaped redaction on the way out. The runner's own masking of
+      # secrets it issued is the fourth, and the only one this workflow does
+      # not have to do itself.
       - name: "Autopsy: the process forest, whole machine"
         if: >-
           ${{ github.event_name == 'workflow_dispatch'
@@ -3600,7 +3608,9 @@ jobs:
           # uninterruptible sleep (D), stopped or traced (T), a frozen task
           # parked in D — and `cgroup` says which tree it is parked in.
           timeout 10 ps -ww -eo pid,ppid,user,stat,wchan:32,etime,cgroup:80,args --forest 2>&1 \
-            | cut -c1-200 | head -300 || true
+            | cut -c1-200 \
+            | sed -E 's/(sk-|gh[pousr]_|eyJ)[A-Za-z0-9_.-]{8,}/<redacted>/g' \
+            | head -300 || true
 
       - name: "Autopsy: cgroup freezer states and the runner slice"
         if: >-
@@ -3666,7 +3676,8 @@ jobs:
           echo "-- network namespaces --"
           timeout 5 ip netns list 2>&1 || true
           echo "-- namespaces with processes in them --"
-          timeout 10 lsns -o NS,TYPE,NPROCS,PID,USER,COMMAND 2>&1 | cut -c1-200 | head -60 || true
+          timeout 10 lsns -o NS,TYPE,NPROCS,PID,USER,COMMAND 2>&1 | cut -c1-200 \
+            | sed -E 's/(sk-|gh[pousr]_|eyJ)[A-Za-z0-9_.-]{8,}/<redacted>/g' | head -60 || true
           echo "-- packet filter (root-only; drop-sudo refusing it is expected, and is data) --"
           timeout 10 sudo -n nft list ruleset 2>&1 | head -80 || true
           echo "-- socket census --"

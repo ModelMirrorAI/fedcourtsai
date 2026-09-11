@@ -385,8 +385,10 @@ image with no fuse the member simply completes, green, in about twelve
 minutes, and the dumps read as a clean baseline. A green autopsy says the
 machine it ran on does not wedge — not that the dump found nothing. It prints
 system state and never secrets: no environment dump, no file contents, no
-process environs, and `ps`/`lsns` argv trimmed to 200 columns because this
-sweep crosses uids where the watchdog's own capture stays inside one.
+process environs, and `ps`/`lsns` argv trimmed to 200 columns and passed
+through a token-shaped redaction — this sweep crosses uids and lands in a
+public step log, where the watchdog's own capture stays inside one uid and
+rides an uploaded bundle.
 
 **The repro family** is the fourth token-spending class, and it exists
 because the two engine families above share a blind spot: the resolver

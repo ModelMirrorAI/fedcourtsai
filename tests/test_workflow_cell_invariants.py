@@ -3428,10 +3428,12 @@ def test_the_autopsy_members_dump_is_ordered_bounded_and_secret_free() -> None:
         assert "printenv" not in run, step["name"]
         assert "secrets." not in yaml.safe_dump(step), step["name"]
         # Whole-machine `ps`/`lsns` argv is in scope — the watchdog's own
-        # escalation capture takes the same for one uid — but trimmed, because
-        # this sweep crosses uids.
+        # escalation capture takes the same for one uid — but trimmed AND
+        # redacted, because this sweep crosses uids and lands in a public
+        # step log rather than in that capture's uploaded bundle.
         if "args" in run or "COMMAND" in run:
             assert "cut -c1-200" in run, step["name"]
+            assert "sed -E 's/(sk-|gh[pousr]_|eyJ)" in run, step["name"]
     clock_run = str(steps[clock]["run"])
     # A bounded loop, so the member ENDS on a runner with no fuse: twelve
     # fifteen-second ticks is three minutes, past where the fuse would be.
