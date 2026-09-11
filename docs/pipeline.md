@@ -2040,7 +2040,11 @@ an expired deadline the instant it thaws, and the tree it would end is the
 step's *teardown*, which is exactly where the sandbox's exit has just left it.
 So the loop also reads the wall clock **between its own passes**: a pass that
 arrives more than a threshold after the one before it is time this process slept
-through, and from there on the watchdog observes rather than acts. No engine
+through, and from there on the watchdog observes rather than acts. The reading
+is taken wherever it is about to act, not once per pass — at the top of the
+loop, at the reaper's door, and at the deadline before anything is signalled —
+because a freeze can land in the middle of a pass as easily as in its sleep, and
+a thaw would otherwise resume straight into the action it interrupted. No engine
 kill, no tree kill, no reap, and none of the three markers the disarm step reads
 as an action — because none was taken. The rule is absolute rather than
 conditional on how finished the outputs look at the thaw: complete output on
