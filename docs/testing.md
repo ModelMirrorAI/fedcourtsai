@@ -344,10 +344,13 @@ another victim.
 which is the shape the suite's own codex actions-smoke leg has after its turn:
 assert and end. The invocation is not what separates those two legs — the
 smoke's codex `with:` block is the cells' block verbatim, held there by the
-same lockstep test — so what is left to vary is the minutes of idle the probe
-spends after the sandbox exits and the smoke never does. Its beat trail is
-correspondingly short, and `tail` and `resumed` say nothing on it; the
-step-progress stamp is that member's verdict.
+same lockstep test — so what is left to vary is idle time, and this member
+takes the half of it that follows the sandbox. The two-minute baseline idle
+*before* the turn stays, because the beats it buys are what make a later gap a
+change rather than a watchdog that never beat at all: the member is the
+smoke's shape after the turn, not the smoke leg reproduced end to end. Its
+beat trail is correspondingly short, and `tail` and `resumed` say nothing on
+it; the step-progress stamp is that member's verdict.
 
 **The repro family** is the fourth token-spending class, and it exists
 because the two engine families above share a blind spot: the resolver

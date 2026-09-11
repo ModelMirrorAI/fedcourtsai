@@ -3230,19 +3230,27 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
     disarm = next(s for s in steps if s.get("name") == "Disarm and read the beat trail")
     disarm_run = str(disarm["run"])
     # `always()` first, then the schedule's fail-closed conjunct, then the
-    # member exclusion: a cancelled probe must still close its row, and the
-    # unwatched member has no row to close because its mint and arm never
-    # ran. A disarm that lost the `always()` would strand an armed record on
-    # a long-lived issue, where a reader would later take it for a hang.
-    unwatched = "inputs.scenario != 'codex-freeze-probe-unwatched'"
+    # affirmative list of armed members: a cancelled probe must still close
+    # its row, and the unwatched member has no row to close because its mint
+    # and arm never ran. A disarm that lost the `always()` would strand an
+    # armed record on a long-lived issue, where a reader would later take it
+    # for a hang.
+    #
+    # Affirmative, not `!= 'codex-freeze-probe-unwatched'`: the gated step
+    # produces a credential, so a member the list does not name must arrive
+    # UNARMED rather than armed by default.
+    armed_members = (
+        'contains(fromJSON(\'["codex-freeze-probe", '
+        '"codex-freeze-probe-smokeconfig"]\'), inputs.scenario)'
+    )
     assert disarm.get("if") == (
-        f"${{{{ always() && github.event_name == 'workflow_dispatch' && {unwatched} }}}}"
+        f"${{{{ always() && github.event_name == 'workflow_dispatch' && {armed_members} }}}}"
     ), "a cancelled probe must still close its row"
     # The unwatched member's defining property, pinned: every telemetry
     # surface in the job is skipped together, so "no watchdog" cannot decay
     # into "a watchdog armed and then ignored" — nor into a log upload
     # warning about a file no watchdog was there to write.
-    armed_only = f"${{{{ github.event_name == 'workflow_dispatch' && {unwatched} }}}}"
+    armed_only = f"${{{{ github.event_name == 'workflow_dispatch' && {armed_members} }}}}"
     for step_name in (
         "Mint the codex watchdog telemetry token",
         "Arm the watchdog around the turn",
@@ -3250,7 +3258,26 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
         step = next(s for s in steps if s.get("name") == step_name)
         assert str(step.get("if")) == armed_only, step_name
     upload = next(s for s in steps if s.get("name") == "Upload the watchdog log")
-    assert unwatched in str(upload["if"])
+    assert str(upload["if"]) == disarm["if"], (
+        "the watchdog log upload must carry the disarm's condition exactly — "
+        "`always()` included, so a cancelled probe still ships its log"
+    )
+    # The smoke-shaped member's ENTIRE independent variable, pinned verbatim
+    # because its quoting is load-bearing: GitHub's `&&`/`||` ternary yields
+    # its right operand when the left is falsy, and an unquoted `0` is a
+    # falsy Number where `'0'` is a truthy string. Spelled with the margin as
+    # the TRUE branch, so the drop rides the `||` tail and no casting rule
+    # decides it — and so a member added later inherits the full margin. A
+    # drift here leaves that member byte-identical to the base one, green,
+    # with a plausible trail and nothing anywhere saying the experiment
+    # measured the wrong thing.
+    margin = next(
+        s for s in steps if s.get("name") == "Stamp the turn's end and let post-exit beats land"
+    )
+    assert margin["env"]["POST_EXIT_MARGIN_S"] == (
+        "${{ inputs.scenario != 'codex-freeze-probe-smokeconfig' && '180' || '0' }}"
+    ), "the post-exit margin expression drifted"
+    assert 'sleep "$POST_EXIT_MARGIN_S"' in str(margin["run"])
     assert 'grep -qa engine-watchdog.sh "/proc/$pid/cmdline"' in disarm_run, (
         "the pid must be ownership-checked before it is signalled — the agent "
         "held a shell on the path that pid file sits on"
