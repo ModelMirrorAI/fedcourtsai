@@ -42,7 +42,13 @@ import time
 from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, ParamSpec
+
+#: The knobs of `_spawn`, carried through `_run` so a mistyped one at any call
+#: site below is still a type error. Spelled the pre-PEP-695 way on purpose:
+#: CodeQL's python extractor reads the `[**P]` form's uses as an uninitialized
+#: local and fails the scan on it.
+_P = ParamSpec("_P")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WATCHDOG = REPO_ROOT / "scripts" / "engine-watchdog.sh"
@@ -161,9 +167,9 @@ def _spawn(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
     )
 
 
-def _completed[**P](
-    spawn: Callable[P, subprocess.Popen[str]],
-) -> Callable[P, subprocess.CompletedProcess[str]]:
+def _completed(  # noqa: UP047 - the PEP 695 spelling reads as uninitialized to CodeQL
+    spawn: Callable[_P, subprocess.Popen[str]],
+) -> Callable[_P, subprocess.CompletedProcess[str]]:
     """`_spawn`, waited out — the shape most tests here want, with its signature kept.
 
     The suspension tests need the process *while* it runs, so every knob lives
@@ -172,7 +178,7 @@ def _completed[**P](
     type error rather than a runtime one.
     """
 
-    def run(*args: P.args, **knobs: P.kwargs) -> subprocess.CompletedProcess[str]:
+    def run(*args: _P.args, **knobs: _P.kwargs) -> subprocess.CompletedProcess[str]:
         proc = spawn(*args, **knobs)
         try:
             stdout, stderr = proc.communicate(timeout=180)
