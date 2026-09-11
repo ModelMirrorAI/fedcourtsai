@@ -30,7 +30,8 @@ REST-shaped snapshot already links the cluster. That last is rare on this
 population: a granted SCOTUS docket is the set the live channel re-polls, so
 its newest snapshot is normally a supremecourt.gov payload, which carries no
 ``clusters`` list. A case neither route resolves stops at two, or at one where
-there was no number to ask with. The cert-granted slice is ≈1,250 rows all-time
+there was no number to ask with; a refusal on the docket's own links stops
+earlier still, at one or at none. The cert-granted slice is ≈1,250 rows all-time
 (grants and GVRs together) and ≈120 to 130 a Term, so ≈5,000 requests bounds a
 sweep of the standing backlog in which every case reaches its opinion and ≈520
 a Term bounds a Term's new grants — days of the allowance the pull windows
@@ -58,15 +59,17 @@ with or because upstream joins several clusters to the one it carries — so
 under a plain ``case_id`` order that residue
 would head every run and, once it exceeded ``max_cases``, the cap could never
 reach past it. The cursor is what unsticks it: each candidate the walk
-*classifies* — a landed body, no cluster, a refusal, a 4xx on its docket — is
+*classifies* — a landed body, no cluster, a refusal, a 4xx on one of its
+records — is
 stamped with the run's date in
 ``corpus.CorpusRow.opinion_enrich_attempted_at``, through the same upsert the
 enrichment itself writes through, and candidates are taken never-attempted
 first, then stalest stamp first, ``case_id`` breaking ties. What may stamp is
-what upstream *answered about the case*: a 5xx, a transport failure, or an
-unparseable body says nothing about this docket, so such a case keeps its
-place rather than rotating to the back of a queue a degraded upstream never
-really walked it in (:func:`_answers_about_the_case`). The residue
+what upstream *answered about the case*: a 5xx, a transport failure, an
+unparseable body, or a 4xx on a collection query — upstream refusing the
+question rather than the case — says nothing about this docket, so such a case
+keeps its place rather than rotating to the back of a queue a degraded upstream
+never really walked it in (:func:`_answers_about_the_case`). The residue
 therefore rotates to the back of the queue for as long as anything else is
 owed a turn, and successive runs advance through the slice instead of
 re-spending on one head. A candidate the walk did **not** reach — deferred
@@ -145,6 +148,12 @@ DEFAULT_MAX_CASES: Final = 50
 # link this client can follow. Deliberately not `str.isdigit`, which accepts
 # non-ASCII digit forms `int()` would then happily parse.
 _ID_RE: Final = re.compile(r"[0-9]+")
+
+# A court's id is a slug, not a number ("scotus", "ca9", "nysd"). The pattern
+# is what keeps a served value — or a still-percent-encoded path segment — from
+# leaving the hyperlink guard as free-form text: the answer is only ever
+# compared, never fetched, and this is what makes that structural.
+_COURT_RE: Final = re.compile(r"[a-z0-9_-]{1,32}")
 
 # An upper bound on a stored opinion body. The longest opinions upstream serves
 # run to a few hundred thousand characters, so this refuses a response that is
@@ -269,12 +278,18 @@ def docket_court(docket: Mapping[str, Any], *, base_url: str) -> str | None:
     spellings are read. The hyperlink is held to the same guard as any other —
     it must resolve under the client's own REST base — because an unguarded
     reading would let a payload's link decide that a foreign court's docket is
-    this one's.
+    this one's, and the segment must then *look* like a court id
+    (:data:`_COURT_RE`): the guard hands back a raw path segment, still
+    percent-encoded as served, and only a well-formed slug leaves this function.
+    Nothing interpolates the answer into a request path — it is compared, never
+    fetched — and the slug test is what keeps that true by construction rather
+    than by every caller's care.
     """
     raw = docket.get("court_id")
-    if isinstance(raw, str) and raw.strip():
+    if isinstance(raw, str) and _COURT_RE.fullmatch(raw.strip()):
         return raw.strip()
-    return _resource_segments(docket.get("court"), base_url=base_url, resource="courts")
+    segment = _resource_segments(docket.get("court"), base_url=base_url, resource="courts")
+    return segment if segment is not None and _COURT_RE.fullmatch(segment) else None
 
 
 def _resource_ids(links: Any, *, base_url: str, resource: str) -> list[int]:
@@ -359,6 +374,28 @@ def opinion_body(payload: Mapping[str, Any]) -> str | None:
     return stripped
 
 
+def cluster_docket_id(cluster: Mapping[str, Any], *, base_url: str) -> int | None:
+    """The docket a cluster names, whichever way upstream spells the relation.
+
+    Upstream serves the relation as a ``docket`` hyperlink, and both of the
+    id-shaped spellings alongside it (a bare ``docket`` integer, a ``docket_id``)
+    are read too, because a serializer that carries one rather than the other
+    must not read as "this cluster belongs to no docket" — on the number route
+    that answer is a refusal, so a shape change there would silently zero the
+    route instead of failing visibly. A hyperlink passes the same guard as any
+    other stored link; an integer names no host and so needs none.
+    """
+    named = resource_id(cluster.get("docket"), base_url=base_url, resource="dockets")
+    if named is not None:
+        return named
+    for key in ("docket", "docket_id"):
+        value = cluster.get(key)
+        # `bool` is an `int` subclass, and a negative id addresses nothing.
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+            return value
+    return None
+
+
 def cluster_names_docket(cluster: Mapping[str, Any], *, base_url: str, docket_id: int) -> bool:
     """Whether a fetched cluster belongs to the docket it was reached from.
 
@@ -374,7 +411,7 @@ def cluster_names_docket(cluster: Mapping[str, Any], *, base_url: str, docket_id
     is expected to name another row, so what it must satisfy there is
     :func:`docket_names_case` on the row it does name.
     """
-    named = resource_id(cluster.get("docket"), base_url=base_url, resource="dockets")
+    named = cluster_docket_id(cluster, base_url=base_url)
     return named is None or named == docket_id
 
 
@@ -500,9 +537,15 @@ class _Walk:
             return _Resolution(ambiguous=True)
         if ids:
             return _Resolution(cluster=self.cluster(ids[0]))
-        if not row.docket_number:
+        # The filter carries the docket's own spelling with the Court's
+        # ``*** CAPITAL CASE ***`` marking removed: that marking is a flag on
+        # the case rather than part of its number, and upstream knows the
+        # number without it — the same strip every other channel applies before
+        # addressing upstream by a stored number.
+        number = corpus.strip_docket_annotation(row.docket_number)
+        if not number:
             return _Resolution()
-        return self._clusters_by_docket_number(row.court, row.docket_number)
+        return self._clusters_by_docket_number(row.court, number)
 
     def _docket_cluster_ids(self, case_id: str, docket_id: int) -> list[int]:
         """The clusters a case's own docket links, snapshot first, docket second."""
@@ -522,18 +565,22 @@ class _Walk:
         """The clusters upstream joins to this court and docket number.
 
         The ambiguity refusal is the same one the docket route makes, read off
-        the list instead of a link list: more than one result — or one result
-        with a further page behind it — means upstream holds several clusters
-        for this number and nothing here says which is the case's decision. It
-        doubles as the guard against a filter upstream ignored rather than
-        applied, since an unfiltered page comes back full.
+        the list instead of a link list: more than one result — or a page that
+        says more exist, by a further page or by a served ``count`` — means
+        upstream holds several clusters for this number and nothing here says
+        which is the case's decision. It doubles as the guard against a filter
+        upstream ignored rather than applied, since an unfiltered page comes
+        back full.
         """
         self.requests += 1
         page = self.client.list_clusters_by_docket_number(court=court, docket_number=docket_number)
         results = page.get("results")
         if not isinstance(results, list) or not results:
             return _Resolution()
-        if len(results) > 1 or page.get("next"):
+        count = page.get("count")
+        # `bool` is an `int` subclass, so a served `true` would otherwise count.
+        counted = count if isinstance(count, int) and not isinstance(count, bool) else 0
+        if len(results) > 1 or page.get("next") or counted > 1:
             return _Resolution(ambiguous=True)
         found = results[0]
         if not isinstance(found, Mapping):
@@ -548,8 +595,9 @@ class _Walk:
         On the docket route the cluster must name the docket it was reached from
         (:func:`cluster_names_docket`). On the number route it is *expected* to
         name another row, so the test moves to that row: the docket it names
-        must be a followable one — the only identity evidence this route has, so
-        an absent link is a refusal here rather than the fail-open the docket
+        must be one this client can name (:func:`cluster_docket_id`) — the only
+        identity evidence this route has, so an unnamed docket is a refusal here
+        rather than the fail-open the docket
         route can afford — and, unless it is the case's own docket, it is
         fetched and held to :func:`docket_names_case`. That fetch is the third
         request on this route, and it is what keeps the join the pass's own
@@ -558,7 +606,7 @@ class _Walk:
         base_url = self.client.base_url
         if not found.by_docket_number:
             return cluster_names_docket(cluster, base_url=base_url, docket_id=docket_id)
-        named = resource_id(cluster.get("docket"), base_url=base_url, resource="dockets")
+        named = cluster_docket_id(cluster, base_url=base_url)
         if named is None:
             return False
         if named == docket_id:
@@ -609,20 +657,39 @@ def _stop_reason(exc: Exception) -> str | None:
     return None
 
 
+def _addresses_a_collection(request: httpx.Request) -> bool:
+    """Whether a request asked a collection a question rather than read a record.
+
+    Read off the path: a record's path ends in its numeric id, a collection's
+    in the resource name. The distinction is what separates a refusal *about
+    the case* from a refusal *about the query*.
+    """
+    segments = [segment for segment in request.url.path.split("/") if segment]
+    return bool(segments) and not _ID_RE.fullmatch(segments[-1])
+
+
 def _answers_about_the_case(exc: Exception) -> bool:
-    """Whether a per-case fault is upstream's answer *about this docket*.
+    """Whether a per-case fault is upstream's answer *about this case*.
 
     The cursor records a verdict the walk reached about a case, so what may
-    stamp it is what upstream said about the case: a 4xx — the resource is not
-    there, or is not one this client may have — is as much an answer as an
-    empty ``clusters`` list, and a case that 404s every run must not re-take the
-    head of the queue. A 5xx, a transport failure, or a body that would not
-    parse is a fact about the network or the moment instead, so the case keeps
-    its place and is retried at the front rather than rotated to the back of a
-    queue it was never really walked in. (A 429 never reaches here — it is a
-    batch wall, see :func:`_stop_reason`.)
+    stamp it is what upstream said about the case: a 4xx on one of its
+    records — the resource is not there, or is not one this client may have —
+    is as much an answer as an empty ``clusters`` list, and a case that 404s
+    every run must not re-take the head of the queue. A 5xx, a transport
+    failure, or a body that would not parse is a fact about the network or the
+    moment instead, so the case keeps its place and is retried at the front
+    rather than rotated to the back of a queue it was never really walked in.
+    (A 429 never reaches here — it is a batch wall, see :func:`_stop_reason`.)
+
+    A 4xx on a **collection** query is the third kind: upstream refused the
+    question, not the case. A rejected cluster filter would otherwise stamp
+    every admitted row in turn and rotate the whole slice on a fault that
+    recurs identically next run — so such a case keeps its place too, and the
+    refusal stays visible in ``failed`` where a re-run cannot hide it.
     """
-    return isinstance(exc, httpx.HTTPStatusError) and 400 <= exc.response.status_code < 500
+    if not isinstance(exc, httpx.HTTPStatusError) or not 400 <= exc.response.status_code < 500:
+        return False
+    return not _addresses_a_collection(exc.request)
 
 
 def _candidates(conn: sqlite3.Connection) -> tuple[list[tuple[corpus.CorpusRow, int]], int]:

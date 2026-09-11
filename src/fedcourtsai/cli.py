@@ -1898,12 +1898,14 @@ def enrich_opinions_cmd(
     converges, and neither does a decided grant that neither route resolves —
     so the walk rotates on a last-attempted cursor
     (`opinion_enrich_attempted_at`, stamped on every case an applied run
-    classifies — a landed body, no cluster, a refusal, a 4xx on its docket):
+    classifies — a landed body, no cluster, a refusal, a 4xx on one of its
+    records):
     never-attempted cases first, then the stalest stamp, which is what keeps
     that residue off the head of every run. A case the run never reached —
     deferred behind a wall, or past `--max-cases` — keeps its place at the
     front of the next run's queue, and so does one whose fault said nothing
-    about the docket (a 5xx, a transport failure, an unparseable body).
+    about the docket (a 5xx, a transport failure, an unparseable body, or a
+    4xx on a collection query — the question refused, not the case).
 
     Dry-run by default (the requests are spent either way — the dry run is how
     the spend is inspected, and it moves no cursor); run where the corpus is
@@ -1933,8 +1935,8 @@ def enrich_opinions_cmd(
     )
     if result.ambiguous_cluster or result.foreign_cluster:
         typer.echo(
-            f"  refused: {result.ambiguous_cluster} docket(s) linking several clusters, "
-            f"{result.foreign_cluster} cluster(s) naming another docket"
+            f"  refused: {result.ambiguous_cluster} case(s) matching several clusters, "
+            f"{result.foreign_cluster} cluster(s) naming a docket that is not the case's"
         )
     if result.live_only:
         typer.echo(

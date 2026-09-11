@@ -295,13 +295,14 @@ class CorpusRow(BaseModel):
         default=None,
         description="Tracking state: date the opinion-enrichment walk "
         "(`pipeline/opinion_enrichment.py`) last reached a verdict about this case "
-        "— a landed body, no linked cluster, a refusal, a 4xx on its docket; None "
+        "— a landed body, no linked cluster, a refusal, a 4xx on one of its records; "
+        "None "
         "until first attempted, and left alone where the fault said nothing about "
         "the docket (a 5xx, a transport failure). It is that walk's rotation key, "
         "read never-attempted-first then stalest-stamp-first, which is what keeps "
         "the grants that can never converge (a GVR or DIG that publishes no "
-        "opinion; a decided grant whose petition-stage docket links no cluster "
-        "upstream) from holding the head of every run. Written only by that pass, "
+        "opinion; a decided grant neither of that walk's two routes resolves) "
+        "from holding the head of every run. Written only by that pass, "
         "and a fill-in latch like `last_pulled`, so a channel carrying no stamp "
         "preserves it.",
     )

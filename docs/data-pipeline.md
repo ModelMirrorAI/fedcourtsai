@@ -689,11 +689,12 @@ carrying no docket number to ask with, or one whose number upstream joins
 several clusters to. A **last-attempted
 cursor** is what keeps those residues from holding the head of every run: an
 applied run stamps `opinion_enrich_attempted_at` on every case it classifies —
-enriched, no cluster, refused, 4xx on its docket — through the same upsert the
+enriched, no cluster, refused, 4xx on one of its records — through the same upsert the
 enrichment itself writes through, and it takes never-attempted rows first (in
 `case_id` order) and then the stalest stamp, so a case walked today sorts behind
 everything still owed a turn. What stamps is what upstream answered *about the
-case*: a 5xx, a transport failure, or an unparseable body says nothing about the
+case*: a 5xx, a transport failure, an unparseable body, or a 4xx on a collection
+query — the question refused rather than the case — says nothing about the
 docket, so such a case keeps its place — as does one the run never reached,
 deferred behind a wall or left outside `--max-cases`. So the backlog
 converges by re-running rather than by raising the cap past a fixed head — and

@@ -1734,8 +1734,8 @@ owed:
    against a cert-granted slice of ≈1,250. The channel that fills them —
    `fedcourts enrich-opinions`, operator-run over that slice
    (`docs/data-pipeline.md`) — has run, so what is missing is neither a design
-   nor a dispatch but *yield*: a walk converges only the grants whose docket
-   links a published cluster upstream, and re-walks the rest every run. Until
+   nor a dispatch but *yield*: a walk converges only the grants whose opinion
+   cluster it resolves, and re-walks the rest every run. Until
    coverage is a slice rather than a rounding error, nothing can be graded
    against text that is not there, and no amount of methodology substitutes:
    every declared claim requires a majority opinion, so every unit masks.
