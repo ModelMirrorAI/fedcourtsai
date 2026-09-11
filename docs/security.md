@@ -640,7 +640,15 @@ re-enabled in the action's settings — which hardens the permission mode to
 entire input. The `codex-freeze-probe` job reads the codex key alone, on the
 cells' own invocation block, for one one-word turn; its subject is the
 watchdog process rather than the stack, so it assumes no role, holds no
-`id-token`, and launches its retrieval sidecar token-free. An `all` dispatch fans one of each per
+`id-token`, and launches its retrieval sidecar token-free. Its autopsy member
+adds one pre-turn root process — a detached `dmesg --follow` opened while sudo
+still exists, because the turn's `drop-sudo` strategy removes the privilege
+for the rest of the job — appending kernel messages to a file under
+`RUNNER_TEMP`. The turn can reach that path, on the same terms as the
+watchdog's own log there; what the file holds is kernel-owned message text,
+and this member mints no credential for one to sit beside. No kernel knob is
+relaxed for it: the ring buffer's own read restriction is left as the image
+set it. An `all` dispatch fans one of each per
 engine, so a single run reads all three keys — each confined to its own job —
 and spends three cells plus three boot probes; `all-offline`, the same suite
 without either family, reads no engine key and spends nothing. The keys live on
@@ -799,7 +807,7 @@ Access mirrors each workflow's role in the pipeline:
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
 | `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, no `id-token: write`, and the same pre-agent assertion that the AWS and OIDC variables are absent |
 | `integration-test` — runner-idle-control  | none          | the idle control assumes no role and holds no `id-token`: it reads nothing — its whole reach is the telemetry mint, and its product is the record row plus its own job conclusion |
-| `integration-test` — codex-freeze-probe family (`codex-freeze-probe`, `codex-freeze-probe-unwatched`, `codex-freeze-probe-smokeconfig`) | none          | the freeze probe assumes no role and holds no `id-token` either: it reads no corpus, and its reach is the telemetry mint plus the engine key one trivial turn spends — the ceiling for the family, since the unwatched member skips the mint entirely and reaches only the engine key. Its MCP sidecar is launched deliberately **token-free** — the turn uses no tools, so an unauthenticated server that handshakes is the whole requirement, and no CourtListener token reaches the agent's env or any config file it can read |
+| `integration-test` — codex-freeze-probe family (`codex-freeze-probe`, `codex-freeze-probe-unwatched`, `codex-freeze-probe-smokeconfig`, `codex-freeze-probe-autopsy`) | none          | the freeze probe assumes no role and holds no `id-token` either: it reads no corpus, and its reach is the telemetry mint plus the engine key one trivial turn spends — the ceiling for the family, since the unwatched and autopsy members skip the mint entirely and reach only the engine key. The autopsy member's diagnostic dump reads machine state alone — process table, cgroup, logind, kernel-log and network-stack figures — and never an environment, a file's contents or a process's environ; its argv columns are trimmed, and it holds no credential to print in the first place. Its MCP sidecar is launched deliberately **token-free** — the turn uses no tools, so an unauthenticated server that handshakes is the whole requirement, and no CourtListener token reaches the agent's env or any config file it can read |
 | `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `prod`, and it can write nothing production owns |
 | `run-ops`                                 | none          | the report reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |

@@ -326,8 +326,8 @@ the body is ever echoed or executed. It is
 dispatch-only, out of the promotion gate's required set, and neither
 whole-suite selection fans it out.
 
-The probe is a family of three scenario values over one job, each holding one
-thing still while varying the next, and all three carry a second instrument
+The probe is a family of four scenario values over one job, each holding one
+thing still while varying the next, and all of them carry a second instrument
 the trail cannot supply: a step-progress stamp written into the step summary
 after the turn and its margin. A wedge fails no step — the runner stops
 executing steps at all and the job is cancelled at its `timeout-minutes` with
@@ -351,6 +351,42 @@ change rather than a watchdog that never beat at all: the member is the
 smoke's shape after the turn, not the smoke leg reproduced end to end. Its
 beat trail is correspondingly short, and `tail` and `resumed` say nothing on
 it; the step-progress stamp is that member's verdict.
+
+**`codex-freeze-probe-autopsy`** is unwatched like the second member, and is
+the only one that asks *what* the wedge is rather than *whether* it happened.
+The other three read it from outside, off the run page; this one reads the
+machine from inside, in the seconds after the turn exits while the sandbox's
+residue is still there. It works because a step's log streams as the step runs
+— the wedge stops what would come next and retracts nothing already sent — so
+the dump is many SHORT steps rather than one long one, each flushing before
+the next begins, every command inside them `timeout`-bounded and fail-soft.
+What it takes: the whole-machine process forest with `wchan` and `stat`
+columns, a `cgroup.freeze` survey across the cgroup tree and the user slice's
+`systemd-cgls`, logind sessions and the per-user manager, the kernel log, and
+the namespace/packet-filter/socket census. The kernel log needs a tap opened
+*before* the turn, because the cells' `drop-sudo` safety strategy takes sudo
+away for the rest of the job: a detached `dmesg --follow` started while sudo
+still exists writes messages into a runner-local file across the turn and into
+the fuse window, and the later steps read that file with no privilege.
+
+Reading one of its runs, top to bottom on the run page:
+
+- every diagnostic step whose log is **there** ran before the wedge, and what
+  it printed is the pre-wedge state of the machine;
+- the ticking clock's **last printed second is the wedge** — it prints a
+  stamp, the frozen-cgroup list and any new kernel lines, sleeps fifteen
+  seconds, prints again, and the sleep that never returns is where the log
+  stops;
+- a step that never **started** is post-wedge, and its absence is a reading
+  rather than a hole in the instrument.
+
+The escape caveat is why the clock is bounded at twelve ticks: on a runner
+image with no fuse the member simply completes, green, in about twelve
+minutes, and the dumps read as a clean baseline. A green autopsy says the
+machine it ran on does not wedge — not that the dump found nothing. It prints
+system state and never secrets: no environment dump, no file contents, no
+process environs, and `ps`/`lsns` argv trimmed to 200 columns because this
+sweep crosses uids where the watchdog's own capture stays inside one.
 
 **The repro family** is the fourth token-spending class, and it exists
 because the two engine families above share a blind spot: the resolver

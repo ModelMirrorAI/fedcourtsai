@@ -599,6 +599,7 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
         "codex-freeze-probe",
         "codex-freeze-probe-unwatched",
         "codex-freeze-probe-smokeconfig",
+        "codex-freeze-probe-autopsy",
         "engine-actions-smoke",
         "codex-application-repro",
     ):
@@ -615,6 +616,7 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
         "codex-freeze-probe",
         "codex-freeze-probe-unwatched",
         "codex-freeze-probe-smokeconfig",
+        "codex-freeze-probe-autopsy",
         "collect",
         "engine-actions-smoke",
         "codex-application-repro",
