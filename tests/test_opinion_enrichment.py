@@ -34,6 +34,9 @@ from fedcourtsai.pipeline.opinion_enrichment import (
 from fedcourtsai.supremecourt import live_docket_id
 
 _BASE = "https://www.courtlistener.com/api/rest/v4/"
+# The date the tests pin the walk's cursor stamp to, so an assertion about the
+# rotation never depends on the wall clock.
+_TODAY = date(2024, 7, 1)
 _BODY = "JUSTICE KAGAN delivered the opinion of the Court. The judgment is reversed."
 
 
@@ -280,23 +283,28 @@ def test_apply_is_idempotent(tmp_path: Path) -> None:
 def test_max_cases_bounds_one_run(tmp_path: Path) -> None:
     db = _seeded(tmp_path)
     upstream = _upstream()
-    result = _run(db, upstream, apply=True, max_cases=1)
+    result = _run(db, upstream, apply=True, max_cases=1, today=_TODAY)
     assert result.eligible == 2 and result.considered == 1 and result.enriched == 1
     assert result.requests == 2
     with corpus.connect(db) as conn:
         deferred = corpus.get_row(conn, "scotus/102")
     assert deferred is not None and deferred.has_opinion is False
+    # The cap left it unwalked, so it keeps its place at the head of the queue.
+    assert deferred.opinion_enrich_attempted_at is None
 
 
-def test_a_docket_linking_no_cluster_is_counted_not_written(tmp_path: Path) -> None:
+def test_a_docket_linking_no_cluster_lands_no_opinion(tmp_path: Path) -> None:
     db = _seeded(tmp_path)
     upstream = _upstream()
     upstream.dockets = {102: {"id": 102, "clusters": []}}
-    result = _run(db, upstream, apply=True)
+    result = _run(db, upstream, apply=True, today=_TODAY)
     assert result.no_cluster == 1 and result.enriched == 1
     with corpus.connect(db) as conn:
         row = corpus.get_row(conn, "scotus/102")
     assert row is not None and row.has_opinion is False
+    # Nothing about the opinion was written, but the walk classified the case,
+    # so it takes the cursor and rotates behind everything still owed a turn.
+    assert row.opinion_enrich_attempted_at == _TODAY
 
 
 def test_a_link_off_the_api_is_not_followed(tmp_path: Path) -> None:
@@ -572,7 +580,7 @@ def test_budget_exhaustion_stops_the_walk_and_keeps_what_landed(tmp_path: Path) 
         corpus.connect(db) as conn,
         _client(httpx.MockTransport(upstream), _BudgetLimiter(2)) as client,
     ):
-        result = enrich_opinions(conn, client, apply=True)
+        result = enrich_opinions(conn, client, apply=True, today=_TODAY)
 
     assert result.stopped is not None and "budget exhausted" in result.stopped
     assert result.deferred == ["scotus/102"]
@@ -583,6 +591,10 @@ def test_budget_exhaustion_stops_the_walk_and_keeps_what_landed(tmp_path: Path) 
         deferred = corpus.get_row(conn, "scotus/102")
     assert landed is not None and landed.opinion_text == _BODY
     assert deferred is not None and deferred.has_opinion is False
+    # The deferred case was never attempted, so it keeps the head of the queue;
+    # the one that landed rotates to the back.
+    assert landed.opinion_enrich_attempted_at == _TODAY
+    assert deferred.opinion_enrich_attempted_at is None
 
 
 class _SpySink:
@@ -629,6 +641,112 @@ def test_a_dry_run_never_mirrors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.setitem(corpus._MIRROR, "sink", spy)
     _run(db, _upstream(), apply=False)
     assert spy.mirrored == []
+
+
+# --- the last-attempted cursor ------------------------------------------------------
+
+
+def _stamp(db: Path, case_id: str, day: date) -> None:
+    """Put a prior attempt on a stored row, as an earlier applied run would."""
+    with corpus.connect(db) as conn:
+        stored = corpus.get_row(conn, case_id)
+        assert stored is not None
+        corpus.upsert_rows(conn, [stored.model_copy(update={"opinion_enrich_attempted_at": day})])
+
+
+def _cursors(db: Path) -> dict[str, date | None]:
+    with corpus.connect(db) as conn:
+        rows = [corpus.get_row(conn, case_id) for case_id in ("scotus/101", "scotus/102")]
+    assert all(row is not None for row in rows)
+    return {row.case_id: row.opinion_enrich_attempted_at for row in rows if row is not None}
+
+
+def test_a_never_attempted_case_precedes_an_attempted_one(tmp_path: Path) -> None:
+    """The cursor, not `case_id`, decides who is walked under a tight cap.
+
+    `scotus/101` leads in `case_id` order and would head every walk without the
+    cursor — which is the shape that lets a permanent residue hold the front of
+    the queue. Having been attempted once, it now sorts behind the case that
+    never has.
+    """
+    db = _seeded(tmp_path)
+    _stamp(db, "scotus/101", date(2024, 6, 1))
+    upstream = _upstream()
+    result = _run(db, upstream, apply=True, max_cases=1, today=_TODAY)
+
+    assert result.considered == 1 and result.enriched == 1
+    assert upstream.paths == [
+        "/api/rest/v4/dockets/102/",
+        "/api/rest/v4/clusters/5555/",
+        "/api/rest/v4/opinions/9999/",
+    ]
+    assert _cursors(db) == {"scotus/101": date(2024, 6, 1), "scotus/102": _TODAY}
+
+
+@pytest.mark.parametrize(
+    ("stale", "fresh"),
+    [("scotus/101", "scotus/102"), ("scotus/102", "scotus/101")],
+    ids=["case-id-order-agrees", "case-id-order-disagrees"],
+)
+def test_among_attempted_cases_the_staler_stamp_goes_first(
+    tmp_path: Path, stale: str, fresh: str
+) -> None:
+    """Both rows have been attempted, so only the stamp can order them — and it
+    does in either direction, which is what makes the walk a rotation rather
+    than a `case_id` order with extra steps."""
+    db = _seeded(tmp_path)
+    _stamp(db, stale, date(2024, 6, 1))
+    _stamp(db, fresh, date(2024, 6, 2))
+    result = _run(db, _upstream(), apply=True, max_cases=1, today=_TODAY)
+
+    assert result.considered == 1 and result.enriched == 1
+    assert _cursors(db) == {stale: _TODAY, fresh: date(2024, 6, 2)}
+
+
+def test_a_failed_case_takes_the_cursor(tmp_path: Path) -> None:
+    """A case that fails every run must not re-take the head of the queue: the
+    walk reached a verdict about it, which is what the stamp records."""
+    db = _seeded(tmp_path)
+    upstream = _upstream()
+    # 4321 is gone from upstream, so `scotus/101`'s cluster fetch 404s.
+    upstream.clusters = {5555: _cluster(5555, docket_id=102, opinion_id=9999, count=3)}
+    result = _run(db, upstream, apply=True, today=_TODAY)
+
+    assert [entry["case_id"] for entry in result.failed] == ["scotus/101"]
+    assert _cursors(db) == {"scotus/101": _TODAY, "scotus/102": _TODAY}
+
+
+def test_a_converged_case_takes_the_cursor(tmp_path: Path) -> None:
+    """A cluster adding nothing the row already carries reports no enrichment —
+    and still moves the cursor, because the requests were spent on it."""
+    db = _seeded(tmp_path)
+    upstream = _upstream()
+    upstream.clusters = {4321: {"id": 4321, "docket": _link("dockets", 101)}}
+    result = _run(db, upstream, apply=True, max_cases=1, today=_TODAY)
+
+    assert result.enriched == 0 and result.no_body == 1
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/101")
+    assert row is not None and row.has_opinion is False
+    assert row.opinion_enrich_attempted_at == _TODAY
+
+
+def test_a_dry_run_moves_no_cursor(tmp_path: Path) -> None:
+    """`apply` gates the stamp with the write, so a dry run reports what the
+    next applied run would walk rather than changing it."""
+    db = _seeded(tmp_path)
+    _run(db, _upstream(), apply=False, today=_TODAY)
+    assert _cursors(db) == {"scotus/101": None, "scotus/102": None}
+
+
+def test_an_ingestion_write_preserves_the_cursor(tmp_path: Path) -> None:
+    """Only this pass carries the stamp, so every other writer's NULL must keep
+    it — otherwise a rotation poll would reset the queue to its head."""
+    db = _seeded(tmp_path)
+    _run(db, _upstream(), apply=True, max_cases=1, today=_TODAY)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row("scotus/101")])
+    assert _cursors(db)["scotus/101"] == _TODAY
 
 
 def test_enrichment_survives_a_reingest_of_the_snapshot(tmp_path: Path) -> None:

@@ -1883,8 +1883,13 @@ def enrich_opinions_cmd(
     Idempotent: an enriched row no longer matches, while one that found no
     cluster is retried, so a grant picks up its opinion the run after
     publication. A grant that never publishes one (a GVR, a DIG) never
-    converges, so raise `--max-cases` past that residue when converging the
-    backlog. Dry-run by default (the
+    converges, and neither does a decided grant whose petition-stage docket
+    links no cluster upstream — so the walk rotates on a last-attempted cursor
+    (`opinion_enrich_attempted_at`, stamped on every case an applied run
+    classifies): never-attempted cases first, then the stalest stamp, which is
+    what keeps that residue off the head of every run. A deferred or uncapped
+    A case the run never reached — deferred behind a wall, or past
+    `--max-cases` — is left unstamped and heads the next one. Dry-run by default (the
     requests are spent either way — the dry run is how the spend is
     inspected); run where the corpus is pulled, `corpus-push` after an
     `--apply`. Fails loud if the corpus is absent.
