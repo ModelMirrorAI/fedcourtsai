@@ -326,7 +326,7 @@ the body is ever echoed or executed. It is
 dispatch-only, out of the promotion gate's required set, and neither
 whole-suite selection fans it out.
 
-The probe is a family of four scenario values over one job, each holding one
+The probe is a family of five scenario values over one job, each holding one
 thing still while varying the next, and all of them carry a second instrument
 the trail cannot supply: a step-progress stamp written into the step summary
 after the turn and its margin. A wedge fails no step — the runner stops
@@ -354,7 +354,7 @@ it; the step-progress stamp is that member's verdict.
 
 **`codex-freeze-probe-autopsy`** is unwatched like the second member, and is
 the only one that asks *what* the wedge is rather than *whether* it happened.
-The other three read it from outside, off the run page; this one reads the
+The other four read it from outside, off the run page; this one reads the
 machine from inside, in the seconds after the turn exits while the sandbox's
 residue is still there. It works because a step's log streams as the step runs
 — the wedge stops what would come next and retracts nothing already sent — so
@@ -390,6 +390,31 @@ pseudo-files and its own kernel-log capture. Every command line it prints is
 trimmed to 200 columns and passed through a token-shaped redaction, because
 this sweep crosses uids and lands in a public step log where the watchdog's
 own capture stays inside one uid and rides an uploaded bundle.
+
+**`codex-freeze-probe-nosudo`** is the family's decisive test rather than
+another control. It is the base member's shape exactly — armed, with the same
+margins — differing in ONE field: its codex turn runs `safety-strategy:
+read-only` instead of `drop-sudo`. The leading hypothesis for the wedge is
+`drop-sudo` itself: `openai/codex-action`'s own docs call its account and
+socket drop irreversible and say it must be a job's last step, and the cells
+run it mid-job. The turn itself is identical, so the two members differ in
+exactly one thing: `read-only` drops nothing from the runner user's account or
+sockets. It is expected to build and tear down a codex sandbox as `drop-sudo`
+does — that teardown is the event under test, confirmed on the first dispatch —
+which isolates that one variable. Read it simply: a
+wedge that vanishes here confirms `drop-sudo` is the cause and names the fix; a
+wedge still present exonerates `drop-sudo` and the hunt continues. Because its
+invocation deviates by design, its turn is a separate step held out of the
+cross-surface codex lockstep pin — the one exemption — while the pin keeps
+enforcing the cells' block on every other member. `read-only` also has no
+network, so the model call may fail — harmless: the session rollout the
+sandbox-started assertion reads lands when the session starts, and the verdict
+is the beat trail across the sandbox's life, not the reply. The one posture
+delta is that this member's turn runs with the runner user's sudo intact rather
+than dropped; on a throwaway, dispatch-only probe runner that assumes no role,
+reads no corpus, launches a token-free sidecar and sends a fixed no-tool
+prompt, that is bounded and acceptable — and the cells are untouched and keep
+`drop-sudo`.
 
 **The repro family** is the fourth token-spending class, and it exists
 because the two engine families above share a blind spot: the resolver

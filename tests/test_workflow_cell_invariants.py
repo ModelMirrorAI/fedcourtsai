@@ -1615,6 +1615,22 @@ CODEX_LOCKSTEP_INPUTS = (
     "allow-bot-users",
 )
 
+# The one codex invocation held OUT of the lockstep equality below, by step id
+# and scoped to the integration workflow. The `codex-freeze-probe-nosudo` member
+# of integration-test.yml's freeze-probe family deliberately varies exactly ONE
+# field of the block — `safety-strategy: read-only` instead of `drop-sudo` — to
+# isolate whether `drop-sudo`'s irreversible account/socket mutation is what
+# wedges the runner. It is a diagnostic sibling of the base probe's `turn` step,
+# not a real cell/smoke/repro invocation, so it must not be measured against the
+# cells' block — while the pin keeps enforcing equality for every real member
+# (the base `turn` step included). The exemption is scoped to the smoke workflow
+# on purpose: a second codex step sneaked into a CELL workflow under this id must
+# NOT inherit the exemption, so the cells' sandbox posture stays fully pinned.
+# The exempt step is not left free-floating: its every-other-field equality with
+# the base `turn` step is pinned positively in the freeze-probe arms test below.
+# Keyed on (workflow, step id) so the exemption cannot travel to another file.
+CODEX_LOCKSTEP_EXEMPT_STEPS = frozenset({("integration-test.yml", "turn_nosudo")})
+
 # The action path and the bare-CLI path express ONE network posture in two
 # dialects, so they cannot be compared for equality.
 #
@@ -1662,6 +1678,7 @@ def _codex_action_steps(name: str) -> list[dict[str, Any]]:
         for job in _load(name)["jobs"].values()
         for step in job.get("steps", []) or []
         if str(step.get("uses") or "").startswith("openai/codex-action@")
+        and (name, step.get("id")) not in CODEX_LOCKSTEP_EXEMPT_STEPS
     ]
     assert steps, f"{name}: no codex-action step — the invocation this pins is gone"
     return steps
@@ -3258,6 +3275,7 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
         "codex-freeze-probe-unwatched",
         "codex-freeze-probe-smokeconfig",
         "codex-freeze-probe-autopsy",
+        "codex-freeze-probe-nosudo",
     }
     arm = next(s for s in steps if s.get("id") == "arm")
     assert arm["env"]["WATCHDOG_DEADLINE_S"] == "1800", (
@@ -3289,7 +3307,7 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
     # UNARMED rather than armed by default.
     armed_members = (
         'contains(fromJSON(\'["codex-freeze-probe", '
-        '"codex-freeze-probe-smokeconfig"]\'), inputs.scenario)'
+        '"codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig"]\'), inputs.scenario)'
     )
     assert disarm.get("if") == (
         f"${{{{ always() && github.event_name == 'workflow_dispatch' && {armed_members} }}}}"
@@ -3345,9 +3363,14 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
     # `outcome`, not `conclusion`: the turn carries `continue-on-error`, which
     # rewrites `conclusion` to success — and this value reaches a durable
     # telemetry row, where it would report a turn that died as a clean one.
-    assert disarm["env"]["TURN_OUTCOME"] == "${{ steps.turn.outcome }}", (
-        "the probe must read the turn's outcome, not the conclusion `continue-on-error` rewrites"
-    )
+    # The nosudo member runs its turn as a separate step (`turn_nosudo`, held
+    # out of the lockstep pin so it can vary `safety-strategy` alone), so the
+    # env reads whichever step ran — and `.outcome` on both branches, which is
+    # what keeps this the outcome the swallow has not rewritten.
+    assert disarm["env"]["TURN_OUTCOME"] == (
+        "${{ inputs.scenario == 'codex-freeze-probe-nosudo'"
+        " && steps.turn_nosudo.outcome || steps.turn.outcome }}"
+    ), "the probe must read the turn's outcome, not the conclusion `continue-on-error` rewrites"
     # The retrieval posture the probe's whole credential story rests on: its
     # sidecar is launched with NO CourtListener token, so the config.toml the
     # turn reads names a localhost URL and no credential exists for the agent
@@ -3363,6 +3386,35 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
     assert "id-token" not in probe["permissions"], (
         "the freeze probe must hold no id-token — it reads no corpus and assumes no role"
     )
+    # The nosudo member's turn (`turn_nosudo`) is held out of the cross-surface
+    # lockstep pin so it can vary `safety-strategy` alone. That exemption is
+    # only safe while it stays exactly the base `turn` step with that one field
+    # changed — otherwise its version, profile, args or action SHA could drift
+    # to a codex the base member never runs, under a green suite. So the pin's
+    # full force is re-applied here, positively, on the two steps side by side:
+    # equal `uses` and equal on every lockstep input but `safety-strategy`,
+    # whose two values are the whole experiment.
+    turn = next(s for s in steps if s.get("id") == "turn")
+    turn_nosudo = next(s for s in steps if s.get("id") == "turn_nosudo")
+    assert turn_nosudo["uses"] == turn["uses"], (
+        "the nosudo turn must run the same codex-action SHA as the base turn"
+    )
+    assert turn["with"]["safety-strategy"] == "drop-sudo"
+    assert turn_nosudo["with"]["safety-strategy"] == "read-only", (
+        "the nosudo turn's whole reason is to drop `drop-sudo` for `read-only`"
+    )
+    for key in CODEX_LOCKSTEP_INPUTS:
+        if key == "safety-strategy":
+            continue
+        assert turn_nosudo["with"][key] == turn["with"][key], (
+            f"the nosudo turn's {key!r} drifted from the base turn's — it must "
+            f"vary `safety-strategy` alone"
+        )
+    # The fields outside `with:` that decide how the turn runs must match too,
+    # so the experiment holds everything but the account drop still.
+    assert turn_nosudo.get("env") == turn.get("env")
+    assert turn_nosudo.get("timeout-minutes") == turn.get("timeout-minutes")
+    assert turn_nosudo.get("continue-on-error") == turn.get("continue-on-error")
 
 
 def test_the_autopsy_members_dump_is_ordered_bounded_and_secret_free() -> None:
@@ -3383,7 +3435,7 @@ def test_the_autopsy_members_dump_is_ordered_bounded_and_secret_free() -> None:
     names = [str(s.get("name") or s.get("uses") or "") for s in steps]
     autopsy = [s for s in steps if str(s.get("name") or "").startswith("Autopsy: ")]
     # The gate, on every one of them: an ungated diagnostic would fire on all
-    # four members, turning the three that are cheap controls into this one.
+    # five members, turning the four that are cheap controls into this one.
     # Affirmative and conjoined with the dispatch event, the shape this
     # repository requires of an input-gated step on a scheduled workflow.
     autopsy_only = (
