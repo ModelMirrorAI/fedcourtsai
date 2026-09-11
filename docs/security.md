@@ -629,15 +629,18 @@ secret — the running engine's API key, chosen by expression ternary (or, on
 the engine-actions-smoke legs and each repro-family leg, by the step
 conditions the legs are
 partitioned on) so the
-other engines' keys never enter the job. A fourth job reads one of them
-outside that partition: the `qp-labeler-smoke` job reads the Claude key alone
+other engines' keys never enter the job. Two further jobs read one of them
+outside that partition. The `qp-labeler-smoke` job reads the Claude key alone
 from its own resolved environment, and it is the one agent leg here that runs
 outside the runner-seam scrub — on the labeling lane's own terms, which are
 stricter than a cell's: no role, no `id-token`, the subprocess env scrub
 re-enabled in the action's settings — which hardens the permission mode to
 `default`, leaving the agent a whole-tool Write/Edit grant where a cell runs
 `bypassPermissions` — and a synthetic five-row extract as its
-entire input. An `all` dispatch fans one of each per
+entire input. The `codex-freeze-probe` job reads the codex key alone, on the
+cells' own invocation block, for one one-word turn; its subject is the
+watchdog process rather than the stack, so it assumes no role, holds no
+`id-token`, and launches its retrieval sidecar token-free. An `all` dispatch fans one of each per
 engine, so a single run reads all three keys — each confined to its own job —
 and spends three cells plus three boot probes; `all-offline`, the same suite
 without either family, reads no engine key and spends nothing. The keys live on
@@ -646,7 +649,8 @@ environment and, as **separate per-environment secrets**, on `staging` — a
 smoke dispatched at the staging head spends against staging's own keys
 (independently revocable, isolated from tournament spend), so a promotion's
 freshness runs cannot touch the tournament's budget. The staging keys have
-two consumers beyond these scenario legs: the labeler smoke above, and a
+three consumers beyond these scenario legs: the labeler smoke above, the
+freeze probe above, and a
 `run-analytics` staging rehearsal
 whose mode runs an agent (the qp-topic labeler) — each reads the same
 per-environment engine secret and spends against it on the same terms. Spend is gated the same way
@@ -795,7 +799,7 @@ Access mirrors each workflow's role in the pipeline:
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
 | `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, no `id-token: write`, and the same pre-agent assertion that the AWS and OIDC variables are absent |
 | `integration-test` — runner-idle-control  | none          | the idle control assumes no role and holds no `id-token`: it reads nothing — its whole reach is the telemetry mint, and its product is the record row plus its own job conclusion |
-| `integration-test` — codex-freeze-probe   | none          | the freeze probe assumes no role and holds no `id-token` either: it reads no corpus, and its reach is the telemetry mint plus the engine key one trivial turn spends. Its MCP sidecar is launched deliberately **token-free** — the turn uses no tools, so an unauthenticated server that handshakes is the whole requirement, and no credential of any kind is in the agent's env |
+| `integration-test` — codex-freeze-probe   | none          | the freeze probe assumes no role and holds no `id-token` either: it reads no corpus, and its reach is the telemetry mint plus the engine key one trivial turn spends. Its MCP sidecar is launched deliberately **token-free** — the turn uses no tools, so an unauthenticated server that handshakes is the whole requirement, and no CourtListener token reaches the agent's env or any config file it can read |
 | `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `prod`, and it can write nothing production owns |
 | `run-ops`                                 | none          | the report reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |

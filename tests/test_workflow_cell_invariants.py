@@ -3168,6 +3168,60 @@ def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environmen
     assert 'grep -qa engine-watchdog.sh "/proc/$pid/cmdline"' in str(disarm["run"]), (
         "the hour-old pid must be ownership-checked before it is signalled"
     )
+    # The freeze probe carries the same plumbing, and one thing the other two
+    # do not have to prove: it is the only holder of this token that runs an
+    # AGENT on the same runner, so each of these regressing silently costs
+    # more here than anywhere else.
+    probe = _load("integration-test.yml")["jobs"]["codex-freeze-probe"]
+    probe_steps = probe["steps"]
+    probe_arm = next(s for s in probe_steps if s.get("id") == "arm")
+    assert probe_arm["env"]["WATCHDOG_DEADLINE_S"] == "1800", (
+        "the probe's deadline must stay far above the whole experiment — one "
+        "that fires replaces the measurement with an escalation"
+    )
+    probe_run = str(probe_arm["run"])
+    assert '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*' in probe_run, (
+        "the freeze probe lost the check-in URL-shape gate"
+    )
+    assert "GH_TOKEN='' WATCHDOG_CHECKIN_URL=" in probe_run, (
+        "the freeze probe's watchdog launch must clear GH_TOKEN"
+    )
+    assert "timeout 90 uv run fedcourts watchdog-checkin" in probe_run
+    assert "WATCHDOG_CHECKIN_BASE=" in probe_run, (
+        "the watchdog must be handed the armed body it appends to"
+    )
+    probe_disarm = next(s for s in probe_steps if s.get("name") == "Disarm and read the beat trail")
+    assert probe_disarm.get("if") == "${{ always() }}", (
+        "a cancelled probe must still close its row"
+    )
+    assert 'grep -qa engine-watchdog.sh "/proc/$pid/cmdline"' in str(probe_disarm["run"]), (
+        "the pid must be ownership-checked before it is signalled — the agent "
+        "held a shell on the path that pid file sits on"
+    )
+    # The gate is re-applied where the token is actually spent, not only where
+    # the URL was minted: the hand-over crosses an agent's turn.
+    assert (
+        '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*'
+        in str(probe_disarm["run"])
+    ), "the freeze probe must re-check the URL shape before sending the token to it"
+    # The retrieval posture the probe's whole credential story rests on: its
+    # sidecar is launched with NO CourtListener token, so the config.toml the
+    # turn reads names a localhost URL and no credential exists for the agent
+    # to find. A token input added here would contradict docs/security.md
+    # under a green suite.
+    probe_sidecar = next(
+        s for s in probe_steps if str(s.get("uses") or "") == "./.github/actions/mcp-sidecar"
+    )
+    assert "courtlistener-api-token" not in (probe_sidecar.get("with") or {}), (
+        "the freeze probe's sidecar must stay token-free: its turn uses no "
+        "tools, and a handshake is the whole requirement"
+    )
+    # No OIDC: without it even an action's credential fallback cannot mint an
+    # installation token, which is the floor under a job that runs an agent.
+    assert "id-token" not in probe["permissions"], (
+        "the freeze probe must hold no id-token — it reads no corpus and "
+        "assumes no role"
+    )
     for name in ("run-predict.yml", "run-evaluate.yml"):
         jobs = _load(name)["jobs"]
         cell_steps = jobs[ENGINE_WATCHDOG_SENTINEL_ROLE[name]]["steps"]

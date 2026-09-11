@@ -3154,6 +3154,13 @@ jobs:
   # runner at all); the step summary states the derived verdict, read back
   # from that record.
   #
+  # The detached watchdog holds its telemetry token in its own process env
+  # for the whole of the turn, on the same runner and uid the sandboxed agent
+  # runs under. That is exact parity with every production cell — the cells
+  # arm the same way around a full turn, and this one's prompt is a single
+  # word — so it is the existing posture rather than a new exposure, and it
+  # is stated here because this is where a reader looks for it.
+  #
   # SPENDS MODEL TOKENS: one codex boot probe, the same order as one canary
   # leg. Dispatch-only, like the repro family and the idle control — no
   # whole-suite selection reaches it, and it stays out of the promotion
@@ -3162,8 +3169,9 @@ jobs:
   codex-freeze-probe:
     if: ${{ inputs.scenario == 'codex-freeze-probe' }}
     runs-on: ubuntu-latest
-    # Setup (~3) + the 2-minute pre-arm beat window + the turn's own 7-minute
-    # cap + the 3-minute post-exit window + the disarm tail, with room. Far
+    # The bounded steps sum to 14 (3 + 7 + 4) and setup, the sidecar and the
+    # disarm's own bounded calls add about 7 more, so 25 is the cap with
+    # room rather than the cap the arithmetic just fits under. Far
     # below the 58-64-minute death window on purpose: the probe's whole
     # premise is a runner that lives long enough to publish its record, so
     # the experiment must finish well before the window it is not testing.
@@ -3293,7 +3301,10 @@ jobs:
       # that never beat at all — the one reading a single post-hoc silence
       # cannot rule out.
       - name: Let two clean beats land before the turn
-        timeout-minutes: 5
+        # Capped just above the sleep, not generously: a deterministic sleep
+        # has no overrun to allow for, and every minute of slack here is a
+        # minute the job cap's arithmetic has to carry.
+        timeout-minutes: 3
         run: sleep 120
 
       # The boot probe's own identity resolution: the model a codex cell
@@ -3322,7 +3333,8 @@ jobs:
       # name. Launched WITHOUT the CourtListener token, which the composite
       # supports by design: the probe's prompt uses no tools, so an
       # unauthenticated server that handshakes and lists tools is the whole
-      # requirement, and no credential of any kind reaches the agent's env.
+      # requirement, and no CourtListener token reaches the agent's env or
+      # any config file it can read.
       - uses: ./.github/actions/mcp-sidecar
         with:
           role: predictor
@@ -3379,7 +3391,7 @@ jobs:
       # and it is only a result because this margin exists.
       - name: Stamp the turn's end and let post-exit beats land
         if: ${{ always() }}
-        timeout-minutes: 6
+        timeout-minutes: 4
         run: |
           set -euo pipefail
           date -u +%s > "$RUNNER_TEMP/codex-turn-ended-epoch"
@@ -3396,7 +3408,13 @@ jobs:
           GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
           TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
           RUN_ID: freeze-${{ github.run_id }}
-          TURN_CONCLUSION: ${{ steps.turn.conclusion }}
+          # `outcome`, NOT `conclusion`: the turn carries
+          # `continue-on-error`, and GitHub rewrites `conclusion` to `success`
+          # whenever that swallows a failure or a timeout. Reading it would
+          # write "the turn was clean" into a durable telemetry row for a turn
+          # that started and died — erasing the very distinction this leg is
+          # built to keep. `outcome` is the value before the swallow.
+          TURN_OUTCOME: ${{ steps.turn.outcome }}
           CHECKIN_URL: ${{ steps.arm.outputs.checkin_url }}
           WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
         run: |
@@ -3426,6 +3444,12 @@ jobs:
           # writable by anyone who can edit that comment. Nothing from it is
           # echoed: only lines matching the watchdog's own beat spelling are
           # read, and only derived integers are printed.
+          # `|| true` on the substitution, because this step's FIRST duty is to
+          # close the row: under `set -e` a missing python3 or an unguarded
+          # raise here would kill the step and leave the record armed on a
+          # long-lived issue, where a reader would later take it for a hang.
+          # A verdict that cannot be computed is a blank line; an abandoned
+          # row is a false report.
           verdict="$(
             TURN_ENDED_FILE="$RUNNER_TEMP/codex-turn-ended-epoch" \
             RECORD="$record" python3 - <<'PY'
@@ -3480,7 +3504,7 @@ jobs:
           resumed = "unknown" if ended is None else ("yes" if beats[-1] > ended else "no")
           print(f"freeze signature: gap={gap} tail={tail} resumed={resumed} beats={len(beats)}")
           PY
-          )"
+          )" || verdict="freeze signature: UNREADABLE — the verdict could not be computed"
           # Said once, into both surfaces a reader reaches for.
           printf '%s\n' "$verdict"
           {
@@ -3489,7 +3513,7 @@ jobs:
             echo ""
             echo '```'
             printf '%s\n' "$verdict"
-            echo "turn conclusion: ${TURN_CONCLUSION:-unknown}"
+            echo "turn outcome: ${TURN_OUTCOME:-unknown}"
             echo '```'
             echo ""
             echo "A \`gap\` well above the 60-second beat cadence with \`resumed=yes\` is the"
@@ -3511,7 +3535,7 @@ jobs:
             timeout 90 uv run fedcourts watchdog-checkin --disarm "$healthy_flag" \
               --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
               --court scotus --docket freeze-probe --event-id evt-freeze-probe \
-              --actor codex-freeze-probe --conclusion "${TURN_CONCLUSION:-unknown}" \
+              --actor codex-freeze-probe --conclusion "${TURN_OUTCOME:-unknown}" \
               --channel "$TELEMETRY_CHANNEL" > /dev/null || true
           fi
 

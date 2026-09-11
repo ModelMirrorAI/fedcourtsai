@@ -314,11 +314,15 @@ cadence with `resumed=yes` is a suspended watchdog observed directly rather
 than inferred; an unbroken trail says suspension does not happen on a turn
 this short; a large `tail` with `resumed=no` is the third world, a watchdog
 that stopped and never came back, which is a dead process and not a frozen
-one. All three are results and none is a failure. So the leg's own conclusion gates
-nothing about the measurement: a codex turn that started and then failed
-still had a sandbox, and the trail across it is the whole subject. What the
-leg does fail on is a turn that never started — no session rollout means no
-sandbox, so the trail spans nothing and a green would be vacuous. It is
+one. All three are results and none is a failure. So the leg's own
+conclusion gates nothing about the measurement: a codex turn that started
+and then failed still had a sandbox, and the trail across it is the whole
+subject. What the leg does fail on is a turn that never started — no session
+rollout means no sandbox, so the trail spans nothing and a green would be
+vacuous. Read the figures for what they are: the record is a comment anyone
+with write access can edit, so the trail is only as trustworthy as that
+comment — forged beat lines would skew all three figures, though nothing from
+the body is ever echoed or executed. It is
 dispatch-only, out of the promotion gate's required set, and neither
 whole-suite selection fans it out.
 
