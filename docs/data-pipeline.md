@@ -676,12 +676,21 @@ run's spend ahead of the client's own governor, so the
 pace is the operator's choice rather than a race with the pull rotation — and
 because the governor is per-process, not shared across runs, the pass is run
 outside a pull window rather than beside one. Convergence is not monotone: a
-grant that never publishes an opinion (a GVR, a DIG) is retried every run, and
-so is a decided grant whose docket links no cluster upstream — the walk's
-dominant refusal, since the id a granted row carries is its petition-stage
-docket and the published cluster hangs off it only sometimes. Both residues
-head a `case_id`-ordered walk, so they have to be raised past, not waited out —
-and because a refused case stops at its first request, a sweep's spend sits
+grant that never publishes an opinion (a GVR, a DIG) is retried whenever its
+turn comes round, and so is a decided grant whose docket links no cluster
+upstream — the walk's dominant refusal, since the id a granted row carries is its petition-stage
+docket and the published cluster hangs off it only sometimes. A **last-attempted
+cursor** is what keeps those residues from holding the head of every run: an
+applied run stamps `opinion_enrich_attempted_at` on every case it classifies —
+enriched, no cluster, refused, 4xx on its docket — through the same upsert the
+enrichment itself writes through, and it takes never-attempted rows first (in
+`case_id` order) and then the stalest stamp, so a case walked today sorts behind
+everything still owed a turn. What stamps is what upstream answered *about the
+case*: a 5xx, a transport failure, or an unparseable body says nothing about the
+docket, so such a case keeps its place — as does one the run never reached,
+deferred behind a wall or left outside `--max-cases`. So the backlog
+converges by re-running rather than by raising the cap past a fixed head — and
+because a refused case stops at its first request, a sweep's spend sits
 nearer the row count than the bound above while the coverage it buys is only
 the rows that reach a cluster. The
 same arithmetic is why the pass is *not* pointed at the whole corpus: opinion

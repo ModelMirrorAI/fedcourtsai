@@ -32,18 +32,36 @@ the cert grant rather than ``corpus.opens_merits_proceeding`` because the
 question here is "did this case produce a published opinion", which a summary
 reversal can answer yes to; the cost is that the slice also admits the grants
 that never produce one. An undecided grant has no cluster to link yet and
-reports as such, converging on the run after its opinion publishes. Candidates
-are walked in ``case_id`` order, deterministically: a converged case drops out
-of the next run's predicate, and one that found no cluster is retried, which is
-what lets a grant pick up its opinion once published. That retry is also the
-pass's standing limitation, and two populations sit inside it: a grant that
-never publishes an opinion at all (a GVR, a DIG), and a decided grant whose
-docket links no cluster upstream — the dominant refusal, since the id a granted
-row carries is its petition-stage docket and the published cluster hangs off it
-only sometimes. Neither converges, so once that residue exceeds ``max_cases``
-the cap can no longer reach past it. It is an operator-run command for that reason;
-putting it on a schedule wants an ordering, or a last-attempted cursor, that
-the residue cannot sit at the head of.
+reports as such, converging on the run after its opinion publishes: a converged
+case drops out of the next run's predicate, and one that found no cluster is
+retried, which is what lets a grant pick up its opinion once published.
+
+**A last-attempted cursor orders the walk.** Two populations never converge —
+a grant that publishes no opinion at all (a GVR, a DIG), and a decided grant
+whose docket links no cluster upstream, the dominant refusal since the id a
+granted row carries is its petition-stage docket and the published cluster
+hangs off it only sometimes — so under a plain ``case_id`` order that residue
+would head every run and, once it exceeded ``max_cases``, the cap could never
+reach past it. The cursor is what unsticks it: each candidate the walk
+*classifies* — a landed body, no cluster, a refusal, a 4xx on its docket — is
+stamped with the run's date in
+``corpus.CorpusRow.opinion_enrich_attempted_at``, through the same upsert the
+enrichment itself writes through, and candidates are taken never-attempted
+first, then stalest stamp first, ``case_id`` breaking ties. What may stamp is
+what upstream *answered about the case*: a 5xx, a transport failure, or an
+unparseable body says nothing about this docket, so such a case keeps its
+place rather than rotating to the back of a queue a degraded upstream never
+really walked it in (:func:`_answers_about_the_case`). The residue
+therefore rotates to the back of the queue for as long as anything else is
+owed a turn, and successive runs advance through the slice instead of
+re-spending on one head. A candidate the walk did **not** reach — deferred
+behind a wall, or left outside the cap — is never stamped, so it keeps its
+place at the front. A dry run classifies without stamping: it writes nothing at
+all, so it reports what the *next* applied run would walk. The stamp is a date,
+like every other rotation key in the corpus (``last_pulled``,
+``last_live_polled``), so runs inside one day tie once the queue is exhausted —
+which is the point at which every eligible row has already been walked that
+day, and the ordering has nothing left to buy.
 
 **The pass refuses to guess which document is the case's.** ``has_opinion``
 max-latches, so a wrong body is not self-healing: the row stops matching this
@@ -63,7 +81,13 @@ freshness invariant on: every opinion write re-mirrors the case's stored
 The row is projected from the stored row rather than re-normalized from an
 upstream docket, since the pass adds fields to a case the corpus already knows
 rather than re-serving it, and each case is written as it converges so a run cut
-short keeps the coverage it already paid for.
+short keeps the coverage it already paid for. The cursor stamp rides that same
+write — one upsert per classified case, carrying the enrichment where there was
+one — so the record of what was attempted cannot drift from the record of what
+landed. The cost is that a refusal now writes a row (and re-mirrors its
+``case.json``) where it wrote nothing before, bounded by ``max_cases`` and
+paid in small local writes rather than REST: the alternative, a direct
+``UPDATE`` of the cursor alone, is the one thing this seam exists to refuse.
 
 **A stored hyperlink is a claim, not a target.** Snapshot payloads carry
 upstream URLs, and none of them is ever fetched as given: :func:`resource_id`
@@ -78,6 +102,7 @@ from __future__ import annotations
 import re
 import sqlite3
 from collections.abc import Mapping
+from datetime import date
 from typing import Any, Final
 from urllib.parse import urlsplit
 
@@ -317,6 +342,21 @@ def _enriched_row(
     )
 
 
+def _walk_order(candidate: tuple[corpus.CorpusRow, int]) -> tuple[bool, date, str]:
+    """The walk's rotation key: never-attempted first, then the stalest stamp.
+
+    ``case_id`` breaks ties, so the order is deterministic given the stamps —
+    and a run that stamps everything it classified leaves the next run a
+    different head, which is how the permanent residue stops holding the front
+    of the queue (see the module docstring).
+    """
+    row = candidate[0]
+    attempted = row.opinion_enrich_attempted_at
+    # `date.min` never reaches a comparison against a real stamp: the first key
+    # element already separates the never-attempted from the attempted.
+    return (attempted is not None, attempted or date.min, row.case_id)
+
+
 class _Walk:
     """One pass's mutable tally, so the per-case steps read as what they decide."""
 
@@ -390,20 +430,68 @@ def _stop_reason(exc: Exception) -> str | None:
     return None
 
 
+def _answers_about_the_case(exc: Exception) -> bool:
+    """Whether a per-case fault is upstream's answer *about this docket*.
+
+    The cursor records a verdict the walk reached about a case, so what may
+    stamp it is what upstream said about the case: a 4xx — the resource is not
+    there, or is not one this client may have — is as much an answer as an
+    empty ``clusters`` list, and a case that 404s every run must not re-take the
+    head of the queue. A 5xx, a transport failure, or a body that would not
+    parse is a fact about the network or the moment instead, so the case keeps
+    its place and is retried at the front rather than rotated to the back of a
+    queue it was never really walked in. (A 429 never reaches here — it is a
+    batch wall, see :func:`_stop_reason`.)
+    """
+    return isinstance(exc, httpx.HTTPStatusError) and 400 <= exc.response.status_code < 500
+
+
+def _candidates(conn: sqlite3.Connection) -> tuple[list[tuple[corpus.CorpusRow, int]], int]:
+    """The walk's queue, stalest-first, and the count of unaddressable grants.
+
+    Eligibility is the grant with the presence bit as the idempotency key: a
+    SCOTUS row carrying ``date_cert_granted`` and not ``has_opinion``, whose
+    case id names a CourtListener docket. A granted row whose id is the live
+    channel's reserved-range mint addresses nothing upstream, so it is counted
+    (``live_only``) rather than queued. The queue is ordered by
+    :func:`_walk_order`, whose key carries ``case_id`` as its own last element —
+    so the order holds whatever order ``iter_rows`` yielded in.
+    """
+    queue: list[tuple[corpus.CorpusRow, int]] = []
+    live_only = 0
+    for row in corpus.iter_rows(conn, court="scotus"):
+        if row.date_cert_granted is None or row.has_opinion:
+            continue
+        docket_id = _courtlistener_docket_id(row.case_id)
+        if docket_id is None:
+            live_only += 1
+            continue
+        queue.append((row, docket_id))
+    queue.sort(key=_walk_order)
+    return queue, live_only
+
+
 def enrich_opinions(
     conn: sqlite3.Connection,
     client: CourtListenerClient,
     *,
     apply: bool,
     max_cases: int = DEFAULT_MAX_CASES,
+    today: date | None = None,
 ) -> OpinionEnrichmentResult:
     """Walk the cert-granted rows that carry no opinion to their clusters and bodies.
 
     Eligibility is the grant with the presence bit as the idempotency key: a
     SCOTUS row with ``date_cert_granted`` set and ``has_opinion`` clear, whose
-    docket id is a CourtListener one. Candidates are taken in ``case_id`` order
-    and capped at ``max_cases``; the rest are left for the next run, which
-    re-derives the same predicate.
+    docket id is a CourtListener one. Candidates are taken stalest-first on the
+    ``opinion_enrich_attempted_at`` cursor — never-attempted rows in ``case_id``
+    order, then the attempted ones oldest stamp first — and capped at
+    ``max_cases``; the rest are left for the next run, which re-derives the same
+    predicate against the stamps this one wrote. Every candidate the walk
+    classifies is stamped with ``today`` (the current date unless a caller pins
+    one) in the same upsert that carries its enrichment; a candidate the walk
+    never reached, or whose fault said nothing about its docket, is left
+    unstamped and keeps its place at the front.
 
     Every way a case can fail to yield a document is counted and left alone —
     no cluster, several clusters, a cluster naming another docket, an opinion
@@ -421,22 +509,29 @@ def enrich_opinions(
     the damage a degraded upstream can do without them (150 requests, half
     the held tier's hourly ceiling, even if every one stalls to a retry).
 
-    Dry-run by default: ``apply`` gates only the writes, so the request spend
-    and the coverage report are identical either way — the dry run is what the
-    spend is inspected from.
+    Dry-run by default: ``apply`` gates only the writes — the cursor stamp
+    included, so a dry run reports what an applied run would walk without
+    moving the queue — and the request spend and the coverage report are
+    identical either way, which is what the dry run is inspected for.
     """
-    candidates: list[tuple[corpus.CorpusRow, int]] = []
-    live_only = 0
-    for row in corpus.iter_rows(conn, court="scotus"):
-        if row.date_cert_granted is None or row.has_opinion:
-            continue
-        docket_id = _courtlistener_docket_id(row.case_id)
-        if docket_id is None:
-            live_only += 1
-            continue
-        candidates.append((row, docket_id))
+    candidates, live_only = _candidates(conn)
     admitted = candidates[: max(max_cases, 0)]
+    stamp = today or date.today()
     walk = _Walk(client, conn)
+
+    def record(attempted: corpus.CorpusRow) -> None:
+        """Write one classified case: its enrichment (if any) and the cursor.
+
+        The stamp goes on every case the walk reached a verdict about, so a
+        refusal advances the rotation exactly as a landed body does — that is
+        the whole point of the cursor. ``apply`` gates it with the enrichment,
+        because a dry run writes nothing.
+        """
+        if apply:
+            corpus.upsert_rows(
+                conn, [attempted.model_copy(update={"opinion_enrich_attempted_at": stamp})]
+            )
+
     result = OpinionEnrichmentResult(
         applied=apply,
         eligible=len(candidates),
@@ -452,6 +547,7 @@ def enrich_opinions(
             cluster_ids = walk.cluster_ids(row.case_id, docket_id)
             if not cluster_ids:
                 result.no_cluster += 1
+                record(row)
                 continue
             if len(cluster_ids) > 1:
                 # Several published clusters can hang off one docket (a
@@ -460,23 +556,25 @@ def enrich_opinions(
                 # decision, and the presence bit latches, so the pass reports
                 # the ambiguity instead of resolving it by position.
                 result.ambiguous_cluster += 1
+                record(row)
                 continue
             cluster = walk.cluster(cluster_ids[0])
             if not cluster_names_docket(cluster, base_url=client.base_url, docket_id=docket_id):
                 result.foreign_cluster += 1
+                record(row)
                 continue
             body = walk.body(cluster)
             if body is None:
                 result.no_body += 1
             # A cluster that adds nothing the row already carries is converged,
             # not enriched: writing it back would report coverage the pass did
-            # not produce.
+            # not produce. The cursor still moves — the case was walked.
             enriched = _enriched_row(row, cluster, body)
             if enriched == row:
+                record(row)
                 continue
             result.enriched += 1
-            if apply:
-                corpus.upsert_rows(conn, [enriched])
+            record(enriched)
         except (RateBudgetExceeded, httpx.HTTPError, ValueError) as exc:
             reason = _stop_reason(exc)
             if reason is not None:
@@ -491,6 +589,8 @@ def enrich_opinions(
             # not JSON, most of all). Either is one case's problem, so it
             # costs that case and nothing else.
             result.failed.append({"case_id": row.case_id, "reason": f"{type(exc).__name__}: {exc}"})
+            if _answers_about_the_case(exc):
+                record(row)
             continue
     result.requests = walk.requests
     return result

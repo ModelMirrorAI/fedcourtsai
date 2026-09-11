@@ -291,6 +291,20 @@ class CorpusRow(BaseModel):
         description="Tracking state: date `pull` last refreshed this case via REST; "
         "None until first pulled. Drives the budget governor's rotation.",
     )
+    opinion_enrich_attempted_at: date | None = Field(
+        default=None,
+        description="Tracking state: date the opinion-enrichment walk "
+        "(`pipeline/opinion_enrichment.py`) last reached a verdict about this case "
+        "— a landed body, no linked cluster, a refusal, a 4xx on its docket; None "
+        "until first attempted, and left alone where the fault said nothing about "
+        "the docket (a 5xx, a transport failure). It is that walk's rotation key, "
+        "read never-attempted-first then stalest-stamp-first, which is what keeps "
+        "the grants that can never converge (a GVR or DIG that publishes no "
+        "opinion; a decided grant whose petition-stage docket links no cluster "
+        "upstream) from holding the head of every run. Written only by that pass, "
+        "and a fill-in latch like `last_pulled`, so a channel carrying no stamp "
+        "preserves it.",
+    )
     last_live_polled: date | None = Field(
         default=None,
         description="Tracking state: date the SCOTUS live channel (supremecourt.gov "
@@ -757,7 +771,14 @@ CREATE TABLE IF NOT EXISTS cases (
     -- canonical spelling (see CorpusRow). Max-latched on upsert, because the
     -- channel that omits the annotation must not clear the one that carries it.
     -- 0 = not marked by any channel that wrote this row.
-    capital_case        INTEGER NOT NULL DEFAULT 0
+    capital_case        INTEGER NOT NULL DEFAULT 0,
+    -- The opinion-enrichment walk's rotation key (see CorpusRow and
+    -- pipeline/opinion_enrichment.py): the date that pass last attempted this
+    -- case, stamped on every candidate the walk reached a verdict about. The
+    -- walk takes never-attempted rows first and then the stalest stamp, so its
+    -- permanent residue rotates to the back instead of heading every run.
+    -- NULL = never attempted.
+    opinion_enrich_attempted_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -911,6 +932,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "response_filed_at": "TEXT",
     "merits_terminated": "TEXT",
     "capital_case": "INTEGER NOT NULL DEFAULT 0",
+    "opinion_enrich_attempted_at": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1299,6 +1321,9 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "opinion_text": row.opinion_text,
         "summary": row.summary,
         "last_pulled": row.last_pulled.isoformat() if row.last_pulled else None,
+        "opinion_enrich_attempted_at": (
+            row.opinion_enrich_attempted_at.isoformat() if row.opinion_enrich_attempted_at else None
+        ),
         "predict_eligible": int(row.predict_eligible),
         "predict_excluded": int(row.predict_excluded),
         "originating_court": row.originating_court,
@@ -1419,6 +1444,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         opinion_text=record["opinion_text"],
         summary=record["summary"],
         last_pulled=(date.fromisoformat(record["last_pulled"]) if record["last_pulled"] else None),
+        opinion_enrich_attempted_at=_optional_date(record, "opinion_enrich_attempted_at"),
         predict_eligible=bool(record["predict_eligible"]),
         predict_excluded=bool(record["predict_excluded"]),
         originating_court=record["originating_court"],
@@ -1455,7 +1481,8 @@ def _update_clause(column: str) -> str:
     """The ``ON CONFLICT`` assignment for one column, honoring its latch (if any).
 
     Most columns take the incoming value (``excluded``). Five latch families are
-    special: channel-supplied facts (``last_pulled`` and the fill-in slice of
+    special: channel-supplied facts (``last_pulled``, the opinion-enrichment
+    walk's ``opinion_enrich_attempted_at`` cursor, and the fill-in slice of
     the live-parsed signals — the conference and CVSG dates, and the dated
     interim/merits signals beside them)
     only ever fill in, so a writer that does not carry the fact keeps what
@@ -1482,6 +1509,7 @@ def _update_clause(column: str) -> str:
     """
     if column in (
         "last_pulled",
+        "opinion_enrich_attempted_at",
         "last_live_polled",
         "distributed_for_conference",
         "cvsg_date",
@@ -1501,6 +1529,10 @@ def _update_clause(column: str) -> str:
         # missing can move a stored date later — accepted because a fresh parse
         # must still be able to correct a wrong date, and the open-first-moment
         # guards bound what a moved date can re-open.
+        # `opinion_enrich_attempted_at` takes the same rule from the other side:
+        # only the enrichment walk ever carries it, so every other writer's NULL
+        # must preserve the cursor, while the walk's own stamp — never NULL —
+        # always wins and so advances the rotation.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
     if column in (
         "distribution_count",
