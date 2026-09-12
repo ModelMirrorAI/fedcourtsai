@@ -16,7 +16,11 @@ description: >-
   could rewrite — harmless, because codex loads it once at startup, before the
   agent acts.) The only workspace path codexcell may write is the cell's own
   output subtree, pre-created and chowned to it here and handed back to the
-  runner by the teardown action after the turn.
+  runner by the teardown action after the turn. The action also pre-creates
+  codex's `.agents` sandbox-metadata carve-out at the checkout root — but
+  RUNNER-owned, so it is NOT part of codexcell's writable set: codex mounts
+  `.agents` read-only and only needs it to exist (it fails to initialize if it
+  must create that entry itself at the read-only checkout root).
 
 inputs:
   codex-user:
@@ -41,8 +45,10 @@ inputs:
   grant-workspace-read:
     description: >-
       "true" to grant codexcell read+traverse (never write) over the checkout,
-      which it needs to run `fedcourts` and read the provisioned record. A
-      boot-probe leg that reads no files leaves this "false".
+      which it needs to run `fedcourts` and read the provisioned record; it also
+      gates pre-creating codex's `.agents` sandbox carve-out, which is needed
+      only when the policy cwd is this read-granted checkout root. A boot-probe
+      leg that reads no files leaves this "false".
     required: false
     default: "false"
   env-keep:
@@ -219,6 +225,49 @@ runs:
         else
           echo "::warning::no uv on PATH to expose to $CODEX_USER — codex's uv calls may fail"
         fi
+
+    - name: Pre-create the codex sandbox metadata carve-out
+      # Same gate as the read grant above, and ordered AFTER it: this leaf must
+      # survive that step's recursive `o+rX`, and the sandbox that needs it only
+      # runs when the policy cwd is the checkout root — which only a
+      # read-granted leg uses (a boot probe with its own codexcell-owned cwd
+      # provisions its account inline and never calls this action).
+      if: inputs.grant-workspace-read == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        # codex's workspace-write sandbox (bubblewrap) carves three protected
+        # metadata paths OUT of the otherwise-writable workspace and mounts them
+        # READ-ONLY at the policy cwd (the checkout root): `.git`, `.agents`, and
+        # `.codex` — `PROTECTED_METADATA_PATH_NAMES` in codex's
+        # `FileSystemSandboxPolicy::workspace_write`, as of the pinned
+        # `codex-version`. When a carve-out is ABSENT, bwrap `mkdir`s the mount
+        # point on the real checkout as it initializes, BEFORE the turn acts —
+        # and the `o+rX` read grant above added read+traverse but never write, so
+        # codexcell cannot create a top-level entry and the sandbox fails to
+        # start: `bwrap: Can't mkdir <workspace>/.agents: Permission denied`.
+        #
+        # `.git` (from checkout) and `.codex` (the trusted config the MCP-config
+        # step wrote) already EXIST here — bwrap read-only-BINDS an existing
+        # carve-out rather than creating it, so neither faults, and `.codex` must
+        # NOT be (re)created here: it stays runner-owned so codexcell cannot
+        # rewrite the trusted config. Only `.agents` is missing. Pre-create just
+        # that one, so the sandbox binds an existing dir instead of mkdir-ing at
+        # the read-only root. A `.keep` makes it non-empty, so bwrap takes the
+        # plain read-only bind rather than the empty-dir synthetic-mount path.
+        #
+        # RUNNER-owned, not codexcell-owned: codex mounts `.agents` read-only, so
+        # it needs the dir only to EXIST and be traversable — never to be
+        # writable — and `.agents` is sandbox metadata codex itself consults, the
+        # same family as the trusted `.codex/config.toml` this action keeps
+        # runner-owned. Leaving it runner-owned keeps codexcell's one writable
+        # workspace path the output subtree alone, and lets the runner descend it
+        # (a codexcell-owned dir would strand a later runner-side clean). The
+        # `o+rX` above already ran, so set the mode here explicitly. Re-check the
+        # protected-metadata set on any `codex-version` bump: a fourth name would
+        # reintroduce this failure.
+        install -d -m 755 "$GITHUB_WORKSPACE/.agents"
+        install -m 644 /dev/null "$GITHUB_WORKSPACE/.agents/.keep"
 
     - name: Pre-create the cell output subtree codexcell may write
       if: inputs.codex-output-dir != ''
