@@ -1003,16 +1003,16 @@ jobs:
       # command the agent runs — and even its file writes — dies with
       # `bwrap: setting up uid map: Permission denied` and the cell finishes
       # blocked. The same prerequisite codex-action applies for the live
-      # cells before dropping sudo (which this job does not do — see the
-      # engine-smoke paragraph in docs/security.md); the other engines
-      # sandbox nothing and need neither sysctl. Each knob is probed before
-      # writing, as upstream does: a kernel without the knob has nothing to
-      # loosen.
+      # cells, which run codex as a separate unprivileged account rather than
+      # dropping the runner's sudo (see the engine-smoke paragraph in
+      # docs/security.md); the other engines sandbox nothing and need neither
+      # sysctl. Each knob is probed before writing, as upstream does: a kernel
+      # without the knob has nothing to loosen.
       #
       # Every codex leg needs it: the actions-smoke and application-repro legs
       # pass the cells' own `permission-profile: fedcourts-cell` /
-      # `safety-strategy: drop-sudo` pair, so their turns run under the same
-      # bubblewrap sandbox.
+      # `safety-strategy: unprivileged-user` pair, so their turns run under the
+      # same bubblewrap sandbox.
       - name: Enable unprivileged user namespaces for the codex sandbox
         if: ${{ (matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke' || matrix.scenario == 'codex-application-repro') && matrix.engine == 'codex' }}
         run: |
@@ -3270,22 +3270,20 @@ jobs:
   # from that record.
   #
   # The detached watchdog holds its telemetry token in its own process env
-  # for the whole of the turn, on the same runner and uid the sandboxed agent
-  # runs under. That is exact parity with every production cell — the cells
-  # arm the same way around a full turn, and this one's prompt is a single
-  # word — so it is the existing posture rather than a new exposure, and it
-  # is stated here because this is where a reader looks for it. Two members
-  # deviate on privilege, both keeping the runner account's sudo where a cell
-  # drops it: the nosudo member runs its codex turn AS the runner user
-  # (`read-only`, not `drop-sudo`), a higher-privileged agent shell than a
-  # cell's; the unprivuser member keeps the runner account's sudo too but runs
-  # codex as a SEPARATE account with no sudo and no groups, a lower-privileged
-  # shell than either. The watchdog's environ is readable from an agent shell
-  # on the cells (and on the nosudo turn, which runs as the same uid) — that is
-  # already the accepted model, and the unprivuser turn's separate uid cannot
-  # read it at all — and each member's token is the same comment-only
-  # issues:write one, so neither deviation widens a reach the model has not
-  # already conceded.
+  # for the whole of the turn, on the same runner and uid its codex turn runs
+  # under. The production cells run codex as a SEPARATE unprivileged account,
+  # so on a cell the agent's own uid cannot read that env at all; this probe's
+  # base and nosudo turns run AS the runner user, so their agent shell CAN — a
+  # wider read than a cell's, bounded rather than matched. What bounds it: the
+  # runner is a throwaway, dispatch-only one that assumes no role and reads no
+  # corpus, the prompt is a single word, and the token is a comment-only
+  # issues:write mint — so the read reaches nothing the model has not already
+  # conceded for that token. The three turns differ in privilege: the base turn
+  # drops the runner's sudo (`drop-sudo`), the nosudo member keeps it
+  # (`read-only`, runner user), and the unprivuser member keeps the runner's
+  # sudo but runs codex as a SEPARATE account with no sudo and no groups — the
+  # cells' own posture — whose separate uid cannot read the watchdog env even
+  # on this runner.
   #
   # One job, six scenario values, one axis varied at a time — the steps are
   # shared and the per-step `if:` conditions below are what separate them:
@@ -3294,18 +3292,19 @@ jobs:
   #     shape described above.
   #   * `codex-freeze-probe-nosudo` — the base shape exactly, armed and with
   #     the same margins, differing in ONE field: the codex turn runs
-  #     `safety-strategy: read-only` instead of `drop-sudo`. It was the first
-  #     attempt at the leading hypothesis — that `drop-sudo`'s irreversible
-  #     runner-user account and socket mutation, made mid-job rather than as
-  #     the job's last step, is what wedges the runner a few minutes after
-  #     the sandbox tears down. But `read-only` does not compose with a
-  #     permission profile: the action refuses the pair because that strategy
-  #     forces the legacy read-only sandbox, so this member's turn starts no
-  #     real session and the sandbox-started assertion voids the run. It is
-  #     kept as the negative control that pins that refusal; the real-session
-  #     version of the isolation is the unprivuser member below. The turn's
-  #     own step is a distinct one held OUT of the cross-surface codex
-  #     lockstep pin while every real member stays in it.
+  #     `safety-strategy: read-only` instead of `drop-sudo`. It targets the
+  #     cause the family isolates — `drop-sudo`'s irreversible runner-user
+  #     account and socket mutation, made mid-job rather than as the job's last
+  #     step, which wedges the runner a few minutes after the sandbox tears
+  #     down. But `read-only` does not compose with a permission profile: the
+  #     action refuses the pair because that strategy forces the legacy
+  #     read-only sandbox, so this member's turn starts no real session and the
+  #     sandbox-started assertion voids the run. It is kept as the negative
+  #     control that pins that refusal; the real-session version of the
+  #     isolation is the unprivuser member below. Its step is one of three held
+  #     OUT of the cross-surface codex lockstep pin — with the base turn (which
+  #     keeps `drop-sudo`) and the unprivuser turn — while the real
+  #     cell/smoke/repro members stay in it.
   #   * `codex-freeze-probe-unprivuser` — the real-session version of the
   #     isolation the nosudo member cannot run. Armed and with the same
   #     margins, its codex turn runs `safety-strategy: unprivileged-user`
@@ -3318,8 +3317,8 @@ jobs:
   #     `sudo -u` hop drops it, so the action derives codexcell's own
   #     `~/.codex`); a setup step provisions the user and copies the profile
   #     config there, and a post-turn step relocates the rollout so the one
-  #     shared sandbox-started assertion reads it. Its turn is the second
-  #     step held OUT of the cross-surface lockstep pin (it varies
+  #     shared sandbox-started assertion reads it. Its turn is one of three
+  #     steps held OUT of the cross-surface lockstep pin (it varies
   #     `safety-strategy` and adds `codex-user`); the runner keeps its sudo,
   #     and no secret reaches codexcell because the model key stays behind
   #     the action's proxy.
@@ -3332,10 +3331,11 @@ jobs:
   #   * `codex-freeze-probe-smokeconfig` — armed, with the post-exit margin
   #     dropped to nothing, which is the suite's own codex actions-smoke leg
   #     shape after its turn: assert and end. That leg's tail proceeds green,
-  #     and the invocation is not what separates the two — the smoke's codex
-  #     `with:` block is the cells' block verbatim, held there by the same
-  #     lockstep test — so what is left to vary is idle time, and this member
-  #     takes the half of it that follows the sandbox. The two-minute
+  #     and this member takes the same after-turn shape while running the
+  #     family's base `drop-sudo` turn — so what it varies from the base probe
+  #     is idle time, and it takes the half that follows the sandbox. It does
+  #     NOT share the actions-smoke leg's invocation: that leg runs the cells'
+  #     `unprivileged-user` block, while this member keeps `drop-sudo`. The two-minute
   #     baseline idle BEFORE the turn stays, because the beats it buys are
   #     what make a later gap a change rather than a watchdog that never
   #     beat; so this member is the smoke's shape after the turn, not the
@@ -3745,9 +3745,11 @@ jobs:
           sudo install -o "$CODEX_USER" -g "$CODEX_USER" -m 644 \
             "$GITHUB_WORKSPACE/.codex/config.toml" "$home/.codex/config.toml"
 
-      # The event under test. The block is the cells' — a test holds every
-      # action-path leg to it, and a probe of the sandbox's effect on the
-      # runner is worth nothing against a sandbox posture nothing else runs.
+      # The event under test — the base probe turn. Its block keeps
+      # `safety-strategy: drop-sudo` to REPRODUCE the wedge, so unlike the cells
+      # and the real smoke/repro legs (which run `unprivileged-user`) it is held
+      # OUT of the cross-surface lockstep pin; a probe of the sandbox's effect on
+      # the runner is worth nothing unless it runs the posture under study.
       # The prompt is the boot probe's, for its reason: what this leg needs
       # from codex is that it STARTS and EXITS, not that it accomplishes
       # anything. `continue-on-error` for the same reason — a turn that
@@ -3802,11 +3804,11 @@ jobs:
       # sandbox-started assertion voids the run. The member stands as the
       # negative control for that refusal; the unprivuser sibling below is
       # the real-session version. It runs only on the nosudo dispatch, and
-      # its id is deliberately not `turn`: it is one of two codex invocations
-      # held OUT of the cross-surface lockstep pin (the other is
-      # `turn_unprivuser`), so the pin can keep enforcing the cells' block on
-      # every REAL member (the `turn` step above included).
-      # `continue-on-error` keeps the leg alive to idle out its margin.
+      # its id is deliberately not `turn`: it is one of three codex invocations
+      # held OUT of the cross-surface lockstep pin (with the base `turn`, which
+      # keeps `drop-sudo`, and `turn_unprivuser`), so the pin can keep enforcing
+      # the cells' `unprivileged-user` block on every REAL cell/smoke/repro
+      # member. `continue-on-error` keeps the leg alive to idle out its margin.
       - name: Run one trivial turn under the cells' codex block — without drop-sudo
         id: turn_nosudo
         if: >-

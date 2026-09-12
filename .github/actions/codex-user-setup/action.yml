@@ -48,11 +48,15 @@ inputs:
   env-keep:
     description: >-
       Space-separated NON-SECRET variable names to carry across the action's
-      `sudo -u` env_reset via a sudoers drop-in. The model key is never here —
-      it stays behind the action's localhost proxy and never enters codexcell's
-      environment.
+      `sudo -u` env_reset via a sudoers drop-in: the corpus backend/URL and uv
+      cache/no-sync the spawned `fedcourts`/`uv` need, plus the cell identifiers
+      the other engines get in their shell (the prompt inlines these as literals
+      too, so they are belt-and-braces). The model key is never here — it stays
+      behind the action's localhost proxy and never enters codexcell's
+      environment; and every name is validated against `[A-Z0-9_]`, so nothing
+      credential-shaped could be smuggled in even by a caller override.
     required: false
-    default: FEDCOURTS_CORPUS_BACKEND FEDCOURTS_CORPUS_SERVICE_URL UV_CACHE_DIR UV_NO_SYNC
+    default: FEDCOURTS_CORPUS_BACKEND FEDCOURTS_CORPUS_SERVICE_URL UV_CACHE_DIR UV_NO_SYNC COURT_ID DOCKET_ID EVENT_ID PREDICTOR_ID EVALUATOR_ID RUN_ID MODEL_ID DECIDED_BEFORE
 
 runs:
   using: composite

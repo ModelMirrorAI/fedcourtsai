@@ -299,9 +299,9 @@ resource trajectory as a run artifact.
 
 **`codex-freeze-probe`** is the control's opposite number: it arms the same
 off-runner record around ONE trivial codex turn — the boot probe's one-word
-prompt under the cells' own invocation block, so what it spends is a boot
-probe — and reads what the beat trail does while a sandbox lives and after it
-exits. The design constraint it answers is that every runner-local witness
+prompt under the family's base-turn block, which keeps `drop-sudo` to reproduce
+the wedge, so what it spends is a boot probe — and reads what the beat trail
+does while a sandbox lives and after it exits. The design constraint it answers is that every runner-local witness
 (the watchdog's log, its markers, its captures) dies with the runner, so on a
 wedged cell the watchdog's state during the turn can only be inferred from
 silence. A turn that exits cleanly keeps its runner, which is what makes the
@@ -341,11 +341,14 @@ kind happens and no watchdog process exists; it gives up the beat trail to buy
 the one thing the trail cannot say, whether the watchdog is the pathogen or
 another victim.
 **`codex-freeze-probe-smokeconfig`** is armed and drops the post-exit margin,
-which is the shape the suite's own codex actions-smoke leg has after its turn:
-assert and end. The invocation is not what separates those two legs — the
-smoke's codex `with:` block is the cells' block verbatim, held there by the
-same lockstep test — so what is left to vary is idle time, and this member
-takes the half of it that follows the sandbox. The two-minute baseline idle
+matching the assert-and-end timing the suite's own codex actions-smoke leg has
+after its turn. It varies exactly that idle time from the base
+`codex-freeze-probe` while running the family's base-turn block, so it isolates
+whether the post-exit margin is load-bearing for the beat-trail measurement —
+it takes the half of the idle that follows the sandbox. It does not share the
+actions-smoke leg's invocation: that leg runs the cells' `unprivileged-user`
+block, while this member, like the rest of the family's base turn, keeps
+`drop-sudo` to reproduce the wedge. The two-minute baseline idle
 *before* the turn stays, because the beats it buys are what make a later gap a
 change rather than a watchdog that never beat at all: the member is the
 smoke's shape after the turn, not the smoke leg reproduced end to end. Its
@@ -412,10 +415,10 @@ runs with the runner user's sudo intact rather than dropped; on a throwaway,
 dispatch-only probe runner that assumes no role, reads no corpus, launches a
 token-free sidecar and sends a fixed no-tool prompt, that is bounded and
 acceptable — and the production cells run `unprivileged-user`, the posture this
-diagnosis led to, not `drop-sudo`.
+family isolates, not `drop-sudo`.
 
 **`codex-freeze-probe-unprivuser`** is that isolation done with a genuine
-session, and it runs the posture the production cells now run. It runs the
+session, and it runs the same posture the production cells run. It runs the
 base member's turn under `safety-strategy: unprivileged-user` with a
 `codex-user`, so codex builds and tears down its real profile sandbox —
 network, disk writes, a rollout — but as a SEPARATE unprivileged account the
@@ -425,8 +428,8 @@ wholly intact. That is the one axis it isolates: unlike `read-only`,
 lifecycle the production cells run actually happens; and unlike `drop-sudo`,
 the runner account is never mutated. Read it simply: a wedge that still follows
 the turn implicates the sandbox teardown, while a clean run implicates the
-account drop `drop-sudo` performs — the clean run this member and the cells now
-both run on. Its turn is one of the three lockstep exemptions — it varies
+account drop `drop-sudo` performs — the clean run this member and the cells
+both run. Its turn is one of the three lockstep exemptions — it varies
 `safety-strategy` and adds `codex-user`. It sets no `CODEX_HOME` (neither the
 input nor a `CODEX_HOME` env is set, so the action derives that user's own
 `~/.codex`); setting it would misdirect the config and rollout, because the

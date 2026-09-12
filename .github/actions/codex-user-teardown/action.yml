@@ -50,23 +50,35 @@ runs:
             echo "::error::session-dest must be a non-empty workspace-relative path: '$SESSION_DEST'"
             exit 1 ;;
         esac
+        # A reap or a step timeout can leave a codexcell process orphaned and
+        # still writing the output subtree; kill the account's processes before
+        # surfacing anything, so the rollout and the output are stable and the
+        # chown-back below cannot race a live writer. The runner keeps its sudo.
+        sudo pkill -u "$CODEX_USER" 2>/dev/null || true
         home="$(getent passwd "$CODEX_USER" | cut -d: -f6 || true)"
         src="$home/.codex/sessions"
         dest="$GITHUB_WORKSPACE/$SESSION_DEST"
         if [ -z "$home" ]; then
           echo "::warning::codex user $CODEX_USER has no home — no rollout to surface"
+        elif [ -L "$src" ]; then
+          # codexcell owns `~/.codex`, so it could point `sessions` at a path of
+          # its choosing. Refuse a symlinked rollout dir outright rather than
+          # follow it.
+          echo "::warning::codex session path is a symlink — refusing to surface it"
         elif [ ! -d "$src" ]; then
           echo "::warning::no session rollout under $src — the turn started none"
-          sudo ls -la "$home/.codex" 2>/dev/null || true
+          ls -la "$home/.codex" 2>/dev/null || true
         else
           mkdir -p "$dest"
-          # `cp -a` (implies `-d`) copies a symlink AS a symlink rather than
-          # following it, and `chmod -R` does not descend through symlinks, so
-          # neither dereferences an agent-written tree entry as root. Keep the
-          # `-a` if this is ever edited.
-          sudo cp -a "$src/." "$dest/" \
+          # NO sudo: the rollout is codexcell-owned but runner-readable (755/644
+          # under the account's own home), so the runner copies it AS ITSELF — an
+          # unprivileged copy can read nothing the runner could not, which closes
+          # the arbitrary-read a root `cp` would hand an agent that repointed its
+          # own `sessions`. `-Rd` copies symlinks as symlinks (never dereferences
+          # a tree entry) and does not try to preserve ownership as non-root; the
+          # copies are runner-owned, so no chmod is needed.
+          cp -Rd "$src/." "$dest/" \
             || echo "::warning::failed to copy the rollout into $dest"
-          sudo chmod -R a+rX "$dest" || true
         fi
         # Return the output subtree to the runner so the capture/stamp/validate
         # steps can read AND write it and the artifact upload can read it. The

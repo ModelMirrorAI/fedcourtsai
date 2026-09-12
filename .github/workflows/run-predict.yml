@@ -1349,13 +1349,19 @@ jobs:
           # refused or non-codex cell provisioned no account, a missing rollout
           # is a warning, and no failure here fails the disarm.
           if [ "$ENGINE" = "codex" ] && id -u codexcell >/dev/null 2>&1; then
+            # A reap/timeout can orphan a codexcell process still writing the
+            # output subtree; kill the account before the handoff so the rollout
+            # and output are stable and the chown-back cannot race a live writer.
+            sudo pkill -u codexcell 2>/dev/null || true
             ch="$(getent passwd codexcell | cut -d: -f6 || true)"
-            if [ -n "$ch" ] && [ -d "$ch/.codex/sessions" ]; then
+            if [ -n "$ch" ] && [ ! -L "$ch/.codex/sessions" ] && [ -d "$ch/.codex/sessions" ]; then
               mkdir -p "$CODEX_HOME/sessions"
-              # `cp -a` keeps a symlink a symlink and `chmod -R` does not descend
-              # through one, so neither dereferences an agent-written tree entry.
-              sudo cp -a "$ch/.codex/sessions/." "$CODEX_HOME/sessions/" || true
-              sudo chmod -R a+rX "$CODEX_HOME/sessions" || true
+              # NO sudo, `-Rd`: the runner copies the codexcell-owned but
+              # runner-readable rollout AS ITSELF, so a repointed `sessions`
+              # cannot hand a root copy an arbitrary read; `-Rd` never
+              # dereferences a tree entry. The `-L` guard refuses a symlinked
+              # sessions dir outright. Same handoff as codex-user-teardown.
+              cp -Rd "$ch/.codex/sessions/." "$CODEX_HOME/sessions/" || true
             else
               echo "::warning::no codex rollout under codexcell's home for ${EVENT_ID}"
             fi
@@ -1367,15 +1373,16 @@ jobs:
           # Read from the runner-temp bundle rather than the workspace copy
           # assembled below, so what is read is the copy the watchdog wrote and
           # not one the disarm step just derived. That is the whole of the claim:
-          # the agent runs as this same uid, and on claude (bypassPermissions) and
-          # gemini (--yolo) nothing on the runner is out of its reach — the pid
-          # file two steps above says as much. So `reaped` is a runner-local
-          # signal, forgeable by any unsandboxed cell that wants its own step
-          # counted clean. What contains that is not this path: a forged reap only
-          # promotes a cell that must still pass `produced`, `validate`, the
-          # collect job's secret scan and the `data/` path jail — and an agent
-          # that controls its own outputs faces exactly those anyway. The one
-          # channel a cell cannot forge is the off-runner comment, which is
+          # on a claude or gemini cell the agent runs as this same uid,
+          # unsandboxed (bypassPermissions / --yolo), so nothing on the runner is
+          # out of its reach and `reaped` is a runner-local signal it could forge
+          # to have its own step counted clean. A codex cell cannot — its agent
+          # is a separate account that cannot write the runner-owned bundle dir.
+          # What contains a forged reap on the engines that can is not this path:
+          # it only promotes a cell that must still pass `produced`, `validate`,
+          # the collect job's secret scan and the `data/` path jail — and an
+          # agent that controls its own outputs faces exactly those anyway. The
+          # one channel no cell can forge is the off-runner comment, which is
           # codex-only by the same split the mint step describes. SECURITY.md
           # carries this residual rather than leaving it implied here.
           reaped=false

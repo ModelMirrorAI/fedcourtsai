@@ -198,19 +198,19 @@ runbook, [docs/security.md](docs/security.md).
   shell), and the exit codes of the script's own bounded probes of the
   already-validated check-in host, composed only from sources the agent cannot
   write and never read back off the agent-writable bundle directory.
-  Two residuals were stated rather than denied, and the cells' `unprivileged-user`
+  Two residuals are stated rather than denied, and the cells' `unprivileged-user`
   codex closes the agent-reachable half of both. The watchdog runs as the runner
   user; were the codex agent to run as that same user, its environment would be
   readable from the agent shell exactly as the MCP sidecar's CourtListener token
   is, and the disarm step's `fedcourts`, run out of a workspace the agent had the
   whole cell to write, would reach the token from planted code without the
-  process read at all. Codex now runs as a separate unprivileged account: it
-  cannot read the runner user's environment, and it can write only its own output
-  subtree, never the `src`/`scripts`/`.venv` the disarm step executes — so
-  neither residual is reachable by the cell's own agent. The watchdog token is
+  process read at all. Codex instead runs as a separate unprivileged account: it
+  cannot read the runner user's environment, and the only runner-owned path it
+  can write is its own output subtree, never the `src`/`scripts`/`.venv` the
+  disarm step executes — so neither residual is reachable by the cell's own agent. The watchdog token is
   minted only on codex cells, so that is the whole of the agent-facing exposure;
   a determined co-resident process at the runner uid stays the general
-  concession, but the cell agent is no longer one. Neither residual is
+  concession, and the cell agent is not one. Neither residual is
   time-bounded by the job: `create-github-app-token`'s revoke step does not run
   when a job is **cancelled**, which is precisely the wedge this feature exists
   for, so in that case the installation token lives out its own window.
@@ -239,10 +239,14 @@ runbook, [docs/security.md](docs/security.md).
   marker: those agents run as the runner user unsandboxed (claude
   `bypassPermissions`, gemini `--yolo`), so no runner-local path is out of reach
   (the qp-topic labeler is the one agent held to a narrower grant, and it is not
-  a cell). A codex cell cannot — codex runs as a separate unprivileged account
-  and the marker sits on a runner-owned path it cannot write — so the runner-local
-  marker is forgeable only by the same-user engines, and the off-runner comment
-  (codex-only by the split above) is the channel no cell can forge at all. What either buys is narrow and worth stating exactly: the marker sets
+  a cell). A codex cell cannot — codex runs as a separate unprivileged account,
+  and the marker sits under a runner-owned `RUNNER_TEMP` directory (mode 0755
+  and not writable by that account; the codex setup additionally strips other
+  access from `RUNNER_TEMP`), so this rests on that ownership, not on the uid
+  alone. The runner-local marker is therefore forgeable only by the same-user
+  engines, and the off-runner comment (codex-only by the split above) is the
+  channel no cell can forge at all.
+  What either buys is narrow and worth stating exactly: the marker sets
   `agent_ok`, which routes the cell to the run's **ready** PR instead of the
   draft one, and nothing else. `produced` and `validated` still have to hold, the
   collect job still secret-scans and still enforces the `data/` path jail, the

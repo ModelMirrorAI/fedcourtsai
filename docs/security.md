@@ -304,16 +304,19 @@ a command argument, because the watchdog's own published diagnostics bundle dump
 the arguments of every process under the runner user, and the arm step checks the
 check-in URL against this repository's own comments endpoint before handing it to
 the watchdog, so the credential cannot be aimed at another host. Two residuals
-are conceded rather than claimed away, and both now hold only for the
-unsandboxed engines: on a claude or gemini cell the agent runs as the runner
-user, so the watchdog's environment is readable from its shell exactly as the
-MCP sidecar's token is, and the disarm step runs `fedcourts` out of a workspace
-that agent has had the whole cell to write. A codex cell closes both — codex
-runs as a separate unprivileged account that cannot read the runner user's
-environment and can write only its own output subtree, never the
-`src`/`scripts`/`.venv` the disarm-step `fedcourts` executes from — but claude
-and gemini keep them, so the concession stands.
-Neither is bounded by the job's end — the action's revoke step does not run on a
+are stated rather than claimed away, and the cells' `unprivileged-user` codex
+closes the agent-reachable half of both. This token lives on codex cells alone;
+the watchdog runs as the runner user, and were codex to run as that same user
+its environment would be readable from the agent shell exactly as the MCP
+sidecar's token is, and the disarm step's `fedcourts`, run out of a workspace
+the agent had the whole cell to write, would reach the token from planted code
+without the process read at all. Codex runs as a separate unprivileged account
+instead: it cannot read the runner user's environment and can write only its
+own output subtree, never the `src`/`scripts`/`.venv` the disarm step executes
+— so neither residual is reachable by the cell's own agent. What remains is a
+determined co-resident process at the runner uid, the general concession, and
+the cell agent is not one.
+Neither residual is bounded by the job's end — the action's revoke step does not run on a
 **cancelled** job, which is the wedge case itself. What both reach is
 `issues: write` on this repository, which is the repo's whole issue surface and
 not the one comment it is used for; what bounds it is that no workflow here keys
@@ -719,10 +722,10 @@ They hand `claude-code-action` the job's own
 token rather than minting the cells' App token — the job's permissions cap it
 at `contents: read`, and omitting it entirely is worse, since the action then
 falls back to an OIDC exchange that mints an installation token defaulting to
-write. And their codex leg is the one place in this workflow where the codex
-sandbox runs the cells' `unprivileged-user` safety strategy, so its userns
-prerequisite is the live cells' prerequisite exactly, not the runner seam's
-relaxation described below. That strategy is the cells' second reason to
+write. And their codex leg runs the cells' `unprivileged-user` safety strategy
+(as do the application-repro leg and the freeze probe's unprivuser arm), so its
+userns prerequisite is the live cells' prerequisite exactly, not the runner
+seam's relaxation described below. That strategy is the cells' second reason to
 dispatch the leg around a codex-action bump: on Linux with a prompt supplied —
 the cells' shape — the action runs codex as a separate unprivileged account
 (`codexcell`, provisioned by the shared setup step) rather than dropping the
@@ -759,10 +762,11 @@ shape the retrieval parser keys on is the one a real rollout confirms — but
 only the token-bearing one also shows what a settled call looks like. A codex smoke additionally loosens
 the runner kernel's
 AppArmor userns restriction (codex-action's own prerequisite for the live
-cells) without dropping sudo afterwards — accepted for the same reason as in
-the back-test residual below: same-user co-residency is already conceded as
-a non-boundary, and this job holds only the read-only role, one engine
-key, and the read-only CourtListener token. Within a run, the engine key rides the
+cells, which run codex as a separate account rather than dropping the runner's
+sudo) — accepted for the same reason as in the back-test residual below:
+same-user co-residency is already conceded as a non-boundary, the userns knob
+is a runner-wide relaxation on a throwaway runner, and this job holds only the
+read-only role, one engine key, and the read-only CourtListener token. Within a run, the engine key rides the
 single cascade step's env,
 alongside the corpus sidecar's step-scoped read-only AWS credentials for the
 cascade's own provisioning reads; the spawned agent sees neither, because the
@@ -918,9 +922,13 @@ run-scoped temp `CODEX_HOME` whose `auth.json` holds codex's own key for the
 rest of the job — same-user readable, like the parent's environment already
 is. The temp home is what the seam picks when the caller names none; a caller
 that pins `CODEX_HOME` keeps it, and the engine-smoke codex leg does pin it —
-to the workspace `.codex` the live cells use, because the cell must read the
-MCP config written there and the shape distillation must find the session
-rollout under it. That trades the temp dir for a gitignored workspace dir on
+to the workspace `.codex`, because that bare-CLI leg runs codex as the runner
+user, so codex reads the MCP config written there and writes its session
+rollout under it where the shape distillation finds it. (The live action-path
+cells differ: codex runs as a separate account under a `CODEX_HOME` the action
+derives in that account's home, and the workspace `.codex` is only where their
+config is emitted and where the disarm step surfaces the rollout back for the
+runner-user tail.) That trades the temp dir for a gitignored workspace dir on
 the same runner, under the same same-user non-boundary, and the job commits
 nothing.) Running codex here also requires loosening the runner kernel's AppArmor
 restriction on unprivileged user namespaces — the same sysctl prerequisite
