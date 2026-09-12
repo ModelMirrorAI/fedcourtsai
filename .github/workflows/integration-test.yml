@@ -159,7 +159,7 @@ on:
           probe's worth, whichever member runs. It reads what the watchdog's
           beat trail does while a codex sandbox lives and after it exits —
           the observation a wedged production cell destroys along with its
-          runner — and its five members each hold one thing still while
+          runner — and its six members each hold one thing still while
           varying the next. `codex-freeze-probe` is the armed turn with a
           three-minute post-exit idle margin. `codex-freeze-probe-unwatched`
           runs the same turn and the same margins with no telemetry mint,
@@ -174,8 +174,15 @@ on:
           idles on a ticking clock whose last printed second stamps the
           moment the runner stopped. `codex-freeze-probe-nosudo` is the base
           armed turn with ONE field changed — `safety-strategy: read-only`
-          rather than `drop-sudo` — the decisive test of whether that account
-          drop is what wedges the runner. No whole-suite selection fans out
+          rather than `drop-sudo`. But
+          `read-only` is refused alongside a permission profile and forces
+          the legacy read-only sandbox, so it starts no real session.
+          `codex-freeze-probe-unprivuser` runs the same base turn as a
+          separate unprivileged UNIX user (`safety-strategy:
+          unprivileged-user`), which leaves the runner account wholly
+          intact AND builds and tears down the real profile sandbox — the
+          same account-drop-vs-teardown isolation, with the genuine session
+          read-only cannot produce. No whole-suite selection fans out
           any of those.
         type: choice
         default: ranged-reads
@@ -195,6 +202,7 @@ on:
           - codex-freeze-probe-smokeconfig
           - codex-freeze-probe-autopsy
           - codex-freeze-probe-nosudo
+          - codex-freeze-probe-unprivuser
           - codex-application-repro
           - all
           - all-offline
@@ -3193,37 +3201,55 @@ jobs:
   # runs under. That is exact parity with every production cell — the cells
   # arm the same way around a full turn, and this one's prompt is a single
   # word — so it is the existing posture rather than a new exposure, and it
-  # is stated here because this is where a reader looks for it. The one
-  # deviation is the nosudo member: its turn keeps the runner user's sudo
-  # (`read-only`, not `drop-sudo`), so the agent shell runs at a higher
-  # privilege than a cell's dropped one. The watchdog's environ is readable
-  # from an agent shell on the cells too — that is already the accepted model
-  # — and this member's token is the same comment-only issues:write one, so
-  # the deviation widens no reach the model has not already conceded.
+  # is stated here because this is where a reader looks for it. Two members
+  # deviate on privilege, both keeping the runner account's sudo where a cell
+  # drops it: the nosudo member runs its codex turn AS the runner user
+  # (`read-only`, not `drop-sudo`), a higher-privileged agent shell than a
+  # cell's; the unprivuser member keeps the runner account's sudo too but runs
+  # codex as a SEPARATE account with no sudo and no groups, a lower-privileged
+  # shell than either. The watchdog's environ is readable from an agent shell
+  # on the cells (and on the nosudo turn, which runs as the same uid) — that is
+  # already the accepted model, and the unprivuser turn's separate uid cannot
+  # read it at all — and each member's token is the same comment-only
+  # issues:write one, so neither deviation widens a reach the model has not
+  # already conceded.
   #
-  # One job, five scenario values, one axis varied at a time — the steps are
+  # One job, six scenario values, one axis varied at a time — the steps are
   # shared and the per-step `if:` conditions below are what separate them:
   #
   #   * `codex-freeze-probe` — armed, with the post-exit idle margin. The
   #     shape described above.
   #   * `codex-freeze-probe-nosudo` — the base shape exactly, armed and with
   #     the same margins, differing in ONE field: the codex turn runs
-  #     `safety-strategy: read-only` instead of `drop-sudo`. It is the
-  #     decisive test of the leading hypothesis — that `drop-sudo`'s
-  #     irreversible runner-user account and socket mutation, made mid-job
-  #     rather than as the job's last step, is what wedges the runner a few
-  #     minutes after the sandbox tears down. This member runs the IDENTICAL
-  #     one-word turn but drops nothing from the account, so the two members
-  #     differ in exactly that mutation; `read-only` is expected to build and
-  #     tear down a codex sandbox as `drop-sudo` does — that teardown is the
-  #     event under test, confirmed on the first dispatch. The turn's own step
-  #     is a distinct one held OUT of the cross-surface codex lockstep pin while
-  #     every real member stays in it. A wedge gone here confirms the cause
-  #     and names the fix; a wedge still present exonerates `drop-sudo` and
-  #     the hunt continues. Read-only disables the sandbox's network, so the
-  #     turn's model call may fail — harmless here, because the session
-  #     rollout lands when the session starts and the verdict is the beat
-  #     trail across the sandbox's life, not the turn's success.
+  #     `safety-strategy: read-only` instead of `drop-sudo`. It was the first
+  #     attempt at the leading hypothesis — that `drop-sudo`'s irreversible
+  #     runner-user account and socket mutation, made mid-job rather than as
+  #     the job's last step, is what wedges the runner a few minutes after
+  #     the sandbox tears down. But `read-only` does not compose with a
+  #     permission profile: the action refuses the pair because that strategy
+  #     forces the legacy read-only sandbox, so this member's turn starts no
+  #     real session and the sandbox-started assertion voids the run. It is
+  #     kept as the negative control that pins that refusal; the real-session
+  #     version of the isolation is the unprivuser member below. The turn's
+  #     own step is a distinct one held OUT of the cross-surface codex
+  #     lockstep pin while every real member stays in it.
+  #   * `codex-freeze-probe-unprivuser` — the real-session version of the
+  #     isolation the nosudo member cannot run. Armed and with the same
+  #     margins, its codex turn runs `safety-strategy: unprivileged-user`
+  #     with `codex-user: codexcell`, so codex builds and tears down its
+  #     real profile sandbox — the lifecycle the production cells run — but
+  #     as a SEPARATE UNIX account, leaving the runner user's sudo, sockets
+  #     and groups wholly intact. That is the one axis it varies: a wedge
+  #     that still follows the turn implicates the sandbox teardown, a clean
+  #     run implicates the account drop. It sets no `CODEX_HOME` (the
+  #     `sudo -u` hop drops it, so the action derives codexcell's own
+  #     `~/.codex`); a setup step provisions the user and copies the profile
+  #     config there, and a post-turn step relocates the rollout so the one
+  #     shared sandbox-started assertion reads it. Its turn is the second
+  #     step held OUT of the cross-surface lockstep pin (it varies
+  #     `safety-strategy` and adds `codex-user`); the runner keeps its sudo,
+  #     and no secret reaches codexcell because the model key stays behind
+  #     the action's proxy.
   #   * `codex-freeze-probe-unwatched` — the same turn and the same margins
   #     with the mint, the arm and the disarm all skipped, so no telemetry
   #     call of any kind runs and no watchdog process exists. It gives up the
@@ -3245,7 +3271,7 @@ jobs:
   #     meaningless: its verdict, too, is the step-progress stamp.
   #   * `codex-freeze-probe-autopsy` — unwatched, and the only member that
   #     asks WHAT the wedge is rather than WHETHER it happens. The other
-  #     four read the wedge from outside, off the run page; this one reads
+  #     five read the wedge from outside, off the run page; this one reads
   #     the machine from inside it, in the seconds the sandbox's residue is
   #     still there to read. It works because a step log streams as the step
   #     runs: the wedge does not retract what already left the runner, it
@@ -3291,15 +3317,17 @@ jobs:
     # The cap is sized off the WORST BOUNDED case, not the expected one,
     # because on this job a cap cancellation is not an accident — it is the
     # wedge's signature, and any healthy run that could reach it would forge
-    # that signature. Four members sum their bounded steps to at most 14
+    # that signature. Five members sum their bounded steps to at most 14
     # (3 + 7 + 4, the last of them 0 on the member that drops the post-exit
     # margin); the autopsy member reaches 20 (3 + 7 + 6 for the clock + 4)
     # and adds a diagnostic burst that carries per-COMMAND timeouts rather
     # than step caps, worth about 2.5 minutes if every one of them is reached.
-    # Setup, the sidecar and the disarm's own bounded calls add about 7 more.
+    # Setup, the sidecar, the unprivuser member's two short uncapped
+    # provisioning/rollout steps, and the disarm's own bounded calls add
+    # about 7 more.
     # So 35 is the cap with room above the worst case rather than the cap the
     # arithmetic just fits under; the healthy autopsy path is nearer twelve
-    # minutes, and the other four finish inside fifteen.
+    # minutes, and the other five finish inside fifteen.
     #
     # One case the cancellation cannot distinguish on its own: a one-word turn
     # that somehow spends its whole seven-minute bound is pathological but not
@@ -3440,7 +3468,7 @@ jobs:
         id: watchdog-token
         if: >-
           ${{ github.event_name == 'workflow_dispatch'
-          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig", "codex-freeze-probe-unprivuser"]'), inputs.scenario) }}
         continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
@@ -3452,7 +3480,7 @@ jobs:
         id: arm
         if: >-
           ${{ github.event_name == 'workflow_dispatch'
-          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig", "codex-freeze-probe-unprivuser"]'), inputs.scenario) }}
         env:
           WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
           GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
@@ -3579,6 +3607,71 @@ jobs:
             --role predictor --actor codex-baseline \
             --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
 
+      # The unprivileged-user member's setup, and the step that makes THIS
+      # member a real session rather than a void one. codex runs as
+      # `codex-user: codexcell` — an account THIS step provisions — so the
+      # runner account it would otherwise mutate is left wholly intact, the one
+      # axis this member isolates. Running a genuine profile sandbox as that
+      # user needs four things, and codex-action leaves the caller to arrange
+      # them: a writable `$CODEX_HOME`, the profile config the turn selects, a
+      # working directory the user can reach (the checkout is NOT world-readable
+      # to it), and — because we pre-create `$CODEX_HOME` to place the config —
+      # the server-info file the action would otherwise create for its localhost
+      # proxy. codex-action's `unprivileged-user` contract derives `$CODEX_HOME`
+      # as `<codexcell-home>/.codex` (the `sudo -u` hop cannot carry a
+      # `CODEX_HOME` env across, so the turn sets none), writes its proxy config
+      # there, and runs `codex` as codexcell. The runner KEEPS its sudo
+      # throughout: dropping it is the nosudo member's experiment, not this
+      # one's. codexcell is granted nothing beyond its own home; no secret
+      # reaches it, because the model key never enters its environment or any
+      # file it can read — it stays behind the action's localhost proxy.
+      - name: Provision the unprivileged codex user
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-unprivuser' }}
+        env:
+          CODEX_USER: codexcell
+          CODEX_USER_HOME: /home/codexcell
+        run: |
+          set -euo pipefail
+          # Idempotent, and pinned to a known home so the turn's
+          # `working-directory` and the rollout path below can be literals: `-m`
+          # creates the home, `-d` fixes it, nologin because codex is launched
+          # as `sudo -u ... -- codex`, never as a login.
+          if ! id -u "$CODEX_USER" >/dev/null 2>&1; then
+            sudo useradd -m -d "$CODEX_USER_HOME" -s /usr/sbin/nologin "$CODEX_USER"
+          fi
+          home="$(getent passwd "$CODEX_USER" | cut -d: -f6)"
+          if [ "$home" != "$CODEX_USER_HOME" ]; then
+            echo "::error::codex user home is '$home', not the expected $CODEX_USER_HOME"
+            exit 1
+          fi
+          # `chmod 755` widens the image's default home mode so the runner-side
+          # proxy-config writer can traverse in and read the config back to
+          # merge it. The dirs are codexcell-owned so codex can create its
+          # session rollout under CODEX_HOME, run in a working directory it owns
+          # (the checkout is not world-readable to this user), and write any
+          # tool cache (`~/.cache/uv`, pre-created so a default-cache write lands
+          # inside the home rather than failing outside it). No secret lives
+          # here — the config names a localhost URL only.
+          sudo chmod 755 "$home"
+          sudo install -d -o "$CODEX_USER" -g "$CODEX_USER" -m 755 \
+            "$home/.codex" "$home/work" "$home/.cache" "$home/.cache/uv"
+          # Because we pre-create `$CODEX_HOME`, the action takes its
+          # already-exists early return and skips creating the empty,
+          # world-writable server-info file its localhost proxy (running as the
+          # runner) writes into this codexcell-owned dir. Mirror it: empty, so
+          # the action's non-empty "already running" probe stays false; the
+          # action chowns it root/444 once the proxy has written.
+          sudo install -o root -g root -m 666 /dev/null \
+            "$home/.codex/$GITHUB_RUN_ID.json"
+          # The profile the turn selects is declared in this config; codex reads
+          # it under the CODEX_HOME it derives (codexcell's own ~/.codex), so the
+          # workspace copy is placed there, readable by the runner-side writer
+          # and owned by codexcell.
+          sudo install -o "$CODEX_USER" -g "$CODEX_USER" -m 644 \
+            "$GITHUB_WORKSPACE/.codex/config.toml" "$home/.codex/config.toml"
+
       # The event under test. The block is the cells' — a test holds every
       # action-path leg to it, and a probe of the sandbox's effect on the
       # runner is worth nothing against a sandbox posture nothing else runs.
@@ -3589,9 +3682,9 @@ jobs:
       # subject, so the measurement below decides the leg's verdict and this
       # step does not.
       #
-      # Every member but the nosudo one runs THIS step, on `drop-sudo`; the
-      # nosudo member runs the sibling step below it instead, identical in
-      # every field but `safety-strategy`. The gate carries the
+      # Every member but the nosudo and unprivuser ones runs THIS step, on
+      # `drop-sudo`; those two run their own sibling steps below instead,
+      # each varying the block by design. The gate carries the
       # `workflow_dispatch` conjunct the scheduled-workflow fail-closed rule
       # requires of any input-gated step, even though the job's own gate
       # already excludes a scheduled run — the hazard is in the shape.
@@ -3599,7 +3692,8 @@ jobs:
         id: turn
         if: >-
           ${{ github.event_name == 'workflow_dispatch'
-          && inputs.scenario != 'codex-freeze-probe-nosudo' }}
+          && inputs.scenario != 'codex-freeze-probe-nosudo'
+          && inputs.scenario != 'codex-freeze-probe-unprivuser' }}
         # Well under the job cap and far above a one-word turn: a wedge here
         # would otherwise eat the post-exit window the measurement needs.
         timeout-minutes: 7
@@ -3625,22 +3719,21 @@ jobs:
           codex-version: "0.144.1"
           codex-args: '["-c","web_search=live"]'
 
-      # The nosudo member's turn: identical to the block above in every field
-      # but `safety-strategy`, which is `read-only` rather than `drop-sudo`.
-      # The turn itself is identical, so the two members differ in exactly one
-      # thing: `read-only` drops NOTHING from the runner user's account and
-      # sockets. It is expected to build and tear down a codex sandbox as
-      # `drop-sudo` does (that teardown is the event under test, confirmed on
-      # dispatch), which isolates the one variable the leading wedge hypothesis
-      # names: `drop-sudo`'s irreversible mid-job account/socket mutation. It runs only on the nosudo dispatch, and its
-      # id is deliberately not `turn`: it is the one codex invocation in this
-      # repository held OUT of the cross-surface lockstep pin, so the pin can
-      # keep enforcing the cells' block on every REAL member (the `turn` step
-      # above included) while this one varies exactly one field. `read-only`
-      # also has no network, so the model call may fail — harmless: the
-      # session rollout lands when the session starts (the sandbox-started
-      # assertion reads that, not the reply), `continue-on-error` keeps the
-      # leg alive to idle out its margin, and the verdict is the beat trail.
+      # The nosudo member's turn: the block above with one field changed,
+      # `safety-strategy: read-only` rather than `drop-sudo`. `read-only`
+      # drops NOTHING from the runner user's account and sockets, which was
+      # meant to isolate `drop-sudo`'s irreversible mid-job account/socket
+      # mutation — but `read-only` does not compose with a permission
+      # profile: the action refuses the pair because that strategy forces the
+      # legacy read-only sandbox, so this turn starts no real session and the
+      # sandbox-started assertion voids the run. The member stands as the
+      # negative control for that refusal; the unprivuser sibling below is
+      # the real-session version. It runs only on the nosudo dispatch, and
+      # its id is deliberately not `turn`: it is one of two codex invocations
+      # held OUT of the cross-surface lockstep pin (the other is
+      # `turn_unprivuser`), so the pin can keep enforcing the cells' block on
+      # every REAL member (the `turn` step above included).
+      # `continue-on-error` keeps the leg alive to idle out its margin.
       - name: Run one trivial turn under the cells' codex block — without drop-sudo
         id: turn_nosudo
         if: >-
@@ -3667,6 +3760,59 @@ jobs:
           # THE ONE VARIED FIELD. See the block above: this is the whole
           # experiment — a codex sandbox without `drop-sudo`'s account drop.
           safety-strategy: read-only
+          permission-profile: fedcourts-cell
+          codex-version: "0.144.1"
+          codex-args: '["-c","web_search=live"]'
+
+      # The unprivileged-user member's turn: the base turn's block with two
+      # `with:` fields changed (`safety-strategy`, plus the new `codex-user`), a
+      # `working-directory` added, and the `CODEX_HOME` env removed; every other
+      # field is pinned to the base turn in the arms test below so the change
+      # stays exactly this. `safety-strategy: unprivileged-user` runs codex as
+      # `codex-user: codexcell` — a real profile sandbox with network and disk
+      # writes, built and torn down as the cells' is, but as a SEPARATE account,
+      # so the RUNNER user's sudo, sockets and groups are never touched. That is
+      # the whole experiment: it holds everything the nosudo member holds AND
+      # produces a genuine session (a rollout), which `read-only` cannot — that
+      # strategy is refused alongside a permission-profile and forces the legacy
+      # read-only sandbox, so its probe measures nothing. `CODEX_HOME` is left
+      # unset because neither the `codex-home` input nor a `CODEX_HOME` env is
+      # set, so the action derives codexcell's own `~/.codex`; SETTING it would
+      # misdirect the config and rollout, since the `sudo -u` hop cannot carry
+      # that env to the codex process. `working-directory` is a codexcell-owned
+      # dir because the checkout is not world-readable to this user; the boot
+      # probe reads no files, so a user-owned cwd is all a real session needs.
+      # The rollout lands in the derived `~/.codex/sessions`, which the
+      # rollout-surfacing step below hands to the shared assertion. The id is
+      # `turn_unprivuser`, held out of the cross-surface lockstep pin (with
+      # `turn_nosudo`) so it can vary `safety-strategy` and add `codex-user`
+      # alone; the pin still binds every real member. `continue-on-error`, the
+      # timeout and the prompt are the base turn's, for the base turn's reasons.
+      - name: Run one trivial turn under the cells' codex block — as an unprivileged user
+        id: turn_unprivuser
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-unprivuser' }}
+        timeout-minutes: 7
+        continue-on-error: true
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        with:
+          allow-bot-users: "fedcourtsai-data[bot]"
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # DEVIATION, as on the boot probe: a one-word turn, not a cell.
+          prompt: |
+            Reply with the single word: ok
+
+            Use no tools, read no files, and write no files. This is a boot
+            probe of the invocation path, not a task.
+          model: ${{ steps.cell.outputs.model }}
+          effort: high
+          # THE VARIED FIELDS. codex runs as this separate user, so the runner
+          # account is left intact — the one axis this member isolates.
+          safety-strategy: unprivileged-user
+          codex-user: codexcell
+          # A directory codexcell owns: the checkout is not world-readable to it.
+          working-directory: /home/codexcell/work
           permission-profile: fedcourts-cell
           codex-version: "0.144.1"
           codex-args: '["-c","web_search=live"]'
@@ -3967,11 +4113,12 @@ jobs:
         env:
           # `outcome`, not `conclusion`, for the turn step's own reason: the
           # turn carries `continue-on-error`, which rewrites the conclusion.
-          # The nosudo member's turn is a separate step, so read whichever of
-          # the two ran — the ternary picks `turn_nosudo` on that member and
-          # `turn` on every other, and reads `.outcome` on both, so the
+          # The nosudo and unprivuser members each run their turn as a
+          # separate step, so read whichever ran — the ternary picks
+          # `turn_nosudo` on nosudo, `turn_unprivuser` on unprivuser, and
+          # `turn` on every other, reading `.outcome` on each, so the
           # not-the-rewritten-conclusion invariant holds either way.
-          TURN_OUTCOME: ${{ inputs.scenario == 'codex-freeze-probe-nosudo' && steps.turn_nosudo.outcome || steps.turn.outcome }}
+          TURN_OUTCOME: ${{ inputs.scenario == 'codex-freeze-probe-nosudo' && steps.turn_nosudo.outcome || inputs.scenario == 'codex-freeze-probe-unprivuser' && steps.turn_unprivuser.outcome || steps.turn.outcome }}
         run: |
           set -euo pipefail
           {
@@ -3998,7 +4145,7 @@ jobs:
       - name: Disarm and read the beat trail
         if: >-
           ${{ always() && github.event_name == 'workflow_dispatch'
-          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig", "codex-freeze-probe-unprivuser"]'), inputs.scenario) }}
         env:
           GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
           TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
@@ -4010,9 +4157,10 @@ jobs:
           # that started and died — erasing the very distinction this leg is
           # built to keep. `outcome` is the value before the swallow. The
           # ternary reads whichever turn step ran — `turn_nosudo` on the
-          # nosudo member, `turn` on every other armed member — and `.outcome`
-          # on both branches, so the read stays outcome-not-conclusion.
-          TURN_OUTCOME: ${{ inputs.scenario == 'codex-freeze-probe-nosudo' && steps.turn_nosudo.outcome || steps.turn.outcome }}
+          # nosudo member, `turn_unprivuser` on the unprivuser member, `turn`
+          # on every other armed member — and `.outcome` on each, so the read
+          # stays outcome-not-conclusion.
+          TURN_OUTCOME: ${{ inputs.scenario == 'codex-freeze-probe-nosudo' && steps.turn_nosudo.outcome || inputs.scenario == 'codex-freeze-probe-unprivuser' && steps.turn_unprivuser.outcome || steps.turn.outcome }}
           CHECKIN_URL: ${{ steps.arm.outputs.checkin_url }}
           WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
         run: |
@@ -4145,6 +4293,45 @@ jobs:
               --channel "$TELEMETRY_CHANNEL" > /dev/null || true
           fi
 
+      # The unprivileged member's rollout lands under codexcell's own
+      # `~/.codex` (its derived CODEX_HOME), not the workspace `.codex` the
+      # shared assertion below reads. Relocate it so that one assertion serves
+      # every member unchanged: a real session leaves a rollout to copy, and a
+      # turn that never started leaves none — in which case the destination
+      # stays empty and the assertion fails, declaring the run void. sudo is
+      # still held on this member (its drop is the nosudo member's experiment),
+      # and the rollout is boot-probe session state with no secret in it.
+      - name: Surface the unprivileged turn's rollout for the shared assertion
+        if: >-
+          ${{ always() && github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-unprivuser' }}
+        env:
+          CODEX_USER: codexcell
+        run: |
+          # No `set -e`: this step relocates whatever the turn left, and a copy
+          # that finds nothing is a result — the assertion below then voids the
+          # run — not a step to fail. Each miss says which case fired, so a copy
+          # failure is never read as the turn having started no sandbox.
+          set -uo pipefail
+          home="$(getent passwd "$CODEX_USER" | cut -d: -f6 || true)"
+          src="$home/.codex/sessions"
+          dest="$GITHUB_WORKSPACE/.codex/sessions"
+          if [ -z "$home" ]; then
+            echo "::warning::codex user $CODEX_USER has no home — no rollout to surface"
+          elif [ ! -d "$src" ]; then
+            echo "::warning::no session rollout under $src — the unprivileged turn started none"
+            sudo ls -la "$home/.codex" 2>/dev/null || true
+          else
+            mkdir -p "$dest"
+            # `cp -a` (implies `-d`) copies a symlink AS a symlink rather than
+            # following it, and `chmod -R` does not descend through symlinks, so
+            # neither dereferences an agent-written tree entry as root. Keep the
+            # `-a` if this is ever edited.
+            sudo cp -a "$src/." "$dest/" \
+              || echo "::warning::failed to copy the rollout into $dest"
+            sudo chmod -R a+rX "$dest" || true
+          fi
+
       # The one thing that IS a gate here, and it is about the instrument
       # rather than the result: a turn that never started put no sandbox on
       # this runner, so the beat trail above spans nothing and the run's
@@ -4175,7 +4362,7 @@ jobs:
       - name: Upload the watchdog log
         if: >-
           ${{ always() && github.event_name == 'workflow_dispatch'
-          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig"]'), inputs.scenario) }}
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig", "codex-freeze-probe-unprivuser"]'), inputs.scenario) }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: freeze-probe-watchdog-log
