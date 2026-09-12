@@ -1,0 +1,244 @@
+name: Codex unprivileged-user setup
+description: >-
+  Provision the separate UNIX account codex runs as under
+  `safety-strategy: unprivileged-user`, and arrange the four things that
+  strategy leaves to the caller: a writable home and CODEX_HOME the action
+  derives from the account (so config and the session rollout land somewhere
+  codexcell owns), a copy of the trusted codex config there, read (never write)
+  access to the checkout, and — because a `sudo -u` hop resets the environment —
+  a sudoers `env_keep` pass for the handful of NON-SECRET variables the cell's
+  corpus retrieval and `uv` invocations need. It never grants codexcell write to
+  `src/`, `scripts/`, `pyproject.toml`, `uv.lock`, `.venv`, or the trusted
+  workspace `.codex/config.toml`: those stay runner-owned, because the
+  post-agent `fedcourts` steps run AS THE RUNNER USER and would otherwise
+  execute agent-planted code. (codex reads its OWN copy of that config from the
+  CODEX_HOME the action derives under codexcell's home, which codexcell owns and
+  could rewrite — harmless, because codex loads it once at startup, before the
+  agent acts.) The only workspace path codexcell may write is the cell's own
+  output subtree, pre-created and chowned to it here and handed back to the
+  runner by the teardown action after the turn.
+
+inputs:
+  codex-user:
+    description: The UNIX account codex runs as (must match the codex step's `codex-user`).
+    required: true
+  codex-config:
+    description: >-
+      Workspace path of the trusted codex config the MCP-configure step emitted
+      (copied, runner-owned, into the account's derived CODEX_HOME). Empty skips
+      the copy — only a leg that runs no real turn should skip it.
+    required: false
+    default: .codex/config.toml
+  codex-output-dir:
+    description: >-
+      The one path codexcell may write — the cell's output subtree
+      (`.../predictions/<predictor_id>/<run_id>` for predict, the evaluator's
+      `.../evaluations/<evaluator_id>` subtree for evaluate). Pre-created and
+      chowned to codexcell here; the teardown action hands it back to the runner.
+      Empty on a boot-probe leg that writes nothing.
+    required: false
+    default: ""
+  grant-workspace-read:
+    description: >-
+      "true" to grant codexcell read+traverse (never write) over the checkout,
+      which it needs to run `fedcourts` and read the provisioned record. A
+      boot-probe leg that reads no files leaves this "false".
+    required: false
+    default: "false"
+  env-keep:
+    description: >-
+      Space-separated NON-SECRET variable names to carry across the action's
+      `sudo -u` env_reset via a sudoers drop-in: the corpus backend/URL and uv
+      cache/no-sync the spawned `fedcourts`/`uv` need, plus the cell identifiers
+      the other engines get in their shell (the prompt inlines these as literals
+      too, so they are belt-and-braces). The model key is never here — it stays
+      behind the action's localhost proxy and never enters codexcell's
+      environment; and every name is validated against `[A-Z0-9_]`, so nothing
+      credential-shaped could be smuggled in even by a caller override.
+    required: false
+    default: FEDCOURTS_CORPUS_BACKEND FEDCOURTS_CORPUS_SERVICE_URL UV_CACHE_DIR UV_NO_SYNC COURT_ID DOCKET_ID EVENT_ID PREDICTOR_ID EVALUATOR_ID RUN_ID MODEL_ID DECIDED_BEFORE
+
+runs:
+  using: composite
+  steps:
+    - name: Provision the codex account and its home
+      shell: bash
+      env:
+        CODEX_USER: ${{ inputs.codex-user }}
+        CODEX_CONFIG: ${{ inputs.codex-config }}
+      run: |
+        set -euo pipefail
+        # Idempotent, pinned to a known home so the derived CODEX_HOME and the
+        # rollout path the teardown reads are literals. `nologin` because codex
+        # is launched as `sudo -u ... -- codex`, never as a login shell; `-m`
+        # creates the home, `-d` fixes it.
+        home="/home/$CODEX_USER"
+        if ! id -u "$CODEX_USER" >/dev/null 2>&1; then
+          sudo useradd -m -d "$home" -s /usr/sbin/nologin "$CODEX_USER"
+        fi
+        actual="$(getent passwd "$CODEX_USER" | cut -d: -f6)"
+        if [ "$actual" != "$home" ]; then
+          echo "::error::codex user home is '$actual', not the expected $home"
+          exit 1
+        fi
+        # `chmod 755` widens the image's default home mode so the runner-side
+        # proxy-config writer can traverse in and read the config back to merge
+        # it. The dirs are codexcell-owned so codex can create its session
+        # rollout under the derived CODEX_HOME (`~/.codex`) and write its uv
+        # cache (`~/.cache/uv`, pre-created so a default-cache write lands inside
+        # the home rather than failing outside it). No secret lives here — the
+        # config names localhost URLs only.
+        sudo chmod 755 "$home"
+        sudo install -d -o "$CODEX_USER" -g "$CODEX_USER" -m 755 \
+          "$home/.codex" "$home/.cache" "$home/.cache/uv"
+        # Because we pre-create the derived CODEX_HOME, the action takes its
+        # already-exists early return and skips creating the empty server-info
+        # file its localhost proxy (running as the runner) writes into this
+        # codexcell-owned dir. Mirror it: empty, so the action's non-empty
+        # "already running" probe stays false; the action chowns it root/444
+        # once the proxy has written. The 0666 is deliberate and load-bearing —
+        # the runner-side proxy must write this codexcell-owned dir — so do not
+        # "harden" the world-writable bit away; codexcell owns the parent and
+        # could replace the file at any mode regardless, and only the proxy's own
+        # lookup reads it.
+        sudo install -o root -g root -m 666 /dev/null \
+          "$home/.codex/${GITHUB_RUN_ID}.json"
+        # The permission profile the turn selects is declared in this config;
+        # codex reads it under the CODEX_HOME it derives (codexcell's own
+        # `~/.codex`, because the `sudo -u` hop cannot carry a CODEX_HOME env
+        # across), so the workspace copy is placed there — readable by the
+        # runner-side proxy writer, owned by codexcell, and carrying no token
+        # (localhost URLs only).
+        if [ -n "$CODEX_CONFIG" ]; then
+          if [ ! -f "$GITHUB_WORKSPACE/$CODEX_CONFIG" ]; then
+            echo "::error::no codex config at $CODEX_CONFIG to copy into the account's home"
+            exit 1
+          fi
+          sudo install -o "$CODEX_USER" -g "$CODEX_USER" -m 644 \
+            "$GITHUB_WORKSPACE/$CODEX_CONFIG" "$home/.codex/config.toml"
+        fi
+
+    - name: Carry the non-secret cell environment across the sudo hop
+      shell: bash
+      env:
+        CODEX_USER: ${{ inputs.codex-user }}
+        ENV_KEEP: ${{ inputs.env-keep }}
+      run: |
+        set -euo pipefail
+        # The action runs codex as `sudo -u codexcell -- codex ...`, and sudo's
+        # default `env_reset` strips all but a safe base set. The cell's corpus
+        # retrieval selects its backend and sidecar URL from the environment of
+        # the `fedcourts` commands codex spawns, and `uv` needs a writable cache
+        # and a no-sync flag (the runner owns `.venv`, which codexcell may read
+        # but must never write) — none of which the prompt can inline the way the
+        # cell identifiers are. So carry exactly those NON-SECRET names across the
+        # hop with an env_keep drop-in. Named names only, never a blanket keep,
+        # and the model key is not among them: it stays behind the action's
+        # localhost proxy and never enters codexcell's environment or any file it
+        # reads.
+        # The account name becomes a `/etc/sudoers.d` filename, and sudo SILENTLY
+        # ignores a drop-in whose name holds a `.` or other odd character — an
+        # env_keep that quietly never applies, surfacing only as a cell that
+        # fails deep in the turn with no corpus backend. Constrain it.
+        case "$CODEX_USER" in
+          ""|*[!a-z0-9_-]*|[!a-z_]*)
+            echo "::error::refusing a malformed codex-user: '$CODEX_USER'"
+            exit 1 ;;
+        esac
+        drop=/etc/sudoers.d/codex-${CODEX_USER}-env
+        # shellcheck disable=SC2086 # ENV_KEEP is a deliberately word-split list.
+        keep=""
+        for name in $ENV_KEEP; do
+          case "$name" in
+            *[!A-Z0-9_]*|"")
+              echo "::error::refusing a malformed env_keep name: '$name'"
+              exit 1 ;;
+          esac
+          keep="${keep:+$keep }$name"
+        done
+        # Validate BEFORE installing: a drop-in that would not parse must never
+        # reach `/etc/sudoers.d`, or every later `sudo` — the disarm step's
+        # chown-back included — breaks for the rest of the job. Build it in a
+        # temp file, `visudo -cf` that, then install it root-owned and read-only.
+        tmp="$(mktemp)"
+        printf 'Defaults env_keep += "%s"\n' "$keep" > "$tmp"
+        sudo visudo -cf "$tmp"
+        sudo install -o root -g root -m 440 "$tmp" "$drop"
+        rm -f "$tmp"
+
+    - name: Grant the codex account read access to the checkout
+      if: inputs.grant-workspace-read == 'true'
+      shell: bash
+      env:
+        CODEX_USER: ${{ inputs.codex-user }}
+      run: |
+        set -euo pipefail
+        # codex must READ the repo to run `fedcourts` and read the provisioned
+        # record, but must never WRITE `src/`, `scripts/`, `pyproject.toml`,
+        # `uv.lock`, `.venv`, or the trusted `.codex/config.toml` — those stay
+        # runner-owned, or an agent could plant code the runner-user tail then
+        # runs. `o+rX` adds read (and dir/traverse) for others WITHOUT adding
+        # write, so every runner-owned file stays non-writable by codexcell; the
+        # runner is single-tenant and ephemeral, so world-read is bounded.
+        # actions/checkout lands under `/home/runner/work/...` and `/home/runner`
+        # is mode 0750, so grant traverse (o+x only, never o+r — no listing) up
+        # the ancestor chain first, then read+traverse across the tree.
+        d="$GITHUB_WORKSPACE"
+        while [ "$d" != "/" ]; do
+          sudo chmod o+x "$d"
+          d="$(dirname "$d")"
+        done
+        sudo chmod -R o+rX "$GITHUB_WORKSPACE"
+        # The traverse grant on `/home/runner/work` incidentally makes its
+        # sibling `$RUNNER_TEMP` reachable, and that tree holds runner-only state
+        # codexcell has no business reading — the watchdog bundle, the evaluate
+        # cell's hidden-record blinding stash, and the runner's own
+        # step-output/file-command files (through which the App-token mint and
+        # the sidecar hand credentials to the runner in the clear). codexcell
+        # needs nothing there (its home and CODEX_HOME are its own), so close it:
+        # strip other access so the separate uid cannot traverse or read it.
+        if [ -n "${RUNNER_TEMP:-}" ] && [ -d "$RUNNER_TEMP" ]; then
+          sudo chmod o-rwx "$RUNNER_TEMP"
+        fi
+        # codex spawns `uv run fedcourts`, but `sudo`'s env_reset replaces PATH
+        # with `secure_path`, which excludes the runner's uv install dir — so
+        # codexcell would not find `uv`. Put one on `secure_path`: symlink the
+        # runner's uv into `/usr/local/bin` (a default `secure_path` entry) and
+        # make the real binary reachable (traverse its ancestors, read+execute
+        # the file) from codexcell's uid. uv is a public tool, not a secret.
+        uvbin="$(command -v uv || true)"
+        if [ -n "$uvbin" ]; then
+          real="$(readlink -f "$uvbin" || echo "$uvbin")"
+          sudo ln -sf "$real" /usr/local/bin/uv
+          d="$(dirname "$real")"
+          while [ "$d" != "/" ]; do
+            sudo chmod o+x "$d" 2>/dev/null || true
+            d="$(dirname "$d")"
+          done
+          sudo chmod o+rx "$real" 2>/dev/null || true
+        else
+          echo "::warning::no uv on PATH to expose to $CODEX_USER — codex's uv calls may fail"
+        fi
+
+    - name: Pre-create the cell output subtree codexcell may write
+      if: inputs.codex-output-dir != ''
+      shell: bash
+      env:
+        CODEX_USER: ${{ inputs.codex-user }}
+        OUTPUT_DIR: ${{ inputs.codex-output-dir }}
+      run: |
+        set -euo pipefail
+        # The one path codexcell may write. Nothing pre-creates it otherwise —
+        # the agent does, and under `sudo -u` that would leave a codexcell-owned
+        # tree the runner-user capture/stamp/validate steps cannot write into
+        # (stamp is not continue-on-error, so it would fail the cell after the
+        # full model spend). Pre-create it under the (runner-owned, now
+        # o+rX-traversable) event dir and hand it to codexcell; the teardown
+        # action chowns it back to the runner before those steps run.
+        case "$OUTPUT_DIR" in
+          /*|*..*)
+            echo "::error::codex output dir must be a workspace-relative path: '$OUTPUT_DIR'"
+            exit 1 ;;
+        esac
+        mkdir -p "$GITHUB_WORKSPACE/$OUTPUT_DIR"
+        sudo chown -R "$CODEX_USER:$CODEX_USER" "$GITHUB_WORKSPACE/$OUTPUT_DIR"

@@ -65,10 +65,14 @@ runbook, [docs/security.md](docs/security.md).
   quota and forces a rotation that touches pull — it is not a model key or a
   GitHub token.
   **The remaining residual is process-level, and the output channel is
-  gated.** On-runner step-scoping is not hard isolation: the sidecar runs as
-  the same user as the agent, so a determinedly-injected agent could still
-  read a sibling process's environment — what the sidecar removes is every
-  casual path (no agent env, no readable config file, no accidental log).
+  gated.** On-runner step-scoping is not hard isolation for the unsandboxed
+  engines: on a claude or gemini cell the sidecar runs as the same user as the
+  agent, so a determinedly-injected agent could still read a sibling process's
+  environment — what the sidecar removes there is every casual path (no agent
+  env, no readable config file, no accidental log). A codex cell runs the agent
+  as a separate unprivileged account that cannot read the runner user's process
+  environment at all, so even that determined read is closed for it; the
+  residual holds only for the same-user engines.
   And the sidecar is deliberately unauthenticated on `127.0.0.1`: anything on
   the runner can spend the token's rate limits *through* it, which equals the
   agent's designed tool access — while off-runner use of the credential now
@@ -194,12 +198,19 @@ runbook, [docs/security.md](docs/security.md).
   shell), and the exit codes of the script's own bounded probes of the
   already-validated check-in host, composed only from sources the agent cannot
   write and never read back off the agent-writable bundle directory.
-  Two residuals, both stated rather than denied. The watchdog runs as the same
-  runner user as the agent, so its environment is readable from an agent shell
-  exactly as the MCP sidecar's CourtListener token is — the process-level class
-  already conceded above. And the disarm step runs `fedcourts` out of a
-  workspace the agent has had the whole cell to write, so code planted there
-  reaches this token without needing the process read at all. Neither is
+  Two residuals are stated rather than denied, and the cells' `unprivileged-user`
+  codex closes the agent-reachable half of both. The watchdog runs as the runner
+  user; were the codex agent to run as that same user, its environment would be
+  readable from the agent shell exactly as the MCP sidecar's CourtListener token
+  is, and the disarm step's `fedcourts`, run out of a workspace the agent had the
+  whole cell to write, would reach the token from planted code without the
+  process read at all. Codex instead runs as a separate unprivileged account: it
+  cannot read the runner user's environment, and the only runner-owned path it
+  can write is its own output subtree, never the `src`/`scripts`/`.venv` the
+  disarm step executes — so neither residual is reachable by the cell's own agent. The watchdog token is
+  minted only on codex cells, so that is the whole of the agent-facing exposure;
+  a determined co-resident process at the runner uid stays the general
+  concession, and the cell agent is not one. Neither residual is
   time-bounded by the job: `create-github-app-token`'s revoke step does not run
   when a job is **cancelled**, which is precisely the wedge this feature exists
   for, so in that case the installation token lives out its own window.
@@ -224,13 +235,18 @@ runbook, [docs/security.md](docs/security.md).
   cell already faces.** The watchdog ends a step whose required output files all
   exist, parse, and stop changing — so an agent can end its own step early by
   writing them and idling, and a prompt injection in docket text can ask it to.
-  It can also simply create the watchdog's `REAPED` marker: the agent runs as the
-  runner user, and the cells' claude (`bypassPermissions`) and gemini
-  (`--yolo`) are
-  unsandboxed, so no runner-local path is out of its reach (the qp-topic
-  labeler is the one agent held to a narrower grant, and it is not a cell) — the only channel a
-  cell cannot forge is the off-runner comment, which is codex-only by the split
-  above. What either buys is narrow and worth stating exactly: the marker sets
+  On a claude or gemini cell it can also simply create the watchdog's `REAPED`
+  marker: those agents run as the runner user unsandboxed (claude
+  `bypassPermissions`, gemini `--yolo`), so no runner-local path is out of reach
+  (the qp-topic labeler is the one agent held to a narrower grant, and it is not
+  a cell). A codex cell cannot — codex runs as a separate unprivileged account,
+  and the marker sits under a runner-owned `RUNNER_TEMP` directory (mode 0755
+  and not writable by that account; the codex setup additionally strips other
+  access from `RUNNER_TEMP`), so this rests on that ownership, not on the uid
+  alone. The runner-local marker is therefore forgeable only by the same-user
+  engines, and the off-runner comment (codex-only by the split above) is the
+  channel no cell can forge at all.
+  What either buys is narrow and worth stating exactly: the marker sets
   `agent_ok`, which routes the cell to the run's **ready** PR instead of the
   draft one, and nothing else. `produced` and `validated` still have to hold, the
   collect job still secret-scans and still enforces the `data/` path jail, the

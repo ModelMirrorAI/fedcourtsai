@@ -1992,8 +1992,8 @@ sentinel unable to fire on an ordinary cell — as are `usage.json` and
 `retrieval_log.json`, which the harness writes after the step this reaps.
 
 The list reaches the watchdog as environment — never as a file, since the agent
-owns the workspace and a list it could rewrite is a list it could satisfy without
-doing the work. The watchdog polls for all of them to exist, be non-empty and
+owns the output files such a list would name (its own subtree, whatever its uid)
+and a list it could rewrite is a list it could satisfy without doing the work. The watchdog polls for all of them to exist, be non-empty and
 (for JSON) parse, and then for the output directory to go **quiescent** for five
 minutes, so an agent revising a draft is never cut off — the committed retrieval
 logs show a predict cell going 104 seconds between completing its file set and
@@ -2016,8 +2016,13 @@ strictly better than the job cap destroying it.
 **The deadline** is the second line, for a wedge that completes nothing. Set
 well inside the job cap, with the arithmetic at the arm step, it captures the
 runner user's process tree, the socket table and a listing of the codex home —
-first, so the evidence exists whatever the kills then do — then kills the
-engine, which fails the *step* and hands the cell back to the salvage path
+first, so the evidence exists whatever the kills then do. Under the cells'
+`unprivileged-user` codex two of those are thinner: the agent's own processes
+run under the separate account, outside a runner-uid process listing, and the
+codex home it lists is the workspace one (config only) until the disarm step
+surfaces the rollout into it — so the deep evidence of a wedged codex turn is
+the freeze probe's job, whose base turn runs `drop-sudo` as the runner user.
+It then kills the engine, which fails the *step* and hands the cell back to the salvage path
 above — which is also what makes the sidecar-log step run, so those logs land in
 a job log that now survives. (The engine pattern names codex's invocation; on
 any other engine it matches nothing and the escalation goes straight to the
@@ -2032,6 +2037,27 @@ the runner starts each step as a child of its per-job worker process and runs
 one step at a time, and one job owns the whole hosted machine, so the worker's
 live children are the step, whatever the pinned action's command line happens
 to look like.
+
+Under the cells' `unprivileged-user` codex the agent process belongs to a
+separate account, not the runner user, so it never appears in the runner-user
+process tree and a runner-user `kill` cannot signal it directly; the watchdog
+reaches the action's runner-user wrapper and, by parentage, the step tree that
+roots it. That makes the deadline defence-in-depth here rather than a
+load-bearing bound: `unprivileged-user` removes the mid-job account mutation
+that produces the teardown-hang wedge in the first place, and the step's own
+`timeout-minutes` is the hard backstop — not because the runner can signal the
+separate account (it runs at the watchdog's own uid and cannot) but because it
+*concludes the step itself* when the deadline passes, whatever is still alive
+under the other account. The sentinel's early-conclude reads the cell's output
+files in place to decide completion — they are codexcell-owned but world-readable
+at their default mode, and the chown-back to the runner does not run until the
+disarm step, after the watchdog is stood down — then ends the step by the same
+wrapper-and-parentage path. Because a concluded-but-not-killed codex process can
+orphan under the separate account and keep writing, the disarm step (and the
+integration legs' teardown) `pkill`s that account before it surfaces the rollout
+and chowns the output back, so no orphan races the handoff — the one place the
+runner's retained sudo reaches across the uid boundary, and it reaches it to
+*stop* the account, not to read it.
 
 **The thaw guard** sits over both triggers, and it is the one condition under
 which neither of them ever signals. An engine sandbox can suspend the watchdog
