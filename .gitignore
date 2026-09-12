@@ -232,6 +232,9 @@ __marimo__/
 /mcp-servers.json
 /.codex/
 /.gemini/
+# codex's workspace-write sandbox metadata carve-out (a local codex run under
+# the generated profile creates it too; codex-user-setup pre-creates it in CI)
+/.agents/
 
 # The cell watchdog's log, and the diagnostics bundle it writes when it acts:
 # runner-local evidence that rides the cell artifact, never the ledger.
