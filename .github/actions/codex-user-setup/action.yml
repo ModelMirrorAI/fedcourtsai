@@ -9,11 +9,14 @@ description: >-
   a sudoers `env_keep` pass for the handful of NON-SECRET variables the cell's
   corpus retrieval and `uv` invocations need. It never grants codexcell write to
   `src/`, `scripts/`, `pyproject.toml`, `uv.lock`, `.venv`, or the trusted
-  `.codex/config.toml`: those stay runner-owned, because the post-agent
-  `fedcourts` steps run AS THE RUNNER USER and would otherwise execute
-  agent-planted code. The only path codexcell may write is the cell's own output
-  subtree, pre-created and chowned to it here and handed back to the runner by
-  the teardown action after the turn.
+  workspace `.codex/config.toml`: those stay runner-owned, because the
+  post-agent `fedcourts` steps run AS THE RUNNER USER and would otherwise
+  execute agent-planted code. (codex reads its OWN copy of that config from the
+  CODEX_HOME the action derives under codexcell's home, which codexcell owns and
+  could rewrite — harmless, because codex loads it once at startup, before the
+  agent acts.) The only workspace path codexcell may write is the cell's own
+  output subtree, pre-created and chowned to it here and handed back to the
+  runner by the teardown action after the turn.
 
 inputs:
   codex-user:
@@ -89,7 +92,11 @@ runs:
         # file its localhost proxy (running as the runner) writes into this
         # codexcell-owned dir. Mirror it: empty, so the action's non-empty
         # "already running" probe stays false; the action chowns it root/444
-        # once the proxy has written.
+        # once the proxy has written. The 0666 is deliberate and load-bearing —
+        # the runner-side proxy must write this codexcell-owned dir — so do not
+        # "harden" the world-writable bit away; codexcell owns the parent and
+        # could replace the file at any mode regardless, and only the proxy's own
+        # lookup reads it.
         sudo install -o root -g root -m 666 /dev/null \
           "$home/.codex/${GITHUB_RUN_ID}.json"
         # The permission profile the turn selects is declared in this config;
@@ -125,6 +132,15 @@ runs:
         # and the model key is not among them: it stays behind the action's
         # localhost proxy and never enters codexcell's environment or any file it
         # reads.
+        # The account name becomes a `/etc/sudoers.d` filename, and sudo SILENTLY
+        # ignores a drop-in whose name holds a `.` or other odd character — an
+        # env_keep that quietly never applies, surfacing only as a cell that
+        # fails deep in the turn with no corpus backend. Constrain it.
+        case "$CODEX_USER" in
+          ""|*[!a-z0-9_-]*|[!a-z_]*)
+            echo "::error::refusing a malformed codex-user: '$CODEX_USER'"
+            exit 1 ;;
+        esac
         drop=/etc/sudoers.d/codex-${CODEX_USER}-env
         # shellcheck disable=SC2086 # ENV_KEEP is a deliberately word-split list.
         keep=""
@@ -136,10 +152,15 @@ runs:
           esac
           keep="${keep:+$keep }$name"
         done
-        printf 'Defaults env_keep += "%s"\n' "$keep" | sudo tee "$drop" >/dev/null
-        sudo chmod 440 "$drop"
-        # Reject a drop-in that would not parse rather than let sudo fall back.
-        sudo visudo -cf "$drop"
+        # Validate BEFORE installing: a drop-in that would not parse must never
+        # reach `/etc/sudoers.d`, or every later `sudo` — the disarm step's
+        # chown-back included — breaks for the rest of the job. Build it in a
+        # temp file, `visudo -cf` that, then install it root-owned and read-only.
+        tmp="$(mktemp)"
+        printf 'Defaults env_keep += "%s"\n' "$keep" > "$tmp"
+        sudo visudo -cf "$tmp"
+        sudo install -o root -g root -m 440 "$tmp" "$drop"
+        rm -f "$tmp"
 
     - name: Grant the codex account read access to the checkout
       if: inputs.grant-workspace-read == 'true'
@@ -164,6 +185,17 @@ runs:
           d="$(dirname "$d")"
         done
         sudo chmod -R o+rX "$GITHUB_WORKSPACE"
+        # The traverse grant on `/home/runner/work` incidentally makes its
+        # sibling `$RUNNER_TEMP` reachable, and that tree holds runner-only state
+        # codexcell has no business reading — the watchdog bundle, the evaluate
+        # cell's hidden-record blinding stash, and the runner's own
+        # step-output/file-command files (through which the App-token mint and
+        # the sidecar hand credentials to the runner in the clear). codexcell
+        # needs nothing there (its home and CODEX_HOME are its own), so close it:
+        # strip other access so the separate uid cannot traverse or read it.
+        if [ -n "${RUNNER_TEMP:-}" ] && [ -d "$RUNNER_TEMP" ]; then
+          sudo chmod o-rwx "$RUNNER_TEMP"
+        fi
         # codex spawns `uv run fedcourts`, but `sudo`'s env_reset replaces PATH
         # with `secure_path`, which excludes the runner's uv install dir — so
         # codexcell would not find `uv`. Put one on `secure_path`: symlink the

@@ -43,6 +43,13 @@ runs:
         # (an empty sessions dir voids a probe / leaves the captures to warn),
         # not a step to fail. Each miss says which case fired.
         set -uo pipefail
+        # `session-dest` is joined onto the workspace and `chmod -R`'d, so hold
+        # it to a workspace-relative path exactly as the output subtree is.
+        case "$SESSION_DEST" in
+          ""|/*|*..*)
+            echo "::error::session-dest must be a non-empty workspace-relative path: '$SESSION_DEST'"
+            exit 1 ;;
+        esac
         home="$(getent passwd "$CODEX_USER" | cut -d: -f6 || true)"
         src="$home/.codex/sessions"
         dest="$GITHUB_WORKSPACE/$SESSION_DEST"

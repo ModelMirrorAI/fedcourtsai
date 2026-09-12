@@ -1741,6 +1741,10 @@ jobs:
       # `.codex/sessions` the assertion, distillation and captures below read,
       # and hand the evaluator output subtree back to the runner. Before the
       # disarm step, and `always()` so a reaped or failed turn is still surfaced.
+      # Unlike the cells, this diagnostic leg runs it as its own step inside the
+      # armed window rather than folding it into disarm; a cap-cancel here would
+      # cost the rollout copy, which the leg accepts — it is a repro, not a
+      # production cell, and its verdict is the assertion, not the artifact.
       - name: Return the codex account's work to the runner
         if: ${{ always() && matrix.scenario == 'codex-application-repro' }}
         uses: ./.github/actions/codex-user-teardown
