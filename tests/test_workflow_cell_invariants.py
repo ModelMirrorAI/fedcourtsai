@@ -1615,21 +1615,29 @@ CODEX_LOCKSTEP_INPUTS = (
     "allow-bot-users",
 )
 
-# The one codex invocation held OUT of the lockstep equality below, by step id
-# and scoped to the integration workflow. The `codex-freeze-probe-nosudo` member
-# of integration-test.yml's freeze-probe family deliberately varies exactly ONE
-# field of the block — `safety-strategy: read-only` instead of `drop-sudo` — to
-# isolate whether `drop-sudo`'s irreversible account/socket mutation is what
-# wedges the runner. It is a diagnostic sibling of the base probe's `turn` step,
-# not a real cell/smoke/repro invocation, so it must not be measured against the
-# cells' block — while the pin keeps enforcing equality for every real member
-# (the base `turn` step included). The exemption is scoped to the smoke workflow
-# on purpose: a second codex step sneaked into a CELL workflow under this id must
-# NOT inherit the exemption, so the cells' sandbox posture stays fully pinned.
-# The exempt step is not left free-floating: its every-other-field equality with
-# the base `turn` step is pinned positively in the freeze-probe arms test below.
-# Keyed on (workflow, step id) so the exemption cannot travel to another file.
-CODEX_LOCKSTEP_EXEMPT_STEPS = frozenset({("integration-test.yml", "turn_nosudo")})
+# The codex invocations held OUT of the lockstep equality below, by step id and
+# scoped to the integration workflow. Two members of integration-test.yml's
+# freeze-probe family deliberately vary the block to isolate the runner-wedge
+# cause: `codex-freeze-probe-nosudo`'s `turn_nosudo` runs `safety-strategy:
+# read-only` instead of `drop-sudo`, and `codex-freeze-probe-unprivuser`'s
+# `turn_unprivuser` runs `safety-strategy: unprivileged-user` with a
+# `codex-user`, so codex runs as a separate account and the runner user's
+# sudo/sockets/groups are never mutated. Each is a diagnostic sibling of the
+# base probe's `turn` step, not a real cell/smoke/repro invocation, so neither
+# must be measured against the cells' block — while the pin keeps enforcing
+# equality for every real member (the base `turn` step included). The exemption
+# is scoped to the smoke workflow on purpose: a second codex step sneaked into a
+# CELL workflow under either id must NOT inherit the exemption, so the cells'
+# sandbox posture stays fully pinned. Neither exempt step is left free-floating:
+# its every-other-field equality with the base `turn` step is pinned positively
+# in the freeze-probe arms test below. Keyed on (workflow, step id) so the
+# exemption cannot travel to another file.
+CODEX_LOCKSTEP_EXEMPT_STEPS = frozenset(
+    {
+        ("integration-test.yml", "turn_nosudo"),
+        ("integration-test.yml", "turn_unprivuser"),
+    }
+)
 
 # The action path and the bare-CLI path express ONE network posture in two
 # dialects, so they cannot be compared for equality.
@@ -3276,6 +3284,7 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
         "codex-freeze-probe-smokeconfig",
         "codex-freeze-probe-autopsy",
         "codex-freeze-probe-nosudo",
+        "codex-freeze-probe-unprivuser",
     }
     arm = next(s for s in steps if s.get("id") == "arm")
     assert arm["env"]["WATCHDOG_DEADLINE_S"] == "1800", (
@@ -3307,7 +3316,8 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
     # UNARMED rather than armed by default.
     armed_members = (
         'contains(fromJSON(\'["codex-freeze-probe", '
-        '"codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig"]\'), inputs.scenario)'
+        '"codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig", '
+        '"codex-freeze-probe-unprivuser"]\'), inputs.scenario)'
     )
     assert disarm.get("if") == (
         f"${{{{ always() && github.event_name == 'workflow_dispatch' && {armed_members} }}}}"
@@ -3363,13 +3373,16 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
     # `outcome`, not `conclusion`: the turn carries `continue-on-error`, which
     # rewrites `conclusion` to success — and this value reaches a durable
     # telemetry row, where it would report a turn that died as a clean one.
-    # The nosudo member runs its turn as a separate step (`turn_nosudo`, held
-    # out of the lockstep pin so it can vary `safety-strategy` alone), so the
-    # env reads whichever step ran — and `.outcome` on both branches, which is
-    # what keeps this the outcome the swallow has not rewritten.
+    # The nosudo and unprivuser members each run their turn as a separate step
+    # (`turn_nosudo`, `turn_unprivuser`, held out of the lockstep pin so they can
+    # vary the block), so the env reads whichever step ran — and `.outcome` on
+    # every branch, which is what keeps this the outcome the swallow has not
+    # rewritten.
     assert disarm["env"]["TURN_OUTCOME"] == (
         "${{ inputs.scenario == 'codex-freeze-probe-nosudo'"
-        " && steps.turn_nosudo.outcome || steps.turn.outcome }}"
+        " && steps.turn_nosudo.outcome"
+        " || inputs.scenario == 'codex-freeze-probe-unprivuser'"
+        " && steps.turn_unprivuser.outcome || steps.turn.outcome }}"
     ), "the probe must read the turn's outcome, not the conclusion `continue-on-error` rewrites"
     # The retrieval posture the probe's whole credential story rests on: its
     # sidecar is launched with NO CourtListener token, so the config.toml the
@@ -3415,6 +3428,71 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
     assert turn_nosudo.get("env") == turn.get("env")
     assert turn_nosudo.get("timeout-minutes") == turn.get("timeout-minutes")
     assert turn_nosudo.get("continue-on-error") == turn.get("continue-on-error")
+
+
+def test_the_freeze_probe_unprivuser_turn_is_the_base_turn_with_two_fields_varied() -> None:
+    """The second lockstep-exempt turn, re-pinned field-by-field against the base.
+
+    Like `turn_nosudo`, `turn_unprivuser` is held out of the cross-surface pin so
+    it can vary the block; the exemption is only safe while it stays the base
+    `turn` with exactly its two intended changes (`safety-strategy`, the added
+    `codex-user`) and the deliberately-dropped `CODEX_HOME` env. Anything else
+    drifting to a codex the base member never runs would ship under a green suite.
+    """
+    steps = _load("integration-test.yml")["jobs"]["codex-freeze-probe"]["steps"]
+    turn = next(s for s in steps if s.get("id") == "turn")
+    # The unprivuser member's turn (`turn_unprivuser`) is the other step held
+    # out of the cross-surface lockstep pin, re-pinned here the same way: equal
+    # `uses`, its two varied fields set to the values that ARE the experiment,
+    # and every other lockstep input equal to the base turn. It differs from the
+    # base in three ways and no more — `safety-strategy`, the added `codex-user`,
+    # and the DROPPED `CODEX_HOME` env (the `sudo -u` hop cannot carry it, so the
+    # action derives the codex user's own home instead). So its `env` is asserted
+    # to omit CODEX_HOME rather than equal the base's, and everything else is
+    # held to the base.
+    turn_unprivuser = next(s for s in steps if s.get("id") == "turn_unprivuser")
+    assert turn_unprivuser["uses"] == turn["uses"], (
+        "the unprivuser turn must run the same codex-action SHA as the base turn"
+    )
+    assert turn_unprivuser["with"]["safety-strategy"] == "unprivileged-user", (
+        "the unprivuser turn's whole reason is to run codex as a separate account"
+    )
+    assert turn_unprivuser["with"]["codex-user"] == "codexcell", (
+        "the unprivileged-user strategy needs a pre-existing user to run codex as"
+    )
+    for key in CODEX_LOCKSTEP_INPUTS:
+        if key == "safety-strategy":
+            continue
+        assert turn_unprivuser["with"][key] == turn["with"][key], (
+            f"the unprivuser turn's {key!r} drifted from the base turn's — it "
+            f"must vary `safety-strategy` and add `codex-user` alone"
+        )
+    # No `CODEX_HOME` env: the `sudo -u` boundary drops it, so the action derives
+    # the codex user's own `~/.codex` as CODEX_HOME. Setting it here would send
+    # the config and rollout to a home codex never reads and void the probe.
+    assert "CODEX_HOME" not in (turn_unprivuser.get("env") or {}), (
+        "the unprivuser turn must NOT set CODEX_HOME — the sudo hop drops it and "
+        "the action derives the codex user's own home"
+    )
+    assert turn_unprivuser.get("timeout-minutes") == turn.get("timeout-minutes")
+    assert turn_unprivuser.get("continue-on-error") == turn.get("continue-on-error")
+    # The `codex-user` string is load-bearing in three steps — the turn, the
+    # provisioning step that creates the account, and the rollout-surfacing step
+    # that reads its home — and a drift in any one voids the member silently,
+    # green. Pin all three equal.
+    codex_user = turn_unprivuser["with"]["codex-user"]
+    provision = next(s for s in steps if s.get("name") == "Provision the unprivileged codex user")
+    surface = next(
+        s
+        for s in steps
+        if s.get("name") == "Surface the unprivileged turn's rollout for the shared assertion"
+    )
+    assert provision["env"]["CODEX_USER"] == codex_user, (
+        "the provisioning step creates a different user than the turn runs as"
+    )
+    assert surface["env"]["CODEX_USER"] == codex_user, (
+        "the rollout-surfacing step reads a different user's home than the turn wrote"
+    )
 
 
 def test_the_autopsy_members_dump_is_ordered_bounded_and_secret_free() -> None:

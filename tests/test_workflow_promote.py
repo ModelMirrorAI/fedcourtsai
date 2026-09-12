@@ -601,6 +601,7 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
         "codex-freeze-probe-smokeconfig",
         "codex-freeze-probe-autopsy",
         "codex-freeze-probe-nosudo",
+        "codex-freeze-probe-unprivuser",
         "engine-actions-smoke",
         "codex-application-repro",
     ):
@@ -619,6 +620,7 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
         "codex-freeze-probe-smokeconfig",
         "codex-freeze-probe-autopsy",
         "codex-freeze-probe-nosudo",
+        "codex-freeze-probe-unprivuser",
         "collect",
         "engine-actions-smoke",
         "codex-application-repro",
