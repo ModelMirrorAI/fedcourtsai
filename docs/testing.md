@@ -364,7 +364,7 @@ What it takes: the whole-machine process forest with `wchan` and `stat`
 columns, a `cgroup.freeze` survey across the cgroup tree and the user slice's
 `systemd-cgls`, logind sessions and the per-user manager, the kernel log, and
 the namespace/packet-filter/socket census. The kernel log needs a tap opened
-*before* the turn, because the cells' `drop-sudo` safety strategy takes sudo
+*before* the turn, because the base probe turn's `drop-sudo` safety strategy takes sudo
 away for the rest of the job: a detached `dmesg --follow` started while sudo
 still exists writes messages into a runner-local file across the turn and into
 the fuse window, and the later steps read that file with no privilege.
@@ -395,9 +395,9 @@ own capture stays inside one uid and rides an uploaded bundle.
 retired the family's first approach to this isolation. It is the base member's
 shape exactly — armed, with the same margins — differing in ONE field: its
 codex turn runs `safety-strategy: read-only` instead of `drop-sudo`. The
-leading hypothesis for the wedge is `drop-sudo` itself:
+confirmed cause of the wedge is `drop-sudo` itself:
 `openai/codex-action`'s own docs call its account and socket drop irreversible
-and say it must be a job's last step, and the cells run it mid-job.
+and say it must be a job's last step, and the base probe turn runs it mid-job.
 `read-only` drops nothing from the runner user's account or sockets, which
 would isolate that mutation — but `read-only` does not compose with a
 permission profile: the action refuses the pair, because that strategy forces
@@ -405,38 +405,42 @@ the legacy read-only sandbox, so this member's turn starts no real session at
 all, the sandbox-started assertion finds no rollout, and the run is void. The
 real-session version of the isolation is the `unprivuser` member below; this
 member stands as the negative control. Its turn is a separate step held out of
-the cross-surface codex lockstep pin — one of two exemptions, the other being
-the `unprivuser` member's turn — while the pin keeps enforcing the cells'
-block on every real member. The one posture delta is that its turn runs with
-the runner user's sudo intact rather than dropped; on a throwaway,
+the cross-surface codex lockstep pin — one of three exemptions (the base
+`turn`, this one, and the `unprivuser` turn) — while the pin keeps enforcing
+the cells' block on every real member. The one posture delta is that its turn
+runs with the runner user's sudo intact rather than dropped; on a throwaway,
 dispatch-only probe runner that assumes no role, reads no corpus, launches a
 token-free sidecar and sends a fixed no-tool prompt, that is bounded and
-acceptable — and the cells are untouched and keep `drop-sudo`.
+acceptable — and the production cells run `unprivileged-user`, the posture this
+diagnosis led to, not `drop-sudo`.
 
 **`codex-freeze-probe-unprivuser`** is that isolation done with a genuine
-session. It runs the base member's turn under `safety-strategy:
-unprivileged-user` with a `codex-user`, so codex builds and tears down its
-real profile sandbox — network, disk writes, a rollout — but as a SEPARATE
-unprivileged account the setup step provisions, which leaves the runner user's
-sudo, sockets and groups wholly intact. That is the one axis it isolates:
-unlike `read-only`, `unprivileged-user` composes with the permission profile,
-so the sandbox lifecycle the production cells run actually happens; and unlike
-`drop-sudo`, the runner account is never mutated. Read it simply: a wedge that
-still follows the turn implicates the sandbox teardown, while a clean run
-implicates the account drop `drop-sudo` performs. Its turn is the second
-lockstep exemption — it varies `safety-strategy` and adds `codex-user`. It
-sets no `CODEX_HOME` (neither the input nor a `CODEX_HOME` env is set, so the
-action derives that user's own `~/.codex`); setting it would misdirect the
-config and rollout, because the `sudo -u` hop cannot carry that env to the
-codex process. The config is copied into that home and the rollout lands
-there, and a small step relocates the rollout so the one shared
-sandbox-started assertion reads it. The setup step also gives that user a
-working directory it owns, because the checkout is not world-readable to it.
-The runner keeps its sudo — dropping it is the nosudo member's experiment —
-and the codex user is granted only its own home; no secret reaches it, because
-the model key never enters its environment or any file it can read — it stays
-behind the action's localhost proxy. On the same throwaway, dispatch-only
-probe runner, that is bounded and acceptable, and the cells are untouched.
+session, and it runs the posture the production cells now run. It runs the
+base member's turn under `safety-strategy: unprivileged-user` with a
+`codex-user`, so codex builds and tears down its real profile sandbox —
+network, disk writes, a rollout — but as a SEPARATE unprivileged account the
+setup step provisions, which leaves the runner user's sudo, sockets and groups
+wholly intact. That is the one axis it isolates: unlike `read-only`,
+`unprivileged-user` composes with the permission profile, so the sandbox
+lifecycle the production cells run actually happens; and unlike `drop-sudo`,
+the runner account is never mutated. Read it simply: a wedge that still follows
+the turn implicates the sandbox teardown, while a clean run implicates the
+account drop `drop-sudo` performs — the clean run this member and the cells now
+both run on. Its turn is one of the three lockstep exemptions — it varies
+`safety-strategy` and adds `codex-user`. It sets no `CODEX_HOME` (neither the
+input nor a `CODEX_HOME` env is set, so the action derives that user's own
+`~/.codex`); setting it would misdirect the config and rollout, because the
+`sudo -u` hop cannot carry that env to the codex process. The config is copied
+into that home and the rollout lands there, and a small step relocates the
+rollout so the one shared sandbox-started assertion reads it. The setup step
+also gives that user a working directory it owns, because the checkout is not
+world-readable to it. The runner keeps its sudo — the base turn's `drop-sudo`
+is what mutates it — and the codex user is granted only its own home; no secret
+reaches it, because the model key never enters its environment or any file it
+can read — it stays behind the action's localhost proxy. On the same throwaway,
+dispatch-only probe runner, that is bounded and acceptable; the production cells
+run this same `unprivileged-user` posture, with the account granted read over
+the checkout and write over its one output subtree.
 
 **The repro family** is the fourth token-spending class, and it exists
 because the two engine families above share a blind spot: the resolver

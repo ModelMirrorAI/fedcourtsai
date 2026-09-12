@@ -2033,6 +2033,19 @@ one step at a time, and one job owns the whole hosted machine, so the worker's
 live children are the step, whatever the pinned action's command line happens
 to look like.
 
+Under the cells' `unprivileged-user` codex the agent process belongs to a
+separate account, not the runner user, so it never appears in the runner-user
+process tree and a runner-user `kill` cannot signal it directly; the watchdog
+reaches the action's runner-user wrapper and, by parentage, the step tree that
+roots it. That makes the deadline defence-in-depth here rather than the
+load-bearing bound it was under `drop-sudo`: `unprivileged-user` removes the
+mid-job account mutation that produced the teardown-hang wedge in the first
+place, and the step's own `timeout-minutes` is the hard backstop, enforced by
+the runner service with the privilege a same-user kill lacks. The sentinel's
+early-conclude has the same reach — it still reads the cell's output files
+(surfaced back to the runner) to decide completion, but ending the step leans
+on the same wrapper-and-parentage path.
+
 **The thaw guard** sits over both triggers, and it is the one condition under
 which neither of them ever signals. An engine sandbox can suspend the watchdog
 process wholesale — SIGSTOP, or a cgroup freeze — for as long as the agent runs,

@@ -530,6 +530,24 @@ jobs:
           # "Configure agent retrieval" step above: it needs the CourtListener token in
           # its env, and this npm step must stay secret-free.
 
+      # codex runs as the separate `codexcell` account (see its step's
+      # `safety-strategy: unprivileged-user`), so provision and permission that
+      # account before the watchdog bracket: home and derived CODEX_HOME, read
+      # over the checkout, the non-secret cell env across the `sudo -u` hop, and
+      # write over its output subtree — the whole evaluator subtree, since the
+      # cell writes one dir per predictor it scores. Placed OUTSIDE the engine
+      # bracket, ahead of the mint/arm pair the watchdog tests pin adjacent; the
+      # disarm step returns codexcell's work to the runner. codex-only. The
+      # predict cell's setup carries the rationale in full.
+      - name: Provision the unprivileged codex user
+        if: matrix.engine == 'codex'
+        uses: ./.github/actions/codex-user-setup
+        with:
+          codex-user: codexcell
+          codex-config: .codex/config.toml
+          grant-workspace-read: "true"
+          codex-output-dir: data/cases/${{ matrix.court }}/${{ matrix.docket }}/events/${{ matrix.event_id }}/evaluations/${{ matrix.evaluator_id }}
+
       # The watchdog's reporting channel cannot live on the runner, because the
       # cancellation it guards against is what destroys everything there: the
       # diagnostics bundle, the disarm step that publishes it, the step summary,
@@ -851,10 +869,23 @@ jobs:
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
           # Corpus queries go through the localhost sidecar (see the Claude
-          # step): same surface, no cloud credential in this shell.
+          # step): same surface, no cloud credential in this shell. codex runs
+          # as a separate account (`safety-strategy: unprivileged-user` below),
+          # and the `sudo -u` hop resets the environment, so these NON-SECRET
+          # names reach the `fedcourts` commands codex spawns only through the
+          # env_keep drop-in the setup action installs — named there, kept here.
           FEDCOURTS_CORPUS_BACKEND: service
-          # Pin the session log to a known dir so the usage-capture step can read it.
-          CODEX_HOME: ${{ github.workspace }}/.codex
+          # `uv` runs as codexcell: pin its cache into that account's home and
+          # never sync — the runner built `.venv` with `uv sync --locked` and
+          # owns it, so codexcell reads it but must not write it. Both carried
+          # across the hop by the same env_keep pass. The predict cell's codex
+          # step carries the full rationale.
+          UV_CACHE_DIR: /home/codexcell/.cache/uv
+          UV_NO_SYNC: "1"
+          # No `CODEX_HOME`: the `sudo -u` hop cannot carry it, so the action
+          # derives codexcell's own `~/.codex` for the config and rollout. The
+          # runner-user tail keeps `CODEX_HOME` pointed at the workspace
+          # `.codex`, where the teardown step surfaces the rollout for it.
         with:
           # As with the Claude step: let a round GitHub attributes to the
           # pipeline App's login (`fedcourtsai-data[bot]`) past codex-action's
@@ -886,7 +917,17 @@ jobs:
             for a reply.
           model: ${{ matrix.model }}
           effort: high
-          safety-strategy: drop-sudo
+          # Run codex as a SEPARATE unprivileged account, not as the runner user
+          # with sudo dropped: `drop-sudo` irreversibly mutates the runner user's
+          # account mid-job and wedges the runner VM minutes later on current
+          # images. `unprivileged-user` leaves the runner account intact and runs
+          # codex as `codexcell` (provisioned above), granted only its own home,
+          # cache, read over the checkout, and write over its one output subtree;
+          # `src/`, `scripts/`, `pyproject.toml`, `uv.lock`, `.venv`, and the
+          # trusted `.codex/config.toml` stay runner-owned. No secret reaches
+          # codexcell. The predict cell's codex step carries the full rationale.
+          safety-strategy: unprivileged-user
+          codex-user: codexcell
           # Workspace writes plus subprocess network for spawned commands (the
           # localhost corpus service) through the `fedcourts-cell` permission
           # profile in the emitted `$CODEX_HOME/config.toml`, live web search to
@@ -1008,6 +1049,32 @@ jobs:
               kill "$pid" 2>/dev/null || true
             fi
             rm -f "$pid_file"
+          fi
+          # codex ran as the separate `codexcell` account: its session rollout
+          # landed under that account's derived `~/.codex`, and its output
+          # subtree is codexcell-owned. Return both to the runner here — the
+          # FIRST runner-user step after the turn, watchdog now stood down — so
+          # this step's distiller AND the usage/retrieval captures, the un-alias
+          # step, the process-version stamp, the validate step and the upload
+          # below all read the rollout and read+write the output. The bracket forbids a
+          # separate step between the engine and this one, so the handoff lives
+          # here rather than in the `codex-user-teardown` action the integration
+          # legs call — the two do the same thing. Defensive: a non-codex cell
+          # provisioned no account, a missing rollout is a warning, no failure
+          # here fails the disarm.
+          if [ "$ENGINE" = "codex" ] && id -u codexcell >/dev/null 2>&1; then
+            ch="$(getent passwd codexcell | cut -d: -f6 || true)"
+            if [ -n "$ch" ] && [ -d "$ch/.codex/sessions" ]; then
+              mkdir -p "$CODEX_HOME/sessions"
+              sudo cp -a "$ch/.codex/sessions/." "$CODEX_HOME/sessions/" || true
+              sudo chmod -R a+rX "$CODEX_HOME/sessions" || true
+            else
+              echo "::warning::no codex rollout under codexcell's home for ${EVENT_ID}"
+            fi
+            out="data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/evaluations/$ACTOR_ID"
+            if [ -d "$out" ]; then
+              sudo chown -R "$(id -u):$(id -g)" "$out" || true
+            fi
           fi
           # Read from the runner-temp bundle rather than the workspace copy
           # assembled below, so what is read is the copy the watchdog wrote and

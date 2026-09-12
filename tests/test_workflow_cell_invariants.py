@@ -1605,35 +1605,47 @@ CODEX_NPM_PIN_WORKFLOWS = ("run-backtest.yml", "integration-test.yml")
 # The inputs that make the invocation what it is. The prompt and the model may
 # differ on an integration leg (the boot probe sends a one-word prompt against
 # a resolved default, a repro leg its own record's cell); everything that
-# decides how codex runs does not.
+# decides how codex runs does not. `safety-strategy` is `unprivileged-user` and
+# `codex-user` names the account it runs as — the two together are the fix for
+# the runner-wedge, so a real member that regained `drop-sudo` (or dropped the
+# account) would reintroduce the mutation this pin exists to keep out.
 CODEX_LOCKSTEP_INPUTS = (
     "codex-version",
     "codex-args",
     "permission-profile",
     "safety-strategy",
+    "codex-user",
     "effort",
     "allow-bot-users",
 )
 
 # The codex invocations held OUT of the lockstep equality below, by step id and
-# scoped to the integration workflow. Two members of integration-test.yml's
-# freeze-probe family deliberately vary the block to isolate the runner-wedge
-# cause: `codex-freeze-probe-nosudo`'s `turn_nosudo` runs `safety-strategy:
-# read-only` instead of `drop-sudo`, and `codex-freeze-probe-unprivuser`'s
-# `turn_unprivuser` runs `safety-strategy: unprivileged-user` with a
-# `codex-user`, so codex runs as a separate account and the runner user's
-# sudo/sockets/groups are never mutated. Each is a diagnostic sibling of the
-# base probe's `turn` step, not a real cell/smoke/repro invocation, so neither
-# must be measured against the cells' block — while the pin keeps enforcing
-# equality for every real member (the base `turn` step included). The exemption
-# is scoped to the smoke workflow on purpose: a second codex step sneaked into a
-# CELL workflow under either id must NOT inherit the exemption, so the cells'
-# sandbox posture stays fully pinned. Neither exempt step is left free-floating:
+# scoped to the integration workflow. All three are integration-test.yml's
+# freeze-probe family, which reproduces the runner-wedge rather than running the
+# cells' invocation. The cells now run `safety-strategy: unprivileged-user`
+# (codex as a separate account, so the runner user's account is never mutated);
+# the freeze-probe family keeps a `drop-sudo` arm to reproduce the wedge that
+# fix removes, so its steps deliberately do NOT match the cells' block:
+#   * `turn` — the base probe, held at `drop-sudo` on purpose. It is the
+#     positive control: the arm that still mutates the runner account and wedges
+#     the VM, so the family keeps showing the defect the cells no longer run.
+#   * `turn_nosudo` — `safety-strategy: read-only`, the negative control for the
+#     action's refusal of that strategy alongside a permission profile.
+#   * `turn_unprivuser` — `safety-strategy: unprivileged-user` with a
+#     `codex-user`, the same posture the cells now run, kept as the family's
+#     clean arm.
+# The real cell/smoke/repro invocations — both cell steps and the integration
+# suite's `repro_codex` and `actions_smoke_codex` legs — stay fully pinned, so
+# they cannot drift from the cells' `unprivileged-user` + `codexcell` block. The
+# exemption is scoped to the smoke workflow on purpose: a second codex step
+# sneaked into a CELL workflow under any of these ids must NOT inherit the
+# exemption. Neither `turn_nosudo` nor `turn_unprivuser` is left free-floating:
 # its every-other-field equality with the base `turn` step is pinned positively
-# in the freeze-probe arms test below. Keyed on (workflow, step id) so the
+# in the freeze-probe arms tests below. Keyed on (workflow, step id) so the
 # exemption cannot travel to another file.
 CODEX_LOCKSTEP_EXEMPT_STEPS = frozenset(
     {
+        ("integration-test.yml", "turn"),
         ("integration-test.yml", "turn_nosudo"),
         ("integration-test.yml", "turn_unprivuser"),
     }
@@ -3417,12 +3429,18 @@ def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> No
         "the nosudo turn's whole reason is to drop `drop-sudo` for `read-only`"
     )
     for key in CODEX_LOCKSTEP_INPUTS:
-        if key == "safety-strategy":
+        # `codex-user` skipped too: neither the base `drop-sudo` turn nor this
+        # `read-only` one carries it (only `unprivileged-user` needs an account),
+        # so comparing it would key-error on both sides.
+        if key in ("safety-strategy", "codex-user"):
             continue
         assert turn_nosudo["with"][key] == turn["with"][key], (
             f"the nosudo turn's {key!r} drifted from the base turn's — it must "
             f"vary `safety-strategy` alone"
         )
+    assert "codex-user" not in turn_nosudo["with"], (
+        "the read-only nosudo turn runs as the runner user, so it takes no codex-user"
+    )
     # The fields outside `with:` that decide how the turn runs must match too,
     # so the experiment holds everything but the account drop still.
     assert turn_nosudo.get("env") == turn.get("env")
@@ -3461,7 +3479,9 @@ def test_the_freeze_probe_unprivuser_turn_is_the_base_turn_with_two_fields_varie
         "the unprivileged-user strategy needs a pre-existing user to run codex as"
     )
     for key in CODEX_LOCKSTEP_INPUTS:
-        if key == "safety-strategy":
+        # `codex-user` is the second intended variation (asserted above) and the
+        # base turn carries none, so skip it here alongside `safety-strategy`.
+        if key in ("safety-strategy", "codex-user"):
             continue
         assert turn_unprivuser["with"][key] == turn["with"][key], (
             f"the unprivuser turn's {key!r} drifted from the base turn's — it "

@@ -1636,6 +1636,21 @@ jobs:
       # asked to do the work a production judge cell does, because a wedge
       # that only appears under the real task is exactly the one the
       # boot-probe leg cannot see.
+      # This leg runs the real evaluate cell as codexcell under
+      # `unprivileged-user`, so provision and permission that account first,
+      # exactly as the cells do: its home and derived CODEX_HOME, read over the
+      # checkout, the non-secret cell env across the `sudo -u` hop, and write
+      # over the evaluator output subtree (handed back to the runner by the
+      # teardown step below).
+      - name: Provision the unprivileged codex user
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        uses: ./.github/actions/codex-user-setup
+        with:
+          codex-user: codexcell
+          codex-config: .codex/config.toml
+          grant-workspace-read: "true"
+          codex-output-dir: data/cases/${{ steps.repro.outputs.court }}/${{ steps.repro.outputs.docket }}/events/${{ steps.repro.outputs.event }}/evaluations/${{ steps.repro.outputs.evaluator }}
+
       - name: Evaluate the pinned application-lane record with Codex
         id: repro_codex
         if: ${{ matrix.scenario == 'codex-application-repro' }}
@@ -1654,12 +1669,19 @@ jobs:
           RUN_ID: ${{ steps.repro.outputs.run_id }}
           MODEL_ID: ${{ steps.repro.outputs.model }}
           # Corpus queries go through the localhost sidecar, as in the cells:
-          # same surface, no cloud credential in this shell.
+          # same surface, no cloud credential in this shell. codex runs as the
+          # separate `codexcell` account here too, and the `sudo -u` hop resets
+          # the environment, so these non-secret names reach codex's spawned
+          # `fedcourts` commands through the env_keep drop-in the setup step
+          # installs — the cells' mechanism, mirrored so this leg reproduces the
+          # true cell invocation.
           FEDCOURTS_CORPUS_BACKEND: service
-          # Pin codex's home to the workspace dir the config was written into,
-          # as the cell step does; the session rollout the assertion and the
-          # distillation below read lands under it.
-          CODEX_HOME: ${{ github.workspace }}/.codex
+          UV_CACHE_DIR: /home/codexcell/.cache/uv
+          UV_NO_SYNC: "1"
+          # No `CODEX_HOME`: the `sudo -u` hop cannot carry it, so the action
+          # derives codexcell's own `~/.codex`. The teardown step surfaces the
+          # rollout into the workspace `.codex/sessions` the assertion and the
+          # distillation below read; those steps keep `CODEX_HOME` there.
         with:
           allow-bot-users: "fedcourtsai-data[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -1684,13 +1706,18 @@ jobs:
             for a reply.
           model: ${{ steps.repro.outputs.model }}
           effort: high
-          safety-strategy: drop-sudo
-          # The cells' block, unchanged: workspace writes plus subprocess
-          # network through the `fedcourts-cell` permission profile in the
-          # emitted `$CODEX_HOME/config.toml`, live web search, and a pinned
-          # CLI. run-predict's codex step carries the rationale in full; a
-          # test holds these values in lockstep across every surface, so this
-          # leg cannot reproduce against a posture nothing else runs.
+          # The cells' block, unchanged in posture and mirrored in strategy: this
+          # leg reproduces the true cell invocation, so it runs `codexcell` under
+          # `unprivileged-user` exactly as the cells do (provisioned by the setup
+          # step above, returned by the teardown step below). run-predict's codex
+          # step carries the rationale in full; a test holds these values in
+          # lockstep across every surface, so this leg cannot reproduce against a
+          # posture nothing else runs.
+          safety-strategy: unprivileged-user
+          codex-user: codexcell
+          # Workspace writes plus subprocess network through the `fedcourts-cell`
+          # permission profile in the emitted config, live web search, a pinned
+          # CLI — the cells' posture, held in lockstep.
           permission-profile: fedcourts-cell
           codex-version: "0.144.1"
           codex-args: '["-c","web_search=live"]'
@@ -1710,6 +1737,18 @@ jobs:
       # planted marker can still make the leg *say* a deadline passed, which is
       # a report, not a grant — the step's own exit status is what the leg's
       # verdict rests on.
+      # codex ran as codexcell: surface its rollout into the workspace
+      # `.codex/sessions` the assertion, distillation and captures below read,
+      # and hand the evaluator output subtree back to the runner. Before the
+      # disarm step, and `always()` so a reaped or failed turn is still surfaced.
+      - name: Return the codex account's work to the runner
+        if: ${{ always() && matrix.scenario == 'codex-application-repro' }}
+        uses: ./.github/actions/codex-user-teardown
+        with:
+          codex-user: codexcell
+          session-dest: .codex/sessions
+          codex-output-dir: data/cases/${{ steps.repro.outputs.court }}/${{ steps.repro.outputs.docket }}/events/${{ steps.repro.outputs.event }}/evaluations/${{ steps.repro.outputs.evaluator }}
+
       - name: Disarm the engine watchdog
         id: repro_disarm
         if: ${{ always() && matrix.scenario == 'codex-application-repro' }}
@@ -2112,16 +2151,29 @@ jobs:
             --permission-mode bypassPermissions
             --mcp-config mcp-servers.json
 
+      # The boot probe runs as codexcell under `unprivileged-user`, so provision
+      # that account first, as the cells do. It reads and writes nothing, but the
+      # action still needs a working directory codexcell can reach and its config
+      # under the derived CODEX_HOME — so grant the checkout read (the default
+      # working directory is the repo root) and copy the config in. No output
+      # subtree: the probe writes none.
+      - name: Provision the unprivileged codex user
+        if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'codex' }}
+        uses: ./.github/actions/codex-user-setup
+        with:
+          codex-user: codexcell
+          codex-config: .codex/config.toml
+          grant-workspace-read: "true"
+
       - name: Smoke the Codex cell invocation
         id: actions_smoke_codex
         if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'codex' }}
         timeout-minutes: 10
         uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
-        env:
-          # Pin codex's home to the workspace dir the config was written into,
-          # as the cell step does; the session rollout the assertion below
-          # reads lands under it.
-          CODEX_HOME: ${{ github.workspace }}/.codex
+        # No `CODEX_HOME` env: as on the cells, the `sudo -u` hop cannot carry
+        # it, so the action derives codexcell's own `~/.codex`; the teardown step
+        # surfaces the rollout into the workspace `.codex/sessions` the assertion
+        # below reads.
         with:
           allow-bot-users: "fedcourtsai-data[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -2133,11 +2185,16 @@ jobs:
             probe of the invocation path, not a task.
           model: ${{ steps.cell.outputs.model }}
           effort: high
-          safety-strategy: drop-sudo
+          # The cells' strategy, mirrored: codex runs as `codexcell` under
+          # `unprivileged-user`, provisioned by the setup step above. This leg
+          # exercises the exact cell invocation, so it must not diverge on the
+          # one field the lockstep pin exists to hold.
+          safety-strategy: unprivileged-user
+          codex-user: codexcell
           # The cells' own block: the permission profile named here is declared
-          # in the `$CODEX_HOME/config.toml` the MCP step above wrote, so this
-          # leg exercises the profile-selection path the cells depend on — the
-          # layer the bare-CLI engine smoke never traverses.
+          # in the config the MCP step above wrote, so this leg exercises the
+          # profile-selection path the cells depend on — the layer the bare-CLI
+          # engine smoke never traverses.
           permission-profile: fedcourts-cell
           codex-version: "0.144.1"
           codex-args: '["-c","web_search=live"]'
@@ -2176,6 +2233,18 @@ jobs:
       # execution file, codex's session rollout, gemini's JSON result — and an
       # absent one fails here whatever the reason. Evidence of completion only:
       # nothing reads what the model said.
+      # codex ran as codexcell, so its rollout landed under codexcell's derived
+      # `~/.codex`. Surface it into the workspace `.codex/sessions` the assertion
+      # below reads. Gated exactly like the other engine-actions-smoke steps (no
+      # `always()`: a boot probe that failed to start fails the leg at the
+      # assertion, and there is no output subtree to return).
+      - name: Return the codex account's work to the runner
+        if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'codex' }}
+        uses: ./.github/actions/codex-user-teardown
+        with:
+          codex-user: codexcell
+          session-dest: .codex/sessions
+
       - name: Assert the invocation was accepted and completed
         if: ${{ matrix.scenario == 'engine-actions-smoke' }}
         env:
