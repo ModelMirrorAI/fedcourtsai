@@ -186,6 +186,7 @@ from .ops import (
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import arrival_cut, cell_context, historical, liveprobe, moments, qp_topics, semantic
+from .pipeline.amicus_rederive import rederive_amicus_briefs
 from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.arrival_cut import arrival_cut_ledger
 from .pipeline.asof import CutoffPolicy
@@ -893,6 +894,178 @@ def rederive_distribution_counts_cmd(
             f"rewrite(s) (--max-changes {max_changes}). Nothing was written. The bound "
             "is sized off a measured delta; a count past it means the predicate widened "
             "or the parse is not a narrowing of the incumbent — triage the report above "
+            "before raising it.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command("rederive-amicus-briefs")
+def rederive_amicus_briefs_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Write the re-derived column and re-freeze the committed outcomes; "
+            "omit for a dry-run plan.",
+        ),
+    ] = False,
+    max_changes: Annotated[
+        int,
+        typer.Option(
+            "--max-changes",
+            help="Blast-radius bound: refuse to apply more total changes (corpus "
+            "rewrites plus re-frozen outcomes) than this.",
+        ),
+        # The basis, so raising it is a decision rather than a reflex. The
+        # freeze-record entry (2026-09-10) pre-computes the committed worklist:
+        # 32 interim outcomes across 20 cases, of which only one case's 3 events
+        # move. The corpus write set is the resolved interim applications whose
+        # cut count moves, a low-count slice. The default sits ~5x the
+        # pre-computed motion, a guard against a catastrophic write rather than a
+        # wrong one — a total past it means the population moved (new
+        # resolutions) or the reading is not the widening it claims to be. The
+        # apply reads its own bound off the dry-run ledger regardless.
+    ] = 250,
+) -> None:
+    """Re-derive the interim `amicus_briefs` column and re-freeze the outcomes it fed.
+
+    The retrospective data motion the widened amicus reading
+    (`pipeline.interim_signals.amicus_briefs` / `amicus_briefs_through`) scoped
+    out of itself, registered in `docs/freeze-record.md`. The reading is live for
+    every application frozen after it merged; this pass corrects the rows frozen
+    under the old one, in two writes:
+
+    Step 1 recounts every **resolved** interim application docket in the live
+    slice — those carrying a readable disposition date — from its latest
+    live-shaped snapshot under the widened submitted-form reading with the
+    end-of-day cut, and writes the changed rows with a **direct UPDATE that
+    bypasses the max latch**. The latch stops a degraded payload from lowering a
+    stored count; the end-of-day cut lowers a resolved row deliberately (dropping
+    entries filed after the disposition), which is exactly the write it rejects,
+    so `upsert_rows` would write nothing while reporting success. An **open**
+    application (no readable disposition date) is left to the live channel, which
+    polls it under the same reading, and a row with no readable snapshot is left
+    untouched — never lowered.
+
+    Step 2 re-reads every committed interim `outcome.json` and rewrites its
+    `interim_signals.amicus_briefs` to the value the same recount produced,
+    leaving `response_requested` and `referred_to_court` — which the reading does
+    not touch — as they were. A committed `prediction.json` `context.amicus_briefs`
+    is **never** re-derived: it is the prediction-time snapshot, frozen by design,
+    and the two ends of the `amicus-increment` claim move at different times. No
+    `prediction.json` is opened.
+
+    One pass **per invocation**, so a dry run and the apply inside one call cannot
+    describe different work; across two dispatches the plan is a reading, which is
+    why the apply prints its own report. `--apply` refuses above `--max-changes`
+    (printing the report first so the refusal is triageable) and writes the corpus
+    batch in one transaction. Idempotent, and re-running the pass after an apply is
+    its control: it reports `total_changes = 0` unless the population moved. Run
+    where the corpus is pulled (`run-repair`'s `amicus-rederive` pass in
+    production; a dev checkout serves the dry run). Prints an `AmicusRederiveResult`.
+    Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before re-deriving the amicus counts.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    # The blob this pass read, resolved exactly as the distribution re-derivation
+    # resolves it: the ledger of a latch-bypassing write names the corpus state it
+    # is re-derivable against.
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+    elif settings.corpus_pointer is None:
+        pointer_file = corpus_remote.pointer_path_for(db_path)
+        corpus_sha = (
+            corpus_ranged.read_index_pointer(pointer_file).sha256 if pointer_file.is_file() else ""
+        )
+    else:
+        corpus_sha = corpus.resolve_read_pointer(db_path).sha256
+        typer.echo(
+            "corpus provenance: out-of-band pointer override in effect — the "
+            "recorded corpus_sha256 names the override's blob",
+            err=True,
+        )
+    with corpus.connect(db_path) as conn:
+        result = rederive_amicus_briefs(
+            conn,
+            settings.data_root,
+            apply=apply,
+            corpus_sha256=corpus_sha,
+            max_changes=max_changes,
+        )
+    verb = "rewrote" if apply else "would rewrite"
+    if result.refused:
+        verb = "refused to rewrite"
+    frame = result.observable + result.unobservable + result.open_no_cut
+    coverage = f"{100 * result.observable / frame:.1f}% of {frame}" if frame else "no rows"
+    typer.echo(
+        f"rederive-amicus-briefs ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {result.corpus_changed} of {result.observable} resolved application(s) "
+        f"({coverage} observable); {result.corpus_decreased} down, {result.corpus_increased} up; "
+        f"{result.unobservable} unobservable, {result.open_no_cut} open (no cut) and "
+        f"{result.no_stored_count} never-counted, all untouched"
+    )
+    typer.echo(
+        f"re-freeze: {verb} {result.outcomes_refrozen} of {result.outcomes_with_interim} "
+        f"committed interim outcome(s) across {result.cases_refrozen} case(s); "
+        f"{result.outcomes_unresolvable} unresolvable, left as frozen. "
+        f"interim amicus distribution: {result.interim_amicus_distribution}. "
+        f"context.amicus_briefs untouched: {result.context_amicus_untouched}"
+    )
+    for entry in result.refrozen:
+        typer.echo(f"  {entry.ref}: {entry.was} -> {entry.now}")
+    if not apply and result.total_changes > max_changes:
+        # The dry run never consults the bound, so without this the refusal would
+        # surface only on the second dispatch — after the reading meant to decide
+        # whether to make it.
+        typer.echo(
+            f"note: {result.total_changes} total changes is above --max-changes {max_changes}; "
+            "an apply would refuse. Triage, or dispatch with a bound you can justify.",
+            err=True,
+        )
+    typer.echo(
+        json.dumps(
+            {
+                "applied": result.applied,
+                "refused": result.refused,
+                "corpus_sha256": result.corpus_sha256,
+                "eligible": result.eligible,
+                "observable": result.observable,
+                "unobservable": result.unobservable,
+                "open_no_cut": result.open_no_cut,
+                "no_stored_count": result.no_stored_count,
+                "corpus_changed": result.corpus_changed,
+                "corpus_increased": result.corpus_increased,
+                "corpus_decreased": result.corpus_decreased,
+                "amicus_shift_entries": result.amicus_shift_entries,
+                "corpus_changed_case_ids": result.corpus_changed_case_ids,
+                "outcomes_with_interim": result.outcomes_with_interim,
+                "interim_amicus_distribution": result.interim_amicus_distribution,
+                "outcomes_refrozen": result.outcomes_refrozen,
+                "outcomes_unresolvable": result.outcomes_unresolvable,
+                "cases_refrozen": result.cases_refrozen,
+                "refrozen": [
+                    {"ref": entry.ref, "was": entry.was, "now": entry.now}
+                    for entry in result.refrozen
+                ],
+                "context_amicus_untouched": result.context_amicus_untouched,
+                "total_changes": result.total_changes,
+            }
+        )
+    )
+    if result.refused:
+        typer.echo(
+            f"rederive-amicus-briefs: refusing to apply {result.total_changes} total "
+            f"change(s) (--max-changes {max_changes}). Nothing was written. The bound is "
+            "sized off the freeze-record worklist; a total past it means the population "
+            "moved or the reading is not the widening it claims — triage the report above "
             "before raising it.",
             err=True,
         )

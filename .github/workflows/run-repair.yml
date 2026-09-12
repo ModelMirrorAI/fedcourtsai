@@ -66,6 +66,7 @@ on:
           - merits-phantom-removal
           - disposition-convergence
           - sampled-frame-weight-repair
+          - amicus-rederive
           - regrade-stale
       repair_mode:
         description: "dry-run prints the pass's ledger and writes nothing for the pass itself; apply writes and pushes; prerequisites apply either way — see docs/data-pipeline.md, Maintenance passes."
@@ -174,6 +175,8 @@ jobs:
               accepted_options="include-scored" ;;
             sampled-frame-weight-repair)
               bound_flag="--max-repairs"; bound_required_on_apply=1 ;;
+            amicus-rederive)
+              bound_flag="--max-changes"; bound_required_on_apply=1 ;;
             regrade-stale)
               target_kind="cells" ;;
             *)
@@ -313,7 +316,7 @@ jobs:
     # pass reaches them only by being named here. A deny-list would hand every
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
-    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) }}
+    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair","amicus-rederive"]'), inputs.repair) }}
     # Join the repo-wide corpus-writer lock: one writer at a time across
     # run-pull, run-seed and this bench. cancel-in-progress:false so a
     # dispatch queues behind a running window rather than cancelling it.
@@ -325,7 +328,7 @@ jobs:
     # run's own real pass — before ever being skipped. The condition is the
     # `if:` above, repeated because no context available here can hold it once.
     concurrency:
-      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair","amicus-rederive"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     # Headroom over the longest chain of capped steps a dispatch can run, which
@@ -2004,6 +2007,110 @@ jobs:
           git commit -m "repair: converge corpus (sampled-frame weights)"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "sampled-frame-weight pointer"
+
+      # Re-derive the interim `amicus_briefs` column under the widened
+      # submitted-form reading with the end-of-day cut, and re-freeze the
+      # committed interim outcomes that column was frozen onto. The retrospective
+      # data motion the widened reading scoped out of itself, pre-registered in
+      # `docs/freeze-record.md` (the 2026-09-10 interim-amicus-reading entry,
+      # which pre-computes the affected set). The reading is live for every
+      # application frozen after it merged; this pass corrects the rows frozen
+      # under the old one, so it presupposes that reading is promoted — it rides
+      # the same promotion batch.
+      #
+      # Two writes in one pass. The corpus write is a **direct UPDATE that
+      # bypasses the max latch** (the sampled-frame-weight repair's shape): the
+      # end-of-day cut lowers a resolved application's count, which the max latch
+      # — built to stop a degraded payload lowering a stored count — would reject
+      # as a silent no-op through the upsert path. Only resolved applications (a
+      # readable disposition date) are touched; an open one is left to the live
+      # channel, which polls it under the same reading. The re-freeze write lands
+      # in committed `data/` (`outcome.json`), rewriting only
+      # `interim_signals.amicus_briefs` and never a `prediction.json`
+      # `context.amicus_briefs` — the prediction-time snapshot is frozen by
+      # design. So this reads committed `data/` and needs the remote tip (fetch +
+      # ff-only, the disposition-convergence pattern), and stages the pointer and
+      # the ledger together so the corpus and the outcomes it must match move as
+      # one commit.
+      #
+      # The control is idempotence: re-dispatch this pass in `dry-run` after the
+      # apply and it reports `total_changes = 0` unless a new application
+      # resolved. There is no incumbent-reading control to run, because the
+      # reading is fixed in code rather than selected per dispatch.
+      - name: Re-derive amicus counts and re-freeze the interim outcomes
+        if: ${{ inputs.repair == 'amicus-rederive' && steps.dedupe-live-rows.outcome == 'success' }}
+        # The scan is local — the interim application slice against the pulled
+        # blob, one snapshot read per resolved application, and committed
+        # `outcome.json` against the re-derived counts — with the apply's writes
+        # to the corpus index and under `data/`.
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # Validate the bound before anything else, including the corpus guard:
+          # a dispatch that cannot legally apply should say so in seconds, not
+          # after a full scan. The command refuses an unbounded apply on its own
+          # too; this refusal is the one with the maintainer's procedure in it.
+          # `Validate the repair selector` duplicates it word for word so a bad
+          # dispatch dies before any credential is minted; this copy is the one
+          # of record, because the step has to be safe on whatever reaches it.
+          # The refusal names the pass through `${REPAIR}` rather than a literal
+          # so the two copies are identical as text, not merely equivalent once
+          # expanded.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to re-derive.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the amicus re-derivation"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # The re-freeze reads committed `outcome.json` out of `data/` and
+          # rewrites beside them, so it needs the remote tip, not this checkout's
+          # — an interim outcome minted by a collect PR since the last sync must
+          # be visible. Fast-forward only, for the passes' reason: an unpushed
+          # local commit over live corpus mutations fails this closed rather than
+          # being reset away.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          # Dry-run first, into the summary: the ledger — each resolved
+          # application whose count moves old->new, the frozen interim-amicus
+          # distribution across the committed worklist (the shape the
+          # freeze-record entry pre-computes), and each re-frozen outcome — is the
+          # reading the apply's bound comes from, and it must outlive the step
+          # log. It is also the record of a re-derivation that moves a scored
+          # claim's resolution end, so it is written down whichever mode ran. (On
+          # an apply this run is a receipt, not a reading.)
+          uv run fedcourts rederive-amicus-briefs 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts rederive-amicus-briefs --apply \
+            --max-changes "${REPAIR_BOUND}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          # The re-freeze lands in `data/` (`outcome.json`); stage it with the
+          # pointer so the corpus and the outcomes it must match move together or
+          # not at all.
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "Amicus counts already re-derived and outcomes re-frozen; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: re-derive amicus counts and re-freeze interim outcomes"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "amicus-rederive pointer"
 
       # Trailing, NON-BLOCKING data-validation, as on run-pull's and run-seed's
       # writer jobs: produce the correctness verdict on the now-current corpus
