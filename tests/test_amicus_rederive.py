@@ -46,7 +46,7 @@ def _regrade_pattern() -> str:
     mistake cannot produce two differently worded refusals. Both are read and
     required to agree, so this helper cannot quietly pick the stale one.
     """
-    patterns = set(re.findall(r"pattern='([^']+)'", _RUN_REPAIR.read_text()))
+    patterns = {str(found) for found in re.findall(r"pattern='([^']+)'", _RUN_REPAIR.read_text())}
     assert len(patterns) == 1, f"run-repair's regrade cell grammars have drifted: {patterns}"
     return patterns.pop()
 
