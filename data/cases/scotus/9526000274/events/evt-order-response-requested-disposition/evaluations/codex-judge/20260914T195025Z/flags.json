@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000274",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "claude-baseline's reasoning dates the Fourth Circuit holding to June 19, 2026. The provisioned August 28 application, pages 4-5, states that argument occurred August 7 and the opinion/order issued August 25; its appendix contents identify June 19 as the petition-for-review date. This source/chronology error affects reasoning quality, not the correct grant label or leakage assessment. The candidate disclosed reliance on secondary reporting because filing text was unavailable in its own provisioned record. See claude-baseline's evaluation.md for the evidence and scoring treatment.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260914T195025Z",
+  "schema_version": "1.0"
+}

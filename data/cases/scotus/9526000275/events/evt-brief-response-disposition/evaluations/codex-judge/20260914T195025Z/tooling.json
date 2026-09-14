@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000275",
+  "gaps": [
+    "gemini-baseline has no captured retrieval results; whether its live searches surfaced outcome material cannot be independently determined.",
+    "Provisioned documents do not include the response text or a reasoned disposition."
+  ],
+  "helpful": [
+    "Blinded candidate artifacts preserve independent attribution-free grading.",
+    "Capture markers distinguish unavailable retrieval results from empty results.",
+    "Provisioned application and docket snapshot support record-grounded assessment."
+  ],
+  "notes": "Used only local provisioned materials, task schemas, and the committed statpack. No corpus, CourtListener, or web retrieval. Interim baseline and skill are left to harness stamping. Missing capture is an observability limitation, not evidence of leakage.",
+  "role": "evaluator",
+  "run_id": "20260914T195025Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "python"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

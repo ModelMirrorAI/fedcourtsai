@@ -1,0 +1,74 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": null,
+  "brier_score": 0.022500000000000006,
+  "brier_skill_score": 0.9719279458882164,
+  "case_id": "scotus/9526000274",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": 0.7790088568298028
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 1.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7790088568298028,
+    "total": 0.7790088568298028
+  },
+  "correct": 1,
+  "created_at": "2026-09-14T19:54:19Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The captured call metadata places this prediction's research on September 1, 2026, before this application's September 4 resolution. Queries include the application's number and a search for a Supreme Court ruling, but such a query is permitted while a forward event remains unresolved. All result markers are unobserved (coverage 0.0); absent result dates or digests do not show that the searches returned nothing. The reasoning uses pre-disposition circumstances and does not report an already-issued Supreme Court disposition. No affirmative evidence of outcome material or forward mis-provisioning appears in the staged record.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260901T014205Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fa92c82e827ede277677781a11d13f20afc830517c11377cf50be167c8a07d36",
+    "label": "proc-v7",
+    "pipeline_sha": "ba603cd0da8d4e4c59f1aa3d405e7ba4979571fc",
+    "stamped_at": "2026-09-14T19:57:10.796092Z"
+  },
+  "reasoning_quality": 0.65,
+  "run_id": "20260914T195025Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
