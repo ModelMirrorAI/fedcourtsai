@@ -313,6 +313,12 @@ def graded_units(evaluation: Evaluation) -> tuple[GradedUnit, ...]:
         # The ground is carried only where it means something. A ground beside an
         # ordinal grade is a grader answering a question it was not asked, and
         # counting it would put a mask's ground on a unit that never masked.
+        # Dropped silently, and `semantic_grade_problems` does not report it —
+        # the same treatment a row outside the declared set gets, and for the
+        # same reason: this is a stray field on a conforming block, not a block
+        # the roll-up refuses. Making it a refusal would add a sixth arm on both
+        # sides of the enumerator correspondence, which belongs with the prompt
+        # amendment that first asks a grader for the field.
         ground = row.mask_ground if grade is SemanticSupport.not_addressed else None
         graded[row.claim_id] = (grade, ground)
     if any(claim_id not in graded for claim_id in claim_ids):
