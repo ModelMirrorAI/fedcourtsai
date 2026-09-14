@@ -2080,13 +2080,16 @@ jobs:
           git fetch origin "$GITHUB_REF_NAME"
           git merge --ff-only FETCH_HEAD
           # Dry-run first, into the summary: the ledger — each resolved
-          # application whose count moves old->new, the frozen interim-amicus
-          # distribution across the committed worklist (the shape the
-          # freeze-record entry pre-computes), and each re-frozen outcome — is the
-          # reading the apply's bound comes from, and it must outlive the step
-          # log. It is also the record of a re-derivation that moves a scored
-          # claim's resolution end, so it is written down whichever mode ran. (On
-          # an apply this run is a receipt, not a reading.)
+          # application whose count moves old->new, each re-frozen outcome, and
+          # the frozen interim-amicus distribution across the committed worklist
+          # (the shape the freeze-record entry pre-computes) — is the reading the
+          # apply's bound comes from, and it must outlive the step log. It is
+          # also the record of a re-derivation that moves a scored claim's
+          # resolution end, so it is written down whichever mode ran. (On an
+          # apply this run is a receipt, not a reading.) Both runs report the
+          # distribution as FOUND, before their own writes, so the apply's copy
+          # is the pre-apply shape rather than the converged one — the control
+          # re-dispatch below is what shows the post-apply state.
           uv run fedcourts rederive-amicus-briefs 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "${REPAIR_MODE}" != "apply" ]; then
             echo "dry-run only; nothing written."

@@ -1914,6 +1914,9 @@ leaves the disposition date null and keeps the unbounded reading; the size of
 that arm is unmeasured. And the column max-latches, so a row whose count had
 already latched high on an earlier poll — before its disposition date was
 readable — keeps that value, and only a corpus re-derivation can bring it down.
+That re-derivation is `run-repair`'s `amicus-rederive` pass, which recounts the
+column on resolved applications through a direct `UPDATE` past the latch and
+re-freezes the committed `interim_signals` blocks it fed.
 
 For those two cert moments the placement moves the **base rate**, not just the
 description. The cut removes the relists filed after the trigger, so the frozen

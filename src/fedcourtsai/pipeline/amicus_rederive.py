@@ -30,15 +30,39 @@ entry moves a resolved row's count **down** — so routing it through
 :func:`fedcourtsai.corpus.upsert_rows` would write nothing while reporting
 success. A silent no-op that reads as convergence is worse than a refusal, so
 the write goes through :func:`fedcourtsai.corpus.set_amicus_briefs`, which says
-so. Bypassing a guard obliges naming what it was for and what replaces it: the
-latch rejects any regression from any cause, and what replaces it here is
-narrower — a row with **no readable disposition date** (an *open* application) is
-left to the live channel, which polls it under the same widened reading, and a
-row whose snapshot is missing or discloses no entries is counted
-``unobservable`` and left untouched, never lowered. So the pass touches only a
-**resolved** application (a readable disposition date, hence a fixed cut value
-``live_rotation`` no longer re-polls) — exactly the rows whose resolution value
-an ``outcome.json`` can freeze.
+so. Bypassing a guard obliges naming what it was for and what replaces it, and
+saying how much of it is **not** replaced. The latch rejects any regression from
+any cause. What replaces it here is narrower — a row with **no readable
+disposition date** (an *open* application) is left to the live channel, which
+polls it under the same widened reading, and a row whose snapshot is missing or
+discloses no entries is counted ``unobservable`` and left untouched, never
+lowered. So the pass touches only a **resolved** application (a readable
+disposition date, hence a fixed cut value ``live_rotation`` no longer re-polls) —
+exactly the rows whose resolution value an ``outcome.json`` can freeze.
+
+That covers *total* payload loss and not *partial* degradation, which is the gap
+the latch used to cover and this pass does not: a snapshot that still parses a
+disposition entry but has lost earlier ones recounts low, and the direct
+``UPDATE`` lands that — then :func:`_plan_refreezes` propagates it into a
+committed ``outcome.json``. One accidental protection is worth stating rather
+than relying on silently: the disposing entry is normally at the docket's tail,
+so tail-first truncation takes it too and the row falls to ``open_no_cut`` and is
+skipped. Head-first or selective loss is not covered. The replacement is
+therefore **procedural**: every changed row is published in the ledger with its
+old and new count (:attr:`AmicusRederiveResult.corpus_moves`), so an implausible
+decrease is visible to the maintainer *before* the apply rather than discoverable
+only afterwards.
+
+**A move is not by itself the reading's doing.** The recount runs over the
+docket's *current* snapshot, so an entry dated at or before the disposition that
+the poll had not yet seen when the resolution was detected raises the re-derived
+count legitimately under the cut — for a reason that is late docket-data arrival
+rather than the widening. Both reach the ledger as one ``was -> now``, and
+nothing here can separate them. For a scored claim's resolution end that is the
+difference between a hit and measurement drift, so each flip owes the same check
+the freeze record performs by hand: the moving entry's date against the affected
+cells' own anchor. A flip whose entry predates the anchor is the measurement
+widening, and its increment is not claimable as a forecast hit.
 
 **2. The committed ``interim_signals`` blocks, re-frozen from the corrected
 reading.** Nothing else re-freezes ``interim_signals`` today
@@ -102,6 +126,17 @@ class AmicusRefreeze:
     now: int
 
 
+@dataclass(frozen=True, kw_only=True)
+class AmicusCorpusMove:
+    """One corpus row whose stored ``amicus_briefs`` the re-derivation moves."""
+
+    case_id: str
+    #: The stored count, under the reading that wrote it.
+    was: int
+    #: The re-derived count under the widened reading and the end-of-day cut.
+    now: int
+
+
 @dataclass
 class AmicusRederiveResult:
     """What one re-derive-and-re-freeze pass wrote (or would write on a dry run)."""
@@ -139,6 +174,10 @@ class AmicusRederiveResult:
     #: beside the row count, the twin of ``arrival-cut-ledger``'s
     #: ``amicus_shift_entries``.
     amicus_shift_entries: int = 0
+    #: Every changed corpus row with its old and new count, complete rather than
+    #: sampled, in ``case_id`` order — the per-row half of the ledger a maintainer
+    #: reads before approving the apply.
+    corpus_moves: list[AmicusCorpusMove] = field(default_factory=list)
     corpus_changed_case_ids: list[str] = field(default_factory=list)
 
     # --- Step 2: the committed interim outcomes ---
@@ -242,6 +281,9 @@ def _rederive_column(
         stored = row.amicus_briefs
         if recount != stored:
             corpus_updates.append((row.case_id, recount))
+            result.corpus_moves.append(
+                AmicusCorpusMove(case_id=row.case_id, was=stored, now=recount)
+            )
             result.corpus_increased += int(recount > stored)
             result.corpus_decreased += int(recount < stored)
             result.amicus_shift_entries += abs(recount - stored)

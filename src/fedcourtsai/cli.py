@@ -918,14 +918,17 @@ def rederive_amicus_briefs_cmd(
             "rewrites plus re-frozen outcomes) than this.",
         ),
         # The basis, so raising it is a decision rather than a reflex. The
-        # freeze-record entry (2026-09-10) pre-computes the committed worklist:
-        # 32 interim outcomes across 20 cases, of which only one case's 3 events
-        # move. The corpus write set is the resolved interim applications whose
-        # cut count moves, a low-count slice. The default sits ~5x the
-        # pre-computed motion, a guard against a catastrophic write rather than a
-        # wrong one — a total past it means the population moved (new
-        # resolutions) or the reading is not the widening it claims to be. The
-        # apply reads its own bound off the dry-run ledger regardless.
+        # freeze record pre-computes the committed *population* — the interim
+        # outcomes carrying a frozen block — and NOT how many of them move: the
+        # motion it reconstructs covers two dockets of twenty, both surfaced by
+        # cell flags, which is the most biased sample available for the question.
+        # Most of the population reads 0 and can rise under the widened reading,
+        # so that arm is unmeasured and a ledger larger than the reconstructed
+        # motion is the expected result rather than a defect. The corpus write
+        # set is the resolved interim applications whose cut count moves. The
+        # default sits an order of magnitude above the registered population, a
+        # guard against a catastrophic write rather than a wrong one. The apply
+        # reads its own bound off the dry-run ledger regardless.
     ] = 250,
 ) -> None:
     """Re-derive the interim `amicus_briefs` column and re-freeze the outcomes it fed.
@@ -1003,24 +1006,39 @@ def rederive_amicus_briefs_cmd(
     verb = "rewrote" if apply else "would rewrite"
     if result.refused:
         verb = "refused to rewrite"
+    # The counted frame, named: it excludes `no_stored_count`, so it is not the
+    # walked population and a bare percentage would be read against the wrong
+    # denominator. `eligible` is this frame plus the never-counted rows.
     frame = result.observable + result.unobservable + result.open_no_cut
-    coverage = f"{100 * result.observable / frame:.1f}% of {frame}" if frame else "no rows"
+    coverage = (
+        f"{100 * result.observable / frame:.1f}% of the {frame}-row counted frame"
+        if frame
+        else "no rows"
+    )
     typer.echo(
         f"rederive-amicus-briefs ({'applied' if apply else 'dry-run'}): "
         f"{verb} {result.corpus_changed} of {result.observable} resolved application(s) "
-        f"({coverage} observable); {result.corpus_decreased} down, {result.corpus_increased} up; "
+        f"({coverage} readable); {result.corpus_decreased} down, {result.corpus_increased} up; "
         f"{result.unobservable} unobservable, {result.open_no_cut} open (no cut) and "
-        f"{result.no_stored_count} never-counted, all untouched"
+        f"{result.no_stored_count} never-counted, all untouched. Read `unobservable` "
+        "first: against an index-only pull every row lands there and the empty ledger "
+        "below is a wrong-blob reading rather than a converged corpus"
     )
     typer.echo(
         f"re-freeze: {verb} {result.outcomes_refrozen} of {result.outcomes_with_interim} "
         f"committed interim outcome(s) across {result.cases_refrozen} case(s); "
         f"{result.outcomes_unresolvable} unresolvable, left as frozen. "
-        f"interim amicus distribution: {result.interim_amicus_distribution}. "
-        f"context.amicus_briefs untouched: {result.context_amicus_untouched}"
+        f"interim amicus distribution (as FOUND, before any write): "
+        f"{result.interim_amicus_distribution}. "
+        "context.amicus_briefs untouched by construction (no prediction.json is opened)"
     )
+    # Both write sets, per row: the corpus moves the apply would land and the
+    # committed blocks it would re-freeze. This is the reading the bound comes
+    # from, so neither half is left as an aggregate.
+    for move in result.corpus_moves:
+        typer.echo(f"  corpus {move.case_id}: {move.was} -> {move.now}")
     for entry in result.refrozen:
-        typer.echo(f"  {entry.ref}: {entry.was} -> {entry.now}")
+        typer.echo(f"  outcome {entry.ref}: {entry.was} -> {entry.now}")
     if not apply and result.total_changes > max_changes:
         # The dry run never consults the bound, so without this the refusal would
         # surface only on the second dispatch — after the reading meant to decide
@@ -1045,6 +1063,10 @@ def rederive_amicus_briefs_cmd(
                 "corpus_increased": result.corpus_increased,
                 "corpus_decreased": result.corpus_decreased,
                 "amicus_shift_entries": result.amicus_shift_entries,
+                "corpus_moves": [
+                    {"case_id": move.case_id, "was": move.was, "now": move.now}
+                    for move in result.corpus_moves
+                ],
                 "corpus_changed_case_ids": result.corpus_changed_case_ids,
                 "outcomes_with_interim": result.outcomes_with_interim,
                 "interim_amicus_distribution": result.interim_amicus_distribution,
@@ -1063,10 +1085,11 @@ def rederive_amicus_briefs_cmd(
     if result.refused:
         typer.echo(
             f"rederive-amicus-briefs: refusing to apply {result.total_changes} total "
-            f"change(s) (--max-changes {max_changes}). Nothing was written. The bound is "
-            "sized off the freeze-record worklist; a total past it means the population "
-            "moved or the reading is not the widening it claims — triage the report above "
-            "before raising it.",
+            f"change(s) (--max-changes {max_changes}). Nothing was written. A total past "
+            "the bound means the committed population grew, or that dockets the freeze "
+            "record did not reconstruct moved (expected — that arm is unmeasured), or "
+            "that the reading is not the widening it claims. The first two are ordinary; "
+            "triage the per-row moves above before raising it.",
             err=True,
         )
         raise typer.Exit(code=1)

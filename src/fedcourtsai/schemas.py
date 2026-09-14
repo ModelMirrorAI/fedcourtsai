@@ -765,8 +765,8 @@ class PredictionContext(_Strict):
         default=None,
         ge=0,
         description="Amicus briefs the snapshot's entries recorded as at "
-        "provisioning — the same reading the outcome's block takes (accepted-form "
-        "entries plus each distinct lead filer still docketed as submitted), over "
+        "provisioning — the interim reading (accepted-form entries plus each "
+        "distinct lead filer still docketed as submitted), over "
         "the entries this cell's own `cut_kind` rule kept. Under `date` that is "
         "everything filed strictly before `cutoff`, so the opening day is "
         "included and this end agrees with the outcome's end-of-disposition-day "
@@ -774,7 +774,15 @@ class PredictionContext(_Strict):
         "are excluded here and counted there, which biases the increment claim "
         "upward. Masked by `signals_observable` like the rest. Unbounded above, "
         "so the increment claim over it is a strict rise with no vacuous arm — "
-        "unlike the two flags, which can only rise once",
+        "unlike the two flags, which can only rise once. **Frozen once written, "
+        "and never re-derived**, so it may carry an older reading than the "
+        "`Outcome.interim_signals` end it is compared against: a corpus "
+        "re-derivation moves the resolution end alone, and neither end carries a "
+        "reading stamp, so the record does not disclose whether an "
+        "`amicus-increment` pair is comparable. Where the two ends may straddle a "
+        "re-derivation, read a rise as a forecast hit only once the entry that "
+        "moved the count is shown to postdate this cell's own anchor; "
+        "`docs/freeze-record.md` dates the re-derivations",
     )
     term: int | None = Field(
         default=None,

@@ -3131,3 +3131,92 @@ freeze commit is recorded here.
   prospective half only: the granted cases already past their trigger are
   reached by a document-gap scan widened to the merits kinds, which is not built
   and will carry its own entry when it is.
+
+- **The interim amicus re-derivation is built, and the two ends of the
+  increment part company, 2026-09-14.** The retrospective motion the
+  submitted-form widening entry above delegated to — "its own entry carries its
+  own declaration" — registered here **before** it runs, because what it
+  registers is created by the apply and a declaration written afterwards would
+  be a report rather than a pre-registration. This entry covers the pass as
+  built; a second entry records what the maintainer's apply actually moved.
+
+  **What the pass does.** `run-repair`'s `amicus-rederive` recounts the corpus
+  `amicus_briefs` column on **resolved** interim applications — those whose
+  latest live-shaped snapshot carries a readable disposition date — under the
+  widened reading with the end-of-day cut, writing through a direct `UPDATE`
+  that bypasses the column's max latch (the cut lowers a resolved row, which the
+  latch is built to reject). It then re-freezes each committed interim
+  `outcome.json`'s `interim_signals.amicus_briefs` from that same recount. An
+  open application is left to the live channel, which polls it under the same
+  reading.
+
+  **The declaration that matters: the two ends diverge, and no artifact says
+  so.** A committed `prediction.json`'s `context.amicus_briefs` is **never**
+  re-derived — it is the information set a forecast was made on, frozen by
+  design. So from the apply onward the `amicus-increment` claim compares a
+  **new-reading resolution end against an old-reading prediction end**, and
+  neither `InterimResolutionSignals` nor `PredictionContext` carries a reading
+  stamp. This is the same hazard the relist-increment parse mask answered with a
+  `distribution_parse` stamp and an `unavailable` resolution wherever the two
+  ends disagree; the interim pair has **no such stamp and no such mask**, and
+  `pipeline.claims._resolve_amicus_increment` compares the two numbers directly.
+  The consequence, stated so no later reader has to infer it: **an
+  `amicus-increment` resolution of 1 on any cell whose context predates the
+  widening is not a forecast hit on the artifact's own evidence.** It is a hit
+  only where the entry that moved the count postdates that cell's own anchor,
+  which the record does not disclose and which must be checked by hand — the
+  check the entry above performs for `scotus/9526000275`, now owed for every
+  flip the apply produces. The `PredictionContext.amicus_briefs` field
+  description carries this caveat as of this commit; the stamp-and-mask that
+  would make it mechanical is not built and would need its own entry.
+
+  **The affected set, as at this commit, and it is larger than the one
+  pre-computed above.** Of **12,690** committed `outcome.json`, **35** carry a
+  non-null `interim_signals`, across **22** cases: {0: 22, 1: 4, 2: 3, 6: 3,
+  7: 3}. The entry above registered 32 across 20 of 12,687, {0: 20, 1: 3, 2: 3,
+  6: 3, 7: 3}. The whole delta is growth after it was written, not a widened
+  scope: `scotus/9526000306` (two events, frozen at 0) and `scotus/9526000326`
+  (one event, frozen at 1), both resolved 2026-09-10. It will be larger again at
+  dispatch, since the writer step fast-forwards to the remote tip first, and
+  that is expected rather than a defect.
+
+  **What the entry above pre-computed was the population, not the motion.** Its
+  reconstruction of which rows move covers two dockets of twenty, and both were
+  surfaced by cell flags — the most biased sample available for the question.
+  Twenty-two of the thirty-five rows read 0 and can rise under the widened
+  reading; **that arm is unmeasured**. So a ledger moving more than the one
+  pre-computed docket is the expected result, and the pass's bound is sized as a
+  guard against a catastrophic write rather than as a prediction of the count.
+
+  **A move in the ledger is not by itself the reading's doing.** The recount
+  reads the docket's *current* snapshot, so an entry dated at or before the
+  disposition that the poll had not yet seen at resolution-detection time raises
+  the count legitimately under the cut — late docket-data arrival, not the
+  widening — and the ledger cannot separate the two. This is why the per-flip
+  anchor check above is owed on the moved set rather than assumed from it.
+
+  **The regrade debt.** The re-freeze moves a scored claim's resolution end, so
+  each moved outcome owes a `regrade-stale` dispatch — three judge lines per
+  event. On the pre-computed flip alone that is 14 committed `evaluation.json`
+  across `scotus/9526000275`'s three events. Those cells' `amicus-increment`
+  lines carry a null baseline and a null score, so the re-grade moves the
+  recorded `outcome` and **no** aggregate claim score and no leaderboard column;
+  the recorded resolution is published either way, which is why it is registered
+  rather than waved through. There is no `include-scored` holdback here, unlike
+  the disposition relabel: the re-freeze corrects a value the retired reading got
+  wrong rather than re-characterizing an order, so holding scored events back
+  would leave a known-wrong number standing under a grade.
+
+  **One derived surface moves with the column and carries no boundary.**
+  `analytics.with_amicus` — the per-application-Term count of substantive
+  applications carrying at least one brief, published in `metrics/statpack.json`
+  (2024: 24/70, 2025: 24/227, 2026: 4/49 as at the committed pack) — is computed
+  from the same column and re-prices at the first post-apply statpack refresh,
+  with nothing in the artifact separating the two readings. A series compared
+  across the apply is not a comparison.
+
+  The runnable effect check, for the promotion carrying this: `uv run pytest
+  tests/test_amicus_rederive.py` green, and the pass's own `dry-run` dispatch
+  printing a ledger whose `outcomes_with_interim` and
+  `interim_amicus_distribution` match the population stated above — the reading
+  the maintainer takes before any apply.
