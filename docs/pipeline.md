@@ -360,7 +360,16 @@ queues behind the production run of the same mode. The modes:
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
   no role at all, downloads that artifact, and runs the labeler with no cloud
   credential in its environment and no MCP config (the vocabulary is text-only,
-  so the extract is the agent's entire evidentiary input). The labeler's
+  so the extract is the agent's entire evidentiary input). Its tools are
+  Write, Edit and free reads; the shell, the delegation tools and the web
+  tools are denied by name in the invocation, because a grant list
+  pre-approves without withholding anything. The labeling run is a single
+  headless session, so a delegated subagent would die with it leaving the
+  batch part-labeled and the measure step refusing a partial file; labels
+  have to come from the agent reading each text rather than from a command
+  it runs; and a fetch is either redundant with the extract or later than the
+  petition, and the later kind has to stay out of a label for the label to be
+  replay-safe. Its
   turn-by-turn transcript is scanned and published as a second one-day
   artifact, `qp-label-transcript` — the thing to open when a run reports
   success but writes no labels (disclosure argued in

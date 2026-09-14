@@ -2785,7 +2785,8 @@ jobs:
   # a pinned CLI handed to the action, a bubblewrap/socat sandbox with the
   # subprocess env scrub, the hardened default mode with its explicit
   # Write/Edit grant in a checkout that is read-only
-  # by contract, and a single --add-dir grant. A refusal raised anywhere in
+  # by contract, its denial of the delegation, shell and retrieval tools the
+  # labeling contract rules out, and a single --add-dir grant. A refusal raised anywhere in
   # that stack fires before or between model calls, so the token-free
   # scenario passes it unseen and it surfaces first in a paid labeling
   # dispatch. This job sends the labeler's own block a five-row synthetic
@@ -2943,9 +2944,8 @@ jobs:
             LABELS_OUT=${{ runner.temp }}/qp-io/qp-labels.jsonl
             LABELER=claude-code/claude-haiku-4-5-20251001
 
-            These values are authoritative; the same identifiers are exported as
-            environment variables on engines that pass them through, but if
-            `$QP_TEXTS` expands empty in your shell, use the literals above.
+            These values are authoritative and literal: this run grants you no
+            shell, so there is nothing to expand — use the paths as written.
             Write only $LABELS_OUT. Do not commit, push, or open a PR — the
             workflow handles git. You run headless with no interactive input; if
             you are blocked, say so plainly in your final message and stop — do
@@ -2955,6 +2955,7 @@ jobs:
             --max-turns 120
             --permission-mode default
             --allowedTools Write,Edit
+            --disallowedTools Agent,Task,Explore,Bash,WebFetch,WebSearch
             --add-dir ${{ runner.temp }}/qp-io
 
       # The read-only-tree half of the smoke's verdict, on every outcome the

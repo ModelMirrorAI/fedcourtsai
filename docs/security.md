@@ -644,9 +644,10 @@ from its own resolved environment, and it is the one agent leg here that runs
 outside the runner-seam scrub — on the labeling lane's own terms, which are
 stricter than a cell's: no role, no `id-token`, the subprocess env scrub
 re-enabled in the action's settings — which hardens the permission mode to
-`default`, leaving the agent a whole-tool Write/Edit grant where a cell runs
-`bypassPermissions` — and a synthetic five-row extract as its
-entire input. The `codex-freeze-probe` job reads the codex key alone for one
+`default`, leaving the agent a whole-tool Write/Edit grant with the shell,
+delegation and web tools denied by name, where a cell runs `bypassPermissions`
+— and a synthetic five-row extract as its entire input.
+The `codex-freeze-probe` job reads the codex key alone for one
 one-word turn, on a block that deliberately keeps `safety-strategy: drop-sudo`
 — the posture that mutates the runner user's own account mid-job and wedges the
 VM. The job is the diagnostic that reproduces that wedge, so its base turn is
@@ -900,8 +901,16 @@ it runs: the credentialed half is a separate job, and the labeling job assumes
 no role, declares no `id-token: write`, launches no sidecar, and is passed no
 MCP config — so its whole evidentiary input is one downloaded extract, and its
 guard step asserts both the `AWS_*` and the OIDC request variables are absent
-before the agent starts. It also holds no write-capable GitHub token while it
-runs: the App token is minted only after the agent finishes and the publication
+before the agent starts. Its tool surface is narrowed on the same principle,
+and by the only mechanism that narrows one: the agent holds a whole-tool
+Write/Edit grant, and the invocation *denies by name* the shell, the
+delegation tools and the web tools — the three ways a labeling session reaches
+past reading its extract and writing its one file. A grant list cannot stand
+in for that, because it pre-approves and refuses nothing: a tool left out of
+`--allowedTools` is still callable, since reads, delegation and a sandboxed
+shell command are not permission-gated at all. It also holds no
+write-capable GitHub token while it runs: the App token is minted only after
+the agent finishes and the publication
 gate passes. The cert back-test's replay cells hold the same line at a
 different seam: their workflow process legitimately keeps the read-only
 credentials job-wide (`corpus-readonly` — the replay needs a full local pull,
