@@ -3220,3 +3220,205 @@ freeze commit is recorded here.
   printing a ledger whose `outcomes_with_interim` and
   `interim_amicus_distribution` match the population stated above — the reading
   the maintainer takes before any apply.
+
+- **The interim amicus re-derivation ran, and the ledger separates what the
+  entry above said it could not, 2026-09-14.** The second of the two entries the
+  entry above promised: the record of what the maintainer's apply moved, read
+  off the pass's own receipts and off the corpus after the fact. The first entry
+  stays as written.
+
+  **What ran.** `run-repair` `amicus-rederive`, three dispatches from `main`
+  after the promotion tagged `promotion/2026-09-14`: a dry run (run
+  `34865920972`, 16:01 UTC), the apply (run `34867559864`, 16:16 UTC,
+  `repair_bound=49`), and the idempotence control (run `34869786188`, 16:37
+  UTC), which reported `total_changes = 0`: 0 of 2,116 readable rows would move
+  and 0 of 35 outcomes would re-freeze, over a blob three live-channel
+  resolutions newer than the apply's (2,116 readable and 12 open against 2,113
+  and 15), each of which the live channel had already derived under the current
+  reading. The distribution it found is the post-apply shape: `{0: 15, 1: 3, 2:
+  5, 3: 1, 4: 2, 5: 3, 7: 3, 13: 3}`. The apply read blob
+  `a59f1d1dd031825b3951ea372a399fcea25f112c8b9a5629735f188545b98ae6` and pushed
+  `f6cb3c23c0fd40eee8705d1c123f5ec955956475bc46476e0357922723cdc0ac`; its data
+  commit is `b822bf06b` (the pointer plus 17 `outcome.json`). Dry run and apply
+  agreed field for field, so nothing landed between them.
+
+  **What moved.** Of 2,128 eligible interim applications, 2,113 were readable
+  (none unobservable — the pass read a full blob, not an index-only pull), 15
+  carry no cut — an open application the live channel maintains, or a resolved
+  one whose disposing entry carries no readable date; the pass does not tell the
+  two apart — and are left untouched, and **32 corpus rows moved, all upward, by
+  157 entries in total**; the end-of-day cut lowered no resolved row, so the
+  latch bypass carried nothing on this run. **17 of the 35 committed interim
+  outcomes were re-frozen, across 7 cases**; the distribution as found was `{0:
+  22, 1: 4, 2: 3, 6: 3, 7: 3}`, exactly the population the entry above stated,
+  so the apply moved the set it registered and nothing more. The per-row corpus
+  moves and the 17 re-freezes are in the apply's run summary; the ones a
+  committed cell reads are listed with the flips below.
+
+  **The ledger's moves are attributable where a committed cell reads them, and
+  almost none of them are this reading's.** The entry above said a move "is not
+  by itself the reading's doing" and that the ledger "cannot separate" the
+  widening from late docket-data arrival. Re-deriving each of the 32 dockets
+  under three readings — the singular-only counter retired 2026-08-28, the
+  plural counter that replaced it, and the submitted-form reading registered
+  2026-09-10 — over the post-apply blob `f6cb3c23…`, pulled 2026-09-14,
+  separates them completely:
+
+  - **145 of the 157 entries are the plural widening of 2026-08-28**, not this
+    one. On 31 of the 32 rows the stored count equals the singular-only reading
+    of the docket's current entries to the digit (the 32nd, `scotus/9526000274`,
+    equals the plural). That entry recorded that the corrected counts would
+    "reach open applications on their next poll while every frozen context keeps
+    the count it was provisioned with"; what it did not say, and this pass now
+    shows, is that the max-latched column never re-polled a **resolved** row
+    either, so the plural correction had reached none of the resolved slice
+    until today. The largest moves in the ledger are this correction:
+    `scotus/73288357` 10 → 34 and `scotus/73288461` 9 → 32 are 23 and 22 plural
+    entries each plus one submission. - **12 entries are the submitted-form
+    reading registered above**, on seven dockets: `scotus/9526000297` (+2),
+    `scotus/9526000304` (+4), `scotus/9526000326` (+2), `scotus/9526000274`,
+    `scotus/9526000275`, `scotus/73288357` and `scotus/73288461` (+1 each). -
+    **Late docket-data arrival is excluded outright on the two dockets whose
+    committed cells flip, and only there.** The equality above excludes a
+    late-arriving *singular*-form entry on 31 of the 32 rows; a plural-form
+    entry that reached a docket after its count froze would raise the plural
+    reading without touching the singular one and so sit inside the 145
+    indistinguishably — on the other 30 rows the widening and late arrival
+    remain as inseparable as the entry above said. For the two dockets whose
+    committed cells this matters to, every stored daily snapshot from 2026-08-15
+    to 2026-08-24 in the per-case content store, read 2026-09-14, carries the
+    same accepted-form entries the current one does — 13 on `scotus/9526000124`
+    (dated 2026-07-29 and 2026-08-03), 5 on `scotus/9526000139` (dated
+    2026-08-03) — so the entries were on the docket before those cells were
+    provisioned. The stored counts of 6 and 2 are the singular reading of those
+    same entries: 6 of the 13 say "amicus", 7 say "amici"; 2 of the 5 and 3.
+
+  **The anchor check on every flip.** 34 committed cells read one of the 17
+  re-frozen outcomes (five re-frozen events carry no prediction and moved
+  silently: `scotus/9526000297` ×2 from 0 to 2, `scotus/9526000304` ×2 from 0 to
+  4, `scotus/9526000326` from 1 to 3 — a cell minted on those dockets later
+  forecasts over a row that moved under it). Under `_resolve_amicus_increment`'s
+  strict `>`, **18 of the 34 flip, all 0 → 1**, and they divide exactly along
+  the attribution above:
+
+  - **7 are docket movement and read as hits** — the seven the entry above
+    pre-computed, on `scotus/9526000275`'s three events — motion (3 cells,
+    cutoff 2026-09-01), order-response-requested (2 cells, cutoff 2026-09-02)
+    and brief-response (2 cells, cutoff 2026-09-03); `codex-baseline` did not
+    run on the last two — the docket's one amicus entry is a submission dated
+    2026-09-03, the date rule keeps only entries filed strictly before the
+    cutoff, and the frozen context reads 0 under every reading. The entry
+    postdates all three information sets. One caveat travels with the seven: the
+    count rose only because the resolver now reads submitted-form entries, and
+    the entry above registered that the predict prompt does not say so — these
+    are hits on the resolver's quantity, scored against cells asked about a
+    slightly narrower one. - **11 are measurement drift and do not read as
+    hits** — none of them pre-computed. `scotus/9526000124`, 8 of its 9 cells —
+    `claude-baseline`, `codex-baseline` and `gemini-baseline` at
+    `20260816T173750Z` on each of its three events, context 6, snapshot
+    2026-08-16 as stored, no cutoff — for a cell with no cutoff the stored
+    snapshot's date is the anchor; the ninth, `gemini-baseline` at
+    `20260820T181919Z` on the order-response event with context 0, already read
+    1 — and `scotus/9526000139/evt-brief-response-disposition`, 3 cells
+    (`20260820T181919Z` ×2 and `20260821T053402Z`, context 2, cutoff 2026-08-04,
+    truncated). Every entry that moved their resolution end is dated 2026-07-29
+    or 2026-08-03, was in the stored snapshot each cell was provisioned from,
+    and predates every anchor; the frozen context, recomputed under the current
+    reading over the cell's own snapshot, would equal the new resolution end (13
+    and 5), and the increment would resolve 0. The rise is the plural counter
+    seeing entries the singular one did not — the class the 2026-08-28 entry
+    declared unclaimable for the nine pending cells it named (three dockets, one
+    motion event each, three predictors), now shown to reach eleven resolved
+    ones it did not name. - The remaining 16 read 1 under both readings (context
+    0 against a resolution end already above 0) and do not move.
+
+  **The regrade.** The `run-repair` `regrade-stale` pass, dispatched three
+  times: the apply's ledger named 48 judge lines, and the list was not
+  dispatchable as printed. 18 of the 48 were superseded runs:
+  `scotus/9526000124` and `scotus/9526000139` each carry two evaluation runs per
+  judge (`20260824T231401Z` and `20260825T024608Z`), every scoring surface
+  collapses a judge's re-runs of one cell to the newest, and `stamp-cell
+  --regrade` refuses a superseded run rather than recompute a grade nothing
+  reads — the first `regrade-stale` apply (run `34874220224`) refused at its
+  first cell and wrote nothing. One more line, `gemini-judge` on
+  `scotus/9526000139/evt-order-response-requested-disposition`, names three
+  evaluations that carry no `process_version` and omit the `amicus-increment`
+  claim; the re-grade refuses an unstamped cell, and the second apply (run
+  `34874615889`) refused there, again writing nothing. The ledger's cell listing
+  walks every run directory rather than the surviving stamped one — by its own
+  account deliberately, naming a re-grade not owed being cheaper than missing
+  one — but the re-grade refuses rather than skips, so the over-inclusion makes
+  the printed list undispatchable; that is the defect, filed as its own issue,
+  and the list was corrected by hand to **29 cells** under one rule — the newest
+  evaluation run per (event, judge) line, minus the one line whose evaluations
+  carry no `process_version`: 48 − 18 − 1. The third apply (run `34880756787`,
+  18:26 UTC) re-graded all 29 and landed data commit `23f1364d8`: 65
+  `evaluation.json` changed, 47 `amicus-increment` outcomes moved — hunk for
+  hunk the diff the local check below had produced.
+
+  **What a re-grade moves, stated because it is more than the outcome.** The 29
+  cells cover 83 committed `evaluation.json`; a local `stamp-cell --regrade` of
+  all 29 against `main` at `158f64b30`, run before the dispatch as the executed
+  check behind these counts, changed 65 of them and reproduced 18 — every file
+  under `scotus/9526000274`, whose cells do not flip, and nothing else. **47**
+  recorded `amicus-increment` `outcome` integers move from 0 to 1 — 24 on
+  `scotus/9526000124`, 9 on `scotus/9526000139`'s brief-response event, 14 on
+  `scotus/9526000275` — the 18 flips above, once per surviving judge line
+  (`scotus/9526000275` carries two judges, not three); that claim's `score` and
+  `baseline` are null in every file, so it contributes nothing to any aggregate.
+  But the interim stage's skill record is harness-stamped, and a re-stamp pools
+  it from the statpack as committed **today**: on 51 of the 65 files
+  `segment_base_rate` moves from 0.1333 (the pool the 2026-08-25 grading read)
+  to 0.1047 — 31 of 296, the current pack's 2024 and 2025 Term rows (14 of 70
+  and 17 of 226) — and `brier_skill_score`, the `interim-disposition` claim's
+  `baseline` and `score`, and the claim-score `lift` and `total` move with it —
+  a lower pool raises the skill of a cell whose application was granted and
+  lowers it where it was denied, so of the 51 files 27 rose and 24 fell, the
+  largest single move −14.75 in `brier_skill_score` (at a pool near 0.10 the
+  reference Brier on a denied cell is about 0.011, and the ratio is that
+  sensitive). The 0.1333 the 2026-08-25 grading read carries no denominator the
+  committed record can recover; 14 files (all on `scotus/9526000275`, graded
+  2026-09-04 under the current pool) move the outcome alone, and 18 move the
+  pool alone — the motion and order events of `scotus/9526000139` (9 and 6),
+  which do not flip, and the three `gemini-baseline` evaluations on
+  `scotus/9526000124/evt-order-response-requested-disposition`, the one cell of
+  that docket's nine that does not. The re-stamp also writes the
+  `prediction_run_id` field (null) the evaluation schema has gained since. This
+  is the stamp's standing behaviour rather than this pass's: every grading date
+  carries its own pool, and the committed record held 105 interim evaluations at
+  0.1333 beside 71 at 0.1047; the re-grade moves 51 across, to 54 against 122.
+  No published number moves today — the committed leaderboard and claim-score
+  boards render the frozen scope's empty state, and none of the re-graded cells'
+  process digests is blessed into it — so the move is latent: it surfaces on an
+  all-versions board or any later scope that admits these gradings, whose
+  interim block would then pool two base rates and is not a like-for-like
+  aggregate; this entry is where a reader learns that. The 33 stale
+  `amicus-increment` outcomes in the superseded `20260824T231401Z` runs and the
+  three unstamped `gemini-judge` files stay as written, unread by any surface.
+
+  **The `analytics.with_amicus` re-pricing.** Pre-apply, the committed
+  `metrics/statpack.md` on `main` at `b822bf06b` (the pack the weekly refresh
+  had already moved off the 4/49 the entry above quoted): 2024 **24** of 70,
+  2025 **24** of 227, 2026 **6** of 55, pooled 54 (a count sum). Post-apply,
+  rolled locally and uncommitted from blob `f6cb3c23…` pulled 2026-09-14: 2024
+  **25** of 70, 2025 **27** of 227, 2026 **9** of 55, pooled 61 (a count sum
+  across Terms of unequal parse coverage, not a rate). The pass's 2,128 eligible
+  rows are the pack's whole parsed application slice (1,691 extension, 352
+  substantive, 85 unknown), so every row feeding `analytics.with_amicus` except
+  the 15 uncut ones was re-read, and the series is single-reading from here
+  rather than blended. Every substantive-application denominator is unchanged;
+  nine of the 32 moved rows crossed 0, and the seven that are substantive
+  applications (the other two are of unknown kind) are the seven the table
+  gains. The next Monday refresh commits the second triple.
+
+  **What this changes about reading the record.** The entry above registered the
+  two ends of `amicus-increment` parting company at this apply. The attribution
+  shows they had already parted, silently, at the 2026-08-28 plural entry for
+  every resolved row provisioned under the singular counter — the eleven drift
+  flips above are that earlier boundary surfacing, not this one. A reader of any
+  `amicus-increment` resolution of 1 now has two boundaries to check a cell's
+  context against rather than one — the plural counter of 2026-08-28 and the
+  submitted-form reading the entry above registers, each a reading the
+  resolution end may carry and the context may not — and this entry is where the
+  cells that straddle either are named. The stamp-and-mask that would make the
+  check mechanical remains unbuilt and would need its own entry.
