@@ -942,7 +942,7 @@ def test_the_qp_labeler_partial_output_survives_the_step_cap() -> None:
         agent_at = next(
             i for i, s in enumerate(steps) if "claude-code-action" in str(s.get("uses") or "")
         )
-        count = next(s for s in steps if s.get("id") == "labels")
+        count = next(s for s in steps if s.get("id") == "label_lines")
         # First among the post-agent steps: everything below it can withhold —
         # a scanner build reaches the network, a scan can hit — and this one
         # needs nothing but the file system.
@@ -954,6 +954,11 @@ def test_the_qp_labeler_partial_output_survives_the_step_cap() -> None:
         assert "GITHUB_STEP_SUMMARY" in count["run"], f"{workflow}: the count must be durable"
         # A count, never the file: this summary is published unscanned.
         assert "cat " not in count["run"]
+        # `wc` comes off PATH like every other tool a verdict rests on, and the
+        # agent's subprocesses can prepend to it for every later step.
+        assert count["env"]["PATH"].startswith("/usr/local/sbin:"), (
+            f"{workflow}: the count must not resolve `wc` off an agent-writable PATH"
+        )
         upload = next(s for s in steps if (s.get("with") or {}).get("name") == "qp-labels")
         assert upload["with"]["path"] == "${{ runner.temp }}/qp-io/qp-labels.jsonl"
         assert upload["with"]["retention-days"] == 1, f"{workflow}: the extract's own window"
@@ -963,13 +968,13 @@ def test_the_qp_labeler_partial_output_survives_the_step_cap() -> None:
 
     # The paid lane publishes it through the same isolated scanner the
     # transcript goes through: unlike the measure step's artifact, these bytes
-    # face no validator, and they are uploaded precisely when the validator
-    # refused them.
+    # face no validator, and they are uploaded before the one that would have
+    # read them ran at all.
     lane = _load("run-analytics.yml")["jobs"]["qp-topic-label"]["steps"]
     scan = next(s for s in lane if s.get("id") == "labels_scan")
     assert scan.get("continue-on-error") is True  # withhold, never fail the run
     assert "steps.scanner_install.outcome == 'success'" in scan["if"]
-    assert "steps.labels.outputs.present == 'true'" in scan["if"]
+    assert "steps.label_lines.outputs.present == 'true'" in scan["if"]
     assert '"$SCANNER" -E -s -P -m fedcourtsai.cli scan-diff-for-secrets' in scan["run"]
     assert scan["working-directory"].endswith("/.transcript-scanner")
     assert "--known-secret-env ANTHROPIC_API_KEY" in scan["run"]
@@ -987,7 +992,7 @@ def test_the_qp_labeler_partial_output_survives_the_step_cap() -> None:
     # run has no execution file and is exactly the run whose labels must travel.
     for step_id in ("scanner_clear",):
         gate = next(s for s in lane if s.get("id") == step_id)["if"]
-        assert "steps.labels.outputs.present == 'true'" in gate
+        assert "steps.label_lines.outputs.present == 'true'" in gate
 
     # The smoke builds no scanner — running the workspace's Python with the key
     # in its environment, after an agent held a Write grant over that
@@ -998,6 +1003,11 @@ def test_the_qp_labeler_partial_output_survives_the_step_cap() -> None:
     assert guard["env"]["PATH"].startswith("/usr/local/sbin:")
     assert 'grep -qF -e "$ANTHROPIC_API_KEY"' in guard["run"]
     assert '-z "${ANTHROPIC_API_KEY:-}"' in guard["run"], "an unset needle must fail closed"
+    # `grep` exits 2 when it cannot read the file, which a bare `if` reads as
+    # "no match" and publishes on — the one class the paid lane withholds for.
+    assert "|| status=$?" in guard["run"] and '"$status" -ne 1' in guard["run"], (
+        "the containment check must withhold on grep's error exit, not only on a hit"
+    )
     assert guard.get("continue-on-error") is True
     smoke_upload = next(s for s in smoke if (s.get("with") or {}).get("name") == "qp-labels")
     assert "steps.labels_guard.outcome == 'success'" in smoke_upload["if"]

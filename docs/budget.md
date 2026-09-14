@@ -961,8 +961,9 @@ single-digit-dollar figure above and the rest is multiplication, not a new rate:
   falls as the frame clears and rises as it grows. A **staging rehearsal** of
   the mode (a `--ref staging` dispatch) that reaches the labeler pays the same
   per-batch figure on the staging environment's own engine key and publishes
-  nothing — that spend buys the measurement and the transcript, and it is the
-  cheap alternative to a wasted production batch, not a free one.
+  nothing — that spend buys the measurement, the transcript, the labels the
+  run wrote and their line count, and it is the cheap alternative to a wasted
+  production batch, not a free one.
 - **Then forward**, one batch absorbs a long stretch of new QP-bearing rows, so a
   dispatch every few months keeps up: a handful a year, still inside the misc
   floor's buffer (driver #5) rather than earning its own line.

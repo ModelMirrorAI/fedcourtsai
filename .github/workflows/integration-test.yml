@@ -2814,7 +2814,15 @@ jobs:
   qp-labeler-smoke:
     if: ${{ inputs.scenario == 'qp-labeler-smoke' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # The capped steps come to 25 — 5 for the CLI install, 15 for the labeler,
+    # 5 for the execution-file digest — so the job clock has to leave room
+    # around them: the checkout, apt, `setup-python-env`, the seed, the
+    # pristine assertion, the vocabulary assertion, and the capture steps that
+    # carry the leg's record off the runner. Five minutes for that set, and
+    # the capture is why it is not zero: the job clock is the one deadline
+    # `!cancelled()` does not survive, and the cap-kill path this leg
+    # rehearses is exactly where the labeler spends its whole 15 first.
+    timeout-minutes: 30
     # Branch-resolved with an explicit override; keep this expression
     # identical to `run-name:`'s, the plan job's and the scenario job's, and
     # see the deploy-environment input for what resolves. What the
@@ -2967,10 +2975,15 @@ jobs:
       # from a stuck one when the step is killed at its cap and no execution
       # file exists to read. Arithmetic only, never a byte of the file.
       - name: Count the label lines the run left behind
-        id: labels
+        id: label_lines
         if: ${{ !cancelled() }}
         env:
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
+          # `wc` comes off PATH, and an agent subprocess can prepend to
+          # `$GITHUB_PATH` for every later step — a shimmed one is a stuck run
+          # reporting a healthy count. Pinned to root-owned directories, as
+          # the pristine step pins `git` for the same reason.
+          PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
           set -euo pipefail
           if [ -f "$LABELS_OUT" ]; then
@@ -2987,8 +3000,11 @@ jobs:
 
       # The read-only-tree half of the smoke's verdict, on every outcome the
       # runner survives. Unlike the paid lane's assertion this guards no
-      # measurement of record — nothing publishes from this job and no gate
-      # reads the checkout after it — and it is deliberately *stricter* than
+      # measurement of record — no number this job produces is published and no
+      # gate reads the checkout after it; the one file that leaves the runner
+      # is the labels artifact below, whose publication turns on the
+      # containment check rather than on anything read from the tree — and it
+      # is deliberately *stricter* than
       # the paid lane's tracked-diff pair: a whole-tree porcelain, because
       # this leg exists to notice any write outside the grant, and a false
       # red here costs cents and a re-dispatch rather than a paid batch.
@@ -3011,9 +3027,11 @@ jobs:
 
       # Runs this checkout's Python after the agent ran in it — acceptable
       # here where the paid lane builds a fresh-checkout scanner instead,
-      # for one reason alone: nothing publishes, so the verdict gates only
-      # this leg's green and a tampered checkout can buy nothing but a
-      # self-attested pass on a smoke.
+      # for one reason: this verdict gates nothing that publishes. It holds
+      # no credential, nothing downstream reads it, and the one file that
+      # leaves this runner is gated on the containment check below, which
+      # runs no code out of the workspace. So a tampered checkout can buy
+      # nothing but a self-attested pass on a smoke.
       - name: Assert the declared output is complete and in vocabulary
         env:
           QP_IO: ${{ runner.temp }}/qp-io
@@ -3078,18 +3096,23 @@ jobs:
       # repository is downloadable by any logged-in user — so it faces the
       # containment half of the paid lane's scan before it travels. Only the
       # containment half, and by a different instrument: the engine key is the
-      # one credential reachable on this runner, `grep` comes off a PATH pinned
-      # to root-owned directories (the pristine step's own reasoning — an agent
-      # subprocess can prepend to `$GITHUB_PATH` for every later step), and the
-      # value never reaches the log. What this leg deliberately does not build
-      # is the paid lane's fresh-checkout scanner: running the workspace's
-      # Python with the key in its environment, after an agent held a Write
-      # grant over that workspace, is the exact arrangement that apparatus
-      # exists to avoid. Fail closed on an empty variable, as the scanner does
-      # — a gate that cannot see its needle must not pass silently.
+      # credential worth checking for here (the job's own `github.token` is
+      # capped at `contents: read` and dies with the job), `grep` comes off a
+      # PATH pinned to root-owned directories (the pristine step's own
+      # reasoning — an agent subprocess can prepend to `$GITHUB_PATH` for every
+      # later step), and the value never reaches the log: it lives in argv, the
+      # runner echoes the unexpanded script, and `-q` suppresses the match.
+      # What this leg deliberately does not build is the paid lane's
+      # fresh-checkout scanner: running the workspace's Python with the key in
+      # its environment, after an agent held a Write grant over that workspace,
+      # is the exact arrangement that apparatus exists to avoid. Fail closed
+      # twice over, as the scanner does — on an empty needle and on a `grep`
+      # that could not read the file (its exit 2, which an `if` would otherwise
+      # read as "no match"): a gate that cannot see its needle must not pass
+      # silently.
       - name: Refuse to publish labels containing the engine key
         id: labels_guard
-        if: ${{ !cancelled() && steps.labels.outputs.present == 'true' }}
+        if: ${{ !cancelled() && steps.label_lines.outputs.present == 'true' }}
         continue-on-error: true
         env:
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
@@ -3101,11 +3124,20 @@ jobs:
             echo "::warning::no engine key to check containment against; withholding the labels"
             exit 1
           fi
-          if grep -qF -e "$ANTHROPIC_API_KEY" "$LABELS_OUT"; then
-            echo "::warning::the labels file contains the engine key; withholding the artifact"
+          if [ ! -r "$LABELS_OUT" ]; then
+            echo "::warning::no readable labels file at ${LABELS_OUT}; withholding the artifact"
             exit 1
           fi
-          echo "labels clear of the one credential this runner holds"
+          status=0
+          grep -qF -e "$ANTHROPIC_API_KEY" "$LABELS_OUT" || status=$?
+          if [ "$status" -eq 0 ]; then
+            echo "::warning::the labels file contains the engine key; withholding the artifact"
+            exit 1
+          elif [ "$status" -ne 1 ]; then
+            echo "::warning::the containment check could not run (exit ${status}); withholding the artifact"
+            exit 1
+          fi
+          echo "labels clear of the credential this check is given"
 
       - name: Upload the labels the smoke produced
         # The leg's durable record: the assertion above reads the same file and

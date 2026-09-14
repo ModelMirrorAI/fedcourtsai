@@ -838,13 +838,17 @@ jobs:
     # The step caps have to fit inside this one or the run loses its artifact
     # to the job clock: the 40-minute labeler, the 5-minute CLI install, the
     # three post-agent transcript steps at 5 each and the 3-minute labels scan
-    # come to 63, and the steps
-    # around them carry no cap of their own — the `fetch-depth: 0` checkout,
-    # apt, the artifact download, the measure composite (which also revalidates
-    # the data root), the App token, and the PR step's fetch and push. Twelve
-    # minutes for that set is headroom, not a race, and the race is the one
-    # that matters: the diagnostic steps deliberately run before measure, so
-    # their worst case is charged before the labels artifact exists.
+    # come to 63, and everything else here carries no cap of its own — the
+    # `fetch-depth: 0` checkout, apt, the artifact download, the label-line
+    # count, the scanner path clear, the two artifact uploads, the measure
+    # composite (which also revalidates the data root), the App token, and the
+    # PR step's fetch and push. Twelve minutes for that set is headroom for
+    # two things worth naming: the measure composite, which runs the labels
+    # through `qp-topics` and then revalidates the whole data root, and the PR
+    # step's fetch and push. The diagnostic steps deliberately run before
+    # measure, so their worst case is charged first — a run that publishes
+    # nothing must still be readable, and a run that publishes must not lose
+    # its PR to a clock the diagnostics spent.
     timeout-minutes: 75
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
@@ -1108,10 +1112,17 @@ jobs:
       # only. `wc -l` counts complete lines, which is what a JSONL reader
       # would accept anyway.
       - name: Count the label lines the run left behind
-        id: labels
+        id: label_lines
         if: ${{ !cancelled() }}
         env:
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
+          # `wc` comes off PATH like every other tool a verdict rests on, and
+          # `$GITHUB_PATH` — appendable from the labeling step's subprocesses —
+          # prepends ahead of everything for every later step. A shimmed `wc`
+          # is a stuck run reporting a healthy count, on the one number this
+          # job publishes with no scan ahead of it, so PATH is pinned to the
+          # root-owned directories exactly as the scanner steps below pin it.
+          PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
           set -euo pipefail
           if [ -f "$LABELS_OUT" ]; then
@@ -1121,7 +1132,6 @@ jobs:
             lines=0
             present=false
           fi
-          echo "lines=$lines" >> "$GITHUB_OUTPUT"
           echo "present=$present" >> "$GITHUB_OUTPUT"
           echo "The labeling step left ${lines} label line(s) on the runner." \
             >> "$GITHUB_STEP_SUMMARY"
@@ -1220,7 +1230,7 @@ jobs:
         id: scanner_clear
         if: >-
           ${{ !cancelled() && (steps.label.outputs.execution_file != ''
-          || steps.labels.outputs.present == 'true') }}
+          || steps.label_lines.outputs.present == 'true') }}
         # A `.git` the agent planted at this path would be *reused* by the
         # checkout below rather than replaced, and its hooks would run during
         # the checkout. Remove the path so the clone is a clone — and the
@@ -1245,8 +1255,10 @@ jobs:
         id: scanner_src
         if: ${{ !cancelled() && steps.scanner_clear.outcome == 'success' }}
         # This step and the install below carry the scan's own posture, for the
-        # scan's own reason: this run's artifact is the labels, and a network
-        # blip on the transcript surface must never cost them. A scanner that
+        # scan's own reason: this run's artifact is the labels `qp-topics`
+        # publishes, and a network blip on a diagnostic surface must never cost
+        # them — not the transcript's, and not the partial labels file's, which
+        # is uploaded through the same chain and withheld with it. A scanner that
         # failed to build leaves the scan with no executable, which is the
         # fail-closed path it already has — withhold, do not fail. The timeout
         # bounds the clock too: `continue-on-error` bounds only the outcome.
@@ -1451,8 +1463,10 @@ jobs:
       # `qp-topics` command reads every row against the vocabulary and the
       # extract's keys before writing `data/qp-topics/qp-topics.json`, so the
       # published surface is gated by a validator. This one is not: it is
-      # whatever the labeler wrote, uploaded precisely on the runs where the
-      # validator refused it. Unvalidated agent bytes are the transcript's own
+      # whatever the labeler wrote, uploaded before the validator runs and so
+      # on the refused runs and the accepted ones alike — which is the point,
+      # since the refused runs are the ones with no other record.
+      # Unvalidated agent bytes are the transcript's own
       # class, so they take the transcript's control — the scanner built out of
       # the labeler's reach above, invoked here on the same terms, withholding
       # on a hit rather than failing the job. The generic surface, not
@@ -1467,7 +1481,7 @@ jobs:
         id: labels_scan
         if: >-
           ${{ !cancelled() && steps.scanner_install.outcome == 'success'
-          && steps.labels.outputs.present == 'true' }}
+          && steps.label_lines.outputs.present == 'true' }}
         continue-on-error: true
         timeout-minutes: 3
         working-directory: ${{ github.workspace }}/.transcript-scanner
@@ -1481,6 +1495,15 @@ jobs:
           # agent code inside it — the transcript scan's reasoning, verbatim.
           unset PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE
           unset LD_PRELOAD LD_AUDIT LD_LIBRARY_PATH
+          # Named here rather than left to the scanner's exit 2, for the
+          # transcript step's reason: the file was probed minutes ago, and a
+          # withheld artifact whose only record is "exit 2" is the diagnostic
+          # dying in the diagnostic.
+          if [ ! -r "$LABELS_OUT" ]; then
+            echo "::warning::no readable labels file at ${LABELS_OUT}; withholding the artifact"
+            echo "partial labels withheld: file not readable" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
           status=0
           "$SCANNER" -E -s -P -m fedcourtsai.cli scan-diff-for-secrets --name-status-file /dev/null \
             --known-secret-env ANTHROPIC_API_KEY \

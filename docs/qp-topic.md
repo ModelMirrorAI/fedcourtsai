@@ -414,18 +414,24 @@ Three consequences bind every use of the set:
   and the one that exists for the path the other two miss: a labeling step
   killed at its cap leaves no execution file at all, so the transcript is not
   withheld but absent, and the file the labeler was landing slices into dies
-  with the runner. It is uploaded on every outcome the runner survives, under
-  the same one-day window, and the job summary states its line count whether
-  or not the file travels — arithmetic, so that line needs no scan ahead of
-  it, and the count alone is what separates a slow labeler from a stuck one.
-  What it discloses is narrower than the extract: case ids, docket numbers and
-  vocabulary words, no petition text, over the population the committed pair
-  already discloses. What it is *not* is the published labels file — that one
-  is written by `qp-topics` only when every extract row came back in
-  vocabulary, and this is the unvalidated file the gate refused. So it takes
-  the transcript's control rather than the published file's: the same scan, on
-  the generic surface where the entropy rule stays on, since nothing in a
-  labels line is high-entropy by format.
+  with the runner. It is uploaded on every outcome the runner survives, only
+  after its own secret scan passes, under the same one-day window — and the
+  job summary states its line count whether or not the file travels, since
+  that line is arithmetic over the file rather than anything read out of it
+  and the count alone separates a slow labeler from a stuck one. What bounds
+  its disclosure is not the labeler's good behaviour but its reach: the
+  labeler can read the extract, which this same run already published under
+  the same window, and the public checkout, and nothing else — `data/qp-topics`
+  is moved out of its tree before it starts. By contract the file carries case
+  ids, docket numbers, primaries and the recorded `secondary` / `vehicle`
+  facets, and no petition text; nothing between the labeler and this artifact
+  enforces that, which is the point of scanning it. What it is *not* is the
+  published labels file — that one is written by `qp-topics` only when every
+  extract row came back in vocabulary, and this one is uploaded before that
+  command runs, so it travels on the refused runs and the accepted ones alike.
+  It therefore takes the transcript's control rather than the published file's:
+  the same scan, on the generic surface where the entropy rule stays on, since
+  nothing in a labels line is high-entropy by format.
 
   That scan holds the engine API key, so what it *imports* is as much a part of
   the gate as what it reads. `setup-python-env` installs this project editable,
@@ -638,11 +644,12 @@ The extract is **bounded by what a dispatch can finish, not by how many texts
 exist**. A labeling run is a single headless turn inside one job, and
 `qp-topics` writes nothing until the labels file holds exactly one line per
 extract row — so a run that outlasts its cap spends in full and publishes
-nothing. Partial progress is not partial coverage: it buys no labels artifact,
-and the rows it did write are a diagnostic rather than a down payment. They do
-survive the run as such — the slices the labeler landed are uploaded as
-`qp-labels` and their line count reaches the job summary — which is what makes
-a mis-sized dispatch measurable rather than merely wasted.
+nothing. Partial progress is not partial coverage: it accrues no row to the
+published labels artifact, and the rows it did write are a diagnostic rather
+than a down payment. They do survive the run as such — the slices the labeler
+landed are uploaded as the `qp-labels` run artifact and their line count
+reaches the job summary — which is what makes a mis-sized dispatch measurable
+rather than merely wasted.
 The cap that bites is the **labeling step's**, set below the surrounding job's
 so a runaway trips the step and still leaves a run to read; the ceiling is
 derived from that one, since a bound sized against the outer cap would admit
@@ -710,7 +717,8 @@ labeler (a staging pair seeded past the floor) runs it under the exact
 production posture, and at the same batch price on the staging environment's
 own engine key: a rehearsal is a real spend, and what it buys is the measured
 block in the step summary, the transcript and labels artifacts, and the
-label-line count instead of a wasted production batch. The labeler's invocation posture itself needs no seeded
+label-line count instead of a wasted production batch. The labeler's
+invocation posture itself needs no seeded
 pair: the integration suite's `qp-labeler-smoke` scenario runs it over a
 synthetic five-row extract at cents ([testing.md](testing.md)).
 

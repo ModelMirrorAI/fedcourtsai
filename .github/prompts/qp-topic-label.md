@@ -172,10 +172,11 @@ labels against a reference you are forbidden to see.
   against that number, never against a figure quoted here.
   Land each slice's lines in
   `$LABELS_OUT` **exactly once** as it finishes, so a failed turn costs one
-  slice rather than the run — though only the complete file yields a labels
-  artifact. The slices you have landed are also the only record of the run's
-  progress if the step is cut short at its cap, so land them as you go rather
-  than holding the whole batch for one final write. The tool mechanics matter here: **Write replaces the entire
+  slice rather than the run — though only the complete file yields published
+  labels. The slices you have landed are also the only record of the run's
+  progress if the step is cut short at its cap, so land them as you go
+  rather than holding the whole batch for one final write. The tool mechanics
+  matter here: **Write replaces the entire
   file**, so it is for the first slice and for a deliberate full repair
   only — a Write mid-run that carries anything less than every line written
   so far silently truncates the run down to what it carries, and the loss

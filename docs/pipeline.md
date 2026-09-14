@@ -374,10 +374,11 @@ queues behind the production run of the same mode. The modes:
   artifact, `qp-label-transcript` — the thing to open when a run reports
   success but writes no labels — and the rows it did write are scanned and
   published as a third, `qp-labels`, beside a job-summary line stating their
-  count. That pair is what a step killed at its cap leaves, since the action
-  writes its execution log at exit and there is then no transcript to read
-  (disclosure argued in [qp-topic.md](qp-topic.md)). The measure step still
-  refuses a partial file: it is captured for reading, never for publication. It applies the same
+  count. That artifact and that line are what a step killed at its cap leaves,
+  since the action writes its execution log at exit and there is then no
+  transcript to read (disclosure argued in [qp-topic.md](qp-topic.md)). The
+  measure step still refuses a partial file: it is captured for reading, never
+  for publication. It applies the same
   structural prohibition the cell workflows do — `data/qp-topics/` is moved out
   of the tree for the duration of the agent step, since reading the reference
   set would not improve the labels, only destroy the measurement — and restores

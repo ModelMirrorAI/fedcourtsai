@@ -280,9 +280,10 @@ production failure; the smoke is how the failure is reproduced and iterated
 on without paying for batches). It also rehearses that lane's progress
 capture, which is the half the transcript cannot cover: the label-line count
 reaches the job summary and the labels file itself is uploaded as `qp-labels`
-on any surviving outcome, so a cap-killed labeling step — which writes no
-execution file — still says how far it got. The smoke publishes that file
-behind a containment grep against the one credential its runner holds, run
+on any surviving outcome the containment check below passes, so a cap-killed
+labeling step — which writes no execution file — still says how far it got.
+The smoke publishes that file behind a containment grep against the engine
+key its runner holds, run
 off a PATH pinned to root-owned directories, rather than the paid lane's
 fresh-checkout scanner: building that scanner is precisely how the paid lane
 avoids running the agent's own workspace Python with the engine key in its

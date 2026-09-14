@@ -649,9 +649,12 @@ delegation and web tools denied by name, where a cell runs `bypassPermissions`
 — and a synthetic five-row extract as its entire input. The one file it
 publishes, the labels the smoke produced, is gated on a literal containment
 check against that key, run with the image's own `grep` off a PATH pinned to
-root-owned directories; the paid lane's fresh-checkout scanner is deliberately
+root-owned directories and failing closed on an unset needle or an unreadable
+file; the paid lane's fresh-checkout scanner is deliberately
 not replicated here, since building it is how that lane avoids running the
-agent's own workspace Python with the key in its environment.
+agent's own workspace Python with the key in its environment. The key is the
+credential worth a check there: the job's own `github.token` is capped at
+`contents: read` and dies with the job.
 The `codex-freeze-probe` job reads the codex key alone for one
 one-word turn, on a block that deliberately keeps `safety-strategy: drop-sudo`
 — the posture that mutates the runner user's own account mid-job and wedges the
@@ -1004,10 +1007,13 @@ pair reconstructs that frame's QP-bearing non-grants by difference. That composi
 artifacts under the same one-day window, publicly downloadable on this
 repository: its extract of stored petition text, riding between the mode's two
 jobs; the labeler's scanned turn-by-turn transcript, which embeds the same
-text plus the agent's own turns; and the scanned partial labels the run wrote,
-which republish no petition text and name the same population the committed
-pair does, but unvalidated — they are uploaded precisely on the runs the
-publication gate refused. Because every batch re-carries the reference
+text plus the agent's own turns; and the scanned labels the run wrote, which
+republish no petition text and name the same population the committed pair
+does, but unvalidated — they are uploaded before `qp-topics` reads them, so
+they travel on the runs the publication gate refuses and the runs it passes
+alike. The labeler's reach is what bounds that third one: it can read the
+extract this same run already published under the same window, and the public
+checkout, and nothing else. Because every batch re-carries the reference
 rows, intersecting two extracts recovers the in-frame reference membership
 within their windows — `docs/qp-topic.md` carries that reading and its bound.
 Two step summaries are durable public surfaces beside them, both deliberately
