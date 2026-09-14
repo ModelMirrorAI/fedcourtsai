@@ -2038,6 +2038,13 @@ def enrich_opinions_cmd(
         int,
         typer.Option(help="Cases to walk this run — the per-run REST spend bound."),
     ] = DEFAULT_MAX_OPINION_CASES,
+    case: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--case",
+            help="Restrict the walk to this `court/docket` case; repeatable.",
+        ),
+    ] = None,
 ) -> None:
     """Fill each granted SCOTUS case's reporter cites and opinion body from REST.
 
@@ -2079,11 +2086,22 @@ def enrich_opinions_cmd(
     window: the governor is per-process, so two runs would each stay under the
     ceiling while the account did not.
 
+    The walk takes the **git ledger's merits cases first** — the cases holding
+    a committed merits event, decided ones (a latched `merits_judgment`) ahead
+    of pending ones — because the body is an input to grading a merits forecast
+    and to nothing else, and a current-Term grant's high docket id would
+    otherwise put it behind the whole standing backlog. `--case court/docket`
+    (repeatable) narrows the walk to named cases for the run that wants one now;
+    it narrows only, so eligibility and `--max-cases` still decide, and a named
+    case the predicate does not admit is reported with its reason rather than
+    silently skipped.
+
     Idempotent: an enriched row no longer matches, while one that found no
     cluster is retried, so a grant picks up its opinion the run after
     publication. A grant that never publishes one (a GVR, a DIG) never
     converges, and neither does a decided grant that neither route resolves —
-    so the walk rotates on a last-attempted cursor
+    so within each of those priority groups the walk rotates on a
+    last-attempted cursor
     (`opinion_enrich_attempted_at`, stamped on every case an applied run
     classifies — a landed body, no cluster, a refusal, a 4xx on one of its
     records):
@@ -2099,6 +2117,14 @@ def enrich_opinions_cmd(
     pulled, `corpus-push` after an `--apply`. Fails loud if the corpus is
     absent.
     """
+    try:
+        # The repo's own case-id grammar, and it runs before anything is opened:
+        # a typo is an argument error, refused here rather than reported later as
+        # a case the corpus does not hold.
+        named = corpus_seed.parse_case_ids(case) if case else None
+    except corpus_seed.SeedSliceError as exc:
+        typer.echo(f"enrich-opinions: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
@@ -2109,7 +2135,14 @@ def enrich_opinions_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn, _client() as client:
-        result = enrich_opinions(conn, client, apply=apply, max_cases=max_cases)
+        result = enrich_opinions(
+            conn,
+            client,
+            apply=apply,
+            max_cases=max_cases,
+            data_root=settings.data_root,
+            cases=named,
+        )
     if apply:
         _ensure_corpus_layout(db_path)
     verb = "enriched" if apply else "would enrich"
@@ -2130,6 +2163,9 @@ def enrich_opinions_cmd(
             f"  {result.live_only} granted row(s) carry a live-channel docket id, which "
             "addresses nothing upstream — not walked"
         )
+    for entry in result.ineligible:
+        # A named case is a question; an unadmitted one still gets an answer.
+        typer.echo(f"  not walked {entry['case_id']}: {entry['reason']}")
     if result.stopped:
         typer.echo(f"  stopped: {result.stopped} ({len(result.deferred)} case(s) deferred)")
     for entry in result.failed:

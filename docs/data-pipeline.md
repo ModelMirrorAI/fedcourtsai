@@ -686,13 +686,30 @@ outside a pull window rather than beside one. Convergence is not monotone: a
 grant that never publishes an opinion (a GVR, a DIG) is retried whenever its
 turn comes round, and so is a decided grant neither route resolves — one
 carrying no docket number to ask with, or one whose number upstream joins
-several clusters to. A **last-attempted
-cursor** is what keeps those residues from holding the head of every run: an
+several clusters to.
+
+The walk's **first key is the git ledger**: a case for which
+`data/cases/<court>/<docket>/events/` already holds a committed merits event
+goes ahead of the backlog, and within that group one whose `merits_judgment`
+has latched goes ahead of one still pending. That is where the body is actually
+owed — grading a merits forecast is the only thing it is an input to — and it is
+a few dozen cases against a standing backlog of ≈1,200. Without the key they are
+the *last* cases walked, not the first: upstream mints a current-Term grant one
+of the highest docket ids there is, so `case_id` order puts the case the
+pipeline is waiting on dozens of capped dispatches behind grants from a decade
+ago. The ledger read is one glob over the committed tree, with
+[`pipeline/moments.py`](../src/fedcourtsai/pipeline/moments.py)'s declared
+merits moments as the vocabulary. A **last-attempted
+cursor** then orders *within* each of those groups, and is what keeps the
+residues from holding the head of either: an
 applied run stamps `opinion_enrich_attempted_at` on every case it classifies —
 enriched, no cluster, refused, 4xx on one of its records — through the same upsert the
 enrichment itself writes through, and it takes never-attempted rows first (in
 `case_id` order) and then the stalest stamp, so a case walked today sorts behind
-everything still owed a turn. What stamps is what upstream answered *about the
+everything still owed a turn. `--case <court>/<docket>` (repeatable) narrows the
+walk to named cases for the run that wants one now; it narrows only, so
+eligibility and `--max-cases` still decide and a named case the predicate does
+not admit is reported with its reason rather than silently skipped. What stamps is what upstream answered *about the
 case*: a 5xx, a transport failure, an unparseable body, or a 4xx on a collection
 query — the question refused rather than the case — says nothing about the
 docket, so such a case keeps its place — as does one the run never reached,
