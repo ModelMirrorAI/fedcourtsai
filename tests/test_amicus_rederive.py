@@ -16,6 +16,7 @@ The properties no other suite covers, and the ones a stats-reviewer checks:
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -33,6 +34,21 @@ from fedcourtsai.schemas import (
 from fedcourtsai.serialize import read_model, write_json
 
 _EVENT = "evt-motion-disposition"
+
+_RUN_REPAIR = Path(__file__).resolve().parent.parent / ".github" / "workflows" / "run-repair.yml"
+
+
+def _regrade_pattern() -> str:
+    """The cell grammar `run-repair`'s re-grade selector greps, read from the workflow.
+
+    The workflow carries the pattern twice — the fail-fast copy in the selector
+    validation and the step of record — kept word-for-word identical so one
+    mistake cannot produce two differently worded refusals. Both are read and
+    required to agree, so this helper cannot quietly pick the stale one.
+    """
+    patterns = set(re.findall(r"pattern='([^']+)'", _RUN_REPAIR.read_text()))
+    assert len(patterns) == 1, f"run-repair's regrade cell grammars have drifted: {patterns}"
+    return patterns.pop()
 
 
 def _row(case_id: str, docket: str, *, amicus_briefs: int) -> corpus.CorpusRow:
@@ -70,10 +86,13 @@ _CUT_SNAPSHOT = _live(
     ("2026-07-01", "Application (26A700) denied."),
     ("2026-07-10", "Brief amicus curiae of Beta Institute filed."),
 )
-# A resolved application the widened reading reads *higher* than an old-reading
-# stored 0: one amicus before the grant, nothing after.
+# A resolved application the widened reading reads *higher* than the retired one:
+# the brief is docketed in the **submitted** form, which the accepted-form-only
+# reading did not count and `amicus_briefs`' second arm does. Stored 0 is what the
+# old reading produced from this very snapshot, so this row exercises the widening
+# itself rather than a seeded disagreement.
 _RISE_SNAPSHOT = _live(
-    ("2026-06-20", "Brief amicus curiae of Gamma Trust filed."),
+    ("2026-06-20", "Amicus brief of Gamma Trust submitted."),
     ("2026-06-22", "Application (26A701) granted."),
 )
 
@@ -168,6 +187,60 @@ def test_the_direct_update_lands_a_cut_count_the_upsert_latch_would_eat(tmp_path
     assert sorted(result.corpus_changed_case_ids) == ["scotus/700", "scotus/701"]
     # The magnitude beside the row count: |2-1| + |0-1|.
     assert result.amicus_shift_entries == 2
+    # The per-row ledger is the procedural replacement for the latch this write
+    # bypasses, so it must carry both directions with their old and new counts.
+    assert {(m.case_id, m.was, m.now) for m in result.corpus_moves} == {
+        ("scotus/700", 2, 1),
+        ("scotus/701", 0, 1),
+    }
+
+
+def test_a_degraded_or_uncounted_row_is_reported_and_never_lowered(tmp_path: Path) -> None:
+    """The claims that replace the bypassed max latch, exercised.
+
+    The latch rejected any regression from any cause; what stands in its place is
+    narrower, so the three arms it leaves standing are pinned here: a row with no
+    live-shaped snapshot at all, a row whose snapshot discloses no entries (the
+    served shell a confident 0 would otherwise be written from), and a row whose
+    stored count is null — the interim family's coverage sentinel, which the pass
+    reports rather than fills.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row("scotus/810", "26A810", amicus_briefs=4),  # no snapshot at all
+                _row("scotus/811", "26A811", amicus_briefs=5),  # snapshot, no entries
+                corpus.CorpusRow(  # application-parsed, but no stored count
+                    case_id="scotus/812",
+                    court="scotus",
+                    docket_number="26A812",
+                    case_name="Doe v. Roe",
+                    last_live_polled=date(2026, 8, 1),
+                    disposition=Disposition.denied,
+                    application_kind="substantive",
+                ),
+            ],
+        )
+        corpus.upsert_snapshot(conn, "scotus/811", date(2026, 7, 1), _live())
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/812",
+            date(2026, 7, 1),
+            _live(("2026-07-01", "Application (26A812) denied.")),
+        )
+        result = rederive_amicus_briefs(conn, tmp_path / "data", apply=True, max_changes=10)
+        # Every one of them keeps exactly what it carried.
+        assert _stored(conn, "scotus/810") == 4
+        assert _stored(conn, "scotus/811") == 5
+        assert _stored(conn, "scotus/812") is None
+    assert (result.corpus_changed, result.corpus_moves) == (0, [])
+    # The two unreadable rows are counted apart from the never-counted one, so the
+    # ledger's denominators stay honest.
+    assert result.unobservable == 2
+    assert result.no_stored_count == 1
+    assert result.eligible == 3
 
 
 def test_the_refreeze_rewrites_interim_signals_but_leaves_context_untouched(
@@ -200,6 +273,45 @@ def test_the_refreeze_rewrites_interim_signals_but_leaves_context_untouched(
     assert (result.outcomes_refrozen, result.cases_refrozen) == (1, 1)
     assert result.refrozen[0].ref == "scotus/700/evt-motion-disposition"
     assert (result.refrozen[0].was, result.refrozen[0].now) == (2, 1)
+
+
+def test_the_refreeze_names_the_regrade_cells_it_puts_in_the_backlog(tmp_path: Path) -> None:
+    """The re-grade debt is emitted in the grammar the selector parses.
+
+    The re-freeze moves a value a committed grade was computed from, so it owes a
+    `regrade-stale` dispatch. Emitting the cells here is what lets that dispatch be
+    copied off the ledger rather than reconstructed by hand — and the cells are
+    per (evaluator, run), not per predictor, since one evaluator cell grades the
+    predictions under it.
+    """
+    data_root = tmp_path / "data"
+    _write_outcome(data_root, "scotus/700", 700, amicus=2)
+    event = CasePaths(data_root, "scotus", 700).event(_EVENT)
+    for evaluator in ("claude-judge", "codex-judge"):
+        for predictor in ("claude-baseline", "gemini-baseline"):
+            path = event.evaluation(evaluator, predictor, "20260825T024608Z")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("{}")
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _seed_corpus(conn)
+        result = rederive_amicus_briefs(conn, data_root, apply=False)
+
+    (entry,) = [e for e in result.refrozen if e.ref.startswith("scotus/700/")]
+    # Two evaluators x one run: the two predictor directories under each collapse
+    # to one cell, and the grammar is court/docket/event/run_id/actor.
+    assert entry.regrade_cells == [
+        f"scotus/700/{_EVENT}/20260825T024608Z/claude-judge",
+        f"scotus/700/{_EVENT}/20260825T024608Z/codex-judge",
+    ]
+    # And the grammar is the workflow's own, read out of it rather than retyped:
+    # these cells are emitted so a maintainer can paste them into `repair_target`,
+    # and the selector greps every line against this pattern. The two surfaces are
+    # written in different languages and nothing at runtime holds them together, so
+    # a cell this pass emits that the dispatch would refuse is the drift to catch.
+    pattern = _regrade_pattern()
+    for cell in entry.regrade_cells:
+        assert re.match(pattern, cell), f"{cell!r} is not a cell run-repair would accept"
 
 
 def test_a_dry_run_reports_the_plan_and_writes_nothing(tmp_path: Path) -> None:

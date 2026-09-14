@@ -911,25 +911,25 @@ def rederive_amicus_briefs_cmd(
         ),
     ] = False,
     max_changes: Annotated[
-        int,
+        int | None,
         typer.Option(
             "--max-changes",
             help="Blast-radius bound: refuse to apply more total changes (corpus "
-            "rewrites plus re-frozen outcomes) than this.",
+            "rewrites plus re-frozen outcomes) than this. Required with --apply.",
         ),
-        # The basis, so raising it is a decision rather than a reflex. The
-        # freeze record pre-computes the committed *population* — the interim
-        # outcomes carrying a frozen block — and NOT how many of them move: the
-        # motion it reconstructs covers two dockets of twenty, both surfaced by
-        # cell flags, which is the most biased sample available for the question.
-        # Most of the population reads 0 and can rise under the widened reading,
-        # so that arm is unmeasured and a ledger larger than the reconstructed
-        # motion is the expected result rather than a defect. The corpus write
-        # set is the resolved interim applications whose cut count moves. The
-        # default sits an order of magnitude above the registered population, a
-        # guard against a catastrophic write rather than a wrong one. The apply
-        # reads its own bound off the dry-run ledger regardless.
-    ] = 250,
+        # No default, and `--apply` refuses without it, as both bounded siblings
+        # do: the dry run is where the number comes from, so no default may stand
+        # in for a maintainer's reading. That matters more here than for a
+        # single-store pass, because the freeze record pre-computes the committed
+        # *population* — the interim outcomes carrying a frozen block — and NOT
+        # how many of them move: the motion it reconstructs covers two dockets of
+        # twenty, both surfaced by cell flags, which is the most biased sample
+        # available for the question. Most of the population reads 0 and can rise
+        # under the widened reading, so that arm is unmeasured and a ledger
+        # larger than the reconstructed motion is the expected result rather than
+        # a defect. A default sized off the registered figures would therefore be
+        # a guess wearing a bound.
+    ] = None,
 ) -> None:
     """Re-derive the interim `amicus_briefs` column and re-freeze the outcomes it fed.
 
@@ -946,10 +946,13 @@ def rederive_amicus_briefs_cmd(
     bypasses the max latch**. The latch stops a degraded payload from lowering a
     stored count; the end-of-day cut lowers a resolved row deliberately (dropping
     entries filed after the disposition), which is exactly the write it rejects,
-    so `upsert_rows` would write nothing while reporting success. An **open**
-    application (no readable disposition date) is left to the live channel, which
-    polls it under the same reading, and a row with no readable snapshot is left
-    untouched — never lowered.
+    so `upsert_rows` would write nothing while reporting success. A row with no
+    readable disposition date is skipped, and one with no readable snapshot is left
+    untouched — never lowered. That skipped bucket holds two rows and only one has
+    an owner: an **open** application, which the live channel keeps polling under
+    this same reading, and a **resolved** one whose disposing entry carries no
+    readable date, which `application_rotation` no longer selects — so nothing
+    revisits it and it keeps whatever the latch holds.
 
     Step 2 re-reads every committed interim `outcome.json` and rewrites its
     `interim_signals.amicus_briefs` to the value the same recount produced,
@@ -970,6 +973,13 @@ def rederive_amicus_briefs_cmd(
     Fails loud if the corpus is absent.
     """
     settings = get_settings()
+    if apply and max_changes is None:
+        typer.echo(
+            "rederive-amicus-briefs: --apply requires an explicit --max-changes. "
+            "Read the dry run first and pass the total_changes you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
         typer.echo(
@@ -1039,7 +1049,18 @@ def rederive_amicus_briefs_cmd(
         typer.echo(f"  corpus {move.case_id}: {move.was} -> {move.now}")
     for entry in result.refrozen:
         typer.echo(f"  outcome {entry.ref}: {entry.was} -> {entry.now}")
-    if not apply and result.total_changes > max_changes:
+    # The re-grade debt this apply owes, in the grammar the `regrade-stale`
+    # selector parses, so the follow-through dispatch is copied off the ledger
+    # rather than reconstructed from a directory walk.
+    owed = sorted({cell for entry in result.refrozen for cell in entry.regrade_cells})
+    if owed:
+        typer.echo(
+            f"regrade-stale backlog: {len(owed)} evaluator cell(s) graded against a "
+            "moved resolution end — dispatch repair=regrade-stale with repair_target:"
+        )
+        for cell in owed:
+            typer.echo(f"  {cell}")
+    if not apply and max_changes is not None and result.total_changes > max_changes:
         # The dry run never consults the bound, so without this the refusal would
         # surface only on the second dispatch — after the reading meant to decide
         # whether to make it.
@@ -1048,40 +1069,10 @@ def rederive_amicus_briefs_cmd(
             "an apply would refuse. Triage, or dispatch with a bound you can justify.",
             err=True,
         )
-    typer.echo(
-        json.dumps(
-            {
-                "applied": result.applied,
-                "refused": result.refused,
-                "corpus_sha256": result.corpus_sha256,
-                "eligible": result.eligible,
-                "observable": result.observable,
-                "unobservable": result.unobservable,
-                "open_no_cut": result.open_no_cut,
-                "no_stored_count": result.no_stored_count,
-                "corpus_changed": result.corpus_changed,
-                "corpus_increased": result.corpus_increased,
-                "corpus_decreased": result.corpus_decreased,
-                "amicus_shift_entries": result.amicus_shift_entries,
-                "corpus_moves": [
-                    {"case_id": move.case_id, "was": move.was, "now": move.now}
-                    for move in result.corpus_moves
-                ],
-                "corpus_changed_case_ids": result.corpus_changed_case_ids,
-                "outcomes_with_interim": result.outcomes_with_interim,
-                "interim_amicus_distribution": result.interim_amicus_distribution,
-                "outcomes_refrozen": result.outcomes_refrozen,
-                "outcomes_unresolvable": result.outcomes_unresolvable,
-                "cases_refrozen": result.cases_refrozen,
-                "refrozen": [
-                    {"ref": entry.ref, "was": entry.was, "now": entry.now}
-                    for entry in result.refrozen
-                ],
-                "context_amicus_untouched": result.context_amicus_untouched,
-                "total_changes": result.total_changes,
-            }
-        )
-    )
+    # Serialized whole rather than field by field: this is the ledger the
+    # workflow tees into the run summary, so a field added to the result must
+    # not be able to go missing from the one artifact that outlives the run.
+    typer.echo(result.model_dump_json())
     if result.refused:
         typer.echo(
             f"rederive-amicus-briefs: refusing to apply {result.total_changes} total "
