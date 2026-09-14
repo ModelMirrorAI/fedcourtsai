@@ -1,3 +1,4 @@
+import hashlib
 import json
 from datetime import date
 from pathlib import Path
@@ -1832,3 +1833,111 @@ def test_the_same_day_read_anchors_on_the_docket_not_the_stamp(
     assert ledger.refused_stale_stamp == 1
     assert ledger.refused_same_day_disposition == 1
     assert [row.same_day_disposition for row in ledger.rows] == [True]
+
+
+# --- the evaluate-only opinion slot -------------------------------------------
+#
+# The majority opinion is the one provisioned input that postdates every predict
+# moment by construction. These pin the two things that keep it out of a predict
+# cell: it is written by a command the predict lane never invokes, and the
+# provisioner the predict lane *does* invoke writes nothing under `record/opinion/`
+# even on a case whose corpus row carries a body.
+
+
+def _opinion(fixture_corpus: FixtureCorpus, court: str, docket: int) -> CasePaths:
+    return CasePaths(fixture_corpus.data_root, court, docket)
+
+
+def test_provision_opinion_stages_the_body_with_its_digest(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    result = runner.invoke(app, ["provision-opinion", "--court", "ca9", "--docket", "101"])
+
+    assert result.exit_code == 0, result.output
+    paths = _opinion(fixture_corpus, "ca9", 101)
+    body = "The panel reverses the summary judgment and remands for trial.\n"
+    assert paths.opinion_text.read_text() == body
+    manifest = json.loads(paths.opinion_manifest.read_text())
+    assert manifest["case_id"] == "ca9/101"
+    assert manifest["has_opinion"] is True
+    assert manifest["length"] == len(body)
+    assert manifest["sha256"] == hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def test_the_staged_manifest_cites_what_the_corpus_row_carries(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """A citation a grader can read, built from the row rather than restated."""
+    result = runner.invoke(app, ["provision-opinion", "--court", "ca9", "--docket", "101"])
+
+    assert result.exit_code == 0, result.output
+    source = json.loads(_opinion(fixture_corpus, "ca9", 101).opinion_manifest.read_text())["source"]
+    assert source["court"] == "ca9"
+    assert source["docket_id"] == 101
+    assert source["case_name"] == "Alvarez v. Northwest Logistics"
+    assert source["date_decided"] == "2023-09-18"
+    assert source["citations"] == ["410 U.S. 113", "347 U.S. 483"]
+    assert source["precedential_status"] == "Published"
+
+
+def test_a_case_with_no_opinion_writes_nothing_and_exits_clean(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The ordinary state on most cases, so a workflow step may run unconditionally."""
+    result = runner.invoke(app, ["provision-opinion", "--court", "ca9", "--docket", "103"])
+
+    assert result.exit_code == 0, result.output
+    assert "no linked opinion" in result.output
+    paths = _opinion(fixture_corpus, "ca9", 103)
+    assert not paths.opinion_dir.exists()
+    assert not paths.opinion_manifest.exists()
+
+
+def test_a_case_the_corpus_does_not_hold_is_a_different_answer(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """Wrong coordinates, not an un-enriched case — so it fails rather than reports."""
+    result = runner.invoke(app, ["provision-opinion", "--court", "ca9", "--docket", "99999"])
+
+    assert result.exit_code == 1
+    assert "No corpus row" in result.output
+
+
+def test_the_predict_provisioner_never_writes_the_opinion_slot(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The slot is out of the predict lane's reach because that lane never writes it."""
+    result = runner.invoke(
+        app,
+        ["provision-snapshot", "--court", "ca9", "--docket", "101", "--mode", "forward"],
+    )
+
+    assert result.exit_code == 0, result.output
+    paths = _opinion(fixture_corpus, "ca9", 101)
+    # The case carries a body and a full provisioning run just completed; the
+    # snapshot and documents landed, and the opinion slot did not.
+    assert paths.record.exists()
+    assert not paths.opinion_dir.exists()
+
+
+def test_the_staged_body_never_lands_among_the_filed_documents(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """`documents_before` is the only cut over that tree, and an opinion has no date to cut at."""
+    result = runner.invoke(app, ["provision-opinion", "--court", "ca9", "--docket", "101"])
+
+    assert result.exit_code == 0, result.output
+    paths = _opinion(fixture_corpus, "ca9", 101)
+    assert not paths.documents_dir.exists()
+    assert paths.opinion_dir.is_dir()
+    assert paths.opinion_text.parent == paths.opinion_dir
+
+
+def test_the_slot_lives_under_the_gitignored_record_tree(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """Everything under `record/` is gitignored wholesale; the slot inherits that."""
+    paths = _opinion(fixture_corpus, "ca9", 101)
+    assert paths.opinion_dir.parent == paths.record
+    assert paths.opinion_text.parent == paths.opinion_dir
+    assert paths.opinion_manifest.parent == paths.opinion_dir

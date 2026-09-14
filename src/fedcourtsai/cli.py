@@ -7,6 +7,7 @@ committed under ``data/`` matches the schema contract.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -305,6 +306,7 @@ from .schemas import (
     RetrievalLog,
     SalienceReplay,
     Stage,
+    StagedOpinion,
     StatPack,
     Stratum,
     UsageRole,
@@ -4932,10 +4934,22 @@ def semantic_summary_command(
     masked = summary.overall.not_addressed if summary.overall is not None else 0
     disputed = summary.overall.mask_disputed if summary.overall is not None else 0
     agreed = any(record.rank_agreement is not None for record in summary.agreement.values())
+    grounds = summary.overall.not_addressed_by_ground if summary.overall is not None else {}
+    # The mask's ground split rides the shared census line, so it prints in the
+    # withheld state too — which is the only state there is while every unit
+    # masks, and the state in which this split is the whole of what the command
+    # has to say. A coverage gap ("not-ingested") names work the pipeline owes; a
+    # mask on "silent-on-axis" is a finding about the opinion, and an
+    # undifferentiated total would let a reader take one for the other.
+    ground_split = (
+        "; masked on " + ", ".join(f"{name} {count}" for name, count in sorted(grounds.items()))
+        if grounds
+        else ""
+    )
     census = (
         f"{blocks} block(s), {refused} refused; {graded} graded / {masked} masked / "
         f"{disputed} mask-disputed unit(s) over {summary.cells} cell(s) "
-        f"on {summary.cases} case(s)"
+        f"on {summary.cases} case(s){ground_split}"
     )
     if graded < semantic.SEMANTIC_MIN_GRADED or not agreed:
         reason = (
@@ -9445,6 +9459,108 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         )
         kinds = ", ".join(doc.kind for doc in documents)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
+
+
+@app.command("provision-opinion")
+def provision_opinion(
+    *,
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Stage a decided case's majority opinion for an **evaluate** cell to grade against.
+
+    The semantic claim family grades a predicted proposition against what the
+    Court actually wrote, and nothing else delivers that text to a judge: the
+    provisioned ``record/`` carries the docket, the snapshot, the filed documents
+    and the blinded candidates, and the only opinion reader a cell otherwise has
+    is a priors query with no case filter, which the grading protocol rightly
+    forbids grading against. Without this slot every declared claim masks on
+    "not ingested" whatever the corpus holds.
+
+    **A separate command, and that is the guarantee.** The body postdates every
+    predict moment's cutoff by construction — an opinion is the outcome — so it
+    must never reach a predict cell. Two structural things keep it out, neither
+    of them a flag anyone can mis-set. It is not a document: ``record/documents/``
+    is cut by :func:`fedcourtsai.provision.documents_before` alone, a date filter
+    over rows the docket carries, and an opinion body has no docket date to be
+    cut at. And it is not a mode of the provisioner the predict lane runs — a
+    predict cell would have to invoke a command it never invokes, rather than
+    pass a flag whose default happened to change. ``record/opinion/`` is written
+    here or by nothing.
+
+    Writes **nothing** and exits 0 where the row's ``has_opinion`` bit is clear
+    or the body cannot be read, reporting which. That is the ordinary state on
+    most cases — coverage is a slice of the granted docket, not all of it — so a
+    workflow step runs this unconditionally and the absence of the slot, rather
+    than a failed step, is what tells a grader there is nothing to grade against.
+    The body is read through the one registered payload path
+    (:func:`fedcourtsai.corpus.opinion_body`): the blob's own column with the
+    corpus split off, the per-case content store under it.
+
+    Exits **1** where the corpus holds no row for the case at all, which is a
+    different fact from a case with no opinion — the first says the coordinates
+    are wrong, the second that this case has not been enriched yet.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    case = ids.case_id(court, docket)
+    # Local/ranged only, deliberately: the presence bit and the citation are
+    # index facts and the content store exposes no rows. Under the corpus split
+    # this still reaches the body — `opinion_body` routes the payload half to the
+    # registered store while the row half comes off the index, which is exactly
+    # the pair of credentials a cell's provisioning step already carries.
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        row = corpus.get_row(conn, case)
+        _echo_read_stats(conn)
+    if row is None:
+        typer.echo(f"No corpus row for {case} (corpus-pull the corpus first?)", err=True)
+        raise typer.Exit(code=1)
+    paths = CasePaths(settings.data_root, court, docket)
+    if not row.has_opinion:
+        typer.echo(f"{case} has no linked opinion; nothing staged")
+        return
+    body = corpus.opinion_body(row)
+    if not body:
+        # The bit says a body exists and the estate did not hand one over — a
+        # split-mode store that is unbuilt, unreachable, or has not mirrored this
+        # case yet. Spoken as a warning rather than an exit: the grader's mask on
+        # "not ingested" is the correct grade either way, and failing the step
+        # would cost the cell its whole evaluation over a slot it can do without.
+        typer.echo(
+            f"::warning::{case} is marked as carrying an opinion but no body "
+            f"was readable from the {backend} backend; nothing staged",
+            err=True,
+        )
+        return
+    # Digest and count exactly the bytes that land on disk, so the manifest
+    # identifies the body a grade was formed from rather than approximately it.
+    staged = body if body.endswith("\n") else body + "\n"
+    write_text(paths.opinion_text, staged)
+    # Null fields are dropped rather than carried: this block is a citation a
+    # grader reads, and a run of nulls reads as missing provenance instead of as
+    # a corpus that never recorded a reporter cite for this case.
+    source: dict[str, object] = {"court": court, "docket_id": docket}
+    if row.case_name:
+        source["case_name"] = row.case_name
+    if row.date_decided is not None:
+        source["date_decided"] = row.date_decided.isoformat()
+    if row.citations:
+        source["citations"] = list(row.citations)
+    if row.precedential_status:
+        source["precedential_status"] = row.precedential_status
+    write_json(
+        paths.opinion_manifest,
+        StagedOpinion(
+            case_id=case,
+            has_opinion=True,
+            sha256=hashlib.sha256(staged.encode("utf-8")).hexdigest(),
+            length=len(staged),
+            source=source,
+        ),
+    )
+    typer.echo(f"{case} opinion ({len(staged)} chars) -> {paths.opinion_dir}")
 
 
 @app.command("assert-cell-record")

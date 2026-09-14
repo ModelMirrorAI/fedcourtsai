@@ -17,7 +17,9 @@ committed artifact valid.
 The **plumbing**, proven against synthetic graded units before any opinion text
 exists: the census counts each unit once at the panel's grade, the availability
 mask is counted apart from the ordinal levels and a split on the mask apart
-from both, derived figures are withheld below the minimum count, the population
+from both, the mask is further split by the ground it rests on — with a bucket
+for the grades that name none — so a coverage gap never reads as a finding
+about the Court, derived figures are withheld below the minimum count, the population
 a census covers is the caller's word and is recorded, and inter-grader
 agreement is the same leave-one-out tau-b `Leaderboard.evaluator_agreement`
 uses, over a different population.
@@ -52,10 +54,12 @@ from fedcourtsai.pipeline.semantic import (
     summarize_semantic_grades,
 )
 from fedcourtsai.schemas import (
+    MASK_GROUND_UNSTATED,
     Disposition,
     Engine,
     Evaluation,
     EventKind,
+    MaskGround,
     Moment,
     Outcome,
     PredictableEvent,
@@ -85,6 +89,7 @@ def _unit(
     *,
     claim_id: str = "majority-ground",
     cell: str = "1",
+    ground: MaskGround | None = None,
 ) -> GradedUnit:
     return GradedUnit(
         case_id="scotus/1",
@@ -93,14 +98,26 @@ def _unit(
         grader_id=grader,
         claim_id=claim_id,
         grade=grade,
+        mask_ground=ground,
     )
 
 
 def _panel(
-    *grades: SemanticSupport, claim_id: str = "majority-ground", cell: str = "1"
+    *grades: SemanticSupport,
+    claim_id: str = "majority-ground",
+    cell: str = "1",
+    ground: MaskGround | None = None,
 ) -> list[GradedUnit]:
     """One unit graded by as many graders as grades given."""
-    return [_unit(f"g{i}", grade, claim_id=claim_id, cell=cell) for i, grade in enumerate(grades)]
+    return [
+        _unit(f"g{i}", grade, claim_id=claim_id, cell=cell, ground=ground)
+        for i, grade in enumerate(grades)
+    ]
+
+
+def _masked_panel(*grounds: MaskGround | None, cell: str = "1") -> list[GradedUnit]:
+    """One unanimously-masked unit, each grader naming (or not naming) its own ground."""
+    return [_unit(f"g{i}", _MASKED, cell=cell, ground=ground) for i, ground in enumerate(grounds)]
 
 
 def _evaluation(*, semantic_grades: SemanticGradeBlock | None = None) -> Evaluation:
@@ -194,7 +211,7 @@ def test_the_mask_has_no_position_on_the_ordinal_scale() -> None:
 
 def test_a_semantic_grade_carries_no_baseline_and_no_score() -> None:
     """The design decision, enforced by the schema: grades never enter `claim_score`."""
-    assert set(SemanticGrade.model_fields) == {"claim_id", "grade", "basis"}
+    assert set(SemanticGrade.model_fields) == {"claim_id", "grade", "basis", "mask_ground"}
     assert "total" not in set(SemanticGradeBlock.model_fields)
 
 
@@ -313,6 +330,89 @@ def test_a_masked_unit_never_depresses_the_supported_share() -> None:
     assert census.graded == 10
     assert census.not_addressed == 10
     assert census.supported_share == 1.0
+
+
+# --- the mask's ground: a coverage gap and a finding are never one count ---
+
+
+def test_the_ground_split_sums_to_the_mask_total() -> None:
+    """The invariant a reader needs before subtracting one bucket from another."""
+    units = [
+        *_masked_panel("not-ingested", "not-ingested", cell="1"),
+        *_masked_panel("silent-on-axis", cell="2"),
+        *_masked_panel("no-judgment", cell="3"),
+        *_masked_panel(None, cell="4"),
+    ]
+    census = summarize_semantic_grades(units).claims[0]
+    assert census.not_addressed == 4
+    assert sum(census.not_addressed_by_ground.values()) == census.not_addressed
+    assert census.not_addressed_by_ground == {
+        "no-judgment": 1,
+        "not-ingested": 1,
+        "silent-on-axis": 1,
+        MASK_GROUND_UNSTATED: 1,
+    }
+
+
+def test_a_mask_naming_no_ground_is_counted_as_unstated() -> None:
+    """Every block graded before the field existed — counted, never assigned a ground."""
+    census = summarize_semantic_grades(_masked_panel(None, None, None)).claims[0]
+    assert census.not_addressed == 1
+    assert census.not_addressed_by_ground == {MASK_GROUND_UNSTATED: 1}
+
+
+def test_one_grader_naming_a_ground_carries_the_unit() -> None:
+    """Silence is not a competing answer, so it never outvotes a named ground."""
+    census = summarize_semantic_grades(_masked_panel(None, "silent-on-axis", None)).claims[0]
+    assert census.not_addressed_by_ground == {"silent-on-axis": 1}
+
+
+def test_a_split_panel_resolves_toward_the_coverage_gap() -> None:
+    """The gap and the finding must never be tradeable, so a split favors the gap."""
+    census = summarize_semantic_grades(_masked_panel("silent-on-axis", "not-ingested")).claims[0]
+    assert census.not_addressed_by_ground == {"not-ingested": 1}
+
+
+def test_a_ground_beside_an_ordinal_grade_is_never_counted() -> None:
+    """A unit that did not mask contributes nothing to the mask's split."""
+    census = summarize_semantic_grades(_panel(_SUPPORTED, ground="not-ingested")).claims[0]
+    assert census.graded == 1
+    assert census.not_addressed_by_ground == {}
+
+
+def test_an_empty_census_carries_no_ground_split() -> None:
+    """Three zeroes would assert a breakdown of nothing."""
+    census = summarize_semantic_grades(_panel(_SUPPORTED)).claims[0]
+    assert census.not_addressed_by_ground == {}
+
+
+def test_the_pooled_census_splits_the_mask_the_same_way() -> None:
+    """The overall row is where the published split is read, so it carries one too."""
+    units = [
+        *_masked_panel("not-ingested", cell="1"),
+        *_masked_panel("silent-on-axis", cell="2"),
+    ]
+    summary = summarize_semantic_grades(units)
+    assert summary.overall is not None
+    assert summary.overall.not_addressed_by_ground == {"not-ingested": 1, "silent-on-axis": 1}
+
+
+@pytest.mark.parametrize("ground", ["no-judgment", "not-ingested", "silent-on-axis"])
+def test_the_three_grounds_validate(ground: str) -> None:
+    grade = SemanticGrade(claim_id="majority-ground", grade=_MASKED, mask_ground=ground)
+    assert grade.mask_ground == ground
+
+
+@pytest.mark.parametrize("ground", ["not-argued", "unstated", "", "NOT-INGESTED"])
+def test_no_fourth_ground_validates(ground: str) -> None:
+    """Closed, because a grader that could name a ground defines the census population."""
+    with pytest.raises(ValidationError):
+        SemanticGrade(claim_id="majority-ground", grade=_MASKED, mask_ground=ground)
+
+
+def test_a_grade_carries_no_ground_by_default() -> None:
+    """So every block committed before the field existed still validates unchanged."""
+    assert SemanticGrade(claim_id="majority-ground", grade=_MASKED).mask_ground is None
 
 
 # --- suppression: counts publish, derived figures do not ---
@@ -692,6 +792,24 @@ def test_the_payload_survives_a_round_trip_through_the_committed_artifact(
     assert census["dissent-ground"].unsupported == 1
 
 
+def test_the_bridge_carries_a_masks_ground_and_drops_it_from_an_ordinal_grade(
+    declared: tuple[str, tuple[SemanticClaimSpec, ...]],
+) -> None:
+    """A ground beside a graded claim is an answer to a question nobody asked."""
+    block = SemanticGradeBlock(
+        declared_set_version=SEMANTIC_SET_V1,
+        grades=[
+            SemanticGrade(claim_id="majority-ground", grade=_MASKED, mask_ground="not-ingested"),
+            SemanticGrade(claim_id="dissent-ground", grade=_SUPPORTED, mask_ground="no-judgment"),
+        ],
+    )
+    units = graded_units(_evaluation(semantic_grades=block))
+    assert [u.mask_ground for u in units] == ["not-ingested", None]
+    census = {c.claim_id: c for c in summarize_semantic_grades(units).claims}
+    assert census["majority-ground"].not_addressed_by_ground == {"not-ingested": 1}
+    assert census["dissent-ground"].not_addressed_by_ground == {}
+
+
 # --- the refusals, said out loud: what `validate` surfaces ---------------------
 #
 # `graded_units` refuses silently and nothing reads `semantic_claims` at all, so
@@ -1007,6 +1125,42 @@ def test_the_summary_command_withholds_below_the_floor_and_writes_nothing(
     assert "on 2 case(s)" in result.output
     assert f"below the {SEMANTIC_MIN_GRADED}-unit floor" in result.output
     assert not out.exists()
+
+
+def test_the_summary_command_prints_the_mask_ground_split(tmp_path: Path) -> None:
+    """The withheld state is where this split is read: today it is all the census says."""
+    data_root = tmp_path / "data"
+    _write_merits_event(
+        data_root, case_id="scotus/1", event_id=MERITS_EVENT_ID, moment=Moment.grant
+    )
+    _write_grade(
+        data_root,
+        case_id="scotus/1",
+        grader="e1",
+        block=SemanticGradeBlock(
+            declared_set_version=SEMANTIC_SET_V1,
+            grades=[
+                SemanticGrade(
+                    claim_id="majority-ground", grade=_MASKED, mask_ground="not-ingested"
+                ),
+                SemanticGrade(claim_id="ground-breadth", grade=_MASKED),
+            ],
+        ),
+    )
+    result = _invoke(data_root, "--all-versions")
+    assert result.exit_code == 0, result.output
+    assert "0 graded / 2 masked" in result.output
+    assert "masked on not-ingested 1, unstated 1" in result.output
+
+
+def test_the_summary_command_prints_no_split_where_nothing_masked(tmp_path: Path) -> None:
+    """No mask, no split — rather than a row of zeroed grounds nobody asserted."""
+    data_root = tmp_path / "data"
+    _write_merits_cell(data_root, case_id="scotus/1", grader="e1")
+    result = _invoke(data_root, "--all-versions")
+    assert result.exit_code == 0, result.output
+    assert "0 masked" in result.output
+    assert "masked on" not in result.output
 
 
 def test_the_summary_command_withholds_a_census_no_grader_agrees_over(

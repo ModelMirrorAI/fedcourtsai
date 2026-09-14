@@ -289,7 +289,11 @@ class StubRunner:
         and the grading protocol says the mask's first ground is exactly that —
         so a stub that graded on the ordinal scale would be inventing a reading
         of a document that does not exist. The ``basis`` names which mask ground
-        applied, as the protocol requires.
+        applied, as the protocol requires, and ``mask_ground`` states it as the
+        counted field: ``not-ingested``, the conservative of the three. The stub
+        knows only that the record carries no body, never that none was filed —
+        so it names the ground that says the pipeline still owes the text rather
+        than the one that would assert no opinion exists.
 
         ``None`` where the scored prediction carries **no** ``semantic_claims``
         block, which is the prompt's own rule: such a cell most likely ran under
@@ -307,6 +311,7 @@ class StubRunner:
                     claim_id=spec.claim_id,
                     grade=SemanticSupport.not_addressed,
                     basis=f"no {spec.requires} in the record to grade against",
+                    mask_ground="not-ingested",
                 )
                 for spec in specs
             ],

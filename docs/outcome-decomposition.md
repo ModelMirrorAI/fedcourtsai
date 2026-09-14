@@ -1605,9 +1605,11 @@ does not carry.
   may skip claims selects the graded population. A grader that finds the record
   settles nothing writes `not-addressed`; it does not skip the row.
 - **The mask is the record's, three ways.** No opinion body of the required
-  kind exists; none is ingested; the opinion is silent on the claim's axis.
-  Never "the prediction was vague" — a vague proposition is graded, and graded
-  poorly.
+  kind exists (`no-judgment`); none is ingested (`not-ingested`); the opinion is
+  silent on the claim's axis (`silent-on-axis`). Never "the prediction was
+  vague" — a vague proposition is graded, and graded poorly. Those three names
+  are `SemanticGrade.mask_ground`'s vocabulary, the field the census splits on;
+  *What remains unbuilt* below says what still has to ask a grader to fill it.
 - **A grader must not reward paraphrase of the prediction back at itself.** The
   failure mode is a predicted proposition that restates the question presented,
   the syllabus, or the standard of review, and is therefore "matched" in the
@@ -1743,16 +1745,30 @@ owed:
 3. **An argument date.** `majority-ground`'s forecastability decays across the
    Term and no artifact records the vantage, so the caveat above travels as
    prose rather than as a column beside the grade.
-4. **A counted split of the mask's grounds.** The grading protocol requires a
-   grader to say in `basis` which ground it masked on — no opinion body of the
-   required class, none ingested, or silence on the axis — because a missing
-   document is a coverage gap somebody can fix while in-document silence is a
-   fact about the Court. But `SemanticGrade.basis` is free text and
-   `SemanticClaimSummary` carries one undifferentiated `not_addressed` count, so
-   that distinction is readable by a person auditing a cell and by nothing else.
-   While every unit masks it is the *only* signal the family produces, and the
-   register's own standard — a coverage gap and a substantive finding must never
-   be tradeable — says it should be counted rather than merely written down.
+4. **The two halves of a graded mask, wired but not yet asked for.** Both are
+   built and inert, waiting on one prompt amendment each.
+
+   *The text.* `fedcourts provision-opinion` stages a decided case's majority
+   opinion at `record/opinion/` — the body plus a manifest carrying its digest,
+   its length, and the citation the corpus row holds — and it is a command of
+   the **evaluate** lane alone. The body postdates every predict moment by
+   construction, so it is deliberately not a filed document (`record/documents/`
+   is cut by date, and an opinion has no docket date to be cut at) and
+   deliberately not a mode of the provisioner the predict lane runs: a predict
+   cell would have to invoke a command it never invokes. What is still owed is
+   the step that calls it on an evaluate cell and the grading protocol's
+   sentence telling a grader the slot is there.
+
+   *The ground.* The mask's ground is a counted field, `SemanticGrade
+   .mask_ground`, on the closed vocabulary `no-judgment` / `not-ingested` /
+   `silent-on-axis`, and `SemanticClaimSummary.not_addressed_by_ground` splits
+   the census on it — with an `unstated` bucket, since the field is optional and
+   a block that names no ground still belongs in the mask total. A panel that
+   splits resolves toward the coverage gap, so the census can under-state what
+   an opinion said and never what the pipeline still owes. The register's
+   standard is that a coverage gap and a substantive finding are never
+   tradeable, and until the evaluate prompt asks for the field every real grade
+   lands in `unstated`.
 
 The prompts are built: the predict prompt asks a merits cell for one
 proposition per declared claim on its declared axis, and the evaluate prompt

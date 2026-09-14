@@ -700,6 +700,21 @@ multiply against a case count that does not. No standing, no ordering, and no en
 into the leaderboard or any headline. Nothing derived from a grade is a skill,
 calibration, or forecasting claim of any kind.
 
+**The mask publishes split by its ground, never as one total.** A
+`not-addressed` count is counted apart from the ordinal levels, and the census
+splits it again: `no-judgment` (no opinion body of the kind the claim requires
+was filed), `not-ingested` (one exists and the record does not carry it),
+`silent-on-axis` (the body is in hand and says nothing on the claim's axis), and
+`unstated` for a grade naming none. The split is not a detail of the mask — it
+is the distinction between work this pipeline still owes and a finding about
+what the Court wrote, and those are never tradeable, so a figure quoting a mask
+total without its grounds is not readable. The four buckets sum to the mask
+total exactly, and a panel that splits on the ground resolves toward the
+coverage gap, so the published split can under-state what an opinion said and
+never what is still unfetched. It prints on `fedcourts semantic-summary` in the
+withheld state too — which is the state today, and the state in which this split
+is the only thing the family has to say.
+
 **A `majority-ground` census is an upper bound on forecasting skill, not a
 measure of it.** Nothing pins a merits predict cell to the grant, and a forward
 cell may retrieve without restriction, so a cell running after oral argument can

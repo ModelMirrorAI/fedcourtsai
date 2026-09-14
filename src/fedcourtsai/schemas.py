@@ -447,6 +447,25 @@ class SemanticSupport(StrEnum):
     not_addressed = "not-addressed"
 
 
+# Which of the availability mask's three grounds a `not-addressed` grade rests
+# on. The grading protocol already requires a grader to say which one applied;
+# typing it here makes the answer a counted field rather than a sentence inside
+# `SemanticGrade.basis` that only a person auditing a cell can read. The three
+# are not interchangeable and that is the whole reason to separate them: two of
+# them are coverage gaps somebody can close (no body of the required kind was
+# filed, or one exists and is not ingested) and the third is a finding about
+# what the Court wrote. Closed, because a grader that could name a fourth ground
+# would be defining the population the census measures.
+MaskGround = Literal["no-judgment", "not-ingested", "silent-on-axis"]
+
+# The census bucket for a masked unit whose grades name no ground at all — the
+# state of every block graded before the field existed. Named rather than
+# spelled at each call site, and deliberately *not* a fourth `MaskGround`: a
+# grader may not write it, and a census that folded it into one of the three
+# would report a ground nobody asserted.
+MASK_GROUND_UNSTATED = "unstated"
+
+
 # The pre-registration stratum a scored cell belongs to. Defined here, beside
 # the models that carry it, so a field can be typed on the closed vocabulary
 # rather than on a bare string; `fedcourtsai.integrity` carries the named
@@ -809,6 +828,55 @@ class PredictionContext(_Strict):
                 "`cut_anchor_index` is non-null exactly where `cut_kind` is 'arrival-position'"
             )
         return self
+
+
+class StagedOpinion(_Strict):
+    """The manifest beside a staged majority opinion — ``record/opinion/opinion.json``.
+
+    **Harness-owned and evaluate-only.** Written by ``provision-opinion``, never
+    by an agent, and never by the provisioner the predict lane calls: the body it
+    describes postdates every predict moment's cutoff, so the slot exists at all
+    only because a judge needs to grade a semantic claim against the text the
+    Court actually wrote.
+
+    Written **only alongside a body**, so its presence is itself the answer to
+    "is there an opinion to grade against?". A case whose row carries no opinion
+    gets no file rather than a file saying so — a manifest asserting absence
+    would be a second place for the answer to live, and the two could disagree
+    after a later enrichment pass fills the row.
+
+    The digest and length are the provenance a grader's basis can be audited
+    against: a quote checked later resolves against a body identified by content,
+    not by the path it happened to be written to.
+    """
+
+    case_id: str = Field(description="The case whose opinion is staged, `<court_id>/<docket_id>`")
+    has_opinion: bool = Field(
+        description="Always true on a written manifest — the corpus row's "
+        "retained presence bit, restated here so the file is readable on its "
+        "own. Absence of the file, not a false here, is how 'no opinion' is "
+        "recorded"
+    )
+    sha256: str = Field(
+        description="Hex SHA-256 of the staged text exactly as written, so a "
+        "grade's basis can later be resolved against the body it was formed "
+        "from rather than against whatever that path holds now"
+    )
+    length: int = Field(
+        ge=0,
+        description="Characters of staged text. Beside the digest it is the "
+        "cheap sanity read: a body of a few hundred characters is an order "
+        "stub rather than an opinion, and a grader that masked on it should say "
+        "so rather than grade a fragment",
+    )
+    source: dict[str, object] = Field(
+        default_factory=dict,
+        description="Where the body came from, as the corpus records it — the "
+        "court, the case name, the decision date, the reporter citations and "
+        "the precedential status the row carries. Open-shaped because it is a "
+        "citation for a reader rather than a field anything computes on; keys "
+        "whose corpus value is null are omitted rather than carried as nulls",
+    )
 
 
 class ClaimProbability(_Strict):
@@ -1403,6 +1471,18 @@ class SemanticGrade(_Strict):
         "restates the prediction rather than the opinion is a paraphrase graded "
         "against itself, which the grading protocol forbids; this field is what "
         "makes that visible in review. Null when the grader recorded none",
+    )
+    mask_ground: MaskGround | None = Field(
+        default=None,
+        description="Which of the mask's three grounds this grade rests on, "
+        "where the grade is `not-addressed`: `no-judgment` (no opinion body of "
+        "the kind the claim requires was filed), `not-ingested` (one exists and "
+        "the record does not carry it), or `silent-on-axis` (the body is in hand "
+        "and says nothing on the claim's axis). Counted, because the first two "
+        "are coverage gaps somebody can close and the third is a finding about "
+        "what the Court wrote, and those must never be tradeable. Null on every "
+        "grade that is not a mask, and on a mask whose grader named no ground — "
+        "the census counts those as `unstated` rather than assuming one",
     )
 
 
@@ -3165,11 +3245,17 @@ class SemanticClaimSummary(_Strict):
     """The grade census for one semantic claim — counts, and nothing derived from them.
 
     Descriptive by construction. The three ordinal levels are counted, the
-    availability mask is counted apart from them, and the one derived figure —
-    ``supported_share`` — is withheld below the minimum graded count, because a
-    share over three grades describes three grades rather than a predictor.
-    Nothing here is a score, nothing is pooled with a mechanical claim total,
-    and nothing is a rank key (``metrics/README.md``).
+    availability mask is counted apart from them **and split by the ground it
+    rests on**, and the one derived figure — ``supported_share`` — is withheld
+    below the minimum graded count, because a share over three grades describes
+    three grades rather than a predictor. Nothing here is a score, nothing is
+    pooled with a mechanical claim total, and nothing is a rank key
+    (``metrics/README.md``).
+
+    While every unit masks, ``not_addressed_by_ground`` is the only thing this
+    census says that varies — which is why the mask is split rather than left as
+    one total: a mask on ``not-ingested`` names work the pipeline owes, and a
+    mask on ``silent-on-axis`` names a fact about the opinion.
     """
 
     claim_id: str | None = Field(
@@ -3188,6 +3274,17 @@ class SemanticClaimSummary(_Strict):
         "property of the record and never of the predictor. Counted apart from "
         "the ordinal levels and never inside `graded`, so a claim the record "
         "could not settle never reads as a claim the predictor got wrong",
+    )
+    not_addressed_by_ground: dict[str, int] = Field(
+        default_factory=dict,
+        description="`not_addressed` split by the ground the panel masked on — "
+        "the three `SemanticGrade.mask_ground` values, plus `unstated` for a "
+        "unit whose grades name none. Sums to `not_addressed` exactly, and "
+        "carries only the grounds with a non-zero count. The split is the "
+        "signal, not a detail of it: two of the grounds say the record is "
+        "missing something a pipeline can go and fetch, one says the opinion "
+        "was read and did not speak, and an undifferentiated total lets a "
+        "coverage gap read as a finding about the Court",
     )
     mask_disputed: int = Field(
         default=0,

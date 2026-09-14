@@ -44,6 +44,7 @@ from fedcourtsai.pipeline.semantic import (
     SEMANTIC_SET_V1,
     graded_units,
     ordinal,
+    summarize_semantic_grades,
 )
 from fedcourtsai.registry import enabled_evaluators
 from fedcourtsai.schemas import (
@@ -340,6 +341,15 @@ def test_stub_cascade_merits_smoke(tmp_path: Path) -> None:
     ] * len(SEMANTIC_MERITS_V1)
     units = graded_units(evaluation)
     assert units and all(ordinal(u.grade) is None for u in units)
+    # And every mask names its ground as a counted field, not only in `basis`:
+    # `not-ingested`, the conservative reading. The record carries no body, which
+    # is all the cell can know — asserting `no-judgment` would claim that none
+    # was ever filed. The census then splits on that ground rather than
+    # reporting one undifferentiated mask total.
+    assert [u.mask_ground for u in units] == ["not-ingested"] * len(SEMANTIC_MERITS_V1)
+    census = summarize_semantic_grades(units).overall
+    assert census is not None
+    assert census.not_addressed_by_ground == {"not-ingested": len(SEMANTIC_MERITS_V1)}
 
     # The leaderboard build puts the cell in the unranked `merits@grant`
     # stages block — the event's moment stamp survives resolution, so the cell

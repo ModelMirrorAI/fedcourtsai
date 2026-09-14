@@ -301,6 +301,24 @@
         "grade": {
           "$ref": "#/$defs/SemanticSupport",
           "description": "How far the opinion supports the predicted proposition. `not-addressed` is the availability mask \u2014 the record does not put the claim in question (no opinion body of the required kind exists, none is ingested, or the opinion is silent on the claim's axis) \u2014 a property of the record and never of the predictor, so it is counted apart from the ordinal levels and never averaged with them"
+        },
+        "mask_ground": {
+          "anyOf": [
+            {
+              "enum": [
+                "no-judgment",
+                "not-ingested",
+                "silent-on-axis"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which of the mask's three grounds this grade rests on, where the grade is `not-addressed`: `no-judgment` (no opinion body of the kind the claim requires was filed), `not-ingested` (one exists and the record does not carry it), or `silent-on-axis` (the body is in hand and says nothing on the claim's axis). Counted, because the first two are coverage gaps somebody can close and the third is a finding about what the Court wrote, and those must never be tradeable. Null on every grade that is not a mask, and on a mask whose grader named no ground \u2014 the census counts those as `unstated` rather than assuming one",
+          "title": "Mask Ground"
         }
       },
       "required": [
