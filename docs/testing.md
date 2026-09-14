@@ -277,7 +277,17 @@ run's zero line is itself evidence, and a failing run's digest is what makes
 a labeler permission regression diagnosable from one staging dispatch (the
 paid lane's `qp-label-transcript` artifact stays the first read for a
 production failure; the smoke is how the failure is reproduced and iterated
-on without paying for batches).
+on without paying for batches). It also rehearses that lane's progress
+capture, which is the half the transcript cannot cover: the label-line count
+reaches the job summary and the labels file itself is uploaded as `qp-labels`
+on any surviving outcome the containment check below passes, so a cap-killed
+labeling step — which writes no execution file — still says how far it got.
+The smoke publishes that file behind a containment grep against the engine
+key its runner holds, run
+off a PATH pinned to root-owned directories, rather than the paid lane's
+fresh-checkout scanner: building that scanner is precisely how the paid lane
+avoids running the agent's own workspace Python with the engine key in its
+environment, so replicating it here would invert the control it exists to be.
 Neither whole-suite selection fans it out.
 
 The repro family's watchdog deadline is also the discriminator lever: the
@@ -540,7 +550,9 @@ composite, the labeling job, or the `qp_topics` module — and before any paid
 labeling dispatch**, **qp-labeler-smoke around any change to the labeler's
 invocation block, its sandbox or CLI install steps, or the labeling prompt —
 and to reproduce any labeling run that exited without writing its output,
-after its transcript artifact has been read**, **a repro-family scenario
+after that run's own record has been read — its transcript where one exists,
+and otherwise the label-line count and the `qp-labels` artifact, which are
+what a cap-killed step leaves**, **a repro-family scenario
 around any change aimed at the
 defect it reproduces, and once after the promotion that carries the fix**, and
 as a preflight **before a release dry run** and

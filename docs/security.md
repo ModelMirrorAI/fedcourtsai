@@ -646,7 +646,15 @@ stricter than a cell's: no role, no `id-token`, the subprocess env scrub
 re-enabled in the action's settings — which hardens the permission mode to
 `default`, leaving the agent a whole-tool Write/Edit grant with the shell,
 delegation and web tools denied by name, where a cell runs `bypassPermissions`
-— and a synthetic five-row extract as its entire input.
+— and a synthetic five-row extract as its entire input. The one file it
+publishes, the labels the smoke produced, is gated on a literal containment
+check against that key, run with the image's own `grep` off a PATH pinned to
+root-owned directories and failing closed on an unset needle or an unreadable
+file; the paid lane's fresh-checkout scanner is deliberately
+not replicated here, since building it is how that lane avoids running the
+agent's own workspace Python with the key in its environment. The key is the
+credential worth a check there: the job's own `github.token` is capped at
+`contents: read` and dies with the job.
 The `codex-freeze-probe` job reads the codex key alone for one
 one-word turn, on a block that deliberately keeps `safety-strategy: drop-sudo`
 — the posture that mutates the runner user's own account mid-job and wedges the
@@ -843,7 +851,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
-| `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, no `id-token: write`, and the same pre-agent assertion that the AWS and OIDC variables are absent |
+| `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, no `id-token: write`, and the same pre-agent assertion that the AWS and OIDC variables are absent. What leaves it is one artifact of invented question texts — the labels the smoke produced — published only past a containment check against the engine key |
 | `integration-test` — runner-idle-control  | none          | the idle control assumes no role and holds no `id-token`: it reads nothing — its whole reach is the telemetry mint, and its product is the record row plus its own job conclusion |
 | `integration-test` — codex-freeze-probe family (`codex-freeze-probe`, `codex-freeze-probe-unwatched`, `codex-freeze-probe-smokeconfig`, `codex-freeze-probe-autopsy`, `codex-freeze-probe-nosudo`, `codex-freeze-probe-unprivuser`) | none          | the freeze probe assumes no role and holds no `id-token` either: it reads no corpus, and its reach is the telemetry mint plus the engine key one trivial turn spends — the ceiling for the family, since the unwatched and autopsy members skip the mint entirely and reach only the engine key. The `codex-freeze-probe-nosudo` member mints and arms as the base and smokeconfig members do, but its codex turn under `safety-strategy: read-only` is refused before the model call — `read-only` does not compose with the permission profile — so it starts no session and spends nothing on the engine; it stands as the negative control for that refusal, one of three codex invocations held out of the cross-surface lockstep pin (with the base `codex-freeze-probe` turn, which keeps `drop-sudo` to reproduce the wedge, and the unprivuser turn). The `codex-freeze-probe-unprivuser` member mints, arms and spends as the base member does; it runs its codex turn under `safety-strategy: unprivileged-user` as a separate unprivileged UNIX user the job provisions (nologin, no sudo, no supplementary groups; its home relaxed to 0755, and its boot-probe session rollout copied into the workspace for the shared assertion), so the runner account is never mutated and the model key never enters that user's environment or any file it can read — another of the lockstep-exempt turns, and the same `unprivileged-user` posture the production cells now run. The autopsy member's diagnostic dump reads machine state alone — process table, cgroup, logind, kernel-log and network-stack figures — and never an environment or a process's environ, and no workspace, config or credential file — only kernel pseudo-files and its own kernel-log capture; every command line it prints is trimmed and token-redacted, and it holds no credential to print in the first place. Its MCP sidecar is launched deliberately **token-free** — the turn uses no tools, so an unauthenticated server that handshakes is the whole requirement, and no CourtListener token reaches the agent's env or any config file it can read |
 | `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `prod`, and it can write nothing production owns |
@@ -995,23 +1003,32 @@ file's is fetch- **and scope-**conditioned (a questions-presented document is
 stored for that case, and the case sits in that frame — a more grant-correlated
 population than fetch alone), and because the two are committed together the
 pair reconstructs that frame's QP-bearing non-grants by difference. That composition is the thing argued in
-`docs/qp-topic.md`, alongside the non-git channel the labeling run adds — two
+`docs/qp-topic.md`, alongside the non-git channel the labeling run adds — three
 artifacts under the same one-day window, publicly downloadable on this
 repository: its extract of stored petition text, riding between the mode's two
-jobs, and the labeler's scanned turn-by-turn transcript, which embeds the same
-text plus the agent's own turns. Because every batch re-carries the reference
+jobs; the labeler's scanned turn-by-turn transcript, which embeds the same
+text plus the agent's own turns; and the scanned labels the run wrote, which
+republish no petition text and name the same population the committed pair
+does, but unvalidated — they are uploaded before `qp-topics` reads them, so
+they travel on the runs the publication gate refuses and the runs it passes
+alike. The labeler's reach is what bounds that third one: it can read the
+extract this same run already published under the same window, and the public
+checkout, and nothing else. Because every batch re-carries the reference
 rows, intersecting two extracts recovers the in-frame reference membership
 within their windows — `docs/qp-topic.md` carries that reading and its bound.
-The extract job's step summary is one more durable public surface, deliberately
-counts-only (batch sizes, stratum keys, the seed name — no case id, no text);
-that property holds for today's messages rather than by a stripping mechanism,
-since the summary tees the command's stderr verbatim. A third run artifact rides the same one-day
+Two step summaries are durable public surfaces beside them, both deliberately
+counts-only: the extract job's (batch sizes, stratum keys, the seed name — no
+case id, no text), whose property holds for today's messages rather than by a
+stripping mechanism, since the summary tees the command's stderr verbatim; and
+the labeling job's label-line count, which is arithmetic computed from the
+file rather than anything read out of it, and is therefore the one record that
+needs no scan ahead of it. A fourth run artifact rides the same one-day
 window: the `distribution-census` JSON, which republishes no document text —
 counts, band labels, and changed-case ids only — but whose id lists name
 ingested dockets by public docket number, membership conditioned on a parse
 delta (the case's DISTRIBUTED count reads differently under the candidate
 parse), re-derivable on a re-dispatch against the corpus sha it records. A
-fourth rides the same window on the same terms: the `text-coverage` report,
+fifth rides the same window on the same terms: the `text-coverage` report,
 which also republishes no document text — counts, kinds, and three untruncated
 case-id ledgers, the empty-text documents (fetch-conditioned membership whose
 extent tracks corpus growth), the queued cert-form cases holding no petition row

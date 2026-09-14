@@ -96,18 +96,36 @@ runbook, [docs/security.md](docs/security.md).
   the run's step summary and the files stay in the run's cell artifacts for
   maintainer review. The scan fails closed: if its token env is missing, the
   branch is likewise withheld, with a misconfiguration note on that summary
-  in place of a findings report. The same command gates one surface
-  outside a run branch on its own terms: the `qp-topic-label` run's
-  turn-by-turn engine transcript is scanned (`--transcript-file`) before it is
+  in place of a findings report. The same command gates two surfaces
+  outside a run branch on their own terms, both of them things the
+  `qp-topic-label` run's agent wrote and neither of them validated by anything
+  else. Its turn-by-turn engine transcript is scanned (`--transcript-file`)
+  before it is
   uploaded as a run artifact, with every detector *except* the generic entropy
   heuristic — a transcript's server-generated tool and request ids are
   high-entropy by format, so that rule convicts every real file and the
-  artifact could only ever publish empty. Containment of the one credential
+  artifact could only ever publish empty. The partial labels the run wrote are
+  scanned (`--extra-file`) before theirs, with the entropy rule left on: a
+  labels line is case ids, docket numbers and vocabulary words, none of them
+  high-entropy by format, so the reason to suppress it does not arise. (The
+  labels the run *publishes* are a different object, gated by `qp-topics`
+  reading every row against the vocabulary and the extract's keys; this file
+  is uploaded before that command runs, so it travels whether the gate
+  refuses or passes.) Containment of the one credential
   the scan is given there — the engine's own API key — and the
-  credential-shape patterns are that surface's whole gate, which is why it
+  credential-shape patterns are the *transcript* surface's whole gate, which
+  is why it
   fails closed the same way: a hit, or a scan that could not run at all,
   withholds the artifact, and the run's warning and step summary are the
-  record. Holding that key makes the
+  record. A third agent-written artifact publishes without this command: the
+  unpaid `qp-labeler-smoke` leg's own labels file, which takes the containment
+  half alone, by a literal `grep` off a PATH pinned to root-owned directories,
+  because building the paid lane's fresh-checkout scanner there would mean
+  running the agent's own workspace Python with the engine key in its
+  environment — the arrangement that scanner exists to avoid
+  ([docs/security.md](docs/security.md)). The label-line count on that summary is arithmetic over the file
+  rather than anything read out of it, which is why it is stated whether or
+  not the file itself travels. Holding that key makes the
   scan's own **import path** part of the gate, and it follows an agent that
   writes freely in the tree the editable install resolves through — so the
   scanner is built from a checkout taken *after* the agent exits and fetched
@@ -118,7 +136,7 @@ runbook, [docs/security.md](docs/security.md).
   alongside. The same job's tree-pristine assertion is a
   separate control for a separate threat, a rigged measurement rather than a
   stolen key, and it gates the measure step rather than the capture: a
-  tampered run keeps the transcript that is its evidence. The toolchain that
+  tampered run keeps the agent-written evidence that diagnoses it. The toolchain that
   builds the scanner is held the same way: `uv` is checked against a digest
   recorded before the agent ran, since it sits where the runner user can
   rewrite it, and PATH is pinned to the root-owned directories so `git` is the

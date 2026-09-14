@@ -271,8 +271,8 @@ queues behind the production run of the same mode. The modes:
   rather than the page. The artifact rides the **one-day** retention every
   analytics run artifact does — this repository is public, so one is
   downloadable by any logged-in user for as long as it exists, and the
-  compilation-extent inventory in [security.md](security.md) bounds all three
-  the same way. Re-reading a census after the day is therefore a re-dispatch
+  compilation-extent inventory in [security.md](security.md) bounds every one
+  of them the same way. Re-reading a census after the day is therefore a re-dispatch
   rather than a longer window: it is deterministic over the blob its
   `corpus_sha256` names. Two things an operator needs before dispatching
   it. It carries by far the largest budget of the read-only modes — a
@@ -372,8 +372,13 @@ queues behind the production run of the same mode. The modes:
   replay-safe. Its
   turn-by-turn transcript is scanned and published as a second one-day
   artifact, `qp-label-transcript` — the thing to open when a run reports
-  success but writes no labels (disclosure argued in
-  [qp-topic.md](qp-topic.md)). It applies the same
+  success but writes no labels — and the rows it did write are scanned and
+  published as a third, `qp-labels`, beside a job-summary line stating their
+  count. That artifact and that line are what a step killed at its cap leaves,
+  since the action writes its execution log at exit and there is then no
+  transcript to read (disclosure argued in [qp-topic.md](qp-topic.md)). The
+  measure step still refuses a partial file: it is captured for reading, never
+  for publication. It applies the same
   structural prohibition the cell workflows do — `data/qp-topics/` is moved out
   of the tree for the duration of the agent step, since reading the reference
   set would not improve the labels, only destroy the measurement — and restores
