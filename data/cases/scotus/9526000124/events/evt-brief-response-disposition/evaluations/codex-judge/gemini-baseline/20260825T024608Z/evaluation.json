@@ -6,16 +6,16 @@
     "notes": "A presidential federal-state dispute over nationwide election administration receiving Supreme Court interim relief has high institutional and policy stakes, though this event did not resolve the merits."
   },
   "brier_score": 0.6400000000000001,
-  "brier_skill_score": 0.1479289940828401,
+  "brier_skill_score": 0.20150601637593435,
   "case_id": "scotus/9526000124",
   "claim_scores": {
     "claims": [
       {
-        "baseline": 0.13333333333333333,
+        "baseline": 0.10472972972972973,
         "claim_id": "interim-disposition",
         "outcome": 1,
         "probability": 0.2,
-        "score": 0.11111111111111105
+        "score": 0.16150885682980265
       },
       {
         "baseline": null,
@@ -34,15 +34,15 @@
       {
         "baseline": null,
         "claim_id": "amicus-increment",
-        "outcome": 0,
+        "outcome": 1,
         "probability": 0.15,
         "score": null
       }
     ],
     "declared_set_version": "interim-v1",
     "floor": 0.0,
-    "lift": 0.11111111111111105,
-    "total": 0.11111111111111105
+    "lift": 0.16150885682980265,
+    "total": 0.16150885682980265
   },
   "correct": 0,
   "created_at": "2026-08-25T02:56:16Z",
@@ -59,6 +59,7 @@
   "leakage_suspected": false,
   "model": "gpt-5.6-sol",
   "notes_doc": "evaluation.md",
+  "prediction_run_id": null,
   "predictor_id": "gemini-baseline",
   "process_version": {
     "algo": "sha256",
@@ -70,7 +71,7 @@
   "reasoning_quality": 0.55,
   "run_id": "20260825T024608Z",
   "schema_version": "1.0",
-  "segment_base_rate": 0.13333333333333333,
+  "segment_base_rate": 0.10472972972972973,
   "semantic_grades": null,
   "vote_accuracy": null
 }

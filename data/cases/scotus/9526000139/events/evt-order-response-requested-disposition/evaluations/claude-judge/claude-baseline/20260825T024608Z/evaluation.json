@@ -6,16 +6,16 @@
     "notes": "Emergency application by twelve intervenor states to stay a final judgment enjoining a presidential executive order on federal election administration, traveling with a parallel presidential application (26A124), months before the November 2026 midterms; the pair's resolution stayed the injunction pending appeal. Among the highest-stakes interim matters of the Term."
   },
   "brier_score": 0.0225,
-  "brier_skill_score": -0.265625,
+  "brier_skill_score": -1.0513631633714882,
   "case_id": "scotus/9526000139",
   "claim_scores": {
     "claims": [
       {
-        "baseline": 0.13333333333333333,
+        "baseline": 0.10472972972972973,
         "claim_id": "interim-disposition",
         "outcome": 0,
         "probability": 0.15,
-        "score": -0.004722222222222221
+        "score": -0.011531683710737765
       },
       {
         "baseline": null,
@@ -41,8 +41,8 @@
     ],
     "declared_set_version": "interim-v1",
     "floor": 0.0,
-    "lift": -0.004722222222222221,
-    "total": -0.004722222222222221
+    "lift": -0.011531683710737765,
+    "total": -0.011531683710737765
   },
   "correct": 1,
   "created_at": "2026-08-25T02:50:53Z",
@@ -59,6 +59,7 @@
   "leakage_suspected": false,
   "model": "claude-fable-5",
   "notes_doc": "evaluation.md",
+  "prediction_run_id": null,
   "predictor_id": "claude-baseline",
   "process_version": {
     "algo": "sha256",
@@ -70,7 +71,7 @@
   "reasoning_quality": 0.9,
   "run_id": "20260825T024608Z",
   "schema_version": "1.0",
-  "segment_base_rate": 0.13333333333333333,
+  "segment_base_rate": 0.10472972972972973,
   "semantic_grades": null,
   "vote_accuracy": null
 }
