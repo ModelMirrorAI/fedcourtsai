@@ -514,7 +514,11 @@ def merits_event_case_ids(data_root: Path) -> frozenset[str]:
 
     Committed events live at ``cases/<court>/<docket>/events/<event>/``, and the
     glob is anchored on ``event.yaml``: the definition is what makes a directory
-    an event, so a bare directory holding only cell output is not one. An absent
+    an event, so a bare directory holding only cell output is not one. The file
+    is written by the mint seam that opens the moment
+    (:func:`fedcourtsai.pipeline.outcome.persist_moment_events`) and by
+    ``materialize-event`` at a cell's first touch — so membership is "the ledger
+    holds this forecast", not "the corpus knows of the event". An absent
     ``data_root`` — a fresh checkout, an offline caller — yields the empty set,
     which prioritizes nothing. A malformed *docket* segment is fatal, as it is
     in :func:`predicted_case_ids`: that layout is written only through

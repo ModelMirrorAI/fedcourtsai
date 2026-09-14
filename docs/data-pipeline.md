@@ -688,28 +688,49 @@ turn comes round, and so is a decided grant neither route resolves — one
 carrying no docket number to ask with, or one whose number upstream joins
 several clusters to.
 
-The walk's **first key is the git ledger**: a case for which
-`data/cases/<court>/<docket>/events/` already holds a committed merits event
-goes ahead of the backlog, and within that group one whose `merits_judgment`
-has latched goes ahead of one still pending. That is where the body is actually
-owed — grading a merits forecast is the only thing it is an input to — and it is
-a few dozen cases against a standing backlog of ≈1,200. Without the key they are
-the *last* cases walked, not the first: upstream mints a current-Term grant one
-of the highest docket ids there is, so `case_id` order puts the case the
-pipeline is waiting on dozens of capped dispatches behind grants from a decade
-ago. The ledger read is one glob over the committed tree, with
+The walk's **first key is the git ledger's decided merits cases**: a case for
+which `data/cases/<court>/<docket>/events/` already holds a committed merits
+event **and** whose `merits_judgment` has latched goes ahead of the backlog.
+Both halves are load-bearing. *On the ledger* is who the body is for — grading a
+merits forecast is the only thing it is an input to — and without the key those
+few dozen cases are the *last* walked, not the first: upstream mints a
+current-Term grant one of the highest docket ids there is, so `case_id` order
+puts the case the pipeline is waiting on dozens of capped dispatches behind
+grants from a decade ago. *Decided* is whether there is a body to fetch at all,
+and it is what keeps the promotion from costing more than it buys: the promoted
+group is walked **in full** before anything else, so promoting a pending case —
+whose opinion does not exist yet — would spend a whole dispatch's `--max-cases`
+on guaranteed `no_cluster` verdicts and stop the ≈1,200-row backlog converging
+until those cases are decided, which on a Term's calendar is months. A pending
+ledger case therefore keeps its ordinary place in the rotation and is promoted
+at the latch, which the live poll writes on a granted docket within a day of the
+decision. The same arithmetic is the standing condition on the key: the backlog
+advances only while the promoted group is smaller than `--max-cases`, which the
+group's own convergence is what maintains — a decided case lands its body and
+drops out of the predicate, where a pending one never would have. The run
+reports `promoted`, the share of the cap that group took, so the condition is
+read off the run rather than assumed. The ledger
+read is one glob over the committed tree, with
 [`pipeline/moments.py`](../src/fedcourtsai/pipeline/moments.py)'s declared
-merits moments as the vocabulary. A **last-attempted
-cursor** then orders *within* each of those groups, and is what keeps the
-residues from holding the head of either: an
+merits moments as the vocabulary.
+
+`--case <court>/<docket>` (repeatable) narrows the walk to named cases, and it
+is a **diagnostic rather than a second way in**: the applied lane is the
+dispatched enrich job, which names no case, and a dev checkout's corpus role is
+read-only, so a local `--apply` cannot be pushed anywhere. What it buys is a dry
+run's answer about one case — which route reaches its cluster, whether the
+cluster is ambiguous, whether the opinion carries text — without spending a
+slice to find out. It narrows only: eligibility and `--max-cases` still decide,
+and a named case the predicate does not admit is reported with its reason rather
+than silently skipped. Getting a case walked in production is the ledger key's
+job, not this flag's. A **last-attempted
+cursor** then orders *within* each of those priority groups, and is what keeps
+the residues from holding the head of either: an
 applied run stamps `opinion_enrich_attempted_at` on every case it classifies —
 enriched, no cluster, refused, 4xx on one of its records — through the same upsert the
 enrichment itself writes through, and it takes never-attempted rows first (in
 `case_id` order) and then the stalest stamp, so a case walked today sorts behind
-everything still owed a turn. `--case <court>/<docket>` (repeatable) narrows the
-walk to named cases for the run that wants one now; it narrows only, so
-eligibility and `--max-cases` still decide and a named case the predicate does
-not admit is reported with its reason rather than silently skipped. What stamps is what upstream answered *about the
+everything still owed a turn. What stamps is what upstream answered *about the
 case*: a 5xx, a transport failure, an unparseable body, or a 4xx on a collection
 query — the question refused rather than the case — says nothing about the
 docket, so such a case keeps its place — as does one the run never reached,

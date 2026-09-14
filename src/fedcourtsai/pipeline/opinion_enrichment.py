@@ -52,21 +52,30 @@ reports as such, converging on the run after its opinion publishes: a converged
 case drops out of the next run's predicate, and one that found no cluster is
 retried, which is what lets a grant pick up its opinion once published.
 
-**The ledger's merits cases go first.** The body this pass fetches is an input
-to exactly one thing: grading a merits forecast. So the walk's first key is
-whether the git ledger already holds a committed merits event for the case, and
-its second is whether that case's judgment has latched (``merits_judgment``) —
-a decided case has an opinion to fetch today, a pending one has nothing
-published yet. Without it the ordering below takes the ledger's cases in
-``case_id`` order, which is the back of the queue: a current-Term grant carries
-one of the highest docket ids upstream mints, so a few dozen ledger rows would
-sit behind ~1,200 older grants and a capped dispatch would reach them dozens of
-runs after the decision it exists to grade. The ledger read is one glob
-(:func:`fedcourtsai.matrix.merits_event_case_ids`), and a caller with no ledger
-in reach gets the rotation alone. A caller that already knows which case it
-wants names it instead (``cases``), which narrows the same queue rather than
-replacing it: eligibility and the cap still decide, and a named case the
-predicate turns away is reported with its reason.
+**The ledger's decided merits cases go first.** The body this pass fetches is an
+input to exactly one thing: grading a merits forecast. So the walk's first key
+takes the cases that are *both* on the git ledger — a committed merits event
+under ``data/cases/<court>/<docket>/events/`` — and decided, their
+``merits_judgment`` latched. Without it those cases are walked in ``case_id``
+order, which is the back of the queue: a current-Term grant carries one of the
+highest docket ids upstream mints, so a capped dispatch would reach the case the
+pipeline is waiting on dozens of runs after the decision it exists to grade.
+
+Both halves of the key are load-bearing, and the *decided* half is what keeps
+the promotion from costing more than it buys. The promoted group is walked in
+full before anything else, so promoting a case whose opinion does not exist yet
+would spend a whole dispatch's ``max_cases`` on guaranteed ``no_cluster``
+verdicts and stop the standing backlog converging until those cases are decided
+— months, on a Term's calendar. A pending ledger case therefore keeps its
+ordinary place in the rotation and is promoted at the latch, which the live poll
+writes on a granted docket within a day of the decision.
+
+The ledger read is one glob (:func:`fedcourtsai.matrix.merits_event_case_ids`),
+and a caller with no ledger in reach gets the rotation alone. ``cases`` names a
+slice instead, which narrows the same queue rather than replacing it —
+eligibility and the cap still decide, and a named case the predicate turns away
+is reported with its reason. It is a diagnostic about one case rather than a
+second route into the corpus: the lane that applies names no case.
 
 **A last-attempted cursor orders the walk** within each of those groups. Two
 populations never converge —
@@ -204,6 +213,13 @@ class OpinionEnrichmentResult(BaseModel):
         "named slice where the run named one, since that is the queue the run had",
     )
     considered: int = Field(ge=0, description="Eligible rows the per-run cap admitted")
+    promoted: int = Field(
+        default=0,
+        ge=0,
+        description="Admitted rows the ledger key put ahead of the backlog — a committed "
+        "merits event plus a latched judgment. The walk takes the promoted group in full, "
+        "so `promoted` at the cap means the backlog did not advance this run",
+    )
     enriched: int = Field(ge=0, description="Rows an opinion body and/or citations landed on")
     no_cluster: int = Field(
         ge=0, description="Rows neither the docket route nor the docket number reached a cluster on"
@@ -229,7 +245,8 @@ class OpinionEnrichmentResult(BaseModel):
         default=0,
         ge=0,
         description="Granted rows skipped unwalked: their docket id is the live channel's "
-        "reserved-range mint, which addresses nothing upstream",
+        "reserved-range mint, which addresses nothing upstream — within the named slice "
+        "where the run named one, like `eligible`",
     )
     ineligible: list[dict[str, str]] = Field(
         default_factory=list,
@@ -496,41 +513,57 @@ def _enriched_row(
     )
 
 
+def _owed_now(row: corpus.CorpusRow, ledger_cases: Container[str]) -> bool:
+    """Whether this case's opinion body is owed *and* exists — the promotion test.
+
+    Both halves, for the reasons :func:`_walk_order` gives: the ledger says the
+    body is owed (a committed merits event to grade), the latched judgment says
+    there is one to fetch. Named rather than inlined because the run's report
+    counts the promoted group with it, so the number cannot drift from the order.
+    """
+    return row.merits_judgment is not None and row.case_id in ledger_cases
+
+
 def _walk_order(
     candidate: tuple[corpus.CorpusRow, int], *, ledger_cases: Container[str]
-) -> tuple[bool, bool, bool, date, str]:
-    """The walk's key: the ledger's merits cases first, then the rotation.
+) -> tuple[bool, bool, date, str]:
+    """The walk's key: the ledger's **decided** merits cases first, then the rotation.
 
-    Two keys ahead of the rotation, both about *who needs the body soonest*.
-    First, whether the git ledger already holds a committed merits event for the
-    case: that is the population an opinion body is an input to, and it is a few
-    dozen rows against a standing backlog of ~1,200, so a walk that takes them
-    in ``case_id`` order reaches them ~45 dispatches late — the OT2026 grants
-    carry the highest docket ids, which is the back of that order. Second,
-    *within* the ledger group, whether the merits judgment has latched
-    (``merits_judgment``): a decided case has an opinion to fetch, an undecided
-    one has nothing published yet, so the decided one goes first. The latch key
-    is deliberately confined to the ledger group — outside it the queue is a
-    rotation, and a second sort key there would re-create the residue problem
-    the cursor exists to solve.
+    One key ahead of the rotation, and it takes both halves of "this body is owed
+    now". *On the ledger* — the git ledger already holds a committed merits event
+    for the case — is who the body is for: grading a merits forecast is the only
+    thing it is an input to. *Decided* — ``merits_judgment`` has latched — is
+    whether there is a body to fetch at all. A case with both jumps the queue,
+    because ``case_id`` order puts it last: upstream mints a current-Term grant
+    one of the highest docket ids there is, so the case the pipeline is waiting
+    on would sit dozens of capped dispatches behind grants from a decade ago.
+
+    **A pending ledger case is deliberately not promoted**, and the second half
+    of the key is what withholds it. Its opinion does not exist yet, so walking
+    it buys a ``no_cluster`` verdict for the two requests it costs — and because
+    the promoted group is walked *in full* before anything else, promoting a few
+    dozen guaranteed misses would spend an entire dispatch's ``max_cases`` on
+    them and stop the standing backlog converging until those cases are decided.
+    The priority is about the body being available, not about the case being
+    interesting. The cost of the rule is a lag, not a miss: a case decided
+    upstream is promoted at the next latch, which the live poll writes on a
+    granted docket within a day, and until then it holds its ordinary place in
+    the rotation rather than a wasted one at the head.
 
     Then the rotation, unchanged: never-attempted first, then the stalest stamp,
     ``case_id`` breaking ties — so the order is deterministic given the stamps,
     and a run that stamps everything it classified leaves the next run a
     different head, which is how the permanent residue stops holding the front
     of the queue (see the module docstring). The rotation still governs *inside*
-    each priority group, so a ledger case that can never converge does not hold
-    the head of the ledger group either.
+    the promoted group, so a decided ledger case neither route resolves cannot
+    hold the head of that group either.
     """
     row = candidate[0]
-    on_the_ledger = row.case_id in ledger_cases
-    decided = on_the_ledger and row.merits_judgment is not None
     attempted = row.opinion_enrich_attempted_at
     # `date.min` never reaches a comparison against a real stamp: the preceding
     # key element already separates the never-attempted from the attempted.
     return (
-        not on_the_ledger,
-        not decided,
+        not _owed_now(row, ledger_cases),
         attempted is not None,
         attempted or date.min,
         row.case_id,
@@ -842,14 +875,15 @@ def enrich_opinions(
     Eligibility is the grant with the presence bit as the idempotency key: a
     SCOTUS row with ``date_cert_granted`` set and ``has_opinion`` clear, whose
     docket id is a CourtListener one. Candidates are taken **ledger-first** —
-    the cases ``data_root``'s git ledger already holds a committed merits event
-    for, decided ones ahead of pending ones — and then stalest-first on the
+    the cases ``data_root``'s git ledger holds a committed merits event for
+    *and* whose judgment has latched, the ones whose body both exists and is
+    owed — and then stalest-first on the
     ``opinion_enrich_attempted_at`` cursor within each group: never-attempted
     rows in ``case_id`` order, then the attempted ones oldest stamp first (see
-    :func:`_walk_order`). ``data_root`` is optional and no ledger means no
-    priority, only the rotation. The queue is
-    capped at
-    ``max_cases``; the rest are left for the next run, which re-derives the same
+    :func:`_walk_order`, which says why a *pending* ledger case is left in the
+    rotation). ``data_root`` is optional and no ledger means no
+    priority, only the rotation. The queue is capped at ``max_cases``; the rest
+    are left for the next run, which re-derives the same
     predicate against the stamps this one wrote. Every candidate the walk
     classifies is stamped with ``today`` (the current date unless a caller pins
     one) in the same upsert that carries its enrichment; a candidate the walk
@@ -879,8 +913,10 @@ def enrich_opinions(
     two-thirds of the held tier's hourly ceiling, even if every one stalls to
     a retry).
 
-    ``cases`` restricts the walk to named case ids, for the run that wants one
-    case's opinion now rather than the queue's head. It narrows, never widens:
+    ``cases`` restricts the walk to named case ids — a diagnostic about one
+    case (which route reaches its cluster, at what spend, where it stops), not a
+    second way to get a case into the corpus: the applied lane names no case.
+    It narrows, never widens:
     the same eligibility predicate decides, ``max_cases`` still bounds, and a
     named case the predicate does not admit is reported in ``ineligible`` with
     the reason — a named case that quietly did nothing would be the one failure
@@ -891,9 +927,10 @@ def enrich_opinions(
     moving the queue — and the request spend and the coverage report are
     identical either way, which is what the dry run is inspected for.
     """
+    ledger = merits_event_case_ids(data_root) if data_root is not None else frozenset()
     queue = _candidates(
         conn,
-        ledger_cases=merits_event_case_ids(data_root) if data_root is not None else frozenset(),
+        ledger_cases=ledger,
         named=frozenset(cases) if cases is not None else None,
     )
     candidates = queue.candidates
@@ -918,6 +955,10 @@ def enrich_opinions(
         applied=apply,
         eligible=len(candidates),
         considered=len(admitted),
+        # The promoted group is a prefix of the queue, so this is how much of the
+        # cap it took — the standing condition the ledger key rests on, reported
+        # rather than asserted.
+        promoted=sum(1 for row, _ in admitted if _owed_now(row, ledger)),
         enriched=0,
         no_cluster=0,
         no_body=0,

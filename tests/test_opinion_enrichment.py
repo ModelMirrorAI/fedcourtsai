@@ -1260,14 +1260,15 @@ def _cursor(db: Path, case_id: str) -> date | None:
     return row.opinion_enrich_attempted_at
 
 
-def test_a_ledger_merits_case_leads_an_older_grant(tmp_path: Path) -> None:
+def test_a_decided_ledger_case_leads_an_older_grant(tmp_path: Path) -> None:
     """The defect the ledger key exists for.
 
-    `scotus/999` is the shape of a current-Term grant: the ledger already holds
-    its merits event and its judgment has latched, but upstream mints it one of
-    the highest docket ids, so under the rotation alone it sits behind every
-    older grant — dozens of capped dispatches after the decision it is wanted
-    for. Both rows are never-attempted, so only the ledger key can order them.
+    `scotus/999` is the shape of a current-Term grant the Court has just
+    decided: the ledger already holds its merits event and its judgment has
+    latched, but upstream mints it one of the highest docket ids, so under the
+    rotation alone it sits behind every older grant — dozens of capped
+    dispatches after the decision it is wanted for. Both rows are
+    never-attempted, so only the ledger key can order them.
     """
     db = _priority_seeded(
         tmp_path, {"scotus/101": {}, "scotus/999": {"merits_judgment": "reversed"}}
@@ -1313,10 +1314,17 @@ def test_a_case_off_the_ledger_is_not_promoted_by_its_judgment(tmp_path: Path) -
     assert upstream.paths == ["/api/rest/v4/dockets/101/"]
 
 
-def test_within_the_ledger_a_decided_case_leads_a_pending_one(tmp_path: Path) -> None:
-    """Both cases are on the ledger, so the judgment latch decides. The pending
-    one has no published opinion to fetch yet; the decided one does — and it is
-    the higher `case_id`, so nothing but the latch could put it first."""
+def test_a_pending_ledger_case_is_not_promoted(tmp_path: Path) -> None:
+    """The half of the key that keeps the promotion from costing more than it
+    buys.
+
+    Both cases are on the ledger; only `scotus/999` is decided. `scotus/700`
+    has no published opinion to fetch, and the promoted group is walked in full
+    — so promoting it would spend a whole dispatch's cap on a `no_cluster`
+    verdict and stall the backlog until the Court rules. It keeps its ordinary
+    place in the rotation, where the lower `case_id` would have put it anyway,
+    and the decided case leads despite the higher id.
+    """
     db = _priority_seeded(
         tmp_path, {"scotus/700": {}, "scotus/999": {"merits_judgment": "affirmed"}}
     )
@@ -1333,12 +1341,66 @@ def test_within_the_ledger_a_decided_case_leads_a_pending_one(tmp_path: Path) ->
     assert upstream.paths == ["/api/rest/v4/dockets/999/"]
 
 
-def test_the_cursor_still_rotates_inside_the_ledger_group(tmp_path: Path) -> None:
+def test_the_run_reports_how_much_of_the_cap_the_promoted_group_took(tmp_path: Path) -> None:
+    """The ledger key rests on the promoted group staying smaller than the cap —
+    the walk takes that group in full, so the backlog advances only on what is
+    left. `promoted` is what lets an operator read that off the run instead of
+    assuming it: here one of the two admitted cases was promoted."""
+    db = _priority_seeded(
+        tmp_path, {"scotus/101": {}, "scotus/999": {"merits_judgment": "reversed"}}
+    )
+    result = _run(
+        db,
+        _linkless(101, 999),
+        apply=True,
+        today=_TODAY,
+        data_root=_ledger(tmp_path, "scotus/999"),
+    )
+
+    assert result.considered == 2 and result.promoted == 1
+
+
+def test_a_run_with_no_ledger_promotes_nothing(tmp_path: Path) -> None:
+    """A decided grant off the ledger is backlog, so the count stays zero and
+    the whole cap belongs to the rotation."""
+    db = _priority_seeded(
+        tmp_path, {"scotus/101": {}, "scotus/999": {"merits_judgment": "reversed"}}
+    )
+    result = _run(db, _linkless(101, 999), apply=True, today=_TODAY)
+
+    assert result.considered == 2 and result.promoted == 0
+
+
+def test_a_pending_ledger_case_does_not_displace_the_backlog(tmp_path: Path) -> None:
+    """The regression the decided half of the key exists to prevent, stated
+    directly: a ledger full of undecided cases must not take the cap.
+
+    Both ledger cases are pending, so neither is promoted and the backlog's
+    never-attempted row — the one that can actually land a body today — is
+    walked first exactly as it was before the key existed. Without the latch
+    half, the two pending cases would head the queue and a capped dispatch
+    would spend itself on opinions that have not published.
+    """
+    db = _priority_seeded(tmp_path, {"scotus/101": {}, "scotus/700": {}, "scotus/999": {}})
+    upstream = _linkless(101, 700, 999)
+    _run(
+        db,
+        upstream,
+        apply=True,
+        max_cases=1,
+        today=_TODAY,
+        data_root=_ledger(tmp_path, "scotus/700", "scotus/999"),
+    )
+
+    assert upstream.paths == ["/api/rest/v4/dockets/101/"]
+
+
+def test_the_cursor_still_rotates_inside_the_promoted_group(tmp_path: Path) -> None:
     """The priority key groups the queue; it does not replace the rotation
     inside a group. Both cases are on the ledger and decided, and the one an
     earlier run already attempted sorts behind the one it has not — otherwise a
-    ledger case that never converges would hold the head of every run, which is
-    the defect the cursor was added for.
+    promoted case that never converges would hold the head of every run, which
+    is the defect the cursor was added for.
     """
     db = _priority_seeded(
         tmp_path,
@@ -1438,3 +1500,14 @@ def test_the_command_refuses_a_name_that_is_not_a_case_id(named: str) -> None:
     # output is styled under a CI TTY and plain otherwise.
     plain = " ".join(re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", result.output).split())
     assert "is not a '<court>/<docket>' case id" in plain
+
+
+def test_the_command_refuses_a_blank_case_in_its_own_words() -> None:
+    """A blank `--case` is caught before the shared case-id parser, whose "no
+    case" message names the seed command's options rather than this one's."""
+    result = CliRunner().invoke(app, ["enrich-opinions", "--case", "  "])
+
+    assert result.exit_code == 2
+    plain = " ".join(re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", result.output).split())
+    assert "--case was given no case id" in plain
+    assert "--dockets" not in plain
