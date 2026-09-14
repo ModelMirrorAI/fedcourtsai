@@ -39,8 +39,10 @@ from .collect import parse_cell_artifact_name
 from .finalize import FinalizeRole
 from .ids import case_id, parse_run_id
 from .paths import CasePaths
+from .pipeline.moments import declares
 from .pricing import DEFAULT_MODELS
 from .registry import enabled_evaluators, enabled_predictors
+from .schemas import Stage
 
 _JSON_BLOCK = re.compile(r"```json\s*(.+?)\s*```", re.S)
 
@@ -492,6 +494,44 @@ def predicted_case_ids(data_root: Path) -> frozenset[str]:
         # counted back from the file: parents[5] is the docket, parents[6] the court.
         case_id(path.parents[6].name, int(path.parents[5].name))
         for path in cases_root.glob("*/*/events/*/predictions/*/*/prediction.json")
+    )
+
+
+def merits_event_case_ids(data_root: Path) -> frozenset[str]:
+    """Every case id the git ledger holds a committed **merits** event for.
+
+    The ledger's answer to "is this case one the pipeline forecasts on the
+    merits" — the priority key the opinion-enrichment walk orders on, since the
+    opinion body a merits grading needs is only ever needed for a case whose
+    merits event is already committed. Answering it at the case grain is what
+    makes it one glob for the whole tree rather than a per-row probe of every
+    granted row in the corpus.
+
+    A merits event is recognized by
+    :func:`fedcourtsai.pipeline.moments.declares`, not by a listed id, so a
+    moment added to that table is admitted here without an edit — the table is
+    the vocabulary, this is a walk over it.
+
+    Committed events live at ``cases/<court>/<docket>/events/<event>/``, and the
+    glob is anchored on ``event.yaml``: the definition is what makes a directory
+    an event, so a bare directory holding only cell output is not one. The file
+    is written by the mint seam that opens the moment
+    (:func:`fedcourtsai.pipeline.outcome.persist_moment_events`) and by
+    ``materialize-event`` at a cell's first touch — so membership is "the ledger
+    holds this forecast", not "the corpus knows of the event". An absent
+    ``data_root`` — a fresh checkout, an offline caller — yields the empty set,
+    which prioritizes nothing. A malformed *docket* segment is fatal, as it is
+    in :func:`predicted_case_ids`: that layout is written only through
+    :class:`~fedcourtsai.paths.CasePaths`, so a non-numeric docket directory is
+    a corrupted ledger rather than a stray.
+    """
+    cases_root = data_root / "cases"
+    return frozenset(
+        # `<court>/<docket>/events/<event>/event.yaml` — counted back from the
+        # file: parents[0] is the event, parents[2] the docket, parents[3] the court.
+        case_id(path.parents[3].name, int(path.parents[2].name))
+        for path in cases_root.glob("*/*/events/*/event.yaml")
+        if declares(path.parents[0].name, Stage.merits)
     )
 
 

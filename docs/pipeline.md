@@ -504,11 +504,14 @@ SCOTUS freshness for free). One other consumer shares that REST budget:
 **run-pull**'s dispatch-only **enrich** job (`mode=enrich-opinions`, sized by
 the `max_cases` input) walks granted SCOTUS rows to their published opinion
 cluster and lands the reporter citations and opinion body
-(`fedcourts enrich-opinions`; scope and arithmetic in
+(`fedcourts enrich-opinions`; scope, walk order and arithmetic in
 [data-pipeline.md](data-pipeline.md)). It is the pass's only production lane —
 never scheduled, and dispatched into a dead zone between pull windows so it
 neither queues on the corpus-write lock nor stacks API spend onto a pull
-window's. run-seed also runs eight
+window's. The job carries `max_cases` and nothing else: the walk orders itself
+ledger-first, so the cases the pipeline is waiting on reach the head without a
+dispatch naming them, and the CLI's `--case` targeting stays a local
+maintenance tool rather than a dispatch input. run-seed also runs eight
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops

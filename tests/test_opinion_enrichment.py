@@ -7,6 +7,7 @@ governor, its retries, its path construction) with no network.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import date
 from pathlib import Path
@@ -14,14 +15,17 @@ from typing import Any
 
 import httpx
 import pytest
+from typer.testing import CliRunner
 
 from fedcourtsai import corpus
+from fedcourtsai.cli import app
 from fedcourtsai.courtlistener import (
     CourtListenerClient,
     RateBudgetExceeded,
     RateLimiter,
     default_rate_limiter,
 )
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.opinion_enrichment import (
     MAX_OPINION_CHARS,
     OpinionEnrichmentResult,
@@ -1209,3 +1213,301 @@ def test_enrichment_survives_a_reingest_of_the_snapshot(tmp_path: Path) -> None:
         corpus.upsert_rows(conn, [_row("scotus/101")])
         row = corpus.get_row(conn, "scotus/101")
     assert row is not None and row.has_opinion is True
+
+
+# --- the ledger's merits cases go first -----------------------------------------
+
+
+def _ledger(tmp_path: Path, *case_ids: str, event_id: str = "evt-order-judgment") -> Path:
+    """A git ledger holding a committed merits event for each named case."""
+    data_root = tmp_path / "data"
+    for case in case_ids:
+        court, docket = case.split("/")
+        event = CasePaths(data_root, court, int(docket)).event(event_id)
+        event.base.mkdir(parents=True, exist_ok=True)
+        # The priority read keys on the definition file's presence, never its
+        # contents (`matrix.merits_event_case_ids`).
+        event.event_file.write_text("# placeholder\n", encoding="utf-8")
+    return data_root
+
+
+def _priority_seeded(tmp_path: Path, rows: Mapping[str, Mapping[str, Any]]) -> Path:
+    """A corpus of eligible grants, each named ``case_id -> extra row fields``.
+
+    None carries a docket number, so every case stops at the docket route and
+    costs exactly one request — which makes ``upstream.paths`` a readout of the
+    walk's order rather than of its routing.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(case, **fields) for case, fields in rows.items()])
+    return db
+
+
+def _linkless(*docket_ids: int) -> _Upstream:
+    """An upstream on which no docket links a cluster: every case costs one GET."""
+    return _Upstream(
+        clusters={},
+        opinions={},
+        dockets={docket_id: {"id": docket_id, "clusters": []} for docket_id in docket_ids},
+    )
+
+
+def _cursor(db: Path, case_id: str) -> date | None:
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, case_id)
+    assert row is not None
+    return row.opinion_enrich_attempted_at
+
+
+def test_a_decided_ledger_case_leads_an_older_grant(tmp_path: Path) -> None:
+    """The defect the ledger key exists for.
+
+    `scotus/999` is the shape of a current-Term grant the Court has just
+    decided: the ledger already holds its merits event and its judgment has
+    latched, but upstream mints it one of the highest docket ids, so under the
+    rotation alone it sits behind every older grant — dozens of capped
+    dispatches after the decision it is wanted for. Both rows are
+    never-attempted, so only the ledger key can order them.
+    """
+    db = _priority_seeded(
+        tmp_path, {"scotus/101": {}, "scotus/999": {"merits_judgment": "reversed"}}
+    )
+    upstream = _linkless(101, 999)
+    _run(
+        db,
+        upstream,
+        apply=True,
+        max_cases=1,
+        today=_TODAY,
+        data_root=_ledger(tmp_path, "scotus/999"),
+    )
+
+    assert upstream.paths == ["/api/rest/v4/dockets/999/"]
+    assert _cursor(db, "scotus/999") == _TODAY
+    assert _cursor(db, "scotus/101") is None  # untouched, still at the front of its group
+
+
+def test_without_a_ledger_the_walk_is_the_rotation_alone(tmp_path: Path) -> None:
+    """The control for the test above: same corpus, no ledger in reach, so the
+    lower `case_id` leads exactly as the rotation alone orders it."""
+    db = _priority_seeded(
+        tmp_path, {"scotus/101": {}, "scotus/999": {"merits_judgment": "reversed"}}
+    )
+    upstream = _linkless(101, 999)
+    _run(db, upstream, apply=True, max_cases=1, today=_TODAY)
+
+    assert upstream.paths == ["/api/rest/v4/dockets/101/"]
+
+
+def test_a_case_off_the_ledger_is_not_promoted_by_its_judgment(tmp_path: Path) -> None:
+    """The latch key is confined to the ledger group. A decided grant with no
+    committed merits event is backlog like any other: promoting it would
+    re-order the backlog on a second key and re-create the residue problem the
+    cursor exists to solve."""
+    db = _priority_seeded(
+        tmp_path, {"scotus/101": {}, "scotus/999": {"merits_judgment": "reversed"}}
+    )
+    upstream = _linkless(101, 999)
+    _run(db, upstream, apply=True, max_cases=1, today=_TODAY, data_root=tmp_path / "data")
+
+    assert upstream.paths == ["/api/rest/v4/dockets/101/"]
+
+
+def test_a_pending_ledger_case_is_not_promoted(tmp_path: Path) -> None:
+    """The half of the key that keeps the promotion from costing more than it
+    buys.
+
+    Both cases are on the ledger; only `scotus/999` is decided. `scotus/700`
+    has no published opinion to fetch, and the promoted group is walked in full
+    — so promoting it would spend a whole dispatch's cap on a `no_cluster`
+    verdict and stall the backlog until the Court rules. It keeps its ordinary
+    place in the rotation, where the lower `case_id` would have put it anyway,
+    and the decided case leads despite the higher id.
+    """
+    db = _priority_seeded(
+        tmp_path, {"scotus/700": {}, "scotus/999": {"merits_judgment": "affirmed"}}
+    )
+    upstream = _linkless(700, 999)
+    _run(
+        db,
+        upstream,
+        apply=True,
+        max_cases=1,
+        today=_TODAY,
+        data_root=_ledger(tmp_path, "scotus/700", "scotus/999"),
+    )
+
+    assert upstream.paths == ["/api/rest/v4/dockets/999/"]
+
+
+def test_the_run_reports_how_much_of_the_cap_the_promoted_group_took(tmp_path: Path) -> None:
+    """The ledger key rests on the promoted group staying smaller than the cap —
+    the walk takes that group in full, so the backlog advances only on what is
+    left. `promoted` is what lets an operator read that off the run instead of
+    assuming it: here one of the two admitted cases was promoted."""
+    db = _priority_seeded(
+        tmp_path, {"scotus/101": {}, "scotus/999": {"merits_judgment": "reversed"}}
+    )
+    result = _run(
+        db,
+        _linkless(101, 999),
+        apply=True,
+        today=_TODAY,
+        data_root=_ledger(tmp_path, "scotus/999"),
+    )
+
+    assert result.considered == 2 and result.promoted == 1
+
+
+def test_a_run_with_no_ledger_promotes_nothing(tmp_path: Path) -> None:
+    """A decided grant off the ledger is backlog, so the count stays zero and
+    the whole cap belongs to the rotation."""
+    db = _priority_seeded(
+        tmp_path, {"scotus/101": {}, "scotus/999": {"merits_judgment": "reversed"}}
+    )
+    result = _run(db, _linkless(101, 999), apply=True, today=_TODAY)
+
+    assert result.considered == 2 and result.promoted == 0
+
+
+def test_a_pending_ledger_case_does_not_displace_the_backlog(tmp_path: Path) -> None:
+    """The regression the decided half of the key exists to prevent, stated
+    directly: a ledger full of undecided cases must not take the cap.
+
+    Both ledger cases are pending, so neither is promoted and the backlog's
+    never-attempted row — the one that can actually land a body today — is
+    walked first exactly as it was before the key existed. Without the latch
+    half, the two pending cases would head the queue and a capped dispatch
+    would spend itself on opinions that have not published.
+    """
+    db = _priority_seeded(tmp_path, {"scotus/101": {}, "scotus/700": {}, "scotus/999": {}})
+    upstream = _linkless(101, 700, 999)
+    _run(
+        db,
+        upstream,
+        apply=True,
+        max_cases=1,
+        today=_TODAY,
+        data_root=_ledger(tmp_path, "scotus/700", "scotus/999"),
+    )
+
+    assert upstream.paths == ["/api/rest/v4/dockets/101/"]
+
+
+def test_the_cursor_still_rotates_inside_the_promoted_group(tmp_path: Path) -> None:
+    """The priority key groups the queue; it does not replace the rotation
+    inside a group. Both cases are on the ledger and decided, and the one an
+    earlier run already attempted sorts behind the one it has not — otherwise a
+    promoted case that never converges would hold the head of every run, which
+    is the defect the cursor was added for.
+    """
+    db = _priority_seeded(
+        tmp_path,
+        {
+            "scotus/700": {"merits_judgment": "reversed"},
+            "scotus/999": {"merits_judgment": "reversed"},
+        },
+    )
+    _stamp(db, "scotus/999", date(2024, 6, 1))
+    upstream = _linkless(700, 999)
+    _run(
+        db,
+        upstream,
+        apply=True,
+        max_cases=1,
+        today=_TODAY,
+        data_root=_ledger(tmp_path, "scotus/700", "scotus/999"),
+    )
+
+    assert upstream.paths == ["/api/rest/v4/dockets/700/"]
+    assert _cursor(db, "scotus/999") == date(2024, 6, 1)  # its earlier stamp, not today's
+
+
+# --- a named slice --------------------------------------------------------------
+
+
+def test_a_named_case_is_the_only_one_walked(tmp_path: Path) -> None:
+    """A named slice narrows the queue to what the caller asked about, and the
+    run's report describes that queue rather than the whole slice."""
+    db = _seeded(tmp_path)
+    upstream = _upstream()
+    result = _run(db, upstream, apply=True, today=_TODAY, cases=["scotus/102"])
+
+    assert result.eligible == 1 and result.considered == 1 and result.enriched == 1
+    assert result.ineligible == []
+    assert _cursors(db) == {"scotus/101": None, "scotus/102": _TODAY}
+
+
+def test_a_named_case_still_faces_the_cap(tmp_path: Path) -> None:
+    """Naming cases narrows the walk; it never widens what one run may spend."""
+    db = _seeded(tmp_path)
+    upstream = _upstream()
+    result = _run(
+        db, upstream, apply=True, max_cases=1, today=_TODAY, cases=["scotus/101", "scotus/102"]
+    )
+
+    assert result.eligible == 2 and result.considered == 1
+    assert _cursors(db) == {"scotus/101": _TODAY, "scotus/102": None}
+
+
+def test_a_named_case_the_predicate_refuses_is_reported(tmp_path: Path) -> None:
+    """The one failure mode naming a case exists to rule out: a run that says
+    nothing about a case the caller asked for. Each refusal carries its reason,
+    and none of them costs a request."""
+    db = _seeded(tmp_path)
+    live = f"scotus/{live_docket_id(24, 900)}"
+    upstream = _upstream()
+    result = _run(
+        db,
+        upstream,
+        apply=True,
+        today=_TODAY,
+        cases=["scotus/103", "scotus/104", live, "scotus/555"],
+    )
+
+    assert result.eligible == 0 and result.considered == 0 and result.requests == 0
+    reasons = {entry["case_id"]: entry["reason"] for entry in result.ineligible}
+    assert reasons.keys() == {"scotus/103", "scotus/104", live, "scotus/555"}
+    assert "already carries an opinion" in reasons["scotus/103"]
+    assert "no cert grant" in reasons["scotus/104"]
+    assert "reserved-range mint" in reasons[live]
+    assert "no SCOTUS row" in reasons["scotus/555"]
+    # The live-channel refusal is still counted where it always was.
+    assert result.live_only == 1
+
+
+def test_an_unnamed_run_reports_no_refusals(tmp_path: Path) -> None:
+    """Outside a named slice a non-matching row is not news, so the whole-slice
+    run's report is unchanged — the refusal list answers a question only a named
+    case asks."""
+    db = _seeded(tmp_path)
+    result = _run(db, _upstream(), apply=False)
+
+    assert result.ineligible == []
+    assert result.eligible == 2 and result.live_only == 1
+
+
+@pytest.mark.parametrize("named", ["scotus", "scotus/", "scotus/abc", "SCOTUS/101", "101"])
+def test_the_command_refuses_a_name_that_is_not_a_case_id(named: str) -> None:
+    """A malformed `--case` is an argument error, refused against the repo's own
+    case-id grammar before a corpus or a client is opened — so a typo cannot
+    reach the walk and come back as "the corpus holds no such row"."""
+    result = CliRunner().invoke(app, ["enrich-opinions", "--case", named])
+
+    assert result.exit_code == 2
+    # Colour codes and the terminal's own wrapping go before the assertion: the
+    # output is styled under a CI TTY and plain otherwise.
+    plain = " ".join(re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", result.output).split())
+    assert "is not a '<court>/<docket>' case id" in plain
+
+
+def test_the_command_refuses_a_blank_case_in_its_own_words() -> None:
+    """A blank `--case` is caught before the shared case-id parser, whose "no
+    case" message names the seed command's options rather than this one's."""
+    result = CliRunner().invoke(app, ["enrich-opinions", "--case", "  "])
+
+    assert result.exit_code == 2
+    plain = " ".join(re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", result.output).split())
+    assert "--case was given no case id" in plain
+    assert "--dockets" not in plain

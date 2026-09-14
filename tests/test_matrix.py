@@ -11,6 +11,7 @@ from fedcourtsai.matrix import (
     event_has_evaluations,
     event_has_predictions,
     last_predicted_dates,
+    merits_event_case_ids,
     parse_cases,
     predict_matrix,
     predicted_case_ids,
@@ -225,6 +226,44 @@ def test_event_has_predictions_can_ask_about_one_predictor(tmp_path: Path) -> No
     assert not event_has_predictions(data_root, "scotus", 1, "evt-x", predictor_id="codex-baseline")
     # No predictor named: any prediction at all counts (the original semantics).
     assert event_has_predictions(data_root, "scotus", 1, "evt-x")
+
+
+def _seed_event_definition(data_root: Path, court: str, docket: int, event_id: str) -> None:
+    """Commit the bare fact that this event exists — its `event.yaml`.
+
+    The ledger walk keys on the definition file's presence, never its contents,
+    so the fixture writes a placeholder: a test that wrote a full record would
+    be asserting something the function does not read.
+    """
+    event = CasePaths(data_root, court, docket).event(event_id)
+    event.base.mkdir(parents=True)
+    event.event_file.write_text("# placeholder\n", encoding="utf-8")
+
+
+def test_merits_event_case_ids_takes_the_declared_merits_moments(tmp_path: Path) -> None:
+    """The enrichment walk's priority read: the cases whose merits forecast is
+    already committed, recognized through the moment table rather than a listed
+    id — and anchored on the definition file, so a directory holding only cell
+    output is not an event."""
+    data_root = tmp_path / "data"
+    assert merits_event_case_ids(data_root) == frozenset()  # no ledger prioritizes nothing
+
+    _seed_event_definition(data_root, "scotus", 1, "evt-order-judgment")
+    _seed_event_definition(data_root, "scotus", 2, "evt-brief-judgment")
+    # Both merits moments on one case fold to the one case id.
+    _seed_event_definition(data_root, "scotus", 1, "evt-brief-judgment")
+    # A cert moment is not a merits one, however committed.
+    _seed_event_definition(data_root, "scotus", 3, "evt-petition-disposition")
+    # An interim moment is not either.
+    _seed_event_definition(data_root, "scotus", 4, "evt-motion-disposition")
+    # An event id the moment table does not declare at all.
+    _seed_event_definition(data_root, "scotus", 5, "evt-order-something-else")
+    # A directory with cell output but no definition is not an event.
+    CasePaths(data_root, "scotus", 6).event("evt-order-judgment").predictions_dir.mkdir(
+        parents=True
+    )
+
+    assert merits_event_case_ids(data_root) == frozenset({"scotus/1", "scotus/2"})
 
 
 def test_predicted_case_ids_folds_every_committed_prediction_to_its_case(tmp_path: Path) -> None:

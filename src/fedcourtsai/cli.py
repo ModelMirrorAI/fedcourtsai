@@ -2038,6 +2038,13 @@ def enrich_opinions_cmd(
         int,
         typer.Option(help="Cases to walk this run — the per-run REST spend bound."),
     ] = DEFAULT_MAX_OPINION_CASES,
+    case: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--case",
+            help="Restrict the walk to this `court/docket` case; repeatable.",
+        ),
+    ] = None,
 ) -> None:
     """Fill each granted SCOTUS case's reporter cites and opinion body from REST.
 
@@ -2079,11 +2086,36 @@ def enrich_opinions_cmd(
     window: the governor is per-process, so two runs would each stay under the
     ceiling while the account did not.
 
+    The walk takes the **git ledger's decided merits cases first** — the cases
+    holding a committed merits event whose `merits_judgment` has latched —
+    because the body is an input to grading a merits forecast and to nothing
+    else, and a current-Term grant's high docket id would otherwise put it
+    behind the whole standing backlog. A *pending* ledger case is deliberately
+    not promoted: its opinion does not exist yet, and since the promoted group
+    is walked in full, promoting it would spend the whole `--max-cases` on
+    guaranteed misses and stall the backlog until those cases are decided. It is
+    promoted at the latch instead, which the live poll writes within a day of
+    the decision. The run reports how much of the cap the promoted group took
+    (`promoted`), since the walk takes that group in full and the backlog
+    advances only with what is left.
+
+    `--case court/docket` (repeatable) narrows the walk to named cases. It is a
+    **diagnostic**, not a way to prioritise a case into production: the applied
+    lane is the dispatched enrich job, which names no case, and a dev checkout's
+    corpus role is read-only, so a local `--apply` cannot be pushed. What it
+    answers is what one case costs and where it stops — does either route reach
+    a cluster, is the cluster ambiguous, does the opinion carry text — without
+    spending a whole slice to find out. It narrows only, so eligibility and
+    `--max-cases` still decide, and a named case the predicate does not admit is
+    reported with its reason rather than silently skipped. Getting a case walked
+    in production is the ledger key's job, not this flag's.
+
     Idempotent: an enriched row no longer matches, while one that found no
     cluster is retried, so a grant picks up its opinion the run after
     publication. A grant that never publishes one (a GVR, a DIG) never
     converges, and neither does a decided grant that neither route resolves —
-    so the walk rotates on a last-attempted cursor
+    so within each of those priority groups the walk rotates on a
+    last-attempted cursor
     (`opinion_enrich_attempted_at`, stamped on every case an applied run
     classifies — a landed body, no cluster, a refusal, a 4xx on one of its
     records):
@@ -2099,6 +2131,23 @@ def enrich_opinions_cmd(
     pulled, `corpus-push` after an `--apply`. Fails loud if the corpus is
     absent.
     """
+    named: list[str] | None = None
+    if case is not None:
+        # The slice is refused before anything is opened: a typo is an argument
+        # error, not a case the corpus turns out not to hold. Blank values are
+        # caught here rather than in the shared parser, whose "no case" message
+        # names the seed command's own options.
+        wanted = [value for value in case if value.strip()]
+        if not wanted:
+            typer.echo("enrich-opinions: --case was given no case id", err=True)
+            raise typer.Exit(code=2)
+        try:
+            # The repo's own case-id grammar, so the walk never sees a name the
+            # corpus could not hold in the first place.
+            named = corpus_seed.parse_case_ids(wanted)
+        except corpus_seed.SeedSliceError as exc:
+            typer.echo(f"enrich-opinions: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
@@ -2109,7 +2158,14 @@ def enrich_opinions_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn, _client() as client:
-        result = enrich_opinions(conn, client, apply=apply, max_cases=max_cases)
+        result = enrich_opinions(
+            conn,
+            client,
+            apply=apply,
+            max_cases=max_cases,
+            data_root=settings.data_root,
+            cases=named,
+        )
     if apply:
         _ensure_corpus_layout(db_path)
     verb = "enriched" if apply else "would enrich"
@@ -2125,11 +2181,22 @@ def enrich_opinions_cmd(
             f"  refused: {result.ambiguous_cluster} case(s) matching several clusters, "
             f"{result.foreign_cluster} cluster(s) naming a docket that is not the case's"
         )
-    if result.live_only:
+    if result.promoted:
+        typer.echo(
+            f"  {result.promoted} of the {result.considered} walked were promoted "
+            "(a committed merits event with a latched judgment); the rest came off "
+            "the rotation"
+        )
+    # Under a named slice each such row is named below with its reason, so the
+    # count would only say the same thing twice.
+    if result.live_only and not case:
         typer.echo(
             f"  {result.live_only} granted row(s) carry a live-channel docket id, which "
             "addresses nothing upstream — not walked"
         )
+    for entry in result.ineligible:
+        # A named case is a question; an unadmitted one still gets an answer.
+        typer.echo(f"  not walked {entry['case_id']}: {entry['reason']}")
     if result.stopped:
         typer.echo(f"  stopped: {result.stopped} ({len(result.deferred)} case(s) deferred)")
     for entry in result.failed:
