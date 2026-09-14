@@ -169,16 +169,16 @@ reasoning text that explains them — and the two qp-topic artifacts
 (`docs/qp-topic.md`), the hand-labeled reference set and the accrued per-case
 labels: subject-matter judgments keyed by case id and public-record
 docket number, republishing no source text. There is also a **non-git** public
-channel that carries corpus-derived text: `run-analytics`' four one-day
+channel that carries corpus-derived text: `run-analytics`' five one-day
 GitHub Actions artifacts, which on a public repository any logged-in user can
 download for their retention window. What each one
 discloses is inventoried once, in *S3 / the private stores* in
-[security.md](security.md), and not re-enumerated here; two of the four
+[security.md](security.md), and not re-enumerated here; two of the five
 carry stored questions-presented text and are argued in `docs/qp-topic.md`.
 That text is derived from petition PDFs fetched from supremecourt.gov — public
 records, outside the CC BY-ND term above — and that channel is accepted for the
-labeling run alone, not as a route for corpus content generally. The third
-republishes no document text. Prediction reasoning may quote or summarize
+labeling run alone, not as a route for corpus content generally. The other
+three republish no document text. Prediction reasoning may quote or summarize
 public-record docket facts in the course of explaining a prediction; it is original
 analysis attributing CourtListener as the source, not a republication of their
 dataset. The public surface is therefore our derived judgments over public-domain

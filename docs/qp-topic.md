@@ -362,7 +362,7 @@ Three consequences bind every use of the set:
   `data/qp-topics/` **path** rather than the reference set by name, and why that
   path prohibition is what has to hold as artifacts are added under it.
 
-  **One non-committed channel — carrying two artifacts — is in scope too,
+  **One non-committed channel — carrying three artifacts — is in scope too,
   because the boundary is about disclosure and not about git.** The labeling run's extract (`fedcourts
   qp-corpus`) is both things no committed surface carries — the stored petition
   text and an enumeration of the QP-bearing ingested population, bounded by the
@@ -410,6 +410,23 @@ Three consequences bind every use of the set:
   reasons argued above rather than a second, looser rule for the same
   disclosure class.
 
+  The **labels the run actually wrote** (`qp-labels`) are the third artifact,
+  and the one that exists for the path the other two miss: a labeling step
+  killed at its cap leaves no execution file at all, so the transcript is not
+  withheld but absent, and the file the labeler was landing slices into dies
+  with the runner. It is uploaded on every outcome the runner survives, under
+  the same one-day window, and the job summary states its line count whether
+  or not the file travels — arithmetic, so that line needs no scan ahead of
+  it, and the count alone is what separates a slow labeler from a stuck one.
+  What it discloses is narrower than the extract: case ids, docket numbers and
+  vocabulary words, no petition text, over the population the committed pair
+  already discloses. What it is *not* is the published labels file — that one
+  is written by `qp-topics` only when every extract row came back in
+  vocabulary, and this is the unvalidated file the gate refused. So it takes
+  the transcript's control rather than the published file's: the same scan, on
+  the generic surface where the entropy rule stays on, since nothing in a
+  labels line is high-entropy by format.
+
   That scan holds the engine API key, so what it *imports* is as much a part of
   the gate as what it reads. `setup-python-env` installs this project editable,
   which would put the labeler's own tree — and its gitignored venv — on the
@@ -441,15 +458,20 @@ Three consequences bind every use of the set:
   that set is the bound rather than the mechanism, is stated as an invariant in
   [SECURITY.md](../SECURITY.md).
 
-  Four steps stand between the transcript and the artifact — clear the scanner
-  path, check the scanner out afresh, install it into its own venv, scan — and
-  all four are `continue-on-error`, so a scanner that fails to build costs the
-  run its transcript rather than its labels. Each step is `if:`-gated on its
-  predecessor's outcome, so a failed build **skips** the scan rather than
-  running whatever sits at the scanner path; the upload is gated in turn on the
-  scan having succeeded, so the artifact is withheld silently, via the skip —
-  read the step outcomes on the run, not the summary, to tell a withheld
-  transcript from one that was never asked for.
+  Four steps stand between an agent-written file and its artifact — clear the
+  scanner path, check the scanner out afresh, install it into its own venv,
+  scan — and all four are `continue-on-error`, so a scanner that fails to build
+  costs the run its diagnostics rather than its labels: the published labels
+  file is the measure step's and never passes through here. The build runs
+  whenever there is something to scan — a transcript, a labels file, or both —
+  so the capped run, which has no execution file, still gets one. Each step is
+  `if:`-gated on its predecessor's outcome, so a failed build **skips** the
+  scans rather than running whatever sits at the scanner path; each upload is
+  gated in turn on its own scan having succeeded, so an artifact is withheld
+  silently, via the skip — read the step outcomes on the run, not the summary,
+  to tell a withheld artifact from one that was never asked for. The
+  label-line count in the summary is outside all of it, and says what the run
+  produced even when every scan withheld.
 
 **What a measurement is.** The quantity any labeler run produces against this
 set is *agreement with the reference raters*, not accuracy — reference error
@@ -615,8 +637,12 @@ the distortion closes on its own as the frame clears.
 The extract is **bounded by what a dispatch can finish, not by how many texts
 exist**. A labeling run is a single headless turn inside one job, and
 `qp-topics` writes nothing until the labels file holds exactly one line per
-extract row — so a run that outlasts its cap leaves durable slices, full spend,
-and no artifact. Partial progress is not partial coverage here; it is nothing.
+extract row — so a run that outlasts its cap spends in full and publishes
+nothing. Partial progress is not partial coverage: it buys no labels artifact,
+and the rows it did write are a diagnostic rather than a down payment. They do
+survive the run as such — the slices the labeler landed are uploaded as
+`qp-labels` and their line count reaches the job summary — which is what makes
+a mis-sized dispatch measurable rather than merely wasted.
 The cap that bites is the **labeling step's**, set below the surrounding job's
 so a runaway trips the step and still leaves a run to read; the ceiling is
 derived from that one, since a bound sized against the outer cap would admit
@@ -683,8 +709,8 @@ observing — and stops before the labeler. A rehearsal that does reach the
 labeler (a staging pair seeded past the floor) runs it under the exact
 production posture, and at the same batch price on the staging environment's
 own engine key: a rehearsal is a real spend, and what it buys is the measured
-block in the step summary and the transcript artifact instead of a wasted
-production batch. The labeler's invocation posture itself needs no seeded
+block in the step summary, the transcript and labels artifacts, and the
+label-line count instead of a wasted production batch. The labeler's invocation posture itself needs no seeded
 pair: the integration suite's `qp-labeler-smoke` scenario runs it over a
 synthetic five-row extract at cents ([testing.md](testing.md)).
 

@@ -916,7 +916,9 @@ the tier, not a point figure. Because the mode is manual-dispatch-only, its
 annual line at any plausible refresh cadence is at most tens of dollars —
 carried inside the misc floor's buffer (driver #5) rather than as its own
 line, and the first completed run's engine log replaces the estimate. For this
-mode the artifact, not the money, is what a mis-sized dispatch loses.
+mode the artifact, not the money, is what a mis-sized dispatch loses — and
+what it keeps is the run's label-line count and the rows it did write, which
+is what sizes the next dispatch.
 
 **What one labeling run costs, bounded.** The extract is capped at the
 labeling ceiling `fedcourts qp-corpus` enforces (1,200 rows —

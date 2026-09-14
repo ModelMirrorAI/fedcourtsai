@@ -836,13 +836,14 @@ jobs:
     if: ${{ inputs.mode == 'qp-topic-label' }}
     runs-on: ubuntu-latest
     # The step caps have to fit inside this one or the run loses its artifact
-    # to the job clock: the 40-minute labeler, the 5-minute CLI install and the
-    # three post-agent transcript steps at 5 each come to 60, and the steps
+    # to the job clock: the 40-minute labeler, the 5-minute CLI install, the
+    # three post-agent transcript steps at 5 each and the 3-minute labels scan
+    # come to 63, and the steps
     # around them carry no cap of their own — the `fetch-depth: 0` checkout,
     # apt, the artifact download, the measure composite (which also revalidates
-    # the data root), the App token, and the PR step's fetch and push. Fifteen
+    # the data root), the App token, and the PR step's fetch and push. Twelve
     # minutes for that set is headroom, not a race, and the race is the one
-    # that matters: the transcript steps deliberately run before measure, so
+    # that matters: the diagnostic steps deliberately run before measure, so
     # their worst case is charged before the labels artifact exists.
     timeout-minutes: 75
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
@@ -1094,6 +1095,38 @@ jobs:
             --disallowedTools Agent,Task,Explore,Bash,WebFetch,WebSearch
             --add-dir ${{ runner.temp }}/qp-io
 
+      # The progress record, and the one that costs nothing to keep. The
+      # labeling prompt tells the labeler to land each slice in $LABELS_OUT as
+      # it finishes, so the line count *is* how far the run got — and it is the
+      # only number that separates a slow labeler from a stuck one when the
+      # step hits its cap, which is the path that leaves no execution file to
+      # read (the action writes that at exit). Runs first among the post-agent
+      # steps and on every outcome the runner survives, because everything
+      # below it can withhold: the scanner build reaches the network and the
+      # scan can hit. A count, never a byte of the file — this line goes to a
+      # public step summary with no scan ahead of it, so it carries arithmetic
+      # only. `wc -l` counts complete lines, which is what a JSONL reader
+      # would accept anyway.
+      - name: Count the label lines the run left behind
+        id: labels
+        if: ${{ !cancelled() }}
+        env:
+          LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
+        run: |
+          set -euo pipefail
+          if [ -f "$LABELS_OUT" ]; then
+            lines=$(wc -l < "$LABELS_OUT")
+            present=true
+          else
+            lines=0
+            present=false
+          fi
+          echo "lines=$lines" >> "$GITHUB_OUTPUT"
+          echo "present=$present" >> "$GITHUB_OUTPUT"
+          echo "The labeling step left ${lines} label line(s) on the runner." \
+            >> "$GITHUB_STEP_SUMMARY"
+          echo "label lines written: ${lines}"
+
       # The labeler's only declared output is $LABELS_OUT, in the granted
       # `qp-io` directory under $RUNNER_TEMP — the checkout is read-only
       # territory by contract — so
@@ -1179,9 +1212,15 @@ jobs:
       # drop-a-file class on the scanner's *Python import path* and on the
       # toolchain that builds it — the class the assertion above cannot see,
       # and the one an editable install hands over for free.
+      # Built for either agent-written surface this job can publish — the
+      # transcript and the partial labels file — so the gate is "there is
+      # something to scan", not "there is a transcript": the capped run has no
+      # execution file and is exactly the run whose labels must still travel.
       - name: Clear the isolated scanner path
         id: scanner_clear
-        if: ${{ !cancelled() && steps.label.outputs.execution_file != '' }}
+        if: >-
+          ${{ !cancelled() && (steps.label.outputs.execution_file != ''
+          || steps.labels.outputs.present == 'true') }}
         # A `.git` the agent planted at this path would be *reused* by the
         # checkout below rather than replaced, and its hooks would run during
         # the checkout. Remove the path so the clone is a clone — and the
@@ -1405,6 +1444,77 @@ jobs:
         run: |
           echo "::warning::the labeling step reported no execution file; no transcript artifact this run"
 
+      # The labels file goes off the runner on the same terms as the
+      # transcript, and for the same reason: it is agent-written bytes, and a
+      # run artifact on a public repository is downloadable by any logged-in
+      # user. The file the *measure* step publishes is a different object — the
+      # `qp-topics` command reads every row against the vocabulary and the
+      # extract's keys before writing `data/qp-topics/qp-topics.json`, so the
+      # published surface is gated by a validator. This one is not: it is
+      # whatever the labeler wrote, uploaded precisely on the runs where the
+      # validator refused it. Unvalidated agent bytes are the transcript's own
+      # class, so they take the transcript's control — the scanner built out of
+      # the labeler's reach above, invoked here on the same terms, withholding
+      # on a hit rather than failing the job. The generic surface, not
+      # `--transcript-file`: a labels line is case ids, docket numbers and
+      # vocabulary words, none of them high-entropy by format, so the entropy
+      # heuristic that convicts every real transcript has no quarrel with this
+      # file and there is no reason to switch it off.
+      # Three minutes, where the transcript gets five: this is at most a
+      # ceiling's worth of short JSON lines, and the job's post-agent budget is
+      # counted in the timeout comment at the top of the job.
+      - name: Scan the partial labels before publishing them
+        id: labels_scan
+        if: >-
+          ${{ !cancelled() && steps.scanner_install.outcome == 'success'
+          && steps.labels.outputs.present == 'true' }}
+        continue-on-error: true
+        timeout-minutes: 3
+        working-directory: ${{ github.workspace }}/.transcript-scanner
+        env:
+          LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SCANNER: ${{ github.workspace }}/.transcript-scanner/.venv/bin/python
+        run: |
+          set -euo pipefail
+          # This step holds the key, so it strips the levers that would put
+          # agent code inside it — the transcript scan's reasoning, verbatim.
+          unset PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE
+          unset LD_PRELOAD LD_AUDIT LD_LIBRARY_PATH
+          status=0
+          "$SCANNER" -E -s -P -m fedcourtsai.cli scan-diff-for-secrets --name-status-file /dev/null \
+            --known-secret-env ANTHROPIC_API_KEY \
+            --extra-file "$LABELS_OUT" \
+            --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            || status=$?
+          if [ "$status" -eq 1 ]; then
+            echo "::warning::labels scan hit; withholding the qp-labels artifact"
+            echo "partial labels withheld: secret scan hit" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          elif [ "$status" -ne 0 ]; then
+            echo "::warning::labels scan could not run (exit ${status}); withholding the artifact"
+            echo "partial labels withheld: scan did not run (exit ${status})" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Upload the partial labels
+        # Every path the runner survives, the capped one above all: the measure
+        # step refuses a file short of one line per extract row, and this is
+        # what it refused. The count line above says how far the run got; this
+        # says which rows they were, which is what re-deriving the lane's
+        # ceiling from a measured pace needs.
+        if: ${{ !cancelled() && steps.labels_scan.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: qp-labels
+          path: ${{ runner.temp }}/qp-io/qp-labels.jsonl
+          if-no-files-found: warn
+          # One day, as for the extract and the transcript: the labels carry the
+          # case ids of the ingested corpus, which no committed surface
+          # enumerates until the measure step publishes them — and the runs
+          # this artifact exists for are the ones where it never does.
+          retention-days: 1
+
       # The post-label half — assert the labeler wrote its declared output,
       # measure against the reference set, publish-or-refuse, re-validate —
       # lives in the shared composite so the token-free `qp-topic`
@@ -1422,7 +1532,8 @@ jobs:
             The qp-label-transcript run artifact carries the turn-by-turn
             transcript to diagnose from (absent only when the scan withheld it
             or the action died before writing it — see the labeling step's
-            log).
+            log), and the qp-labels artifact carries the rows the run did
+            write, whose count the step summary states either way.
 
       # Minted only after the agent has finished and the gate has passed, as
       # run-backtest does: a write-capable installation token has no business
