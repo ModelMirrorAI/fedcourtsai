@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000275",
+  "gaps": [
+    "gemini-baseline's call results are unobserved; claude-baseline's captured results are represented by digests rather than full payloads",
+    "The resolution date has no intraday timestamp"
+  ],
+  "helpful": [
+    "Blinded predictions and captured retrieval-query metadata",
+    "Provisioned application text and resolved docket snapshot",
+    "Committed interim statpack counts"
+  ],
+  "notes": "Evaluated both aliases using only provisioned artifacts, repository contracts and the committed statpack. No external legal research, web search or corpus query was needed. Interim baseline and skill remain harness-owned. Optional big-case grading was omitted because an independent assessment was not formed before candidate scores were displayed.",
+  "role": "evaluator",
+  "run_id": "20260914T195025Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local file reads",
+    "jq",
+    "apply_patch",
+    "JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

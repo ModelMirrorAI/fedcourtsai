@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000274",
+  "run_id": "20260914T195025Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "apply_patch", "local JSON schema validation"],
+  "helpful": [
+    "Blinded predictions with separate rationale and forecast documents",
+    "Harness retrieval logs with explicit result-capture markers",
+    "Committed interim statpack and stage-specific output schema"
+  ],
+  "gaps": [
+    "Unobserved retrieval results limit verification of source-dependent premises; this is a capture limitation, not evidence of failed calls or leakage"
+  ],
+  "notes": "Scored all three supplied aliases using only local provisioned materials. No external search or corpus lookup was needed. Interim baseline and skill remain harness-owned. Optional big-case assessments were omitted because no independent assessment was formed before viewing the candidates' scores."
+}

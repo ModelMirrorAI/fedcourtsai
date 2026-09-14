@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000275",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "codex-baseline reports three CourtListener searches and reading the August 31 application PDF, but its staged retrieval_log.json contains only ten calls concerning statpack reads and redacted messages, with no corresponding external-search or PDF call. Its 0.6 capture coverage measures results for listed calls and does not resolve these absent calls. This limits independent audit of the factual basis; it is not evidence of outcome leakage. The September 1 forward chronology precedes the September 3 denial, and grading is complete. See codex-baseline's evaluation.md.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260914T195025Z",
+  "schema_version": "1.0"
+}

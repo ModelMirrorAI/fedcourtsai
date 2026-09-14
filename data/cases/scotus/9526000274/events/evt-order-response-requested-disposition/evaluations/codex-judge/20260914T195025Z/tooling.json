@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000274",
+  "gaps": [
+    "Candidate retrieval logs expose query slices, capture markers, digests and dates, not complete returned document contents. One candidate has no captured results."
+  ],
+  "helpful": [
+    "Blinded candidate artifacts preserve numerical fields and frozen prediction context.",
+    "Per-call timestamps and capture markers distinguish forward chronology from missing telemetry.",
+    "The provisioned application permits checking the lower-court chronology without external retrieval.",
+    "The committed interim statpack supplies prior-Term integer counts."
+  ],
+  "notes": "Evaluated only provisioned case materials and the committed statpack; no corpus query, CourtListener call, or web retrieval was needed. Interim baseline, skill, claim scores, and provenance are reserved for the harness. Validation is confined to this evaluator's alias-keyed output, not the temporarily unavailable committed prediction tree.",
+  "role": "evaluator",
+  "run_id": "20260914T195025Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: local artifact inspection and arithmetic",
+    "apply_patch: evaluator output files",
+    "Python: schema and alias validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
