@@ -4937,10 +4937,12 @@ def semantic_summary_command(
     grounds = summary.overall.not_addressed_by_ground if summary.overall is not None else {}
     # The mask's ground split rides the shared census line, so it prints in the
     # withheld state too — which is the only state there is while every unit
-    # masks, and the state in which this split is the whole of what the command
-    # has to say. A coverage gap ("not-ingested") names work the pipeline owes; a
-    # mask on "silent-on-axis" is a finding about the opinion, and an
-    # undifferentiated total would let a reader take one for the other.
+    # masks. The three grounds are three kinds of fact ("no-judgment" the case's
+    # posture, "not-ingested" work the pipeline owes, "silent-on-axis" a finding
+    # about the opinion) and an undifferentiated total lets a reader take one
+    # for another. Until the grading prompt asks for the field, every real grade
+    # names none and lands in "unstated" — so a split showing only that bucket
+    # says nobody was asked, not that nobody could tell.
     ground_split = (
         "; masked on " + ", ".join(f"{name} {count}" for name, count in sorted(grounds.items()))
         if grounds
@@ -9461,6 +9463,22 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
 
 
+def _clear_opinion_slot(paths: CasePaths) -> None:
+    """Remove a previously staged opinion, so "no slot" always means "no body".
+
+    The slot's whole contract is that its **absence** tells a grader there is
+    nothing to grade against. A run that stages nothing and leaves an older
+    body in place would break that on the one tree where it can happen — a
+    re-provision over a dirty checkout — and the grader would read a stale
+    opinion as this cell's. Ephemeral runners never reach the state; the
+    invariant is stated unconditionally, so it holds unconditionally.
+    """
+    paths.opinion_text.unlink(missing_ok=True)
+    paths.opinion_manifest.unlink(missing_ok=True)
+    if paths.opinion_dir.is_dir() and not any(paths.opinion_dir.iterdir()):
+        paths.opinion_dir.rmdir()
+
+
 @app.command("provision-opinion")
 def provision_opinion(
     *,
@@ -9473,10 +9491,11 @@ def provision_opinion(
     The semantic claim family grades a predicted proposition against what the
     Court actually wrote, and nothing else delivers that text to a judge: the
     provisioned ``record/`` carries the docket, the snapshot, the filed documents
-    and the blinded candidates, and the only opinion reader a cell otherwise has
-    is a priors query with no case filter, which the grading protocol rightly
-    forbids grading against. Without this slot every declared claim masks on
-    "not ingested" whatever the corpus holds.
+    and the blinded candidates, and none of them is the opinion. A cell can reach
+    a body only through a priors query, which the grading protocol excludes by
+    requiring the grade to rest on the opinion text **in the record** — so
+    without this slot every declared claim masks on "not ingested" whatever the
+    corpus holds.
 
     **A separate command, and that is the guarantee.** The body postdates every
     predict moment's cutoff by construction — an opinion is the outcome — so it
@@ -9492,8 +9511,9 @@ def provision_opinion(
     Writes **nothing** and exits 0 where the row's ``has_opinion`` bit is clear
     or the body cannot be read, reporting which. That is the ordinary state on
     most cases — coverage is a slice of the granted docket, not all of it — so a
-    workflow step runs this unconditionally and the absence of the slot, rather
-    than a failed step, is what tells a grader there is nothing to grade against.
+    workflow step can run this unconditionally and the absence of the slot,
+    rather than a failed step, is what tells a grader there is nothing to grade
+    against.
     The body is read through the one registered payload path
     (:func:`fedcourtsai.corpus.opinion_body`): the blob's own column with the
     corpus split off, the per-case content store under it.
@@ -9511,6 +9531,20 @@ def provision_opinion(
     # registered store while the row half comes off the index, which is exactly
     # the pair of credentials a cell's provisioning step already carries.
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    if backend in ("service", "casestore"):
+        # Reachable from the ambient setting alone — every cell's agent steps
+        # export the service backend — which `_corpus_backend` never sees, since
+        # it parses only the flag. Refused by name rather than left to fail
+        # inside `connect_readonly`, where it surfaces as a traceback that reads
+        # like the exit-1 "no such case" this command reserves for bad
+        # coordinates.
+        typer.echo(
+            f"the {backend} backend serves no corpus rows, and the opinion "
+            "slot's presence bit and citation are row facts; use "
+            "--corpus-backend local or ranged.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         row = corpus.get_row(conn, case)
         _echo_read_stats(conn)
@@ -9519,18 +9553,24 @@ def provision_opinion(
         raise typer.Exit(code=1)
     paths = CasePaths(settings.data_root, court, docket)
     if not row.has_opinion:
+        _clear_opinion_slot(paths)
         typer.echo(f"{case} has no linked opinion; nothing staged")
         return
     body = corpus.opinion_body(row)
-    if not body:
+    # Whitespace-only counts as no body, on the reasoning the documents manifest
+    # applies to a scanned filing with no text layer: "present but empty" must
+    # not read as "text present". A grader handed two blank characters and a
+    # valid digest has a slot that says a body is there and nothing to grade.
+    if body is None or not body.strip():
         # The bit says a body exists and the estate did not hand one over — a
         # split-mode store that is unbuilt, unreachable, or has not mirrored this
         # case yet. Spoken as a warning rather than an exit: the grader's mask on
         # "not ingested" is the correct grade either way, and failing the step
         # would cost the cell its whole evaluation over a slot it can do without.
+        _clear_opinion_slot(paths)
         typer.echo(
-            f"::warning::{case} is marked as carrying an opinion but no body "
-            f"was readable from the {backend} backend; nothing staged",
+            f"::warning::{case} is marked as carrying an opinion but no usable "
+            f"body was readable from the {backend} backend; nothing staged",
             err=True,
         )
         return

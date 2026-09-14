@@ -451,10 +451,12 @@ class SemanticSupport(StrEnum):
 # on. The grading protocol already requires a grader to say which one applied;
 # typing it here makes the answer a counted field rather than a sentence inside
 # `SemanticGrade.basis` that only a person auditing a cell can read. The three
-# are not interchangeable and that is the whole reason to separate them: two of
-# them are coverage gaps somebody can close (no body of the required kind was
-# filed, or one exists and is not ingested) and the third is a finding about
-# what the Court wrote. Closed, because a grader that could name a fourth ground
+# are three different *kinds* of fact, which is the whole reason to separate
+# them: `no-judgment` is the case's posture (no body of the required kind was
+# ever filed, so the unit could never have been graded and nothing can be
+# fetched to change that), `not-ingested` is pipeline debt (a body exists and
+# the record does not carry it), and `silent-on-axis` is a finding about what
+# the Court wrote. Closed, because a grader that could name a fourth ground
 # would be defining the population the census measures.
 MaskGround = Literal["no-judgment", "not-ingested", "silent-on-axis"]
 
@@ -858,7 +860,7 @@ class StagedOpinion(_Strict):
         "recorded"
     )
     sha256: str = Field(
-        description="Hex SHA-256 of the staged text exactly as written, so a "
+        description="Hex SHA-256 of the staged text, UTF-8 encoded, so a "
         "grade's basis can later be resolved against the body it was formed "
         "from rather than against whatever that path holds now"
     )
@@ -1476,13 +1478,15 @@ class SemanticGrade(_Strict):
         default=None,
         description="Which of the mask's three grounds this grade rests on, "
         "where the grade is `not-addressed`: `no-judgment` (no opinion body of "
-        "the kind the claim requires was filed), `not-ingested` (one exists and "
-        "the record does not carry it), or `silent-on-axis` (the body is in hand "
-        "and says nothing on the claim's axis). Counted, because the first two "
-        "are coverage gaps somebody can close and the third is a finding about "
-        "what the Court wrote, and those must never be tradeable. Null on every "
-        "grade that is not a mask, and on a mask whose grader named no ground — "
-        "the census counts those as `unstated` rather than assuming one",
+        "the kind the claim requires was filed — the case's posture, which "
+        "bounds what could ever have been graded), `not-ingested` (one exists "
+        "and the record does not carry it — work the pipeline still owes), or "
+        "`silent-on-axis` (the body is in hand and says nothing on the claim's "
+        "axis — a finding about what the Court wrote). Counted rather than left "
+        "to `basis`, because those are three different kinds of fact and an "
+        "undifferentiated mask total lets any of them be read as another. Null "
+        "on every grade that is not a mask, and on a mask whose grader named no "
+        "ground — the census counts those as `unstated` rather than assuming one",
     )
 
 
@@ -3254,8 +3258,10 @@ class SemanticClaimSummary(_Strict):
 
     While every unit masks, ``not_addressed_by_ground`` is the only thing this
     census says that varies — which is why the mask is split rather than left as
-    one total: a mask on ``not-ingested`` names work the pipeline owes, and a
-    mask on ``silent-on-axis`` names a fact about the opinion.
+    one total: ``no-judgment`` bounds what could ever have been graded,
+    ``not-ingested`` names work the pipeline owes, and ``silent-on-axis`` names
+    a fact about the opinion. Three different kinds of fact, none substitutable
+    for another.
     """
 
     claim_id: str | None = Field(
@@ -3277,14 +3283,16 @@ class SemanticClaimSummary(_Strict):
     )
     not_addressed_by_ground: dict[str, int] = Field(
         default_factory=dict,
-        description="`not_addressed` split by the ground the panel masked on — "
-        "the three `SemanticGrade.mask_ground` values, plus `unstated` for a "
-        "unit whose grades name none. Sums to `not_addressed` exactly, and "
-        "carries only the grounds with a non-zero count. The split is the "
-        "signal, not a detail of it: two of the grounds say the record is "
-        "missing something a pipeline can go and fetch, one says the opinion "
-        "was read and did not speak, and an undifferentiated total lets a "
-        "coverage gap read as a finding about the Court",
+        description="`not_addressed` split by ground — the three "
+        "`SemanticGrade.mask_ground` values, plus `unstated` for a unit whose "
+        "grades name none. Sums to `not_addressed` exactly, and carries only "
+        "the grounds with a non-zero count. Read each count as *units resolved "
+        "to that ground*, not as units the panel agreed on: where graders name "
+        "different grounds a stated precedence settles the unit, and nothing "
+        "here bounds how many were resolved rather than agreed. The split is "
+        "the signal, not a detail of it — the case's posture, work the pipeline "
+        "owes, and a finding about the Court are three different facts, and one "
+        "total lets any of them be read as another",
     )
     mask_disputed: int = Field(
         default=0,
@@ -3321,6 +3329,27 @@ class SemanticClaimSummary(_Strict):
         "when `graded` sits below the published minimum, where the counts still "
         "publish and only this figure is withheld",
     )
+
+    @model_validator(mode="after")
+    def _ground_split_accounts_for_every_mask(self) -> SemanticClaimSummary:
+        """The split is a partition of `not_addressed`, not a sample of it.
+
+        Enforced rather than documented because the whole reason to separate the
+        grounds is that they are not tradeable: a split that dropped units, or
+        that carried a bucket outside the closed vocabulary, would let a reader
+        subtract one ground from the total and get a number describing nothing.
+        Every producer here is the harness, so this can only fire on a bug.
+        """
+        allowed = {*get_args(MaskGround), MASK_GROUND_UNSTATED}
+        if unknown := sorted(set(self.not_addressed_by_ground) - allowed):
+            raise ValueError(f"mask grounds outside the vocabulary: {', '.join(unknown)}")
+        counted = sum(self.not_addressed_by_ground.values())
+        if self.not_addressed_by_ground and counted != self.not_addressed:
+            raise ValueError(
+                f"the mask's ground split totals {counted}, "
+                f"not `not_addressed` ({self.not_addressed})"
+            )
+        return self
 
 
 class SemanticGraderAgreement(_Strict):

@@ -19,8 +19,10 @@ plumbing:
 **Elicited and graded, and producing nothing.** A grade needs three things.
 Two are built: this declaration, and the prompts that ask a merits cell for the
 propositions and a grader for the grades — so both process digests hash a
-semantic contract. The third is not: **no opinion body is ingested** to grade a
-claim against, and both declared claims require a majority opinion, so every
+semantic contract. The third, the text, is built but not wired: ``fedcourts
+provision-opinion`` stages a case's majority opinion into the evaluate cell's
+``record/opinion/`` slot and **nothing calls it yet**, so no cell receives a body
+to grade against. Both declared claims require a majority opinion, so every
 unit masks (``not-addressed``), :func:`summarize_semantic_grades` publishes
 nothing, and no published number depends on any of it
 (``docs/outcome-decomposition.md``, *What remains unbuilt*). The mandatory-set
@@ -485,14 +487,19 @@ class _Census:
         )
 
 
-#: The order a split panel's mask ground resolves in, most-owed first. Every
-#: ground here is a fact about the record, but they are not equally *ours*:
-#: `not-ingested` says the body exists and the pipeline has not fetched it,
-#: `no-judgment` says none of the required kind was ever filed, and
-#: `silent-on-axis` says the body was read and did not speak. The register's
-#: standard is that a coverage gap and a substantive finding must never be
-#: tradeable, so a panel that splits resolves toward the gap: the census can
-#: under-state what the opinion said, never what the pipeline still owes.
+#: The order a split panel's mask ground resolves in. Every ground is a fact
+#: about the record, but of three different kinds: `not-ingested` says the body
+#: exists and the pipeline has not fetched it (work owed), `no-judgment` says
+#: none of the required kind was ever filed (the case's posture, which nothing
+#: can fetch), and `silent-on-axis` says the body was read and did not speak (a
+#: finding about the Court). The two **availability** grounds come before the
+#: substantive one, because a census must never let a record the graders could
+#: not all confirm they had read stand as a statement about what the opinion
+#: said; between the two, the one that names work owed comes first. So the bias
+#: runs one way and should be read that way: a `not-ingested`/`silent-on-axis`
+#: split reports a coverage gap, and a `no-judgment`/`silent-on-axis` split
+#: reports no opinion existed where one grader says it read one. The census can
+#: under-state what an opinion said; it cannot over-state it.
 _GROUND_PRECEDENCE: tuple[MaskGround, ...] = ("not-ingested", "no-judgment", "silent-on-axis")
 
 
@@ -508,6 +515,13 @@ def _panel_ground(grounds: Iterable[MaskGround | None]) -> str:
 
     Where graders name *different* grounds, :data:`_GROUND_PRECEDENCE` settles
     it — deterministically and in one direction, for the reason stated there.
+    The resolved unit is then indistinguishable in the census from a unanimous
+    one, which is why
+    :attr:`~fedcourtsai.schemas.SemanticClaimSummary.not_addressed_by_ground`
+    reads as *units resolved to a ground* rather than as panel agreement. A
+    dispute counter on the model of ``mask_disputed`` is the honest next move
+    once graders actually name grounds; today none is asked to, so every real
+    unit lands in ``unstated`` and such a counter would count zero.
     """
     named = {ground for ground in grounds if ground is not None}
     if not named:

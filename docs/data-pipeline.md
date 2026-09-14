@@ -611,6 +611,16 @@ whole forward fleet reads one store without per-command flags; an explicit
 `--corpus-backend` still wins), proven byte-identical across backends by a
 parity gate (`tests/test_provision_casestore.py`).
 
+A third command writes into that same `record/` and reads the store a different
+way: `provision-opinion` stages a decided case's majority opinion at
+`record/opinion/` for an **evaluate** cell to grade a semantic claim against. It
+does *not* take `casestore` — the presence bit and the citation it stages are
+index facts and the content store exposes no rows — so it reads the row over
+`local`/`ranged` while the body half routes itself through the payload read
+source described below. Its own slot rather than a filed document, because an
+opinion postdates every predict moment and `record/documents/` is cut by date
+alone; the predict lane never invokes it, which is the whole of the guarantee.
+
 *Which* point in time the record is sourced at is the cell's declared moment,
 not the corpus's newest read: where a cell names an event that declares
 a moment, `provision-snapshot` places it at the day after that event opened,
@@ -627,11 +637,14 @@ provenances, the two cut kinds, and the moments the cut does not apply to.
 The `casestore` backend has no query surface, so `query` / `stats` / `open-events` / scope reconcile read
 the index — locally pulled or ranged in place — and `cert-backtest` replay
 reads its redacted snapshots from the store through the payload read source.
-`query --full` is the one reader that needs a payload the index does not hold:
-it hydrates each prior's opinion body from the store through the same payload
-read source, inside the shared payload shaper so the CLI and the query service
-behave identically — the sidecar is the credentialed process, which is what
-lets a credential-free cell ask for a body at all. The hydration is gated on
+The opinion body is the payload the index does not hold, and two readers need
+it: `query --full`, which hydrates each prior's body inside the shared payload
+shaper so the CLI and the query service behave identically — the sidecar is the
+credentialed process, which is what lets a credential-free cell ask for a body
+at all — and `provision-opinion`, which stages one case's body into its
+`record/` slot. Both go through `corpus.opinion_body`, the single definition of
+which half of the estate holds the text, so provisioning and a `--full` query
+can never disagree about it. The hydration is gated on
 `full` *and* on the row's retained `has_opinion` bit, so the default path never
 leaves the index and an opinion-less prior costs no store request. It degrades
 rather than fails: a case whose `case.json` was never mirrored, and a store that

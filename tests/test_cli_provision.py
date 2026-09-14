@@ -4,9 +4,10 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import pytest
 from typer.testing import CliRunner, Result
 
-from fedcourtsai import corpus
+from fedcourtsai import casestore, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest
@@ -1941,3 +1942,72 @@ def test_the_slot_lives_under_the_gitignored_record_tree(
     assert paths.opinion_dir.parent == paths.record
     assert paths.opinion_text.parent == paths.opinion_dir
     assert paths.opinion_manifest.parent == paths.opinion_dir
+
+
+def test_an_unusable_body_stages_nothing_and_warns(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The bit says a body exists and the estate hands none over — the split-store
+    degradation the slot's design turns on, and the grade it leaves is correct."""
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    casestore.set_active_transport(casestore.InMemoryObjectTransport())
+    # The split-mode blob shape: the presence bit is retained, the heavy column
+    # is not, and this case was never mirrored into the store.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        conn.execute("UPDATE cases SET opinion_text = NULL WHERE case_id = ?", ("ca9/101",))
+        conn.commit()
+
+    result = runner.invoke(app, ["provision-opinion", "--court", "ca9", "--docket", "101"])
+
+    assert result.exit_code == 0, result.output
+    assert "no usable body was readable" in result.output
+    assert not _opinion(fixture_corpus, "ca9", 101).opinion_dir.exists()
+
+
+def test_a_whitespace_only_body_is_no_body(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ "Present but blank" must not read as "text present" — the rule the documents
+    manifest applies to a scanned filing with no text layer."""
+    monkeypatch.setattr(corpus, "opinion_body", lambda row: "   \n\t ")
+
+    result = runner.invoke(app, ["provision-opinion", "--court", "ca9", "--docket", "101"])
+
+    assert result.exit_code == 0, result.output
+    assert "no usable body was readable" in result.output
+    assert not _opinion(fixture_corpus, "ca9", 101).opinion_text.exists()
+
+
+def test_a_run_that_stages_nothing_clears_a_stale_slot(fixture_corpus: FixtureCorpus) -> None:
+    """The slot's absence is the signal, so it must survive a re-provision: a stale
+    body left in place would be read as this cell's own."""
+    staged = runner.invoke(app, ["provision-opinion", "--court", "ca9", "--docket", "101"])
+    assert staged.exit_code == 0, staged.output
+    paths = _opinion(fixture_corpus, "ca9", 101)
+    assert paths.opinion_text.exists()
+
+    # The row loses its opinion (a repair pass, a re-seeded corpus), and the next
+    # provisioning run over the same tree must take the body with it.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        conn.execute(
+            "UPDATE cases SET has_opinion = 0, opinion_text = NULL WHERE case_id = ?", ("ca9/101",)
+        )
+        conn.commit()
+    again = runner.invoke(app, ["provision-opinion", "--court", "ca9", "--docket", "101"])
+
+    assert again.exit_code == 0, again.output
+    assert not paths.opinion_dir.exists()
+
+
+@pytest.mark.parametrize("backend", ["service", "casestore"])
+def test_a_rowless_backend_is_refused_by_name(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch, backend: str
+) -> None:
+    """Reachable from the ambient setting alone — every cell's agent steps export the
+    service backend — so it must refuse rather than surface as a wrong-coordinates exit."""
+    monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", backend)
+
+    result = runner.invoke(app, ["provision-opinion", "--court", "ca9", "--docket", "101"])
+
+    assert result.exit_code == 2, result.output
+    assert "serves no corpus rows" in result.output

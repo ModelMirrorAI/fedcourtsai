@@ -65,6 +65,7 @@ from fedcourtsai.schemas import (
     PredictableEvent,
     Prediction,
     SemanticClaim,
+    SemanticClaimSummary,
     SemanticGrade,
     SemanticGradeBlock,
     SemanticGradeSummary,
@@ -371,6 +372,37 @@ def test_a_split_panel_resolves_toward_the_coverage_gap() -> None:
     """The gap and the finding must never be tradeable, so a split favors the gap."""
     census = summarize_semantic_grades(_masked_panel("silent-on-axis", "not-ingested")).claims[0]
     assert census.not_addressed_by_ground == {"not-ingested": 1}
+
+
+def test_a_posture_and_a_finding_split_toward_the_posture() -> None:
+    """The other arm of the rule: never assert the Court spoke where a peer says
+    no opinion of the required kind was ever filed."""
+    census = summarize_semantic_grades(_masked_panel("silent-on-axis", "no-judgment")).claims[0]
+    assert census.not_addressed_by_ground == {"no-judgment": 1}
+
+
+def test_work_owed_outranks_the_case_posture() -> None:
+    """The middle rank: between two availability grounds, the fetchable one leads."""
+    census = summarize_semantic_grades(_masked_panel("no-judgment", "not-ingested")).claims[0]
+    assert census.not_addressed_by_ground == {"not-ingested": 1}
+
+
+def test_the_precedence_table_names_every_ground() -> None:
+    """A ground missing from the table is a `StopIteration` inside a census, and
+    mypy will not catch it — the tuple's element type imposes no exhaustiveness."""
+    assert set(semantic._GROUND_PRECEDENCE) == set(get_args(MaskGround))
+    assert len(semantic._GROUND_PRECEDENCE) == len(get_args(MaskGround))
+
+
+def test_the_ground_split_is_a_partition_of_the_mask_total() -> None:
+    """Enforced, not documented: the grounds are not tradeable, so a reader must be
+    able to subtract one bucket from the total and get a number that means something."""
+    with pytest.raises(ValidationError):
+        SemanticClaimSummary(not_addressed=3, not_addressed_by_ground={"not-ingested": 2})
+    with pytest.raises(ValidationError):
+        SemanticClaimSummary(not_addressed=1, not_addressed_by_ground={"not-argued": 1})
+    # A census that carries no split at all is the empty state, not a broken one.
+    assert SemanticClaimSummary(not_addressed=3).not_addressed_by_ground == {}
 
 
 def test_a_ground_beside_an_ordinal_grade_is_never_counted() -> None:

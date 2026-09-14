@@ -1322,8 +1322,10 @@ of the predictor** — the same *treatment* the mechanical family gives a vacuou
 claim, though not the same provenance: a mechanical mask is harness-computed
 with no latitude, and this one is a reader's call, which is why a split on it
 has to be counted separately at all. It bites three ways, all of them facts
-about the record: no opinion body of the required kind exists (no concurrence
-was filed), none is ingested, or the opinion is silent on the claim's axis. The
+about the record, and `SemanticGrade.mask_ground` is where a grade records
+which: no opinion body of the required kind exists (`no-judgment` — no
+concurrence was filed), none is ingested (`not-ingested`), or the opinion is
+silent on the claim's axis (`silent-on-axis`). The
 third is a fact about the record only because the claim's **axis is fixed by
 the declaration** rather than by the predictor's free-text proposition — that
 is the load-bearing reason nothing a predictor writes can move a claim into the
@@ -1746,34 +1748,45 @@ owed:
    Term and no artifact records the vantage, so the caveat above travels as
    prose rather than as a column beside the grade.
 4. **The two halves of a graded mask, wired but not yet asked for.** Both are
-   built and inert, waiting on one prompt amendment each.
+   built and inert, and both are waiting on the *same* prompt amendment — which
+   is not a scheduling accident but the discipline in
+   [process-version.md](process-version.md): staging a file the evaluate cell
+   did not previously receive changes the evaluator's information set under an
+   unchanged digest, so it lands **with** the prompt edit that describes it (the
+   prompt bytes are hashed, so the boundary becomes visible in the data) and
+   with a freeze-record entry. A workflow step added on its own would be the one
+   shape that rule exists to rule out.
 
    *The text.* `fedcourts provision-opinion` stages a decided case's majority
    opinion at `record/opinion/` — the body plus a manifest carrying its digest,
-   its length, and the citation the corpus row holds — and it is a command of
-   the **evaluate** lane alone. The body postdates every predict moment by
+   its length, and the citation the corpus row holds — and it is an
+   **evaluate**-lane command by construction rather than by wiring. The body postdates every predict moment by
    construction, so it is deliberately not a filed document (`record/documents/`
    is cut by date, and an opinion has no docket date to be cut at) and
    deliberately not a mode of the provisioner the predict lane runs: a predict
-   cell would have to invoke a command it never invokes. What is still owed is
-   the step that calls it on an evaluate cell and the grading protocol's
-   sentence telling a grader the slot is there.
+   cell would have to invoke a command it never invokes. What is owed is the
+   `run-evaluate` step that calls it and the grading protocol's sentence telling
+   a grader the slot is there.
 
    *The ground.* The mask's ground is a counted field, `SemanticGrade
    .mask_ground`, on the closed vocabulary `no-judgment` / `not-ingested` /
    `silent-on-axis`, and `SemanticClaimSummary.not_addressed_by_ground` splits
    the census on it — with an `unstated` bucket, since the field is optional and
-   a block that names no ground still belongs in the mask total. A panel that
-   splits resolves toward the coverage gap, so the census can under-state what
-   an opinion said and never what the pipeline still owes. The register's
-   standard is that a coverage gap and a substantive finding are never
-   tradeable, and until the evaluate prompt asks for the field every real grade
-   lands in `unstated`.
+   a block that names no ground still belongs in the mask total. A panel naming
+   different grounds is settled by a fixed precedence putting the two
+   availability grounds before the substantive one, so the census can
+   under-state what an opinion said and never over-state it. Until the evaluate
+   prompt asks for the field every real grade lands in `unstated`, and the
+   amendment has to *correct* the protocol's current claim that the census
+   counts one undifferentiated `not-addressed` and `basis` is the only place the
+   distinction lives — adding a `mask_ground` instruction beside that sentence
+   would hand a grader a contradiction.
 
 The prompts are built: the predict prompt asks a merits cell for one
 proposition per declared claim on its declared axis, and the evaluate prompt
 carries the grading protocol above — the axis discipline, the mask's grounds
-and the requirement to say which one applied, and the five refusals. So is the
+and the requirement to say which one applied *in `basis`*, and the five
+refusals. So is the
 **mandatory-set discipline on both sides**, the discipline the mechanical family
 keeps and the one place this family's enforcement had to be built rather than
 inherited, since nothing consumes a predictor's block at all:
