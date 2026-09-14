@@ -1,10 +1,11 @@
 """Tests for the semantic claim family's declaration and descriptive roll-up.
 
 `pipeline.semantic` declares `semantic-v1` on the merits moments and still
-produces nothing: the prompts now ask a merits cell for the propositions and a
-grader for the grades, but no opinion body is ingested to grade against, so
-every declared claim masks and no census publishes. The invariants worth
-pinning are therefore of two kinds.
+produces nothing: the prompts ask a merits cell for the propositions and a
+grader for the grades, and the evaluate cell is handed its case's majority
+opinion wherever the corpus holds one, but coverage is a rounding error against
+the granted slice, so essentially every declared claim masks and no census
+publishes. The invariants worth pinning are therefore of two kinds.
 
 The **declaration**: that `semantic-v1` is exactly two claims, each naming the
 axis its mask is checked against and the document class it needs, on exactly the

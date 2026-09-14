@@ -361,6 +361,56 @@ jobs:
           FEDCOURTS_CORPUS_BACKEND: ranged
         run: uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID"
 
+      # The semantic claim family grades a predicted proposition against what the
+      # Court actually wrote, and nothing else on this job delivers that text: the
+      # snapshot above carries the docket and the filed documents, none of which is
+      # the opinion. Evaluate-only by construction — an opinion is the outcome, so
+      # the predict lane never invokes this command and there is no flag to mis-set
+      # (tests/test_workflow_cell_invariants.py pins that absence). No `if:`: the
+      # command writes nothing and exits 0 on a case whose corpus row carries no
+      # opinion, which is most cases, and the slot's *absence* is what tells the
+      # grader to mask. Best-effort for the same reason the snapshot step is — a
+      # read that fails must not abort a cell that can still grade everything else.
+      - name: Stage the majority opinion for the grader
+        id: opinion
+        continue-on-error: true
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          # Trusted repo code running before the agent: read-only credentials
+          # ride this step's env only (from the sidecar action's outputs),
+          # never the job env, so no agent step inherits them.
+          AWS_ACCESS_KEY_ID: ${{ steps.corpus.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.corpus.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.corpus.outputs.aws-session-token }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          # One address for both halves of this step's read: the index the
+          # ranged backend queries for the row's presence bit and citation, and
+          # the per-case content store the opinion body itself comes from.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          # Ranged, not the service backend the agent steps export: the presence
+          # bit and the citation are row facts, and this command refuses the
+          # rowless backends by name rather than failing obscurely inside them.
+          FEDCOURTS_CORPUS_BACKEND: ranged
+        run: uv run fedcourts provision-opinion --court "$COURT_ID" --docket "$DOCKET_ID"
+
+      # A failed staging and a case with no opinion leave the grader the same
+      # empty slot, and the prompt tells it to mask on `not-ingested` either way
+      # — so a systematic failure would pose in the census as genuine
+      # non-coverage, which is the one number this family produces while
+      # coverage is thin. The step above absorbs the failure deliberately (a
+      # cell can still grade everything else); this one makes it visible on the
+      # run surface rather than only in a log that expires.
+      - name: Note a failed opinion staging
+        if: steps.opinion.outcome == 'failure'
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+        run: |
+          set -euo pipefail
+          echo "::warning::opinion staging failed for $COURT_ID/$DOCKET_ID; this cell's semantic masks read not-ingested for a reason the corpus did not give"
+          echo "- opinion staging FAILED for \`$COURT_ID/$DOCKET_ID\` — its semantic masks are not evidence of coverage" >> "$GITHUB_STEP_SUMMARY"
+
       # A predictable event is a corpus fact, not a committed file. Project it into
       # the event's ledger directory so the evaluation PR carries its event.yaml and
       # the offline `validate` gate can confirm the judgment references a real event

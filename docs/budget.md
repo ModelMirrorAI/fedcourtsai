@@ -366,10 +366,10 @@ are attributable *to* is digests `proc-v4` retired over a batch of
 judge-prompt changes — the
 token-relevant one being the judge-workspace prune, which hides the committed
 `predictions/` and `evaluations/` trees from a judge cell's working tree.
-(`proc-v5` carried those evaluator digests forward byte-identical; `proc-v6`
-and `proc-v7` each move the shared prompt bytes for all three judges, so none
-of these gradings ran under the currently blessed evaluator process and every
-figure here is a measurement cohort.)
+(`proc-v5` carried those evaluator digests forward byte-identical; `proc-v6`,
+`proc-v7` and `proc-v8` each move the shared prompt bytes for all three judges,
+so none of these gradings ran under the currently blessed evaluator process and
+every figure here is a measurement cohort.)
 
 **The newest grading is one moment on since-superseded digests, and is too
 partial to re-price anything.** Run `20260829T040550Z` graded one interim

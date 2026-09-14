@@ -179,7 +179,12 @@ That text is derived from petition PDFs fetched from supremecourt.gov — public
 records, outside the CC BY-ND term above — and that channel is accepted for the
 labeling run alone, not as a route for corpus content generally. The other
 three republish no document text. Prediction reasoning may quote or summarize
-public-record docket facts in the course of explaining a prediction; it is original
+public-record docket facts in the course of explaining a prediction, and an
+evaluation's `basis` and `evaluation.md` may quote the passage of a majority
+opinion a semantic grade rests on — the opinion body is CourtListener's text
+extraction of a public-domain federal opinion, outside the CC BY-ND value-add
+layer, the staged copy is gitignored and never committed, and `basis` is capped
+at 2,000 characters by schema. Both are original
 analysis attributing CourtListener as the source, not a republication of their
 dataset. The public surface is therefore our derived judgments over public-domain
 facts — not a redistribution of the bulk corpus.

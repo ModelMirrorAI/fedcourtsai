@@ -26,10 +26,13 @@ split, and writing claims remain pre-registered only —
 semantic family is declared but not pre-registered: `semantic-v1` (*The
 semantic family, alpha*) declares two claims on the merits moments and is an
 **alpha** — a methodology that has never met an opinion, explicitly not a
-commitment of the kind the rest of this document makes. It is elicited and
-graded — the predict prompt asks a merits cell for the two propositions and the
-evaluate prompt asks a grader for the grades — and it still produces nothing:
-no opinion body is ingested to grade against, so every declared claim masks.
+commitment of the kind the rest of this document makes. It is
+elicited, graded and staged — the predict prompt asks a merits cell for the two
+propositions, the evaluate prompt asks a grader for the grades, and the evaluate
+cell is handed the case's own majority opinion wherever the corpus holds one —
+and it still produces nothing: opinion coverage is a rounding error against the
+granted slice, so on almost every cell there is no body to read and every
+declared claim masks.
 
 Everything else — the whole document up to *The semantic family, alpha* — is
 pre-registration: the decomposition and the rule are settled before there is
@@ -1196,9 +1199,11 @@ the elicitation and the grading protocol are **inside the frozen process
 digest**: the digest is the prompt bytes plus the resolved actor config, and
 both prompts carry this section's contract in theirs. The label is not a claim
 about whether anything asks. It is a claim about whether the design has been
-tested against the thing it grades, and it has not: no opinion body is ingested,
-both declared claims require a majority opinion, so every unit masks and the
-methodology has never met a single real opinion.
+tested against the thing it grades, and it has not: the staging step delivers
+whatever the corpus row holds and coverage is a rounding error against the
+granted slice, and both declared claims require a majority opinion, so
+essentially every unit masks and the methodology has never met a single real
+opinion.
 
 **The set id and the process label answer different questions, and turning the
 elicitation on is the second one's business.** A *set* version names what was
@@ -1610,8 +1615,9 @@ does not carry.
   kind exists (`no-judgment`); none is ingested (`not-ingested`); the opinion is
   silent on the claim's axis (`silent-on-axis`). Never "the prediction was
   vague" — a vague proposition is graded, and graded poorly. Those three names
-  are `SemanticGrade.mask_ground`'s vocabulary, the field the census splits on;
-  *What remains unbuilt* below says what still has to ask a grader to fill it.
+  are `SemanticGrade.mask_ground`'s vocabulary, the field the census splits on
+  and the grading prompt asks a grader to name on every masked row; the
+  vocabulary is closed, and `validate` fails a cell that writes anything else.
 - **A grader must not reward paraphrase of the prediction back at itself.** The
   failure mode is a predicted proposition that restates the question presented,
   the syllabus, or the standard of review, and is therefore "matched" in the
@@ -1730,63 +1736,67 @@ semantic sides is not one series.
 
 ### What remains unbuilt
 
-The declaration and the prompts that ask for it are built — two of the three
-things a grade needs. In dependency order, most binding first, what is still
-owed:
+The declaration, the prompts that ask for it, and the staging step that puts the
+Court's own words on the grader's disk are all built — every mechanical part a
+grade needs. In dependency order, most binding first, what is still owed:
 
 1. **Opinion coverage.** Fewer than ten corpus rows carry an opinion body,
    against a cert-granted slice of ≈1,250. The channel that fills them —
    `fedcourts enrich-opinions`, operator-run over that slice
    (`docs/data-pipeline.md`) — has run, so what is missing is neither a design
    nor a dispatch but *yield*: a walk converges only the grants whose opinion
-   cluster it resolves, and re-walks the rest every run. Until
+   cluster it resolves, and re-walks the rest every run. The staging step hands
+   a cell whatever the row holds and nothing where it holds nothing, so until
    coverage is a slice rather than a rounding error, nothing can be graded
    against text that is not there, and no amount of methodology substitutes:
-   every declared claim requires a majority opinion, so every unit masks.
+   every declared claim requires a majority opinion, so almost every unit masks
+   — on `not-ingested`, which is exactly the shape a coverage gap should leave
+   in the census.
 2. **Any baseline.** Left open as an empirical question above.
 3. **An argument date.** `majority-ground`'s forecastability decays across the
    Term and no artifact records the vantage, so the caveat above travels as
    prose rather than as a column beside the grade.
-4. **The two halves of a graded mask, wired but not yet asked for.** Both are
-   built and inert, and both are waiting on the *same* prompt amendment — which
-   is not a scheduling accident but the discipline in
-   [process-version.md](process-version.md): staging a file the evaluate cell
-   did not previously receive changes the evaluator's information set under an
-   unchanged digest, so it lands **with** the prompt edit that describes it (the
-   prompt bytes are hashed, so the boundary becomes visible in the data) and
-   with a freeze-record entry. A workflow step added on its own would be the one
-   shape that rule exists to rule out.
+4. **A validated grading design.** The protocol is built and live, and it has
+   never graded a decided merits case, because none has reached a cell yet.
+   Everything below — the axis discipline, the mask's grounds, the
+   paraphrase test, the agreement estimator — is a design argued from what the
+   family is for, not one checked against grades anyone has read. The first
+   real grades under it arrive no earlier than the first OT2026 opinions, and
+   the freeze-record entry registering the design says so, so a reader meeting
+   the first census knows it is the design's debut rather than its
+   confirmation.
 
-   *The text.* `fedcourts provision-opinion` stages a decided case's majority
-   opinion at `record/opinion/` — the body plus a manifest carrying its digest,
-   its length, and the citation the corpus row holds — and it is an
-   **evaluate**-lane command by construction rather than by wiring. The body postdates every predict moment by
-   construction, so it is deliberately not a filed document (`record/documents/`
-   is cut by date, and an opinion has no docket date to be cut at) and
-   deliberately not a mode of the provisioner the predict lane runs: a predict
-   cell would have to invoke a command it never invokes. What is owed is the
-   `run-evaluate` step that calls it and the grading protocol's sentence telling
-   a grader the slot is there.
+The **text** and the **ground** are both wired. `fedcourts provision-opinion`
+stages a decided case's majority opinion at `record/opinion/` — the body plus a
+manifest carrying its digest, its length, and the citation the corpus row holds
+— on a `run-evaluate` step that runs unconditionally, writing nothing where the
+row carries no body so the slot's absence is what tells a grader to mask. It is
+an **evaluate**-lane command by construction rather than by wiring: the body
+postdates every predict moment by construction, so it is deliberately not a
+filed document (`record/documents/` is cut by date, and an opinion has no docket
+date to be cut at) and deliberately not a mode of the provisioner the predict
+lane runs — a predict cell would have to invoke a command it never invokes. The
+mask's ground is a counted field, `SemanticGrade.mask_ground`, on the closed
+vocabulary `no-judgment` / `not-ingested` / `silent-on-axis`, and
+`SemanticClaimSummary.not_addressed_by_ground` splits the census on it — with an
+`unstated` bucket, since the field is optional and a block that names no ground
+still belongs in the mask total. A panel naming different grounds is settled by
+a fixed precedence putting the two availability grounds before the substantive
+one, so the census can under-state what an opinion said and never over-state it.
 
-   *The ground.* The mask's ground is a counted field, `SemanticGrade
-   .mask_ground`, on the closed vocabulary `no-judgment` / `not-ingested` /
-   `silent-on-axis`, and `SemanticClaimSummary.not_addressed_by_ground` splits
-   the census on it — with an `unstated` bucket, since the field is optional and
-   a block that names no ground still belongs in the mask total. A panel naming
-   different grounds is settled by a fixed precedence putting the two
-   availability grounds before the substantive one, so the census can
-   under-state what an opinion said and never over-state it. Until the evaluate
-   prompt asks for the field every real grade lands in `unstated`, and the
-   amendment has to *correct* the protocol's current claim that the census
-   counts one undifferentiated `not-addressed` and `basis` is the only place the
-   distinction lives — adding a `mask_ground` instruction beside that sentence
-   would hand a grader a contradiction.
+Both halves are governed by the discipline in
+[process-version.md](process-version.md): staging a file the evaluate cell does
+not otherwise receive changes the evaluator's information set under an unchanged
+digest, so such a change ships **with** the prompt edit that describes it (the
+prompt bytes are hashed, so the boundary becomes visible in the data) and with a
+freeze-record entry. A workflow step shipped on its own would be the one shape
+that rule exists to rule out.
 
 The prompts are built: the predict prompt asks a merits cell for one
 proposition per declared claim on its declared axis, and the evaluate prompt
-carries the grading protocol above — the axis discipline, the mask's grounds
-and the requirement to say which one applied *in `basis`*, and the five
-refusals. So is the
+carries the grading protocol above — the axis discipline, the staged slot as the
+graded text, the mask's grounds and the requirement to name which one applied in
+`mask_ground` as well as in `basis`, and the five refusals. So is the
 **mandatory-set discipline on both sides**, the discipline the mechanical family
 keeps and the one place this family's enforcement had to be built rather than
 inherited, since nothing consumes a predictor's block at all:

@@ -16,15 +16,17 @@ plumbing:
 - :func:`summarize_semantic_grades`, the roll-up that turns graded units into a
   descriptive census plus leave-one-out inter-grader agreement.
 
-**Elicited and graded, and producing nothing.** A grade needs three things.
-Two are built: this declaration, and the prompts that ask a merits cell for the
-propositions and a grader for the grades — so both process digests hash a
-semantic contract. The third, the text, is built but not wired: ``fedcourts
-provision-opinion`` stages a case's majority opinion into the evaluate cell's
-``record/opinion/`` slot and **nothing calls it yet**, so no cell receives a body
-to grade against. Both declared claims require a majority opinion, so every
-unit masks (``not-addressed``), :func:`summarize_semantic_grades` publishes
-nothing, and no published number depends on any of it
+**Elicited, graded, and waiting on coverage.** A grade needs three things, and
+all three are now built: this declaration; the prompts that ask a merits cell
+for the propositions and a grader for the grades — so both process digests hash
+a semantic contract; and the text, which ``fedcourts provision-opinion`` stages
+into the evaluate cell's ``record/opinion/`` slot on the ``run-evaluate`` step
+that calls it. What is left is **coverage**: the corpus holds an opinion body
+for a slice of the decided docket rather than all of it, so on most cells
+nothing is staged, both declared claims require a majority opinion, and the unit
+masks (``not-addressed``, on the ``not-ingested`` ground the grader names in
+``mask_ground``). :func:`summarize_semantic_grades` publishes nothing while the
+census carries no ordinal unit, and no published number depends on any of it
 (``docs/outcome-decomposition.md``, *What remains unbuilt*). The mandatory-set
 discipline binds both sides: :func:`graded_units` refuses a non-conforming
 grader block, and :func:`semantic_claim_problems` /
@@ -317,8 +319,9 @@ def graded_units(evaluation: Evaluation) -> tuple[GradedUnit, ...]:
         # the same treatment a row outside the declared set gets, and for the
         # same reason: this is a stray field on a conforming block, not a block
         # the roll-up refuses. Making it a refusal would add a sixth arm on both
-        # sides of the enumerator correspondence, which belongs with the prompt
-        # amendment that first asks a grader for the field.
+        # sides of the enumerator correspondence, buying a contract change for a
+        # field the grading protocol already tells a grader to set on masked rows
+        # only — so the stray is dropped rather than refused, deliberately.
         ground = row.mask_ground if grade is SemanticSupport.not_addressed else None
         graded[row.claim_id] = (grade, ground)
     if any(claim_id not in graded for claim_id in claim_ids):
@@ -525,9 +528,10 @@ def _panel_ground(grounds: Iterable[MaskGround | None]) -> str:
     one, which is why
     :attr:`~fedcourtsai.schemas.SemanticClaimSummary.not_addressed_by_ground`
     reads as *units resolved to a ground* rather than as panel agreement. A
-    dispute counter on the model of ``mask_disputed`` is the honest next move
-    once graders actually name grounds; today none is asked to, so every real
-    unit lands in ``unstated`` and such a counter would count zero.
+    dispute counter on the model of ``mask_disputed`` is the honest next move,
+    and it waits on evidence rather than on elicitation: the protocol asks every
+    grader for the ground, so what such a counter needs is a real disagreement
+    to shape its semantics against, and no merits cell has been graded yet.
     """
     named = {ground for ground in grounds if ground is not None}
     if not named:
