@@ -1165,6 +1165,7 @@ population and apply against another.
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
 | `sampled-frame-weight-repair` | `repair-sampled-frame-weights` | `--max-repairs` | — | — |
+| `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
@@ -1332,23 +1333,36 @@ the runner image rolls, and would fail the pass for a reason that has nothing to
 do with the corpus, so what a recovered text was read by is recorded by the run
 instead of promised by the workflow. An apply refuses where the binaries are
 absent, which is what keeps a failed install from reading as a converged class.
-**Least privilege per pass.** The twelve corpus passes run in a job holding the
+**Least privilege per pass.** The thirteen corpus passes run in a job holding the
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
 corpus row, so it holds only the App token that pushes its `data/` commit. Both
 jobs commit straight to `main` on the writers' rebase-and-backoff push path.
 
-**Ordering between passes is the maintainer's.** Two pairs matter. The
+**Ordering between passes is the maintainer's.** Three pairs matter. The
 distribution re-derivation must precede an overhang clear, never follow it in
 the same sitting: anything that weighed incumbent-parse counts is stale
 afterwards, and while the scope latch self-heals next window, the overhang clear
 does not — its write erases the sticky set it recomputed. And a
 `disposition-convergence` apply that moved a label under a committed grade owes
 a `regrade-stale` dispatch naming the affected judge lines — three per event
-rather than one per evaluation. One pass per dispatch makes that follow-through
-a second dispatch rather than a silent second step, which is the point: the
-backlog a relabel owes is a maintainer's to schedule.
+rather than one per evaluation. `amicus-rederive` owes the same follow-through
+and for the same reason: it re-freezes an `outcome.json`'s
+`interim_signals.amicus_briefs`, which the `amicus-increment` claim resolves
+against, so an apply that moved a value under a committed grade owes a
+`regrade-stale` dispatch naming the affected judge lines. It differs from the
+relabel in *reach*, and the difference is why the debt is owed rather than opted
+into: there is no `include-scored` analogue here, because the re-freeze corrects
+a value the old reading got wrong rather than re-characterizing an order, so
+holding scored events back would leave a known-wrong number standing under a
+grade. It re-freezes every committed interim block unconditionally, and the
+re-grade backlog follows. It also **presupposes
+the widened amicus reading is promoted** — it corrects the rows frozen under the
+old one, so it rides the same promotion batch as that reading and is not
+dispatched before it. One pass per dispatch makes each follow-through a second
+dispatch rather than a silent second step, which is the point: the backlog a
+rewrite owes is a maintainer's to schedule.
 
 **Dispatching.** Dispatch on `main`, in a dead zone between the scheduled
 windows (`run-pull` at `:17` and `:47`, `run-seed` at `:31`). A *queued* repair
@@ -1427,6 +1441,21 @@ scotus/1119228/evt-petition-certiorari/20260624T103000Z/codex-judge'
 gh workflow run run-repair.yml --ref main \
   -f repair=rederive-distribution-parse -f repair_mode=dry-run \
   -f repair_target=dist-v1
+
+# The amicus re-derivation is a two-store pass: it re-derives the corpus
+# `amicus_briefs` column (a direct UPDATE past the max latch, since the
+# end-of-day cut lowers a resolved row) AND re-freezes the committed interim
+# outcomes that column was frozen onto — never a committed `context.amicus_briefs`.
+# Its bound is the total change count (corpus rewrites plus re-frozen outcomes)
+# read off the dry-run ledger. There is no incumbent reading to run as a control,
+# since the reading is fixed in code; re-dispatching in `dry-run` after the apply
+# is the control — it must report `total_changes = 0`. It re-derives under the
+# reading in `pipeline.interim_signals`, so a dispatch from a ref that predates
+# it re-derives under the old one (see the ordering note above).
+gh workflow run run-repair.yml --ref main \
+  -f repair=amicus-rederive -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=amicus-rederive -f repair_mode=apply -f repair_bound=<the ledger's total_changes>
 ```
 
 **After a pass that removes rows**, let the run's trailing verdict step finish.

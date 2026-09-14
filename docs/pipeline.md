@@ -837,6 +837,39 @@ demand (`fedcourts docket`) and the whole-slice IFP-inclusive figure in
 heals on a schedule and a stale copy of either carries no marker saying so. The
 apply's own output names them.
 
+`amicus-rederive` writes both stores, and what is distinctive is *which* two: a
+corpus column and the committed `outcome.json` field that column was frozen onto,
+which are the two halves of one correction. The interim amicus count is parsed out
+of docket-entry text, so which entries a reading admits — and where it stops
+counting — is part of what a stored count means; the widened reading counts every
+entry in the accepted form as the retired one did, **plus** each distinct lead
+filer whose brief the docket shows as submitted and not yet accepted, and cuts the
+count at the end of the disposition day. Reading only upward over a fixed cut is
+what keeps it compatible with the column's latch. It is live for every application
+frozen after it merged, which leaves the rows frozen under the retired reading to
+this pass. The corpus half
+re-derives the `amicus_briefs` column on **resolved** applications — those whose
+latest live-shaped snapshot carries a readable disposition date — through a direct
+`UPDATE` bypassing the column's **max** latch, because the end-of-day cut lowers a
+resolved row and the same value through the upsert path would be discarded
+silently. An open application is left alone: it has no disposition day to cut at,
+and the live channel already polls it under this reading. The ledger half then
+re-freezes each committed interim `outcome.json`'s
+`interim_signals.amicus_briefs` from that same recount, which is why this pass
+stages `data/` beside the pointer in one commit. **A committed
+`context.amicus_briefs` is never re-derived** — it is the prediction-time
+snapshot, frozen by design, so the two ends of the `amicus-increment` claim move
+at different times and the pass opens no `prediction.json` at all. Its population
+and expected motion are pre-registered in
+[freeze-record.md](freeze-record.md), and its dry-run ledger — which reports the
+frozen-count distribution across the committed worklist — is read against that
+entry. There is no incumbent-reading control to dispatch, the reading being fixed
+in code rather than selected per dispatch; re-dispatching the pass in `dry-run`
+after the apply is the control, and must report no changes. Two preconditions are
+the maintainer's: it presupposes the widened reading is **promoted**, since it
+corrects rows frozen under the old one, and because it moves a scored claim's
+resolution end its apply owes a `regrade-stale` follow-through.
+
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an
 evaluator cell's graded fields under the cell's original stamp and rewrites

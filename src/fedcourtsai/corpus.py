@@ -2915,6 +2915,47 @@ def set_distribution_count(conn: sqlite3.Connection, counts: Iterable[tuple[str,
     return written
 
 
+def set_amicus_briefs(conn: sqlite3.Connection, counts: Iterable[tuple[str, int]]) -> int:
+    """Write re-derived interim ``amicus_briefs`` counts, **bypassing the max latch**.
+
+    The ``amicus_briefs`` twin of :func:`set_distribution_count`, and the bypass
+    is its whole purpose for the same reason. :func:`_update_clause` max-latches
+    this column so a degraded live application payload cannot lower a stored
+    count; a re-derivation under the widened submitted-form reading with the
+    **end-of-day cut** (:func:`fedcourtsai.pipeline.interim_signals.amicus_briefs_through`,
+    :mod:`fedcourtsai.pipeline.amicus_rederive`) removes entries filed after the
+    disposition day, which moves a resolved application's count **down** — exactly
+    the write the latch rejects — so routed through :func:`upsert_rows` it would
+    write nothing while reporting success. The re-derivation writes here instead,
+    where a lower count lands, and just as often a higher one where the widened
+    reading now counts a submitted-form brief the old reading did not.
+
+    That makes this function the sharp edge the latch exists to blunt, and the
+    caller owns what the latch was doing: the re-derivation touches only a row
+    carrying a readable disposition date (a resolved application, whose cut value
+    is fixed and cannot be lowered by a degraded later poll — ``live_rotation``
+    stops polling it), never an open one, whose column the live channel maintains
+    under the same widened reading. Do not reach for it to record a *channel's*
+    count — a channel's reading belongs in the upsert path, under the latch.
+
+    One transaction over the whole batch, so a re-derivation lands or does not;
+    returns the rows the statements actually touched, which a caller can compare
+    against what it planned to write. Like its ``set_distribution_count`` sibling
+    it writes the index only, never the casestore mirror — a store-side rebuild
+    from ``case.json`` would resurrect the pre-sweep counts, which is why the
+    re-derivation is durable only because the ingest default already reads the
+    widened reading it converges the column toward.
+    """
+    written = 0
+    with conn:
+        for case_id, count in counts:
+            cursor = conn.execute(
+                "UPDATE cases SET amicus_briefs = ? WHERE case_id = ?", (count, case_id)
+            )
+            written += cursor.rowcount
+    return written
+
+
 def stamp_evaluate_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
     """Record that a caller routed each case at the evaluate seam on ``day``.
 
