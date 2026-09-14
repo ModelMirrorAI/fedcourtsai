@@ -5,7 +5,7 @@ the GitHub App, branch protection, the `prod` environment, and the S3 roles.
 SECURITY.md says *what* the invariants are; this says *how* they are wired, so a
 maintainer can reproduce or audit the setup.
 
-## The two GitHub Apps
+## The GitHub Apps
 
 Commits and PRs that must start something downstream are made with a **GitHub
 App installation token** (`actions/create-github-app-token`), never the default
@@ -15,8 +15,10 @@ start CI. The inverse is the rule for every issue write in this repository —
 the run-log and data-validation alarms, the digests, flag latching — which must
 trigger nothing and so rides the ambient token instead.
 
-The token comes from one of **two Apps, split by trust** — mirroring the two S3
-roles. The split is what makes "data writes land directly, everything agentic
+The token comes from one of **three Apps, matched to the lane's trust**: the
+data/dev split mirrors the two S3 roles, and a third, deliberately narrow App
+carries only the staging rehearsal telemetry. The split is what makes "data
+writes land directly, everything agentic
 lands via a PR" an *identity*-enforced invariant rather than a policy the
 agent is merely instructed to follow (that the PR is *reviewed* is a
 convention `AGENTS.md` carries, not something identity enforces):
@@ -28,16 +30,35 @@ convention `AGENTS.md` carries, not something identity enforces):
   PR`, so the writers push corpus facts straight to `main`.
 - **dev App** — used by the agent workflows `run-predict` /
   `run-evaluate`, the reviewed-PR openers (`run-backtest`, and
-  `run-analytics`'s metrics-refresh job), `sync-staging`, and
-  `integration-test`'s application-repro leg (watchdog telemetry only).
+  `run-analytics`'s metrics-refresh and qp-topic-label jobs), `sync-staging`,
+  and `integration-test`'s application-repro leg (watchdog telemetry only).
   Its client id
   is the `DEV_APP_CLIENT_ID`
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
   **not** a bypass actor, so nothing it holds can reach `main` except through a
   PR that satisfies the required checks.
+- **staging telemetry App** (`fedcourtsai-staging`) — used by exactly three
+  steps of one workflow, all the same watchdog-mint shape:
+  `integration-test`'s application-repro leg, its runner-idle-control
+  job and its codex-freeze-probe job mint from it on a
+  staging-bound dispatch, for the watchdog telemetry row on the rehearsal
+  channel's own issue. Its client id is the `STAGING_APP_CLIENT_ID` variable
+  and its private key the `STAGING_APP_PRIVATE_KEY` secret, both on the
+  **staging** environment alone. Its *App-level* repository grant is Issues —
+  read and write — and nothing else, which is the point of it being a
+  separate App rather than the dev App's key on staging: an App's key mints
+  anything up to the App-level union, so the ceiling on what a staging-held
+  key can reach is platform-enforced here rather than resting on the
+  narrowing the mint requests.
+  Not a bypass actor; its comments carry a visibly distinct bot identity, so
+  a rehearsal row can never read as a production one.
 
-All four live on the `prod` environment (the two client ids as variables, the
-two keys as secrets). Each workflow mints a token scoped to only what it needs:
+The dev and data Apps' four credentials live on the `prod` environment (the
+two client ids as variables, the two keys as secrets); the staging telemetry
+App's pair lives on `staging`, and that environment scoping is load-bearing:
+the mint's selection falls to the staging pair on every non-`main` ref, so a
+repository-scoped copy of either credential would resolve where the
+environment-scoped one correctly resolves empty. Each workflow mints a token scoped to only what it needs:
 
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
@@ -45,10 +66,10 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 | `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
 | `run-repair` | data | contents (both writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the validation job holds no credential |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner. The watchdog brackets every engine; this token is minted on codex cells alone |
-| `integration-test` (codex-application-repro leg only) | dev | issues | the cell workflows' watchdog telemetry mint, on identical terms: arm/disarm steps and the detached watchdog only, never the agent step. The App's credentials live on `prod` alone, so the record exists on a prod-bound dispatch; a leg bound elsewhere mints nothing, warns, and degrades to its runner-local account — deliberately, rather than widening the staging-head radius with an issues-write key |
+| `integration-test` (codex-application-repro leg, and the runner-idle-control and codex-freeze-probe jobs) | dev on a prod-bound dispatch; staging telemetry App on a staging-bound one | issues | the cell workflows' watchdog telemetry mint, on identical terms: arm/disarm steps and the detached watchdog only, never the agent step. The credentials select per bound environment, and the arm/disarm steps pass the matching channel, so a staging rehearsal's rows land on the rehearsal channel's own issue under an App whose platform-enforced ceiling is Issues alone; a leg bound to neither environment mints nothing, warns, and degrades to its runner-local account |
 | `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
-| `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
-| `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
+| `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
+| `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — and on `main`-branch (prod-bound) runs only, so a rehearsal that reaches the labeler runs the full agent posture and the gate with no App token in the job at all — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
@@ -61,6 +82,9 @@ the App level the union of what its workflows mint:
 - **dev App**: Contents, Issues, and Pull requests — all *read and write*. (No
   workflow mints a Workflows scope from it; dropping that grant at the App level
   is a safe tightening.)
+- **staging telemetry App**: Issues — *read and write*, and nothing else. The
+  narrow union is the App's whole design; widening it would quietly raise the
+  ceiling on every future holder of its staging key.
 
 After changing an App permission, **re-approve the installation** on the repo — a
 new permission stays pending until an owner accepts it, and the minted token is
@@ -260,15 +284,18 @@ cell step, but this credential is **codex-only**: the watchdog's first trigger
 concludes the step, so a cell it saves runs its own tail and reports through the
 artifact, and the off-runner record matters only where the escalation fails to
 end the step at all and the job cap cancels the runner regardless — the deadline
-path, which codex alone has taken. The same mint, on the same terms, arms the
+path, which codex alone has taken. The same terms — minted from the bound
+environment's own App — arm the
 integration suite's application-repro leg — itself a codex cell, gated there on
 the scenario rather than an engine condition. It carries an App
 token minted with **`issues: write` and nothing else**, gated on the codex engine
 step's own condition (the repro leg's scenario gate is its equivalent) and
 distributed only to the arm step, the disarm step, and
 the watchdog process; the job's `permissions` block is untouched and no agent
-step inherits it. Everything it is used for is the non-triggering
-`codex-watchdog` issue — found or created — and one comment per cell on it, which
+step inherits it. Everything it is used for is the bound channel's
+non-triggering telemetry issue — `codex-watchdog`, or `codex-watchdog-staging`
+for a staging-bound repro dispatch — found or created, and one comment per
+cell on it, which
 the watchdog then PATCHes in place. The mint is `continue-on-error`, because a
 hard failure would leave the arm and engine steps skipped on their implicit
 `success()` and so kill the cell to protect its own reporting; both consumers
@@ -277,10 +304,19 @@ a command argument, because the watchdog's own published diagnostics bundle dump
 the arguments of every process under the runner user, and the arm step checks the
 check-in URL against this repository's own comments endpoint before handing it to
 the watchdog, so the credential cannot be aimed at another host. Two residuals
-are conceded rather than claimed away: the watchdog's environment is readable at
-the runner user's privilege, as the MCP sidecar's token is, and the disarm step
-runs `fedcourts` out of a workspace the agent has had the whole cell to write.
-Neither is bounded by the job's end — the action's revoke step does not run on a
+are stated rather than claimed away, and the cells' `unprivileged-user` codex
+closes the agent-reachable half of both. This token lives on codex cells alone;
+the watchdog runs as the runner user, and were codex to run as that same user
+its environment would be readable from the agent shell exactly as the MCP
+sidecar's token is, and the disarm step's `fedcourts`, run out of a workspace
+the agent had the whole cell to write, would reach the token from planted code
+without the process read at all. Codex runs as a separate unprivileged account
+instead: it cannot read the runner user's environment and can write only its
+own output subtree, never the `src`/`scripts`/`.venv` the disarm step executes
+— so neither residual is reachable by the cell's own agent. What remains is a
+determined co-resident process at the runner uid, the general concession, and
+the cell agent is not one.
+Neither residual is bounded by the job's end — the action's revoke step does not run on a
 **cancelled** job, which is the wedge case itself. What both reach is
 `issues: write` on this repository, which is the repo's whole issue surface and
 not the one comment it is used for; what bounds it is that no workflow here keys
@@ -304,8 +340,10 @@ this workflow's own run history.
 ## The `prod` environment
 
 Every secret and the two production S3 role ARNs live on the `prod`
-environment — the App
-credentials, the Anthropic API key, the Codex/OpenAI key, the Gemini API key,
+environment — the dev and data Apps'
+credentials (the staging telemetry App's pair lives on `staging`, and the
+engine keys have per-environment twins there; both exceptions are recorded
+where those holders are described), the Anthropic API key, the Codex/OpenAI key, the Gemini API key,
 the CourtListener API token (used by pull's ingestion; by the MCP
 sidecar composite's launch step — the cells', `integration-test`'s
 engine-smoke **codex** leg, and its engine-actions-smoke legs, all of which
@@ -320,8 +358,11 @@ deployment environment and the sole corpus address every lane resolves, since
 both store halves and the corpus-split mode follow from it; its value is
 out of band, never committed, and an environment missing it has no corpus at
 all rather than half of one. Every job that needs any of
-them declares an environment, and every job outside `integration-test` declares
-`prod` — with two deliberate exceptions, by environment. The `approval` jobs of run-predict,
+them declares an environment, and every job outside `integration-test` and
+`run-analytics` declares `prod` — those two resolve the environment from the
+dispatching ref instead (the branch-resolution paragraph below), which is what
+makes their staging dispatches rehearsals — with two deliberate exceptions, by
+environment. The `approval` jobs of run-predict,
 run-evaluate and run-backtest declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables, no role, and no deployment-branch
@@ -402,6 +443,16 @@ it can assume nothing. The refusal keys on binding, not on the input string: the
 collect scenario binds no environment and so dispatches from anywhere regardless
 of what its input says.
 
+**`run-analytics` resolves its environments the same way, minus the input**:
+pure branch resolution, no override, so the dispatching ref alone decides —
+`main` (and the weekly schedule, which fires only there) binds `prod`,
+`staging` binds `staging`, and anything else binds the empty auto-created
+environment above. It binds `staging` on **dispatch only** — its one
+non-dispatch trigger, the schedule, always lands on `prod` — and its
+publish steps (the two dev-App mints, the git identities, the review-PR
+steps) are additionally fenced to `main`-branch runs, so a staging-bound
+dispatch is a read-and-spend rehearsal that can open nothing.
+
 **`staging` is restricted to the `staging` branch, and carries no reviewer
 rule** — the same shape as `prod`, one branch lower. The branch policy is the
 gate, and what it enforces is **code provenance**: only code that passed a pull
@@ -417,28 +468,31 @@ A per-run approval is the stronger control against a *second* write-access
 human, who could otherwise merge to `staging` (the ruleset requires zero
 approving reviews) and reach the environment without the maintainer. It is
 redundant against the arrangement that exists: no workflow declares
-`actions: write`, neither App is granted an Actions scope, and the repo-scoped
+`actions: write`, no App is granted an Actions scope, and the repo-scoped
 token agents hold is refused on `workflow_dispatch` — so dispatching is already
 a maintainer-only act, and with `prevent_self_review` off the approval is a
 second click on the same decision by the same person. **Revisit the moment any
 premise changes**: a second write-access collaborator; the first *token* that
-can dispatch, whether a workflow declaring `actions: write` or either App
+can dispatch, whether a workflow declaring `actions: write` or any App
 granted an Actions scope; the first workflow that binds `staging` on a
 **non-dispatch trigger** — a `push` or `pull_request` filter naming the branch
 would bind the environment on the merge itself, and agents merge their own PRs
 to `staging`, which since the environment carries the staging write role's
 trust would hand *write* reach on the fixture, not just read and spend, at an
-agent's own merge; or **the `staging` environment being repointed at the
-staging corpus** (the runbook's step 5), from which point the promotion gate's
-freshness evidence is produced against a corpus the staging lane can write,
-and the code that can write the evidence is the thing a reviewer would be
-approving. The premise is the repointing, not the code that makes it
-possible: an override no environment sets redirects nothing, so the wiring
-landing leaves the gate's evidence exactly where it was. The re-seed practice
-above keeps the evidence honest between reviews but does not answer that
-question, so step 5 is where it must be answered rather than left standing on
-this paragraph. No workflow filters on a
-staging ref today; every branch filter names `main`.
+agent's own merge. One premise **has** fired, and this paragraph answers the
+question it was holding: the `staging` environment is repointed at the
+staging corpus (the runbook's step 5), so the promotion gate's freshness
+evidence is now produced against a corpus the staging write role can reach.
+`staging` still carries no per-run reviewer rule, on three controls that
+together keep that evidence honest without one: the only write-capable path
+to the staging pair is the refresh lane's role, and its runs — like every
+evidence-bearing run — begin with a maintainer-only dispatch; the
+re-seed-before-evidence practice below resets the slice, so a poisoned
+fixture cannot persist into a promotion's evidence; and the permission
+surface that could quietly widen a staging job waits for the maintainer even
+into `staging` (the convention recorded below). A per-run reviewer rule is
+the escalation if any dispatch-side premise above breaks. No workflow
+filters on a staging ref today; every branch filter names `main`.
 
 What neither shape covers: the `staging` ruleset requires no workflow linter, so
 a workflow change that reads a secret is caught by no *required* check.
@@ -455,9 +509,20 @@ its **read-only** AWS role has no write path to the *production* corpus — but
 that role reads and lists the access-gated corpus and the per-case content
 store, and the environment now also carries a role that writes the staging
 pair (next paragraph). So the exposure a workflow change at the staging head
-buys is corpus *read*, model *spend*, and a write to the re-seedable staging
-fixture — which is why the linter gap above is worth naming rather than
-glossing.
+buys is corpus *read*, model *spend*, a write to the re-seedable staging
+fixture, and — since the staging telemetry App's key lives here — issue
+comments on this public repository under `fedcourtsai-staging[bot]`, for a
+minted token's hour. Two facts bound that fourth item: the App-level grant
+is Issues read/write and nothing else, so no code holding the key can mint
+past it; and no privileged workflow keys on an `issues` or `issue_comment`
+trigger, so an App-authored issue write starts nothing — load-bearing
+precisely because App tokens, unlike the ambient one, do trigger workflows.
+A rehearsal row also cannot pass as a production one: the identity is
+visibly distinct and the rows land on the rehearsal channel's own issue.
+The enumeration growing is why the linter gap above is worth naming rather
+than glossing; the reviewer-rule question it feeds is answered below with
+the same three controls as before, which this key does not disturb — it can
+start nothing and reach no branch.
 
 **The staging read-write role adds a write to that radius, and it is the
 kind that does not move the integrity bound.** Its trust names the `staging`
@@ -506,18 +571,18 @@ invocation surface, which is exactly the combination the paragraph above rules
 out for a probe. What makes that acceptable is not a weaker rule but an
 identity: such a leg **is** a production cell, run against a record the
 production fleet has already run, in a job whose grants are the cell job's.
-Nothing about its reach is new, and nothing about it is new *to staging*
-either — the pre-agent tripwire the cells carry (`AWS_*` absent from the agent
+Nothing about its reach is new, and one thing about it is new *to staging*:
+the leg is the only staging-bound job that mints an App installation token
+at all — the Issues-only telemetry mint the radius paragraph above bounds.
+Everything agent-facing is unchanged — the pre-agent tripwire the cells carry (`AWS_*` absent from the agent
 step's environment) rides here too, so the write-capable staging role stays as
 far from this agent as it does from a production one. The line to hold is that
 a repro leg may present a real record and nothing else may: a leg that wanted a
 real record *and* a probe's exemption from the cell posture would be neither.
 
-What corrupting it *costs* depends on a coupling worth stating rather than
-discovering. While the `staging` environment still names the production pair,
-nothing committed depends on the staging corpus — the scenarios read
-production's — so a corrupted slice is caught by the next integration run and
-fixed by another dispatch. **The moment step 5 repoints it, the coupling is
+What corrupting it *costs* is a coupling worth stating rather than
+discovering. With the `staging` environment pointed at the seeded pair (the
+runbook's step 5, done), **the coupling is
 immediate and not
 hypothetical**: the staging integration runs are the promotion gate's freshness
 evidence, so a staging corpus that is corrupt, empty, or subtly wrong makes
@@ -573,7 +638,48 @@ secret — the running engine's API key, chosen by expression ternary (or, on
 the engine-actions-smoke legs and each repro-family leg, by the step
 conditions the legs are
 partitioned on) so the
-other engines' keys never enter the job. An `all` dispatch fans one of each per
+other engines' keys never enter the job. Two further jobs read one of them
+outside that partition. The `qp-labeler-smoke` job reads the Claude key alone
+from its own resolved environment, and it is the one agent leg here that runs
+outside the runner-seam scrub — on the labeling lane's own terms, which are
+stricter than a cell's: no role, no `id-token`, the subprocess env scrub
+re-enabled in the action's settings — which hardens the permission mode to
+`default`, leaving the agent a whole-tool Write/Edit grant where a cell runs
+`bypassPermissions` — and a synthetic five-row extract as its
+entire input. The `codex-freeze-probe` job reads the codex key alone for one
+one-word turn, on a block that deliberately keeps `safety-strategy: drop-sudo`
+— the posture that mutates the runner user's own account mid-job and wedges the
+VM. The job is the diagnostic that reproduces that wedge, so its base turn is
+the one place in the repository codex still runs under `drop-sudo`; the
+production cells run `safety-strategy: unprivileged-user`, driving codex as a
+separate unprivileged UNIX account so the runner account is never mutated,
+precisely to avoid it. The base turn is held out of the cross-surface lockstep
+pin for that reason, alongside two members that vary the block further: the
+`codex-freeze-probe-nosudo` member runs `safety-strategy: read-only` rather
+than `drop-sudo` (though that strategy does not compose with a permission
+profile, so its turn starts no real session), and the
+`codex-freeze-probe-unprivuser` member runs `safety-strategy:
+unprivileged-user` — the cells' own posture — driving codex as a separate
+unprivileged UNIX user the job provisions so the runner account is never
+mutated, and the model key never enters that user's environment or any file it
+can read: it stays behind the action's localhost proxy. The runner account
+keeps its sudo on all three; the turns differ in privilege — the base and
+nosudo turns run as the runner user (the nosudo one starting no real session),
+while the unprivuser turn runs as a separate account that never holds sudo. The
+job's subject is the watchdog process rather than the stack, so it assumes no
+role, holds no `id-token`, and launches its retrieval sidecar token-free. Its
+autopsy member adds one pre-turn root process — a detached `dmesg --follow`
+opened while sudo still exists, because the base turn's `drop-sudo` strategy
+removes the privilege for the rest of the job — appending kernel messages to a
+file under
+`RUNNER_TEMP`. The turn can reach that path, on the same terms as the
+watchdog's own log there; what the file holds is kernel-owned message text,
+and this member mints no credential for one to sit beside. Beyond the userns
+sysctl the whole family sets for the sandbox, no kernel knob is relaxed for
+the tap: the ring buffer's own read restriction is left as the image set it,
+though the file is a ring-buffer view the turn could not otherwise take, and
+one it could also append to or truncate — the dump is read as evidence because
+the turn is a fixed one-word probe, not because the file is tamper-evident. An `all` dispatch fans one of each per
 engine, so a single run reads all three keys — each confined to its own job —
 and spends three cells plus three boot probes; `all-offline`, the same suite
 without either family, reads no engine key and spends nothing. The keys live on
@@ -581,7 +687,12 @@ the `prod`
 environment and, as **separate per-environment secrets**, on `staging` — a
 smoke dispatched at the staging head spends against staging's own keys
 (independently revocable, isolated from tournament spend), so a promotion's
-freshness runs cannot touch the tournament's budget. Spend is gated the same way
+freshness runs cannot touch the tournament's budget. The staging keys have
+three consumers beyond these scenario legs: the labeler smoke above, the
+freeze probe above, and a
+`run-analytics` staging rehearsal
+whose mode runs an agent (the qp-topic labeler) — each reads the same
+per-environment engine secret and spends against it on the same terms. Spend is gated the same way
 the read-only role is: by who may dispatch, and from which branch. A dispatch
 naming an environment without the keys gets an
 empty key and fails closed right alongside the role variables, independent of
@@ -611,18 +722,23 @@ They hand `claude-code-action` the job's own
 token rather than minting the cells' App token — the job's permissions cap it
 at `contents: read`, and omitting it entirely is worse, since the action then
 falls back to an OIDC exchange that mints an installation token defaulting to
-write. And their codex leg is the one place in this workflow where the codex
-sandbox runs the cells' `drop-sudo` safety strategy, so its userns prerequisite
-is the live cells' prerequisite exactly, not the runner seam's relaxation
-described below. That strategy is the cells' second reason to dispatch the leg
-around a codex-action bump: on Linux with a prompt supplied — the cells' shape —
-the drop happens inline in the action's run step rather than as its own step,
-launching codex under `setpriv` with cleared supplementary groups, `no_new_privs`
-and empty capability sets, and revoking runner write access to root-owned
-sockets under `/run`. Strictly stronger than a plain sudo drop, and strictly
-more host-dependent (`setpriv`, a `nobody` account with a safe primary group,
-passwordless sudo still present when the step starts), which is exactly the
-class only an executed leg can report. The agent in these legs sees no docket text at all: its prompt
+write. And their codex leg runs the cells' `unprivileged-user` safety strategy
+(as do the application-repro leg and the freeze probe's unprivuser arm), so its
+userns prerequisite is the live cells' prerequisite exactly, not the runner
+seam's relaxation described below. That strategy is the cells' second reason to
+dispatch the leg around a codex-action bump: on Linux with a prompt supplied —
+the cells' shape — the action runs codex as a separate unprivileged account
+(`codexcell`, provisioned by the shared setup step) rather than dropping the
+runner user's own sudo, so the runner account keeps its privileges intact and
+the mid-job account mutation that wedges the runner cannot occur. That account
+holds no sudo and no supplementary groups, cannot read the runner user's
+process environment, and cannot write any runner-owned path; a sudoers
+`env_keep` pass carries only the non-secret corpus and `uv` variables across
+the `sudo -u` hop, and the model key stays behind the action's localhost proxy.
+Host-dependent all the same (a provisioned account with a writable home and the
+CODEX_HOME the action derives from it, the userns sysctl, passwordless sudo to
+stand the account up), which is exactly the class only an executed leg can
+report. The agent in these legs sees no docket text at all: its prompt
 is a fixed one-word probe. The codex-smoke leg exists to exercise the MCP
 wiring itself:
 it is the one engine whose transcript shapes no committed retrieval log has
@@ -646,10 +762,11 @@ shape the retrieval parser keys on is the one a real rollout confirms — but
 only the token-bearing one also shows what a settled call looks like. A codex smoke additionally loosens
 the runner kernel's
 AppArmor userns restriction (codex-action's own prerequisite for the live
-cells) without dropping sudo afterwards — accepted for the same reason as in
-the back-test residual below: same-user co-residency is already conceded as
-a non-boundary, and this job holds only the read-only role, one engine
-key, and the read-only CourtListener token. Within a run, the engine key rides the
+cells, which run codex as a separate account rather than dropping the runner's
+sudo) — accepted for the same reason as in the back-test residual below:
+same-user co-residency is already conceded as a non-boundary, the userns knob
+is a runner-wide relaxation on a throwaway runner, and this job holds only the
+read-only role, one engine key, and the read-only CourtListener token. Within a run, the engine key rides the
 single cascade step's env,
 alongside the corpus sidecar's step-scoped read-only AWS credentials for the
 cascade's own provisioning reads; the spawned agent sees neither, because the
@@ -725,6 +842,9 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
+| `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, no `id-token: write`, and the same pre-agent assertion that the AWS and OIDC variables are absent |
+| `integration-test` — runner-idle-control  | none          | the idle control assumes no role and holds no `id-token`: it reads nothing — its whole reach is the telemetry mint, and its product is the record row plus its own job conclusion |
+| `integration-test` — codex-freeze-probe family (`codex-freeze-probe`, `codex-freeze-probe-unwatched`, `codex-freeze-probe-smokeconfig`, `codex-freeze-probe-autopsy`, `codex-freeze-probe-nosudo`, `codex-freeze-probe-unprivuser`) | none          | the freeze probe assumes no role and holds no `id-token` either: it reads no corpus, and its reach is the telemetry mint plus the engine key one trivial turn spends — the ceiling for the family, since the unwatched and autopsy members skip the mint entirely and reach only the engine key. The `codex-freeze-probe-nosudo` member mints and arms as the base and smokeconfig members do, but its codex turn under `safety-strategy: read-only` is refused before the model call — `read-only` does not compose with the permission profile — so it starts no session and spends nothing on the engine; it stands as the negative control for that refusal, one of three codex invocations held out of the cross-surface lockstep pin (with the base `codex-freeze-probe` turn, which keeps `drop-sudo` to reproduce the wedge, and the unprivuser turn). The `codex-freeze-probe-unprivuser` member mints, arms and spends as the base member does; it runs its codex turn under `safety-strategy: unprivileged-user` as a separate unprivileged UNIX user the job provisions (nologin, no sudo, no supplementary groups; its home relaxed to 0755, and its boot-probe session rollout copied into the workspace for the shared assertion), so the runner account is never mutated and the model key never enters that user's environment or any file it can read — another of the lockstep-exempt turns, and the same `unprivileged-user` posture the production cells now run. The autopsy member's diagnostic dump reads machine state alone — process table, cgroup, logind, kernel-log and network-stack figures — and never an environment or a process's environ, and no workspace, config or credential file — only kernel pseudo-files and its own kernel-log capture; every command line it prints is trimmed and token-redacted, and it holds no credential to print in the first place. Its MCP sidecar is launched deliberately **token-free** — the turn uses no tools, so an unauthenticated server that handshakes is the whole requirement, and no CourtListener token reaches the agent's env or any config file it can read |
 | `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `prod`, and it can write nothing production owns |
 | `run-ops`                                 | none          | the report reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
@@ -742,7 +862,9 @@ Every role's OIDC trust is scoped to named environments of this repo
 (`...:sub` like `repo:<owner>/<repo>:environment:prod`), so only a job binding
 one of those environments can assume it. The production read-write role names
 `prod` alone; the read-only role also names `staging`, which is what lets the
-integration scenarios read the corpus from the staging branch; and the staging
+integration scenarios — and `run-analytics`'s staging rehearsals, whose
+environments resolve from the dispatching branch on the same terms — read the
+corpus from the staging branch; and the staging
 read-write role names `staging` alone. The trusts stay disjoint on
 the write side by construction — no environment names two write-capable roles,
 and no write-capable role names two environments — so "who can write which
@@ -800,14 +922,19 @@ run-scoped temp `CODEX_HOME` whose `auth.json` holds codex's own key for the
 rest of the job — same-user readable, like the parent's environment already
 is. The temp home is what the seam picks when the caller names none; a caller
 that pins `CODEX_HOME` keeps it, and the engine-smoke codex leg does pin it —
-to the workspace `.codex` the live cells use, because the cell must read the
-MCP config written there and the shape distillation must find the session
-rollout under it. That trades the temp dir for a gitignored workspace dir on
+to the workspace `.codex`, because that bare-CLI leg runs codex as the runner
+user, so codex reads the MCP config written there and writes its session
+rollout under it where the shape distillation finds it. (The live action-path
+cells differ: codex runs as a separate account under a `CODEX_HOME` the action
+derives in that account's home, and the workspace `.codex` is only where their
+config is emitted and where the disarm step surfaces the rollout back for the
+runner-user tail.) That trades the temp dir for a gitignored workspace dir on
 the same runner, under the same same-user non-boundary, and the job commits
 nothing.) Running codex here also requires loosening the runner kernel's AppArmor
 restriction on unprivileged user namespaces — the same sysctl prerequisite
-codex-action applies for the live cells — and unlike codex-action, the
-runner-seam jobs do not drop sudo afterwards: accepted out loud, because the
+codex-action applies for the live cells — and unlike the cells'
+`unprivileged-user` codex-action, the runner-seam jobs run codex as the runner
+user rather than as a separate account: accepted out loud, because the
 same-user parent-process residual above already dominates what reachable
 sudo adds, and the other engines have always run unsandboxed in these jobs.
 
@@ -951,8 +1078,9 @@ closed (an unset role variable resolves empty and the assume-role step
 refuses). Do those four and the lane works — you can seed the staging corpus,
 and step 6's first half is its acceptance.
 
-**Step 5 and step 6's second half repoint the scenarios** at the seeded pair —
-and only the scenarios. Step 5 hands the `staging` environment both scenario
+**Step 5 and step 6's second half repoint the staging binders** at the seeded
+pair — the integration scenarios and `run-analytics`'s rehearsals, and
+nothing else. Step 5 hands the `staging` environment both
 corpus variables at once, the pointer among them (see *How a consumer
 resolves the staging index* below for why the pointer cannot be committed).
 The refresh lane's source is pinned to its own production-source variable,
@@ -1062,8 +1190,12 @@ the repoint. Read step 5's two ordering notes before doing either.
    consumer otherwise resolves the committed `corpus/corpus.db.ref`, whose
    digest names the production blob, and content addressing means a lean
    slice can never publish under that digest. With both set, the
-   integration scenarios dispatched from `staging` run split-on against the
-   staging corpus rather than production's.
+   integration scenarios and the `run-analytics` rehearsals dispatched from
+   `staging` run split-on against the
+   staging corpus rather than production's (`run-analytics`'s corpus jobs
+   forward the pointer fenced off `main`, so for them a stray wider-scoped
+   value is inert on `prod`-bound runs by construction; the warning below
+   still binds for the scenarios).
 
    **Set both on the `staging` environment only** — never repository- or
    organization-wide. `vars` resolves environment first and falls back to the

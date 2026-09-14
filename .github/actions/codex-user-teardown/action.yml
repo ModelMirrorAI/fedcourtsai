@@ -1,0 +1,96 @@
+name: Codex unprivileged-user teardown
+description: >-
+  Hand the codex account's work back to the runner after the turn. codex ran as
+  a separate account, so its session rollout landed under that account's derived
+  CODEX_HOME and the cell output it wrote is owned by that account — but the
+  post-turn tail (the watchdog disarm's item-shapes distiller, `record-usage` /
+  `record-retrieval`, `stamp-cell`, `validate`, the artifact upload) all run AS
+  THE RUNNER USER and read `$CODEX_HOME/sessions` in the workspace and write into
+  the output subtree. This surfaces the rollout where those steps look for it and
+  chowns the output subtree back to the runner. Always run it (a reaped or failed
+  turn still leaves a rollout to distil and outputs to finalize), and run it
+  BEFORE the disarm step, whose distiller reads the surfaced rollout.
+
+inputs:
+  codex-user:
+    description: The UNIX account codex ran as (must match the setup and codex steps).
+    required: true
+  session-dest:
+    description: >-
+      Workspace-relative directory the rollout is surfaced into — the
+      `<CODEX_HOME>/sessions` the runner-user capture steps read (CODEX_HOME is
+      the workspace `.codex`).
+    required: false
+    default: .codex/sessions
+  codex-output-dir:
+    description: >-
+      The cell output subtree to chown back to the runner (same value the setup
+      action pre-created). Empty on a boot-probe leg that wrote nothing.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Surface the codex rollout and return the output to the runner
+      shell: bash
+      env:
+        CODEX_USER: ${{ inputs.codex-user }}
+        SESSION_DEST: ${{ inputs.session-dest }}
+        OUTPUT_DIR: ${{ inputs.codex-output-dir }}
+      run: |
+        # No `set -e`: a rollout that is not there is a result the callers read
+        # (an empty sessions dir voids a probe / leaves the captures to warn),
+        # not a step to fail. Each miss says which case fired.
+        set -uo pipefail
+        # `session-dest` is joined onto the workspace and `chmod -R`'d, so hold
+        # it to a workspace-relative path exactly as the output subtree is.
+        case "$SESSION_DEST" in
+          ""|/*|*..*)
+            echo "::error::session-dest must be a non-empty workspace-relative path: '$SESSION_DEST'"
+            exit 1 ;;
+        esac
+        # A reap or a step timeout can leave a codexcell process orphaned and
+        # still writing the output subtree; kill the account's processes before
+        # surfacing anything, so the rollout and the output are stable and the
+        # chown-back below cannot race a live writer. The runner keeps its sudo.
+        sudo pkill -u "$CODEX_USER" 2>/dev/null || true
+        home="$(getent passwd "$CODEX_USER" | cut -d: -f6 || true)"
+        src="$home/.codex/sessions"
+        dest="$GITHUB_WORKSPACE/$SESSION_DEST"
+        if [ -z "$home" ]; then
+          echo "::warning::codex user $CODEX_USER has no home — no rollout to surface"
+        elif [ -L "$src" ]; then
+          # codexcell owns `~/.codex`, so it could point `sessions` at a path of
+          # its choosing. Refuse a symlinked rollout dir outright rather than
+          # follow it.
+          echo "::warning::codex session path is a symlink — refusing to surface it"
+        elif [ ! -d "$src" ]; then
+          echo "::warning::no session rollout under $src — the turn started none"
+          ls -la "$home/.codex" 2>/dev/null || true
+        else
+          mkdir -p "$dest"
+          # NO sudo: the rollout is codexcell-owned but runner-readable (755/644
+          # under the account's own home), so the runner copies it AS ITSELF — an
+          # unprivileged copy can read nothing the runner could not, which closes
+          # the arbitrary-read a root `cp` would hand an agent that repointed its
+          # own `sessions`. `-Rd` copies symlinks as symlinks (never dereferences
+          # a tree entry) and does not try to preserve ownership as non-root; the
+          # copies are runner-owned, so no chmod is needed.
+          cp -Rd "$src/." "$dest/" \
+            || echo "::warning::failed to copy the rollout into $dest"
+        fi
+        # Return the output subtree to the runner so the capture/stamp/validate
+        # steps can read AND write it and the artifact upload can read it. The
+        # step runs as the runner, so `id -u`/`id -g` are the runner's own.
+        if [ -n "$OUTPUT_DIR" ]; then
+          case "$OUTPUT_DIR" in
+            /*|*..*)
+              echo "::warning::skipping chown-back of a non-workspace-relative path: '$OUTPUT_DIR'" ;;
+            *)
+              if [ -d "$GITHUB_WORKSPACE/$OUTPUT_DIR" ]; then
+                sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE/$OUTPUT_DIR" \
+                  || echo "::warning::failed to return $OUTPUT_DIR to the runner"
+              fi ;;
+          esac
+        fi

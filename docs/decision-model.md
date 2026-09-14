@@ -223,8 +223,8 @@ it would have to be weighted for the corpus's legacy denial-subsampled rows, wri
 respecting denial are censored in an open Term, and opinion bodies reach fewer
 than ten corpus rows (the operator-run channel that fills them, `fedcourts
 enrich-opinions`, is scoped to the cert-granted slice and converges only the
-grants whose docket links a published cluster upstream, so the denial side
-stays empty by construction) — so a naive implementation would resolve "did
+grants whose opinion cluster it can resolve — by the docket's own links or by
+the case's docket number — so the denial side stays empty by construction) — so a naive implementation would resolve "did
 not write" for all nine on all but a few cases and manufacture a base rate of
 zero out of an all-but-unpopulated column. Two more bite specifically because the claim is per-Justice:
 nine claims per event are not nine independent bets — writing is strongly

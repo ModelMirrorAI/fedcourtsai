@@ -664,6 +664,23 @@ buys **variance reduction, not bias removal** — each batch's Term and fee-clas
 margins are exact rather than binomially noisy, which is what keeps an early
 batch from being read as a Term or stream statement it is not.
 
+**Rehearse from staging first.** The run mode's environments resolve from the
+dispatching branch (see the `run-analytics` section of
+[pipeline.md](pipeline.md)) and the labels-PR steps are fenced to
+`main`-branch runs, so a staging-ref dispatch can publish nothing. What it
+exercises is bounded by what the staging pair serves: the extract enforces
+the reference-coverage floor against that corpus, so on a slice that does not
+carry the reference set's texts the rehearsal runs the environment wiring,
+the corpus read, and the floor's refusal — fail-closed, and itself worth
+observing — and stops before the labeler. A rehearsal that does reach the
+labeler (a staging pair seeded past the floor) runs it under the exact
+production posture, and at the same batch price on the staging environment's
+own engine key: a rehearsal is a real spend, and what it buys is the measured
+block in the step summary and the transcript artifact instead of a wasted
+production batch. The labeler's invocation posture itself needs no seeded
+pair: the integration suite's `qp-labeler-smoke` scenario runs it over a
+synthetic five-row extract at cents ([testing.md](testing.md)).
+
 **No dispatch inputs.** There is nothing to choose and nothing to pass: the same
 committed state always cuts the same batch, so the run mode carries no input for
 it. The arithmetic — frame size, labeled so far, batch size, the reference share
@@ -741,14 +758,14 @@ reference set the frame holds — knowable at extract time. `qp-corpus` therefor
 refuses a frame below the 90% floor and says which number it is, because a frame
 missing reference texts cannot publish however well the labeler reads, and
 learning that at the gate costs a whole labeling run. This enforces the standing
-gate earlier and more cheaply; it does not move it. **This is the state the frame
-is in**: 296 of the 353 committed reference cases are in it — 83.9%, under the
-floor — against the blob pulled 2026-09-08 whose newest stored snapshot is
-2026-07-13, so the next dispatch stops in the extract job rather than spending a
-labeling turn it could not publish. All 57 absentees are in the labeling scope
-and carry no stored questions-presented document, so restoring those documents is
-what makes the frame measurable; a reference case can in principle also leave by
-scope drift, for which the fix is not the same. Which strata the absentees fall
+gate earlier and more cheaply; it does not move it. **The measured state of the
+frame**: all 353 committed reference cases are in it — 100.0%, above the
+floor — against the blob pulled 2026-09-09 whose newest stored snapshot is
+2026-07-13, in a scoped frame of 8,452 rows cutting a first batch of 1,200
+(353 reference + 847 new). A reference case leaves the frame by losing its
+stored questions-presented document — restoring the document through the
+writer lane is what returns it — or in principle by scope drift, for which
+the fix is not the same. Which strata any absentees fall
 in is a question for measurement review — the set's strata are disproportionate
 by design, so an absence skewed toward the supplement's denial/GVR/dismissed
 blocks would leave the measured remainder more grant-skewed than the reference

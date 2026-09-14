@@ -205,10 +205,16 @@ def test_deploy_environment_resolution_is_identical_at_every_site() -> None:
     workflow = _load(WORKFLOWS / "integration-test.yml")
     inputs = workflow[True]["workflow_dispatch"]["inputs"]
     assert inputs["deploy-environment"]["default"] == "auto"
-    for job in ("plan", "scenario"):
+    for job in (
+        "plan",
+        "scenario",
+        "qp-labeler-smoke",
+        "runner-idle-control",
+        "codex-freeze-probe",
+    ):
         assert workflow["jobs"][job]["environment"] == f"${{{{ {ENV_RESOLUTION} }}}}", job
     assert f"@ ${{{{ {ENV_RESOLUTION} }}}}" in workflow["run-name"]
-    # No fourth consumer: anywhere else reading the raw input would bypass the
+    # No seventh consumer: anywhere else reading the raw input would bypass the
     # resolution and see the literal string `auto`. Comment lines are dropped
     # first — the input's own YAML comment discusses the expression, and
     # documenting a hazard is not consuming the value.
@@ -217,7 +223,7 @@ def test_deploy_environment_resolution_is_identical_at_every_site() -> None:
         for line in (WORKFLOWS / "integration-test.yml").read_text().splitlines()
         if not line.lstrip().startswith("#")
     )
-    assert body.count("inputs.deploy-environment") == 6  # 3 sites x 2 reads each
+    assert body.count("inputs.deploy-environment") == 12  # 6 sites x 2 reads each
 
 
 def _all_matrix_entries() -> list[dict[str, str]]:
@@ -335,14 +341,29 @@ def test_which_jobs_a_scheduled_run_admits_is_stated_not_coerced() -> None:
     jobs = _load(WORKFLOWS / "integration-test.yml")["jobs"]
     for name in ("plan", "scenario"):
         assert jobs[name]["if"] == (
-            "${{ github.event_name == 'schedule' || inputs.scenario != 'collect' }}"
+            "${{ github.event_name == 'schedule' || (inputs.scenario != 'collect' "
+            "&& inputs.scenario != 'qp-labeler-smoke' "
+            "&& inputs.scenario != 'runner-idle-control' "
+            "&& !startsWith(inputs.scenario, 'codex-freeze-probe')) }}"
         ), name
-    # The collect job stays three affirmative equalities, which an empty inputs
-    # context satisfies none of — so the schedule excludes it by shape, with no
-    # clause of its own to keep in step.
-    collect_if = str(jobs["collect-scenario"]["if"])
-    assert "github.event_name" not in collect_if
-    assert "!=" not in collect_if
+    # The freeze-probe family shares one standalone job across its scenario
+    # values, so its exclusion is a prefix test rather than one inequality per
+    # member — and a prefix test against the empty inputs context is a plain
+    # string comparison, so that clause carries none of the coercion hazard
+    # the three beside it do.
+    # The standalone jobs stay affirmative — equalities, or the family's
+    # affirmative prefix test — and an empty inputs context satisfies none of
+    # them, so the schedule excludes them by shape, with no clause of their
+    # own to keep in step.
+    for name in (
+        "collect-scenario",
+        "qp-labeler-smoke",
+        "runner-idle-control",
+        "codex-freeze-probe",
+    ):
+        standalone_if = str(jobs[name]["if"])
+        assert "github.event_name" not in standalone_if, name
+        assert "!=" not in standalone_if, name
 
 
 def test_the_canary_is_scheduled_off_every_other_cron_minute() -> None:
@@ -566,10 +587,21 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
     # A repro-family scenario reads a case too, but names it in its own steps
     # rather than through the resolver — the pinned record is what the
     # scenario is — so it stays out of the gate for a different reason than
-    # the corpus-free legs do.
+    # the corpus-free legs do. The `codex-freeze-probe` family is corpus-free
+    # in the plainest way: its subject is the watchdog process across a
+    # sandbox's life, and the turn every member runs is the boot probe's
+    # one-word prompt.
     for scenario in (
         "mcp-sidecar",
         "qp-topic",
+        "qp-labeler-smoke",
+        "runner-idle-control",
+        "codex-freeze-probe",
+        "codex-freeze-probe-unwatched",
+        "codex-freeze-probe-smokeconfig",
+        "codex-freeze-probe-autopsy",
+        "codex-freeze-probe-nosudo",
+        "codex-freeze-probe-unprivuser",
         "engine-actions-smoke",
         "codex-application-repro",
     ):
@@ -581,6 +613,14 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
     assert options == corpus_reading | {
         "mcp-sidecar",
         "qp-topic",
+        "qp-labeler-smoke",
+        "runner-idle-control",
+        "codex-freeze-probe",
+        "codex-freeze-probe-unwatched",
+        "codex-freeze-probe-smokeconfig",
+        "codex-freeze-probe-autopsy",
+        "codex-freeze-probe-nosudo",
+        "codex-freeze-probe-unprivuser",
         "collect",
         "engine-actions-smoke",
         "codex-application-repro",

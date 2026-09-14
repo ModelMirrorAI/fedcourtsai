@@ -492,6 +492,20 @@ def _resolve_amicus_increment(context: PredictionContext, outcome: Outcome) -> i
     amicus briefs can always carry another. Masked (``None``) where either end
     is undisclosed. The count is monotone and never falls, so the strict
     comparison reads any non-rise as no increment.
+
+    **The two ends are cut differently, and on one arm that biases this claim
+    upward.** The resolution end stops at the end of the disposition day. The
+    prediction end depends on ``context.cut_kind``. Under the date rule (null,
+    which every committed cell carries) the cutoff is the day *after* the moment
+    opened, so the whole opening day is inside the cell's set and the two ends
+    agree about it. Under ``arrival-position`` the snapshot stops at the entry
+    that opened the event, so an amicus entry docketed later that same day is
+    outside the set while the resolution end counts it — and this resolves
+    **positive with no docket movement at all**, off an entry that existed when
+    the forecast was taken. On such a cell a resolution of 1 is not by itself a
+    hit: it is one only where the entry that moved the count postdates the anchor.
+    `docs/outcome-decomposition.md` states why each end is cut where it is, and
+    `docs/freeze-record.md` registers the bias.
     """
     if (
         outcome.interim_signals is None

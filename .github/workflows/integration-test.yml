@@ -9,9 +9,10 @@ name: integration-test
 # asks for — it tells the two apart, so the cheaper suite never satisfies the
 # fuller requirement. The
 # branch→environment resolution here is duplicated on the `environment:` key
-# of both jobs that bind one — plan, which resolves the case out of that
-# environment's corpus, and scenario (YAML anchors do not work in workflows);
-# keep the three expressions identical, or the title stops naming the
+# of every job that binds one — plan, which resolves the case out of that
+# environment's corpus, scenario, and qp-labeler-smoke (YAML anchors do not
+# work in workflows);
+# keep the four expressions identical, or the title stops naming the
 # environment the jobs actually bound. A schedule carries no inputs at all, so
 # the scenario half would render as the degenerate ` / ` pair: the canary
 # names itself instead, in a shape that matches no freshness prefix (there is
@@ -24,18 +25,26 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # sidecar, the tokenless CourtListener MCP sidecar, and cascade cells — stub or
 # one real engine — over them. Each scenario is one dispatch, side-effect
 # free with a single carve-out: no corpus write, no git write, no PR, and the
-# one issue write is the application-repro leg's watchdog telemetry row on the
-# long-lived `codex-watchdog` issue — dispatch-only (no schedule or
-# whole-suite selection reaches that leg), marker-keyed so a re-dispatch
-# resets the row rather than stacking one, and on a label that triggers
+# one issue write is a watchdog telemetry row — the application-repro leg's,
+# the runner-idle-control job's, and the codex-freeze-probe job's — on
+# the bound environment's own long-lived issue — `codex-watchdog` on a
+# prod-bound dispatch, `codex-watchdog-staging` on a staging-bound one, so a
+# rehearsal's rows never mix into the production record — dispatch-only
+# (neither the schedule nor a whole-suite selection reaches that leg),
+# marker-keyed so a re-dispatch
+# resets the row rather than stacking one, and on labels that trigger
 # nothing. Everything else goes to the Actions step summary and the run
 # log, and any cell output lands only in the runner's throwaway checkout. Every
-# scenario is also token-free except the three engine scenarios, which say so on
+# scenario is also token-free except the five that spend, which say so on
 # their inputs: engine-smoke spends about one predict cell's worth of the
-# selected engine's model tokens, engine-actions-smoke a boot probe's, and
-# codex-application-repro one evaluate cell's — so a whole-suite `all` dispatch
-# spends three cells' worth plus three probes (the repro is dispatch-only and
-# joins no whole-suite run), and `all-offline` (the same suite with both engine
+# selected engine's model tokens, engine-actions-smoke a boot probe's,
+# codex-application-repro one evaluate cell's, qp-labeler-smoke cents at
+# the labeler's default tier, and codex-freeze-probe one further boot
+# probe's — so a whole-suite `all` dispatch
+# spends three cells' worth plus three probes (the repro, the labeler
+# smoke and the freeze probe are dispatch-only and join no whole-suite run),
+# and `all-offline`
+# (the same suite with both engine
 # families dropped) spends nothing. The repro leg is the long one in wall-clock
 # as well: the judge cell it presents runs 40-50 minutes on production cells
 # and has been measured past 50 here, so its bounds and its job cap are set
@@ -138,7 +147,43 @@ on:
           engine-smoke skip set. `codex-application-repro` is the repro
           family's first member — one codex evaluate cell against a pinned
           application-lane record — and SPENDS MODEL TOKENS: one evaluate
-          cell's worth of codex. Neither whole-suite selection fans it out.
+          cell's worth of codex. `qp-labeler-smoke` sends the qp-topic
+          labeling lane's own invocation block a five-row synthetic extract
+          and SPENDS MODEL TOKENS: cents at the labeler's default tier.
+          `runner-idle-control` runs no agent and spends nothing: it arms
+          the watchdog's off-runner record and idles seventy minutes, so a
+          runner death in the 58-64-minute window with no engine anywhere
+          near it separates a runner-lifetime defect from a codex-workload
+          one. The `codex-freeze-probe` family arms that same record around
+          ONE trivial codex turn and SPENDS MODEL TOKENS: a single boot
+          probe's worth, whichever member runs. It reads what the watchdog's
+          beat trail does while a codex sandbox lives and after it exits —
+          the observation a wedged production cell destroys along with its
+          runner — and its six members each hold one thing still while
+          varying the next. `codex-freeze-probe` is the armed turn with a
+          three-minute post-exit idle margin. `codex-freeze-probe-unwatched`
+          runs the same turn and the same margins with no telemetry mint,
+          arm or disarm anywhere in the job, so a wedge that still happens
+          is not the watchdog's doing. `codex-freeze-probe-smokeconfig` is
+          armed and drops the post-exit margin, which is the suite smoke
+          leg's own shape after its turn — the leg whose tail proceeds
+          green. `codex-freeze-probe-autopsy` is unwatched too, and spends
+          the seconds right after the turn dumping the sandbox's residue —
+          process forest, cgroup freezer states, kernel log, namespaces —
+          in short steps whose logs stream out before the wedge lands, then
+          idles on a ticking clock whose last printed second stamps the
+          moment the runner stopped. `codex-freeze-probe-nosudo` is the base
+          armed turn with ONE field changed — `safety-strategy: read-only`
+          rather than `drop-sudo`. But
+          `read-only` is refused alongside a permission profile and forces
+          the legacy read-only sandbox, so it starts no real session.
+          `codex-freeze-probe-unprivuser` runs the same base turn as a
+          separate unprivileged UNIX user (`safety-strategy:
+          unprivileged-user`), which leaves the runner account wholly
+          intact AND builds and tears down the real profile sandbox — the
+          same account-drop-vs-teardown isolation, with the genuine session
+          read-only cannot produce. No whole-suite selection fans out
+          any of those.
         type: choice
         default: ranged-reads
         options:
@@ -150,6 +195,14 @@ on:
           - mcp-sidecar
           - collect
           - qp-topic
+          - qp-labeler-smoke
+          - runner-idle-control
+          - codex-freeze-probe
+          - codex-freeze-probe-unwatched
+          - codex-freeze-probe-smokeconfig
+          - codex-freeze-probe-autopsy
+          - codex-freeze-probe-nosudo
+          - codex-freeze-probe-unprivuser
           - codex-application-repro
           - all
           - all-offline
@@ -223,6 +276,16 @@ on:
           Optional event id to narrow the cascade scenarios to; empty runs
           every event the case defines. An event id belongs to one case, so
           pair it with a pinned `docket` rather than a resolved case.
+        type: string
+        default: ""
+      repro_deadline_s:
+        description: >-
+          codex-application-repro only: override the leg's 4200-second
+          watchdog deadline, digits only (empty = the default). The
+          death-window discriminator sets it BELOW the 58-64-minute window
+          (e.g. 2700) so a live watchdog fires before the runner dies; no
+          other scenario or workflow reads it, and the cell workflows'
+          deadlines are untouched literals.
         type: string
         default: ""
       deploy-environment:
@@ -309,7 +372,17 @@ jobs:
     # what is meant, and survives someone hardening the inequality into the
     # fail-closed shape the scheduled-workflow trap in docs/pipeline.md asks
     # for everywhere it is a hazard rather than the intent.
-    if: ${{ github.event_name == 'schedule' || inputs.scenario != 'collect' }}
+    # qp-labeler-smoke, runner-idle-control and the codex-freeze-probe family
+    # are excluded beside collect: all of them run as standalone jobs below,
+    # needing no matrix, no case, and no corpus. The probe family is excluded
+    # by prefix because its members share one job below, and a prefix test is
+    # a genuine string comparison rather than the null-coercion the inequality
+    # beside it leans on.
+    if: >-
+      ${{ github.event_name == 'schedule'
+      || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke'
+      && inputs.scenario != 'runner-idle-control'
+      && !startsWith(inputs.scenario, 'codex-freeze-probe')) }}
     runs-on: ubuntu-latest
     # 15, not 5: the resolve path checks out, builds the Python env, assumes
     # the read-only role, and walks a bounded candidate window over the blob.
@@ -320,7 +393,8 @@ jobs:
     # a branch that names no configured environment (the read then finds no
     # role and no remote and the job fails, rather than resolving a case out
     # of some other environment's corpus). Keep this expression identical to
-    # `run-name:`'s and the scenario job's; see the deploy-environment input.
+    # `run-name:`'s, the scenario job's and the labeler smoke's; see the
+    # deploy-environment input.
     environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
     permissions:
       contents: read
@@ -509,11 +583,24 @@ jobs:
           cat "$out" >> "$GITHUB_OUTPUT"
 
   scenario:
-    # Every dispatch-selected scenario except `collect`, which runs on its own
-    # environment-free job below: it needs no role variables, so binding it to
-    # this job's deployment environment would only add a needless gate. Plus
-    # the scheduled canary, named for the reason the plan job's gate carries.
-    if: ${{ github.event_name == 'schedule' || inputs.scenario != 'collect' }}
+    # Every dispatch-selected scenario except the four that run as
+    # standalone jobs below: `collect` (environment-free — it needs no role
+    # variables, so binding it to this job's deployment environment would
+    # only add a needless gate), `qp-labeler-smoke` (environment-bound but
+    # deliberately without this job's id-token grant, which is part of the
+    # posture it smokes), `runner-idle-control` (environment-bound for
+    # the telemetry mint alone, and deliberately empty of everything else —
+    # its subject is the runner, not the stack), and the `codex-freeze-probe`
+    # family (the same mint plus one engine key, and nothing else: its subject
+    # is the watchdog process, not the stack either — and its members share
+    # one job, so the exclusion is by prefix). Plus the scheduled canary,
+    # named for the reason the
+    # plan job's gate carries.
+    if: >-
+      ${{ github.event_name == 'schedule'
+      || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke'
+      && inputs.scenario != 'runner-idle-control'
+      && !startsWith(inputs.scenario, 'codex-freeze-probe')) }}
     needs: plan
     runs-on: ubuntu-latest
     strategy:
@@ -540,9 +627,9 @@ jobs:
     # of billed silence.
     timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 95 || 45 }}
     # Branch-resolved with an explicit override; keep this expression
-    # identical to `run-name:`'s and the plan job's above (YAML anchors do not
-    # work in workflows), and see the deploy-environment input for what
-    # resolves.
+    # identical to `run-name:`'s, the plan job's and the labeler smoke's (YAML
+    # anchors do not work in workflows), and see the deploy-environment input
+    # for what resolves.
     environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
     permissions:
       contents: read
@@ -916,16 +1003,16 @@ jobs:
       # command the agent runs — and even its file writes — dies with
       # `bwrap: setting up uid map: Permission denied` and the cell finishes
       # blocked. The same prerequisite codex-action applies for the live
-      # cells before dropping sudo (which this job does not do — see the
-      # engine-smoke paragraph in docs/security.md); the other engines
-      # sandbox nothing and need neither sysctl. Each knob is probed before
-      # writing, as upstream does: a kernel without the knob has nothing to
-      # loosen.
+      # cells, which run codex as a separate unprivileged account rather than
+      # dropping the runner's sudo (see the engine-smoke paragraph in
+      # docs/security.md); the other engines sandbox nothing and need neither
+      # sysctl. Each knob is probed before writing, as upstream does: a kernel
+      # without the knob has nothing to loosen.
       #
       # Every codex leg needs it: the actions-smoke and application-repro legs
       # pass the cells' own `permission-profile: fedcourts-cell` /
-      # `safety-strategy: drop-sudo` pair, so their turns run under the same
-      # bubblewrap sandbox.
+      # `safety-strategy: unprivileged-user` pair, so their turns run under the
+      # same bubblewrap sandbox.
       - name: Enable unprivileged user namespaces for the codex sandbox
         if: ${{ (matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke' || matrix.scenario == 'codex-application-repro') && matrix.engine == 'codex' }}
         run: |
@@ -1316,12 +1403,17 @@ jobs:
       # finished step open. A green leg is then the precise certification that
       # completed work is concluded and picked up.
       #
-      # So the two markers read differently here, and the difference is the whole
+      # So the markers read differently here, and the difference is the whole
       # verdict. `REAPED` is the defect reproducing and being handled. `FIRED` or
       # `STOOD_DOWN` means the completion set was never satisfied — work still
       # running at the deadline, or a required file the judge never wrote — which
-      # is a finding about the cell, not about teardown. The bounds below sit
-      # above the observed work envelope — 40-50 minutes on production cells,
+      # is a finding about the cell, not about teardown. `SUSPENDED` is the
+      # watchdog reporting that it lost wall clock beside the engine and
+      # withheld every signal; the step's own ending then shows whether the
+      # teardown resolves without a kill — a reading this leg can produce.
+      #
+      # The bounds below sit above the observed work envelope — 40-50 minutes
+      # on production cells,
       # and past 50 on this leg — precisely so that the deadline is never
       # reached by a cell that simply took its time. And because a deadline
       # kill can end the whole job — skipping the disarm and upload tail and
@@ -1335,20 +1427,28 @@ jobs:
       # telemetry and never the observation. This leg runs a codex cell, so
       # the credential stays codex-only. SECURITY.md bounds the grant.
       #
-      # The App's credentials live on the `prod` environment alone, so the
-      # record exists on a prod-bound dispatch and a leg bound elsewhere mints
-      # nothing — the arm step warns and the leg degrades to its runner-local
-      # account, which is the deliberate trade: provisioning an issues-write
-      # key onto `staging` would widen the staging-head radius docs/security.md
-      # bounds to corpus read, model spend, and the staging fixture.
+      # The credentials select per bound environment, keyed on the ref that
+      # is one-to-one with it (a cross-bind is refused at the deployment
+      # gate): a prod-bound dispatch mints from the dev App as the cell
+      # workflows do, and a staging-bound one from the staging telemetry App
+      # — a separate App whose *App-level* grant is Issues read/write and
+      # nothing else, so the ceiling on what a staging-held key can mint is
+      # platform-enforced rather than resting on the narrowing this step
+      # requests (docs/security.md's *The GitHub Apps* section carries the
+      # terms, SECURITY.md the bound). The selection does not even need the
+      # deployment gate to fail closed: each pair is scoped to its own
+      # environment, so a cross-bind would resolve the other side's
+      # credentials empty and the mint would fail soft either way. A leg
+      # bound to neither environment resolves empty credentials the same
+      # way, and the leg degrades to its runner-local account.
       - name: Mint the codex watchdog telemetry token
         id: watchdog-token
         if: ${{ matrix.scenario == 'codex-application-repro' }}
         continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
-          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          client-id: ${{ github.ref_name == 'main' && vars.DEV_APP_CLIENT_ID || vars.STAGING_APP_CLIENT_ID }}
+          private-key: ${{ github.ref_name == 'main' && secrets.DEV_APP_PRIVATE_KEY || secrets.STAGING_APP_PRIVATE_KEY }}
           permission-issues: write
 
       - name: Arm the engine watchdog
@@ -1369,6 +1469,12 @@ jobs:
           # every process this user owns.
           GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
           WATCHDOG_CHECKIN_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          # Which long-lived issue carries the record, matched to the mint's
+          # own selection above: the same ref keys both, so this step pair
+          # never aims a staging-minted token at the production channel. The
+          # token's own grant is repo-wide Issues — what confines it to the
+          # channel's issue is this wiring, reviewed as permission surface.
+          TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
           # 4200 s. This leg's work has been measured *past* the 50 minutes a
           # production judge cell shows on the same record shape, and a deadline
           # inside the envelope kills a healthy mid-grading cell before the
@@ -1385,8 +1491,13 @@ jobs:
           # It is longer than the cells' 3900 s deliberately. A cell has a whole
           # round's budget to protect and a level-triggered lane that re-derives
           # what it loses; this leg is one dispatched observation, and cutting it
-          # short costs the observation itself.
-          WATCHDOG_DEADLINE_S: "4200"
+          # short costs the observation itself — except when cutting it short
+          # IS the observation: the dispatch input can lower this leg's (and
+          # only this leg's) deadline below the death window, so a live
+          # watchdog fires, captures, and concludes the step before the
+          # runner can die — which splits watchdog-process death from channel
+          # death, and engine-tied death from job-clock-tied, in one run.
+          WATCHDOG_DEADLINE_S: ${{ inputs.repro_deadline_s != '' && inputs.repro_deadline_s || '4200' }}
           # A denser beat than the cells' 300 s default, because on this leg the
           # off-runner record is the observation: a runner that dies mid-cell
           # leaves the record's last beat as the only timestamp of the death,
@@ -1398,6 +1509,12 @@ jobs:
           WATCHDOG_HEARTBEAT_S: "120"
         run: |
           set -euo pipefail
+          # The override is spliced into arithmetic the watchdog trusts, so
+          # anything but digits stops here, before a record is opened.
+          if ! [[ "$WATCHDOG_DEADLINE_S" =~ ^[0-9]+$ ]]; then
+            echo "::error::repro_deadline_s must be digits, got '${WATCHDOG_DEADLINE_S}'"
+            exit 1
+          fi
           mkdir -p "$WATCHDOG_DIR"
           # The cell workflows' sentinel arming, verbatim in what it asks for:
           # the required-output list from the same `cell-outputs` command, handed
@@ -1435,9 +1552,10 @@ jobs:
             echo "::warning::no completion sentinel for this leg; the watchdog runs on its deadline alone"
           fi
           # The armed record, written off the runner before the engine starts:
-          # one comment on the long-lived `codex-watchdog` issue, which the
+          # one comment on the bound channel's long-lived issue, which the
           # watchdog then updates in place — the cell workflows' arming,
-          # verbatim. On this leg it is what makes the deadline path legible at
+          # verbatim but for the channel flag. On this leg it is what makes
+          # the deadline path legible at
           # all: a deadline kill can cancel the job, and a cancelled job drops
           # every runner-local account. Best-effort, and deliberately so: the
           # kill duty is primary, so a degraded API costs the telemetry and
@@ -1454,7 +1572,7 @@ jobs:
               --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
               --court "$COURT_ID" --docket "$DOCKET_ID" --event-id "$EVENT_ID" \
               --actor "$EVALUATOR_ID" --deadline-s "$WATCHDOG_DEADLINE_S" \
-              --run-url "$RUN_URL" || true)"
+              --run-url "$RUN_URL" --channel "$TELEMETRY_CHANNEL" || true)"
             if [ -n "$checkin_out" ]; then
               # Split without a pipeline: under `pipefail` a broken pipe here
               # would be the one way a failed check-in could still abort arming.
@@ -1479,12 +1597,22 @@ jobs:
               ;;
           esac
           # Unlike a cell, this leg always attempts the mint, so an empty token
-          # is a failed or credential-less one (a non-prod-bound dispatch),
-          # never an engine that was not offered the channel — say which.
+          # is a failed or credential-less one (a leg bound to neither
+          # environment), never an engine that was not offered the channel —
+          # say which.
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::warning::watchdog telemetry mint yielded no token (mint failed, or not a prod-bound dispatch); this leg has no off-runner record"
+            echo "::warning::watchdog telemetry mint yielded no token (mint failed, or a dispatch bound to neither environment); this leg has no off-runner record"
           elif [ -z "$checkin_url" ]; then
             echo "::warning::codex watchdog armed with no off-runner record (${EVENT_ID})"
+          fi
+          # The arm outcome, on the one surface a runner death cannot erase:
+          # this step's summary uploads when the step completes, minutes
+          # before any death, where the log and its warnings die with the
+          # runner — a dead run must still say whether its record was armed.
+          if [ -n "$checkin_url" ]; then
+            echo "watchdog telemetry armed (deadline ${WATCHDOG_DEADLINE_S}s): ${checkin_url}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "watchdog telemetry NOT armed — mint or check-in failed; this run has no off-runner record" >> "$GITHUB_STEP_SUMMARY"
           fi
           # The watchdog and its evidence both live outside the workspace: that
           # tree belongs to the agent for the whole of its turn, and bash reads a
@@ -1508,6 +1636,21 @@ jobs:
       # asked to do the work a production judge cell does, because a wedge
       # that only appears under the real task is exactly the one the
       # boot-probe leg cannot see.
+      # This leg runs the real evaluate cell as codexcell under
+      # `unprivileged-user`, so provision and permission that account first,
+      # exactly as the cells do: its home and derived CODEX_HOME, read over the
+      # checkout, the non-secret cell env across the `sudo -u` hop, and write
+      # over the evaluator output subtree (handed back to the runner by the
+      # teardown step below).
+      - name: Provision the unprivileged codex user
+        if: ${{ matrix.scenario == 'codex-application-repro' }}
+        uses: ./.github/actions/codex-user-setup
+        with:
+          codex-user: codexcell
+          codex-config: .codex/config.toml
+          grant-workspace-read: "true"
+          codex-output-dir: data/cases/${{ steps.repro.outputs.court }}/${{ steps.repro.outputs.docket }}/events/${{ steps.repro.outputs.event }}/evaluations/${{ steps.repro.outputs.evaluator }}
+
       - name: Evaluate the pinned application-lane record with Codex
         id: repro_codex
         if: ${{ matrix.scenario == 'codex-application-repro' }}
@@ -1526,12 +1669,19 @@ jobs:
           RUN_ID: ${{ steps.repro.outputs.run_id }}
           MODEL_ID: ${{ steps.repro.outputs.model }}
           # Corpus queries go through the localhost sidecar, as in the cells:
-          # same surface, no cloud credential in this shell.
+          # same surface, no cloud credential in this shell. codex runs as the
+          # separate `codexcell` account here too, and the `sudo -u` hop resets
+          # the environment, so these non-secret names reach codex's spawned
+          # `fedcourts` commands through the env_keep drop-in the setup step
+          # installs — the cells' mechanism, mirrored so this leg reproduces the
+          # true cell invocation.
           FEDCOURTS_CORPUS_BACKEND: service
-          # Pin codex's home to the workspace dir the config was written into,
-          # as the cell step does; the session rollout the assertion and the
-          # distillation below read lands under it.
-          CODEX_HOME: ${{ github.workspace }}/.codex
+          UV_CACHE_DIR: /home/codexcell/.cache/uv
+          UV_NO_SYNC: "1"
+          # No `CODEX_HOME`: the `sudo -u` hop cannot carry it, so the action
+          # derives codexcell's own `~/.codex`. The teardown step surfaces the
+          # rollout into the workspace `.codex/sessions` the assertion and the
+          # distillation below read; those steps keep `CODEX_HOME` there.
         with:
           allow-bot-users: "fedcourtsai-data[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -1556,13 +1706,18 @@ jobs:
             for a reply.
           model: ${{ steps.repro.outputs.model }}
           effort: high
-          safety-strategy: drop-sudo
-          # The cells' block, unchanged: workspace writes plus subprocess
-          # network through the `fedcourts-cell` permission profile in the
-          # emitted `$CODEX_HOME/config.toml`, live web search, and a pinned
-          # CLI. run-predict's codex step carries the rationale in full; a
-          # test holds these values in lockstep across every surface, so this
-          # leg cannot reproduce against a posture nothing else runs.
+          # The cells' block, unchanged in posture and mirrored in strategy: this
+          # leg reproduces the true cell invocation, so it runs `codexcell` under
+          # `unprivileged-user` exactly as the cells do (provisioned by the setup
+          # step above, returned by the teardown step below). run-predict's codex
+          # step carries the rationale in full; a test holds these values in
+          # lockstep across every surface, so this leg cannot reproduce against a
+          # posture nothing else runs.
+          safety-strategy: unprivileged-user
+          codex-user: codexcell
+          # Workspace writes plus subprocess network through the `fedcourts-cell`
+          # permission profile in the emitted config, live web search, a pinned
+          # CLI — the cells' posture, held in lockstep.
           permission-profile: fedcourts-cell
           codex-version: "0.144.1"
           codex-args: '["-c","web_search=live"]'
@@ -1582,6 +1737,22 @@ jobs:
       # planted marker can still make the leg *say* a deadline passed, which is
       # a report, not a grant — the step's own exit status is what the leg's
       # verdict rests on.
+      # codex ran as codexcell: surface its rollout into the workspace
+      # `.codex/sessions` the assertion, distillation and captures below read,
+      # and hand the evaluator output subtree back to the runner. Before the
+      # disarm step, and `always()` so a reaped or failed turn is still surfaced.
+      # Unlike the cells, this diagnostic leg runs it as its own step inside the
+      # armed window rather than folding it into disarm; a cap-cancel here would
+      # cost the rollout copy, which the leg accepts — it is a repro, not a
+      # production cell, and its verdict is the assertion, not the artifact.
+      - name: Return the codex account's work to the runner
+        if: ${{ always() && matrix.scenario == 'codex-application-repro' }}
+        uses: ./.github/actions/codex-user-teardown
+        with:
+          codex-user: codexcell
+          session-dest: .codex/sessions
+          codex-output-dir: data/cases/${{ steps.repro.outputs.court }}/${{ steps.repro.outputs.docket }}/events/${{ steps.repro.outputs.event }}/evaluations/${{ steps.repro.outputs.evaluator }}
+
       - name: Disarm the engine watchdog
         id: repro_disarm
         if: ${{ always() && matrix.scenario == 'codex-application-repro' }}
@@ -1594,7 +1765,10 @@ jobs:
           ENGINE_CONCLUSION: ${{ steps.repro_codex.conclusion }}
           # The same mint the arm step used, to close the off-runner record out;
           # env, never argv, for the bundle-dump reason the arm step states.
+          # The channel too, or the disarm would close a row on one issue
+          # that the arm opened on the other.
           GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
         run: |
           set -euo pipefail
           pid_file="$RUNNER_TEMP/engine-watchdog.pid"
@@ -1620,12 +1794,13 @@ jobs:
             find "$RUNNER_TEMP/engine-watchdog" -maxdepth 1 -type f \
               -exec cp -p {} "$bundle/" \;
           fi
-          for marker in REAPED FIRED STOOD_DOWN; do
+          for marker in REAPED FIRED STOOD_DOWN SUSPENDED; do
             file="$bundle/$marker"
             [ -f "$file" ] || continue
             case "$marker" in
               REAPED) note="the cell's outputs were complete and quiescent and the step would not conclude; the watchdog ended it" ;;
               FIRED) note="the engine did not finish inside the bound and was killed at the deadline" ;;
+              SUSPENDED) note="the watchdog lost wall clock beside the engine and stood down; nothing was signalled — the bundle is the evidence" ;;
               *) note="the deadline passed with no engine process matched — check the watchdog still names the action's invocation" ;;
             esac
             echo "::warning::codex-application-repro: ${note}"
@@ -1642,18 +1817,21 @@ jobs:
           # Close the off-runner record out with the engine step's conclusion —
           # the cell workflows' close-out, verbatim. A leg where nothing fired
           # collapses to a single armed/disarmed line; a marker keeps the live
-          # record expanded, because a reaped or killed step is the reading this
-          # leg exists to produce. Bounded like the arming call, and ahead of
+          # record expanded — a reaped or killed step, or a suspension the
+          # watchdog observed and stood down from, each a reading this leg
+          # exists to produce. Bounded like the arming call, and ahead of
           # the upload that carries the bundle out.
           if [ -n "${GH_TOKEN:-}" ]; then
             healthy_flag=--healthy
-            if [ -f "$bundle/REAPED" ] || [ -f "$bundle/FIRED" ] || [ -f "$bundle/STOOD_DOWN" ]; then
+            if [ -f "$bundle/REAPED" ] || [ -f "$bundle/FIRED" ] || [ -f "$bundle/STOOD_DOWN" ] \
+              || [ -f "$bundle/SUSPENDED" ]; then
               healthy_flag=--not-healthy
             fi
             timeout 90 uv run fedcourts watchdog-checkin --disarm "$healthy_flag" \
               --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
               --court "$COURT_ID" --docket "$DOCKET_ID" --event-id "$EVENT_ID" \
               --actor "$EVALUATOR_ID" --conclusion "${ENGINE_CONCLUSION:-unknown}" \
+              --channel "$TELEMETRY_CHANNEL" \
               > /dev/null || true
           fi
 
@@ -1977,16 +2155,29 @@ jobs:
             --permission-mode bypassPermissions
             --mcp-config mcp-servers.json
 
+      # The boot probe runs as codexcell under `unprivileged-user`, so provision
+      # that account first, as the cells do. It reads and writes nothing, but the
+      # action still needs a working directory codexcell can reach and its config
+      # under the derived CODEX_HOME — so grant the checkout read (the default
+      # working directory is the repo root) and copy the config in. No output
+      # subtree: the probe writes none.
+      - name: Provision the unprivileged codex user
+        if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'codex' }}
+        uses: ./.github/actions/codex-user-setup
+        with:
+          codex-user: codexcell
+          codex-config: .codex/config.toml
+          grant-workspace-read: "true"
+
       - name: Smoke the Codex cell invocation
         id: actions_smoke_codex
         if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'codex' }}
         timeout-minutes: 10
         uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
-        env:
-          # Pin codex's home to the workspace dir the config was written into,
-          # as the cell step does; the session rollout the assertion below
-          # reads lands under it.
-          CODEX_HOME: ${{ github.workspace }}/.codex
+        # No `CODEX_HOME` env: as on the cells, the `sudo -u` hop cannot carry
+        # it, so the action derives codexcell's own `~/.codex`; the teardown step
+        # surfaces the rollout into the workspace `.codex/sessions` the assertion
+        # below reads.
         with:
           allow-bot-users: "fedcourtsai-data[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -1998,11 +2189,16 @@ jobs:
             probe of the invocation path, not a task.
           model: ${{ steps.cell.outputs.model }}
           effort: high
-          safety-strategy: drop-sudo
+          # The cells' strategy, mirrored: codex runs as `codexcell` under
+          # `unprivileged-user`, provisioned by the setup step above. This leg
+          # exercises the exact cell invocation, so it must not diverge on the
+          # one field the lockstep pin exists to hold.
+          safety-strategy: unprivileged-user
+          codex-user: codexcell
           # The cells' own block: the permission profile named here is declared
-          # in the `$CODEX_HOME/config.toml` the MCP step above wrote, so this
-          # leg exercises the profile-selection path the cells depend on — the
-          # layer the bare-CLI engine smoke never traverses.
+          # in the config the MCP step above wrote, so this leg exercises the
+          # profile-selection path the cells depend on — the layer the bare-CLI
+          # engine smoke never traverses.
           permission-profile: fedcourts-cell
           codex-version: "0.144.1"
           codex-args: '["-c","web_search=live"]'
@@ -2041,6 +2237,18 @@ jobs:
       # execution file, codex's session rollout, gemini's JSON result — and an
       # absent one fails here whatever the reason. Evidence of completion only:
       # nothing reads what the model said.
+      # codex ran as codexcell, so its rollout landed under codexcell's derived
+      # `~/.codex`. Surface it into the workspace `.codex/sessions` the assertion
+      # below reads. Gated exactly like the other engine-actions-smoke steps (no
+      # `always()`: a boot probe that failed to start fails the leg at the
+      # assertion, and there is no output subtree to return).
+      - name: Return the codex account's work to the runner
+        if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'codex' }}
+        uses: ./.github/actions/codex-user-teardown
+        with:
+          codex-user: codexcell
+          session-dest: .codex/sessions
+
       - name: Assert the invocation was accepted and completed
         if: ${{ matrix.scenario == 'engine-actions-smoke' }}
         env:
@@ -2568,3 +2776,1671 @@ jobs:
             echo "- rerun: identical branch trees and plan; PRs updated in place, none duplicated"
           } >> "$GITHUB_STEP_SUMMARY"
 
+
+  # --- qp-labeler-smoke: the labeling lane's invocation block, cents --------
+
+  # The qp-topic scenario exercises the labeling lane's post-label half
+  # token-free, and engine-actions-smoke sends each *cell* engine its own
+  # invocation block — but the labeler's block is a fourth one nothing sends:
+  # a pinned CLI handed to the action, a bubblewrap/socat sandbox with the
+  # subprocess env scrub, the hardened default mode with its explicit
+  # Write/Edit grant in a checkout that is read-only
+  # by contract, and a single --add-dir grant. A refusal raised anywhere in
+  # that stack fires before or between model calls, so the token-free
+  # scenario passes it unseen and it surfaces first in a paid labeling
+  # dispatch. This job sends the labeler's own block a five-row synthetic
+  # extract — invented question texts, so no stored petition text reaches
+  # the runner, the log, or the engine — and asserts the declared output
+  # exists, parses against the vocabulary, and joins back to the extract row
+  # for row. Cents of spend at the labeler's default tier.
+  #
+  # Its own job rather than a matrix leg, because the credential shape is
+  # part of the posture under test: the labeling job holds no cloud
+  # credential and no id-token — stricter than a cell — while the matrix job
+  # grants id-token for its corpus legs. Kept in lockstep with
+  # run-analytics's qp-topic-label job by two workflow-shape tests: one pins
+  # the action pin, the settings, the argument block (the model line aside),
+  # the IO paths, the prompt contract, and both jobs' credential posture; the
+  # CLI pin is held equal across workflows by another — or the smoke answers
+  # a question about a configuration the paid lane does not run. The
+  # workflow-level concurrency group covers this job, so a re-dispatch
+  # cancels a smoke mid-run — deliberate, unlike the paid labeler's
+  # never-cancel group: a cancelled smoke costs cents and a re-dispatch,
+  # never an artifact.
+  qp-labeler-smoke:
+    if: ${{ inputs.scenario == 'qp-labeler-smoke' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Branch-resolved with an explicit override; keep this expression
+    # identical to `run-name:`'s, the plan job's and the scenario job's, and
+    # see the deploy-environment input for what resolves. What the
+    # environment supplies here is exactly one secret: the engine key the
+    # labeler spends — staging's own key on a staging-bound rehearsal.
+    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # data/qp-topics membership encodes cert outcomes (docs/qp-topic.md),
+      # so every job that starts an agent in a checkout deletes it first. A
+      # tracked deletion only: the pristine assertion below restores it from
+      # the commit before it reads the porcelain.
+      - name: Remove the labeling-measurement oracle from the agent's tree
+        run: rm -rf data/qp-topics
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The labeling job's own tripwire, verbatim: this job assumes no role
+      # and grants no id-token, and the assertion keeps that true even if a
+      # future edit adds a credentialed step above the agent.
+      - name: Assert no cloud credential in the agent env
+        run: |
+          set -euo pipefail
+          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables leaked into the job env"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the agent env"
+            exit 1
+          fi
+          echo "no cloud credential in the agent env"
+
+      # Five invented questions-presented texts in the exact extract shape
+      # `qp-corpus` hands the paid lane, staged in the one directory the
+      # labeler is granted. Synthetic by design, and the smoke's subject is
+      # the invocation posture, not the labels — no assertion reads which
+      # label the model picked, only that every row came back in vocabulary
+      # with its keys intact, so the leg stays green across model behaviour
+      # it has no business gating on.
+      - name: Seed a synthetic labeling extract
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/qp-io"
+          jq -n '[
+            {case_id: "scotus/9999000001", docket_number: "99-9001",
+             text: "Whether a federal agency may assess a civil tax penalty without prior written supervisory approval."},
+            {case_id: "scotus/9999000002", docket_number: "99-9002",
+             text: "Whether a noncitizen'"'"'s misdemeanor possession conviction is a removable offense under the immigration laws."},
+            {case_id: "scotus/9999000003", docket_number: "99-9003",
+             text: "Whether a municipal ordinance restricting door-to-door religious canvassing violates the Free Exercise Clause."},
+            {case_id: "scotus/9999000004", docket_number: "99-9004",
+             text: "Whether the district court erred in applying a sentencing enhancement for obstruction of justice."},
+            {case_id: "scotus/9999000005", docket_number: "99-9005",
+             text: "Whether the fair-use defense to copyright infringement presents a question of law reviewed de novo."}
+          ]' > "$RUNNER_TEMP/qp-io/qp-texts.json"
+
+      # The labeler's sandbox dependencies, its userns relaxation, and the
+      # pinned CLI, each on run-analytics's own terms (its qp-topic-label job
+      # states the full rationale per step; the CLI pin is held equal across
+      # workflows by a workflow-shape test).
+      - name: Install bubblewrap and socat for the labeler's sandbox
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap socat
+
+      - name: Install the pinned Claude Code CLI for the labeler
+        id: claude-cli
+        timeout-minutes: 5
+        # zizmor: ignore[adhoc-packages] — top-level exact-version pin,
+        # transitive scripts disabled, and a credential-free step environment
+        # are the practical controls for a global CLI; a lockfile is not
+        # expressible for `npm i -g`.
+        run: |
+          set -euo pipefail
+          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.259
+          node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs"
+          claude --version
+          path=$(command -v claude)
+          test -n "$path"
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      - name: Enable unprivileged user namespaces for the subprocess scrub
+        run: |
+          set -euo pipefail
+          if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          if sysctl -n kernel.unprivileged_userns_clone >/dev/null 2>&1; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+
+      # The paid lane's invocation block, verbatim but for the one line the
+      # lockstep test exempts: the model is pinned to the lane's dispatch
+      # default rather than read from an input this workflow does not carry.
+      # The github_token is the job's own, capped at `contents: read` — the
+      # paid lane's choice, for the paid lane's stated reason.
+      - name: Run the labeler's invocation block over the synthetic extract
+        id: smoke_label
+        # 15 covers the block's fixed preamble — reading the labeling prompt
+        # and AGENTS.md — plus five short rows with margin; the job cap at 25
+        # holds the setup steps beside it.
+        timeout-minutes: 15
+        uses: anthropics/claude-code-action@9c5ddab2e6d17b83ea679153b31f1d5f023cf636 # v1.0.217
+        env:
+          QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
+          LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          path_to_claude_code_executable: ${{ steps.claude-cli.outputs.path }}
+          github_token: ${{ github.token }}
+          settings: |
+            {
+              "env": {
+                "ENABLE_PROMPT_CACHING_1H": "1",
+                "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "1"
+              }
+            }
+          prompt: |
+            Read .github/prompts/qp-topic-label.md and AGENTS.md, then label every
+            questions-presented text in the extract:
+
+            QP_TEXTS=${{ runner.temp }}/qp-io/qp-texts.json
+            LABELS_OUT=${{ runner.temp }}/qp-io/qp-labels.jsonl
+            LABELER=claude-code/claude-haiku-4-5-20251001
+
+            These values are authoritative; the same identifiers are exported as
+            environment variables on engines that pass them through, but if
+            `$QP_TEXTS` expands empty in your shell, use the literals above.
+            Write only $LABELS_OUT. Do not commit, push, or open a PR — the
+            workflow handles git. You run headless with no interactive input; if
+            you are blocked, say so plainly in your final message and stop — do
+            not wait for a reply.
+          claude_args: |
+            --model claude-haiku-4-5-20251001
+            --max-turns 120
+            --permission-mode default
+            --allowedTools Write,Edit
+            --add-dir ${{ runner.temp }}/qp-io
+
+      # The read-only-tree half of the smoke's verdict, on every outcome the
+      # runner survives. Unlike the paid lane's assertion this guards no
+      # measurement of record — nothing publishes from this job and no gate
+      # reads the checkout after it — and it is deliberately *stricter* than
+      # the paid lane's tracked-diff pair: a whole-tree porcelain, because
+      # this leg exists to notice any write outside the grant, and a false
+      # red here costs cents and a re-dispatch rather than a paid batch.
+      # PATH pinned to root-owned directories: `git` comes off PATH, and
+      # `$GITHUB_PATH` written by the agent's subprocesses prepends ahead of
+      # everything for every later step.
+      - name: Restore the oracle path and assert the tree is pristine
+        if: ${{ !cancelled() }}
+        env:
+          PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        run: |
+          set -euo pipefail
+          git checkout -- data/qp-topics
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::the labeler modified the checkout; its one granted write is the qp-io directory"
+            git status --porcelain
+            exit 1
+          fi
+          echo "work tree pristine"
+
+      # Runs this checkout's Python after the agent ran in it — acceptable
+      # here where the paid lane builds a fresh-checkout scanner instead,
+      # for one reason alone: nothing publishes, so the verdict gates only
+      # this leg's green and a tampered checkout can buy nothing but a
+      # self-attested pass on a smoke.
+      - name: Assert the declared output is complete and in vocabulary
+        env:
+          QP_IO: ${{ runner.temp }}/qp-io
+        run: |
+          set -euo pipefail
+          uv run python - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import os
+          from pathlib import Path
+
+          from fedcourtsai.pipeline.qp_topics import read_label_lines, read_texts
+
+          io_dir = Path(os.environ["QP_IO"])
+          texts = read_texts(io_dir / "qp-texts.json")
+          entries = read_label_lines(io_dir / "qp-labels.jsonl")
+          labeled = {entry.case_id: entry for entry in entries}
+          missing = sorted(set(texts) - set(labeled))
+          extra = sorted(set(labeled) - set(texts))
+          assert not missing and not extra, f"row mismatch: missing={missing} extra={extra}"
+          for entry in entries:
+              assert entry.docket_number == texts[entry.case_id].docket_number, (
+                  f"{entry.case_id}: docket number not copied back intact"
+              )
+          print(
+              f"qp-labeler-smoke: {len(entries)} rows labeled under the production "
+              "posture — all in vocabulary, keys intact"
+          )
+          PY
+
+      # The action's own log carries turn progress but not what was denied;
+      # the execution file does, and this leg exists to make a denial
+      # diagnosable from one staging dispatch — on any surviving outcome, a
+      # clean run's zero line included. Digested into the job log rather
+      # than the step summary, and the replayed strings are agent-adjacent
+      # bytes, so three controls apply: the extract is synthetic (no stored
+      # petition text exists on this runner), GitHub masks the environment's
+      # engine key in the log, and every `::` is split before printing —
+      # the runner trims leading whitespace before matching workflow
+      # commands, so the indent below is readability, not the control.
+      # Bounded both ways: a line cap on the output and a step cap on the
+      # clock, the paid lane's own bound for its post-agent readers.
+      - name: Digest error tool results from the execution file
+        if: ${{ !cancelled() && steps.smoke_label.outputs.execution_file != '' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          EXECUTION_FILE: ${{ steps.smoke_label.outputs.execution_file }}
+        run: |
+          set -euo pipefail
+          if [ ! -r "$EXECUTION_FILE" ]; then
+            echo "no readable execution file to digest"
+            exit 0
+          fi
+          digest=$(jq -r '
+            [ .. | objects | select(.type? == "tool_result" and .is_error == true)
+              | (.content | if type == "array" then (map(.text? // "") | join(" ")) else tostring end) ]
+            | "error tool results: \(length)",
+              (group_by(.[0:120])[] | "x\(length): \(.[0][0:200])")
+          ' "$EXECUTION_FILE" | head -n 50)
+          printf '%s\n' "$digest" | sed 's/::/: :/g; s/^/  /'
+
+  # --- runner-idle-control: does an idle runner survive the death window? --
+
+  # Every death in the runner-death class sits 58-64 minutes into a job whose
+  # codex engine step is mid-run, and no job on this repository idles that
+  # long without one — so "the workload kills the runner" and "these runners
+  # die at the hour regardless" have never been separated. This job is the
+  # control: bind the environment, arm the same off-runner record the repro
+  # leg arms (the watchdog script verbatim, beating on the same cadence, with
+  # no sentinel to watch), then idle seventy minutes doing nothing at all. A
+  # runner that survives to a clean disarm localizes the class to the codex
+  # workload; one that dies in the window with no engine anywhere near it
+  # reframes the whole investigation at the infrastructure. Token-free: no
+  # agent, no corpus, no engine key — the environment supplies only the
+  # telemetry App credentials, and the record row is the run's one write.
+  runner-idle-control:
+    if: ${{ inputs.scenario == 'runner-idle-control' }}
+    runs-on: ubuntu-latest
+    # Setup (~3) + an 8-minute pre-arm wait + the 3720 s idle + the disarm
+    # tail, with room. The wait is experimental design, not padding: the
+    # telemetry token lives one hour from the mint, and the death window
+    # sits at minutes 58-64 of the JOB — minting at minute ~11 puts the
+    # token's whole hour over the window, so a beat cadence of 120 s bounds
+    # a death timestamp to two minutes everywhere it matters, instead of
+    # the token dying silently inside the window it exists to observe. The
+    # watchdog deadline sits at 4500 s from its launch so it never fires on
+    # a healthy run — the idle ends ~13 minutes first.
+    timeout-minutes: 85
+    # Branch-resolved with an explicit override; keep this expression
+    # identical to `run-name:`'s and the other binding jobs', and see the
+    # deploy-environment input for what resolves.
+    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      # See the job comment: the mint's hour must bracket the 58-64-minute
+      # window, so the clock spends its first stretch here, before any
+      # credential exists.
+      - name: Wait out the token-alignment margin
+        timeout-minutes: 10
+        run: sleep 480
+
+      # The repro leg's mint, on its terms: per-environment credentials,
+      # comment-only, fail-soft — a control with no record still answers the
+      # survival question through its own job conclusion, just less legibly.
+      - name: Mint the codex watchdog telemetry token
+        id: watchdog-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ github.ref_name == 'main' && vars.DEV_APP_CLIENT_ID || vars.STAGING_APP_CLIENT_ID }}
+          private-key: ${{ github.ref_name == 'main' && secrets.DEV_APP_PRIVATE_KEY || secrets.STAGING_APP_PRIVATE_KEY }}
+          permission-issues: write
+
+      - name: Arm the watchdog over nothing
+        id: arm
+        env:
+          WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
+          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          WATCHDOG_CHECKIN_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
+          WATCHDOG_DEADLINE_S: "4500"
+          WATCHDOG_HEARTBEAT_S: "120"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # The record's identity row: synthetic on purpose, and spelled so a
+          # reader of the telemetry issue can never mistake it for a cell.
+          RUN_ID: idle-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$WATCHDOG_DIR"
+          checkin_url=""
+          checkin_base=""
+          if [ -n "${GH_TOKEN:-}" ]; then
+            checkin_out="$(timeout 90 uv run fedcourts watchdog-checkin \
+              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
+              --court scotus --docket idle-control --event-id evt-idle-control \
+              --actor runner-idle-control --deadline-s "$WATCHDOG_DEADLINE_S" \
+              --run-url "$RUN_URL" --channel "$TELEMETRY_CHANNEL" || true)"
+            if [ -n "$checkin_out" ]; then
+              checkin_url="${checkin_out%%$'\n'*}"
+              checkin_base="${checkin_out#*$'\n'}"
+            fi
+          fi
+          # The repro leg's URL-shape gate, verbatim: the token is PATCHed to
+          # this URL for the whole deadline, so only this repository's own
+          # comments endpoint may hold it.
+          case "$checkin_url" in
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*) ;;
+            *)
+              if [ -n "$checkin_url" ]; then
+                echo "::warning::idle-control check-in URL was not this repository's; dropped"
+              fi
+              checkin_url=""
+              checkin_base=""
+              ;;
+          esac
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::telemetry mint yielded no token (mint failed, or a dispatch bound to neither environment); the control runs record-less"
+          elif [ -z "$checkin_url" ]; then
+            echo "::warning::idle control armed with no off-runner record"
+          fi
+          if [ -n "$checkin_url" ]; then
+            echo "watchdog telemetry armed (deadline ${WATCHDOG_DEADLINE_S}s): ${checkin_url}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "watchdog telemetry NOT armed — mint or check-in failed; the control's only record is its job conclusion" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          cp scripts/engine-watchdog.sh "$RUNNER_TEMP/engine-watchdog.sh"
+          # No sentinel and no engine: the watchdog runs its deadline loop and
+          # beats, which is the whole point — the beats are the clock a dead
+          # runner cannot erase. GH_TOKEN cleared as on the repro leg.
+          GH_TOKEN='' WATCHDOG_CHECKIN_URL="$checkin_url" \
+            WATCHDOG_CHECKIN_BASE="$checkin_base" \
+            WATCHDOG_OUTPUT_DIR="" \
+            WATCHDOG_SENTINEL_PATHS="" \
+            nohup bash "$RUNNER_TEMP/engine-watchdog.sh" \
+            > "$WATCHDOG_DIR/watchdog.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/engine-watchdog.pid"
+
+      # The experiment: sixty-two further idle minutes — minute ~11 through
+      # ~73 of the job, spanning the whole 58-64 window with margin on both
+      # sides and inside the token's hour throughout — under the watchdog's
+      # 75-minutes-from-launch deadline so a healthy run is never fired on.
+      - name: Idle across the death window
+        id: idle
+        timeout-minutes: 70
+        run: sleep 3720
+
+      # `always()`, as the repro disarm: the workflow-level group cancels a
+      # superseded dispatch, and a cancelled control must still close its
+      # row rather than leave it armed forever. Health is derived from the
+      # watchdog's own markers and the idle step's conclusion — the record
+      # and the summary must never claim survival the run did not have.
+      - name: Disarm and report
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
+          RUN_ID: idle-${{ github.run_id }}
+          IDLE_CONCLUSION: ${{ steps.idle.conclusion }}
+          WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
+        run: |
+          set -euo pipefail
+          # The repro disarm's ownership guard, verbatim: this pid is over an
+          # hour old, which is a long reuse window to signal blind.
+          pid_file="$RUNNER_TEMP/engine-watchdog.pid"
+          if [ -f "$pid_file" ]; then
+            pid="$(cat "$pid_file")"
+            if [[ "$pid" =~ ^[0-9]+$ ]] && grep -qa engine-watchdog.sh "/proc/$pid/cmdline" 2>/dev/null; then
+              kill "$pid" 2>/dev/null || true
+            fi
+            rm -f "$pid_file"
+          fi
+          healthy_flag=--healthy
+          if [ -f "$WATCHDOG_DIR/REAPED" ] || [ -f "$WATCHDOG_DIR/FIRED" ] \
+            || [ -f "$WATCHDOG_DIR/STOOD_DOWN" ] || [ -f "$WATCHDOG_DIR/SUSPENDED" ] \
+            || [ "$IDLE_CONCLUSION" != "success" ]; then
+            healthy_flag=--not-healthy
+          fi
+          if [ -n "${GH_TOKEN:-}" ]; then
+            timeout 90 uv run fedcourts watchdog-checkin --disarm "$healthy_flag" \
+              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
+              --court scotus --docket idle-control --event-id evt-idle-control \
+              --actor runner-idle-control --conclusion "${IDLE_CONCLUSION:-unknown}" \
+              --channel "$TELEMETRY_CHANNEL" > /dev/null || true
+          fi
+          if [ "$healthy_flag" = "--healthy" ]; then
+            echo "runner survived the idle span across the 58-64-minute death window" \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "idle control did NOT complete cleanly (idle=${IDLE_CONCLUSION:-unknown}; see the watchdog markers) — read the telemetry row and the log artifact" \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # The local half of the evidence — the per-beat resource trajectory the
+      # watchdog logged, which outlives the token's hour and survives every
+      # outcome except the runner death itself. Phase lines and kernel-owned
+      # resource figures only, so no disclosure window applies.
+      - name: Upload the watchdog log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: idle-control-watchdog-log
+          path: ${{ runner.temp }}/engine-watchdog/watchdog.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  # --- codex-freeze-probe: the watchdog's beat trail across a codex turn ----
+
+  # The idle control's sibling on the other side of the same question. That
+  # leg asks what an idle runner does across the death window; this one asks
+  # what the *watchdog* does across a codex turn — and asks it on a runner
+  # that survives to answer.
+  #
+  # The obstacle everywhere else is that every direct witness dies with the
+  # runner: the watchdog's own log, its markers, and its escalation captures
+  # are all runner-local, so the state of a detached watchdog during a codex
+  # turn has only ever been read off the off-runner record's silence. A codex
+  # turn that EXITS CLEANLY keeps its runner. So the instrument is a short,
+  # trivial turn — the boot probe's own one-word prompt, under the cells' own
+  # invocation block — with the watchdog armed around it and idle margins on
+  # both sides: two clean beats before the sandbox starts, three minutes of
+  # room for beats after it exits.
+  #
+  # Every outcome is a finding, and the leg passes on all of them — its
+  # verdict is a measurement, not a gate:
+  #
+  #   * beats stop when the sandbox starts and resume after codex exits — the
+  #     watchdog is suspended for the turn rather than dead, observed
+  #     directly instead of inferred from silence;
+  #   * beats never break — suspension does not happen on a turn this short,
+  #     and the silence on full-length cells needs another cause;
+  #   * beats stop and never return — a dead watchdog, not a frozen one,
+  #     which is the reading the trailing-silence figure separates out.
+  #
+  # The off-runner record is the primary evidence (it is what outlives a
+  # runner at all); the step summary states the derived verdict, read back
+  # from that record.
+  #
+  # The detached watchdog holds its telemetry token in its own process env
+  # for the whole of the turn, on the same runner and uid its codex turn runs
+  # under. The production cells run codex as a SEPARATE unprivileged account,
+  # so on a cell the agent's own uid cannot read that env at all; this probe's
+  # base and nosudo turns run AS the runner user, so their agent shell CAN — a
+  # wider read than a cell's, bounded rather than matched. What bounds it: the
+  # runner is a throwaway, dispatch-only one that assumes no role and reads no
+  # corpus, the prompt is a single word, and the token is a comment-only
+  # issues:write mint — so the read reaches nothing the model has not already
+  # conceded for that token. The three turns differ in privilege: the base turn
+  # drops the runner's sudo (`drop-sudo`), the nosudo member keeps it
+  # (`read-only`, runner user), and the unprivuser member keeps the runner's
+  # sudo but runs codex as a SEPARATE account with no sudo and no groups — the
+  # cells' own posture — whose separate uid cannot read the watchdog env even
+  # on this runner.
+  #
+  # One job, six scenario values, one axis varied at a time — the steps are
+  # shared and the per-step `if:` conditions below are what separate them:
+  #
+  #   * `codex-freeze-probe` — armed, with the post-exit idle margin. The
+  #     shape described above.
+  #   * `codex-freeze-probe-nosudo` — the base shape exactly, armed and with
+  #     the same margins, differing in ONE field: the codex turn runs
+  #     `safety-strategy: read-only` instead of `drop-sudo`. It targets the
+  #     cause the family isolates — `drop-sudo`'s irreversible runner-user
+  #     account and socket mutation, made mid-job rather than as the job's last
+  #     step, which wedges the runner a few minutes after the sandbox tears
+  #     down. But `read-only` does not compose with a permission profile: the
+  #     action refuses the pair because that strategy forces the legacy
+  #     read-only sandbox, so this member's turn starts no real session and the
+  #     sandbox-started assertion voids the run. It is kept as the negative
+  #     control that pins that refusal; the real-session version of the
+  #     isolation is the unprivuser member below. Its step is one of three held
+  #     OUT of the cross-surface codex lockstep pin — with the base turn (which
+  #     keeps `drop-sudo`) and the unprivuser turn — while the real
+  #     cell/smoke/repro members stay in it.
+  #   * `codex-freeze-probe-unprivuser` — the real-session version of the
+  #     isolation the nosudo member cannot run. Armed and with the same
+  #     margins, its codex turn runs `safety-strategy: unprivileged-user`
+  #     with `codex-user: codexcell`, so codex builds and tears down its
+  #     real profile sandbox — the lifecycle the production cells run — but
+  #     as a SEPARATE UNIX account, leaving the runner user's sudo, sockets
+  #     and groups wholly intact. That is the one axis it varies: a wedge
+  #     that still follows the turn implicates the sandbox teardown, a clean
+  #     run implicates the account drop. It sets no `CODEX_HOME` (the
+  #     `sudo -u` hop drops it, so the action derives codexcell's own
+  #     `~/.codex`); a setup step provisions the user and copies the profile
+  #     config there, and a post-turn step relocates the rollout so the one
+  #     shared sandbox-started assertion reads it. Its turn is one of three
+  #     steps held OUT of the cross-surface lockstep pin (it varies
+  #     `safety-strategy` and adds `codex-user`); the runner keeps its sudo,
+  #     and no secret reaches codexcell because the model key stays behind
+  #     the action's proxy.
+  #   * `codex-freeze-probe-unwatched` — the same turn and the same margins
+  #     with the mint, the arm and the disarm all skipped, so no telemetry
+  #     call of any kind runs and no watchdog process exists. It gives up the
+  #     beat trail (there is none) and buys the one thing the trail cannot
+  #     say: whether the watchdog is the pathogen or another victim. The
+  #     verdict is carried by the job itself — see the step-progress stamp.
+  #   * `codex-freeze-probe-smokeconfig` — armed, with the post-exit margin
+  #     dropped to nothing, which is the suite's own codex actions-smoke leg
+  #     shape after its turn: assert and end. That leg's tail proceeds green,
+  #     and this member takes the same after-turn shape while running the
+  #     family's base `drop-sudo` turn — so what it varies from the base probe
+  #     is idle time, and it takes the half that follows the sandbox. It does
+  #     NOT share the actions-smoke leg's invocation: that leg runs the cells'
+  #     `unprivileged-user` block, while this member keeps `drop-sudo`. The two-minute
+  #     baseline idle BEFORE the turn stays, because the beats it buys are
+  #     what make a later gap a change rather than a watchdog that never
+  #     beat; so this member is the smoke's shape after the turn, not the
+  #     smoke leg reproduced end to end. The beat trail is correspondingly
+  #     short here, and reading the trailing-silence figure off it is
+  #     meaningless: its verdict, too, is the step-progress stamp.
+  #   * `codex-freeze-probe-autopsy` — unwatched, and the only member that
+  #     asks WHAT the wedge is rather than WHETHER it happens. The other
+  #     five read the wedge from outside, off the run page; this one reads
+  #     the machine from inside it, in the seconds the sandbox's residue is
+  #     still there to read. It works because a step log streams as the step
+  #     runs: the wedge does not retract what already left the runner, it
+  #     only stops what would have come next. So the diagnostics are many
+  #     SHORT steps rather than one long one — each flushes its own log
+  #     before the next begins — and every command inside them is
+  #     `timeout`-bounded and fail-soft, because a diagnostic that fails the
+  #     leg destroys the observation it was there to make.
+  #
+  #     How to read one of its runs, top to bottom on the run page:
+  #       - every diagnostic step whose log is THERE ran before the wedge,
+  #         and what it printed is the pre-wedge state of the machine;
+  #       - the ticking clock's LAST printed second is the wedge itself —
+  #         the loop prints a stamp, sleeps fifteen seconds, prints again,
+  #         and the sleep that never returns is where the log stops;
+  #       - a step that never STARTED is post-wedge, and its absence is a
+  #         reading rather than a gap in the instrument.
+  #     The escape caveat, which is the whole reason the clock is there: on
+  #     a runner image with no fuse the member simply completes, green, in
+  #     about twelve minutes, the clock runs out its twelve ticks, and the
+  #     diagnostics read as a clean baseline. A green autopsy says the
+  #     machine it ran on does not wedge — not that the dump found nothing.
+  #
+  #     It prints system state and never secrets: no environment dump, no
+  #     process environs, and no workspace, config or credential file — the
+  #     only files it opens are kernel pseudo-files and its own kernel-log
+  #     capture. Argv is in scope (the watchdog's own escalation capture
+  #     takes the same), trimmed to 200 columns and token-redacted because
+  #     this one sweeps the whole machine rather than one uid.
+  #
+  # SPENDS MODEL TOKENS: one codex boot probe, the same order as one canary
+  # leg, whichever member runs. Dispatch-only, like the repro family and the
+  # idle control — no whole-suite selection reaches any of them, and they stay
+  # out of the promotion gate's required set, because a probe whose result is
+  # a measurement is never freshness evidence.
+  codex-freeze-probe:
+    # A prefix test, not three equalities: the family shares this job, and
+    # `startsWith` against the empty `inputs` context a scheduled run carries
+    # is plain false — so the canary is excluded by shape, with no clause of
+    # its own to keep in step.
+    if: ${{ startsWith(inputs.scenario, 'codex-freeze-probe') }}
+    runs-on: ubuntu-latest
+    # The cap is sized off the WORST BOUNDED case, not the expected one,
+    # because on this job a cap cancellation is not an accident — it is the
+    # wedge's signature, and any healthy run that could reach it would forge
+    # that signature. Five members sum their bounded steps to at most 14
+    # (3 + 7 + 4, the last of them 0 on the member that drops the post-exit
+    # margin); the autopsy member reaches 20 (3 + 7 + 6 for the clock + 4)
+    # and adds a diagnostic burst that carries per-COMMAND timeouts rather
+    # than step caps, worth about 2.5 minutes if every one of them is reached.
+    # Setup, the sidecar, the unprivuser member's two short uncapped
+    # provisioning/rollout steps, and the disarm's own bounded calls add
+    # about 7 more.
+    # So 35 is the cap with room above the worst case rather than the cap the
+    # arithmetic just fits under; the healthy autopsy path is nearer twelve
+    # minutes, and the other five finish inside fifteen.
+    #
+    # One case the cancellation cannot distinguish on its own: a one-word turn
+    # that somehow spends its whole seven-minute bound is pathological but not
+    # a wedge, so an autopsy cancelled at the cap whose TURN STEP ran long is
+    # not a wedge finding — read the clock's log, which says which happened.
+    # The step-progress stamp carries no bound of its own on purpose: a step
+    # timeout there would turn a wedge into a failed step, and the reading
+    # that stamp is written for is the job-cap cancellation. Far
+    # below the 58-64-minute death window on purpose: the probe's whole
+    # premise is a runner that lives long enough to publish its record, so
+    # the experiment must finish well before the window it is not testing.
+    timeout-minutes: 35
+    # Branch-resolved with an explicit override; keep this expression
+    # identical to `run-name:`'s and the other binding jobs', and see the
+    # deploy-environment input for what resolves.
+    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The scenario job's step, verbatim and for its reason: the codex
+      # sandbox is bubblewrap, and Ubuntu 24.04 runners restrict the
+      # unprivileged user namespaces it needs. Before the turn, because
+      # `safety-strategy: drop-sudo` takes sudo away for the rest of the job.
+      #
+      # It is also the step that makes this probe a probe: the sandbox
+      # startup is the event under test, so a leg that could not start one
+      # would measure nothing.
+      - name: Enable unprivileged user namespaces for the codex sandbox
+        run: |
+          set -euo pipefail
+          if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          if sysctl -n kernel.unprivileged_userns_clone >/dev/null 2>&1; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+
+      # The autopsy's kernel-log tap, opened HERE and nowhere later for one
+      # reason: the codex step below runs `safety-strategy: drop-sudo`, which
+      # takes sudo away for the rest of the job, so a root-only read after the
+      # turn is not available at all — and the kernel log is where a freezer
+      # message, an OOM kill or an AppArmor denial would say what the wedge
+      # is. A detached `dmesg --follow` started while sudo still exists writes
+      # each message into a runner-local file as it is emitted, across the
+      # turn and on into the fuse window, and every later step reads that file
+      # with no privilege. The kernel's own `dmesg_restrict` knob is left
+      # exactly as the image set it.
+      #
+      # The file sits under `RUNNER_TEMP`, which the sandboxed turn can reach
+      # — the same path and the same terms as the watchdog's own log on the
+      # armed members. What it holds is kernel-owned message text: resource
+      # lines, denials, namespace and cgroup events. No credential is written
+      # here, and on this member none exists on the runner to begin with. Two
+      # consequences worth stating rather than inferring: it hands the turn a
+      # ring-buffer view it could not otherwise take, and the turn could
+      # append to or truncate it — this dump is read as evidence because the
+      # turn is a fixed one-word probe, not because the file is
+      # tamper-evident.
+      #
+      # The baseline dump in the same step is the "before" half of every
+      # figure the post-turn steps take: a freezer survey, a namespace list
+      # and a ruleset size read when no sandbox has yet existed. Read the
+      # post-turn dumps against it — a state that was already there before
+      # codex started is the image's, not the sandbox's residue.
+      - name: "Autopsy: open the kernel-log tap and take the pre-turn baseline"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          # No `-e`: a diagnostic that fails the leg destroys the observation
+          # it exists to make. Every command is bounded and fail-soft instead.
+          set -uo pipefail
+          log="${RUNNER_TEMP:-/tmp}/autopsy-dmesg.log"
+          : > "$log"
+          # `stdbuf -oL` is not decoration: stdout here is a FILE, so libc
+          # full-buffers it, and the kernel lines that would name the wedge
+          # are exactly the ones that would sit unflushed in a 4 KiB buffer
+          # when the runner stops. Line buffering makes the one channel that
+          # outlives the wedge line-atomic. It runs under `sudo` rather than
+          # around it, because sudo resets the environment `stdbuf` works
+          # through.
+          # stderr goes to its own sink, so the file every later step presents
+          # as "the kernel log" holds kernel text and nothing else.
+          # shellcheck disable=SC2024  # the redirect is the runner user's on
+          # purpose: root reads the ring buffer, the runner owns the file, and
+          # every later step reads it after `drop-sudo` has taken sudo away.
+          sudo stdbuf -oL nohup dmesg -T --follow >> "$log" 2>> "$log.err" &
+          echo "kernel-log tap pid $!"
+          echo "== pre-turn baseline $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          echo "-- kernel log, ring-buffer tail before the turn --"
+          timeout 10 sudo dmesg -T 2>&1 | tail -20 || true
+          # Captured first, printed second: `pipefail` plus a `find` that
+          # exits non-zero on one unreadable subtree would otherwise print the
+          # frozen paths AND "(none frozen)" after them, contradicting itself
+          # on the most decisive signal in the burst.
+          echo "-- cgroups reporting a non-zero freeze state --"
+          frozen=$(timeout 10 find /sys/fs/cgroup -name cgroup.freeze \
+            -exec grep -H . {} + 2>/dev/null | grep -v ':0$' || true)
+          printf '%s\n' "${frozen:-(none frozen)}"
+          echo "-- network namespaces --"
+          timeout 5 ip netns list || true
+          echo "-- packet filter, rule count only --"
+          timeout 10 sudo nft list ruleset 2>&1 | wc -l || true
+          echo "-- process count, whole machine --"
+          timeout 5 ps -e --no-headers 2>/dev/null | wc -l || true
+
+      # The repro leg's mint, on its terms: per-environment credentials,
+      # comment-only, fail-soft. A probe with no record still runs, but it
+      # measures nothing — the beat trail IS the observation — so the arm
+      # step says so loudly rather than reporting a silent null result.
+      # Skipped whole on the unwatched member, with the arm and the disarm
+      # below it: "no watchdog" has to mean no telemetry call of any kind, or
+      # the variant would still be exercising the mint path it exists to
+      # remove. A skipped step's outputs are empty, so nothing downstream
+      # needs a second condition to stay safe — but each carries one anyway,
+      # because a step that ran and found an empty token would warn about a
+      # failure that did not happen.
+      #
+      # This is the step that produces a credential, so the armed members are
+      # NAMED rather than excluded: a deny-list would arm a fourth member the
+      # day someone adds one, which is the wrong default for a token. The
+      # unwatched member is absent from the list, and so is anything not yet
+      # written.
+      #
+      # The `workflow_dispatch` conjunct is the fail-closed shape this
+      # repository requires of every input-gated step on a workflow that also
+      # has a schedule: a scheduled run carries an empty `inputs` context.
+      # Doubly redundant with an affirmative list and the job's own gate —
+      # and stated anyway, because the hazard is in the shape rather than in
+      # this job's luck.
+      - name: Mint the codex watchdog telemetry token
+        id: watchdog-token
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig", "codex-freeze-probe-unprivuser"]'), inputs.scenario) }}
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ github.ref_name == 'main' && vars.DEV_APP_CLIENT_ID || vars.STAGING_APP_CLIENT_ID }}
+          private-key: ${{ github.ref_name == 'main' && secrets.DEV_APP_PRIVATE_KEY || secrets.STAGING_APP_PRIVATE_KEY }}
+          permission-issues: write
+
+      - name: Arm the watchdog around the turn
+        id: arm
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig", "codex-freeze-probe-unprivuser"]'), inputs.scenario) }}
+        env:
+          WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
+          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          WATCHDOG_CHECKIN_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
+          # A deadline the probe can never reach: the whole experiment is over
+          # inside fifteen minutes, so the watchdog spends every second of it
+          # in the wait loop, which is the state being observed. A deadline
+          # that fired would replace the measurement with an escalation.
+          WATCHDOG_DEADLINE_S: "1800"
+          # Half the idle control's cadence: the codex window is minutes, not
+          # an hour, so the gap this leg is looking for has to be resolvable
+          # at that scale. The poll interval stays the script's own default.
+          WATCHDOG_HEARTBEAT_S: "60"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # The record's identity row: synthetic on purpose, and spelled so a
+          # reader of the telemetry issue can never mistake it for a cell.
+          RUN_ID: freeze-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$WATCHDOG_DIR"
+          checkin_url=""
+          checkin_base=""
+          if [ -n "${GH_TOKEN:-}" ]; then
+            checkin_out="$(timeout 90 uv run fedcourts watchdog-checkin \
+              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
+              --court scotus --docket freeze-probe --event-id evt-freeze-probe \
+              --actor codex-freeze-probe --deadline-s "$WATCHDOG_DEADLINE_S" \
+              --run-url "$RUN_URL" --channel "$TELEMETRY_CHANNEL" || true)"
+            if [ -n "$checkin_out" ]; then
+              checkin_url="${checkin_out%%$'\n'*}"
+              checkin_base="${checkin_out#*$'\n'}"
+            fi
+          fi
+          # The repro leg's URL-shape gate, verbatim: the token is PATCHed to
+          # this URL for the whole deadline, so only this repository's own
+          # comments endpoint may hold it.
+          case "$checkin_url" in
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*) ;;
+            *)
+              if [ -n "$checkin_url" ]; then
+                echo "::warning::freeze-probe check-in URL was not this repository's; dropped"
+              fi
+              checkin_url=""
+              checkin_base=""
+              ;;
+          esac
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::telemetry mint yielded no token (mint failed, or a dispatch bound to neither environment); this probe can measure nothing"
+          elif [ -z "$checkin_url" ]; then
+            echo "::warning::freeze probe armed with no off-runner record; this probe can measure nothing"
+          fi
+          if [ -n "$checkin_url" ]; then
+            echo "watchdog telemetry armed (deadline ${WATCHDOG_DEADLINE_S}s): ${checkin_url}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "watchdog telemetry NOT armed — mint or check-in failed; this probe has no beat trail to read" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # A step output, not a file: the verdict step below reads this URL
+          # back, and the agent holds a shell on the runner's temp path for
+          # the whole of its turn. A step's outputs are closed before that
+          # turn starts, so this hand-over is one the agent cannot reach.
+          printf 'checkin_url=%s\n' "$checkin_url" >> "$GITHUB_OUTPUT"
+          cp scripts/engine-watchdog.sh "$RUNNER_TEMP/engine-watchdog.sh"
+          # No sentinel: the deadline loop and its beats are the whole
+          # instrument, and a reaper would introduce an action the experiment
+          # is not measuring. GH_TOKEN cleared as on the repro leg.
+          GH_TOKEN='' WATCHDOG_CHECKIN_URL="$checkin_url" \
+            WATCHDOG_CHECKIN_BASE="$checkin_base" \
+            WATCHDOG_OUTPUT_DIR="" \
+            WATCHDOG_SENTINEL_PATHS="" \
+            nohup bash "$RUNNER_TEMP/engine-watchdog.sh" \
+            > "$WATCHDOG_DIR/watchdog.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/engine-watchdog.pid"
+
+      # The baseline half of the trail. Two clean beats before the sandbox
+      # exists is what makes a later gap a *change* rather than a watchdog
+      # that never beat at all — the one reading a single post-hoc silence
+      # cannot rule out.
+      - name: Let two clean beats land before the turn
+        # Capped just above the sleep, not generously: a deterministic sleep
+        # has no overrun to allow for, and every minute of slack here is a
+        # minute the job cap's arithmetic has to carry.
+        timeout-minutes: 3
+        run: sleep 120
+
+      # The boot probe's own identity resolution: the model a codex cell
+      # actually runs, read from the package rather than restated here, where
+      # a default bump would leave the probe asking about a model production
+      # stopped using.
+      - name: Resolve the codex cell identity
+        id: cell
+        run: |
+          set -euo pipefail
+          model=$(uv run python -c \
+            'from fedcourtsai.pricing import DEFAULT_MODELS; print(DEFAULT_MODELS["codex"])')
+          # Shape-screen before the append: this value becomes a step output
+          # that rides straight into an action's `with:` block.
+          case "$model" in
+            "" | *[!a-zA-Z0-9.-]*)
+              echo "::error::the resolved model id is not a bare identifier"
+              exit 1
+              ;;
+          esac
+          printf 'model=%s\n' "$model" >> "$GITHUB_OUTPUT"
+
+      # The turn runs under the cells' invocation block, and that block names
+      # a permission profile only `$CODEX_HOME/config.toml` can declare — so
+      # the config comes with it, and the config names the sidecar the cells
+      # name. Launched WITHOUT the CourtListener token, which the composite
+      # supports by design: the probe's prompt uses no tools, so an
+      # unauthenticated server that handshakes and lists tools is the whole
+      # requirement, and no CourtListener token reaches the agent's env or
+      # any config file it can read.
+      - uses: ./.github/actions/mcp-sidecar
+        with:
+          role: predictor
+          actor: codex-baseline
+
+      - name: Configure the turn's MCP retrieval
+        run: |
+          set -euo pipefail
+          mkdir -p .codex
+          uv run fedcourts mcp-config --engine codex \
+            --role predictor --actor codex-baseline \
+            --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
+
+      # The unprivileged-user member's setup, and the step that makes THIS
+      # member a real session rather than a void one. codex runs as
+      # `codex-user: codexcell` — an account THIS step provisions — so the
+      # runner account it would otherwise mutate is left wholly intact, the one
+      # axis this member isolates. Running a genuine profile sandbox as that
+      # user needs four things, and codex-action leaves the caller to arrange
+      # them: a writable `$CODEX_HOME`, the profile config the turn selects, a
+      # working directory the user can reach (the checkout is NOT world-readable
+      # to it), and — because we pre-create `$CODEX_HOME` to place the config —
+      # the server-info file the action would otherwise create for its localhost
+      # proxy. codex-action's `unprivileged-user` contract derives `$CODEX_HOME`
+      # as `<codexcell-home>/.codex` (the `sudo -u` hop cannot carry a
+      # `CODEX_HOME` env across, so the turn sets none), writes its proxy config
+      # there, and runs `codex` as codexcell. The runner KEEPS its sudo
+      # throughout: dropping it is the nosudo member's experiment, not this
+      # one's. codexcell is granted nothing beyond its own home; no secret
+      # reaches it, because the model key never enters its environment or any
+      # file it can read — it stays behind the action's localhost proxy.
+      - name: Provision the unprivileged codex user
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-unprivuser' }}
+        env:
+          CODEX_USER: codexcell
+          CODEX_USER_HOME: /home/codexcell
+        run: |
+          set -euo pipefail
+          # Idempotent, and pinned to a known home so the turn's
+          # `working-directory` and the rollout path below can be literals: `-m`
+          # creates the home, `-d` fixes it, nologin because codex is launched
+          # as `sudo -u ... -- codex`, never as a login.
+          if ! id -u "$CODEX_USER" >/dev/null 2>&1; then
+            sudo useradd -m -d "$CODEX_USER_HOME" -s /usr/sbin/nologin "$CODEX_USER"
+          fi
+          home="$(getent passwd "$CODEX_USER" | cut -d: -f6)"
+          if [ "$home" != "$CODEX_USER_HOME" ]; then
+            echo "::error::codex user home is '$home', not the expected $CODEX_USER_HOME"
+            exit 1
+          fi
+          # `chmod 755` widens the image's default home mode so the runner-side
+          # proxy-config writer can traverse in and read the config back to
+          # merge it. The dirs are codexcell-owned so codex can create its
+          # session rollout under CODEX_HOME, run in a working directory it owns
+          # (the checkout is not world-readable to this user), and write any
+          # tool cache (`~/.cache/uv`, pre-created so a default-cache write lands
+          # inside the home rather than failing outside it). No secret lives
+          # here — the config names a localhost URL only.
+          sudo chmod 755 "$home"
+          sudo install -d -o "$CODEX_USER" -g "$CODEX_USER" -m 755 \
+            "$home/.codex" "$home/work" "$home/.cache" "$home/.cache/uv"
+          # Because we pre-create `$CODEX_HOME`, the action takes its
+          # already-exists early return and skips creating the empty,
+          # world-writable server-info file its localhost proxy (running as the
+          # runner) writes into this codexcell-owned dir. Mirror it: empty, so
+          # the action's non-empty "already running" probe stays false; the
+          # action chowns it root/444 once the proxy has written.
+          sudo install -o root -g root -m 666 /dev/null \
+            "$home/.codex/$GITHUB_RUN_ID.json"
+          # The profile the turn selects is declared in this config; codex reads
+          # it under the CODEX_HOME it derives (codexcell's own ~/.codex), so the
+          # workspace copy is placed there, readable by the runner-side writer
+          # and owned by codexcell.
+          sudo install -o "$CODEX_USER" -g "$CODEX_USER" -m 644 \
+            "$GITHUB_WORKSPACE/.codex/config.toml" "$home/.codex/config.toml"
+
+      # The event under test — the base probe turn. Its block keeps
+      # `safety-strategy: drop-sudo` to REPRODUCE the wedge, so unlike the cells
+      # and the real smoke/repro legs (which run `unprivileged-user`) it is held
+      # OUT of the cross-surface lockstep pin; a probe of the sandbox's effect on
+      # the runner is worth nothing unless it runs the posture under study.
+      # The prompt is the boot probe's, for its reason: what this leg needs
+      # from codex is that it STARTS and EXITS, not that it accomplishes
+      # anything. `continue-on-error` for the same reason — a turn that
+      # started and then failed still had a sandbox, which is the whole
+      # subject, so the measurement below decides the leg's verdict and this
+      # step does not.
+      #
+      # Every member but the nosudo and unprivuser ones runs THIS step, on
+      # `drop-sudo`; those two run their own sibling steps below instead,
+      # each varying the block by design. The gate carries the
+      # `workflow_dispatch` conjunct the scheduled-workflow fail-closed rule
+      # requires of any input-gated step, even though the job's own gate
+      # already excludes a scheduled run — the hazard is in the shape.
+      - name: Run one trivial turn under the cells' codex block
+        id: turn
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario != 'codex-freeze-probe-nosudo'
+          && inputs.scenario != 'codex-freeze-probe-unprivuser' }}
+        # Well under the job cap and far above a one-word turn: a wedge here
+        # would otherwise eat the post-exit window the measurement needs.
+        timeout-minutes: 7
+        continue-on-error: true
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        env:
+          # Pin codex's home to the workspace dir the config was written
+          # into, as the cell step does.
+          CODEX_HOME: ${{ github.workspace }}/.codex
+        with:
+          allow-bot-users: "fedcourtsai-data[bot]"
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # DEVIATION, as on the boot probe: a one-word turn, not a cell.
+          prompt: |
+            Reply with the single word: ok
+
+            Use no tools, read no files, and write no files. This is a boot
+            probe of the invocation path, not a task.
+          model: ${{ steps.cell.outputs.model }}
+          effort: high
+          safety-strategy: drop-sudo
+          permission-profile: fedcourts-cell
+          codex-version: "0.144.1"
+          codex-args: '["-c","web_search=live"]'
+
+      # The nosudo member's turn: the block above with one field changed,
+      # `safety-strategy: read-only` rather than `drop-sudo`. `read-only`
+      # drops NOTHING from the runner user's account and sockets, which was
+      # meant to isolate `drop-sudo`'s irreversible mid-job account/socket
+      # mutation — but `read-only` does not compose with a permission
+      # profile: the action refuses the pair because that strategy forces the
+      # legacy read-only sandbox, so this turn starts no real session and the
+      # sandbox-started assertion voids the run. The member stands as the
+      # negative control for that refusal; the unprivuser sibling below is
+      # the real-session version. It runs only on the nosudo dispatch, and
+      # its id is deliberately not `turn`: it is one of three codex invocations
+      # held OUT of the cross-surface lockstep pin (with the base `turn`, which
+      # keeps `drop-sudo`, and `turn_unprivuser`), so the pin can keep enforcing
+      # the cells' `unprivileged-user` block on every REAL cell/smoke/repro
+      # member. `continue-on-error` keeps the leg alive to idle out its margin.
+      - name: Run one trivial turn under the cells' codex block — without drop-sudo
+        id: turn_nosudo
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-nosudo' }}
+        timeout-minutes: 7
+        continue-on-error: true
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        env:
+          # Pin codex's home to the workspace dir the config was written
+          # into, as the cell step does.
+          CODEX_HOME: ${{ github.workspace }}/.codex
+        with:
+          allow-bot-users: "fedcourtsai-data[bot]"
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # DEVIATION, as on the boot probe: a one-word turn, not a cell.
+          prompt: |
+            Reply with the single word: ok
+
+            Use no tools, read no files, and write no files. This is a boot
+            probe of the invocation path, not a task.
+          model: ${{ steps.cell.outputs.model }}
+          effort: high
+          # THE ONE VARIED FIELD. See the block above: this is the whole
+          # experiment — a codex sandbox without `drop-sudo`'s account drop.
+          safety-strategy: read-only
+          permission-profile: fedcourts-cell
+          codex-version: "0.144.1"
+          codex-args: '["-c","web_search=live"]'
+
+      # The unprivileged-user member's turn: the base turn's block with two
+      # `with:` fields changed (`safety-strategy`, plus the new `codex-user`), a
+      # `working-directory` added, and the `CODEX_HOME` env removed; every other
+      # field is pinned to the base turn in the arms test below so the change
+      # stays exactly this. `safety-strategy: unprivileged-user` runs codex as
+      # `codex-user: codexcell` — a real profile sandbox with network and disk
+      # writes, built and torn down as the cells' is, but as a SEPARATE account,
+      # so the RUNNER user's sudo, sockets and groups are never touched. That is
+      # the whole experiment: it holds everything the nosudo member holds AND
+      # produces a genuine session (a rollout), which `read-only` cannot — that
+      # strategy is refused alongside a permission-profile and forces the legacy
+      # read-only sandbox, so its probe measures nothing. `CODEX_HOME` is left
+      # unset because neither the `codex-home` input nor a `CODEX_HOME` env is
+      # set, so the action derives codexcell's own `~/.codex`; SETTING it would
+      # misdirect the config and rollout, since the `sudo -u` hop cannot carry
+      # that env to the codex process. `working-directory` is a codexcell-owned
+      # dir because the checkout is not world-readable to this user; the boot
+      # probe reads no files, so a user-owned cwd is all a real session needs.
+      # The rollout lands in the derived `~/.codex/sessions`, which the
+      # rollout-surfacing step below hands to the shared assertion. The id is
+      # `turn_unprivuser`, held out of the cross-surface lockstep pin (with
+      # `turn_nosudo`) so it can vary `safety-strategy` and add `codex-user`
+      # alone; the pin still binds every real member. `continue-on-error`, the
+      # timeout and the prompt are the base turn's, for the base turn's reasons.
+      - name: Run one trivial turn under the cells' codex block — as an unprivileged user
+        id: turn_unprivuser
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-unprivuser' }}
+        timeout-minutes: 7
+        continue-on-error: true
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        with:
+          allow-bot-users: "fedcourtsai-data[bot]"
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # DEVIATION, as on the boot probe: a one-word turn, not a cell.
+          prompt: |
+            Reply with the single word: ok
+
+            Use no tools, read no files, and write no files. This is a boot
+            probe of the invocation path, not a task.
+          model: ${{ steps.cell.outputs.model }}
+          effort: high
+          # THE VARIED FIELDS. codex runs as this separate user, so the runner
+          # account is left intact — the one axis this member isolates.
+          safety-strategy: unprivileged-user
+          codex-user: codexcell
+          # A directory codexcell owns: the checkout is not world-readable to it.
+          working-directory: /home/codexcell/work
+          permission-profile: fedcourts-cell
+          codex-version: "0.144.1"
+          codex-args: '["-c","web_search=live"]'
+
+      # --- the autopsy member's diagnostic burst ---------------------------
+      #
+      # Placed immediately after the turn and BEFORE the shared post-exit
+      # margin below, because the whole instrument is a race: the fuse lands
+      # about two minutes after the sandbox STARTED, the turn itself takes
+      # twenty-odd seconds of that, and what is left is the window in which
+      # the machine can still be read. A dump that waited out the margin
+      # would be a dump that never ran.
+      #
+      # Many short steps rather than one: a step's log reaches the run page
+      # while the step runs, so each of these has flushed before the next
+      # begins, and the wedge — which stops what comes next and retracts
+      # nothing already sent — cannot take back what is already on the page.
+      # Each step is read for BOTH its content and its existence; see the
+      # reading rules in the job comment above.
+      #
+      # No step cap on these: a `timeout-minutes` here would convert a wedge
+      # that lands mid-dump into a FAILED step, which is the one outcome that
+      # would make the run page lie. The per-command `timeout` calls are the
+      # bound that matters, and the job cap is the backstop. No `set -e`, and
+      # `|| true` throughout, for the same reason.
+      #
+      # None of these steps prints an environment or any process's environ,
+      # and none reads a workspace, config or credential file — the only
+      # files opened are kernel pseudo-files under `/sys/fs/cgroup` and this
+      # member's own kernel-log capture. `ps` argv only, and the sweep is
+      # whole-machine
+      # rather than one uid, because sandbox residue is exactly what would be
+      # running under some other one — the one place this departs from the
+      # watchdog's own capture, which stays inside its uid because its dump
+      # rides a published artifact. Three things stand under that departure:
+      # the runner is a single-tenant VM whose other uids run stock system
+      # daemons, this member mints no credential and uploads no artifact, and
+      # every argv line is trimmed to 200 columns and passed through a
+      # token-shaped redaction on the way out. The runner's own masking of
+      # secrets it issued is the fourth, and the only one this workflow does
+      # not have to do itself.
+      - name: "Autopsy: the process forest, whole machine"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          set -uo pipefail
+          echo "== post-turn $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          # `wchan` is the column this dump is really for: a wedged world
+          # shows every stuck task parked in the same kernel function, and
+          # that name is the closest thing to a mechanism a process table can
+          # give. `stat` says which flavour of not-running each one is —
+          # uninterruptible sleep (D), stopped or traced (T), a frozen task
+          # parked in D — and `cgroup` says which tree it is parked in. The
+          # column widths are a budget: the 200-column trim below is fixed, so
+          # every column before `args` is spent out of the argv the forest is
+          # named for, which is why `cgroup` is 48 rather than the full path.
+          #
+          # The redaction's alphabet (`sk-`, `gh?_`, a JWT head) is sized for
+          # THIS member, which holds only the codex key and mints nothing:
+          # extend it — AWS key ids, `github_pat_`, bare-hex API tokens —
+          # before reusing this line on a job that assumes a role or arms the
+          # telemetry mint. It runs after the trim on purpose, so a token the
+          # 200-column cut left half-written is still matched.
+          timeout 10 ps -ww -eo pid,ppid,user,stat,wchan:32,etime,cgroup:48,args --forest 2>&1 \
+            | cut -c1-200 \
+            | sed -E 's/(sk-|gh[pousr]_|eyJ)[A-Za-z0-9_.-]{8,}/<redacted>/g' \
+            | head -300 || true
+
+      - name: "Autopsy: cgroup freezer states and the runner slice"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          set -uo pipefail
+          echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          # The first hypothesis the shape suggests: something freezes a
+          # cgroup the runner's own work sits in. A non-zero `cgroup.freeze`
+          # anywhere — and especially one whose path is NOT the sandbox's —
+          # names the mechanism outright.
+          # Captured first, printed second: `pipefail` plus a `find` that
+          # exits non-zero on one unreadable subtree would otherwise print the
+          # frozen paths AND "(none frozen)" after them, contradicting itself
+          # on the most decisive signal in the burst.
+          echo "-- cgroups reporting a non-zero freeze state --"
+          frozen=$(timeout 10 find /sys/fs/cgroup -name cgroup.freeze \
+            -exec grep -H . {} + 2>/dev/null | grep -v ':0$' || true)
+          printf '%s\n' "${frozen:-(none frozen)}"
+          echo "-- controllers delegated at the root --"
+          timeout 5 cat /sys/fs/cgroup/cgroup.subtree_control 2>&1 || true
+          # Through the same trim and redaction as the process forest: this
+          # prints command lines too, and for the RUNNER'S OWN uid, which is
+          # where a secret-bearing argv would be if one existed anywhere.
+          # systemd's own 80-column truncation is implicit and depends on the
+          # terminal width it infers, so it is not the guarantee.
+          echo "-- the user slice's tree --"
+          timeout 10 systemd-cgls --no-pager -u user.slice 2>&1 | cut -c1-200 \
+            | sed -E 's/(sk-|gh[pousr]_|eyJ)[A-Za-z0-9_.-]{8,}/<redacted>/g' | head -120 || true
+
+      - name: "Autopsy: logind sessions and the user manager"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          set -uo pipefail
+          echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          # The second hypothesis: a session or a per-user manager that the
+          # sandbox's user-namespace work leaves in a state the runner's
+          # processes then inherit. `linger`, a session gone `closing`, or a
+          # user manager that is not running are each readable here. These
+          # may simply fail without a user bus — a bounded, fail-soft "no"
+          # is a fine answer and is itself part of the picture.
+          timeout 10 loginctl list-sessions --no-pager 2>&1 || true
+          timeout 10 loginctl list-users --no-pager 2>&1 || true
+          timeout 10 systemctl --user status --no-pager 2>&1 | head -30 || true
+
+      - name: "Autopsy: the kernel log across the turn"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          set -uo pipefail
+          echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          # Everything the kernel said from before the sandbox started until
+          # now, captured by the tap opened while sudo still existed. An
+          # AppArmor denial, an OOM kill, a freezer or userns message here is
+          # the answer the rest of this burst is only circling.
+          timeout 10 tail -80 "${RUNNER_TEMP:-/tmp}/autopsy-dmesg.log" 2>&1 | cut -c1-200 || true
+
+      - name: "Autopsy: namespaces, packet filter and sockets"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          set -uo pipefail
+          echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          # The third hypothesis, and the one the image's announced delta
+          # points at: the container/network machinery. Namespaces the
+          # sandbox left behind, a ruleset that grew across the turn, and a
+          # socket census whose orphan and timewait counts would show a
+          # network stack that stopped rather than a scheduler that did.
+          echo "-- network namespaces --"
+          timeout 5 ip netns list 2>&1 || true
+          echo "-- namespaces with processes in them --"
+          timeout 10 lsns -o NS,TYPE,NPROCS,PID,USER,COMMAND 2>&1 | cut -c1-200 \
+            | sed -E 's/(sk-|gh[pousr]_|eyJ)[A-Za-z0-9_.-]{8,}/<redacted>/g' | head -60 || true
+          echo "-- packet filter (root-only; drop-sudo refusing it is expected, and is data) --"
+          timeout 10 sudo -n nft list ruleset 2>&1 | head -80 || true
+          echo "-- socket census --"
+          timeout 5 ss -s 2>&1 || true
+
+      # The clock. Its output is the single most precise thing this member
+      # produces: a stamp, fifteen seconds of sleep, another stamp. On a
+      # runner with a fuse the sleep that never returns is where the log
+      # stops, so THE LAST LINE PRINTED IS THE WEDGE, to the second — and the
+      # kernel lines and freezer state each tick carries are the machine's
+      # state at that second rather than a minute before it. Twelve ticks,
+      # so on a runner with no fuse the step ends on its own and the member
+      # goes green.
+      - name: "Autopsy: the ticking clock into the fuse window"
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        # The one bound in the burst, and it bounds only the HEALTHY path:
+        # twelve ticks of fifteen seconds is three minutes, and a wedge stops
+        # the step's own timer along with everything else — the observed
+        # deaths are cancelled at the JOB cap, never at a step's.
+        #
+        # Six, not four, and the tick's own reads are bounded at two seconds
+        # rather than five: the worst bounded tick is then 21 seconds and the
+        # worst bounded loop is 4.2 minutes, which leaves the cap above every
+        # case that is merely SLOW. A machine degrading but still alive is
+        # this experiment's near-miss, and a cap that fired there would mark
+        # the clock failed and make the survey below look like it never ran —
+        # turning the sharpest healthy observation this member can make into
+        # the wedge's own signature.
+        timeout-minutes: 6
+        run: |
+          set -uo pipefail
+          log="${RUNNER_TEMP:-/tmp}/autopsy-dmesg.log"
+          # Seeded, not zero: `dmesg --follow` prints the whole existing ring
+          # buffer before it follows, so a cursor starting at zero would spend
+          # tick 01 dumping the boot log into the one step whose precision is
+          # the entire point. The pre-turn baseline and the kernel-log step
+          # above have already shown that history; from here only deltas.
+          seen=$( { timeout 5 wc -l < "$log"; } 2>/dev/null || echo 0)
+          for i in $(seq 1 12); do
+            # Each tick is three cheap reads and a stamp: the second, which
+            # cgroups report themselves frozen, and whatever the kernel has
+            # said since the last tick. Bounded like every other command here,
+            # so a tick that cannot read the machine still prints its second.
+            printf 'tick %02d %s frozen=%s\n' "$i" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              "$(timeout 2 find /sys/fs/cgroup -name cgroup.freeze \
+                -exec grep -l '^1' {} + 2>/dev/null | tr '\n' ' ' || true)"
+            now=$( { timeout 2 wc -l < "$log"; } 2>/dev/null || echo 0)
+            if [ "$now" -gt "$seen" ]; then
+              timeout 2 tail -n "$((now - seen))" "$log" 2>/dev/null | cut -c1-200 || true
+              seen=$now
+            fi
+            sleep 15
+          done
+          echo "the clock ran out its ticks — this runner has no fuse"
+
+      # The step whose ABSENCE is the finding. On a runner with a fuse this
+      # never starts, and the run page showing the clock's log ending
+      # mid-sequence with nothing after it is the wedge stated twice. On a
+      # runner without one it is the after-picture: the same survey as the
+      # pre-turn baseline, three minutes past where the fuse would have been.
+      #
+      # `always()` is what makes that absence mean ONE thing. Without it a
+      # clock step that merely failed — its cap reached on a slow machine —
+      # would skip this step too, and a skipped step and an unreached step
+      # look identical on the run page. With it, the only way this step
+      # produces nothing is a runner that stopped executing steps.
+      - name: "Autopsy: the freezer survey again, past the fuse window"
+        if: >-
+          ${{ always() && github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-autopsy' }}
+        run: |
+          set -uo pipefail
+          echo "== past the fuse $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
+          # Captured first, printed second: `pipefail` plus a `find` that
+          # exits non-zero on one unreadable subtree would otherwise print the
+          # frozen paths AND "(none frozen)" after them, contradicting itself
+          # on the most decisive signal in the burst.
+          echo "-- cgroups reporting a non-zero freeze state --"
+          frozen=$(timeout 10 find /sys/fs/cgroup -name cgroup.freeze \
+            -exec grep -H . {} + 2>/dev/null | grep -v ':0$' || true)
+          printf '%s\n' "${frozen:-(none frozen)}"
+          echo "-- process count, whole machine --"
+          timeout 5 ps -e --no-headers 2>/dev/null | wc -l || true
+          echo "-- kernel log tail --"
+          timeout 10 tail -40 "${RUNNER_TEMP:-/tmp}/autopsy-dmesg.log" 2>&1 | cut -c1-200 || true
+
+      # The other half of the trail, and the step that makes the codex window
+      # locatable in it: stamp the moment the turn's step ended, then idle
+      # long enough for three beats to land after it. Beats that arrive here
+      # after a gap are the resumption; an absence is the negative result,
+      # and it is only a result because this margin exists.
+      #
+      # The margin is the smoke-shaped member's whole variable, so it is a
+      # duration rather than a condition: that member ends its turn and moves
+      # on, as the suite's codex actions-smoke leg does. The stamp is written
+      # either way — it is what the verdict below locates the turn by.
+      #
+      # The autopsy member inherits the full margin and idles it out after
+      # its own clock, which is the right side of the trade: no beats land in
+      # it there (it is unwatched) and its measuring is already done, so the
+      # three quiet minutes buy not special-casing the one expression in this
+      # job whose spelling decides whether a member measures what it claims.
+      # One consequence to know before adding a member that both arms the
+      # watchdog AND runs the diagnostic burst: because the burst runs BEFORE
+      # this step, its turn-ended stamp lands minutes after the turn actually
+      # ended, so such a member would read a skewed `resumed` off it and would
+      # need this stamp moved back above the burst. No current member is both:
+      # the autopsy member runs the burst but is unwatched, and the armed
+      # members (base, smokeconfig, nosudo) run no burst.
+      #
+      # The ternary is spelled so the margin is the TRUE branch, and the
+      # QUOTES ARE LOAD-BEARING both ways. A GitHub `&&`/`||` pair yields its
+      # right operand when the left is falsy, and an unquoted `0` is a Number
+      # and falsy where `'0'` is a non-empty string and true — so writing the
+      # drop as the `&&` branch would make this whole member collapse back
+      # into the base one, green and plausible, with nothing anywhere saying
+      # the experiment measured the wrong thing. This way the drop sits in
+      # the `||` tail, where no casting rule decides it, and a member added
+      # later inherits the full margin rather than silently losing it. A test
+      # pins the expression verbatim.
+      - name: Stamp the turn's end and let post-exit beats land
+        if: ${{ always() }}
+        timeout-minutes: 4
+        env:
+          POST_EXIT_MARGIN_S: ${{ inputs.scenario != 'codex-freeze-probe-smokeconfig' && '180' || '0' }}
+        run: |
+          set -euo pipefail
+          date -u +%s > "$RUNNER_TEMP/codex-turn-ended-epoch"
+          sleep "$POST_EXIT_MARGIN_S"
+
+      # The instrument that needs nothing on the runner to read, and the only
+      # one the unwatched member has. A wedge does not fail a step: the runner
+      # stops executing steps at all, and the job is cancelled at its
+      # `timeout-minutes` with the turn step green and NOTHING after it. So
+      # this line's presence in the step summary says the runner was still
+      # executing steps after the turn and its margin — not wedged — and its
+      # absence under a timed-out job with a green turn IS the wedge,
+      # readable straight off the run page. It costs a `date` call, and it
+      # doubles the instrument on the armed members too: a beat trail says
+      # what the watchdog did, this says what the runner did, and the two
+      # disagreeing is itself a finding.
+      #
+      # It also carries the turn's outcome, because on the unwatched member
+      # this section is the whole summary — the disarm that would otherwise
+      # report it never runs — and because under `always()` this step is
+      # reached by a turn that never started, where the prose alone would
+      # overstate what happened.
+      - name: Stamp that the runner was still executing steps
+        if: ${{ always() }}
+        env:
+          # `outcome`, not `conclusion`, for the turn step's own reason: the
+          # turn carries `continue-on-error`, which rewrites the conclusion.
+          # The nosudo and unprivuser members each run their turn as a
+          # separate step, so read whichever ran — the ternary picks
+          # `turn_nosudo` on nosudo, `turn_unprivuser` on unprivuser, and
+          # `turn` on every other, reading `.outcome` on each, so the
+          # not-the-rewritten-conclusion invariant holds either way.
+          TURN_OUTCOME: ${{ inputs.scenario == 'codex-freeze-probe-nosudo' && steps.turn_nosudo.outcome || inputs.scenario == 'codex-freeze-probe-unprivuser' && steps.turn_unprivuser.outcome || steps.turn.outcome }}
+        run: |
+          set -euo pipefail
+          {
+            echo ""
+            echo "## runner step progress"
+            echo ""
+            echo "Still executing steps at $(date -u +%Y-%m-%dT%H:%M:%SZ) — after the"
+            echo "turn (outcome: ${TURN_OUTCOME:-unknown}) and its post-exit margin, so"
+            echo "this runner did not wedge across them. A run missing this section"
+            echo "whose turn step is green and whose job was cancelled AT ITS TIMEOUT"
+            echo "is the wedge itself — the elapsed time is what separates that from a"
+            echo "run the concurrency group evicted, which is cancelled early and says"
+            echo "so on the run page."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # `always()`, as the repro disarm: a cancelled probe must still close
+      # its row rather than leave it armed forever. The verdict is derived
+      # from the off-runner record — the beats live there and nowhere else,
+      # which is exactly why that record is the evidence a dead runner cannot
+      # erase — and read back BEFORE the disarm line is appended to it.
+      # Skipped on the unwatched member with the mint and the arm: there is no
+      # row to close and no trail to read, and the step-progress stamp above
+      # is that member's whole verdict.
+      - name: Disarm and read the beat trail
+        if: >-
+          ${{ always() && github.event_name == 'workflow_dispatch'
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig", "codex-freeze-probe-unprivuser"]'), inputs.scenario) }}
+        env:
+          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
+          TELEMETRY_CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
+          RUN_ID: freeze-${{ github.run_id }}
+          # `outcome`, NOT `conclusion`: the turn carries
+          # `continue-on-error`, and GitHub rewrites `conclusion` to `success`
+          # whenever that swallows a failure or a timeout. Reading it would
+          # write "the turn was clean" into a durable telemetry row for a turn
+          # that started and died — erasing the very distinction this leg is
+          # built to keep. `outcome` is the value before the swallow. The
+          # ternary reads whichever turn step ran — `turn_nosudo` on the
+          # nosudo member, `turn_unprivuser` on the unprivuser member, `turn`
+          # on every other armed member — and `.outcome` on each, so the read
+          # stays outcome-not-conclusion.
+          TURN_OUTCOME: ${{ inputs.scenario == 'codex-freeze-probe-nosudo' && steps.turn_nosudo.outcome || inputs.scenario == 'codex-freeze-probe-unprivuser' && steps.turn_unprivuser.outcome || steps.turn.outcome }}
+          CHECKIN_URL: ${{ steps.arm.outputs.checkin_url }}
+          WATCHDOG_DIR: ${{ runner.temp }}/engine-watchdog
+        run: |
+          set -euo pipefail
+          # The repro disarm's ownership guard, verbatim: a pid file on a path
+          # the agent held a shell on is a claim, not an identity.
+          pid_file="$RUNNER_TEMP/engine-watchdog.pid"
+          if [ -f "$pid_file" ]; then
+            pid="$(cat "$pid_file")"
+            if [[ "$pid" =~ ^[0-9]+$ ]] && grep -qa engine-watchdog.sh "/proc/$pid/cmdline" 2>/dev/null; then
+              kill "$pid" 2>/dev/null || true
+            fi
+            rm -f "$pid_file"
+          fi
+          # The arm step's URL-shape gate again, on the value as this step
+          # receives it: the token below is sent to whatever this names.
+          case "$CHECKIN_URL" in
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*) ;;
+            *) CHECKIN_URL="" ;;
+          esac
+          record="$RUNNER_TEMP/watchdog-record.txt"
+          : > "$record"
+          if [ -n "${GH_TOKEN:-}" ] && [ -n "$CHECKIN_URL" ]; then
+            timeout 60 gh api "$CHECKIN_URL" --jq .body > "$record" 2>/dev/null || : > "$record"
+          fi
+          # The record is a comment on a long-lived issue, so its body is
+          # writable by anyone who can edit that comment. Nothing from it is
+          # echoed: only lines matching the watchdog's own beat spelling are
+          # read, and only derived integers are printed.
+          # `|| true` on the substitution, because this step's FIRST duty is to
+          # close the row: under `set -e` a missing python3 or an unguarded
+          # raise here would kill the step and leave the record armed on a
+          # long-lived issue, where a reader would later take it for a hang.
+          # A verdict that cannot be computed is a blank line; an abandoned
+          # row is a false report.
+          verdict="$(
+            TURN_ENDED_FILE="$RUNNER_TEMP/codex-turn-ended-epoch" \
+            RECORD="$record" python3 - <<'PY'
+          import os
+          import re
+          from datetime import datetime, timezone
+
+          BEAT = re.compile(r"^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\] (?:waiting|watching): ")
+
+
+          def parse(line):
+              """One beat's stamp, or None for every line that is not one.
+
+              The regex fixes the shape but not the values — `12:99:99` matches
+              it and is not a time — so the parse is guarded too. A line this
+              cannot read is a line this ignores: a crash here would replace
+              the measurement with a failed step.
+              """
+              match = BEAT.match(line)
+              if match is None:
+                  return None
+              try:
+                  stamp = datetime.strptime(match.group(1), "%Y-%m-%dT%H:%M:%SZ")
+              except ValueError:
+                  return None
+              return stamp.replace(tzinfo=timezone.utc)
+
+
+          try:
+              with open(os.environ["RECORD"], encoding="utf-8", errors="replace") as handle:
+                  beats = [stamp for stamp in map(parse, handle) if stamp is not None]
+          except OSError:
+              beats = []
+
+          try:
+              with open(os.environ["TURN_ENDED_FILE"], encoding="utf-8") as handle:
+                  ended = datetime.fromtimestamp(int(handle.read().strip()), tz=timezone.utc)
+          except (OSError, ValueError):
+              ended = None
+
+          if len(beats) < 2:
+              print(f"freeze signature: INDETERMINATE (beats={len(beats)}) — no trail to read")
+              raise SystemExit(0)
+
+          beats.sort()
+          gap = max(int((b - a).total_seconds()) for a, b in zip(beats, beats[1:]))
+          # The silence still running when this reads the record. Without it a
+          # watchdog that stopped and never came back reports the cadence as
+          # its largest gap — the trailing silence sits between the last beat
+          # and nothing, so no PAIR of beats spans it.
+          tail = int((datetime.now(tz=timezone.utc) - beats[-1]).total_seconds())
+          resumed = "unknown" if ended is None else ("yes" if beats[-1] > ended else "no")
+          print(f"freeze signature: gap={gap} tail={tail} resumed={resumed} beats={len(beats)}")
+          PY
+          )" || verdict="freeze signature: UNREADABLE — the verdict could not be computed"
+          # Said once, into both surfaces a reader reaches for.
+          printf '%s\n' "$verdict"
+          {
+            echo ""
+            echo "## codex-freeze-probe"
+            echo ""
+            echo '```'
+            printf '%s\n' "$verdict"
+            echo "turn outcome: ${TURN_OUTCOME:-unknown}"
+            echo '```'
+            echo ""
+            echo "A \`gap\` well above the 60-second beat cadence with \`resumed=yes\` is the"
+            echo "suspension read directly: the watchdog lost the turn's duration and came"
+            echo "back when the sandbox exited. An unbroken trail (\`gap\` at the cadence)"
+            echo "says suspension does not happen on a turn this short. A large \`tail\` with"
+            echo "\`resumed=no\` is the third world — the watchdog stopped and never returned,"
+            echo "which is a dead process rather than a suspended one."
+            echo ""
+            echo "On the smoke-shaped member there is no post-exit margin by design, so the"
+            echo "trail ends with the turn: \`tail\` and \`resumed\` say nothing there, and the"
+            echo "step-progress section is that member's verdict."
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Health is the watchdog's own markers. The probe does not fail on a
+          # codex turn that failed — what it measures is the beat trail across
+          # a sandbox's life, and a turn that started and died still had one.
+          # `SUSPENDED` joins the list with the opposite valence and the same
+          # effect: it is the probe's expected positive finding, and the flag
+          # here means "keep the off-runner record expanded so it is read",
+          # not "the leg failed".
+          healthy_flag=--healthy
+          if [ -f "$WATCHDOG_DIR/REAPED" ] || [ -f "$WATCHDOG_DIR/FIRED" ] \
+            || [ -f "$WATCHDOG_DIR/STOOD_DOWN" ] || [ -f "$WATCHDOG_DIR/SUSPENDED" ]; then
+            healthy_flag=--not-healthy
+          fi
+          if [ -n "${GH_TOKEN:-}" ]; then
+            timeout 90 uv run fedcourts watchdog-checkin --disarm "$healthy_flag" \
+              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
+              --court scotus --docket freeze-probe --event-id evt-freeze-probe \
+              --actor codex-freeze-probe --conclusion "${TURN_OUTCOME:-unknown}" \
+              --channel "$TELEMETRY_CHANNEL" > /dev/null || true
+          fi
+
+      # The unprivileged member's rollout lands under codexcell's own
+      # `~/.codex` (its derived CODEX_HOME), not the workspace `.codex` the
+      # shared assertion below reads. Relocate it so that one assertion serves
+      # every member unchanged: a real session leaves a rollout to copy, and a
+      # turn that never started leaves none — in which case the destination
+      # stays empty and the assertion fails, declaring the run void. sudo is
+      # still held on this member (its drop is the nosudo member's experiment),
+      # and the rollout is boot-probe session state with no secret in it.
+      - name: Surface the unprivileged turn's rollout for the shared assertion
+        if: >-
+          ${{ always() && github.event_name == 'workflow_dispatch'
+          && inputs.scenario == 'codex-freeze-probe-unprivuser' }}
+        env:
+          CODEX_USER: codexcell
+        run: |
+          # No `set -e`: this step relocates whatever the turn left, and a copy
+          # that finds nothing is a result — the assertion below then voids the
+          # run — not a step to fail. Each miss says which case fired, so a copy
+          # failure is never read as the turn having started no sandbox.
+          set -uo pipefail
+          home="$(getent passwd "$CODEX_USER" | cut -d: -f6 || true)"
+          src="$home/.codex/sessions"
+          dest="$GITHUB_WORKSPACE/.codex/sessions"
+          if [ -z "$home" ]; then
+            echo "::warning::codex user $CODEX_USER has no home — no rollout to surface"
+          elif [ ! -d "$src" ]; then
+            echo "::warning::no session rollout under $src — the unprivileged turn started none"
+            sudo ls -la "$home/.codex" 2>/dev/null || true
+          else
+            mkdir -p "$dest"
+            # `cp -a` (implies `-d`) copies a symlink AS a symlink rather than
+            # following it, and `chmod -R` does not descend through symlinks, so
+            # neither dereferences an agent-written tree entry as root. Keep the
+            # `-a` if this is ever edited.
+            sudo cp -a "$src/." "$dest/" \
+              || echo "::warning::failed to copy the rollout into $dest"
+            sudo chmod -R a+rX "$dest" || true
+          fi
+
+      # The one thing that IS a gate here, and it is about the instrument
+      # rather than the result: a turn that never started put no sandbox on
+      # this runner, so the beat trail above spans nothing and the run's
+      # green would be vacuous — the same failure mode the actions-smoke
+      # leg's completion assertion exists to refuse. The rollout file appears
+      # when the session starts, so this evidences a session and not a
+      # finished turn, which is exactly the bar the probe needs. (The agent
+      # can write under its own CODEX_HOME, so this is evidence and not
+      # proof, on the same terms as that leg's.)
+      - name: Assert the turn started a sandbox to measure
+        if: ${{ always() }}
+        env:
+          CODEX_HOME: ${{ github.workspace }}/.codex
+        run: |
+          set -euo pipefail
+          if [ ! -d "$CODEX_HOME/sessions" ] \
+            || [ -z "$(find "$CODEX_HOME/sessions" -type f -name '*.jsonl' -print -quit)" ]; then
+            echo "::error::codex left no session rollout — the turn never started, so the beat trail spans no sandbox and this run measured nothing"
+            exit 1
+          fi
+
+      # The local half, for whatever it carries: the watchdog's own log holds
+      # its arm lines and any marker it wrote. Phase lines and kernel-owned
+      # resource figures only, so no disclosure window applies. Skipped on the
+      # unwatched member, which launches no watchdog and so writes no log —
+      # an upload there would report a missing file as a warning rather than
+      # as the design.
+      - name: Upload the watchdog log
+        if: >-
+          ${{ always() && github.event_name == 'workflow_dispatch'
+          && contains(fromJSON('["codex-freeze-probe", "codex-freeze-probe-nosudo", "codex-freeze-probe-smokeconfig", "codex-freeze-probe-unprivuser"]'), inputs.scenario) }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: freeze-probe-watchdog-log
+          path: ${{ runner.temp }}/engine-watchdog/watchdog.log
+          if-no-files-found: warn
+          retention-days: 7

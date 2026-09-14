@@ -33,6 +33,39 @@
 # failed step is the same shape as a max-turns stop, which the tail already
 # salvages.
 #
+# **The thaw guard** stands over both triggers, because this process can lose
+# wall clock without observing it: an engine sandbox can suspend it wholesale —
+# SIGSTOP, or a cgroup freeze — for as long as the agent runs, and the sandbox's
+# exit at the agent's finish resumes it. The deadline is measured against the
+# wall clock rather than counted in polls, deliberately, so that telemetry
+# latency can never delay a fire; the same property means a resumed process sees
+# an expired deadline the instant it is thawed, and what it would fire into is
+# the step's teardown, which is exactly where the sandbox's exit has just left
+# it. So the loop reads the wall clock between its own passes. A pass that
+# arrives a threshold later than the one before it is time this process slept
+# through, and **a watchdog that lost time kills nothing**: neither trigger
+# signals again for the rest of the run. It records the gap, captures the
+# runner's state — read-only, a process forest from inside a window the
+# escalation would otherwise have ended — and then keeps beating for a bounded
+# observation window before exiting.
+#
+# The `SUSPENDED` marker is the channel that carries this, because it is the one
+# that survives: the bundle rides the cell artifact, while the off-runner lines
+# below are best-effort twice over here — a suspension long enough to expire the
+# deadline has usually outlived the hour-long credential too, and a cell whose
+# step then concludes is closed out as one where nothing fired. The beats are
+# worth issuing anyway, since where the channel does still answer they are the
+# only account of a runner that is about to be lost; they are not what the state
+# is read from.
+#
+# The rule is absolute rather than conditional on how complete the outputs look
+# at the thaw: time the watchdog slept through is time the step spent doing the
+# very thing whose kill interaction the death class follows, so a resumed
+# watchdog is an observer and never a killer. The cost is stated rather than
+# hidden: a suspended cell has no watchdog for the rest of its run, so a wedge
+# that follows one is bounded by the engine step's own timeout instead. A run
+# that is never suspended detects nothing and behaves exactly as above.
+#
 # Neither trigger is engine-specific: the reaper reads files the contract names
 # and the deadline reads the runner's own process shapes, so every cell of every
 # engine is bracketed. The engine-match pattern below still names codex's
@@ -71,10 +104,12 @@
 #                        the engine to a SIGTERM, then the step to the engine's
 #                        death, then the step's tree to its own SIGTERM. Those
 #                        run in sequence, so the deadline plus three of these —
-#                        plus the check-ins, each capped at curl's `--max-time`
-#                        and three of them between the deadline and the first
-#                        signal — is what has to stay inside the step's own
-#                        timeout
+#                        plus the check-ins, three of them between the deadline
+#                        and the first signal, each capped at curl's
+#                        `--max-time` and costing at most one more bounded
+#                        probe when its send fails with the transport (not the
+#                        API) as the diagnosis — is what has to stay inside the
+#                        step's own timeout
 #   WATCHDOG_ARM_SLACK_S  how far before this watchdog a process may have
 #                        started and still be the step it guards
 #   WATCHDOG_MIN_STEP_AGE_S  how long a process must already have been running
@@ -93,6 +128,16 @@
 #                        the tail uploads — which a *reaped* cell keeps, since
 #                        a concluded step is exactly what runs its own tail
 #   WATCHDOG_HEARTBEAT_S how often to beat while waiting out the deadline
+#   WATCHDOG_SUSPENSION_GAP_S  how much wall clock may pass between two passes
+#                        of the wait loop before the gap reads as suspension
+#                        rather than as a slow pass. Comfortably above a poll
+#                        plus the check-in bound, far below any gap a running
+#                        process could produce. Zero leaves the guard unarmed
+#                        rather than making every pass cross it, since a
+#                        threshold nothing can stay under would disarm the
+#                        watchdog itself
+#   WATCHDOG_OBSERVE_S   how long to keep beating after standing down, before
+#                        exiting zero
 #
 # The workflows set the first three, the sentinel pair, and the check-in trio,
 # and leave the overrides at their defaults; the overrides exist so a test can
@@ -104,12 +149,14 @@
 # bundle below is exactly the evidence a wedge is best placed to destroy. Each
 # state this script passes is also PATCHed onto this cell's comment on the long-lived
 # `codex-watchdog` issue, opened by the arm step before the agent starts. That
-# body is composed **only** from this script's own variables and never from any
-# file: WATCHDOG_DIR is writable by the very agent the watchdog may be about to
-# kill, and a public issue is no place to let it choose what is said. It is
-# stricter than the bundle for the same reason it outlives it — timestamps,
-# phase names, pid numbers, counts and the configured deadline, never argv,
-# never a file listing, never anything the cell read.
+# body is composed **only** from sources the agent cannot write and never from
+# any file of the cell's: WATCHDOG_DIR is writable by the very agent the
+# watchdog may be about to kill, and a public issue is no place to let it
+# choose what is said. It is stricter than the bundle for the same reason it
+# outlives it — timestamps, phase names, pid numbers, counts, the configured
+# deadline, kernel-owned resource figures (/proc/meminfo, /proc/loadavg), and
+# the verdicts of this script's own bounded channel probes; never argv, never
+# a file listing, never anything the cell read.
 #
 # The bundle is published: it rides the cell artifact, which is downloadable by
 # anyone with a GitHub account for its retention window. So it holds shapes and
@@ -200,11 +247,33 @@ clk_tck="$(getconf CLK_TCK 2>/dev/null || echo 100)"
 checkin_url="${WATCHDOG_CHECKIN_URL:-}"
 checkin_token="${WATCHDOG_CHECKIN_TOKEN:-}"
 checkin_body="${WATCHDOG_CHECKIN_BASE:-}"
+# The last failed send's diagnosis, so a run of identical failures writes one
+# line rather than one per beat; cleared by any send that lands.
+last_send_failure=""
 # Long enough that an ordinary hour-plus wait costs on the order of a dozen
 # API calls,
 # short enough that a maintainer reading mid-round can tell a live watchdog from
 # one whose runner is already gone.
 heartbeat_s="${WATCHDOG_HEARTBEAT_S:-300}"
+# Two minutes, sitting between two things that cannot be confused at this
+# distance. Below it, a pass: a poll, plus at worst a check-in bounded by curl's
+# own `--max-time` and one probe of the same size, plus the sentinel's own reads
+# — a JSON parse per required file and a directory walk that stops at its first
+# hit. That is tens of seconds at its worst, several times under this. Above it,
+# a suspension, which lasts as long as the agent it is slaved to: tens of
+# minutes. The threshold is set toward the upper end of that gap on purpose,
+# because the two failures are not symmetric — one too low disarms a healthy
+# watchdog over ordinary latency, and there is no latency here that approaches
+# two minutes.
+suspension_gap_s="${WATCHDOG_SUSPENSION_GAP_S:-120}"
+# Half an hour of beating after a stand-down. The watchdog has no duty left at
+# that point — it will not signal again — so this is instrumentation only: on the
+# death class the runner is lost within minutes of the thaw, and a beat that
+# lands from there is an account no runner-local channel can carry out. The
+# bound is not what ends this on a cell, where the disarm step or the job cap
+# always arrives first; it is what makes a detached orphan, and a test, exit on
+# their own rather than run forever.
+observe_s="${WATCHDOG_OBSERVE_S:-1800}"
 
 # Every knob below is expanded inside `$(( ))` somewhere, and arithmetic
 # expansion evaluates a variable's *value* as an expression — so a non-numeric
@@ -213,7 +282,7 @@ heartbeat_s="${WATCHDOG_HEARTBEAT_S:-300}"
 # fails the watchdog loudly rather than arming one that computes nonsense.
 for _knob in WATCHDOG_DEADLINE_S WATCHDOG_POLL_S WATCHDOG_STEP_GRACE_S \
   WATCHDOG_ARM_SLACK_S WATCHDOG_MIN_STEP_AGE_S WATCHDOG_QUIESCE_S \
-  WATCHDOG_HEARTBEAT_S; do
+  WATCHDOG_HEARTBEAT_S WATCHDOG_SUSPENSION_GAP_S WATCHDOG_OBSERVE_S; do
   _value="${!_knob:-0}"
   case "$_value" in
     "" | *[!0-9]*)
@@ -227,13 +296,42 @@ unset _knob _value
 stamp() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 log() { echo "[$(stamp)] watchdog: $*"; }
 
+# The runner's headroom at the moment of a line, carried on the line itself:
+# runner-local accounts (this log included) drop when a hosted runner dies, so
+# a resource trajectory is only ever readable off the runner, one beat at a
+# time. Missing /proc reads degrade to `?` rather than to a failed beat.
+vitals() {
+  local mem="" load=""
+  [ -r /proc/meminfo ] && mem="$(awk '/^MemAvailable:/ {print int($2/1024); exit}' /proc/meminfo 2>/dev/null)"
+  [ -r /proc/loadavg ] && load="$(cut -d' ' -f1 /proc/loadavg 2>/dev/null)"
+  printf 'mem_avail_mb=%s load1=%s' "${mem:-?}" "${load:-?}"
+}
+
+# What a transport failure looked like from here: one bounded, unauthenticated,
+# body-discarded request to the check-in host (the arm step already validated
+# that URL against the one accepted shape), whose exit code separates the
+# diagnoses a dead channel can have — name resolution (6), connect (7),
+# timeout (28) — without a resolver call of its own, because the resolver path
+# is the one leg with no timeout of its own and this only ever runs when the
+# network is already suspect. Single call, `--max-time` bounded: a dead
+# network costs seconds here, never a late kill.
+channel_probe() {
+  local host rc=0
+  host="${checkin_url#*://}"
+  host="${host%%/*}"
+  curl --max-time 5 --silent --output /dev/null \
+    --url "${checkin_url%%://*}://${host}/" 2>/dev/null || rc=$?
+  printf 'probe_exit=%s' "$rc"
+}
+
 # Append one stamped line to the off-runner record and re-PATCH the whole of it.
 #
 # The whole body every time, because a comment has no append operation — and
 # accumulating it in a variable is also what keeps the payload composed from
 # this script alone. Bounded three ways so this can never become the reason a
-# kill is late: curl's own `--max-time`, an unconditional `|| true`, and the
-# no-op when the arm step handed over no URL or token.
+# kill is late: curl's own `--max-time` (on the send and on the at-most-one
+# probe a newly failing transport buys), the swallowed exit and unconditional
+# `return 0`, and the no-op when the arm step handed over no URL or token.
 #
 # The token reaches curl through a config file on a pipe, never as an argument:
 # `capture_runner_state` below dumps every argument of every process this user
@@ -259,14 +357,40 @@ checkin() {
     return 0
   fi
   [ -n "$payload" ] || return 0
-  if ! curl --max-time 10 --silent --output /dev/null \
+  # The HTTP status is read out rather than folded into curl's exit code: a
+  # 401 from an expired token and a transport that never reached the host are
+  # different diagnoses, and the send-failed line is where a maintainer reads
+  # which one this was.
+  local send_rc=0 http_code=""
+  http_code="$(curl --max-time 10 --silent --output /dev/null \
+    --write-out '%{http_code}' \
     --request PATCH \
     --header "Accept: application/vnd.github+json" \
     --header "X-GitHub-Api-Version: 2022-11-28" \
     --config <(printf 'header = "Authorization: Bearer %s"\n' "$checkin_token") \
     --data-binary @- \
-    --url "$checkin_url" <<<"$payload" 2>/dev/null; then
-    log "the off-runner check-in did not land"
+    --url "$checkin_url" <<<"$payload" 2>/dev/null)" || send_rc=$?
+  if [ "$send_rc" -eq 0 ] && [ "${http_code:0:1}" = "2" ]; then
+    last_send_failure=""
+    return 0
+  fi
+  local failure="curl_exit=${send_rc} http=${http_code:-none}"
+  log "the off-runner check-in did not land (${failure})"
+  # One line per *diagnosis*, not per failure: the body already carries every
+  # line whose send failed, so a run of identical failures is readable from
+  # the stamps between two send-failed lines, and a repeat would only bulk the
+  # body — which matters on the expected path where the token's hour has
+  # lapsed and every remaining send 401s by design. The probe runs only when
+  # the transport itself failed: an HTTP status in hand proves the host was
+  # reached, and re-asking costs seconds on the pre-kill path.
+  if [ "$failure" != "$last_send_failure" ]; then
+    last_send_failure="$failure"
+    local diagnosis="$failure"
+    if [ "$send_rc" -ne 0 ] || [ -z "$http_code" ] || [ "$http_code" = "000" ]; then
+      diagnosis="${diagnosis} $(channel_probe)"
+    fi
+    # Appended to the body, not sent now: the next send that lands carries it.
+    checkin_body="${checkin_body}"$'\n'"[$(stamp)] send-failed: ${diagnosis} $(vitals)"
   fi
   return 0
 }
@@ -579,6 +703,75 @@ note_escalation() {
   } >>"$dir/$marker"
 }
 
+# The question asked wherever this script is about to act on the clock: how much
+# wall clock has passed since the last time it looked? A freeze can land anywhere
+# — in the poll's own sleep, or in the middle of a pass's work — so asking only
+# at the top of the loop would let a thaw resume straight into the reap or the
+# escalation it interrupted, which is the one sequence the guard exists to break.
+# Asked at the top of each pass, at the reaper's door, and at the deadline before
+# anything is signalled; the reading is cheap and each call re-anchors the next.
+#
+# A zero threshold is read as "no threshold configured" and never trips, rather
+# than as one every pass crosses — which would stand the watchdog down on its
+# first poll and leave the step with no bound at all.
+check_suspension() {
+  local now gap
+  now="$(date +%s)"
+  gap=$((now - last_pass_epoch))
+  last_pass_epoch="$now"
+  [ "$suspension_gap_s" -gt 0 ] && [ "$gap" -ge "$suspension_gap_s" ] || return 0
+  note_suspension "$gap" "$((now - wait_started_epoch))"
+}
+
+# Time this process did not observe, recorded and then never forgotten: the flag
+# it sets disarms both triggers for the rest of the run.
+#
+# The marker is appended to rather than written, since a second suspension is a
+# fact about the same run. The off-runner line is written once — the record is a
+# public comment and one line is enough to say the state was entered; the
+# stand-down line below carries the totals, and the marker carries each gap.
+# That line also counts as this pass's beat, since a freeze long enough to be
+# detected has left a heartbeat due on the very same pass and two PATCHes back
+# to back would say one thing twice at twice the cost.
+note_suspension() {
+  local gap="$1" elapsed_s="$2"
+  {
+    echo "suspended_at=$(stamp)"
+    echo "gap_s=${gap}"
+    echo "elapsed_s=${elapsed_s}"
+  } >>"$dir/SUSPENDED"
+  suspensions=$((suspensions + 1))
+  lost_s=$((lost_s + gap))
+  log "resumed after ${gap}s of wall clock this process did not observe; no trigger will signal"
+  last_beat_epoch="$(date +%s)"
+  if [ -z "$suspended" ]; then
+    suspended=1
+    checkin "SUSPENDED: lost ${gap}s of wall clock; this watchdog will not signal $(vitals)"
+  fi
+}
+
+# What a stood-down watchdog does with the rest of its life: beat, and say what
+# the runner looks like while it still can. No signal is ever issued from here,
+# so the check-in latency that the wait loop must never pay costs nothing —
+# there is no fire left for it to delay.
+observe_after_stand_down() {
+  local started now
+  [ "$observe_s" -gt 0 ] || return 0
+  log "observing for up to ${observe_s}s; this watchdog will not signal"
+  started="$(date +%s)"
+  while :; do
+    sleep "$poll_s"
+    now="$(date +%s)"
+    [ $((now - started)) -lt "$observe_s" ] || break
+    if [ "$heartbeat_s" -gt 0 ] && [ $((now - last_beat_epoch)) -ge "$heartbeat_s" ]; then
+      last_beat_epoch="$now"
+      checkin "observing: $((now - started))s of ${observe_s}s since the stand-down $(vitals)"
+    fi
+  done
+  log "the observation window closed after ${observe_s}s"
+  checkin "observation window closed after ${observe_s}s $(vitals)"
+}
+
 # The state at the moment of the escalation: whether the engine kill landed,
 # and what is still holding the step open. Same shapes-only rules as the first
 # capture.
@@ -698,6 +891,29 @@ outputs_quiescent() {
 # process forest and socket table taken *after* the agent finished is what names
 # whatever is holding a finished step open.
 reap_completed_step() {
+  # The thaw guard applies here too, and without an exception for how finished
+  # the outputs look. Outputs complete at a thaw is the *expected* reading of
+  # this failure — the agent finished while this process was frozen — so a reap
+  # conditioned on them would fire on every suspended run, which is the one
+  # thing the guard exists to stop. Withheld rather than exited: the loop keeps
+  # polling, and the deadline's own stand-down is what concludes this process.
+  #
+  # Asked again here rather than trusted from the top of the pass: getting this
+  # far means the sentinel and the quiescence walk have both run, and a freeze
+  # that landed in the middle of them thaws directly into this call.
+  check_suspension
+  if [ -n "$suspended" ]; then
+    log "the outputs are complete, but this watchdog lost wall clock; the reap is withheld"
+    if [ -z "$reap_withheld" ]; then
+      reap_withheld=1
+      {
+        echo "reap_withheld_at=$(stamp)"
+        echo "outputs=${#sentinel_paths[@]}"
+      } >>"$dir/SUSPENDED"
+      checkin "outputs complete; reap withheld after suspension"
+    fi
+    return 1
+  fi
   log "the cell's outputs are complete and quiescent; ending the step"
   checkin "REAPING: outputs complete and quiescent for ${quiesce_s}s"
   # The sentinel's own moment is the ceiling: the step that wrote the output
@@ -760,6 +976,16 @@ sentinel_ticks=""
 # carries that fact one time rather than once per poll for the rest of the
 # wait.
 reap_refused=""
+# Set by the thaw guard the first time a pass arrives after a gap no running
+# process could have produced. It is never cleared: a watchdog that lost time
+# once cannot tell what happened in the time it lost, so the stand-down is for
+# the rest of the run. The counters ride the stand-down's own record.
+suspended=""
+suspensions=0
+lost_s=0
+# Set once the reap has been withheld, so the off-runner record carries that
+# fact one time rather than once per poll.
+reap_withheld=""
 # The quiescence cut-off's carrier, outside the bundle directory so it never
 # rides the published artifact. Empty on failure, which leaves the quiescence
 # test unsatisfiable and so the reaper off — the deadline is then the only bound,
@@ -771,7 +997,7 @@ quiesce_ref="$(mktemp 2>/dev/null)" || quiesce_ref=""
 trap '[ -n "$quiesce_ref" ] && rm -f "$quiesce_ref"' EXIT
 
 log "armed; firing in ${deadline_s}s unless disarmed"
-checkin "watching: deadline_s=${deadline_s} poll_s=${poll_s} grace_s=${step_grace_s}"
+checkin "watching: deadline_s=${deadline_s} poll_s=${poll_s} grace_s=${step_grace_s} $(vitals)"
 if [ "${#sentinel_paths[@]}" -eq 0 ]; then
   log "no completion sentinel was configured; the deadline is the only bound"
   checkin "sentinel: disabled (no required outputs were handed over)"
@@ -786,18 +1012,29 @@ else
   checkin "sentinel: armed on ${#sentinel_paths[@]} required output(s), quiesce_s=${quiesce_s}"
 fi
 
+# Wall clock, not poll counting: every second a check-in spends on a dead
+# network would otherwise be pure drift on the fire time, and the drift is
+# paid exactly in the scenario the deadline exists for. Derived each pass, so
+# no amount of telemetry latency can move the fire past the step's cap.
+wait_started_epoch="$(date +%s)"
+last_beat_epoch="$wait_started_epoch"
+last_pass_epoch="$wait_started_epoch"
 elapsed=0
-since_beat=0
 while [ "$elapsed" -lt "$deadline_s" ]; do
   sleep "$poll_s"
-  elapsed=$((elapsed + poll_s))
-  since_beat=$((since_beat + poll_s))
+  now_epoch="$(date +%s)"
+  elapsed=$((now_epoch - wait_started_epoch))
+  # The same wall clock read a second way, and it answers a different question:
+  # how much of that elapsed time this process was actually awake for. A pass
+  # that lands a threshold after the one before it is a pass that was suspended
+  # through, and from here on this watchdog observes rather than acts.
+  check_suspension
   # A beat is how a maintainer tells a watchdog that is still counting from one
   # whose runner was cancelled out from under it — the difference the whole
   # off-runner channel exists to make readable.
-  if [ "$heartbeat_s" -gt 0 ] && [ "$since_beat" -ge "$heartbeat_s" ]; then
-    since_beat=0
-    checkin "waiting: elapsed=${elapsed}s of ${deadline_s}s${sentinel_at:+ sentinel_at=${sentinel_at}}"
+  if [ "$heartbeat_s" -gt 0 ] && [ $((now_epoch - last_beat_epoch)) -ge "$heartbeat_s" ]; then
+    last_beat_epoch="$now_epoch"
+    checkin "waiting: elapsed=${elapsed}s of ${deadline_s}s${sentinel_at:+ sentinel_at=${sentinel_at}} $(vitals)"
   fi
   # Completeness is re-asked every poll, including after the sentinel has been
   # seen: an agent that goes back and rewrites a file leaves it briefly absent or
@@ -819,6 +1056,32 @@ while [ "$elapsed" -lt "$deadline_s" ]; do
     exit 0
   fi
 done
+# The deadline expired on a clock this process did not keep, so it is not
+# evidence of a wedge — it is evidence of the suspension already recorded. No
+# part of the escalation runs: no engine kill, no tree kill, no reap, and none
+# of the markers the disarm step reads as "the watchdog acted", because it did
+# not. What does run is the capture, which signals nothing and reads the forest
+# from inside a window the escalation would otherwise have ended, and then the
+# beating. Said in one line rather than two, so the record never opens the
+# deadline path and then takes it back.
+#
+# The last reading is taken here, before anything is decided: the pass that
+# ended the loop may itself be the one that was frozen through.
+check_suspension
+if [ -n "$suspended" ]; then
+  checkin "deadline reached after ${deadline_s}s, on a clock this process did not keep"
+  log "the deadline expired across ${lost_s}s this process did not observe; standing down"
+  capture_runner_state
+  {
+    echo "stood_down_at=$(stamp)"
+    echo "deadline_s=${deadline_s}"
+    echo "suspensions=${suspensions}"
+    echo "lost_s=${lost_s}"
+  } >>"$dir/SUSPENDED"
+  checkin "outcome: stood_down_suspended suspensions=${suspensions} lost_s=${lost_s} $(vitals)"
+  observe_after_stand_down
+  exit 0
+fi
 checkin "deadline reached after ${deadline_s}s"
 
 # Everything the escalation may signal is decided now, at the deadline, while

@@ -291,6 +291,21 @@ class CorpusRow(BaseModel):
         description="Tracking state: date `pull` last refreshed this case via REST; "
         "None until first pulled. Drives the budget governor's rotation.",
     )
+    opinion_enrich_attempted_at: date | None = Field(
+        default=None,
+        description="Tracking state: date the opinion-enrichment walk "
+        "(`pipeline/opinion_enrichment.py`) last reached a verdict about this case "
+        "— a landed body, no linked cluster, a refusal, a 4xx on one of its records; "
+        "None "
+        "until first attempted, and left alone where the fault said nothing about "
+        "the docket (a 5xx, a transport failure). It is that walk's rotation key, "
+        "read never-attempted-first then stalest-stamp-first, which is what keeps "
+        "the grants that can never converge (a GVR or DIG that publishes no "
+        "opinion; a decided grant neither of that walk's two routes resolves) "
+        "from holding the head of every run. Written only by that pass, "
+        "and a fill-in latch like `last_pulled`, so a channel carrying no stamp "
+        "preserves it.",
+    )
     last_live_polled: date | None = Field(
         default=None,
         description="Tracking state: date the SCOTUS live channel (supremecourt.gov "
@@ -359,14 +374,21 @@ class CorpusRow(BaseModel):
     amicus_briefs: int | None = Field(
         default=None,
         description="How many amicus briefs an interim application's docket "
-        "records (counted per entry naming amicus or amici curiae — a stakes "
-        "proxy, and an approximation: a multi-filer entry counts once, a motion "
-        "reciting the phrase counts alongside the brief, a brief still awaiting "
-        "the Clerk counts only once accepted, and the max-latch makes any "
-        "overcount permanent; see `interim_signals.amicus_briefs`). None = "
+        "records (every entry naming amicus or amici curiae, plus every distinct "
+        "lead filer whose brief is docketed as submitted and not yet accepted — "
+        "a stakes proxy, and an approximation: a multi-filer entry counts once, "
+        "a motion reciting the phrase counts alongside the brief, a submission "
+        "the Clerk later refuses stays counted, and the max-latch makes any "
+        "overcount permanent; see `interim_signals.amicus_briefs`). On a "
+        "resolved application the derivation stops at the end of the disposition "
+        "day (`interim_signals.amicus_briefs_through`), so an entry the Court "
+        "filed afterwards is not read into the value an outcome freezes. None = "
         "never application-parsed; the upsert max-latches it (filings are "
-        "append-only, so the count only ever grows and a degraded parse's "
-        "confident 0 never regresses it). Live application branch only.",
+        "append-only, so under a fixed cut the count only ever grows and a "
+        "degraded parse's confident 0 never regresses it — the one fall a "
+        "derivation can produce is the poll that first reads a disposition date "
+        "and applies the cut, and the latch strands that row at its unbounded "
+        "value until a re-derivation). Live application branch only.",
     )
     sample_weight: int | None = Field(
         default=None,
@@ -620,13 +642,20 @@ class CaseDocument(BaseModel):
     kind: str = Field(
         description="petition (the case-opening filing on a cert-form docket, "
         "whichever writ it seeks) | application (the interim relief an "
-        "application-form docket is opened by) | brief-in-opposition | "
+        "application-form docket is opened by) | brief-in-opposition (the "
+        "cert-stage opposition, every respondent's in one row) | "
+        "merits-brief-petitioner | merits-brief-respondent (each side's brief on "
+        "the merits, one row per side, selected only after the cert grant) | "
         "questions-presented | …"
     )
     url: str = Field(
         description="The supremecourt.gov DocumentUrl fetched; for a combined "
         "brief-in-opposition (multiple respondents) the '|'-joined set of fetched "
-        "URLs, an idempotency key rather than a single fetchable link"
+        "URLs, an idempotency key rather than a single fetchable link. Every "
+        "other kind names a single link — the merits briefs included, stored per "
+        "side precisely so no row has to join two filings; on the derived "
+        "questions-presented row that link is the petition's, the filing its "
+        "text was cut out of rather than a link to the row itself"
     )
     entry_date: str | None = Field(
         default=None, description="The proceedings entry date the link rode on, verbatim"
@@ -743,7 +772,14 @@ CREATE TABLE IF NOT EXISTS cases (
     -- canonical spelling (see CorpusRow). Max-latched on upsert, because the
     -- channel that omits the annotation must not clear the one that carries it.
     -- 0 = not marked by any channel that wrote this row.
-    capital_case        INTEGER NOT NULL DEFAULT 0
+    capital_case        INTEGER NOT NULL DEFAULT 0,
+    -- The opinion-enrichment walk's rotation key (see CorpusRow and
+    -- pipeline/opinion_enrichment.py): the date that pass last attempted this
+    -- case, stamped on every candidate the walk reached a verdict about. The
+    -- walk takes never-attempted rows first and then the stalest stamp, so its
+    -- permanent residue rotates to the back instead of heading every run.
+    -- NULL = never attempted.
+    opinion_enrich_attempted_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -897,6 +933,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "response_filed_at": "TEXT",
     "merits_terminated": "TEXT",
     "capital_case": "INTEGER NOT NULL DEFAULT 0",
+    "opinion_enrich_attempted_at": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1285,6 +1322,9 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "opinion_text": row.opinion_text,
         "summary": row.summary,
         "last_pulled": row.last_pulled.isoformat() if row.last_pulled else None,
+        "opinion_enrich_attempted_at": (
+            row.opinion_enrich_attempted_at.isoformat() if row.opinion_enrich_attempted_at else None
+        ),
         "predict_eligible": int(row.predict_eligible),
         "predict_excluded": int(row.predict_excluded),
         "originating_court": row.originating_court,
@@ -1405,6 +1445,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         opinion_text=record["opinion_text"],
         summary=record["summary"],
         last_pulled=(date.fromisoformat(record["last_pulled"]) if record["last_pulled"] else None),
+        opinion_enrich_attempted_at=_optional_date(record, "opinion_enrich_attempted_at"),
         predict_eligible=bool(record["predict_eligible"]),
         predict_excluded=bool(record["predict_excluded"]),
         originating_court=record["originating_court"],
@@ -1441,7 +1482,8 @@ def _update_clause(column: str) -> str:
     """The ``ON CONFLICT`` assignment for one column, honoring its latch (if any).
 
     Most columns take the incoming value (``excluded``). Five latch families are
-    special: channel-supplied facts (``last_pulled`` and the fill-in slice of
+    special: channel-supplied facts (``last_pulled``, the opinion-enrichment
+    walk's ``opinion_enrich_attempted_at`` cursor, and the fill-in slice of
     the live-parsed signals — the conference and CVSG dates, and the dated
     interim/merits signals beside them)
     only ever fill in, so a writer that does not carry the fact keeps what
@@ -1468,6 +1510,7 @@ def _update_clause(column: str) -> str:
     """
     if column in (
         "last_pulled",
+        "opinion_enrich_attempted_at",
         "last_live_polled",
         "distributed_for_conference",
         "cvsg_date",
@@ -1487,6 +1530,10 @@ def _update_clause(column: str) -> str:
         # missing can move a stored date later — accepted because a fresh parse
         # must still be able to correct a wrong date, and the open-first-moment
         # guards bound what a moved date can re-open.
+        # `opinion_enrich_attempted_at` takes the same rule from the other side:
+        # only the enrichment walk ever carries it, so every other writer's NULL
+        # must preserve the cursor, while the walk's own stamp — never NULL —
+        # always wins and so advances the rotation.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
     if column in (
         "distribution_count",
@@ -1504,7 +1551,13 @@ def _update_clause(column: str) -> str:
         # advance and rejects the regression. The interim escalation signals
         # share the property exactly (the Court does not un-request a response,
         # un-refer an application, or un-file an amicus brief), so the boolean
-        # flags max-latch as 0/1 integers and the amicus count as a count.
+        # flags max-latch as 0/1 integers and the amicus count as a count. The
+        # amicus count carries one qualification the other two do not: its
+        # derivation is cut at the end of the disposition day, so the poll that
+        # first reads a disposition date can produce a value below an earlier
+        # unbounded one. The latch keeps the higher number, which is the accepted
+        # cost of protecting every other row from a degraded parse — bringing such
+        # a row down is a re-derivation, not a poll.
         # `has_opinion` is the same shape again: an opinion once linked is never
         # unlinked, and every writer asserts the bit (NOT NULL, default False),
         # so a channel that does not carry the body would otherwise flip a
@@ -2857,6 +2910,47 @@ def set_distribution_count(conn: sqlite3.Connection, counts: Iterable[tuple[str,
         for case_id, count in counts:
             cursor = conn.execute(
                 "UPDATE cases SET distribution_count = ? WHERE case_id = ?", (count, case_id)
+            )
+            written += cursor.rowcount
+    return written
+
+
+def set_amicus_briefs(conn: sqlite3.Connection, counts: Iterable[tuple[str, int]]) -> int:
+    """Write re-derived interim ``amicus_briefs`` counts, **bypassing the max latch**.
+
+    The ``amicus_briefs`` twin of :func:`set_distribution_count`, and the bypass
+    is its whole purpose for the same reason. :func:`_update_clause` max-latches
+    this column so a degraded live application payload cannot lower a stored
+    count; a re-derivation under the widened submitted-form reading with the
+    **end-of-day cut** (:func:`fedcourtsai.pipeline.interim_signals.amicus_briefs_through`,
+    :mod:`fedcourtsai.pipeline.amicus_rederive`) removes entries filed after the
+    disposition day, which moves a resolved application's count **down** — exactly
+    the write the latch rejects — so routed through :func:`upsert_rows` it would
+    write nothing while reporting success. The re-derivation writes here instead,
+    where a lower count lands, and just as often a higher one where the widened
+    reading now counts a submitted-form brief the old reading did not.
+
+    That makes this function the sharp edge the latch exists to blunt, and the
+    caller owns what the latch was doing: the re-derivation touches only a row
+    carrying a readable disposition date (a resolved application, whose cut value
+    is fixed and cannot be lowered by a degraded later poll — ``live_rotation``
+    stops polling it), never an open one, whose column the live channel maintains
+    under the same widened reading. Do not reach for it to record a *channel's*
+    count — a channel's reading belongs in the upsert path, under the latch.
+
+    One transaction over the whole batch, so a re-derivation lands or does not;
+    returns the rows the statements actually touched, which a caller can compare
+    against what it planned to write. Like its ``set_distribution_count`` sibling
+    it writes the index only, never the casestore mirror — a store-side rebuild
+    from ``case.json`` would resurrect the pre-sweep counts, which is why the
+    re-derivation is durable only because the ingest default already reads the
+    widened reading it converges the column toward.
+    """
+    written = 0
+    with conn:
+        for case_id, count in counts:
+            cursor = conn.execute(
+                "UPDATE cases SET amicus_briefs = ? WHERE case_id = ?", (count, case_id)
             )
             written += cursor.rowcount
     return written

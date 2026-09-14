@@ -16,8 +16,12 @@ a `schedule` fires only from the **default branch**, so a cron can run only what
 a maintainer-merged promotion put on `main`; a `workflow_dispatch` is refused by
 GitHub to anyone without repository write; and every privileged job binds a
 deployment environment whose branch policy pins the ref it may run from (`prod`
-to `main`, `staging` to `staging`), so a dispatch from any other ref dies before
-a step runs. The trigger decides only
+to `main`, `staging` to `staging`) — a job naming one as a literal is refused at
+the deployment gate from any other ref before a step runs, and the two
+branch-resolving workflows (`integration-test`, `run-analytics`) resolve an
+off-list ref to an auto-created empty environment holding no role variables and
+no keys, failing closed at the first credential instead (the carve-out is in
+[security.md](security.md)). The trigger decides only
 *when* a round derives — never what it spends on, which is the `review` hold's.
 (CI, the workflow linters and CodeQL do take `pull_request`, which any fork
 contributor fires; none of them binds an environment, names a secret, or mints a
@@ -34,7 +38,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
-| `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), and each repro-family scenario one real cell against its pinned record |
+| `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, qp-labeler-smoke one labeling agent over a synthetic extract, and each codex-freeze-probe member one trivial codex turn — with the watchdog armed around it, or deliberately unarmed |
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
@@ -224,7 +228,26 @@ call, no branch write.
 `run-analytics` is the **corpus analysis & derived metrics** surface, also outside
 the cascade: every task that reads the corpus and answers a question or refreshes a
 derived artifact is a mode here (dispatch `mode` input, or the weekly schedule),
-each as its own least-privilege job holding only the credentials its mode needs:
+each as its own least-privilege job holding only the credentials its mode needs.
+
+Every environment-binding job resolves its environment from the dispatching
+branch — the branch-resolving tail of `integration-test`'s expression, with
+no override input: a `main`-ref dispatch — and the weekly schedule, which
+runs only there — binds `prod`, while
+`gh workflow run run-analytics.yml --ref staging -f mode=<mode>` binds the
+`staging` environment and reads the staging corpus pair (each corpus job
+forwards the out-of-band index pointer off `main`, since the committed
+pointer names the production blob; any other ref resolves its own name,
+which names no configured environment and binds nothing — fail-closed). The
+two publishing jobs' App-token mint, git-identity and review-PR steps are
+fenced to `main`-branch runs, so a staging dispatch is a **rehearsal**: it
+runs a mode as far as the staging pair's contents support — the labeling
+mode's extract enforces its reference-coverage floor against that corpus, so
+a slice not carrying the reference texts stops there, itself a rehearsal
+observation — and publishes nothing, stating the fence in its step summary.
+A new mode's, or a changed mode's, first run belongs on a staging ref. Each
+mode's concurrency group carries the ref, so a rehearsal never cancels or
+queues behind the production run of the same mode. The modes:
 
 - **`corpus-stats`** (dispatch) assumes the read-only S3 role, pulls the
   corpus (`fedcourts corpus-pull`), and runs `fedcourts stats` to aggregate disposition base-rates (overall,
@@ -261,8 +284,8 @@ each as its own least-privilege job holding only the credentials its mode needs:
   them instead of dying on an expired token after the whole walk. Raising the
   ceiling further is that composite input again, within the read-only role's
   IAM maximum session duration. And it holds its
-  **own** concurrency group — `run-analytics-census`, `cancel-in-progress:
-  false` — rather than sharing `corpus-stats`'s: a cancelled job runs no upload
+  **own** ref-suffixed concurrency group (`cancel-in-progress:
+  false`) rather than sharing `corpus-stats`'s: a cancelled job runs no upload
   step, so a sibling stats dispatch would otherwise take the artifact the mode
   exists to produce with it. Both jobs are read-only, so letting them overlap
   costs nothing.
@@ -356,14 +379,18 @@ each as its own least-privilege job holding only the credentials its mode needs:
 ## `integration-test` — the infrastructure preflight
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
-a side-effect-free scenario runner (one carve-out: the application-repro leg
-writes its watchdog's telemetry row onto the `codex-watchdog` issue —
+a side-effect-free scenario runner (one carve-out: the application-repro leg,
+the idle control and the freeze probe each
+write their watchdog's telemetry row onto the bound channel's telemetry
+issue — `codex-watchdog`, or `codex-watchdog-staging` on a staging-bound
+dispatch —
 dispatch-only, marker-keyed, non-triggering) — manual dispatch, plus one
 scheduled canary — over the **corpus
 read backends, the two sidecars, cascade cells, the engines' own invocation
 blocks, the collect writer, and the
 qp-topic measure path**,
-against the real corpus remote for every scenario but collect and qp-topic —
+against the real corpus remote for every scenario but collect, qp-topic,
+qp-labeler-smoke, runner-idle-control and the codex-freeze-probe family —
 the tested `fedcourts corpus-integration-check` read set, a
 cell's-eye probe of the service sidecar, the tokenless CourtListener MCP
 sidecar under the tested `mcp-integration-check` client, a stub
@@ -371,15 +398,20 @@ sidecar under the tested `mcp-integration-check` client, a stub
 artifacts (corpus-free and environment-free; every write surface stubbed or
 diverted on the runner), the `qp-topic-measure` composite over canned labels
 built from the committed reference set (token-free and credential-free), or
-(the three token-spending scenarios) a single real-engine cell over the service
-sidecar, a boot probe of each engine's own invocation block, and one
+(the token-spending scenarios) a single real-engine cell over the service
+sidecar, a boot probe of each engine's own invocation block, the qp-topic
+labeler's own invocation block over a five-row synthetic extract, one
 **repro-family** cell — a real cell run against a record pinned to the shape a
-diagnosed engine defect keys on
+diagnosed engine defect keys on — and the freeze probe's one trivial codex
+turn with the watchdog armed around it
 — dispatched around changes to corpus access, the sidecars, engine
 CLIs or engine actions, the collect contract, or the corpus-consuming
 workflows and before
 releases — from main, or via the `staging` deployment environment (collect
-binds none; qp-topic binds one it never reads) from the `staging` branch, which
+binds none; qp-topic binds one it never reads; the labeler smoke binds one
+and reads exactly its engine key; the idle control binds one and reads
+exactly the telemetry App's pair; the freeze probe binds one and reads that
+pair plus the codex key) from the `staging` branch, which
 is the only branch that environment accepts (those runs are the promotion
 gate's freshness evidence; see *Promotion: staging → main* below). The deployment environment resolves from
 the dispatching branch by default — `main` gets `prod`, `staging` gets
@@ -805,6 +837,39 @@ demand (`fedcourts docket`) and the whole-slice IFP-inclusive figure in
 heals on a schedule and a stale copy of either carries no marker saying so. The
 apply's own output names them.
 
+`amicus-rederive` writes both stores, and what is distinctive is *which* two: a
+corpus column and the committed `outcome.json` field that column was frozen onto,
+which are the two halves of one correction. The interim amicus count is parsed out
+of docket-entry text, so which entries a reading admits — and where it stops
+counting — is part of what a stored count means; the widened reading counts every
+entry in the accepted form as the retired one did, **plus** each distinct lead
+filer whose brief the docket shows as submitted and not yet accepted, and cuts the
+count at the end of the disposition day. Reading only upward over a fixed cut is
+what keeps it compatible with the column's latch. It is live for every application
+frozen after it merged, which leaves the rows frozen under the retired reading to
+this pass. The corpus half
+re-derives the `amicus_briefs` column on **resolved** applications — those whose
+latest live-shaped snapshot carries a readable disposition date — through a direct
+`UPDATE` bypassing the column's **max** latch, because the end-of-day cut lowers a
+resolved row and the same value through the upsert path would be discarded
+silently. An open application is left alone: it has no disposition day to cut at,
+and the live channel already polls it under this reading. The ledger half then
+re-freezes each committed interim `outcome.json`'s
+`interim_signals.amicus_briefs` from that same recount, which is why this pass
+stages `data/` beside the pointer in one commit. **A committed
+`context.amicus_briefs` is never re-derived** — it is the prediction-time
+snapshot, frozen by design, so the two ends of the `amicus-increment` claim move
+at different times and the pass opens no `prediction.json` at all. Its population
+and expected motion are pre-registered in
+[freeze-record.md](freeze-record.md), and its dry-run ledger — which reports the
+frozen-count distribution across the committed worklist — is read against that
+entry. There is no incumbent-reading control to dispatch, the reading being fixed
+in code rather than selected per dispatch; re-dispatching the pass in `dry-run`
+after the apply is the control, and must report no changes. Two preconditions are
+the maintainer's: it presupposes the widened reading is **promoted**, since it
+corrects rows frozen under the old one, and because it moves a scored claim's
+resolution end its apply owes a `regrade-stale` follow-through.
+
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an
 evaluator cell's graded fields under the cell's original stamp and rewrites
@@ -973,7 +1038,12 @@ agentic fan-outs, the corpus writers). Everything else — a new analysis, a new
 artifact, a new maintenance sweep — should land as a mode/job on `run-analytics`
 (or the closest existing surface), reusing the shared composite actions
 (`setup-python-env`, `corpus-readonly`, `corpus-ranged`, `corpus-sidecar`,
-`mcp-sidecar`, `configure-git-identity`).
+`mcp-sidecar`, `configure-git-identity`). A new mode also inherits — and must
+preserve — the lane's rehearsability: a branch-resolved environment, any
+publish step fenced to `main`-branch runs, and the fenced staging-pointer
+forward on any corpus job (the invariants are pinned in
+`tests/test_workflow_cell_invariants.py`), so the mode's first run can be a
+staging rehearsal rather than its production run.
 
 **A `workflow_dispatch` may declare at most 10 inputs, and the "Run workflow"
 form is where the limit bites** — inputs past it are reachable by API but the
@@ -1068,7 +1138,11 @@ pattern rather than rediscovering it:
   signalling those force-kills the job the watchdog exists to save. A
   background process launched in one step survives into the later
   ones — the sidecars rely on the same property — so the disarm half is what
-  keeps the killer from outliving its window.
+  keeps the killer from outliving its window. And a detached guard can be
+  *suspended* by what it guards, so it also has to ask whether the time it
+  measured is time it was awake for: a pass that lands long after the one before
+  it means the deadline expired unobserved, and a guard in that state reports
+  rather than signals (the thaw guard, under *Graceful degradation on limits*).
 - **A watchdog that reports only onto the runner reports nothing.** The same
   cancellation that makes a runner-level watchdog necessary destroys every
   channel that lives on the runner: the diagnostics bundle, the disarm step that
@@ -1951,8 +2025,8 @@ sentinel unable to fire on an ordinary cell — as are `usage.json` and
 `retrieval_log.json`, which the harness writes after the step this reaps.
 
 The list reaches the watchdog as environment — never as a file, since the agent
-owns the workspace and a list it could rewrite is a list it could satisfy without
-doing the work. The watchdog polls for all of them to exist, be non-empty and
+owns the output files such a list would name (its own subtree, whatever its uid)
+and a list it could rewrite is a list it could satisfy without doing the work. The watchdog polls for all of them to exist, be non-empty and
 (for JSON) parse, and then for the output directory to go **quiescent** for five
 minutes, so an agent revising a draft is never cut off — the committed retrieval
 logs show a predict cell going 104 seconds between completing its file set and
@@ -1975,8 +2049,13 @@ strictly better than the job cap destroying it.
 **The deadline** is the second line, for a wedge that completes nothing. Set
 well inside the job cap, with the arithmetic at the arm step, it captures the
 runner user's process tree, the socket table and a listing of the codex home —
-first, so the evidence exists whatever the kills then do — then kills the
-engine, which fails the *step* and hands the cell back to the salvage path
+first, so the evidence exists whatever the kills then do. Under the cells'
+`unprivileged-user` codex two of those are thinner: the agent's own processes
+run under the separate account, outside a runner-uid process listing, and the
+codex home it lists is the workspace one (config only) until the disarm step
+surfaces the rollout into it — so the deep evidence of a wedged codex turn is
+the freeze probe's job, whose base turn runs `drop-sudo` as the runner user.
+It then kills the engine, which fails the *step* and hands the cell back to the salvage path
 above — which is also what makes the sidecar-log step run, so those logs land in
 a job log that now survives. (The engine pattern names codex's invocation; on
 any other engine it matches nothing and the escalation goes straight to the
@@ -1991,6 +2070,68 @@ the runner starts each step as a child of its per-job worker process and runs
 one step at a time, and one job owns the whole hosted machine, so the worker's
 live children are the step, whatever the pinned action's command line happens
 to look like.
+
+Under the cells' `unprivileged-user` codex the agent process belongs to a
+separate account, not the runner user, so it never appears in the runner-user
+process tree and a runner-user `kill` cannot signal it directly; the watchdog
+reaches the action's runner-user wrapper and, by parentage, the step tree that
+roots it. That makes the deadline defence-in-depth here rather than a
+load-bearing bound: `unprivileged-user` removes the mid-job account mutation
+that produces the teardown-hang wedge in the first place, and the step's own
+`timeout-minutes` is the hard backstop — not because the runner can signal the
+separate account (it runs at the watchdog's own uid and cannot) but because it
+*concludes the step itself* when the deadline passes, whatever is still alive
+under the other account. The sentinel's early-conclude reads the cell's output
+files in place to decide completion — they are codexcell-owned but world-readable
+at their default mode, and the chown-back to the runner does not run until the
+disarm step, after the watchdog is stood down — then ends the step by the same
+wrapper-and-parentage path. Because a concluded-but-not-killed codex process can
+orphan under the separate account and keep writing, the disarm step (and the
+integration legs' teardown) `pkill`s that account before it surfaces the rollout
+and chowns the output back, so no orphan races the handoff — the one place the
+runner's retained sudo reaches across the uid boundary, and it reaches it to
+*stop* the account, not to read it.
+
+**The thaw guard** sits over both triggers, and it is the one condition under
+which neither of them ever signals. An engine sandbox can suspend the watchdog
+process wholesale — SIGSTOP, or a cgroup freeze — for as long as the agent runs,
+and the sandbox's exit at the agent's finish resumes it. The deadline is
+measured against the wall clock rather than counted in polls, so that telemetry
+latency can never delay a fire; the same property means a resumed process reads
+an expired deadline the instant it thaws, and the tree it would end is the
+step's *teardown*, which is exactly where the sandbox's exit has just left it.
+So the loop also reads the wall clock **between its own passes**: a pass that
+arrives more than a threshold after the one before it is time this process slept
+through, and from there on the watchdog observes rather than acts. The reading
+is taken wherever it is about to act, not once per pass — at the top of the
+loop, at the reaper's door, and at the deadline before anything is signalled —
+because a freeze can land in the middle of a pass as easily as in its sleep, and
+a thaw would otherwise resume straight into the action it interrupted. No engine
+kill, no tree kill, no reap, and none of the three markers the disarm step reads
+as an action — because none was taken. The rule is absolute rather than
+conditional on how finished the outputs look at the thaw: complete output on
+resume is the *expected* reading of a suspension, so a reap keyed on it would
+fire on every suspended run, and the time the watchdog slept through is the time
+the step spent doing the very thing the kill interacts with. What it does
+instead is record the lost seconds in a `SUSPENDED` marker, capture the runner's
+state read-only — a process forest from inside a window the escalation would
+otherwise have ended — and keep beating for a bounded observation window before
+exiting.
+
+Which channel carries that is the reverse of the deadline's, and the reason is
+worth stating. The marker rides the cell artifact and survives, and the disarm
+step reads it like the acting markers — the telemetry row stays expanded and the
+run summary carries the note — but the off-runner lines themselves are
+best-effort: a suspension long enough to expire the deadline has usually
+outlived the hour-long telemetry credential. The beats are still worth issuing,
+since where the channel answers they are the only account of a runner about to
+be lost, but a stood-down cell is **read off its bundle**. The cost is stated in the same breath: that
+cell has no watchdog for the rest of its run, so a genuine wedge following a
+suspension is bounded by the engine step's own `timeout-minutes` rather than by
+the reaper — the safe direction while the kill is the act the deaths follow, and
+the reason the threshold is set where no ordinary latency can reach it. A run
+that is never suspended detects nothing and both triggers behave exactly as
+above.
 
 Two questions decide what is signalled, and the refusals that answer them are
 what make a kill on a live runner safe. The first is asked of **every** target.
@@ -2044,9 +2185,14 @@ the runner regardless — the deadline path, which codex is the one engine to ha
 taken. Widening the mint would put an issues:write App token in every cell of
 every round to buy a record for a failure no other engine has shown. On a codex cell the arm step opens a comment
 on the long-lived **`codex-watchdog`**
-issue (`fedcourts watchdog-checkin`, a non-triggering label) *before* the engine
+issue (`fedcourts watchdog-checkin`, a non-triggering label; a staging-bound
+repro dispatch writes `codex-watchdog-staging` instead, via the command's
+channel flag) *before* the engine
 starts, and the detached watchdog PATCHes that comment as it passes each state —
-whether the sentinel armed and over how many files, a heartbeat while it waits,
+whether the sentinel armed and over how many files, a heartbeat while it waits
+(each carrying the runner's memory headroom and load), a `send-failed:` line
+when a send's diagnosis changes — the HTTP result, and a bounded probe of the
+check-in host where the transport itself failed —
 **the moment the completion sentinel is observed** (the durable proof that the
 work existed, which survives even a reap that then fails), then the deadline or
 the reap, the discovery tally, each signal issued with its pids, the survivors

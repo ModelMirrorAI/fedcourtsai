@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 from typing import get_args
 
+import typer
 from typer.testing import CliRunner
 
 from fedcourtsai.cert_backtest import CERT_BACKTEST_SCOPES
@@ -20,6 +21,7 @@ from fedcourtsai.cli import CELL_MODES, app
 from fedcourtsai.config import CorpusBackend
 from fedcourtsai.pipeline.runner import available_backends
 from fedcourtsai.schemas import Engine, UsageRole
+from fedcourtsai.watchdog_telemetry import CHANNELS
 
 runner = CliRunner()
 
@@ -106,3 +108,32 @@ def test_enum_typed_options_let_typer_render_the_choices() -> None:
     for value in [e.value for e in Engine] + [r.value for r in UsageRole]:
         assert value in rendered, f"typer should render {value!r} from the enum type"
     assert "Engine that ran." in rendered
+
+
+def test_every_command_help_renders() -> None:
+    """Every registered command's ``--help`` renders, in-process.
+
+    rich parses help text as console markup, so a literal bracket sequence in
+    one option's help string is a ``MarkupError`` at render time — a crash
+    class that only rendering finds, and the labeling lane's scanner-install
+    smoke renders one of these helps as its install proof. Rendering all of
+    them here means the class fails in the gate rather than in a lane's first
+    dispatch.
+    """
+    group = typer.main.get_command(app)
+    names = sorted(getattr(group, "commands", {}))
+    assert len(names) > 20, f"command enumeration looks broken: {names!r}"
+    for name in names:
+        result = runner.invoke(app, [name, "--help"], env={"COLUMNS": "200", "NO_COLOR": "1"})
+        assert result.exit_code == 0, (
+            f"`{name} --help` failed to render: {result.exception!r}\n{result.output}"
+        )
+
+
+def test_the_watchdog_channel_help_names_every_channel() -> None:
+    """`CHANNELS` is the registered set the command validates against, so the
+    help must offer every value it accepts — it carries a gloss per channel,
+    which is why it cannot be a plain join."""
+    segment = _option_help(_help("watchdog-checkin"), "--channel")
+    missing = [channel for channel in CHANNELS if f"'{channel}'" not in segment]
+    assert not missing, f"--channel help omits channels the command accepts: {missing}"

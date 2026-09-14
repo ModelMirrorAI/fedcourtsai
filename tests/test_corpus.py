@@ -2051,6 +2051,68 @@ def test_merits_terminated_migrates_and_survives_ingestion(tmp_path: Path) -> No
     assert kept.merits_terminated == MeritsTermination.voluntary_dismissal.value
 
 
+def test_opinion_enrich_cursor_roundtrips_migrates_and_fills_in(tmp_path: Path) -> None:
+    """The opinion-enrichment walk's rotation key: round-trip, migration, latch.
+
+    It is tracking state like `last_pulled` — only the enrichment pass carries
+    it, so a writer with no stamp must preserve the stored one, or a rotation
+    poll would silently reset that walk's queue to its head.
+    """
+    db = tmp_path / "corpus.db"
+    row = _row(case_id="scotus/24001", court="scotus", opinion_enrich_attempted_at=date(2026, 3, 4))
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        fetched = corpus.get_row(conn, "scotus/24001")
+        # A channel that carries no stamp keeps the stored cursor; the walk's
+        # own fresh stamp — never NULL — takes it.
+        corpus.upsert_rows(conn, [_row(case_id="scotus/24001", court="scotus")])
+        kept = corpus.get_row(conn, "scotus/24001")
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id="scotus/24001",
+                    court="scotus",
+                    opinion_enrich_attempted_at=date(2026, 3, 11),
+                )
+            ],
+        )
+        advanced = corpus.get_row(conn, "scotus/24001")
+    assert fetched == row
+    assert kept is not None and kept.opinion_enrich_attempted_at == date(2026, 3, 4)
+    assert advanced is not None and advanced.opinion_enrich_attempted_at == date(2026, 3, 11)
+
+    # A corpus written before the column gains it on connect, never attempted.
+    pre = tmp_path / "pre-change.db"
+    legacy = sqlite3.connect(pre)
+    columns = ",\n".join(
+        f"{name} {ddl}"
+        for name, ddl in corpus._CASES_COLUMN_DDL.items()
+        if name != "opinion_enrich_attempted_at"
+    )
+    legacy.executescript(
+        f"CREATE TABLE cases ({columns});\n"
+        "INSERT INTO cases (case_id, court, docket_number) VALUES "
+        "('scotus/24001', 'scotus', '23-101');"
+    )
+    legacy.commit()
+    legacy.close()
+    with corpus.connect(pre) as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(cases)")}
+        assert "opinion_enrich_attempted_at" in cols
+        migrated = corpus.get_row(conn, "scotus/24001")
+    assert migrated is not None and migrated.opinion_enrich_attempted_at is None
+
+
+def test_from_record_tolerates_a_record_without_the_enrich_cursor() -> None:
+    """A ranged read of a remote blob packed before the cursor column existed."""
+    record = corpus._to_record(_row(opinion_enrich_attempted_at=date(2026, 3, 4)))
+    del record["opinion_enrich_attempted_at"]
+    row = corpus._from_record(record)  # a plain dict raises KeyError like the ranged Row
+    assert row.opinion_enrich_attempted_at is None
+    assert row == _row()
+
+
 def test_capital_case_migrates_and_max_latches(tmp_path: Path) -> None:
     """A DB written before the column gains it on connect at the not-marked
     default, and the flag then only ever latches on: only one upstream channel

@@ -25,6 +25,7 @@ import cycle around it.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from datetime import date
 from enum import StrEnum
 
@@ -204,14 +205,53 @@ _RESPONSE_REQUESTED_RE = re.compile(r"response\s+to\s+application[^.]{0,80}?requ
 # brief filed by several amici is docketed "Brief amici curiae of X, et al.
 # filed." and one filed by a single amicus "Brief amicus curiae of X filed."
 # Across the 2,459 SCOTUS dockets whose proceedings the corpus stores (newest
-# stored snapshot 2026-07-13), 1,432 of the 3,028 entries this counts carry the
-# plural — a singular-only reading takes about half the amicus record, and takes
-# least of it on the dockets that draw the most interest. Every stored
+# stored snapshot 2026-07-13), 1,432 of the 3,028 entries matching this pattern
+# carry the plural — a singular-only reading takes about half the amicus record,
+# and takes least of it on the dockets that draw the most interest. Every stored
 # payload is a cert docket, so those figures measure the reading rather than
 # this column's own population: an application's proceedings are not snapshotted,
 # and the size of the correction there is unmeasured. The vocabulary is one
 # Clerk's across both forms, which is what carries the reading over.
+#
+# This is the **accepted** form: the Latin is what the Clerk writes once a brief
+# is on the record. :data:`_AMICUS_SUBMITTED_RE` reads the other half.
 _AMICUS_RE = re.compile(r"amic(?:us|i)\s+curiae", re.I)
+
+# The **submission** form, which the Latin never reaches. A brief that has
+# arrived and is waiting on the Clerk is docketed in English, with the filer
+# named where the accepted form names it: "Amicus brief of X submitted."
+# The docket is recording a brief it has been handed, and the stakes proxy the
+# column serves is about how much interest a matter draws, not about how far
+# through the Clerk's queue that interest has travelled — so the submission
+# counts, and :func:`amicus_briefs` dedupes it against its own later acceptance.
+#
+# Anchored at the entry's start and requiring the bare verb, which is what keeps
+# the neighbouring motion-for-leave shape out: a motion opens with the motion and
+# not with the brief ("Motion for leave to file amicus brief filed by X."), and
+# leave is permission to file rather than a brief handed over.
+#
+# The filer span is unbounded (`.+?`) rather than capped, unlike the bounded
+# spans elsewhere in this module: one submission entry can name seven
+# organizations in a row, and a cap tidy enough to look reasonable drops
+# precisely the entries carrying the most interest.
+# `re.S` so a filer list wrapped across lines still reaches the verb — which is
+# the shape the unbounded span exists for in the first place.
+_AMICUS_SUBMITTED_RE = re.compile(
+    r"^\s*amic(?:us|i)\s+brief\s+of\s+(?P<filer>.+?)\s+submitted\b", re.I | re.S
+)
+
+# The Clerk's **refusal**, which shares the submission's opening clause and is
+# not a brief the Court has: "Amicus brief of X not accepted for filing. (To be
+# corrected and resubmitted - April 9, 2025)". The verb above already misses it
+# — `\bsubmitted\b` does not match inside `resubmitted` — but only by accident of
+# one word's spelling, and a refusal phrased with the bare verb would otherwise
+# be counted with the filer clause running off into the parenthetical. Stated as
+# its own rule so the exclusion is one a reader can check.
+#
+# It is read per entry, so a refusal never un-counts an earlier submission by the
+# same filer: that would make the reading fall as the docket grows, which the
+# max-latched column cannot follow. :func:`amicus_briefs` states the trade.
+_AMICUS_REFUSED_RE = re.compile(r"\bnot\s+accepted\b", re.I)
 
 
 def response_requested(entry_texts: list[str]) -> bool:
@@ -364,52 +404,219 @@ def _first_dated(entries: list[tuple[str, str | None]], pattern: re.Pattern[str]
     return None
 
 
+# The accepted entry's own filer clause — the name between "amic(us|i) curiae
+# of" and the filing verb, which is where "Brief amici curiae of X, et al. filed.
+# VIDED. (Distributed)" says who filed. Reading the clause rather than the whole
+# entry is what makes the filer comparison below mean anything: matched against
+# the entry entire, a name would keep finding itself inside the boilerplate the
+# Clerk wraps every acceptance in.
+#
+# An accepted-form entry that names no filer this way contributes none, and that
+# is right rather than lossy: those entries are the recitals — a motion to
+# participate in argument as amicus curiae, an argument transcript's counsel
+# line, an invitation to a court-appointed amicus — and none of them is the
+# acceptance of a submitted brief.
+_ACCEPTED_FILER_RE = re.compile(r"amic(?:us|i)\s+curiae\s+of\s+(?P<filer>.+?)\s+filed\b", re.I)
+
+
+def _lead_filer(name: str) -> str:
+    """A filer name reduced to the form two entries can be matched on.
+
+    Case, surrounding whitespace, internal run-length and trailing punctuation
+    are all things the Clerk varies between the submission entry and the
+    acceptance entry for the same brief, so all four are normalized away. The
+    name is then cut at its first comma, leaving the **lead** amicus: a brief
+    filed by several is docketed under its first filer and an "et al." whose
+    presence and spelling differ between the two entries, and the lead name is
+    the part that does not move.
+    """
+    lead = name.split(",", maxsplit=1)[0]
+    return re.sub(r"\s+", " ", lead).strip().strip(".,;:").casefold()
+
+
+def _submitted_filer(text: str) -> str | None:
+    """The lead filer a submission entry names, or ``None`` if it is not one."""
+    if _AMICUS_REFUSED_RE.search(text):
+        return None
+    match = _AMICUS_SUBMITTED_RE.match(text)
+    if match is None:
+        return None
+    return _lead_filer(match.group("filer")) or None
+
+
+def _accepted_filer(text: str) -> str | None:
+    """The lead filer an accepted entry names, or ``None`` if it names none."""
+    match = _ACCEPTED_FILER_RE.search(text)
+    if match is None:
+        return None
+    return _lead_filer(match.group("filer")) or None
+
+
 def amicus_briefs(entry_texts: list[str]) -> int:
     """How many amicus briefs the docket records.
 
     A count rather than a flag: on the interim docket amicus interest is a
-    proxy for stakes, and one brief is a different signal from a dozen. Counted
-    over entries, so a single entry naming several filers counts once — an
-    undercount, and the direction that cannot manufacture salience.
+    proxy for stakes, and one brief is a different signal from a dozen.
 
-    The Latin is what separates a brief on the record from an attempt at one,
-    and the docket draws that line itself: an accepted filing is "Brief
-    amic(us|i) curiae of X filed.", while the pre-acceptance shapes name their
-    filer in English — "Motion for leave to file amicus brief …", "Amicus brief
-    of X submitted.", "Amicus brief of X not accepted for filing." None of the
-    three is a brief the Court has, and each is also a state a real brief passes
-    *through*: the docket appends the acceptance as its own later entry rather
-    than rewriting the earlier one, so counting the earlier entry counts one
-    brief twice. Across the stored payloads (cert dockets, newest stored snapshot
-    2026-07-13), 74 of the 86 `Amic(us|i) brief of X not accepted` entries are
-    followed by a later `filed` entry naming the same lead amicus; none of the 7
-    `submitted` entries has such a twin yet, six of them being three days old at
-    their snapshot's date and the seventh sitting on a docket that reached
-    argument and judgment without the brief ever being filed. So a pre-acceptance
-    entry is either a brief the docket will count again in its own words, or one
-    that never arrives — the two arms of one exclusion, and either alone would
-    carry it. The corpus column max-latches, so an overcount is permanent while
-    an undercount corrects itself on the next poll.
+    The docket writes a brief twice, in two vocabularies. An accepted filing
+    takes the Latin — "Brief amic(us|i) curiae of X filed." — and a brief handed
+    in but not yet on the record takes English — "Amicus brief of X submitted."
+    Both are briefs the docket records, so both count; what must not happen is
+    that one brief counts twice as it moves from the second form to the first,
+    because the Clerk appends the acceptance as its own later entry rather than
+    rewriting the earlier one. So the count is:
 
-    That correction runs only while the application is open, because the
-    rotation re-polls no resolved row and the outcome freezes the column as it
-    stands — so a brief still awaiting the Clerk when the application resolves is
-    missed for good. It is the deliberate side of the trade: a few days of lag on
-    a handful of dockets, and a rare miss at the boundary, taken over an
-    overcount that no later poll can undo.
+    - every entry in the accepted form, one per entry; plus
+    - every **distinct lead filer** in the submitted form that no accepted entry
+      names.
 
-    An *entry* that recites the phrase without being a brief still counts, and is
-    left counting: 153 of the 3,028 counted entries are not `Brief amic(us|i)
-    curiae …` — motions for leave to participate in oral argument as amicus
-    curiae, the argument transcript's own line naming counsel for an amicus, an
-    invitation to a court-appointed amicus. Narrowing there would move the count
-    down, which a max-latched column cannot represent, so the column and a fresh
-    reading of the same docket would stop agreeing.
+    Both halves of that dedup are doing work. It is keyed on the *filer* rather
+    than on the entry, so a docket carrying the same submission twice still
+    contributes one; and it is keyed on the **lead** filer — the name before the
+    first comma, :func:`_lead_filer` — because a brief filed by several amici is
+    docketed under its first one, and the "et al." that follows is spelled and
+    punctuated differently between the submission entry and the acceptance entry
+    for the same brief. Matching on the lead name is what lets the two entries
+    recognize each other. Where it over-matches — two genuinely different amici
+    whose names agree up to their first comma — the count is one short, which is
+    the direction that cannot manufacture salience.
+
+    Two pre-acceptance shapes stay out, and neither is a brief the docket has
+    been handed. A **motion for leave** asks permission to file; the brief may
+    never follow, and the docket says so in its own later entry when leave is
+    denied. A **refusal** — "Amicus brief of X not accepted for filing. (To be
+    corrected and resubmitted - April 9, 2025)" — is a brief the Clerk turned
+    away; over the stored payloads (cert dockets, newest stored snapshot
+    2026-07-13), 74 of the 86 such entries are followed by a later `filed` entry
+    naming the same lead amicus, which is where that brief is counted. The
+    refusal rule reaches the English form only: an entry that refuses a brief
+    while reciting the Latin ("Brief amicus curiae of X not accepted for
+    filing.") is counted by the accepted arm, as it was before this reading, and
+    is left counting for the same reason the recitals below are.
+
+    **Every rule here only ever adds to the accepted-entry count**, and that is a
+    constraint rather than an observation. The corpus column max-latches, so a
+    reading that could return *less* than a previously stored one would leave the
+    column and a fresh read of the same docket permanently disagreeing, with no
+    way to bring the column down. The submitted arm is therefore expressed as an
+    addition over a disjoint set of entries — an entry already in the accepted
+    form is never re-read as a submission — and never as a re-interpretation of
+    entries the accepted form already counts.
+
+    The same constraint fixes what happens when a submission is later *refused*:
+    it stays counted, an overcount of one on that docket. Un-counting it would
+    make this function non-monotone over an append-only docket, which the
+    max-latch cannot follow; and the 74/86 figure above says the usual sequel to
+    a refusal is a corrected refiling that the accepted arm counts anyway.
+    Accepting the overcount is the cheaper of the two errors.
+
+    An *entry* that recites the Latin without being a brief still counts, and is
+    left counting: 153 of the 3,028 accepted-form entries are not `Brief
+    amic(us|i) curiae …` — motions for leave to participate in oral argument as
+    amicus curiae, the argument transcript's own line naming counsel for an
+    amicus, an invitation to a court-appointed amicus. Narrowing there would move
+    the count down, which the paragraph above rules out.
+
+    Reads every entry it is given. :func:`amicus_briefs_through` is the bounded
+    form, and it is what the corpus column is derived through.
     """
-    return sum(1 for text in entry_texts if _AMICUS_RE.search(text))
+    on_record = [text for text in entry_texts if _AMICUS_RE.search(text)]
+    accepted = {filer for text in on_record if (filer := _accepted_filer(text)) is not None}
+    pending: set[str] = set()
+    for text in entry_texts:
+        # Disjoint by construction: an entry the accepted form already counts is
+        # never re-read as a submission, which is what makes the second term
+        # purely additive and so latch-compatible.
+        if _AMICUS_RE.search(text):
+            continue
+        filer = _submitted_filer(text)
+        if filer is not None and filer not in accepted:
+            pending.add(filer)
+    return len(on_record) + len(pending)
 
 
-def escalation_signals(entry_texts: list[str]) -> tuple[bool, bool, int]:
+def interim_disposition_date(entries: Sequence[tuple[str, str | None]]) -> date | None:
+    """The day the application was disposed of, read strictly, or ``None``.
+
+    The cut date :func:`amicus_briefs_through` takes, and it is read here rather
+    than borrowed from the stored ``date_terminated`` because the two need
+    different strictness. A stored date merely records; this one decides which
+    entries are retained in a **max-latched** column, so a date that is partly a
+    function of the day the parser ran would drop genuinely-dated entries and
+    the latch would make the drop permanent. :func:`~..cert_signals.entry_date`
+    refuses a partial string, and an unreadable disposition date yields ``None``
+    — no cut at all, which is the conservative direction.
+
+    The **last** disposing entry wins, the rule the interim resolver applies and
+    for the same reason: an application can be deferred pending argument and
+    decided months later, and a consolidated order can dispose of several at
+    once. In both the earlier entry is a step rather than the outcome.
+    """
+    decided: date | None = None
+    for text, raw in entries:
+        if match_interim_disposition(text) is None:
+            continue
+        when = entry_date(raw)
+        if when is not None:
+            decided = when
+    return decided
+
+
+def amicus_briefs_through(entries: Sequence[tuple[str, str | None]], through: date | None) -> int:
+    """How many amicus briefs the docket records **through the end of** ``through``.
+
+    The resolution-side cut, and the semantics it fixes are **end of day**: an
+    entry dated on ``through`` counts, and an entry dated after it does not. That
+    is the reading an application's disposition takes — the corpus column is
+    frozen onto the outcome as the state at resolution, and the resolution value
+    is a statement about the docket the Court decided rather than an information
+    set anyone forecast from. The alternative is to stop at the disposing entry
+    itself, as the *prediction* side stops at the entry that opened the event, and
+    it is declined rather than unavailable: within-day docket order is observable
+    (a submission can and does appear after the denial that decided the matter),
+    but ordering the resolution end by it would have that end answer a question
+    about a forecaster nobody asked about.
+
+    Without the bound the count is limited by nothing but the poll: the derivation
+    runs over whatever entries the payload carries, so an entry filed *after* the
+    disposition day that happens to land in a poll before resolution is detected
+    is counted into a column labelled "as at resolution".
+
+    ``through`` is ``None`` on an open application, which has no day to be cut at
+    — and also, deliberately but less happily, on a **resolved** one whose
+    disposing entry carries no readable date, since the caller reads the date off
+    that entry. Such a row keeps the unbounded reading, which is the leak this
+    function exists to close, on a path that raises nothing. The bound is
+    date-conditioned and the size of that arm is unmeasured; `docs/salience.md`
+    and `docs/freeze-record.md` say so where a reader of the column will look.
+
+    **Undated entries always count.** Dropping them would make the bounded count
+    fall below the unbounded one for a reason that has nothing to do with the
+    cut, and the entry may well predate the disposition. That is the opposite
+    discipline to :func:`_first_dated`, which skips undated entries, and the
+    readings differ because the stakes do: there a guessed date opens an event,
+    here a dropped entry silently lowers a latched column.
+
+    **The residual, stated plainly.** The corpus column max-latches, so this
+    bound can only govern derivations that run while it applies. A row polled
+    before its disposition date was readable — the ordinary case for a live
+    application, whose column is written on every poll — latched whatever the
+    unbounded reading gave at the time, and a later bounded derivation cannot
+    bring it back down. So the cut governs the *derivation*, not the stored
+    value: it removes the after-the-fact entries a resolution-detecting poll
+    would otherwise add, and leaves untouched any count that had already latched
+    high. Bringing those rows down is a corpus re-derivation, which only a writer
+    job can do.
+    """
+    if through is None:
+        return amicus_briefs([text for text, _ in entries])
+    kept = [text for text, raw in entries if (when := entry_date(raw)) is None or when <= through]
+    return amicus_briefs(kept)
+
+
+def escalation_signals(
+    entries: Sequence[tuple[str, str | None]], *, through: date | None = None
+) -> tuple[bool, bool, int]:
     """The three cheap signals an interim forecast can condition on.
 
     ``(response_requested, referred_to_court, amicus_briefs)``.
@@ -422,9 +629,25 @@ def escalation_signals(entry_texts: list[str]) -> tuple[bool, bool, int]:
     conditioned on the ending band understates the rate a live application
     actually faces. `docs/salience.md` records how the cert program answers both,
     and the answers transfer unchanged.
+
+    Takes dated entries rather than bare texts because ``through`` bounds the
+    amicus count at the end of that day (:func:`amicus_briefs_through`) — the
+    resolution-side cut, passed as the disposition date by the ingest derivation
+    and left ``None`` by every reader whose entries are already cut at its own
+    moment. Monotonicity is a statement about a *fixed* cut: the count only grows
+    as entries accumulate before ``through``.
+
+    **The bound reaches the count and not the two flags**, and the returned tuple
+    is therefore mixed-cut when ``through`` is given. That is scope, not a claim
+    that the flags cannot move late: an end-of-day bound would apply to them
+    unchanged, and a response request or referral entered after the disposition
+    is the same leak. It is left out because each flag resolves its own
+    registered claim, so bounding them is its own change with its own
+    registration, and the size of the arm it would move is unmeasured.
     """
+    texts = [text for text, _ in entries]
     return (
-        response_requested(entry_texts),
-        referral_posture(entry_texts) is ReferralPosture.referred_to_court,
-        amicus_briefs(entry_texts),
+        response_requested(texts),
+        referral_posture(texts) is ReferralPosture.referred_to_court,
+        amicus_briefs_through(entries, through),
     )

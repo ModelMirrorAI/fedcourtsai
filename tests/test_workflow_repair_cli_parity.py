@@ -1,6 +1,6 @@
 """`run-repair`'s embedded CLI strings, executed against the fixture corpus.
 
-`run-repair.yml` is dispatch-only, so its thirteen maintenance passes are argv that
+`run-repair.yml` is dispatch-only, so its fourteen maintenance passes are argv that
 nothing runs until a maintainer runs one — in front of the maintainer, at the
 moment they most want it to work. A flag renamed in `cli.py` leaves the workflow
 string behind, and the whole cost of that drift lands on the dispatch as a usage
@@ -27,7 +27,8 @@ The passes' own semantics are pinned at their unit seams
 (`tests/test_dedupe.py`, `tests/test_distribution_rederive.py`,
 `tests/test_docket_marking_migration.py`, `tests/test_response_backfill.py`,
 `tests/test_attribution_migration.py`, `tests/test_disposition_convergence.py`,
-`tests/test_sampled_frame_repair.py`, `tests/test_documents.py`,
+`tests/test_sampled_frame_repair.py`, `tests/test_amicus_rederive.py`,
+`tests/test_documents.py`,
 `tests/test_document_backfill.py`,
 `tests/test_document_mirror.py`,
 `tests/test_arrival_backfill.py` and

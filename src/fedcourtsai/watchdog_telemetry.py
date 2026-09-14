@@ -7,8 +7,9 @@ diagnostics bundle under ``WATCHDOG_DIR``, the disarm step that publishes it, th
 step summary, the job log — is erased by exactly the failure it documents, and
 nothing afterwards says whether the watchdog even fired. Evidence about a runner
 that may be cancelled has to leave the runner *while the runner is still
-running*, which is what this module opens: a long-lived ``codex-watchdog``
-tracking issue carrying one comment per cell, created here before the agent
+running*, which is what this module opens: a long-lived tracking issue —
+one per channel, see :data:`CHANNELS` — carrying one comment per cell,
+created here before the agent
 starts and then PATCHed in place by ``scripts/engine-watchdog.sh`` itself as it
 passes each state.
 
@@ -56,6 +57,35 @@ _ISSUE_BODY = (
     "bounded window each check-in searches. See *Graceful degradation on "
     "limits* in docs/pipeline.md."
 )
+
+#: Which long-lived issue carries the record. ``prod`` is the production
+#: cells' and a prod-bound repro leg's; ``staging`` routes the record to the
+#: rehearsal channel's own issue, under its own label, so rehearsal rows
+#: never mix into the production off-runner record and it stays one readable
+#: row per production cell. Which caller selects which channel is the
+#: workflows' business, not this module's. Separate issues,
+#: identical marker format: a marker keys a comment *within* its issue, so
+#: the channels cannot reset each other's rows.
+CHANNELS = ("prod", "staging")
+_CHANNEL_LABELS = {"prod": LABEL, "staging": f"{LABEL}-staging"}
+_CHANNEL_TITLES = {
+    "prod": _ISSUE_TITLE,
+    "staging": f"{_ISSUE_TITLE} (staging rehearsals)",
+}
+_STAGING_BODY_SUFFIX = (
+    "\n\nThis is the **staging rehearsal channel**: its rows are rehearsal "
+    "records and assert nothing about production cells — the production "
+    "record is the `codex-watchdog` issue."
+)
+_CHANNEL_LABEL_DESCRIPTIONS = {
+    "prod": _LABEL_DESCRIPTION,
+    "staging": "Codex watchdog telemetry — staging rehearsal records",
+}
+# Distinct colours, because telling a rehearsal row from a production one at
+# a glance is the channel's whole purpose: production keeps its red, the
+# rehearsal channel renders yellow.
+_CHANNEL_LABEL_COLORS = {"prod": _LABEL_COLOR, "staging": "fbca04"}
+_CHANNEL_BODIES = {"prod": _ISSUE_BODY, "staging": _ISSUE_BODY + _STAGING_BODY_SUFFIX}
 
 #: Keys one comment to one cell of one run. A hidden HTML comment, so the body
 #: reads as prose while the find-or-reset test has something exact to match.
@@ -288,14 +318,24 @@ def _write(
     return str(json.loads(written or "{}").get("url", ""))
 
 
-def _issue_for(repo: str, runner: GhRunner) -> int:
+def _issue_for(repo: str, runner: GhRunner, channel: str) -> int:
+    """The channel's own long-lived issue, refusing an unregistered channel.
+
+    The refusal is a :class:`ValueError` on purpose: the CLI's best-effort
+    contract converts it to a warning carrying this message — which names the
+    registered set — and a record-less arming, the lane's standing
+    degradation: a typo'd channel costs the telemetry and never the
+    watchdog's kill duty.
+    """
+    if channel not in CHANNELS:
+        raise ValueError(f"unknown telemetry channel {channel!r}; registered: {CHANNELS}")
     return find_or_create_issue(
         repo=repo,
-        label=LABEL,
-        label_color=_LABEL_COLOR,
-        label_description=_LABEL_DESCRIPTION,
-        title=_ISSUE_TITLE,
-        body=_ISSUE_BODY,
+        label=_CHANNEL_LABELS[channel],
+        label_color=_CHANNEL_LABEL_COLORS[channel],
+        label_description=_CHANNEL_LABEL_DESCRIPTIONS[channel],
+        title=_CHANNEL_TITLES[channel],
+        body=_CHANNEL_BODIES[channel],
         runner=runner,
     )
 
@@ -310,6 +350,7 @@ def arm_checkin(  # noqa: PLR0913 - the cell's five identifiers are five of thes
     actor: str,
     deadline_s: int,
     run_url: str = "",
+    channel: str = "prod",
     now: datetime | None = None,
     runner: GhRunner = _gh,
 ) -> tuple[str, str]:
@@ -325,7 +366,7 @@ def arm_checkin(  # noqa: PLR0913 - the cell's five identifiers are five of thes
     head = checkin_head(run_id=run_id, court=court, docket=docket, event_id=event_id, actor=actor)
     marker = head.splitlines()[0]
     armed_at, fire_eta = arm_times(deadline_s, now)
-    issue = _issue_for(repo, runner)
+    issue = _issue_for(repo, runner, channel)
     existing = _locate(repo, issue, marker, _since(now), runner)
     body = armed_body(
         head, armed_at=armed_at, fire_eta=fire_eta, deadline_s=deadline_s, run_url=run_url
@@ -343,6 +384,7 @@ def disarm_checkin(  # noqa: PLR0913 - the cell's five identifiers are five of t
     actor: str,
     conclusion: str,
     healthy: bool,
+    channel: str = "prod",
     now: datetime | None = None,
     runner: GhRunner = _gh,
 ) -> tuple[str, str]:
@@ -354,7 +396,7 @@ def disarm_checkin(  # noqa: PLR0913 - the cell's five identifiers are five of t
     """
     head = checkin_head(run_id=run_id, court=court, docket=docket, event_id=event_id, actor=actor)
     marker = head.splitlines()[0]
-    issue = _issue_for(repo, runner)
+    issue = _issue_for(repo, runner, channel)
     existing = _locate(repo, issue, marker, _since(now), runner)
     prior = str(existing.get("body", "")) if existing is not None else ""
     body = disarmed_body(
@@ -368,6 +410,7 @@ def disarm_checkin(  # noqa: PLR0913 - the cell's five identifiers are five of t
 
 
 __all__ = [
+    "CHANNELS",
     "LABEL",
     "MARKER_TEMPLATE",
     "arm_checkin",

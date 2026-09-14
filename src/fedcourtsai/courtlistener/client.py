@@ -1,8 +1,10 @@
 """Thin, typed client for the CourtListener REST API v4.
 
 Reads dockets and their entries (the ``pull`` channel), plus the opinion
-cluster and opinion records a decided docket links (the opinion-enrichment
-channel — :mod:`fedcourtsai.pipeline.opinion_enrichment`). Every endpoint goes
+cluster and opinion records a decided case produced — reached from the docket
+that links them or from the court and docket number they were filed under (the
+opinion-enrichment channel —
+:mod:`fedcourtsai.pipeline.opinion_enrichment`). Every endpoint goes
 through one throttled, retried :meth:`CourtListenerClient._get`, so each shares
 the same rate governor, retry policy, and error classification.
 
@@ -154,6 +156,26 @@ class CourtListenerClient:
         the text.
         """
         return self._get(f"clusters/{cluster_id}/")
+
+    def list_clusters_by_docket_number(self, *, court: str, docket_number: str) -> JsonDict:
+        """List the opinion clusters upstream joins to a docket number in a court.
+
+        The relation-side read of :meth:`get_cluster`: a case's published
+        cluster hangs on whichever of upstream's docket rows for that number
+        carries it, which is not always the row a caller tracks. Filtering on
+        the docket's ``court`` and ``docket_number`` reaches the cluster
+        without knowing which row it sits on, and each result is a full cluster
+        serialization, so a caller needs no follow-up fetch to read one.
+
+        Both values travel as query *parameters* — url-encoded by the transport
+        — so a stored docket number can only ever be a filter value, never a
+        path this client did not build. Upstream's filter semantics are its
+        own, so a caller for which the join must be exact verifies the docket a
+        returned cluster names rather than taking the match on trust.
+        """
+        return self._get(
+            "clusters/", {"docket__court": court, "docket__docket_number": docket_number}
+        )
 
     def get_opinion(self, opinion_id: int) -> JsonDict:
         """Fetch a single opinion by CourtListener opinion id.

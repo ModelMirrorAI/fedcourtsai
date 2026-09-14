@@ -95,8 +95,9 @@ manual workflow dispatch, never on every iteration.
 
 That infrastructure has a dedicated path:
 [`integration-test.yml`](../.github/workflows/integration-test.yml) (manual
-dispatch plus one daily canary, read-only role — the collect scenario none at
-all — side-effect
+dispatch plus one daily canary, read-only role — collect binds no environment
+and no role at all, and the labeler smoke binds an environment but assumes no
+role — side-effect
 free but for the application-repro leg's watchdog telemetry row) runs one
 scenario per dispatch, or — `scenario=all` — the
 promotion gate's whole required suite as one run (every required scenario, with
@@ -198,7 +199,7 @@ force-include, the stratified fill's proportions, exclusion of already-published
 rows, a frame clearing over repeated dispatches without relabeling a row, and
 the converged and under-coverage refusals — all over corpora and frames built in
 `tmp_path`), and the model call is exactly what `run-analytics` pays for.
-`engine-smoke` is the first of the three token-spending scenarios: a single
+`engine-smoke` is the first of the four token-spending scenario classes: a single
 real-engine
 predictor cell (the `engine` input picks which — an `all` dispatch ignores it
 and runs one smoke per engine; one predict cell's spend
@@ -254,8 +255,199 @@ workflows' by a test, and the two deliberate deviations — the kickoff prompt,
 and handing claude the job's read-capped token instead of minting the cells'
 App token — are marked in the workflow where they are made.
 
-**The repro family** is the third token-spending class, and it exists because
-the two above share a blind spot: the resolver applies no stage screen, but
+`qp-labeler-smoke` extends the actions-smoke doctrine to the one invocation
+block the engine legs cannot cover: the qp-topic labeler's, which is not a
+cell's — a pinned CLI handed to the action, a bubblewrap/socat sandbox with
+the subprocess env scrub, the scrub-hardened `default` permission mode with
+its explicit Write/Edit grant in a checkout that is read-only
+by contract, and a single `--add-dir` grant. The leg sends that block, held
+in lockstep with `run-analytics`'s labeling job by a workflow-shape test, a
+five-row synthetic extract — invented question texts, so no stored petition
+text reaches the runner — and asserts the declared output exists, parses
+against the vocabulary, and joins back to the extract row for row; which
+label the model picked is deliberately not read, so the leg gates the
+posture and never model behaviour. It runs as its own job because the
+credential shape is part of that posture (no cloud credential, no id-token —
+stricter than a cell), SPENDS MODEL TOKENS (cents at the labeler's default
+tier, on the dispatching environment's own key), and on any surviving
+outcome digests
+the error tool results from the execution file into the job log — a clean
+run's zero line is itself evidence, and a failing run's digest is what makes
+a labeler permission regression diagnosable from one staging dispatch (the
+paid lane's `qp-label-transcript` artifact stays the first read for a
+production failure; the smoke is how the failure is reproduced and iterated
+on without paying for batches).
+Neither whole-suite selection fans it out.
+
+The repro family's watchdog deadline is also the discriminator lever: the
+`repro_deadline_s` dispatch input lowers that one leg's deadline — and
+nothing else's, the cell workflows' deadlines being untouched literals — so
+an experiment can set it below the 58-64-minute death window and read which
+of three worlds it lands in: a fired deadline whose job then survives (the
+watchdog lives; the runner-local diagnostics finally escape), a deadline
+that never fires (the watchdog process itself dies early), or a fired
+deadline whose runner dies anyway (the death is job-clock-tied, not the
+engine's). Its sibling control is **`runner-idle-control`**: a token-free
+standalone job that waits eight minutes, arms the same off-runner record,
+idles on across the window with no agent anywhere near the runner, and
+disarms — the wait is what puts the telemetry token's one-hour life over
+the whole 58-64-minute window, so a beat gap there is a death and never
+the token expiring. A
+runner that dies idle reframes the class at the infrastructure, and one
+that survives pins it to the codex workload and leaves its per-beat
+resource trajectory as a run artifact.
+
+**`codex-freeze-probe`** is the control's opposite number: it arms the same
+off-runner record around ONE trivial codex turn — the boot probe's one-word
+prompt under the family's base-turn block, which keeps `drop-sudo` to reproduce
+the wedge, so what it spends is a boot probe — and reads what the beat trail
+does while a sandbox lives and after it exits. The design constraint it answers is that every runner-local witness
+(the watchdog's log, its markers, its captures) dies with the runner, so on a
+wedged cell the watchdog's state during the turn can only be inferred from
+silence. A turn that exits cleanly keeps its runner, which is what makes the
+trail readable at all: two clean beats land before the sandbox starts, and
+the leg idles three minutes after it exits so post-exit beats have room. The
+step summary states the derived verdict — `gap` (the largest silence between
+two beats), `tail` (the silence still running when the record is read), and
+`resumed` — computed from the record itself. A `gap` far above the 60-second
+cadence with `resumed=yes` is a suspended watchdog observed directly rather
+than inferred; an unbroken trail says suspension does not happen on a turn
+this short; a large `tail` with `resumed=no` is the third world, a watchdog
+that stopped and never came back, which is a dead process and not a frozen
+one. All three are results and none is a failure. So the leg's own
+conclusion gates nothing about the measurement: a codex turn that started
+and then failed still had a sandbox, and the trail across it is the whole
+subject. What the leg does fail on is a turn that never started — no session
+rollout means no sandbox, so the trail spans nothing and a green would be
+vacuous. Read the figures for what they are: the record is a comment anyone
+with write access can edit, so the trail is only as trustworthy as that
+comment — forged beat lines would skew all three figures, though nothing from
+the body is ever echoed or executed. It is
+dispatch-only, out of the promotion gate's required set, and neither
+whole-suite selection fans it out.
+
+The probe is a family of six scenario values over one job, each holding one
+thing still while varying the next, and all of them carry a second instrument
+the trail cannot supply: a step-progress stamp written into the step summary
+after the turn and its margin. A wedge fails no step — the runner stops
+executing steps at all and the job is cancelled at its `timeout-minutes` with
+the turn green and nothing after it — so the stamp's presence says the runner
+was still running steps, and its absence under a timed-out job with a green
+turn is the wedge itself, read off the run page with no on-runner witness
+needed. **`codex-freeze-probe`** is the armed shape above.
+**`codex-freeze-probe-unwatched`** runs the same turn and the same margins
+with the mint, the arm and the disarm all skipped, so no telemetry call of any
+kind happens and no watchdog process exists; it gives up the beat trail to buy
+the one thing the trail cannot say, whether the watchdog is the pathogen or
+another victim.
+**`codex-freeze-probe-smokeconfig`** is armed and drops the post-exit margin,
+matching the assert-and-end timing the suite's own codex actions-smoke leg has
+after its turn. It varies exactly that idle time from the base
+`codex-freeze-probe` while running the family's base-turn block, so it isolates
+whether the post-exit margin is load-bearing for the beat-trail measurement —
+it takes the half of the idle that follows the sandbox. It does not share the
+actions-smoke leg's invocation: that leg runs the cells' `unprivileged-user`
+block, while this member, like the rest of the family's base turn, keeps
+`drop-sudo` to reproduce the wedge. The two-minute baseline idle
+*before* the turn stays, because the beats it buys are what make a later gap a
+change rather than a watchdog that never beat at all: the member is the
+smoke's shape after the turn, not the smoke leg reproduced end to end. Its
+beat trail is correspondingly short, and `tail` and `resumed` say nothing on
+it; the step-progress stamp is that member's verdict.
+
+**`codex-freeze-probe-autopsy`** is unwatched like the second member, and is
+the only one that asks *what* the wedge is rather than *whether* it happened.
+The other five read it from outside, off the run page; this one reads the
+machine from inside, in the seconds after the turn exits while the sandbox's
+residue is still there. It works because a step's log streams as the step runs
+— the wedge stops what would come next and retracts nothing already sent — so
+the dump is many SHORT steps rather than one long one, each flushing before
+the next begins, every command inside them `timeout`-bounded and fail-soft.
+What it takes: the whole-machine process forest with `wchan` and `stat`
+columns, a `cgroup.freeze` survey across the cgroup tree and the user slice's
+`systemd-cgls`, logind sessions and the per-user manager, the kernel log, and
+the namespace/packet-filter/socket census. The kernel log needs a tap opened
+*before* the turn, because the base probe turn's `drop-sudo` safety strategy takes sudo
+away for the rest of the job: a detached `dmesg --follow` started while sudo
+still exists writes messages into a runner-local file across the turn and into
+the fuse window, and the later steps read that file with no privilege.
+
+Reading one of its runs, top to bottom on the run page:
+
+- every diagnostic step whose log is **there** ran before the wedge, and what
+  it printed is the pre-wedge state of the machine;
+- the ticking clock's **last printed second is the wedge** — it prints a
+  stamp, the frozen-cgroup list and any new kernel lines, sleeps fifteen
+  seconds, prints again, and the sleep that never returns is where the log
+  stops;
+- a step that never **started** is post-wedge, and its absence is a reading
+  rather than a hole in the instrument.
+
+The escape caveat is why the clock is bounded at twelve ticks: on a runner
+image with no fuse the member simply completes, green, in about twelve
+minutes, and the dumps read as a clean baseline. A green autopsy says the
+machine it ran on does not wedge — not that the dump found nothing. It prints
+system state and never secrets: no environment dump, no process environs, and
+no workspace, config or credential file — the only files it opens are kernel
+pseudo-files and its own kernel-log capture. Every command line it prints is
+trimmed to 200 columns and passed through a token-shaped redaction, because
+this sweep crosses uids and lands in a public step log where the watchdog's
+own capture stays inside one uid and rides an uploaded bundle.
+
+**`codex-freeze-probe-nosudo`** is the negative control for the refusal that
+retired the family's first approach to this isolation. It is the base member's
+shape exactly — armed, with the same margins — differing in ONE field: its
+codex turn runs `safety-strategy: read-only` instead of `drop-sudo`. The
+confirmed cause of the wedge is `drop-sudo` itself:
+`openai/codex-action`'s own docs call its account and socket drop irreversible
+and say it must be a job's last step, and the base probe turn runs it mid-job.
+`read-only` drops nothing from the runner user's account or sockets, which
+would isolate that mutation — but `read-only` does not compose with a
+permission profile: the action refuses the pair, because that strategy forces
+the legacy read-only sandbox, so this member's turn starts no real session at
+all, the sandbox-started assertion finds no rollout, and the run is void. The
+real-session version of the isolation is the `unprivuser` member below; this
+member stands as the negative control. Its turn is a separate step held out of
+the cross-surface codex lockstep pin — one of three exemptions (the base
+`turn`, this one, and the `unprivuser` turn) — while the pin keeps enforcing
+the cells' block on every real member. The one posture delta is that its turn
+runs with the runner user's sudo intact rather than dropped; on a throwaway,
+dispatch-only probe runner that assumes no role, reads no corpus, launches a
+token-free sidecar and sends a fixed no-tool prompt, that is bounded and
+acceptable — and the production cells run `unprivileged-user`, the posture this
+family isolates, not `drop-sudo`.
+
+**`codex-freeze-probe-unprivuser`** is that isolation done with a genuine
+session, and it runs the same posture the production cells run. It runs the
+base member's turn under `safety-strategy: unprivileged-user` with a
+`codex-user`, so codex builds and tears down its real profile sandbox —
+network, disk writes, a rollout — but as a SEPARATE unprivileged account the
+setup step provisions, which leaves the runner user's sudo, sockets and groups
+wholly intact. That is the one axis it isolates: unlike `read-only`,
+`unprivileged-user` composes with the permission profile, so the sandbox
+lifecycle the production cells run actually happens; and unlike `drop-sudo`,
+the runner account is never mutated. Read it simply: a wedge that still follows
+the turn implicates the sandbox teardown, while a clean run implicates the
+account drop `drop-sudo` performs — the clean run this member and the cells
+both run. Its turn is one of the three lockstep exemptions — it varies
+`safety-strategy` and adds `codex-user`. It sets no `CODEX_HOME` (neither the
+input nor a `CODEX_HOME` env is set, so the action derives that user's own
+`~/.codex`); setting it would misdirect the config and rollout, because the
+`sudo -u` hop cannot carry that env to the codex process. The config is copied
+into that home and the rollout lands there, and a small step relocates the
+rollout so the one shared sandbox-started assertion reads it. The setup step
+also gives that user a working directory it owns, because the checkout is not
+world-readable to it. The runner keeps its sudo — the base turn's `drop-sudo`
+is what mutates it — and the codex user is granted only its own home; no secret
+reaches it, because the model key never enters its environment or any file it
+can read — it stays behind the action's localhost proxy. On the same throwaway,
+dispatch-only probe runner, that is bounded and acceptable; the production cells
+run this same `unprivileged-user` posture, with the account granted read over
+the checkout and write over its one output subtree.
+
+**The repro family** is the fourth token-spending class, and it exists
+because the two engine families above share a blind spot: the resolver
+applies no stage screen, but
 what it settles on in practice is a cert-stage petition, so a defect keyed on
 a *record shape* they never present is invisible to them however green they
 run. Each member pins one record to the shape one diagnosed engine defect keys
@@ -285,14 +477,26 @@ the agent finishes: a bound inside the envelope kills a healthy mid-grading
 cell and never reaches the teardown phase the leg exists to observe, and the
 deadline kill can end the whole *job*, which skips the disarm and upload tail
 and drops the log. That is also why the leg arms the **off-runner record** the
-production codex cells keep — the comment-only telemetry channel on the
-`codex-watchdog` issue — so a deadline path that destroys every runner-local
-account still leaves one a cancelled job cannot erase. Two bounds on that
-record, both stated where they bind: the mint's credentials live on the `prod`
-environment, so a leg bound elsewhere arms no record and warns; and the token
+production codex cells keep — the comment-only telemetry channel, on the
+bound environment's own issue: `codex-watchdog` from a prod-bound dispatch,
+or `codex-watchdog-staging` from a staging-bound one, whose token is minted
+from the Issues-only staging App and whose separation is the arm step's own
+channel selection — so a deadline path that destroys every runner-local
+account still leaves one a cancelled job cannot erase, and a rehearsal's
+rows never mix into the production record. Two bounds on that
+record, both stated where they bind: a leg bound to neither environment
+resolves no credentials, arms no record and warns; and the token
 lives an hour, so on the deadline path the record may end at its last
 pre-expiry heartbeat — the armed row's fire ETA is what makes that frozen tail
-readable as the deadline path. What must stay well
+readable as the deadline path. Each heartbeat carries the runner's memory
+headroom and load, and a send whose failure diagnosis is new appends what it
+looked like from the runner — the transport and HTTP result, plus a bounded
+probe of the check-in host where the transport itself failed — to the body
+the next landed send uploads whole. What that buys: the resource trajectory
+up to the last landed beat, transport separated from HTTP in every failure,
+and the full failure history on any recovery; a record that stays frozen
+remains ambiguous between a dead watchdog process and a channel that never
+came back, which only a landed later send can split. What must stay well
 inside the job cap is the watchdog, since a job that runs to its cap is
 *cancelled* and GitHub drops a cancelled job's logs. The leg arms the
 **completion sentinel** too, so on a reproduced hang it is the *reap* that
@@ -302,8 +506,16 @@ names the holder. Read the markers accordingly: `REAPED` is the defect
 reproducing and being handled, while `FIRED` or `STOOD_DOWN` says the completion
 set was never satisfied — work still running at the deadline, or a required file
 the judge never wrote — which is a finding about the cell rather than about
-teardown. The bundle and the rollout's item shapes ride the run's artifact either
-way. The leg reports **two halves separately**, because
+teardown. `SUSPENDED` is a fourth reading and not a fourth escalation: the
+watchdog lost wall clock it did not observe, so it signalled nothing and became
+an observer. The disarm surfaces it like the others — the row stays expanded and
+the summary carries the note — but the **bundle** is still the primary evidence
+(the gaps it lost, the stand-down, and a process forest taken at the thaw),
+because the off-runner lines are best-effort and a suspension long enough to
+matter has often outlived the telemetry credential's hour. No marker of an
+action was written, and none should have been. The bundle rides the
+run's artifact whichever way the leg went; the rollout's item shapes are
+distilled where the watchdog acted. The leg reports **two halves separately**, because
 the finding is that they can disagree: `outputs:` counts the cell's produced
 files against the same `cell-outputs` list the watchdog's sentinel waits on, and
 `step:` says whether it concluded on its own, was reaped by the watchdog, or did
@@ -324,15 +536,24 @@ cell's `with:` block, or to the codex permission profile the cells select**,
 **collect around any change to the `collect-run` composite or the collect
 jobs that call it**, **qp-topic around any change to the `qp-topic-measure`
 composite, the labeling job, or the `qp_topics` module — and before any paid
-labeling dispatch**, **a repro-family scenario around any change aimed at the
+labeling dispatch**, **qp-labeler-smoke around any change to the labeler's
+invocation block, its sandbox or CLI install steps, or the labeling prompt —
+and to reproduce any labeling run that exited without writing its output,
+after its transcript artifact has been read**, **a repro-family scenario
+around any change aimed at the
 defect it reproduces, and once after the promotion that carries the fix**, and
 as a preflight **before a release dry run** and
 **before a prediction freeze** — the moments when a silent read regression
 would be most expensive.
 
-The qp-topic clause generalizes: **a new token-spending run mode lands its
+The qp-topic scenario's clause generalizes: **a new token-spending run mode
+lands its
 token-free `integration-test.yml` scenario before its first paid dispatch,
-never after.** The scenario exercises the mode's plumbing — artifact hand-off,
+never after.** (`qp-labeler-smoke` does not satisfy that requirement for the
+labeling lane and is not meant to — `qp-topic` is the lane's token-free
+scenario, and the smoke complements it for the one seam a token-free run
+cannot reach, the invocation block itself.) The scenario exercises the
+mode's plumbing — artifact hand-off,
 IO staging, guards, the publication path — over canned or fixture inputs, the
 way `qp-topic` and `collect` do, so plumbing bugs surface for runner minutes
 instead of across paid dispatches. `integration-test.yml`'s scenario roster
@@ -518,7 +739,7 @@ run report the recovery note instead of a drained backlog) — so deleting a loa
 named test instead of passing every linter. Two of the family go further and
 *run* what the YAML embeds, because a workflow string is matched against the CLI
 for the first time when the job runs: `test_workflow_repair_cli_parity` reads
-each of `run-repair`'s thirteen dispatch-only maintenance passes back out of the
+each of `run-repair`'s fourteen dispatch-only maintenance passes back out of the
 workflow — argv, conditional flag arrays and all, via the shared reader
 `tests/workflow_argv.py` — and executes it against the fixture corpus, so a
 renamed flag fails here rather than as a usage error mid-dispatch (its qp
@@ -557,7 +778,10 @@ URL still kills on the same terms. `test_watchdog_telemetry` covers `fedcourts
 watchdog-checkin` beside the latch it is built on and off the same injectable
 `gh` seam — find-or-reset, the recency window that makes the page bound search
 the right end of a long-lived issue, the App-authorship test that stops a
-stranger pre-claiming a record on a public repo, and the exit-zero-with-a-warning
+stranger pre-claiming a record on a public repo, the channel routing (the
+staging rehearsal channel's own label and issue, the production default, and
+the pre-write refusal of an unregistered channel), and the
+exit-zero-with-a-warning
 contract a degraded API has to keep. For a heavier
 local check of the
 deterministic jobs (the `plan` job, matrix generation, the collect seam),

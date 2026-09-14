@@ -227,8 +227,28 @@ the docket form, so one function serves both lanes:
   a plain extension phrase misses), more pages, more words — is not selected,
   and neither is an ask the classifier cannot read, which costs no cell because
   the same reading keeps that docket out of the queue.
-- **`brief-in-opposition`** — every non-amicus opposition brief, combined into
-  one document.
+- **`brief-in-opposition`** — every non-amicus opposition brief **filed at the
+  cert stage**, combined into one document.
+- **`merits-brief-petitioner`** / **`merits-brief-respondent`** — each side's
+  brief on the merits, one row per side and one URL per row, taken from the
+  entry's `Main Document` link and from no other (a merits-brief entry posts its
+  certificate of word count and proof of service beside the filing). Selected
+  only on entries filed **after the cert grant**, because the Court writes a
+  merits brief and a cert-stage response in the same words — "Brief of respondent
+  United States filed." either way, with "on the merits" appearing on the
+  scheduling order and never on the brief entry — so the grant date is the only
+  thing that separates the two stages. That same bound is what keeps the cert
+  slot above from swallowing a merits brief and pipe-joining it into the
+  opposition. Per side rather than pooled: two adversarial briefs under one kind
+  would share one extraction cap, so the second would be cut by however long the
+  first ran. The first brief in docket order on each side — the first whose entry
+  posts that link — is the opening one; the reply is a separate entry family
+  ("Reply [Brief] of …") that no arm selects, and the joint-appendix reprint is
+  passed over because the opening brief precedes it. **One per side** is the
+  accepted residual, and it is the opposite call from the opposition arm above
+  on purpose: a case with several respondent groups files several merits briefs
+  and only the first is stored, because combining them is exactly what the
+  per-side kinds exist to avoid.
 - **`questions-presented`** — derived from the `petition` text alone, never
   fetched and never derived from an `application`.
 
@@ -237,7 +257,11 @@ not the same moment for both. On a cert docket that is the **distribution
 transition** (the
 record-complete moment, and near filing time — links are a rolling ~5-Term
 window upstream); a gate-deferred petition's transition fetches nothing, and
-the selection sweep provisions its documents if it is ever latched. An
+the selection sweep provisions its documents if it is ever latched. That sweep
+is also the only lane a **merits** brief arrives on: the distribution transition
+is a cert-stage trigger and a granted docket stops distributing, so the two
+merits kinds are fetched when the sweep re-provisions a case carrying an open
+merits event, never at the trigger that first filled its cert documents. An
 application docket is never distributed for conference, so its lane fetches on
 **any change while the application is still pending, in scope, and substantive**
 — the application rotation's own queue condition. Text is extracted with pypdf (born-digital filings under the
@@ -254,9 +278,11 @@ or whitespace-only under the same predicate provisioning stamps as
 `empty_text`, split on the salience gate's paid modern-cert segment, and names
 whether the blob or the per-case content store served the reads, since a
 blob-only read of a split corpus undercounts. The counts stay per kind because
-the causes differ: an empty petition or brief in opposition is the scan, while
-an empty derived questions-presented row is as likely to be a capture the
-deriver would not vouch for. And the command reports the **absent** petition
+the causes differ: an empty petition or brief in opposition is the scan; a
+near-zero count on either merits kind is the shape of the granted slice, since
+nothing selects them before a grant, rather than a coverage gap; and an empty
+derived questions-presented row is as likely to be a capture the deriver would
+not vouch for. And the command reports the **absent** petition
 beside the empty one, because that is the larger failure and a different
 repair: a document never fetched has nothing to re-extract, so an empty-text
 share read on its own would size the smaller of the two problems. That absent
@@ -349,11 +375,14 @@ contracted below. Local tesseract only — at this share a metered OCR service
 cannot be justified, and the pass's own cost is held down by the per-dispatch
 bound in the contract rather than by a service bill.
 
-Four residuals stay open by design. The unopenable PDF is not OCR's to repair
+Five residuals stay open by design. The unopenable PDF is not OCR's to repair
 and stays counted as empty. An empty `application` stays out for the reason its
 kind is counted at all — an application filed on paper stores empty exactly as a
 paper petition does — but the pass's population is stored *petitions*, so an
 application that arrives as a scan is measured with no repair path behind it.
+The two merits-brief kinds sit outside that population on identical terms, and
+their exposure is smaller: a merits brief is an e-filed brief rather than a
+paper petition, so the scan it would be recovering from is the rarer case.
 The empty briefs in opposition stay out for a
 structural reason rather than their share: a multi-respondent opposition is
 stored as one combined row keyed on the whole set of fetched URLs, so text
