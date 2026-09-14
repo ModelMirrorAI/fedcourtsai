@@ -184,6 +184,48 @@ def test_every_agent_checkout_deletes_the_qp_topic_oracle() -> None:
             assert "if" not in step, f"{name}: the oracle fence must not carry an `if:`"
 
 
+# The tools the labeling contract denies, in the order the workflows name
+# them: delegation, the shell, retrieval. `--allowedTools` only pre-approves —
+# it denies nothing, and neither delegation, reads, nor a sandboxed shell
+# command is permission-gated in the first place — so each of these is
+# reachable unless it is named on the denial flag, and the labeling prompt's
+# rules about them are prose until then. `Task` is the delegation tool's older
+# name, carried so the denial survives a CLI generation that still uses it.
+_LABELER_DENIED = ("Agent", "Task", "Explore", "Bash", "WebFetch", "WebSearch")
+
+# Flags that decide what the labeler may reach. Exactly one may appear, and it
+# must be the grant this posture is declared as: `--tools` would reset the
+# whole built-in set (silently re-admitting a denied name, or dropping the
+# reads the contract runs on), and a second `--allowedTools` line would stack
+# a wider grant under a first line that still reads correct.
+_LABELER_GRANT_FLAGS = ("--allowedTools", "--tools")
+
+
+def _assert_labeler_denials(args: str) -> None:
+    """Every surface sending the labeler's block denies the same tools.
+
+    Workflow text only: this pins what the invocation asks for, never what
+    the engine then does with it. The behaviour is the `qp-labeler-smoke`
+    dispatch's to observe.
+    """
+    lines = [line.strip() for line in args.splitlines() if line.strip()]
+    denied = [line for line in lines if line.startswith("--disallowedTools")]
+    assert denied == ["--disallowedTools " + ",".join(_LABELER_DENIED)], (
+        "the labeler's denial list is not the contract's: a single headless "
+        "session cannot be finished by a subagent that dies with it, the prompt "
+        "tells the labeler it has no shell, and the extract is its whole "
+        f"evidentiary input (got {denied})"
+    )
+    # Denied and not also granted — a tool named on both reads to any auditor
+    # of the block as one the labeler may still reach.
+    granted = [line for line in lines if line.split(maxsplit=1)[0] in _LABELER_GRANT_FLAGS]
+    assert granted == ["--allowedTools Write,Edit"], (
+        f"the labeler's grant is not the declared whole-tool pair (got {granted})"
+    )
+    for tool in _LABELER_DENIED:
+        assert tool not in granted[0], f"{tool} is both granted and denied"
+
+
 def test_the_labeler_reaches_exactly_the_qp_io_directory() -> None:
     """The labeler's file access outside the checkout is one granted directory.
 
@@ -195,8 +237,8 @@ def test_the_labeler_reaches_exactly_the_qp_io_directory() -> None:
     reference set destroys the measurement), one of the staged paths drifts
     out of the granted directory (the agent is structurally unable to reach
     it and every run fails no-output, the shape run 31894995596 diagnosed),
-    or the sandbox's socat dependency drops from the install (no shell
-    command can execute at all)."""
+    or the sandbox's socat dependency drops from the install (the CLI's
+    sandbox fails to initialize at startup)."""
     wf = _load("run-analytics.yml")
     steps = wf["jobs"]["qp-topic-label"]["steps"]
     label = next(s for s in steps if "claude-code-action" in str(s.get("uses") or ""))
@@ -204,13 +246,13 @@ def test_the_labeler_reaches_exactly_the_qp_io_directory() -> None:
     assert "--add-dir ${{ runner.temp }}/qp-io" in args
     # The scrub hardens the permission mode to `default` whatever the flag
     # says and honors whole-tool grants alone, so the posture is declared as
-    # what runs: default mode, Write and Edit granted, Bash deliberately not
-    # — and a restored `bypassPermissions` would be dead text that reads as a
-    # wider grant than the one in force.
+    # what runs: default mode, Write and Edit granted — and a restored
+    # `bypassPermissions` would be dead text that reads as a wider grant than
+    # the one in force.
     assert "--permission-mode default" in args
     assert "--allowedTools Write,Edit" in args
     assert "bypassPermissions" not in args
-    assert "Bash" not in args
+    _assert_labeler_denials(args)
     # The grant is the subdirectory, never the bare temp dir beside the oracle.
     assert "--add-dir ${{ runner.temp }}\n" not in args + "\n"
     for env_key in ("QP_TEXTS", "LABELS_OUT"):
@@ -2987,8 +3029,8 @@ def test_the_labeler_smoke_sends_the_labeling_lanes_own_invocation_block() -> No
     integration-test's qp-labeler-smoke exists because the labeler's
     invocation block is one nothing else sends: the pinned CLI handed to the
     action, the sandbox settings with the subprocess env scrub, the
-    scrub-hardened default mode with its Write/Edit grant, and the one
-    --add-dir grant. Each half is separately
+    scrub-hardened default mode with its Write/Edit grant and its denial
+    list, and the one --add-dir grant. Each half is separately
     silent when it drifts — the smoke still runs, still greens — so the
     whole `with:` and `env:` mappings are pinned equal (the argument block
     modulo its one --model line: the smoke pins the lane's dispatch default,
@@ -3029,6 +3071,10 @@ def test_the_labeler_smoke_sends_the_labeling_lanes_own_invocation_block() -> No
     lane_args, lane_model = split_args(lane)
     smoke_args, smoke_model = split_args(smoke)
     assert lane_args == smoke_args, "the argument blocks diverge"
+    # Asserted on the smoke's own copy rather than inferred from the equality
+    # above: the denials are what make the labeling contract structural, and
+    # the leg that rehearses the block has to carry them in its own right.
+    _assert_labeler_denials(str(smoke["with"]["claude_args"]))
     assert lane_model == "--model ${{ inputs.label_model }}", (
         "the lane's model line must read its dispatch input"
     )

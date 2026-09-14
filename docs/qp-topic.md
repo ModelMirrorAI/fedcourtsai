@@ -188,6 +188,13 @@ error sinks (`constitutional-rights`, `civil-procedure`) have no distinctive
 citation to key on, and keywords actively mislead — background prose fires
 rules, cited statutes belong to different subjects than the question, and
 case-name mentions contaminate ("habeas relief" inside a *Heck* discussion).
+The labeling job closes what it can rather than asking for all of it: the
+labeler's invocation denies the shell and the delegation tools by name
+([pipeline.md](pipeline.md)), so a label cannot be produced by a script the
+labeler runs or by a subagent labeling on its behalf. Search is the part that
+stays contract — the labeler needs it to navigate this document, and using it
+to key a label off a word instead of reading the question is a rule the
+labeler keeps, not one the invocation takes away.
 
 Measured once at declaration time, against the reference set *as first
 labeled* — two entries have since been relabeled under the collateral-marker
