@@ -1212,7 +1212,7 @@ population and apply against another.
 | `normalize-docket-markings` | `normalize-docket-markings` | `--max-rewrites` | — | — |
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
 | `ocr-recovery` | `ocr-recover-petitions` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`) | — | — |
-| `document-backfill` | `backfill-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too) | — | — |
+| `document-backfill` | `backfill-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too; the class has two arms, a form-keyed opening document and, on a granted row whose respondent has filed on the merits, each side's merits brief, and the ledger's `merits_candidates` says how the **class** splits between them, which is not the mix a bounded slice takes — the class is in `case_id` order and the arms are not separated in it) | — | — |
 | `mirror-stored-documents` | `mirror-stored-documents` | `--max-cases` (a slice, not a ceiling — **apply only**: the dry run always enumerates the whole population, and the command refuses a bound without `--apply`) | — | — |
 | `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
@@ -1273,18 +1273,20 @@ must not report the same way.
 
 The **document back-fill** reads the same way with one addition its class
 forces. Its candidates are live-slice rows queued for prediction or selected by
-the salience gate that hold no document of their own docket form's primary kind
-— an application-form row measured against its `application`, a cert-form row
-against its `petition` — and a candidate it cannot recover falls into one of two
-**floors** rather than a failure: a docket carrying the opening entry with no
-PDF behind it is a Rule 34.6 paper filing the Court served nothing for, and one
-carrying no such entry at all is a legacy docket whose proceedings list holds no
-document links. Neither drains, so a slice that clears its bound without
-shrinking the class is the expected reading once the recoverable half is gone,
-and only the floor counts say so. The exception is the alarm: a docket modern
-enough that its proceedings list should carry links, matching no opening entry,
-is a filing shape the selector has no arm for rather than a floor, and the
-ledger **names** those cases where the counts would bury them. Its ledger
+the salience gate, measured on two arms: their own docket form's opening
+document — an application-form row against its `application`, a cert-form row
+against its `petition` — and, on a **granted** row whose respondent has filed on
+the merits, each side's merits brief. A candidate it cannot recover falls into
+one of two **floors** rather than a failure: a docket carrying an entry for a
+missing kind with nothing fetchable behind it (a Rule 34.6 paper filing the
+Court served nothing for, or a merits kind on a docket whose grant cannot be
+dated), and one carrying no such entry at all. Neither drains, so a slice that
+clears its bound without shrinking the class is the expected reading once the
+recoverable half is gone, and only the floor counts say so. The alarm cuts
+across both counts because it is per **kind**: a missing kind the selector found
+no entry for on a docket modern enough to carry links is a filing shape it has
+no arm for rather than a floor, and the ledger **names** those cases whichever
+floor they were counted at. Its ledger
 carries two denominators, not one — the predict-relevant rows the walk read at
 all, which the command refuses on, and how many of them served any stored
 document, which is the opposite degradation: a content store the process cannot
@@ -1464,6 +1466,14 @@ gh workflow run run-repair.yml --ref main \
 # candidate, so an unbounded dry run over a large class is an hour of them.
 # Read the ledger's floor counts before sizing the apply: they say how much of
 # the class no fetch reaches, so a bound above the recoverable half buys nothing.
+# Read its arm split too (`merits_candidates` against `candidates`), and read
+# it as a property of the whole class rather than of the next slice: the class
+# is in case-id order and the two arms are not separated in it, so a bound of
+# 40 does not take 40 candidates in that ratio — where the granted dockets sort
+# relative to the rest is what decides a given slice's mix. The floor counts are
+# pooled across both arms too, so where the split matters read the dry run's
+# per-case `would fetch` lines, which name the kinds each candidate has a link
+# waiting under.
 gh workflow run run-repair.yml --ref main \
   -f repair=document-backfill -f repair_mode=dry-run -f repair_bound=40
 gh workflow run run-repair.yml --ref main \

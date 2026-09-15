@@ -666,7 +666,7 @@ store rather than the blob, so the pointer cannot witness it: the step re-reads
 the class afterwards and requires exactly what the apply's ledger said it would
 leave behind.
 
-`document-backfill` provisions the queued cases that hold no primary document.
+`document-backfill` provisions the queued cases that hold a document gap.
 A case reaches prediction with the filing that opens it — the petition on a
 cert-form docket, the application on an interim one — because provisioning runs
 at the transition that queues it; a case whose provisioning ran before the
@@ -677,18 +677,20 @@ number and fetches that docket's JSON **fresh** rather than reading the stored
 snapshot, because the question is whether the link is served now, then runs the
 same selection and fetch the live poller runs — so a recovered case is
 provisioned on exactly the terms a case provisioned at its trigger was, opposition
-briefs and derived questions-presented row included. Its population is
-**form-keyed** and scoped to rows that can still mint a cell, not to the wide
-distributed stock, which is overwhelmingly legacy rows carrying no document
-links at all. It is the second slice-bounded pass, and the one whose `dry-run`
+briefs and derived questions-presented row included. Its population is scoped to
+rows that can still mint a cell, not to the wide distributed stock, which is
+overwhelmingly legacy rows carrying no document links at all, and each such row
+is measured on two arms: its own docket form's opening document, and — on a
+granted row whose respondent has filed on the merits — each side's merits brief. It is the second slice-bounded pass, and the one whose `dry-run`
 is bounded too: that dry run fetches each candidate's docket JSON, which is the
 whole diagnostic — it is what separates a case with a link waiting for it from
 one at a floor — and it is a paced round trip per candidate. Two floors are
 reported apart from the failures, because neither drains and reading them as
-failures reports a converged class as a permanent defect: a docket carrying the
-opening entry with no PDF behind it, and one carrying no such entry at all. The
-second on a *modern* docket is not a floor but a selector regression, and those
-cases are named rather than counted. Like the OCR recovery it writes documents,
+failures reports a converged class as a permanent defect: a docket carrying an
+entry for a missing kind with nothing fetchable behind it, and one carrying no
+such entry at all. A missing kind the selector found no entry for on a *modern*
+docket is not a floor but a selector regression, and those cases are named
+whichever floor their candidate was counted at. Like the OCR recovery it writes documents,
 which under the corpus split live in the content store, so the step re-walks the
 class afterwards — an empty slice, which costs no round trip — and requires
 exactly what the apply's ledger said it would leave behind.

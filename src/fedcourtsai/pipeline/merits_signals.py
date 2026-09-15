@@ -1,11 +1,12 @@
 """Reading the merits docket: how far a granted case has been briefed.
 
 Between the cert grant and the judgment a granted case does most of its visible
-work, and the docket records it. This module reads the parties' briefs on the
-merits: **which** entry is each side's brief, which is how the document selector
-fetches them, and **when** the respondent filed — the one milestone the pipeline
-forecasts from, which is the point at which both sides' arguments are on the
-record and the case is substantively ready to be decided.
+work, and the docket records it. This module reads the parties' merits filings:
+**which** entry is each side's opening brief and each side's reply, which is how
+the document selector fetches them, and **when** the respondent filed its brief
+— the one milestone the pipeline forecasts from, which is the point at which
+both sides' arguments are on the record and the case is substantively ready to
+be decided.
 
 **Why that milestone and not another.** Measured over 139 granted OT2021-OT2023
 petitions, the respondent's merits brief appears on **96.4%** of them, lands a
@@ -49,9 +50,10 @@ from .cert_signals import entry_date, proceedings_entries
 # of Labor, et al. filed.", with the docket's ordinary tails ("VIDED.",
 # "(Distributed)", "(as to 24-656)") riding after the verb.
 #
-# The **reply** is deliberately outside both: the Court files it as "Reply of
-# <party> filed." or "Reply Brief of <party> filed.", an entry family the
-# start anchor never reaches. It is a separate document, not a variant of these.
+# The **reply** is outside both anchors and has its own pair below: the Court
+# files it as "Reply of <party> filed." or "Reply Brief of <party> filed.", an
+# entry family the opening anchor never reaches. It is a separate document, not
+# a variant of these.
 _RESPONDENT_BRIEF_RE = re.compile(
     r"^\s*brief\s+of\s+(?:the\s+)?(?:\S+\s+){0,3}?respondents?\b", re.I
 )
@@ -59,8 +61,59 @@ _PETITIONER_BRIEF_RE = re.compile(
     r"^\s*brief\s+of\s+(?:the\s+)?(?:\S+\s+){0,3}?petitioners?\b", re.I
 )
 
-# Three exclusions, each removing a filing that matches the anchor but is not
-# the adversarial merits brief:
+# Each side's REPLY on the merits — the last word on the argument, and the one
+# filing that answers the other side's brief directly. The mirror of the pair
+# above in every respect but the opening word, and it takes the same party
+# shapes: "Reply of petitioner Michael Nance filed.", "Reply of petitioners
+# Enbridge Energy, Limited Partnership, et al. filed.", "Reply of Federal
+# Petitioners filed. VIDED.", "Reply Brief of petitioner Acme Corp. filed.", and
+# — where the true adversary is a Court-appointed amicus or the posture is a
+# cross-petition — "Reply of respondent New Jersey Transit Corporation filed."
+# The optional "Brief" is what lets one anchor read both spellings.
+#
+# The **stage** is a date here exactly as it is above, and the trap is sharper:
+# a cert-stage reply to the brief in opposition is spelled "Reply of petitioner
+# X filed." word for word, and it is a routine filing rather than a rarity. The
+# post-grant bound its callers apply is the only thing separating the two, which
+# is why these predicates are text-only like their siblings.
+#
+# One reply shape the anchor refuses on its own: a reply the Clerk records under
+# counsel's own name rather than a party's ("Reply of AT&T, Inc. and Verizon
+# Communications Inc. filed."), which no party-word anchor can reach and which is
+# left unfetched rather than guessed at.
+_RESPONDENT_REPLY_RE = re.compile(
+    r"^\s*reply\s+(?:brief\s+)?of\s+(?:the\s+)?(?:\S+\s+){0,3}?respondents?\b", re.I
+)
+_PETITIONER_REPLY_RE = re.compile(
+    r"^\s*reply\s+(?:brief\s+)?of\s+(?:the\s+)?(?:\S+\s+){0,3}?petitioners?\b", re.I
+)
+
+# Collateral **motion** practice, which the reply family reaches and the opening
+# briefs do not. The unpartied form falls outside the anchor already ("Reply on
+# motion to intervene filed.", "Reply in support of motion of Missouri, et al. to
+# intervene filed." — neither names a party right after "of"), but the partied
+# one does not: "Reply of petitioners in support of motion for divided argument
+# filed." satisfies the anchor word for word.
+#
+# Excluding it matters more than the filing is worth, because each arm takes the
+# **first** qualifying entry in docket order and then closes: a motion reply
+# filed between the grant and the briefs would occupy the side's slot and put its
+# real merits reply permanently out of reach. A procedural paper stored as merits
+# advocacy is the smaller of the two costs.
+#
+# Reply-only, rather than folded into the three exclusions below: the opening
+# brief anchors have no such exposure — the Clerk writes no "Brief of <party> in
+# support of motion" form — and widening a predicate that dates a registered
+# moment to fix a reply-side shape would move a reading nothing here needs moved.
+# "in support of reversal" and "in support of vacatur" are deliberately not here:
+# those are genuine merits replies in the confession-of-error posture.
+_NOT_A_MERITS_REPLY_RE = re.compile(
+    r"\bin\s+support\s+of\s+(?:the\s+)?(?:motion|application)\b", re.I
+)
+
+# Three exclusions, each removing a filing that matches one of the anchors above
+# but is not that side's adversarial merits filing. They gate the reply arms as
+# well as the brief arms, because every one of the three has a reply form:
 #
 # - **in opposition** is the *cert*-stage brief in opposition, which shares the
 #   shape exactly. The post-grant date restriction the callers apply already
@@ -74,14 +127,17 @@ _PETITIONER_BRIEF_RE = re.compile(
 #   :func:`respondent_brief_date` exists to name is the one where the opposing
 #   argument is on the record, and a respondent supporting the petitioner leaves
 #   that still to come (sometimes from a Court-appointed amicus); the petitioner
-#   mirror is stated so one side is not read more loosely than the other.
-_NOT_THE_RESPONDENT_MERITS_BRIEF_RE = re.compile(
+#   mirror is stated so one side is not read more loosely than the other. The
+#   reply form is on the docket too ("Reply of respondent United States in
+#   support of petitioner filed."), and it is excluded on the same reading and
+#   at the same cost: that filing is real advocacy no arm here fetches.
+_NOT_THE_RESPONDENT_MERITS_FILING_RE = re.compile(
     r"\bin\s+opposition\b"
     r"|\bamicus\b|\bamici\b"
     r"|\b(?:in\s+support\s+of|supporting)\s+(?:the\s+)?petitioners?\b",
     re.I,
 )
-_NOT_THE_PETITIONER_MERITS_BRIEF_RE = re.compile(
+_NOT_THE_PETITIONER_MERITS_FILING_RE = re.compile(
     r"\bin\s+opposition\b"
     r"|\bamicus\b|\bamici\b"
     r"|\b(?:in\s+support\s+of|supporting)\s+(?:the\s+)?respondents?\b",
@@ -100,7 +156,7 @@ def is_respondent_merits_brief(text: str) -> bool:
     """
     return bool(
         _RESPONDENT_BRIEF_RE.search(text)
-    ) and not _NOT_THE_RESPONDENT_MERITS_BRIEF_RE.search(text)
+    ) and not _NOT_THE_RESPONDENT_MERITS_FILING_RE.search(text)
 
 
 def is_petitioner_merits_brief(text: str) -> bool:
@@ -114,7 +170,45 @@ def is_petitioner_merits_brief(text: str) -> bool:
     """
     return bool(
         _PETITIONER_BRIEF_RE.search(text)
-    ) and not _NOT_THE_PETITIONER_MERITS_BRIEF_RE.search(text)
+    ) and not _NOT_THE_PETITIONER_MERITS_FILING_RE.search(text)
+
+
+def is_petitioner_merits_reply(text: str) -> bool:
+    """Whether an entry reads as the petitioner's reply brief on the merits.
+
+    The ordinary reply: under Rule 25.3 it is the petitioner who answers the
+    respondent's brief, so this is the side the family is usually seen on.
+
+    Text alone, with the post-grant bound owed by the caller, and here that bound
+    carries more weight than anywhere else in this module: the *cert*-stage reply
+    to a brief in opposition is spelled identically and is a routine filing, so
+    an unbounded caller would read a reply to the BIO as merits advocacy across a
+    large part of the docket stock. The document selector keys its
+    ``merits-reply-petitioner`` arm on the same post-grant bound its brief arms
+    use. Nothing dates a moment from a reply — this exists for the selector,
+    which needs to know *which entry* the filing is rather than when it arrived.
+    """
+    return (
+        bool(_PETITIONER_REPLY_RE.search(text))
+        and not _NOT_THE_PETITIONER_MERITS_FILING_RE.search(text)
+        and not _NOT_A_MERITS_REPLY_RE.search(text)
+    )
+
+
+def is_respondent_merits_reply(text: str) -> bool:
+    """Whether an entry reads as the respondent's reply brief on the merits.
+
+    The mirror of :func:`is_petitioner_merits_reply`, and the rarer side: a
+    respondent replies where the posture gives it the last word — cross-petitions
+    and the cases the Court appoints an amicus to defend the judgment in. Read
+    on the same terms rather than left out, so neither side's reply is reached
+    more loosely than the other's.
+    """
+    return (
+        bool(_RESPONDENT_REPLY_RE.search(text))
+        and not _NOT_THE_RESPONDENT_MERITS_FILING_RE.search(text)
+        and not _NOT_A_MERITS_REPLY_RE.search(text)
+    )
 
 
 def respondent_brief_date(payload: Mapping[str, Any], *, granted_on: date | None) -> date | None:
