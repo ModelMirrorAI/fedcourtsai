@@ -2810,6 +2810,52 @@ def test_stamp_appends_the_unread_flag_beside_the_cell_s_own(_data_root: Path) -
     assert flags.flags[1].message.startswith("Harness tripwire")
 
 
+def test_stamp_annotates_the_run_log_on_every_invocation(_data_root: Path) -> None:
+    """The Actions-visible half fires even when the flag file already says it.
+
+    The `::warning::` is about the finding, not about the write, so it sits above
+    the dedupe return: a maintainer re-running the stamp step to reproduce a cell
+    must see the line they are re-running for.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 45)
+    _seed_unstamped(_data_root, 45, event, "missing")
+
+    first = _stamp("predictor", "claude-baseline", 45, event, "RID")
+    again = _stamp("predictor", "claude-baseline", 45, event, "RID")
+
+    for result in (first, again):
+        assert result.exit_code == 0, result.output
+        assert "::warning::stamp:" in result.output
+        assert "snapshot_uptake 'unread'" in result.output
+
+
+def test_stamp_leaves_an_unparseable_flags_file_alone(_data_root: Path) -> None:
+    """An agent's prose is never overwritten to make room for the harness's note.
+
+    The finding still lands where it counts — on the stamped context — and the
+    cell still exits 0, because an unparseable `flags.json` fails `validate` into
+    the draft PR a maintainer reads anyway. Overwriting it would destroy the
+    cell's own account to add a line about it.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 46)
+    event_paths = _seed_unstamped(_data_root, 46, event, "missing")
+    flags_path = event_paths.prediction_flags("claude-baseline", "RID")
+    flags_path.parent.mkdir(parents=True, exist_ok=True)
+    garbage = '{"flags": [ truncated'
+    flags_path.write_text(garbage)
+
+    result = _stamp("predictor", "claude-baseline", 46, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    assert "does not parse" in result.output
+    assert flags_path.read_text() == garbage
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.snapshot_uptake == "unread"
+
+
 def test_stamp_leaves_the_conditioning_unjudged_with_no_snapshot_on_disk(
     _data_root: Path,
 ) -> None:

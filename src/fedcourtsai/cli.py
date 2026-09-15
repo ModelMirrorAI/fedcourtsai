@@ -6108,6 +6108,16 @@ def _flag_unread_snapshot(
         "beside it is what provisioning wrote, which this cell may not have used. A cell that "
         "looked under events/<event_id>/record/ has the wrong path: record/ is case-level."
     )
+    # Echoed before any of the file handling below, and so before the dedupe
+    # return: the annotation is about the finding, not about the write. A
+    # maintainer re-running the stamp step to reproduce a cell must see the line
+    # they are re-running for, whether or not this invocation appends anything.
+    typer.echo(
+        f"::warning::stamp: {record.case_id} {record.event_id} {actor} reported "
+        + f"input_snapshot {reported} against provisioned {snapshot}; "
+        + "stamped snapshot_uptake 'unread'.",
+        err=True,
+    )
     flag = AgentFlag(
         category=FlagCategory.data_quality,
         severity=FlagSeverity.warning,
@@ -6135,12 +6145,6 @@ def _flag_unread_snapshot(
             return
         flags = existing.model_copy(update={"flags": [*existing.flags, flag]})
     write_json(flags_path, flags)
-    typer.echo(
-        f"::warning::stamp: {record.case_id} {record.event_id} {actor} reported "
-        + f"input_snapshot {reported} against provisioned {snapshot}; "
-        + "stamped snapshot_uptake 'unread'.",
-        err=True,
-    )
 
 
 def _refuse_unsupported_regrade(role: str, pipeline_sha: str, stamped_at: str) -> None:
