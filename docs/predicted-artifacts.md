@@ -121,8 +121,9 @@ fields that mean the same thing at every stage:
   alpha*). The set is mandatory as the mechanical one is, and `validate` holds
   the block to the declaration, so a claim the harness never asked for fails
   the cell rather than travelling unread. Every grade the block earns today is
-  the availability mask: both claims require a majority opinion body and none
-  is ingested.
+  the availability mask: both claims require a majority opinion body, and the
+  corpus holds one for a rounding error of the granted slice — 35 of the 1,232
+  rows carrying a cert-grant date on the corpus blob pulled 2026-09-14.
 - **`process_version` / `context`** — harness-written, never the agent's; see
   *What the cell does not write*.
 
@@ -206,7 +207,7 @@ absent optional field as null.
     "term": 2025
   },
   "process_version": {
-    "label": "proc-v4",
+    "label": "proc-v8",
     "digest": "sha256:1f0a9c7e5b3d2648a0c1e4f78b95d2360a7c4e18b5d9f0632a1c8e7d40b6f925",
     "algo": "sha256",
     "pipeline_sha": "9f2c1ab7d40e5836c2b90f14a7de3c58b1042ef6",
@@ -307,7 +308,8 @@ and a summary reversal, which terminate at the cert order, mint nothing.
   `semantic-v1` set's two propositions, `majority-ground` and `ground-breadth`,
   each on its declared axis and each carrying no probability. They are graded
   by a reader against the majority opinion, never scored, and mask on every
-  case the opinion coverage has not reached — which is every case today.
+  case the opinion coverage has not reached — which is all but 35 of the 1,232
+  cert-granted rows on the corpus blob pulled 2026-09-14.
 
 ```json
 {
@@ -336,6 +338,8 @@ and a summary reversal, which terminate at the cert order, mint nothing.
     {"justice": "Justice I", "vote": "recused"}
   ],
   "confidence": 0.5,
+  "big_case_score": 0.8,
+  "big_case_rationale": "A separation-of-powers question against the United States.",
   "reasoning_doc": "reasoning.md",
   "predicted_reasoning_doc": "predicted_reasoning.md",
   "claims": [
@@ -748,6 +752,7 @@ as on the predictions above:
   "engine": "claude-code",
   "model": "claude-fable-5",
   "run_id": "20260620T090200Z",
+  "prediction_run_id": "20260412T101500Z",
   "created_at": "2026-06-20T09:11:33Z",
   "correct": 1,
   "brier_score": 0.0025,
@@ -776,7 +781,7 @@ as on the predictions above:
        "outcome": 0, "score": null},
       {"claim_id": "cvsg-increment", "probability": 0.08, "baseline": null,
        "outcome": 0, "score": null},
-      {"claim_id": "summary-disposition-route", "probability": 0.30, "baseline": 0.348,
+      {"claim_id": "summary-disposition-route", "probability": 0.30, "baseline": 0.354,
        "outcome": null, "score": null},
       {"claim_id": "dissent-from-denial", "probability": 0.04, "baseline": null,
        "outcome": 0, "score": null}

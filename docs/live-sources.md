@@ -32,7 +32,8 @@ faster polling of the same records, not fresher discovery or richer content.
 The Supreme Court's own site serves a structured JSON docket per case:
 
 ```
-https://www.supremecourt.gov/rss/cases/JSON/<term>-<number>.json
+https://www.supremecourt.gov/rss/cases/JSON/<term>-<number>.json   # cert
+https://www.supremecourt.gov/rss/cases/JSON/<term>A<number>.json   # application
 ```
 
 Each record carries the full **proceedings list** as dated entries (petition
@@ -50,7 +51,9 @@ Three access facts shape the client:
 - There is no push feed and no "list new dockets" endpoint. **Discovery is
   sequential probing**: docket numbers are per-Term sequential (paid petitions
   from `25-1`, IFP from `25-5001`), so a poller probes the next unseen numbers
-  and a 404/empty record marks the current frontier.
+  and `live.frontier_misses` consecutive 404/empty records mark the current
+  frontier — a tolerance rather than a single miss, since an occasional serial
+  is withheld mid-stream.
 - **A Term's numbering starts the July before the Term opens**, across all
   three streams: `26-1`, `26-5001`, and `26A1` were all docketed 2026-07-01,
   while `25-1432` (2026-06-30) closes the OT25 paid stream. A prober keyed to
@@ -243,8 +246,9 @@ the docket form, so one function serves both lanes:
   would share one extraction cap, so the second would be cut by however long the
   first ran. The first brief in docket order on each side — the first whose entry
   posts that link — is the opening one; the reply is a separate entry family
-  ("Reply [Brief] of …") that no arm selects, and the joint-appendix reprint is
-  passed over because the opening brief precedes it. **One per side** is the
+  ("Reply [Brief] of …") the two reply kinds below take, and the joint-appendix
+  reprint is passed over because the opening brief precedes it. **One per side**
+  is the
   accepted residual, and it is the opposite call from the opposition arm above
   on purpose: a case with several respondent groups files several merits briefs
   and only the first is stored, because combining them is exactly what the
@@ -293,8 +297,10 @@ application docket is never distributed for conference, so its lane fetches on
 **any change while the application is still pending, in scope, and substantive**
 — the application rotation's own queue condition. Text is extracted with pypdf (born-digital filings under the
 e-filing mandate; a scanned paper filing degrades to empty text), capped at
-`live.document_text_cap` per document, and stored in the access-gated corpus's
-`documents` table — never the git ledger. `provision-snapshot` materializes it
+`live.document_text_cap` per document, and stored as the case's document row in
+the access-gated corpus — the per-case content store under the corpus split, the
+blob's `documents` table on a self-contained one — never the git ledger.
+`provision-snapshot` materializes it
 into the cell's gitignored `record/documents/` with a `documents.json`
 manifest, and the predict prompt points agents at it. A cell can route around
 an empty extraction — the prompt has it read the document as

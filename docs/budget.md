@@ -17,18 +17,21 @@ The operative numbers, each derived once in the section named:
 | Figure | Value | Derived in |
 |---|---|---|
 | Planning rate, one fully-tournamented case | **$15** ($2.50 × 6 cells at the design mix) | *The planning rate* |
-| Measured blended per-cell cost | ≈$2.04 — the ledger's mix, not the design's; fund on $2.50 (span ≈$0.25–8.30) | *The ledger* |
-| Ledger to date (2026-08-29) | ≈$1,410 over 691 collected cells — a floor on provider-side spend | *The ledger* |
+| Measured blended per-cell cost | ≈$2.06 — the ledger's mix, not the design's; fund on $2.50 (span ≈$0.25–8.30) | *The ledger* |
+| Ledger to date (2026-09-15) | ≈$1,537 over 748 collected cells — a floor on provider-side spend | *The ledger* |
 | Forecast events per Term, current dials | 838–865 ≈ **$12.6–13.0K/Term** | *Measured volumes* |
 | Fixed floor | **≈$5.5K/yr** (+ ≈$0.25K/yr S3 ratchet) | *Summary* |
 | Spend backstop | **$2,500 / 30-day trailing window** | *The spend backstop* |
 | Full paid-gate coverage (the dial switch) | ≈$28K/yr inference, ≈$33K all-in — upper bounds | *What `N` can ever buy* |
 | Whole-docket / 14-court reference ceilings | ≈$83K/yr · ≈$675K/yr | *Scope and the cell identity* |
 
-Every dollar figure above carries the codex third measured on `gpt-5.6-sol`;
-the current codex default (`gpt-6-astra`) projects the per-case rate to
-≈$16.7–17.8 (*Monthly spend by provider*), and the derived rows scale with it
-until a post-cutover run is measured.
+Every dollar figure above carries the codex third measured on `gpt-5.6-sol` at
+the **predict** seam; the current codex default (`gpt-6-astra`) projects the
+per-case rate to ≈$16.7–17.8 (*Monthly spend by provider*), and the derived rows
+scale with it until a post-cutover predict run is measured. The evaluate seam's
+codex third has a post-cutover reading — stage-matched, **≈1.9×** its
+`gpt-5.6-sol` rate (*Evaluate cost*; committed ledger, 2026-09-15) — which sits
+inside the 5/3–2× rate step rather than pinning a point within it.
 
 ## The shape: a fixed floor plus one dominant scaling line
 
@@ -84,7 +87,7 @@ committed `metrics/statpack.json` carries those Terms unweighted
 (`weighted_resolved == resolved` on every paid row). The IFP stream genuinely
 is still sampled, which is why the IFP-inclusive figure below is an estimate
 and these are not. The interim line is one application year, OT2025 — the last
-near-complete one: the OT2026 application year has opened (255 parsed
+near-complete one: the OT2026 application year has opened (336 parsed
 application dockets to date in the current statpack), so OT2025's cohort no
 longer grows materially, while its rates below were measured Term-to-date.
 
@@ -147,9 +150,10 @@ The interim rows carry two selection biases, in opposite directions. The
 reserve's ladder orders on response-requested first, so the selected 67 are
 enriched in exactly that property — read the 10 as biased low for the selected
 slice, bounded above by the 67. Two populations answer the rate and they
-differ: 15.1% is OT2025's (27 of its 179), while the whole accumulated
-substantive slice the interim estimator pools over runs about a fifth (54 of
-263 — `metrics/statpack.json` as refreshed 2026-08-29, the vintage every
+differ: 15.1% is OT2025's (27 of its 179, the pre-capital-strip denominator the
+freeze record registers), while the whole accumulated
+substantive slice the interim estimator pools over runs about a sixth (60 of
+352 — `metrics/statpack.json` as refreshed 2026-09-14, the vintage every
 accumulated interim count here carries). And the 67 divides slot turnover by
 the stream's 27.1-day mean occupancy, while the ladder plausibly favors
 longer-lived applications (p95 110 days), which would cut arrivals below 67.
@@ -251,9 +255,9 @@ the case snapshot, and retrieved priors, then writes its artifacts over several
 tool-use turns — so effective token usage (≈280–400K input, the large majority
 cache-served, plus ≈6K output) far exceeds the visible artifacts. Every run
 records its tokens and estimated cost (rates kept in `fedcourtsai.pricing`) to
-a `usage.json`, rolled up by `fedcourts usage-summary` — **≈$1,410 total
-inference spend on the ledger** as of 2026-08-29, across the 691 cells the
-per-cell figures below draw on (641 predict, 50 evaluate).
+a `usage.json`, rolled up by `fedcourts usage-summary` — **≈$1,537 total
+inference spend on the ledger** as of 2026-09-15, across the 748 cells the
+per-cell figures below draw on (667 predict, 81 evaluate).
 
 That estimate is token-derived, so hosted web search — billed per call rather
 than per token on all three APIs — sits outside it and makes a searching cell's
@@ -264,11 +268,12 @@ spends against the provider bill and never appears here. Every measured figure
 below is therefore a floor on provider-side spend, not a reconciliation of it.
 
 Measured per-cell cost spans **≈$0.25–8.30 by model mix**, blended mean
-**≈$2.04**. The cheapest cells approach ≈$0.25 only when the byte-stable prefix
+**≈$2.06** (committed ledger, 2026-09-15). The cheapest cells approach ≈$0.25
+only when the byte-stable prefix
 (AGENTS.md + prompt template + schema) is served from the prompt cache —
 automatic on all three engines, billing cached reads at ≈0.1×, and the reason
-to keep that prefix stable. **The $2.04 is the ledger's mix, not the design's**:
-641 of the 691 cells are predict, and evaluate cells cost more, so the mean the
+to keep that prefix stable. **The $2.06 is the ledger's mix, not the design's**:
+667 of the 748 cells are predict, and evaluate cells cost more, so the mean the
 funding knob has to cover is the one at the design mix of three predict and
 three evaluate cells per case — **$2.44–2.49** ($14.6–15.0 ÷ 6, derived under
 *The planning rate*). The planning rate is set at the top of that mean's band
@@ -285,9 +290,12 @@ names the August cohort stamped after the 2026-08-16 `proc-v3` instant; the
 `proc-v5`, `proc-v6`, `proc-v7` and `proc-v8` re-blesses have since re-based the frozen
 partition, so
 these are measurement cohorts, not claimable-partition members. Every measured
-Claude figure in this document was produced on `claude-fable-5`; the point
+Claude figure in the predict tables was produced on `claude-fable-5`; the point
 release holds its rate, so the dollar figures carry to the current default and
-only the token volumes rest on the two being comparable.)
+only the token volumes rest on the two being comparable. Six `claude-judge`
+cells on `claude-fable-5-1` read $4.17 against $4.54 over that judge's
+`claude-fable-5` cells (committed ledger, 2026-09-15), inside its own per-cell
+spread.)
 
 | Predict stage (moment) | Events | `claude-baseline` | `codex-baseline` | `gemini-baseline` | Per event |
 |---|---:|---:|---:|---:|---:|
@@ -305,10 +313,10 @@ one ordering here is a finding: **merits runs ≈$1.2 an event above the cert
 arrival moment**, on 11 events against 12. The other stages are not separated
 at these `n` — the interim row is a single event whose $5.49 sits inside both
 the cert-arrival per-event range ($4.66–$8.94) and the merits one
-($5.45–$10.77); the wider post-freeze population below reads interim at $6.41
-over 12 events, so it is not the cheap stage this single draw suggested. That
+($5.45–$10.77); the wider post-freeze population below reads interim at $6.25
+over 18 events, so it is not the cheap stage this single draw suggested. That
 wider read narrows the one finding without unseating it: merits still runs
-above cert, $7.60 against $6.68, by ≈$0.9 rather than ≈$1.2.
+above cert, $7.63 against $6.65, by ≈$1.0 rather than ≈$1.2.
 
 The larger-sample reference is the pre-freeze cert-era ledger — **410 predict
 cells over 137 events** (an incomplete grid: 138 / 132 / 140 cells by engine,
@@ -329,26 +337,26 @@ that set token count. Treat **≈+20% as an upper bound on any level effect**,
 not a measurement of one. Plan against $6.79 and expect it to move.
 
 **The wider post-freeze predict population corroborates $6.79, but only once it
-is mix-matched.** Across all post-freeze predict cells (as of 2026-08-29) the
-complete-grid population is 76 events at **$6.99** an event — but that
-population is ~46% cert, ~16% interim and ~38% merits, against a Term of ~73% /
-~12% / ~15%, so the raw figure is what a *merits-heavy* run costs, not a Term
-rate:
+is mix-matched.** Across all post-freeze predict cells (committed ledger,
+2026-09-15) the complete-grid population is 84 events at **$6.91** an event —
+but that population is ~43% cert, ~21% interim and ~36% merits, against a Term
+of ~73% / ~12% / ~15%, so the raw figure is what a *merits-heavy* run costs, not
+a Term rate:
 
 ```
-complete-grid post-freeze predict, by stage   cert    $6.68  (n=35)
-                                              interim $6.41  (n=12)
-                                              merits  $7.60  (n=29)
+complete-grid post-freeze predict, by stage   cert    $6.65  (n=36)
+                                              interim $6.25  (n=18)
+                                              merits  $7.63  (n=30)
 reweighted by the Term's mix (613-640 cert / 98 interim / 127 merits)
-                                              ≈ $6.78-6.79 an event
+                                              ≈ $6.75 an event
 ```
 
 The same objection lands on $6.79 itself — the anchor run was 11/27 merits, and
 reweighted the same way it reads $6.44. And the check is not independent:
-27 of the 76 events *are* the anchor fan-out. Over the 49 events it does not
-contain, the per-stage rates — cert $6.91 (n=20), interim $6.50 (n=11), merits
-$7.68 (n=18) — reweight to **$6.98**: independent corroboration of the
-magnitude, not of the point, some 3% above $6.79. That direction matters below:
+27 of the 84 events *are* the anchor fan-out. Over the 57 events it does not
+contain, the per-stage rates — cert $6.84 (n=21), interim $6.30 (n=17), merits
+$7.72 (n=19) — reweight to **$6.91**: independent corroboration of the
+magnitude, not of the point, some 2% above $6.79. That direction matters below:
 it eats what little headroom the planning rate has rather than adding to it.
 
 #### Evaluate cost: narrower, weaker, and mid-re-anchor
@@ -363,6 +371,11 @@ they split the same way the predict cells do:
 | pre-freeze pooled | 4 | $4.68 | $1.03 | $0.72 | $6.43 |
 | `proc-v3` stamped, post-freeze (run `20260824T231401Z`) | 6 | $4.16 | $1.51 | $0.77 | $6.44 |
 | `proc-v3` stamped, post-freeze (run `20260825T024608Z`) | 6 | $4.79 | $1.22 | $0.68 | $6.69 |
+| `proc-v5` stamped, post-freeze (run `20260902T185700Z`) | 5 | $4.53 | $1.37 | $0.74 | $6.65 |
+
+The `proc-v5` row's grid is incomplete on one of its five events (4 / 5 / 4
+cells by judge), so its per-event figure sums per-engine means rather than a
+matched grid.
 
 The four pre-freeze events are all cert-stage, so that anchor is stage-narrow
 whichever row is read — and the pooled row crosses a process boundary (three
@@ -393,18 +406,24 @@ token-relevant one being the judge-workspace prune, which hides the committed
 so none of these gradings ran under the currently blessed evaluator process and
 every figure here is a measurement cohort.)
 
-**The newest grading is one moment on since-superseded digests, and is too
-partial to re-price anything.** Run `20260829T040550Z` graded one interim
-moment under `proc-v4`: claude-judge **$4.91**, gemini-judge **$0.49**; the
-codex-judge cell failed there and again in its retry run (`20260829T080658Z`),
-so the event has no per-event total. One event, on a third application docket
-(the six `proc-v3` moments sit on two others), with an incomplete grid — and
-no direction readable: both measured cells fall inside, or within a dime of,
-the per-event ranges the two `proc-v3` runs already spanned ($3.26–5.28 /
-$4.15–5.18 for claude-judge, $0.58–1.20 / $0.57–0.85 for gemini-judge), so the
-prune's projected downward move is neither confirmed nor refuted — the same
-single-draw discipline the predict side's interim row carries. A population to
-re-read at the next evaluate fan-out, not a correction to apply.
+**The newest gradings run on the current default models and re-price the codex
+third.** Six `codex-judge` cells under `proc-v7` (run `20260914T195025Z`) are
+the ledger's first on `gpt-6-astra`: mean **$2.57** (range $1.88–3.32). Read it
+**stage-matched** — against the same judge's 17 `gpt-5.6-sol` *interim* cells at
+**$1.37**, for **≈1.9×** — because that judge's four `gpt-5.6-sol` cert cells run
+$1.03 and pooling them in would price the model step at 1.97× on a stage
+difference. Even matched, the two cohorts sit on disjoint dockets under
+different process versions, so the reading is a magnitude inside the 5/3–2×
+rate step rather than a measurement of where in it the fleet lands. The same
+confound governs the Claude half, and it survives it: six `claude-judge` cells
+on `claude-fable-5-1` (`proc-v6`) read $4.17 against $4.51 over that judge's 17
+`claude-fable-5` interim cells, so the point release moves nothing beyond that
+judge's own spread. Unioned by event, the six interim moments on two application dockets
+carry all three judges at the current defaults for **$7.52** an event
+($6.04–9.29) — but assembled across four runs and two process versions, so it
+is a magnitude rather than a run figure, and every digest behind it is
+superseded. A population to re-read at the next evaluate fan-out, not a
+correction to apply.
 
 What none of this establishes is the tempting reading: the interim rows are
 **not** evidence that the assumed ≈+22% uplift below failed to appear, because
@@ -451,7 +470,7 @@ sits in the residual applies to judging too. And it joins two
 differently-built means: matched to the complete grid, the pre-freeze figure is
 $5.65 over 132 events and the move is +20%, not +22%. The $15 rate keeps the
 +22% factor — it is the one the plan seams transcribe — but the factor is ~2
-points generous, a small offset against the $6.98 independent predict reading
+points generous, a small offset against the $6.91 independent predict reading
 pulling the other way.
 
 Three numbers to hold apart. **$13.20–13.45** is the matched measured basis,
@@ -467,8 +486,8 @@ ceilings are priced on, read with that label.
 **Fund against $15, and do not treat any of the gaps as headroom.** Against the
 assumed evaluate half on the $6.79 anchor, $15 clears the band by ~2.5% at the
 pooled reading and effectively nil at the better-matched one. Swap in the
-independent $6.98 predict reading and the band becomes $14.82–15.16 — $15 sits
-inside it, ~1.1% short at the top, and that is the reading no anchor-selection
+independent $6.91 predict reading and the band becomes $14.75–15.09 — $15 sits
+inside it, ~0.6% short at the top, and that is the reading no anchor-selection
 can flatter. Against the matched interim measurement $15 carries ≈11–14% — but
 that holds a Term rate against one stage's measured cost, and interim is
 ~11–12% of the Term. Two gaps pointing opposite ways, neither settled: the
@@ -482,8 +501,9 @@ below inherits a known price move rather than only a measurement gap.
 **The re-anchor trigger is unmet on both halves.** It waits on an evaluate
 fan-out under the currently blessed grading digests **reaching the cert stage**
 — the stage the Term is mostly made of. No grading anywhere ran under a blessed
-evaluator digest: the partial interim measurement above is the closest, and its
-digests are superseded. That run, not a fuller ledger, is what settles it — and
+evaluator digest: the ledger's newest gradings are stamped `proc-v7` against a
+blessed `proc-v8`, and every stage they cover is interim. That run, not a fuller
+ledger, is what settles it — and
 re-anchoring is deliberately a code change, not a document edit: the plan
 seams' per-cell rate table is a transcription of these figures and its
 per-event sums are pinned by test, so a re-anchor re-prices every plan
@@ -858,8 +878,8 @@ per month each provider's bill is its per-case line × `C`. The Anthropic line
 was measured on `claude-fable-5` and carries to the current default unchanged:
 the point release holds that rate. The OpenAI line was measured on
 `gpt-5.6-sol` and does **not** carry: the current default `gpt-6-astra` bills
-2× the input rate and 5/3 the output rate, so until a post-cutover run is
-measured the OpenAI line projects to ≈$5.2–6.3/case (share ≈31–35%,
+2× the input rate and 5/3 the output rate, so until a post-cutover predict run
+is measured the OpenAI line projects to ≈$5.2–6.3/case (share ≈31–35%,
 ≈$310–380 at `C` = 60) and the total to ≈$16.7–17.8/case ≈ $1.0–1.1K/mo,
 with the share column re-splitting to ≈56–60% / 31–35% / ≈9% — the table keeps
 the measured values, Total row included, labeled by the model that produced
@@ -993,7 +1013,7 @@ single-digit-dollar figure above and the rest is multiplication, not a new rate:
 Batching multiplies the runs without changing the accounting: labeling spend
 stays **ledger-invisible** for the reason above — the ledger is keyed by cell and
 a labeling run is not one, so the mode writes no `usage.json` — so a cleared
-frame's true cost is read off nine engine logs or it is not read at all. A run
+frame's true cost is read off ten engine logs or it is not read at all. A run
 refused in the extract job (a converged frame, or one under the coverage floor)
 spends nothing at all, which is the point of checking there.
 
@@ -1014,7 +1034,7 @@ cost model is the predict half alone: ~one cert-stage predict cell per
 predictor per replayed petition, scored mechanically against the hidden
 outcome, so no evaluate cells at all. A default campaign
 replays 25 petitions × 3 predictors ≈ 75 cells — **≈$140–170** at the measured
-cert per-event rates ($5.57 pre-freeze to $6.66–6.68 on the post-freeze
+cert per-event rates ($5.57 pre-freeze to $6.65–6.66 on the post-freeze
 anchors), all of them measured with codex on `gpt-5.6-sol`; scaling those
 anchors' own measured codex lines ($1.38–2.17/event at the cert stage) by the
 current `gpt-6-astra` rates (2× in, 5/3 out) projects **≈$160–220** until a

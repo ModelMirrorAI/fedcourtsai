@@ -1,13 +1,13 @@
 # Process versioning: which predictions count toward the headline
 
-Predictions committed during the July/August shakedown are real, timestamped
+Predictions committed during the shakedown are real, timestamped
 forward calls — irreplaceable forward-stratum data — but they ran under a process
 still being corrected; a post-freeze cohort can join them by declaration,
 where a dated freeze-record entry retires its digests before its claim
 window's outcomes exist (the third supersession shape below). The headline
 metrics must reflect only the **frozen,
 correct** process, without deleting the shakedown runs (a wipe reads as hiding
-results, not rigor). This is the same doctrine as [`sal-v1`](salience.md): a
+results, not rigor). This is the same doctrine as [`sal-v4`](salience.md): a
 process change is a **new version**, never an in-place edit, so any past ranking
 always replays against the process that produced it.
 
@@ -389,11 +389,13 @@ direction or a false alarm in the other:
 
 So a stamp in `[bless, instant)` passes the tripwire and fails `is_frozen`
 (`graded_post_freeze`, on the evaluation half), which is exactly the intended
-reading. The two moments are independent, not
-ordered: the held-instant evaluator re-bless below leaves the instant *before*
-the newly blessed entries' bless moment. That inversion opens a real gap
-rather than a harmless one — an evaluation stamped in `[held instant, new
-evaluator bless)` passes `graded_post_freeze`, which tests timing with no
+reading. The instant sits at or after every bless moment, on an invariant the
+suite holds: no predictor digest may be blessed after it, and on a full freeze —
+one moment across the whole map — the instant is at or after it. One shape
+inverts that: the held-instant evaluator re-bless below leaves the instant
+*before* the newly blessed **evaluator** entries' bless moment. That inversion
+opens a real gap rather than a harmless one — an evaluation stamped in
+`[held instant, new evaluator bless)` passes `graded_post_freeze`, which tests timing with no
 digest limb, and so counts under a rubric not yet immutable on `main`. While
 that window is open, nothing mechanical holds it shut: the evaluation
 tripwire cannot see a digest the map does not yet hold, so what keeps the
@@ -634,7 +636,7 @@ label's board will be built from.
 
 ## A note on local runs
 
-The local `cascade` / `local-cascade` path produces cells but does **not** run the
+The local `local-cascade` path produces cells but does **not** run the
 `stamp-cell` step (that is a workflow step, not part of the runner). So a local
 cascade's cells are unstamped and appear only under `--all-versions`. This is
 intended: the frozen headline is the production tournament, not a developer's

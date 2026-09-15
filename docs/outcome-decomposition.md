@@ -674,9 +674,9 @@ land.
 wrong.** It is not unconditional: over all resolved petitions the summary class
 runs near one percent, which test 8 above rejects outright, and conditioning on
 the grant family is what moves it to a coin-flip-scale question. Over the
-committed pack, under the configured ten-Term window that the pack's nine Terms
-do not fill, the pooled prior-Term rate for a cell in OT2025 is **0.348** (278
-cert-order dispositions over 799 paid grant-family rows, OT2017–OT2024 — a raw
+committed pack, under the configured ten-Term window that a cell's strictly-prior
+slice does not fill, the pooled prior-Term rate for a cell in OT2025 is **0.354**
+(288 cert-order dispositions over 814 paid grant-family rows, OT2017–OT2024 — a raw
 `n`, not an estimate, because only denials were ever subsampled and every
 grant-family row carries weight 1).
 
@@ -684,12 +684,12 @@ It reads the **paid** per-fee-class cut, not the Term-level pooled one, because
 the paid class is the scored population: IFP petitions are Tier-0-excluded by
 the salience gate (`docs/salience.md`), so no cell is ever an IFP row. They are
 better than a quarter of the pooled grant family at roughly three-quarters GVR,
-so the pooled rate reads 0.459 against the paid 0.348. Eleven points is not a
+so the pooled rate reads 0.467 against the paid 0.354. Eleven points is not a
 rounding error against a difference-form rule: a predictor knowing only its own
-segment's rate would bank `(0.459 − 0.348)² ≈ 0.012` per scored claim, larger
+segment's rate would bank `(0.467 − 0.354)² ≈ 0.013` per scored claim, larger
 than the drift term this document already calls dominant, and the
 identically-zero floor prices none of it. The salience *band* needs no such cut
-— the cert-order share runs 0.347 / 0.345 / 0.352 across baseline / elevated /
+— the cert-order share runs 0.350 / 0.352 / 0.353 across baseline / elevated /
 high — so fee class is the whole of the population gap.
 
 Reading the fee-class cut also keeps the pooling inside what `StatPackTerm`
@@ -697,7 +697,7 @@ permits. That field warns the `dispositions` split is "safe within a Term and
 meaningless between them", because the `gvr` label is a forward convention and
 an un-relabelled Term carries its GVRs as plain `granted`. On the committed pack
 that convention gap sits **entirely in the IFP class**, whose cert-order share
-drops to zero in OT2023 and OT2024 against 0.87–0.95 in its neighbours; the paid
+drops to zero in OT2023 and OT2024 against 0.72–0.95 in its neighbours; the paid
 series stays inside 0.29–0.46 throughout.
 
 One residual bias remains. A summary reversal is a cert-order disposition no
@@ -904,8 +904,8 @@ and the counts are raw — but **not** on frame uniformity: parse coverage diffe
 sharply between application-Terms, so a pooled rate blends a Term the poller
 covered fully with one it reached only in part, and that unevenness is the
 leading candidate explanation for the spread between Term rates. **Test 8**
-passes on the realized substantive grant rate, which runs between roughly 9% and
-32% by Term —
+passes on the realized substantive grant rate, which runs between roughly 7.5%
+and 20% by Term —
 clear of the boundary where a season's total collapses to a Bernoulli draw.
 **Test 6** holds because the two ends are read at two different times from two
 different channels: the resolution end is a latched corpus column frozen at
@@ -970,8 +970,10 @@ authorship or separate writings for a modern case; the per-Justice forms also
 fail the redundancy and volume conditions (`docs/decision-model.md` records
 the full test-by-test analysis). All semantic claims wait on opinion
 coverage — the operator-run channel that fills it (`fedcourts
-enrich-opinions`) has landed bodies on fewer than ten rows against a
-cert-granted slice of ≈1,250. Their blind-grading
+enrich-opinions`) has set the `has_opinion` bit an ingested body carries on 35
+of the 1,232 rows carrying a cert-grant date, on the corpus blob pulled
+2026-09-14 — the body itself living in the content store, since the index is
+payload-free. Their blind-grading
 precondition above is met on the explicit-identifier channel and on the
 engine channel's tool *names* — the staged retrieval log respells each call's
 `tool` as an engine-neutral class
@@ -1740,8 +1742,17 @@ The declaration, the prompts that ask for it, and the staging step that puts the
 Court's own words on the grader's disk are all built — every mechanical part a
 grade needs. In dependency order, most binding first, what is still owed:
 
-1. **Opinion coverage.** Fewer than ten corpus rows carry an opinion body,
-   against a cert-granted slice of ≈1,250. The channel that fills them —
+1. **A decided merits case.** A grade lives in an evaluation, and the evaluate
+   backlog mints a cell only for a resolved event, so a merits cell carries no
+   grade until its judgment resolves — 90 committed merits predictions, on 30 of
+   the 44 committed merits events, sit against no resolved merits event at
+   all. Nothing is owed
+   here but the Court's own calendar; it is listed because it binds ahead of
+   everything below it.
+2. **Opinion coverage.** 35 rows carry the `has_opinion` bit an ingested body
+   sets, against the 1,232 rows carrying a cert-grant date on the corpus blob
+   pulled 2026-09-14. The
+   channel that fills them —
    `fedcourts enrich-opinions`, operator-run over that slice
    (`docs/data-pipeline.md`) — has run, so what is missing is neither a design
    nor a dispatch but *yield*: a walk converges only the grants whose opinion
@@ -1752,11 +1763,11 @@ grade needs. In dependency order, most binding first, what is still owed:
    every declared claim requires a majority opinion, so almost every unit masks
    — on `not-ingested`, which is exactly the shape a coverage gap should leave
    in the census.
-2. **Any baseline.** Left open as an empirical question above.
-3. **An argument date.** `majority-ground`'s forecastability decays across the
+3. **Any baseline.** Left open as an empirical question above.
+4. **An argument date.** `majority-ground`'s forecastability decays across the
    Term and no artifact records the vantage, so the caveat above travels as
    prose rather than as a column beside the grade.
-4. **A validated grading design.** The protocol is built and live, and it has
+5. **A validated grading design.** The protocol is built and live, and it has
    never graded a decided merits case, because none has reached a cell yet.
    Everything below — the axis discipline, the mask's grounds, the
    paraphrase test, the agreement estimator — is a design argued from what the
@@ -1822,5 +1833,6 @@ blind-grading bracket itself
 (`fedcourtsai.blinding`, wired around every evaluate cell), whose alias staging
 and engine-neutral tool classes remove identity from the staged bytes — with the
 residuals its module docstring names, the call-class profile among them. So what
-separates a declared set from a produced grade is opinion text alone — not a
-shape, and no longer an elicitation.
+separates a declared set from a produced grade is a decided merits case — its
+resolution to mint the grading cell, and its opinion text for the grader to read
+— not a shape, and not an elicitation.
