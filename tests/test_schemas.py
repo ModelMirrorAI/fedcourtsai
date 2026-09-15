@@ -340,35 +340,25 @@ def test_input_snapshot_accepts_every_committed_spelling(spelling: str) -> None:
     assert _prediction(input_snapshot=spelling).input_snapshot == spelling
 
 
-def test_unread_snapshot_context_masks_its_signals() -> None:
-    """The mask is the whole content of an `unread` stamp."""
-    context = _context(snapshot_uptake="unread")
+def test_unread_snapshot_context_keeps_the_conditioning_beside_it() -> None:
+    """`snapshot_uptake` reports; it masks nothing.
+
+    The field records that a cell did not report reading the payload. It is no
+    evidence about `band`, which reaches the cell through `record/context.json`,
+    and clearing the payload signals would let a predictor decline its way into
+    the availability mask. So the model accepts an `unread` context carrying the
+    full conditioning, which is what the stamp writes.
+    """
+    context = _context(
+        snapshot_uptake="unread",
+        signals_observable=True,
+        distribution_count=3,
+        band="baseline",
+        salience_version="sal-v4",
+    )
     assert context.snapshot_uptake == "unread"
-    assert context.band is None
-
-
-def test_unread_snapshot_context_refuses_observable_signals() -> None:
-    with pytest.raises(ValidationError, match="disclosed nothing to it"):
-        _context(snapshot_uptake="unread", signals_observable=True)
-
-
-@pytest.mark.parametrize(
-    ("field", "value"),
-    [
-        ("distribution_count", 3),
-        ("cvsg_date", date(2026, 5, 1)),
-        ("band", "baseline"),
-        ("salience_version", "sal-v4"),
-        ("response_requested", True),
-        ("referred_to_court", True),
-        ("amicus_briefs", 2),
-    ],
-)
-def test_unread_snapshot_context_refuses_a_signal_the_cell_never_saw(
-    field: str, value: object
-) -> None:
-    with pytest.raises(ValidationError, match="must clear the signals"):
-        _context(snapshot_uptake="unread", **{field: value})
+    assert context.band == "baseline"
+    assert context.distribution_count == 3
 
 
 def test_snapshot_uptake_is_silent_where_the_stamp_could_not_judge() -> None:

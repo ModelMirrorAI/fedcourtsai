@@ -2628,9 +2628,10 @@ def test_regrade_writes_what_an_ordinary_stamp_would_but_the_version(
 #
 # The provisioned snapshot is every predictor's guaranteed-common input, and the
 # stamp copies its conditioning onto the prediction. A cell that reports it never
-# read that file contradicts the stamp, and the stamp is what every downstream
-# reader trusts — so the two are compared, both sides normalized to the
-# provisioned file's day.
+# read that file contradicts the stamp in silence — so the two are compared, both
+# sides normalized to the provisioned file's day, and the answer is recorded in
+# `snapshot_uptake`. Recorded, not masked: the conditioning beside it is what
+# provisioning derived, and every scoring surface goes on reading it unchanged.
 
 _SNAPSHOT_DAY = date(2026, 1, 1)
 
@@ -2718,38 +2719,30 @@ def test_stamp_reads_every_spelling_of_the_provisioned_snapshot_as_agreement(
     assert not event_paths.prediction_flags("claude-baseline", "RID").is_file()
 
 
-def test_stamp_masks_a_prediction_that_never_read_its_snapshot(_data_root: Path) -> None:
-    """`missing` against a provisioned file is stamped as unread, not as read.
+@pytest.mark.parametrize("reported", ["missing", "2025-12-24.json"])
+def test_stamp_records_a_prediction_that_never_read_its_snapshot(
+    _data_root: Path, reported: str
+) -> None:
+    """A sentinel — or another day — against a provisioned file stamps `unread`.
 
     The incident this pins: a cell that looked under the wrong path, wrote
     `input_snapshot: "missing"`, and was stamped with the harness's snapshot date
-    and the whole frozen conditioning — so the committed artifact described an
-    information set the forecast never used, and the leakage grade,
-    `signals_observable`, and the frozen interim signals all trusted the stamp.
+    and the whole frozen conditioning, with nothing on the record saying the two
+    disagreed. Both arms of the contract are exercised: the cell that reported no
+    snapshot, and the cell that named a different one.
     """
     event = "evt-petition-disposition"
     _provision(_data_root, 41)
-    event_paths = _seed_unstamped(_data_root, 41, event, "missing")
+    event_paths = _seed_unstamped(_data_root, 41, event, reported)
 
     result = _stamp("predictor", "claude-baseline", 41, event, "RID")
 
-    # Stamped, not refused: the artifact stays valid and scoreable on the claims
-    # that do not read the snapshot.
+    # Stamped, not refused: the artifact stays valid and fully scoreable.
     assert result.exit_code == 0, result.output
     stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
     assert stamped.context is not None
     assert stamped.process_version is not None
     assert stamped.context.snapshot_uptake == "unread"
-    # Every signal the cell never saw is cleared, so nothing downstream reads a
-    # conditioning the forecast was not formed from.
-    assert stamped.context.signals_observable is False
-    assert stamped.context.distribution_count is None
-    assert stamped.context.cvsg_date is None
-    assert stamped.context.band is None
-    assert stamped.context.salience_version is None
-    # What provisioning did is still on the record — the mask is about uptake.
-    assert stamped.context.snapshot_date == _SNAPSHOT_DAY
-    assert stamped.context.mode == "forward"
 
     flags = read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
     assert flags.role == UsageRole.predictor
@@ -2757,6 +2750,30 @@ def test_stamp_masks_a_prediction_that_never_read_its_snapshot(_data_root: Path)
     assert [flag.severity for flag in flags.flags] == [FlagSeverity.warning]
     assert flags.flags[0].event_id == event
     assert "2026-01-01.json" in flags.flags[0].message
+
+
+def test_stamp_masks_nothing_when_it_records_an_unread_snapshot(_data_root: Path) -> None:
+    """The field reports; it does not degrade the conditioning beside it.
+
+    `band` and `salience_version` reach the cell through `record/context.json`,
+    a different file, and are the population label the evaluator prices the cell
+    against — nulling them would move it to the `terminal` basis, the band
+    re-derived at evaluation from the corpus row, so a forward cell would be
+    scored against a baseline conditioned on its own future. The payload signals
+    stay for the mirror reason: masking them would let a predictor decline its
+    way into the availability mask, which is a property of the record.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 44)
+    event_paths = _seed_unstamped(_data_root, 44, event, "missing")
+
+    assert _stamp("predictor", "claude-baseline", 44, event, "RID").exit_code == 0
+
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.snapshot_uptake == "unread"
+    provisioned = read_model(CasePaths(_data_root, "scotus", 44).cell_context, PredictionContext)
+    assert stamped.context == provisioned.model_copy(update={"snapshot_uptake": "unread"})
 
 
 def test_stamp_appends_the_unread_flag_beside_the_cell_s_own(_data_root: Path) -> None:
@@ -2812,6 +2829,4 @@ def test_stamp_leaves_the_conditioning_unjudged_with_no_snapshot_on_disk(
     stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
     assert stamped.context is not None
     assert stamped.context.snapshot_uptake is None
-    assert stamped.context.signals_observable is True
-    assert stamped.context.band == "baseline"
     assert not event_paths.prediction_flags("claude-baseline", "RID").is_file()

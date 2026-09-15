@@ -53,19 +53,22 @@ fields that mean the same thing at every stage:
   `record/` is **case-level** — a sibling of `events/`, not a child of it — so
   a cell's provisioned inputs (the snapshot, `context.json`, and `documents/`)
   sit beside every event of the case rather than under the event being
-  predicted. The canonical spelling is that file's **basename**,
-  `YYYY-MM-DD.json`, or the literal `missing` where the cell found none. The
-  field is the agent's own string, though, and the committed ledger carries
-  older spellings — repo-rooted and `record/`-relative paths, the bare day,
-  other sentinels — which validation accepts, because the ledger is the ledger.
-  Nothing scored conditions on it; the harness-written `context` block carries
-  the conditioning state instead.
+  predicted. The field is the agent's own string and free text: the prompt asks
+  for the snapshot's identifier or path, so the ledger spells one file several
+  ways — a repo-rooted path (much the commonest, and what the example below
+  shows), a `record/`-relative one, the bare basename `YYYY-MM-DD.json`, the
+  bare day — beside sentinels for a cell that found none, of which `missing` is
+  the one to write. Validation accepts all of them, because the ledger is the
+  ledger and **no spelling is contracted** while the prompt asks as loosely as
+  it does. Nothing scored conditions on it; the harness-written `context` block
+  carries the conditioning state instead.
 
   It is not inert, either. It is the cell's own account of which snapshot it
-  read, and the stamp compares it against the file provisioning actually wrote —
-  both sides normalized to that file's day, so a spelling variant is agreement.
-  Disagreement is recorded in `context.snapshot_uptake`; see the `context`
-  entry below.
+  read, so rather than requiring a spelling the harness normalizes: the stamp
+  reduces both this field and the provisioned filename to that file's **day**
+  and compares them, which makes every spelling above agreement. The answer is
+  recorded in `context.snapshot_uptake`, and that comparison is the only thing
+  this field decides; see the `context` entry below.
 - **`granted` / `probability`** — the stage's declared binary and the
   probability of it. The stage names the binary, and the outcome's
   `actual_granted` is defined on the same axis, so `(probability -
@@ -175,6 +178,7 @@ absent optional field as null.
     "mode": "forward",
     "snapshot_date": "2026-04-10",
     "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
     "cutoff": null,
     "cut_kind": null,
     "cut_anchor_index": null,
@@ -562,25 +566,33 @@ directory without knowing which part is which invites trusting the wrong half.
   being stale — a `truncated` cell's `snapshot_date` *is* its cutoff, so it
   dates the moment rather than the pull the payload was reconstructed from.
 
-  **`snapshot_uptake` is whether the cell actually opened it.** Copying the
-  provisioned conditioning onto a prediction asserts that the forecast was
-  formed from the snapshot, and the cell's own `input_snapshot` is the only
-  place that assertion can be checked. So the stamp checks it. `read` is
-  agreement. `unread` is a cell that reported no snapshot, or named a different
-  one, while the provisioned file sat on disk — and there the stamp **masks**
-  the block: `signals_observable` goes false and every signal the payload would
-  have disclosed is cleared, so the frozen conditioning goes on describing what
-  the cell actually had. The mechanical consequences are the ones a cell whose
-  payload disclosed no proceedings already gets — the increment claims resolve
-  to unavailable, and the evaluator scores against the terminal band rather than
-  a frozen one — and the cell stays valid, committed, and scoreable on every
-  claim that does not read the snapshot. It also gets a harness `flags.json`
-  note, so the disagreement reaches the run PR rather than only the artifact.
-  The field is null where the stamp could not judge: a record written before the
-  comparison existed, or a re-stamp away from the runner with no `record/`
-  beside it. It is what keeps the two reasons for an unobservable cell
-  separable — a payload that disclosed no proceedings against a payload the cell
-  never opened — which a figure pooling them would lose.
+  **`snapshot_uptake` is whether the cell *said* it opened the snapshot.**
+  Copying the provisioned conditioning onto a prediction reads as an assertion
+  that the forecast was formed from it, and the cell's `input_snapshot` is the
+  only record of whether it was. So the stamp compares them, both sides
+  normalized to the provisioned file's day. `read` is agreement — a self-report,
+  never verified uptake, since nothing here watches the cell open a file.
+  `unread` is a cell that reported no snapshot, or named a different one, while
+  the provisioned file sat on disk; it also gets a harness `flags.json` note, so
+  the disagreement reaches the run PR rather than only the artifact. Null where
+  the stamp could not judge: a record written before the comparison existed, or
+  a re-stamp away from the runner with no `record/` beside it.
+
+  **It reports; it masks nothing.** The conditioning beside it is what
+  provisioning derived and offered, and that is a fact about the record whatever
+  a given cell did with it — so every scoring surface reads the block exactly as
+  it did before the field existed, and a reader wanting the cell's own
+  information set reads the two together. Degrading the block instead would cost
+  twice over. `band` and `salience_version` reach the cell through
+  `record/context.json`, a **different** file the prompt tells it to read, so
+  `input_snapshot` is no evidence about them at all; and they are the population
+  label the evaluator prices the cell against, so nulling them would move it to
+  the `terminal` basis — the band re-derived at evaluation from the corpus
+  row — and score a forward cell against a baseline conditioned on its own
+  future. Clearing the payload signals would be the same mistake one step down:
+  it would make the increment claims unresolvable on the predictor's own
+  conduct, and the availability mask is a property of the record, never of the
+  predictor ([outcome-decomposition.md](outcome-decomposition.md)).
 
   **`cut_kind` is the boundary, and the cutoff on its own is not.** A date
   cannot express the interim arrival moment: an application is submitted,

@@ -5994,6 +5994,11 @@ def _snapshot_stem(value: str) -> str:
     the same file. A sentinel (``missing``, ``none``, ``unavailable``) carries no
     separator and survives as itself, which is what makes it *fail* the
     comparison rather than accidentally pass it.
+
+    The result is a **day**, not a file identity: a cell naming another case's
+    snapshot of the same date reads as agreement. That residue is deliberate —
+    the leading path is exactly the part the spellings disagree on, so it cannot
+    carry the comparison — and it bounds what a ``read`` means.
     """
     return value.strip().replace("\\", "/").rsplit("/", 1)[-1].removesuffix(".json")
 
@@ -6009,37 +6014,45 @@ def _stamped_conditioning(
     """The ``context`` block to stamp, flagging a cell that never read its snapshot.
 
     The stamp's own tripwire. The provisioned snapshot is every predictor's
-    guaranteed-common input, and copying its conditioning onto a prediction
-    asserts that the forecast was formed from it — but the cell's own
-    ``input_snapshot`` is the only place that assertion can be checked, and a
-    cell that reports ``missing`` while the file sits on disk is telling the
-    harness it was not. Stamping the provisioned block over that disagreement is
-    how a committed artifact comes to describe an information set its forecast
-    never used, with the leakage grade, ``signals_observable``, and the frozen
-    interim signals all trusting the stamp rather than the admission.
+    guaranteed-common input, and copying its conditioning onto a prediction reads
+    as an assertion that the forecast was formed from it — but a cell that
+    reports ``missing`` while the file sits on disk is saying it was not.
+    Stamping the block over that disagreement in silence is how a committed
+    artifact comes to describe an information set its forecast never used, with
+    every downstream reader trusting the stamp rather than the admission.
 
     So the two are compared, both sides normalized by :func:`_snapshot_stem` to
-    the provisioned file's day. Agreement stamps ``snapshot_uptake: "read"`` and
-    nothing else changes; a spelling variant is agreement, which is the point of
+    the provisioned file's day, and the answer is recorded in
+    ``snapshot_uptake``. A spelling variant is agreement, which is the point of
     normalizing rather than matching the literal string.
 
-    **Disagreement is masked, not refused.** The block is still stamped — with
-    ``snapshot_uptake: "unread"``, ``signals_observable`` false, and every signal
-    the payload would have disclosed cleared — so the artifact stays valid and
-    scoreable on the claims that do not read the snapshot, while every claim that
-    does resolves to unavailable and the evaluator falls back to the terminal
-    band. Refusing instead would buy nothing and cost two things: a non-zero exit
-    here reddens the cell job but changes no recorded outcome — ``Record cell
-    status`` still runs, ``validate`` requires no stamp, and the cell lands
-    ``ready`` and auto-merges — and it would land *unstamped*, which means an
-    agent-authored ``context`` block would survive the refusal, the one thing
-    that field must never be.
+    **Recorded, not masked, and not refused.** Nothing else about the block
+    moves: the disagreement is evidence about the *snapshot payload* alone, and
+    the conditioning fields beside it are not all payload-uptake facts. ``band``
+    and ``salience_version`` in particular reach the cell through
+    ``record/context.json`` — a different file the prompt tells it to read — and
+    they are the population label the evaluator prices the cell against, not an
+    input the forecast conditions on. Nulling them would route the cell to the
+    ``terminal`` basis, which is the band re-derived at evaluation from the
+    corpus row, so a forward cell would be scored against a baseline conditioned
+    on its own future to punish a reporting gap. Masking the payload signals
+    would be the same mistake one step down: it would make the increment claims
+    unresolvable on the predictor's own conduct, and the availability mask is a
+    property of the record (``docs/outcome-decomposition.md``). The honest record
+    is the provisioned conditioning plus the fact that this cell did not report
+    taking it up.
+
+    Refusing instead would buy nothing and cost two things: a non-zero exit here
+    reddens the cell job but changes no recorded outcome — ``Record cell status``
+    still runs, ``validate`` requires no stamp, and the cell lands ``ready`` and
+    auto-merges — and it would land *unstamped*, which means an agent-authored
+    ``context`` block would survive the refusal, the one thing that field must
+    never be.
 
     Judged only where there is something to judge. No provisioned context is the
     existing gap and stamps ``None`` as before; a context naming a snapshot file
     that is not on disk is a re-stamp away from the runner rather than evidence
-    about what the cell read, so it stamps the block unjudged rather than masking
-    a cell on the strength of a missing file.
+    about what the cell read, so it stamps the block unjudged.
     """
     if provisioned is None:
         return None
@@ -6051,19 +6064,7 @@ def _stamped_conditioning(
     _flag_unread_snapshot(
         event_paths.prediction_flags(actor, run_id), snapshot.name, record, actor, run_id
     )
-    return provisioned.model_copy(
-        update={
-            "snapshot_uptake": "unread",
-            "signals_observable": False,
-            "distribution_count": None,
-            "cvsg_date": None,
-            "band": None,
-            "salience_version": None,
-            "response_requested": None,
-            "referred_to_court": None,
-            "amicus_briefs": None,
-        }
-    )
+    return provisioned.model_copy(update={"snapshot_uptake": "unread"})
 
 
 def _flag_unread_snapshot(
@@ -6075,9 +6076,9 @@ def _flag_unread_snapshot(
 ) -> None:
     """Leave the tripwire's finding where a maintainer will see it.
 
-    The masked block is honest but quiet — it reads like any other cell whose
-    payload disclosed no proceedings — so the disagreement also has to leave the
-    runner as prose. ``flags.json`` is the durable channel: ``collect`` commits
+    A field on one artifact is quiet, and nothing that renders a number reads
+    it, so the disagreement also has to leave the runner as prose a maintainer
+    meets. ``flags.json`` is the durable channel: ``collect`` commits
     each produced cell's file with its output and rolls every flag into the run
     PR body, the Actions summary, and the long-lived agent-feedback issue.
 
@@ -6090,8 +6091,11 @@ def _flag_unread_snapshot(
     re-stamp of the same cell does not grow the list.
 
     ``warning`` rather than ``blocker``: the cell finished and its artifact is
-    usable, it is the conditioning record that is degraded — which is what
-    ``data-quality`` names.
+    usable and fully scoreable — what is wrong is upstream of it, a cell that
+    could not find the inputs it was given, which is what ``data-quality`` names.
+    It is a **harness-authored** note in a channel that is otherwise the agent's;
+    the roll-up counts it with the rest, and the ``Harness tripwire:`` prefix is
+    what separates the two by eye.
     """
     # `input_snapshot` is unbounded agent text and the flag message is capped at
     # 2000 characters, so quote a bounded prefix: a stamp must not fail the cell
@@ -6099,9 +6103,10 @@ def _flag_unread_snapshot(
     reported = repr(record.input_snapshot[:120])
     message = (
         f"Harness tripwire: this cell recorded input_snapshot {reported}, which does not name "
-        f"the provisioned snapshot {snapshot}, so the forecast was formed without the baseline "
-        "every predictor shares. The stamped context records snapshot_uptake 'unread' and masks "
-        "the frozen signals; the cell is scoreable only on claims that do not read them."
+        f"the provisioned snapshot {snapshot}, so it reports not having read the baseline every "
+        "predictor shares. The stamped context records snapshot_uptake 'unread'; the conditioning "
+        "beside it is what provisioning wrote, which this cell may not have used. A cell that "
+        "looked under events/<event_id>/record/ has the wrong path: record/ is case-level."
     )
     flag = AgentFlag(
         category=FlagCategory.data_quality,
@@ -6133,7 +6138,7 @@ def _flag_unread_snapshot(
     typer.echo(
         f"::warning::stamp: {record.case_id} {record.event_id} {actor} reported "
         + f"input_snapshot {reported} against provisioned {snapshot}; "
-        + "stamped snapshot_uptake 'unread' with the frozen signals masked.",
+        + "stamped snapshot_uptake 'unread'.",
         err=True,
     )
 

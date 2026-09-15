@@ -1258,6 +1258,13 @@ the rendered table) and
   snapshot and the record does not say which, and a replay cell is carved out
   by design, so both are *not derivable*, never zero.
 
+  One cell the lag does not describe: a `context.snapshot_uptake` of `unread`
+  says the cell did not report reading the payload it was placed on, so its lag
+  measures the age of a moment that cell may never have looked at. It is a
+  handful of cells and the honest treatment is to name them beside the `n`
+  rather than to drop them, since dropping cells on a predictor-reported fact
+  would make the population move with predictor behaviour.
+
   Read it **segmented on `snapshot_provenance` and on the moment** — provenance
   alone is not enough, and the two cuts answer different questions. Provenance,
   because on the `as-stored` arm no cutoff exists and the number falls back to

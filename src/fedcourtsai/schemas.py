@@ -635,12 +635,16 @@ class PredictionContext(_Strict):
 
     The agent's string is not *nothing*, though: it is the cell's own account of
     which snapshot it read, and where it disagrees with the file the harness
-    provisioned, the two describe different information sets. ``stamp-cell``
-    compares them — both sides normalized to the provisioned file's day — and
-    records the answer in ``snapshot_uptake``. A cell that never opened its
-    snapshot is stamped with the signals below cleared, so this block keeps its
-    contract of describing what the cell actually ran against rather than what
-    it was handed.
+    provisioned, the block and the cell are describing different information
+    sets. ``stamp-cell`` compares them — both sides normalized to the provisioned
+    file's day — and records the answer in ``snapshot_uptake``, which is the only
+    field here the cell's word decides.
+
+    That one field reports; it does not mask. What the rest of the block records
+    is what **provisioning** derived and offered, which is a fact about the
+    record whether or not a given cell took it up — so a reader wanting the
+    cell's own information set reads the two together, and every scoring surface
+    reads the conditioning exactly as it did before the field existed.
 
     It exists because the salience band moves. ``distribution_count`` is
     max-latched and a ``cvsg_date``, once set, stays set, so a petition's band
@@ -690,19 +694,23 @@ class PredictionContext(_Strict):
     snapshot_uptake: Literal["read", "unread"] | None = Field(
         default=None,
         description="Whether the cell's own `input_snapshot` named the snapshot the "
-        "harness provisioned. Judged by `stamp-cell`, which normalizes both sides "
-        "to the provisioned file's day, so the several spellings the field carries "
-        "across the committed set all read as agreement. 'read' is agreement. "
-        "'unread' is a cell that reported no snapshot, or named a different one, "
-        "while the provisioned file sat on disk — its forecast was formed without "
-        "the baseline every predictor is supposed to share, so `signals_observable` "
-        "is forced false and every signal below is cleared, and this block goes on "
-        "describing the information set the cell actually had. Null where the stamp "
-        "could not judge: a record stamped before the comparison existed, or a "
-        "context with no provisioned snapshot file beside it to compare against. It "
-        "is what keeps the two reasons for an unobservable cell separable — a "
-        "payload that disclosed no proceedings against a payload the cell never "
-        "opened — which a figure pooling them would lose",
+        "harness provisioned. Judged by `stamp-cell`, which normalizes both sides to "
+        "the provisioned file's day, so the several spellings the field carries "
+        "across the committed set all read as agreement. 'read' is agreement — the "
+        "cell's SELF-REPORT that it read that file, never verified uptake. 'unread' "
+        "is a cell that reported no snapshot, or named a different one, while the "
+        "provisioned file sat on disk: it says the forecast may have been formed "
+        "without the baseline every predictor is supposed to share, which is the one "
+        "thing the rest of this block cannot say. Null where the stamp could not "
+        "judge: a record stamped before the comparison existed, or a context with no "
+        "provisioned snapshot file beside it to compare against. **It masks "
+        "nothing.** The fields beside it stay as provisioning derived them, because "
+        "they are not all payload-uptake facts — `band` and `salience_version` reach "
+        "the cell through `record/context.json`, a different file, and are the "
+        "population label the evaluator prices the cell against rather than an input "
+        "it conditions on; nulling them would move the cell to the `terminal` basis, "
+        "which is the band re-derived at evaluation. So this field reports, and "
+        "every scoring surface goes on reading the same conditioning it did before",
     )
     cutoff: date | None = Field(
         default=None,
@@ -759,13 +767,13 @@ class PredictionContext(_Strict):
         "it. Null on a forward cell, whose outcome does not exist yet",
     )
     signals_observable: bool = Field(
-        description="Whether the docket-progress signals below were observable to "
-        "this cell. False means UNOBSERVABLE from what the cell saw, not that they "
-        "are zero — reading that absence as 'never distributed' would invent a "
-        "fact. Two things put it false, and `snapshot_uptake` is what separates "
-        "them: the provisioned payload disclosed no proceedings list at all (a "
-        "redacted replay snapshot drops them wholesale), or the cell never opened "
-        "the payload, which discloses nothing to it either"
+        description="Whether the payload disclosed a proceedings list at all. False "
+        "means the docket-progress signals below are UNOBSERVABLE from what the cell "
+        "saw, not that they are zero — a redacted replay snapshot drops the "
+        "proceedings wholesale, and reading that absence as 'never distributed' "
+        "would invent a fact. A property of the PAYLOAD: a cell that did not report "
+        "reading the payload leaves this alone, since what the payload disclosed is "
+        "unchanged by that — `snapshot_uptake` is where the uptake is recorded"
     )
     distribution_count: int | None = Field(
         default=None,
@@ -860,47 +868,6 @@ class PredictionContext(_Strict):
         if (self.cut_kind == "arrival-position") != (self.cut_anchor_index is not None):
             raise ValueError(
                 "`cut_anchor_index` is non-null exactly where `cut_kind` is 'arrival-position'"
-            )
-        return self
-
-    @model_validator(mode="after")
-    def _unread_snapshot_carries_no_signals(self) -> PredictionContext:
-        """A snapshot the cell never opened disclosed nothing to it.
-
-        The mask is the whole content of an ``unread`` stamp: without it the
-        block would still hand a grader a band, a distribution count and an
-        interim trio derived from a payload the forecast was not formed from,
-        which is the disagreement this field exists to record. Held here rather
-        than only in the stamp that writes it, so a hand-edited or re-derived
-        context cannot carry the label without the masking that makes it true.
-        Silent on every other value, ``None`` included: a record stamped before
-        the comparison existed asserts nothing either way.
-        """
-        if self.snapshot_uptake != "unread":
-            return self
-        if self.signals_observable:
-            raise ValueError(
-                "`snapshot_uptake` 'unread' cannot report `signals_observable` true: "
-                "a payload the cell never opened disclosed nothing to it"
-            )
-        carried = sorted(
-            name
-            for name, value in (
-                ("amicus_briefs", self.amicus_briefs),
-                ("band", self.band),
-                ("cvsg_date", self.cvsg_date),
-                ("distribution_count", self.distribution_count),
-                ("referred_to_court", self.referred_to_court),
-                ("response_requested", self.response_requested),
-                ("salience_version", self.salience_version),
-            )
-            if value is not None
-        )
-        if carried:
-            raise ValueError(
-                "`snapshot_uptake` 'unread' must clear the signals the cell never saw; "
-                + "still set: "
-                + ", ".join(carried)
             )
         return self
 
@@ -1029,15 +996,20 @@ class Prediction(_Strict):
     run_id: str
     created_at: datetime
     input_snapshot: str = Field(
-        description="Which provisioned snapshot the cell read, spelled as that "
-        "file's basename — `YYYY-MM-DD.json` — or the literal `missing` where the "
-        "cell found none. The agent's own word, and the committed ledger carries "
-        "older spellings (repo-rooted and `record/`-relative paths, the bare day, "
-        "other sentinels), so validation accepts any string: the ledger is the "
-        "ledger. Nothing scored conditions on it; `stamp-cell` compares it against "
-        "the provisioned file — both sides normalized to that file's day, so a "
-        "spelling variant is agreement — and records the answer in "
-        "`context.snapshot_uptake`."
+        description="Which provisioned snapshot the cell read — the file under "
+        "`data/cases/<court>/<docket>/record/snapshots/`, named for a day. The "
+        "agent's own word and free text: the prompt asks for the snapshot's "
+        "identifier or path, so the ledger spells one file several ways (a "
+        "repo-rooted path, commonest by far; a `record/`-relative one; the bare "
+        "basename `YYYY-MM-DD.json`; the bare day) beside sentinels for a cell "
+        "that found none, of which `missing` is the one to write. Validation "
+        "accepts any string — the ledger is the ledger, and no spelling is "
+        "contracted while the prompt asks as loosely as it does. So the harness "
+        "normalizes instead of requiring: `stamp-cell` reduces both this field "
+        "and the provisioned filename to that file's **day** and compares them, "
+        "which makes every spelling above agreement, and records the answer in "
+        "`context.snapshot_uptake`. That comparison is the only thing this field "
+        "decides; nothing scored conditions on it."
     )
     granted: int = Field(
         ge=0,
@@ -1111,9 +1083,9 @@ class Prediction(_Strict):
         "puts here is overwritten. Absent on predictions written before the block "
         "existed, and on any cell that ran without a provisioned snapshot — a "
         "state run-predict refuses outright, so on that path only older records "
-        "carry the gap. A cell that WAS provisioned one and never read it keeps "
-        "the block: the stamp masks it and says so in `snapshot_uptake`, which is "
-        "the honest record and not a gap.",
+        "carry the gap. A cell that WAS provisioned one and did not report "
+        "reading it keeps the block unchanged, with `context.snapshot_uptake` "
+        "recording the disagreement — the honest record, and not a gap.",
     )
     claims: list[ClaimProbability] | None = Field(
         default=None,
@@ -1904,7 +1876,11 @@ class AgentFlags(_Strict):
 
     A predict/evaluate cell writes this *only when it has something to
     surface* — a data-quality problem, a scope question, an ambiguous event, or the
-    reason it was blocked. It rides the cell's artifact to the ``collect`` job, which
+    reason it was blocked. Mostly the agent's own word, but not exclusively: a
+    post-agent harness step appends its own findings about the cell to the same
+    file (``stamp-cell``, where a cell reports not having read its provisioned
+    snapshot), and the roll-up counts those with the rest — the message text is
+    what distinguishes them. It rides the cell's artifact to the ``collect`` job, which
     rolls every cell's flags into the run PR body (and the Actions summary), so a
     note outlives the run that raised it and a maintainer sees it without
     reading every ``reasoning.md``. The agent token stays comment-only: the file is
