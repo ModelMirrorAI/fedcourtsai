@@ -2697,6 +2697,36 @@ def _actions_smoke_steps() -> list[dict[str, Any]]:
     ]
 
 
+def test_a_cells_three_engines_are_handed_the_same_kickoff() -> None:
+    """The kickoff is one contract, hand-copied three times.
+
+    The cell identifiers and the paths a cell must find ride in the kickoff
+    text rather than in the env, because an engine may sanitize the shell —
+    so the kickoff *is* the contract's delivery channel, and three engines
+    given three different ones are three different processes answering three
+    different questions. The digest cannot catch that: it hashes the prompt
+    template and the resolved registry config, and the kickoff is neither.
+    Each engine carries the text under its own key (an action input for
+    claude and codex, a step env var for gemini), so the three are literally
+    separate copies and drift is an ordinary editing slip.
+    """
+    for name, job_name in ENGINE_WATCHDOG_CELL_JOBS.items():
+        steps = _load(name)["jobs"][job_name]["steps"]
+        kickoffs = {
+            str(step.get("name")): str(
+                (step.get("with") or {}).get("prompt") or (step.get("env") or {}).get("PROMPT")
+            )
+            for i, step in enumerate(steps)
+            if i in _engine_step_indices(steps)
+        }
+        assert len(kickoffs) == 3, f"{name}: expected three engine steps, got {sorted(kickoffs)}"
+        assert len(set(kickoffs.values())) == 1, (
+            f"{name}: the three engine steps carry different kickoff text — "
+            f"{ {k: len(v) for k, v in kickoffs.items()} }; an edit reached some "
+            "engines and not others, and no digest would show it"
+        )
+
+
 def test_the_action_path_smoke_invokes_each_engine_the_way_the_cells_do() -> None:
     """The `engine-actions-smoke` legs run the cells' own invocation surfaces.
 

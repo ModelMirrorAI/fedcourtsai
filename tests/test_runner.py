@@ -228,6 +228,27 @@ def test_codex_runner_gets_the_inline_identifier_kickoff(tmp_path: Path) -> None
     assert "EVENT_ID=" in kickoff
 
 
+def test_the_predict_kickoff_names_the_case_level_record_directory(tmp_path: Path) -> None:
+    """A predict cell is told where its provisioned inputs are, in the kickoff.
+
+    The template says it too, but the kickoff is the channel that survives an
+    engine which never opens the template, and `record/` is case-level — a
+    sibling of `events/` — so a cell hunting under its own event finds
+    nothing. An evaluate cell gets no such line, because its staged inputs are
+    not one directory; the asymmetry mirrors the two cell workflows and is
+    pinned so neither half drifts into the other.
+    """
+    data_root = tmp_path / "data"
+    predict = _Recorder()
+    CodexRunner(command_runner=predict).run(_predict_request(data_root, actor=PREDICTOR))
+    expected = (data_root / "cases" / COURT / str(DOCKET) / "record").as_posix()
+    assert f"Your provisioned inputs are at {expected}/" in predict.argv[-1]
+
+    evaluate = _Recorder()
+    CodexRunner(command_runner=evaluate).run(_evaluate_request(data_root))
+    assert "Your provisioned inputs are at" not in evaluate.argv[-1]
+
+
 def test_gemini_runner_builds_the_headless_yolo_call(tmp_path: Path) -> None:
     recorder = _Recorder()
     runner = GeminiRunner(command_runner=recorder)
