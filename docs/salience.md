@@ -1033,7 +1033,10 @@ holds any committed prediction for is admitted as a sweep candidate — admissio
 only, and deliberately the cheaper question — and on that ground the queue is narrowed to the events that pass **both**
 bounds below. The `predict-matrix` scope backstop applies the same two bounds
 to a deferred case's *listed* events, so a queued cell and a planned cell answer
-to the same test. The two seams are not identical at the edges, and both
+to the same test — with one ground the backstop has and this seam does not,
+because the lane it serves is the one that owns the rule: the pre-freeze
+re-predict rule's licence travels on the backlog deriver's own case list
+(`reopen_events`), which this sweep neither reads nor writes. The two seams are not identical at the edges, and both
 divergences refuse rather than admit: the plan seam reads
 `corpus.is_salience_deferred`, which treats an unscored row as fail-open
 selected and so keeps it whole, where the sweep's own predicate counts it
@@ -1046,7 +1049,26 @@ poison-pilled cohort is not swept either.
 The **spend bound** is the first: only the case's already-predicted events are
 queued. Finishing a cohort buys the missing engines on a case the project already
 funded, while the case's *untouched* open events would be new cells on a case the
-gate declined. This half mirrors the evaluate backlog's reading of the same gate
+gate declined. "Missing" spans two readings at the engine grain: an engine with
+no cell on the event, and — where a predictor-half re-bless has put its cells
+outside the frozen process scope — an engine owed a re-forecast under the
+blessed process, which the predict backlog's pre-freeze re-predict rule
+(*The predict/evaluate matrix* in [pipeline.md](pipeline.md)) derives. The
+second reading is the one place the spend bound admits work the first would not:
+an event whose whole cohort a re-bless retired is re-owed, so **a
+salience-declined case is predicted again** where the rule reaches it. The
+widening is bounded by the rule and by nothing else — an event no predictor has
+forecast is not re-owed, so a declined case still earns no cells on its
+untouched events, and the selection itself does not move. At the cell grain a
+re-owed event does complete — an engine holding no cell on it is minted a first
+one, which is the completeness the rule is justified by — and such a case still
+sorts behind every case owed a never-predicted cell. It does change the
+**predicted population's band mix**, since a declined case is a lower-band one by
+construction; the composition of the cohort the current rule derives, and the
+reading rules that follow from it, are registered in
+[freeze-record.md](freeze-record.md)'s entry for 2026-09-15.
+
+This half mirrors the evaluate backlog's reading of the same gate
 (a prediction on a since-deferred case must still be graded): selection funds
 forecasts, and it does not un-fund one already made. The mirror reaches the
 funding question and stops there — grading scores a fixed artifact, while cohort
@@ -1058,7 +1080,18 @@ existing cohort is one a claimable board will count once the event resolves and
 is graded — at least one committed prediction on it in the **frozen process
 scope** ([process-version.md](process-version.md)),
 keyed per predictor on the latest run, the same rule the boards' scope gate
-joins on. Without it the carve-out would defeat its own purpose. The completing
+joins on. Without it the carve-out would defeat its own purpose.
+
+Both bounds govern the **never-predicted** arm, and the exemption below belongs
+to the **backlog** seam — this sweep does not apply the re-predict rule at all,
+having no channel for its licence. There, the pre-freeze re-predict rule
+is not narrowed by them, and that exemption turns on the comparability bound's
+own reasoning rather than waiving it: what the bound refuses is a *partial*
+completion, where the completing cell lands in the frozen partition beside
+siblings that never will, and a wholly retired cohort is not that shape —
+every engine is re-owed at once, so what the board gains is a complete frozen
+cohort. An event the rule does **not** re-owe — its moment closed, its stage
+already decided — is refused exactly as before. The completing
 cell is stamped with a blessed digest at a post-freeze instant — so long as the
 running process's digest is blessed, which a re-bless window briefly suspends —
 and so lands inside the frozen partition; if every sibling on the event sits outside it —

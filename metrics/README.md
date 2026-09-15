@@ -34,7 +34,60 @@ they exercised the pipeline while the process was still moving, and nothing
 about them was pre-registered. `leaderboard.json` and `claim-scores.json`
 publish which scope they were built under as `process_scope` (`"frozen"` or
 `"all"`); an `"all"` build — the `--all-versions` CLI toggle — is a
-diagnostic view, never a results surface. The prediction census and the
+diagnostic view, never a results surface.
+
+**One prediction per predictor per event, and re-predicting a live event is a
+registered rule.** A predictor may hold several committed runs on one event —
+a re-queue after a failed cell, or a deliberate re-forecast — and the board
+reads exactly one of them: the run the grading evaluation's harness-stamped
+`prediction_run_id` names, falling back to the predictor's **newest** run where
+that field is absent or the run it names is not on disk. So the staged and scored cell is the
+newest one, and an earlier run is history that no figure counts twice.
+
+That matters because a predictor-half re-bless de-counts every cell stamped
+under the retired digests, including cells on events that have **not yet
+resolved**. Those events would otherwise be consumed for nothing: graded on
+resolution, then dropped from this scope, leaving the frozen board with no
+population at all. The predict backlog therefore **re-owes** a cell on a
+still-forward event at a still-open moment whose whole committed cohort is
+retired ([docs/pipeline.md](../docs/pipeline.md)), so the cell that is
+eventually graded was produced under a blessed process. Two readings this does
+**not** license. It is not a re-grade: nothing about an existing evaluation
+moves, and `superseded_gradings` is untouched. And a rise in any figure across
+the re-predict boundary is **not** a measurement of model improvement — the two
+sides are different processes on different information sets, which is the whole
+reason the partition exists. Nor is the resulting board a sample of the docket
+or even of its own conference: the first frozen cert population is **n = 110
+cert/distribution events, all distributed for 2026-09-28** (70 baseline, 37
+elevated, 1 high, 1 federal, 1 state), with 10 cert/cvsg (all high band) and 2
+interim events beside it. It spans bands — the salience funding line does not
+cut it, because the re-predict rule re-owes a wholly retired cohort on a
+declined case too — but it is **110 of the 180 in-scope petitions** distributed
+for that conference (557 distributed in all), being the previously-predicted
+residue of earlier funded rounds, and so is selected **upward on band**: 63.6%
+baseline against the in-scope conference's 76.7%. Read it on the **per-band
+cut**, never as a pooled row, against the registered sal-v4 segment base rates —
+always-deny floors of 94.98% baseline / 83.11% elevated / 64.49% high / 29.21%
+federal / 76.37% state, the risk-set family the evaluator scores skill against
+(`metrics/statpack.md`'s *Segment base rate by salience band*, not its terminal
+composition table). Its high band is **n = 1 on cert/distribution and n = 10 on
+cert/cvsg**, which do not pool with each other, and none of it pools with any
+`"all"`-scope board. That paragraph travels with the number rather than sitting
+a section away, because it is the number's population.
+
+And a third reading the boundary does not license: **a cohort complete on the
+board is not the same as a cohort complete in fact.** The rule's moment gate
+closes with the conference, so a cell that fails on the last tick before it
+cannot be re-minted afterwards, leaving an event with some engines blessed and
+some retired — per-predictor cells over *different event sets*, which the
+ranking (N-unweighted point estimates) cannot show. A figure over such a cohort
+is published over the events carrying every blessed engine, or it prints the
+per-engine `n` and the complete-grid `n` beside it.
+
+The cohort rule, its exclusions and its expected
+size are pre-registered in [docs/freeze-record.md](../docs/freeze-record.md)
+before any of its outcomes were observable; that entry, not this paragraph, is
+the record. The prediction census and the
 leakage digest deliberately stay version-blind (they are plumbing
 diagnostics, and shakedown contamination is exactly what the leakage digest
 exists to surface), and the corpus-descriptive artifacts here — the statpack,

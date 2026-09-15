@@ -158,6 +158,7 @@ from .matrix import (
     parse_cases,
     predict_matrix,
     read_stranded_census,
+    reopened_for,
 )
 from .merits_event_migration import (
     backfill_event_moments,
@@ -11245,9 +11246,10 @@ def _cohort_narrowing_reason(data_root: Path, court: str, docket: int, event_id:
     if event_has_predictions(data_root, court, docket, event_id):
         return (
             "narrowed away on a salience-deferred case kept for cohort completion: this "
-            "event's whole cohort sits outside the frozen process scope, so a freshly "
-            "stamped cell would not complete a comparison but leave a board an event "
-            "scored on one engine alone."
+            "event's whole cohort sits outside the frozen process scope and the request "
+            "carries no pre-freeze re-predict licence for it, so a freshly stamped cell "
+            "would not complete a comparison but leave a board an event scored on one "
+            "engine alone."
         )
     return (
         "narrowed away on a salience-deferred case kept for cohort completion: no committed "
@@ -11306,21 +11308,28 @@ def _scope_filtered(
     :func:`corpus.connect_readonly` itself.
 
     ``data_root`` enables the **cohort-completion** reading of the salience
-    drop, the plan-time mirror of the live sweep's carve-out: a deferred case
-    whose listed events hold a cohort a claimable board will count once the
-    event resolves and is graded
-    (:func:`fedcourtsai.store.event_has_claimable_prediction`) is kept, narrowed
-    to exactly those events, because finishing such a cohort buys only the
-    missing engines on a case the project already funded. Everything else about
-    the case goes with the drop — its unpredicted events, which would be new
-    spend on a case the funding gate declined, and its events whose whole cohort
-    sits outside the frozen process scope, where a freshly-stamped cell would
-    not complete a comparison but manufacture a one-engine one. A deferred case
-    with no qualifying listed event is dropped as before, and so is one whose
-    request lists no events at all: an unlisted request means "resolve this
-    case's defaults", which is a request for new cells, not for a cohort.
-    Without ``data_root`` (the evaluate reading, which ``for_grading`` already
-    exempts from the salience drop) the carve-out is off.
+    drop, the plan-time mirror of the live sweep's carve-out, and with it the
+    pre-freeze re-predict rule's widening of the same gate. A deferred case is
+    kept, narrowed to the listed events qualifying on either ground: an event
+    whose cohort a claimable board will count once the event resolves and is
+    graded (:func:`fedcourtsai.store.event_has_claimable_prediction`), because
+    finishing it buys only the missing engines on a case the project already
+    funded; or an event the backlog deriver named in ``reopen_events``, whose
+    whole cohort a re-bless retired while the event is still forward at an open
+    moment, because a wholly retired cohort is re-minted for every engine at
+    once and so completes rather than manufactures a comparison. Everything else
+    about the case goes with the drop — its unpredicted events, which would be
+    new spend on a case the funding gate declined, and its predicted-but-retired
+    events the rule does not re-owe, where a freshly-stamped cell would leave a
+    board an event scored on one engine alone. A deferred case with no
+    qualifying listed event is dropped as before, and so is one whose request
+    lists no events at all: an unlisted request means "resolve this case's
+    defaults", which is a request for new cells, not for a cohort. Only the
+    deriver sets ``reopen_events`` — the corpus-side gates behind it are not
+    answerable from a trigger body, which carries none — so the second arm is
+    unreachable from a hand-written case list. Without ``data_root`` (the
+    evaluate reading, which ``for_grading`` already exempts from the salience
+    drop) the carve-out is off.
 
     ``dropped_out`` collects each skipped case as a structured record carrying
     the same reason the stderr note prints, so a plan can attribute a missing
@@ -11368,6 +11377,7 @@ def _scope_filtered(
                         if event_has_claimable_prediction(
                             data_root, case.court, case.docket, event_id
                         )
+                        or event_id in case.reopen_events
                     )
                 ):
                     # Cohort completion: these events were funded and predicted
@@ -11375,6 +11385,17 @@ def _scope_filtered(
                     # them. `predict_matrix`'s per-(predictor, event) skip mints
                     # exactly those; the narrowing here is what keeps the case's
                     # *unpredicted* events out of the fan-out entirely.
+                    #
+                    # The second arm is the deriver's pre-freeze re-predict
+                    # rule, and this is the same widening of the funding gate
+                    # the deriver applies — stated in both places because a
+                    # backstop that refused what the deriver admitted would drop
+                    # the whole case here and silently halve the re-predicted
+                    # cohort. Only the deriver can set `reopen_events`: it alone
+                    # can ask the corpus-side gates (is the event still forward,
+                    # is its moment still open), and a case list parsed from a
+                    # trigger body carries none, so a hand-written body cannot
+                    # reach this arm.
                     typer.echo(
                         f"Narrowing {case.court}/{case.docket}: {drop} Kept "
                         f"{len(cohort)} of {len(case.events)} listed event(s) for "
@@ -11490,6 +11511,14 @@ def _predict_backlog_cases() -> list[CaseRequest]:
     should not be able to fan out wider than the lane it stands in for; the
     per-cell attempt cap comes from the ``predict`` section.
 
+    It carries one thing a trigger body cannot: each entry's ``reopened``
+    events become the request's ``reopen_events``, the fan-out's licence to
+    re-mint a cell the ledger already holds under a retired process digest (the
+    pre-freeze re-predict rule, spelled out on
+    :func:`fedcourtsai.pipeline.pull.derive_predict_backlog`). Only this
+    derivation sets it, because only it has the corpus open to ask whether the
+    event is still forward and its moment still open.
+
     Stamp-free, exactly as :func:`_evaluate_backlog_cases` is and for the same
     reason: ``predict_queued_at`` is a write to the corpus of record, and those
     credentials live only in the writer jobs, so a stamp made here would die with
@@ -11567,7 +11596,10 @@ def _predict_backlog_cases() -> list[CaseRequest]:
             max_attempts=predict_cfg.max_attempts_per_cell,
         )
     _report_predict_backlog(backlog, cap=salience_cfg.sweep_cases_per_cycle)
-    return [CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries]
+    return [
+        CaseRequest(entry.court, entry.docket, entry.events, reopen_events=entry.reopened)
+        for entry in backlog.entries
+    ]
 
 
 def _report_predict_backlog(backlog: PredictBacklog, *, cap: int) -> None:
@@ -11595,6 +11627,16 @@ def _report_predict_backlog(backlog: PredictBacklog, *, cap: int) -> None:
         f"provisioning reads resolve against {source}.{censored}",
         err=True,
     )
+    if backlog.reowed_events:
+        typer.echo(
+            f"Predict backlog: {backlog.reowed_events} of the owed event(s) are "
+            "RE-OWED under the pre-freeze rule — still forward, still at an open "
+            "moment, and every committed prediction on them carries a retired "
+            "process digest, so their cells would never reach a claimable board. "
+            "Re-predicting replaces nothing: the older cells stay under their own "
+            "run ids and the newest run per predictor is the one staged for grading.",
+            err=True,
+        )
     if backlog.held_stale:
         typer.echo(
             f"Predict backlog: held {backlog.held_stale} owed case(s) whose corpus row was "
@@ -12700,11 +12742,18 @@ class _LedgerGate:
     balance, so the later drops reconcile against the surviving set (candidates
     minus request-narrowed minus already-predicted minus withheld minus deferred
     is exactly what a run would mint) instead of being taken on trust.
+
+    ``reowed`` is **not** a drop list: it is the cells the already-predicted
+    gate would have removed and the pre-freeze re-predict rule kept, each
+    carrying why. They stay in the surviving set, so the reconciliation above is
+    unchanged — what the list adds is the one thing the counts cannot say, which
+    is that a cell the ledger already holds is being minted again on purpose.
     """
 
     candidates: int
     request_narrowed: tuple[_DropRecord, ...]
     already_predicted: tuple[_DropRecord, ...]
+    reowed: tuple[_DropRecord, ...] = ()
 
 
 def _predict_ledger_gate(
@@ -12722,10 +12771,19 @@ def _predict_ledger_gate(
     backfill body naming the engines that failed), while the ledger gate is what
     the *corpus* already holds. Collapsed, a narrowed backfill would read as an
     already-complete event.
+
+    A third class rides beside them and removes nothing: a cell the ledger holds
+    only under **retired** process digests, on an event the backlog deriver
+    reopened, survives the gate under the pre-freeze re-predict rule
+    (:func:`fedcourtsai.matrix.reopened_for`). It is reported separately rather
+    than silently absent from ``already_predicted``, because a maintainer
+    reading the plan before the spend hold has to see that these cells are
+    deliberate re-forecasts of events the ledger already covers.
     """
     candidates = 0
     narrowed: list[_DropRecord] = []
     records: list[_DropRecord] = []
+    reowed: list[_DropRecord] = []
     for predictor in enabled_predictors(predictors_path):
         for case in resolved:
             candidates += len(case.events)
@@ -12741,19 +12799,33 @@ def _predict_ledger_gate(
                     for event_id in case.events
                 )
                 continue
-            records.extend(
-                _DropRecord(
-                    case_id,
-                    "this predictor has already committed a prediction for the event",
-                    event_id=event_id,
-                    actor_id=predictor.id,
-                )
-                for event_id in case.events
-                if event_has_predictions(
+            for event_id in case.events:
+                if not event_has_predictions(
                     data_root, case.court, case.docket, event_id, predictor_id=predictor.id
+                ):
+                    continue
+                if reopened_for(data_root, case, event_id, predictor.id):
+                    reowed.append(
+                        _DropRecord(
+                            case_id,
+                            "every committed prediction by this predictor on the event "
+                            "carries a retired process digest, and the event is still "
+                            "forward at an open moment — re-owed a cell under the "
+                            "blessed process",
+                            event_id=event_id,
+                            actor_id=predictor.id,
+                        )
+                    )
+                    continue
+                records.append(
+                    _DropRecord(
+                        case_id,
+                        "this predictor has already committed a prediction for the event",
+                        event_id=event_id,
+                        actor_id=predictor.id,
+                    )
                 )
-            )
-    return _LedgerGate(candidates, tuple(narrowed), tuple(records))
+    return _LedgerGate(candidates, tuple(narrowed), tuple(records), tuple(reowed))
 
 
 def _plan_count_lines(plan: dict[str, Any], *, stage: str) -> list[str]:
@@ -13207,6 +13279,12 @@ def predict_plan_cmd(
                 "candidate_cells": gate.candidates,
                 "dropped_by_request_narrowing_cells": len(gate.request_narrowed),
                 "dropped_already_predicted_cells": len(gate.already_predicted),
+                # Not a drop: cells the already-predicted gate would have taken
+                # and the pre-freeze re-predict rule kept. Already inside
+                # `would_mint`, so the reconciliation above is unaffected — the
+                # count is here because a re-forecast of an event the ledger
+                # covers is a spend decision a reader must be able to see.
+                "reowed_pre_freeze_cells": len(gate.reowed),
                 "withheld_stranded_cells": len(fanout.guard.withheld),
                 "deferred_by_cap_cells": fanout.capped.dropped_cells,
                 "would_mint_cells": len(would_mint),
@@ -13222,6 +13300,7 @@ def predict_plan_cmd(
         "cases_with_no_default_events": [r.as_json() for r in fanout.resolution.no_default_events],
         "dropped_by_request_narrowing": [r.as_json() for r in gate.request_narrowed],
         "dropped_already_predicted": [r.as_json() for r in gate.already_predicted],
+        "reowed_pre_freeze": [r.as_json() for r in gate.reowed],
         # A withheld count of zero means nothing on its own — see
         # `_StrandedGuardReport`, which separates a clean guard from an absent
         # one and from one that failed open.

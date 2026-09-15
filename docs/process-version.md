@@ -609,6 +609,29 @@ entry then states the count of cells de-counted and points at the declaration
 that licensed it, and no claim pools across the boundary in either
 direction.
 
+**What a predictor-half re-bless leaves the predict backlog owing.** The
+de-count above is usually discussed over cells whose events have resolved,
+where what moves is a published figure. The other half of the retired cohort
+sits on events that are **still open**, and there nothing has been published
+yet — which is why it is easy to miss that those events are now worthless to
+the new label: each holds forecasts made under a retired process, so when it
+resolves the grading lands outside the frozen scope and the event is consumed
+for nothing. The predict backlog is otherwise version-blind (a committed
+prediction is a committed prediction), so it would report every one of them
+covered and derive no work at all.
+
+It does not. The deriver **re-owes** a cell on such an event while it is still
+genuinely forward and its declared moment is still open — the pre-freeze
+re-predict rule, whose predicates and moment allow-list are in
+[cli.md](cli.md). The consequence for a cutover is worth stating at planning
+time rather than discovering after it: a re-bless's real cost is not only the
+counted cells it drops, but a re-forecast of every open event the retired
+digests covered, bounded by the moments still open when the freeze lands. The
+freeze-record entry that registers such a re-predict states the cohort rule and
+its expected size **before** any of its outcomes are observable, exactly as a
+shakedown declaration does, because the cells it produces are the ones the new
+label's board will be built from.
+
 ## A note on local runs
 
 The local `cascade` / `local-cascade` path produces cells but does **not** run the

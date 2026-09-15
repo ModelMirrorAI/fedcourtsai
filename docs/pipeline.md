@@ -1502,7 +1502,62 @@ hand until there is a reason to parameterize it.
 the matrix command itself: given no case list, `predict-matrix` derives the
 predict backlog (`pipeline.pull.derive_predict_backlog`, described in
 [cli.md](cli.md)) and `evaluate-matrix` the evaluate backlog, each from committed
-state. That is the shape both workflows invoke, on every round. The commands
+state. That derivation is version-blind in one direction only: a case is owed
+cells for an event **some** enabled predictor has not covered, and — under the
+**pre-freeze re-predict rule** — for an event whose committed cohort a
+predictor-half re-bless has since retired. The second arm exists because
+without it a freeze silently empties the board it defines: an event forecast
+only under de-counted digests reads as covered, resolves, is graded, and every
+result is dropped from the frozen partition. So it is re-owed a cell while it
+is still genuinely forward (nothing in the ledger or the corpus records its
+stage decided) and its declared moment is still open (`REPREDICT_MOMENTS` —
+cert distribution and CVSG plus the interim moments; cert arrival and the
+merits moments are held out, and a distribution is refused unless it carries a
+conference still ahead). The two arms overlap per event and are disjoint per
+cell: an engine with no cell is the first arm's, an engine whose cells are all
+out of frozen scope is the second's, and an event carrying both — what a
+quota-failed engine leaves behind — is re-owed on both, so a run can never
+mint one blessed cell beside de-counted rivals.
+
+The rule also **widens the funding gate**, and that is the one place it reaches
+work the salience round declined. A case neither selection nor the merits bypass
+funds reaches the derivation only on the cohort-completion ground, whose
+narrowing keeps the events a claimable board already counts. That narrowing
+governs the never-predicted arm alone: the re-predict rule is asked over the
+case's **whole** forecastable set, so an event whose cohort a re-bless retired
+is re-owed on a declined case as on a funded one. The reason is the
+comparability argument the narrowing itself rests on: what it refuses is a
+*partial* completion, one blessed cell beside siblings that will never be
+counted, and a wholly retired cohort is re-minted for every engine at once.
+Without this a re-bless re-predicts only the funded half of the forward cohort,
+and the rest is graded on resolution and dropped from the frozen board — the
+state the rule exists to repair, left standing on the larger half.
+
+The widening is bounded by the rule and reaches no further. An event no
+predictor has forecast is not re-owed, so no *event* the funding gate declined
+is opened and the selection itself does not move
+([salience.md](salience.md) carries both bounds). At the **cell** grain a
+re-owed event does complete: an engine holding nothing on it is minted a first
+cell, since the already-predicted skip never drops such an engine — that is the
+completeness the rule is justified by, and it changes no priority, because a
+declined case admitted only by the rule still sorts behind every
+never-predicted one. The same fact is stated as an `or`-arm at the
+`predict-matrix`/`predict-plan` scope backstop, which cannot ask the corpus
+itself and so reads the deriver's own `reopen_events` — a case list parsed from
+a trigger body carries none, so a hand-written body cannot reach it. The live
+channel's **selection sweep** is not widened — it has no channel for that
+licence either (*Holding predict is lossless* below) — so these cells arrive on
+the scheduled round.
+
+Old cells are never edited:
+provisioning stages the newest run per predictor, so a re-predict **supersedes**
+the earlier cell rather than replacing or removing it, and re-owed work is
+ordered after never-predicted work so it cannot starve the ordinary backlog
+under the cycle cap. [cli.md](cli.md) carries the predicates; `predict-plan`
+reports the re-owed cells in their own `reowed_pre_freeze_cells` bucket, which
+is what a maintainer reads at the hold before any spend.
+
+That is the shape both workflows invoke, on every round. The commands
 still accept an explicit case list — a ` ```json ``` ` block by `--body-file`, or
 `--court`/`--docket` — which is what a local dry run of one case uses; no
 workflow passes one, because a case list a round did not derive is a case list
@@ -1894,7 +1949,14 @@ already-predicted gate is per `(predictor, event)` in its own right
 live channel's selection sweep uses), so a scheduled round over the full registry
 drops every engine that already committed a prediction for the event and mints
 only the missing ones — which is why a failed engine's cells come back on the
-next cycle with no intervention at all. `predictors` **narrows** the fan-out; it
+next cycle with no intervention at all. That gate has exactly one standing
+exception, and it runs at the same grain: an engine whose every committed cell
+on a **reopened** event is out of frozen scope is not dropped, because the
+pre-freeze re-predict rule owes it a cell under the blessed process (the
+derivation above, and `matrix.reopened_for`). So a backfill whose event is also
+reopened mints the failed engine *and* re-mints the ones whose cells a re-bless
+de-counted, which is what keeps the recovered cohort comparable rather than
+leaving one blessed cell among retired rivals. `predictors` **narrows** the fan-out; it
 does not deduplicate it — what it buys is a plan (and a cost) confined to the
 engines asked for. Naming an id that is not an enabled predictor fails the plan
 rather than silently skipping the engine. The evaluate side ignores the field: an
@@ -2348,7 +2410,15 @@ already paid to predict. The narrowing carries two bounds on that ground: queuei
 the case's *other* open events would buy new cells on a case the gate declined,
 and completing an event whose cohort sits wholly outside the frozen process scope
 would hand the board an event scored on the completing engine alone. A deferred
-case the ledger holds nothing for is not even a candidate. What a number off a
+case the ledger holds nothing for is not even a candidate. The second of those
+bounds has one exception, and it lives at the **scheduled** predict backlog's
+seam rather than this one: the pre-freeze re-predict rule re-owes a wholly
+retired cohort, because it is re-minted for every engine at once and so
+completes rather than manufactures a comparison (*The predict/evaluate matrix*
+above). This sweep does not apply it, and the reason is a channel rather than
+a capability: the rule's licence travels as the backlog deriver's own
+`reopen_events`, which this seam neither reads nor writes. So a re-bless's
+re-predicts arrive on the scheduled round, not on the live cycle. What a number off a
 completed cohort does and does not support is in
 [salience.md](salience.md). The per-cell owed check also
 honors `predict.max_attempts_per_cell` via the ledger-derived failure facts

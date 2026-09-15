@@ -8,6 +8,7 @@ token, no network — exactly as the offline local loop does.
 
 from __future__ import annotations
 
+import hashlib
 import threading
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
@@ -160,6 +161,24 @@ def frozen_stamp() -> ProcessVersion:
     )
 
 
+def retired_stamp() -> ProcessVersion:
+    """A harness stamp OUTSIDE the frozen partition: a digest no freeze blessed.
+
+    The counterpart of :func:`frozen_stamp`, for the cells a predictor-half
+    re-bless de-counted. Post-freeze on the clock, so the *only* reason
+    ``is_frozen`` rejects it is its digest — which is what a test about the
+    pre-freeze re-predict rule needs to isolate from the timing rule beside it.
+    The digest is a well-formed hash of a fixed string rather than a literal, so
+    it can never collide with a real process's inputs.
+    """
+    since = process_version.FROZEN_SINCE or datetime(2026, 1, 1, tzinfo=UTC)
+    return ProcessVersion(
+        label="proc-retired",
+        digest="sha256:" + hashlib.sha256(b"fedcourtsai test retired process").hexdigest(),
+        stamped_at=since,
+    )
+
+
 def seed_prediction(
     data_root: Path,
     court: str,
@@ -168,6 +187,7 @@ def seed_prediction(
     *,
     predictor_id: str = "claude-baseline",
     frozen: bool = False,
+    stamp: ProcessVersion | None = None,
     run_id: str = "20260101T000000Z",
 ) -> None:
     """Commit one minimal valid prediction into the ledger under ``data_root``.
@@ -180,7 +200,10 @@ def seed_prediction(
     it unstamped — a shakedown cell, which is what the pre-freeze ledger holds —
     so a gate that asks whether a claimable board counts the cohort
     (:func:`fedcourtsai.store.event_has_claimable_prediction`) sees the harder
-    case unless a test asks for the easier one.
+    case unless a test asks for the easier one. ``stamp`` overrides both with an
+    explicit :class:`ProcessVersion` — :func:`retired_stamp` for a cell a
+    re-bless de-counted, which reads as retired for a different reason from an
+    unstamped one and so is worth testing separately.
 
     ``run_id`` is the committed run directory's name, which is where the ledger
     carries the *date* a case was minted for prediction
@@ -201,7 +224,7 @@ def seed_prediction(
             granted=0,
             probability=0.05,
             predicted_disposition=Disposition.denied,
-            process_version=frozen_stamp() if frozen else None,
+            process_version=stamp or (frozen_stamp() if frozen else None),
         ),
     )
 
