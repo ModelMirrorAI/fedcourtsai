@@ -245,6 +245,11 @@ def probe_terms(
         client = httpx.Client(
             headers={"User-Agent": BROWSER_USER_AGENT},
             timeout=httpx.Timeout(30.0),
+            # Redirects are followed wherever they lead, which the fetching
+            # client refuses to do: this probe builds its own docket URLs and
+            # writes nothing to the corpus — it reports reachability, so where a
+            # body came from cannot enter the record. Anything that keeps what
+            # comes back belongs on `SupremeCourtClient` instead.
             follow_redirects=True,
         )
     records: list[RecordProbe] = []

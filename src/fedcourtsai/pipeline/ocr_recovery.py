@@ -60,12 +60,11 @@ from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from urllib.parse import urlsplit
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
-from .. import corpus
+from .. import corpus, supremecourt
 from ..supremecourt import SupremeCourtClient
 from .documents import (
     KIND_PETITION,
@@ -74,6 +73,7 @@ from .documents import (
     _derived_questions_document,
     extract_pdf_text,
     extract_questions_presented,
+    one_log_line,
 )
 from .prefetch import prefetch_by_case
 
@@ -146,8 +146,11 @@ ESTIMATED_CANDIDATE_OVERHEAD_SECONDS = 30.0
 # upstream-controlled text, and this pass is the only thing that GETs one back:
 # an unconstrained re-fetch would make the ledger a readable probe of whatever
 # the writer job can reach. The Court's own host is the only place a filing
-# lives, so the constraint costs nothing real.
-DOCUMENT_HOST_SUFFIX = "supremecourt.gov"
+# lives, so the constraint costs nothing real. Re-exported from the client, which
+# enforces the same host on the URL a fetch starts at and on every redirect hop
+# it walks — so the pre-check here is what spends no candidate and names its own
+# reason, not the only thing between a stored URL and an off-host GET.
+DOCUMENT_HOST_SUFFIX = supremecourt.DOCUMENT_HOST_SUFFIX
 
 # A ceiling on one re-fetched filing. `get_document` reads the whole body into
 # memory with no size bound, and this pass then spills it to disk and rasterizes
@@ -340,8 +343,9 @@ class OcrFetchProbe(BaseModel):
     outcome: str = Field(
         description="`served` (bytes came back), `not-served` (upstream 404), "
         "`http-error` (a status the client's retry did not clear), "
-        "`transport-error` (no response at all), or `unfetchable-url` (a stored "
-        "URL this pass refuses to request — not HTTPS on the Court's own host)"
+        "`transport-error` (no response at all), or `unfetchable-url` (a URL "
+        "this pass refuses to request — the stored one, or a redirect it "
+        "answered with, not HTTPS on the Court's own host)"
     )
     status: int | None = Field(
         default=None, description="The HTTP status where one was returned, else null"
@@ -444,14 +448,7 @@ def fetchable_document_url(url: str) -> bool:
     counted under its own reason so a refused URL reads as a URL problem rather
     than an upstream one.
     """
-    try:
-        parts = urlsplit(url)
-    except ValueError:
-        return False
-    if parts.scheme != "https" or not parts.hostname:
-        return False
-    host = parts.hostname.lower()
-    return host == DOCUMENT_HOST_SUFFIX or host.endswith(f".{DOCUMENT_HOST_SUFFIX}")
+    return supremecourt.is_court_url(url)
 
 
 @dataclass(frozen=True)
@@ -582,6 +579,19 @@ def probe_document_fetch(
             continue
         try:
             data = client.get_document(document.url)
+        except supremecourt.OffHostFetch as exc:
+            # The pre-check above covers the stored URL; this is the redirect
+            # the client refused, and it is the same answer — a URL this pass
+            # will not request — so it reads under the same outcome.
+            logger.warning(
+                "ocr: probe refused an off-host hop for %s: %s",
+                document.case_id,
+                one_log_line(str(exc)),
+            )
+            probes.append(
+                OcrFetchProbe(case_id=document.case_id, url=document.url, outcome="unfetchable-url")
+            )
+            continue
         except httpx.HTTPStatusError as exc:
             probes.append(
                 OcrFetchProbe(
@@ -593,7 +603,11 @@ def probe_document_fetch(
             )
             continue
         except httpx.HTTPError as exc:
-            logger.warning("ocr: probe transport failure for %s: %s", document.case_id, exc)
+            logger.warning(
+                "ocr: probe transport failure for %s: %s",
+                document.case_id,
+                one_log_line(str(exc)),
+            )
             probes.append(
                 OcrFetchProbe(case_id=document.case_id, url=document.url, outcome="transport-error")
             )
@@ -630,15 +644,25 @@ def _refetch_document(
     body past the document ceiling, which is not a filing.
     """
     if not fetchable_document_url(document.url):
-        logger.warning("ocr: refusing to fetch %s for %s", document.url, document.case_id)
+        logger.warning(
+            "ocr: refusing to fetch %s for %s", one_log_line(document.url), document.case_id
+        )
         return None, "unfetchable-url"
     try:
         data = client.get_document(document.url)
     except httpx.HTTPStatusError as exc:
         return None, f"http-{exc.response.status_code}"
     except httpx.HTTPError as exc:
-        logger.warning("ocr: fetch failed for %s: %s", document.case_id, exc)
-        return None, "transport-error"
+        # A refused off-host hop is the same answer as a refused stored URL — a
+        # URL this pass will not request — so it reads under the same reason.
+        off_host = isinstance(exc, supremecourt.OffHostFetch)
+        logger.warning(
+            "ocr: %s for %s: %s",
+            "refused an off-host hop" if off_host else "fetch failed",
+            document.case_id,
+            one_log_line(str(exc)),
+        )
+        return None, "unfetchable-url" if off_host else "transport-error"
     if data is None:
         return None, "not-served"
     if len(data) > MAX_DOCUMENT_BYTES:

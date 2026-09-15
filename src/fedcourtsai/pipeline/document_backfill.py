@@ -819,6 +819,7 @@ def _loss_counts() -> dict[str, int]:
     return {
         "http-error": losses.http_error,
         "unavailable": losses.unavailable,
+        "off-host": losses.off_host,
         "bio-empty": losses.bio_empty,
         "not-selected": losses.not_selected,
     }

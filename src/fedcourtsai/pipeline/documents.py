@@ -63,7 +63,7 @@ from .. import corpus
 # `pipeline` at all, so the import closes no cycle — stated as the property
 # rather than as a list of modules, which the next import would falsify.
 from ..matrix import predicted_case_ids
-from ..supremecourt import SupremeCourtClient
+from ..supremecourt import OffHostFetch, SupremeCourtClient
 
 # `_scored_segment` is the salience gate's paid modern-cert predicate, imported
 # rather than restated: the censuses cut their frames with it, and `caption` is
@@ -895,8 +895,16 @@ def extract_questions_presented(petition_text: str) -> str | None:
 # that was not served is worth chasing to a different one.
 FETCH_LOSS_HTTP_ERROR = "http-error"
 FETCH_LOSS_UNAVAILABLE = "unavailable"
+# The link was not HTTPS on the Court's own host — the `DocumentUrl` itself, or
+# a redirect it answered with — and the client refused it unrequested
+# (`supremecourt.OffHostFetch`). Apart from `http-error` because it is not an
+# upstream failing to serve and no re-attempt repairs it — it is a document that
+# would have been filed as evidence with bytes from another origin, so a single
+# occurrence is worth a maintainer's reading where a transport failure is
+# routine.
+FETCH_LOSS_OFF_HOST = "off-host"
 FETCH_LOSS_BIO_EMPTY = "bio-empty"
-# The fourth reason is one step earlier than the three above, and it is the one
+# The last reason is one step earlier than the four above, and it is the one
 # loss they cannot see: they are raised inside the loops over
 # `select_documents`' output, so a docket the pass was *asked* to fetch for and
 # selected nothing on leaves no trace among them — and a case that reaches
@@ -916,24 +924,26 @@ class DocumentFetchLosses:
 
     ``http_error`` is a transport failure the client's own retry did not clear;
     ``unavailable`` an upstream 404 (:meth:`SupremeCourtClient.get_document`
-    returns ``None``) — the rolling-window miss; ``bio_empty`` a case whose
-    opposition briefs were all selected and none fetched, so the combined
-    ``brief-in-opposition`` row was never built. Those three are post-selection.
-    ``not_selected`` is the pre-selection one: a case whose docket JSON
-    nominated no document at all, so nothing was ever attempted for it — the
-    class an upstream that posts no PDF (a Rule 34.6 paper filing) and a
-    selector with no arm for the filing type both land in, and the reason the
-    other three cannot see either. The last two count *cases*, not documents,
-    and ``bio_empty`` does not partition the two above it: the per-brief
-    failures that emptied the group are counted there as well. ``not_selected``
-    is disjoint from all three by construction — nothing was selected, so
-    nothing could fail. Both case counts are per *attempt*, not per distinct
-    case: a docket the poller reaches twice in one process counts twice, which
-    is the reading a pass-level record wants and the one the run log shows.
+    returns ``None``) — the rolling-window miss; ``off_host`` a link that was not
+    HTTPS on the Court's own host, or was redirected off it, refused unrequested;
+    ``bio_empty`` a case whose opposition briefs were all selected and none
+    fetched, so the combined ``brief-in-opposition`` row was never built. Those
+    four are post-selection. ``not_selected`` is the pre-selection one: a case
+    whose docket JSON nominated no document at all, so nothing was ever attempted
+    for it — the class an upstream that posts no PDF (a Rule 34.6 paper filing)
+    and a selector with no arm for the filing type both land in, and the reason
+    the others cannot see either. The last two count *cases*, not documents, and
+    ``bio_empty`` does not partition the three above it: the per-brief failures
+    that emptied the group — an off-host link among them — are counted there as
+    well. ``not_selected`` is disjoint from all four by construction — nothing
+    was selected, so nothing could fail. Both case counts are per *attempt*, not
+    per distinct case: a docket the poller reaches twice in one process counts
+    twice, which is the reading a pass-level record wants and the run log shows.
     """
 
     http_error: int = 0
     unavailable: int = 0
+    off_host: int = 0
     bio_empty: int = 0
     not_selected: int = 0
 
@@ -941,14 +951,16 @@ class DocumentFetchLosses:
     def records(self) -> int:
         """How many losses were recorded — a record count, not a document count.
 
-        Named for what it sums, because the fields do not share a unit: the two
+        Named for what it sums, because the fields do not share a unit: the three
         fetch reasons count documents while ``bio_empty`` and ``not_selected``
         count cases, so a "total documents lost" reading of it would
         double-count every case whose whole opposition failed and over-count
         every case that selected nothing. What it is good for is the only
         question that needs one number: whether this pass lost anything at all.
         """
-        return self.http_error + self.unavailable + self.bio_empty + self.not_selected
+        return (
+            self.http_error + self.unavailable + self.off_host + self.bio_empty + self.not_selected
+        )
 
 
 # Process-wide and monotonic within a run, read through `document_fetch_losses`.
@@ -956,6 +968,17 @@ class DocumentFetchLosses:
 # from the live poller's own sequential walk, and nothing here rides the
 # read-side prefetch pool — so the counter needs no lock.
 _fetch_losses: Counter[str] = Counter()
+
+
+def one_log_line(text: str) -> str:
+    """``text`` with anything unprintable blanked, so one record is one line.
+
+    Upstream URL text reaches the run log by several routes and has passed no
+    parser on any of them: a newline in it would put whatever follows on its own
+    line, where a line beginning ``::`` is a command the runner obeys. Shared so
+    that every lane logging such a string defends the same way.
+    """
+    return "".join(char if char.isprintable() else " " for char in text)
 
 
 def _record_fetch_loss(reason: str, case_id: str, kind: str, detail: str) -> None:
@@ -967,9 +990,15 @@ def _record_fetch_loss(reason: str, case_id: str, kind: str, detail: str) -> Non
     level is ``warning`` even for the expected 404, because the default root
     configuration discards anything below it and a silently discarded record is
     the condition this exists to end.
+
+    ``detail`` is usually a document URL, so it is logged through
+    :func:`one_log_line`: one record stays one line whatever upstream put in the
+    string.
     """
     _fetch_losses[reason] += 1
-    logger.warning("documents: dropped %s for %s (%s): %s", kind, case_id, reason, detail)
+    logger.warning(
+        "documents: dropped %s for %s (%s): %s", kind, case_id, reason, one_log_line(detail)
+    )
 
 
 def document_fetch_losses() -> DocumentFetchLosses:
@@ -983,6 +1012,7 @@ def document_fetch_losses() -> DocumentFetchLosses:
     return DocumentFetchLosses(
         http_error=_fetch_losses[FETCH_LOSS_HTTP_ERROR],
         unavailable=_fetch_losses[FETCH_LOSS_UNAVAILABLE],
+        off_host=_fetch_losses[FETCH_LOSS_OFF_HOST],
         bio_empty=_fetch_losses[FETCH_LOSS_BIO_EMPTY],
         not_selected=_fetch_losses[FETCH_LOSS_NOT_SELECTED],
     )
@@ -1077,6 +1107,11 @@ def _combine_bio_documents(
     for ref in bio_refs:
         try:
             data = client.get_document(ref.url)
+        except OffHostFetch as exc:
+            # Before `httpx.HTTPError`, which this is a subclass of: the refusal
+            # is its own reason, and the detail carries where the hop pointed.
+            _record_fetch_loss(FETCH_LOSS_OFF_HOST, case_id, ref.kind, str(exc))
+            continue
         except httpx.HTTPError:
             _record_fetch_loss(FETCH_LOSS_HTTP_ERROR, case_id, ref.kind, ref.url)
             continue
@@ -1200,7 +1235,7 @@ def fetch_case_documents(
     refs = select_documents(payload)
     if not refs:
         # Selection came back empty on a docket the caller asked about, which is
-        # the one loss the three post-selection reasons cannot see. Recorded
+        # the one loss the four post-selection reasons cannot see. Recorded
         # once per case, before any fetch: there is no kind and no URL to
         # attribute it to, and the count is of cases left with nothing.
         _record_fetch_loss(
@@ -1220,6 +1255,11 @@ def fetch_case_documents(
             continue
         try:
             data = client.get_document(ref.url)
+        except OffHostFetch as exc:
+            # Before `httpx.HTTPError`, which this is a subclass of: the refusal
+            # is its own reason, and the detail carries where the hop pointed.
+            _record_fetch_loss(FETCH_LOSS_OFF_HOST, case_id, ref.kind, str(exc))
+            continue
         except httpx.HTTPError:
             _record_fetch_loss(FETCH_LOSS_HTTP_ERROR, case_id, ref.kind, ref.url)
             continue
