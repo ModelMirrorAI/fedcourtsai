@@ -56,7 +56,24 @@ eventually graded was produced under a blessed process. Two readings this does
 moves, and `superseded_gradings` is untouched. And a rise in any figure across
 the re-predict boundary is **not** a measurement of model improvement — the two
 sides are different processes on different information sets, which is the whole
-reason the partition exists. The cohort rule, its exclusions and its expected
+reason the partition exists. Nor is the resulting board a sample of the docket:
+the first frozen cert population is **one conference's (2026-09-28)
+elevated-band selection, n = 39 events** (34 elevated, 3 baseline, 1 high, 1
+federal), so its always-deny floor is the elevated band's rather than the
+docket's, it is read on the per-band cut and never as a pooled row, and it does
+not pool with any `"all"`-scope board. That sentence travels with the number
+rather than sitting a section away, because it is the number's population.
+
+And a third reading the boundary does not license: **a cohort complete on the
+board is not the same as a cohort complete in fact.** The rule's moment gate
+closes with the conference, so a cell that fails on the last tick before it
+cannot be re-minted afterwards, leaving an event with some engines blessed and
+some retired — per-predictor cells over *different event sets*, which the
+ranking (N-unweighted point estimates) cannot show. A figure over such a cohort
+is published over the events carrying every blessed engine, or it prints the
+per-engine `n` and the complete-grid `n` beside it.
+
+The cohort rule, its exclusions and its expected
 size are pre-registered in [docs/freeze-record.md](../docs/freeze-record.md)
 before any of its outcomes were observable; that entry, not this paragraph, is
 the record. The prediction census and the

@@ -3619,7 +3619,17 @@ freeze commit is recorded here.
      once the conference is behind us a new cell answers a different question;
      an absent one because the distribution moment has not happened at all,
      which is the information-set precondition the fan-out's own
-     premature-cell refusal applies.
+     premature-cell refusal applies. **The three interim rows carry no
+     equivalent bound**, and the asymmetry is registered rather than hidden:
+     the distribution limb is self-closing, so a petition decided at its
+     conference leaves the rule the next day whether or not a poll has caught
+     up, while an interim event's only outcome guard is gate 1. On an
+     application docket that guard reads the application's own disposition and
+     is exact — it is what refuses `scotus/9526000326`. On a **cert-numbered**
+     docket an interim motion's row disposition is the *cert* disposition, not
+     the motion's, so the guard there is the corpus event's `resolved` flag
+     alone. Exposure at this commit is one event (`scotus/73279700`), which the
+     record-freshness hold is currently holding anyway.
   3. **Every** committed prediction that predictor holds on the event is
      outside the frozen process scope —
      `store.predictor_holds_only_retired_predictions`, which asks `is_frozen`,
@@ -3677,8 +3687,9 @@ freeze commit is recorded here.
   events hold nothing but retired or unstamped cells. Applying the three gates
   above leaves **123** events at an allow-listed open moment — 110
   cert/distribution (every one distributed for the **2026-09-28** long
-  conference), 10 cert/cvsg, 3 interim/arrival — and the salience funding gate
-  then admits **52** of them.
+  conference), 10 cert/cvsg, 3 interim/arrival — and **52** of them are on
+  `salience_selected` cases, which is what the cohort-completion narrowing then
+  keeps; the other 71 fall out by that path.
 
   Of those 52, an uncapped read of the deriver itself (`fedcourts predict-plan`
   with the cycle and cell caps lifted, against that blob and that ledger) mints
@@ -3690,13 +3701,21 @@ freeze commit is recorded here.
   $1.2 an event above cert; this cohort is 39 cert and 2 interim events and no
   merits at all, so the figure reads **high** — budget.md's cert-first-
   distribution row is $6.66 and its 137-event pre-freeze cert-distribution
-  reference $5.57, which bracket the honest range at roughly $230-275. The
+  reference $5.57, which bracket the honest range at roughly $230-275. Read that
+  bracket with its own limit: budget.md carries **no CVSG row at all**, so 24%
+  of this cohort has no measured rate behind it, and the $6.66 row is n = 3,
+  which budget.md's own instruction ("read the row `n`s before the dollars")
+  says not to lean on. The wider post-freeze per-stage rows — cert $6.68
+  (n = 35) and interim $6.41 (n = 12) — are the better lower anchor. The
   $278.39 is quoted because it is what `predict-plan` prints, and the plan is
   deliberately not conditioned on the forecast moment.
 
-  The remaining **11** are held, not excluded: **1** by the record-freshness
-  bound and **10** by the provisioning-attempted bound, each clearing as the
-  live rotation and run-pull reach the case. The same derivation carries
+  The two figures are **pre-hold 52** and **post-hold 41**, a paragraph apart,
+  so they are named here: the remaining **11** are held, not excluded — **1** by
+  the record-freshness bound (`scotus/73279700`, last polled 2026-09-02) and
+  **10** by the provisioning-attempted bound — each clearing as the live
+  rotation and run-pull reach the case. A quoted "52 x 3" would be wrong; the
+  cells minted today are 41 x 3. The same derivation carries
   **12** never-predicted events (36 cells, $81.48) which are ordinary backlog
   and not this rule's doing; the whole owed set is 50 cases, and the
   `salience.sweep_cases_per_cycle` cap of 25 cases a cycle spreads it over two
@@ -3706,12 +3725,38 @@ freeze commit is recorded here.
   stated here so their absence is on the record rather than inferred. They sit
   on salience-deferred cases, which reach the deriver only on the
   cohort-completion ground, whose narrowing keeps exactly the events a claimable
-  board already counts — and a wholly retired cohort is not one. That boundary
-  is a funding decision, not a correctness one: a re-predict of a wholly retired
-  cohort re-mints every engine at once and so yields a *complete* frozen cohort,
-  which is not what that narrowing refuses. A later decision to take them is a
-  new entry, and it is the difference between this cohort and the 123 events
-  above.
+  board already counts — and a wholly retired cohort is not one. In *mechanism*
+  it is a funding decision rather than a correctness one: a re-predict of a
+  wholly retired cohort re-mints every engine at once and so yields a *complete*
+  frozen cohort, which is not what that narrowing refuses. A later decision to
+  take them is a new entry, and it is the difference between this cohort and the
+  123 events above.
+
+  **But the boundary is a salience-band split, and that is the statistical
+  content of this change.** Saying only "funding, not correctness" would tell a
+  reader the split carries none, so the composition is registered here rather
+  than left to be rediscovered from the board. Over the 110 cert/distribution
+  events that pass the forward and moment gates, by `sal-v4` band:
+
+  | | n | high | elevated | baseline | state/federal | mean score |
+  | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+  | admitted (the cohort) | 39 | 1 | 34 | 3 | 1 federal | 0.0983 (0.033-0.411) |
+  | declined | 71 | 0 | 3 | 67 | 1 state | 0.0241 (0.013-0.083) |
+
+  Every admitted event is `salience_selected`; 71 of the 72 declined are not.
+  The salience score approximates P(grant | relist / CVSG / circuit signals), so
+  the split is on modelled grant probability by construction — roughly fourfold
+  in the mean, with barely overlapping ranges. **The reading rule that follows,
+  registered now:** the frozen board's first cert/distribution population is an
+  **elevated-band** cohort, not a mirror of the docket or of the population it
+  was carved from. Its always-deny floor is the elevated band's, not the
+  baseline band's and not the docket's; no figure over it may be anchored on a
+  docket-wide or pooled-band rate; and it is reported on the **per-band cut**
+  (n = 1 high / 34 elevated / 3 baseline / 1 federal on the cert/distribution
+  arm, with 10 cert/cvsg and 2 interim/arrival beside it), never as a pooled
+  row. Reached rates in the committed pack put the admitted mix near a **14%**
+  grant rate against about **4.8%** for the declined; the 1-3% whole-docket
+  anchor is wrong for both.
 
   **The salience overhang is kept and disclosed, not cleared.** 39 of the
   cert/distribution events are on cases the current round selected against a
@@ -3721,7 +3766,36 @@ freeze commit is recorded here.
   and the extra cases are re-predicted as forward cells like the rest. A
   conference cohort read off these cells is therefore **over-capacity by
   construction**, which is a fact about the selection round and not about the
-  rule registered here.
+  rule registered here — but disclosure alone does not say which way it moves
+  the cohort, so: the 15 events above capacity are the **rank tail**, the
+  lower-salience end of the selected set, so the cohort's implied grant rate
+  sits **below** what a capacity-24 selection would give. Any conference-cohort
+  figure read off these cells carries the denominator **n = 39** and may **not**
+  be compared with a capacity-N salience replay, which is a different
+  population.
+
+  **The conference date is a one-way door, so the completeness this rule buys
+  has a deadline — and a reading rule rather than more code.** The
+  distribution limb refuses an event once its conference is past. That is the
+  safety property gate 2 exists for, and it has a cost: from 2026-09-29 the rule
+  can no longer heal a **partially** re-predicted cohort. Any cert/distribution
+  event whose three cells are not all committed by 2026-09-28 is left
+  permanently with some blessed and some retired cells — reachable four ways: a
+  cell fails on the last tick (its `attempt.json` re-owes it, but no later tick
+  can mint it), a provisioning-held case does not clear, the freshness-held case
+  is not re-polled, or a scheduled tick does not run. Thirteen days and two
+  ticks is slack, but the failure is silent and terminal, and it is exactly the
+  cross-engine shape a leaderboard cannot show: per-predictor cells resting on
+  **different event sets**, with nothing on the board separating "this engine
+  was not scored here" from "this engine was structurally excluded here", while
+  the ranking is on N-unweighted point estimates.
+
+  Registered now, because it cannot be added afterwards: **a frozen-board figure
+  over this cohort is published over events carrying all three blessed engines,
+  or it prints the per-engine `n` and the complete-grid `n` beside it.** That is
+  the discipline [budget.md](budget.md) already applies to its own reference
+  fan-out ("132 events carrying all three" of 137), so it is this repository's
+  existing instrument rather than new machinery.
 
   **The comparability caveat, and it is the same one the amicus re-derivation
   carries.** A figure that rises across this boundary is **not** a measurement
@@ -3735,11 +3809,22 @@ freeze commit is recorded here.
   merely differently derived but structurally absent from every frozen-scope
   artifact.
 
-  **What this rule cannot repair.** An event whose moment has already closed —
-  a petition whose conference has passed, a cert/arrival cell — keeps its
-  retired cohort and will be graded out of scope when it resolves. Those events
-  are spent. The rule bounds the loss to what has already happened rather than
-  recovering it, and nothing here claims otherwise.
+  **What this rule cannot repair, and the loss is concentrated where the signal
+  is.** An event whose moment has already closed — a petition whose conference
+  has passed, a cert/arrival cell — keeps its retired cohort and will be graded
+  out of scope when it resolves. Those events are spent: **100** of the 223, of
+  which 79 are moment-closed and 21 the forward gate refuses. The composition
+  matters more than the count. Across the whole retired-only cert/distribution
+  set (143 events) the bands are 17 high / 40 elevated / 80 baseline / 4 state /
+  2 federal, and **only 1 of those 17 high-band events survives into the
+  cohort** — the other 16 are moment-closed or already resolved. The 21 the
+  forward gate refuses have themselves resolved 12 granted / 8 denied / 1
+  dismissed, so the surviving cohort is depleted of resolved grants by
+  construction. Registered consequence: **the frozen board will carry
+  essentially no high band until new petitions reach it**, and a high-band
+  figure over this cohort is a figure over n = 1. The rule bounds the loss to
+  what has already happened rather than recovering it, and nothing here claims
+  otherwise.
 
   **The effect check, for the promotion carrying this.** `uv run pytest
   tests/test_predict_backlog.py` green. After promotion, the next two scheduled
