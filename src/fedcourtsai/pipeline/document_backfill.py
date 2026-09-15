@@ -1,9 +1,11 @@
-"""The bounded document back-fill for queued cases holding no primary document.
+"""The bounded document back-fill for queued cases holding a document gap.
 
 A case reaches prediction with the document that opens it — the ``petition`` on
 a cert-form docket, the ``application`` on an interim one — because
 :func:`~fedcourtsai.pipeline.live.provision_documents` runs at the transition
-that queues it. A case whose provisioning ran *before* the selector had an arm
+that queues it, and a granted case reaches its merits moments with both sides'
+merits advocacy because the selection sweep re-provisions it while a merits
+event is open. A case whose provisioning ran *before* the selector had an arm
 for its filing type kept nothing: the fetch was attempted, selection came back
 empty, and the row was queued with no primary document. Nothing in the fetching
 lanes repairs that. The live poller re-fetches a kind only when its link
@@ -13,15 +15,34 @@ it. This is the pass that applies the current selector to the cases already past
 their trigger.
 
 - **Population.** Live-slice SCOTUS rows that are *predict-relevant* — queued
-  for prediction or salience-selected — and hold no stored document of **their
-  own docket form's** primary kind: an application-form row is measured against
-  its ``application``, a cert-form row against its ``petition``. Form-keyed
-  rather than petition-keyed because an application docket structurally never
-  holds a petition, and a petition-keyed predicate would strand every
-  application retrospectively. Predict-relevant rather than the whole
+  for prediction or salience-selected. Predict-relevant rather than the whole
   distributed stock, which is overwhelmingly pre-2022 rows carrying no document
   links at all: this pass costs paced upstream round trips per case, and the
   cases that can mint a cell are the ones worth spending them on.
+- **The gap, in two arms.** A row is in the class for each kind it is missing
+  that this route can reach.
+
+  The **primary** arm measures every row against **its own docket form's**
+  opening filing: an application-form row against its ``application``, a
+  cert-form row against its ``petition``. Form-keyed rather than petition-keyed
+  because an application docket structurally never holds a petition, and a
+  petition-keyed predicate would strand every application retrospectively.
+
+  The **merits** arm measures a *granted, briefed* row against
+  :data:`MERITS_GAP_KINDS`, the per-side briefs on the merits. Granted-and-
+  briefed rather than granted alone, and the second half is what makes the arm
+  drain: ``merits_brief_filed`` is the date the respondent's merits brief
+  reached the docket, so a row carrying it has both sides' opening briefs filed
+  and there is something to fetch, while a granted row without it is either not
+  yet briefed — a live case the selection sweep provisions at its next pass —
+  or briefed in a shape no arm reads, which a fetch cannot fix either. A row can
+  be in both arms at once, and is then one candidate missing up to three kinds.
+
+  The **replies** are deliberately *not* gap kinds. Not every granted case is
+  replied to, so a missing reply is the ordinary state of the docket rather than
+  a gap, and keying the class on one would park every un-replied case in it
+  forever. A reply is fetched all the same wherever the docket carries one,
+  because the apply runs the whole selector over the candidate's payload.
 - **Route.** The provisioning path, re-keyed off the corpus row rather than off
   a live poll: parse the stored docket number to the ``(term, serial)`` the
   upstream endpoint addresses, fetch that docket's JSON **fresh**, and run the
@@ -30,15 +51,23 @@ their trigger.
   Fresh rather than from the stored snapshot because the question is whether the
   link is served *now* — a stored payload can name a URL upstream has since
   withdrawn, and a stored payload predating the filing names none at all.
-- **Two floors, reported as floors.** A candidate whose docket carries the
-  opening entry but posts no PDF behind it is a Rule 34.6 paper filing
-  (``no_link``): the Court served nothing, so there is nothing to fetch, and no
-  repair reaches it. A candidate whose docket carries no such entry at all
-  (``no_entry``) is a legacy docket whose proceedings list holds no document
-  links. Neither is a failure and neither drains. ``no_entry`` on a **modern**
-  docket is the exception and the alarm: a docket whose filing the selector has
-  an arm for reads as a selector regression, so those cases are named rather
-  than counted.
+- **Two floors, reported as floors.** A candidate whose docket carries the entry
+  for a kind it is missing but posts no fetchable PDF behind it is at the
+  ``no_link`` floor: a Rule 34.6 paper filing the Court served nothing for, or —
+  on a merits kind — a docket whose grant this reader cannot date, so the
+  selector's stage bound can place no entry on the merits side of it. Either
+  way there is nothing this route can fetch. A candidate whose docket carries no
+  such entry for **any** missing kind (``no_entry``) is a legacy docket whose
+  proceedings list holds no document links. Neither is a failure and neither
+  drains, and the two counts partition the floored candidates.
+
+  The **alarm** cuts across both counts, because it is per *kind*: a missing kind
+  the selector found no entry for, on a docket modern enough that its proceedings
+  list should carry links, is a filing shape the selector has no arm for — the
+  class this pass exists to stop producing rather than absorb. Those cases are
+  named (``no_entry_modern_cases``) whichever floor they were counted at, so a
+  granted case whose merits entries are on the docket and whose opening filing
+  the selector cannot read is still named.
 - **Bounded twice.** ``max_cases`` is the *spend* cap — how many candidates one
   dispatch pays paced round trips for — and it is required on an apply. What
   keeps the run inside its caller's wall-clock cap is a slice-level deadline
@@ -79,9 +108,12 @@ from ..supremecourt import (
 )
 from .documents import (
     KIND_APPLICATION,
+    KIND_MERITS_BRIEF_PETITIONER,
+    KIND_MERITS_BRIEF_RESPONDENT,
     KIND_PETITION,
     document_fetch_losses,
     fetch_case_documents,
+    merits_entry_matched,
     primary_entry_matched,
     reset_document_fetch_losses,
     select_documents,
@@ -100,16 +132,33 @@ logger = logging.getLogger(__name__)
 ESTIMATED_DOCKET_SECONDS = 5.0
 # One selected filing: the GET, the download, and the PDF text extraction.
 ESTIMATED_DOCUMENT_SECONDS = 20.0
-# How many documents an apply is charged for per candidate. The primary filing
-# plus headroom for what `select_documents` returns beside it — the opposition
-# briefs, one per respondent on a multi-respondent case, and on a granted docket
-# each side's brief on the merits. A high estimate of the ordinary candidate
-# rather than a ceiling: this class is cases holding no primary document, which
-# skew early — a granted one, carrying the merits pair as well, is the exception
-# that overruns. Left an estimate of the ordinary case deliberately, because the
-# deadline is only what stops the slice taking *new* work and the caller's own
-# cap is the backstop for a candidate that runs past it; sizing for the outlier
-# would cost every ordinary candidate the difference.
+# How many documents an apply is charged for per candidate. A high estimate of
+# the ordinary candidate rather than a ceiling, and it reads the same for either
+# arm of the class because `fetch_case_documents` is idempotent against the
+# stored `(kind, url)` mapping — a candidate is charged only for what it is
+# actually missing.
+#
+# A **primary**-arm candidate pays for the opening filing plus headroom for what
+# `select_documents` returns beside it: the opposition briefs, one per
+# respondent on a multi-respondent case. A **merits**-arm candidate already
+# holds its petition, its opposition and its derived questions at unchanged
+# URLs, so none of them is re-fetched; it pays for the two merits briefs, plus a
+# reply per side where the docket carries one — at the estimate, or a filing or
+# two past it.
+#
+# The candidate that **overruns** is the one in both arms at once: it pays for
+# its opening filing, an opposition brief per respondent, and the merits stage on
+# top, which runs to five or seven fetches against a charge of three. That is no
+# longer the rarity it was — roughly one candidate in seven on the class as it
+# stands. It is still left uncharged, because the deadline is a start gate and
+# only the last-admitted candidate can run past it: the caller's own cap is the
+# backstop, and sizing every ordinary candidate for the outlier would cost the
+# slice far more than the overrun does.
+#
+# Left an estimate of the ordinary case deliberately, because the deadline is
+# only what stops the slice taking *new* work and the caller's own cap is the
+# backstop for a candidate that runs past it; sizing for the outlier would cost
+# every ordinary candidate the difference.
 ESTIMATED_DOCUMENTS_PER_CASE = 3
 # The Term from which a docket's proceedings list reliably carries document
 # links, and so the line above which `no_entry` stops being a floor and starts
@@ -118,6 +167,16 @@ ESTIMATED_DOCUMENTS_PER_CASE = 3
 # whose opening filing matched no entry is a filing shape the selector does not
 # recognize, which is the alarm this pass exists to raise rather than absorb.
 MODERN_LINK_TERM = 2022
+# The kinds the merits arm of the gap class is keyed on: each side's **opening**
+# brief on the merits, and neither reply. A granted case that has been briefed
+# has both of these on its docket by construction, so a missing one is a gap
+# that a fetch can close; a reply exists only where the side chose to file one,
+# so keying the class on a reply would hold every un-replied case in it forever.
+# The replies still ride the apply, which runs the whole selector.
+MERITS_GAP_KINDS: tuple[str, ...] = (
+    KIND_MERITS_BRIEF_PETITIONER,
+    KIND_MERITS_BRIEF_RESPONDENT,
+)
 
 
 class DocumentBackfillResult(BaseModel):
@@ -157,6 +216,19 @@ class DocumentBackfillResult(BaseModel):
         description="Addressable rows in the gap class, in `case_id` order — the "
         "whole population this route can act on",
     )
+    merits_candidates: int = Field(
+        ge=0,
+        default=0,
+        description="Of `candidates`, the ones missing at least one merits brief "
+        "— a granted, respondent-briefed row whose per-side briefs on the merits "
+        "were never fetched. Reported apart because the two arms of the class "
+        "cost and drain differently and a single total hides which one a dispatch "
+        "would be spending on: a merits candidate already holds its cert-stage "
+        "documents and pays only for what the merits stage added, while a primary "
+        "candidate pays for the filing that opens the docket and everything "
+        "selection returns beside it. A candidate in both arms is counted here "
+        "and in `candidates` once",
+    )
     bound: int | None = Field(
         default=None,
         description="The per-dispatch slice size this run was bounded to. Set in "
@@ -183,19 +255,22 @@ class DocumentBackfillResult(BaseModel):
     stored: dict[str, int] = Field(
         default_factory=dict,
         description="Documents written by kind (apply only). Counts every kind "
-        "`fetch_case_documents` produced for a recovered case, not only the "
-        "primary one: the case was provisioned by the same call the poller makes, "
-        "so the opposition briefs and the derived questions-presented row land with it",
+        "`fetch_case_documents` produced for a recovered case, not only the ones "
+        "whose absence put it in the class: the case was provisioned by the same "
+        "call the poller makes, so the opposition briefs, the derived "
+        "questions-presented row and any merits reply land with it",
     )
     recovered: int = Field(
         ge=0,
         default=0,
-        description="Candidates that gained their **primary** document and so left "
-        "the class (apply only) — the count `remaining` is the complement of. Not "
-        "`len(documents)`: a candidate whose petition link was selected and then "
-        "did not serve can still store the opposition briefs beside it, which is a "
-        "write but not a recovery, and reporting those together would headline a "
-        "slice as having recovered cases it left exactly where they were",
+        description="Candidates that gained **every** kind they were missing and "
+        "so left the class (apply only) — the count `remaining` is the complement "
+        "of. Not `len(documents)`: a candidate whose petition link was selected "
+        "and then did not serve can still store the opposition briefs beside it, "
+        "and one that gained a single merits brief of the two still owes the "
+        "other; both are writes and neither is a recovery, and reporting them "
+        "together would headline a slice as having recovered cases it left "
+        "exactly where they were",
     )
     documents: dict[str, list[str]] = Field(
         default_factory=dict,
@@ -211,24 +286,34 @@ class DocumentBackfillResult(BaseModel):
     )
     no_link: int = Field(
         ge=0,
-        description="Candidates whose docket carries the opening entry with no "
-        "document link behind it — a Rule 34.6 paper filing the Court posted no "
-        "PDF for. A **floor**, not a failure: there is nothing upstream to fetch, "
-        "so no repair reaches these and the class does not drain past them",
+        description="Candidates whose docket carries an entry for at least one "
+        "kind they are missing with nothing fetchable behind it — a Rule 34.6 "
+        "paper filing the Court posted no PDF for, or, on a merits kind, a grant "
+        "this reader cannot date, so the selector's stage bound places no entry "
+        "on the merits side of it. A **floor**, not a failure: there is nothing "
+        "this route can fetch, so no repair reaches these and the class does not "
+        "drain past them",
     )
     no_entry: int = Field(
         ge=0,
-        description="Candidates whose docket carries no opening entry the selector "
-        "recognizes at all — a legacy docket whose proceedings list holds no "
-        "document links. A **floor** on a pre-modern docket; on a modern one it is "
-        "a selector regression, which `no_entry_modern_cases` names",
+        description="Candidates whose docket carries no entry the selector "
+        "recognizes for **any** kind they are missing — a legacy docket whose "
+        "proceedings list holds no document links. A **floor** on a pre-modern "
+        "docket. The two counts partition the floored candidates, so a candidate "
+        "carrying an entry for one missing kind and none for another is counted "
+        "in `no_link` here and still named in `no_entry_modern_cases` below",
     )
     no_entry_modern_cases: list[str] = Field(
         default_factory=list,
-        description="The `no_entry` candidates whose docket is modern enough that "
-        "its proceedings list should carry links, in class order. Not a floor and "
-        "not a count to accept: a filing shape the selector has no arm for, which "
-        "is the class this pass exists to stop producing",
+        description="Candidates carrying a missing kind the selector found no "
+        "entry for at all, on a docket modern enough that its proceedings list "
+        "should carry links, in class order. Not a floor and not a count to "
+        "accept: a filing shape the selector has no arm for, which is the class "
+        "this pass exists to stop producing. Read per **kind**, not per "
+        "candidate, so a case whose merits entries are on the docket and whose "
+        "opening filing is unreadable is named here even though its count went "
+        "to `no_link` — the alarm would otherwise be silenced by whichever kind "
+        "did match",
     )
     docket_unserved: int = Field(
         ge=0,
@@ -262,15 +347,22 @@ class DocumentGap:
     """One case in the gap class, with what the route needs to address it."""
 
     case_id: str
-    #: The kind this docket's form is measured against — the document that opens
-    #: it, and the only one whose absence puts the row in this class.
-    kind: str
+    #: Every kind this row is missing that this route can reach, in provisioning
+    #: order: its own docket form's opening document, and — on a granted, briefed
+    #: row — each side's absent merits brief. The case leaves the class when it
+    #: holds them all, so recovery is measured against the whole tuple.
+    kinds: tuple[str, ...]
     #: The upstream address, or ``None`` where the stored docket number parses to
     #: neither form (an unaddressable row, which never enters a slice).
     address: tuple[int, int, Literal["cert", "application"]] | None
     #: The Term the docket number belongs to, or ``None`` where it carries no
     #: parseable one — what decides whether a `no_entry` reading is a floor.
     term_year: int | None
+
+    @property
+    def merits(self) -> bool:
+        """Whether any of the missing kinds is a merits one."""
+        return any(kind in MERITS_GAP_KINDS for kind in self.kinds)
 
 
 @dataclass(frozen=True)
@@ -332,8 +424,29 @@ def _term_year(row: corpus.CorpusRow) -> int | None:
     )
 
 
+def is_merits_relevant(row: corpus.CorpusRow) -> bool:
+    """Whether this row's merits briefs are a gap a fetch can close.
+
+    Granted **and** briefed, both read off the corpus row rather than a payload,
+    so the walk stays a row read plus a document read per case.
+
+    ``date_cert_granted`` is the stage: nothing selects a merits filing before a
+    cert grant, so an ungranted row has no merits gap to be in.
+    ``merits_brief_filed`` — the date the respondent's brief on the merits
+    reached the docket — is what makes the arm *drain*. A row carrying it has
+    both sides' opening briefs filed, so a missing kind is a document waiting to
+    be fetched. A granted row without it is one of two things, and a fetch helps
+    neither: a case still being briefed, which the selection sweep provisions at
+    its next pass while its merits event is open, or a case whose briefing is
+    recorded in a shape :mod:`~fedcourtsai.pipeline.merits_signals` does not
+    read — in which case the selector will not read it either and the row would
+    sit at a floor in this class forever.
+    """
+    return row.date_cert_granted is not None and row.merits_brief_filed is not None
+
+
 def is_predict_relevant(row: corpus.CorpusRow) -> bool:
-    """Whether a missing primary document on this row can still cost a cell.
+    """Whether a document gap on this row can still cost a cell.
 
     Queued for prediction, or selected by the salience gate and not yet queued.
     The selected arm is not redundant: a reserve-selected application has no
@@ -345,7 +458,7 @@ def is_predict_relevant(row: corpus.CorpusRow) -> bool:
 
 
 def document_gaps(conn: corpus.ReadConnection) -> DocumentGapScan:
-    """Every predict-relevant row holding no primary document, in ``case_id`` order.
+    """Every predict-relevant row holding a reachable document gap, in ``case_id`` order.
 
     Walked case by case rather than queried, because under the corpus-split mode
     the documents live in the per-case content store and the blob's own
@@ -356,7 +469,12 @@ def document_gaps(conn: corpus.ReadConnection) -> DocumentGapScan:
 
     Ordering is the row order (``case_id``), which is what makes a bounded slice
     self-advancing: a recovered case leaves the class, so the next dispatch's
-    slice starts where this one's population ran out.
+    slice starts where this one's population ran out. The two arms are **not**
+    ordered apart, and deliberately: sorting the class by arm would be a policy
+    about which gap matters more, and neither does uniformly — a merits gap is on
+    a case whose moment has passed, a primary gap on one that may still be minted
+    over. Row order leaves the composition of a slice to the corpus rather than
+    encoding a preference here, and the ledger's arm split is what reports it.
     """
     rows = [
         row
@@ -376,13 +494,19 @@ def document_gaps(conn: corpus.ReadConnection) -> DocumentGapScan:
             if documents:
                 cases_with_documents += 1
             row = by_case[case_id]
-            kind = _primary_kind(row)
-            if any(document.kind == kind for document in documents):
+            stored = {document.kind for document in documents}
+            primary = _primary_kind(row)
+            missing: list[str] = []
+            if primary not in stored:
+                missing.append(primary)
+            if is_merits_relevant(row):
+                missing.extend(kind for kind in MERITS_GAP_KINDS if kind not in stored)
+            if not missing:
                 continue
             gaps.append(
                 DocumentGap(
                     case_id=case_id,
-                    kind=kind,
+                    kinds=tuple(missing),
                     address=_address(row),
                     term_year=_term_year(row),
                 )
@@ -439,7 +563,7 @@ def backfill_documents(
     deadline: float | None = None,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> DocumentBackfillResult:
-    """Re-run provisioning over the queued cases that hold no primary document.
+    """Re-run provisioning over the queued cases that hold a document gap.
 
     Both modes take a slice and both spend paced upstream round trips, which is
     what separates this pass from the ones whose dry run is free. The **dry run**
@@ -512,7 +636,7 @@ def backfill_documents(
         logger.warning(
             "document-backfill: %s holds no %s and no addressable docket number",
             gap.case_id,
-            gap.kind,
+            ", ".join(gap.kinds),
         )
     slice_ = candidates if max_cases is None else candidates[:max_cases]
     # Read apart from whatever else this process recorded, so the ledger's
@@ -548,7 +672,7 @@ def backfill_documents(
             else:
                 tally.docket_errors += 1
             continue
-        refs = [ref for ref in select_documents(payload) if ref.kind == gap.kind]
+        refs = [ref for ref in select_documents(payload) if ref.kind in gap.kinds]
         if not refs:
             _record_floor(payload, gap, tally)
         elif not apply:
@@ -562,6 +686,7 @@ def backfill_documents(
         cases_with_documents=scan.cases_with_documents,
         unaddressable=len(unaddressable),
         candidates=len(candidates),
+        merits_candidates=sum(1 for gap in candidates if gap.merits),
         bound=max_cases,
         attempted=len(slice_) - len(unreached),
         unreached=unreached,
@@ -594,27 +719,57 @@ class _SliceTally:
     docket_errors: int = 0
 
 
+def _entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
+    """Whether the docket carries this kind's entry at all, link or no link.
+
+    The two readers behind it answer for their own halves of the class and
+    nothing else (:func:`~fedcourtsai.pipeline.documents.primary_entry_matched`,
+    :func:`~fedcourtsai.pipeline.documents.merits_entry_matched`), so an
+    unrecognized kind reads ``False`` — the alarming side, which is right: a kind
+    this pass put a case in the class for and cannot then measure is a defect
+    worth surfacing, not one to absorb.
+    """
+    if kind in MERITS_GAP_KINDS:
+        return merits_entry_matched(payload, kind=kind)
+    return primary_entry_matched(payload, kind=kind)
+
+
 def _record_floor(payload: Mapping[str, Any], gap: DocumentGap, tally: _SliceTally) -> None:
     """Attribute a candidate selection nominated nothing for, to its own floor.
 
     Told apart by the docket's own text: an entry the selector recognizes with no
-    link behind it is a paper filing the Court posted no PDF for, while no entry
-    at all is a docket carrying no document links to begin with. Neither drains —
-    but only the second can also mean the selector is blind, which is why a
-    modern docket landing there is named rather than counted.
+    fetchable link behind it is a filing the Court posted no PDF for, while no
+    entry at all is a docket carrying no document links to begin with. Neither
+    drains — but only the second can also mean the selector is blind, which is
+    why a modern docket landing there is named rather than counted.
+
+    The two **counts** are per candidate, because they size a class: a candidate
+    missing several kinds is one candidate and takes one floor, reading
+    ``no_link`` if the docket carries an entry for **any** of them. Otherwise a
+    granted case whose petition-era entry predates the link window and whose
+    merits briefs are on the docket would be counted at both floors at once, and
+    the class sizes would stop adding up against ``attempted``.
+
+    The **alarm** is per *kind*, and deliberately not per candidate. A filing
+    shape the selector cannot read on a modern docket is a regression whichever
+    other kinds that docket happens to post, so a candidate whose merits entries
+    are there and whose opening entry is not is named here even though its count
+    went to ``no_link``. Folding the alarm into the count instead would hide
+    exactly the case the alarm exists for behind the one kind that did match.
     """
-    if primary_entry_matched(payload, kind=gap.kind):
+    unmatched = [kind for kind in gap.kinds if not _entry_matched(payload, kind=kind)]
+    if len(unmatched) < len(gap.kinds):
         tally.no_link += 1
-        return
-    tally.no_entry += 1
-    if gap.term_year is not None and gap.term_year >= MODERN_LINK_TERM:
+    else:
+        tally.no_entry += 1
+    if unmatched and gap.term_year is not None and gap.term_year >= MODERN_LINK_TERM:
         tally.no_entry_modern.append(gap.case_id)
         logger.warning(
             "document-backfill: %s (OT%d) matched no %s entry — "
             "the selector has no arm for this filing type",
             gap.case_id,
             gap.term_year,
-            gap.kind,
+            ", ".join(unmatched),
         )
 
 
@@ -647,9 +802,14 @@ def _store_case(
     tally.documents[gap.case_id] = kinds
     for kind in kinds:
         tally.stored[kind] = tally.stored.get(kind, 0) + 1
-    if any(document.kind == gap.kind for document in fetched):
-        # The class is keyed on the primary document alone: a case that gained
-        # only its opposition briefs is still in it.
+    if set(gap.kinds) <= set(kinds):
+        # Recovery is leaving the class, so it is measured against **every** kind
+        # the candidate was missing: a case that gained only its opposition
+        # briefs, or only one of its two merits briefs, is still in the class and
+        # still at the head of the next slice. Nothing in `gap.kinds` can be
+        # skipped as already-stored here — the scan put the case in the class
+        # precisely because none of them was stored — so the fetched set is the
+        # whole of what this candidate gained.
         tally.recovered.add(gap.case_id)
 
 

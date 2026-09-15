@@ -4215,3 +4215,128 @@ freeze commit is recorded here.
   round's gradings of those events enter the frozen board, with
   `metrics/leaderboard.json` built at `process_scope: "frozen"` carrying a
   non-zero cell count where today it renders its empty state.
+
+- **The selector reaches the merits reply, and the gap scan reaches the granted
+  cases already past their trigger, 2026-09-15.** A **conditioning** entry, in
+  the same class as *The document selector reads the merits stage* above and
+  with the same properties: no prompt byte and no registry field moves, so no
+  digest moves; and there is **no data-visible boundary at all**, because which
+  documents a cell was provisioned with lives in its gitignored
+  `record/documents/` and `prediction.json` carries no field separating a cell
+  that read a merits reply from one that did not. The boundary exists only here,
+  cells minted on the affected dockets before and after it may not be pooled,
+  and a stamped cell resolves to a side of it by asking whether its
+  `process_version.pipeline_sha` is an ancestor of the carrying promotion's
+  merge commit.
+
+  It is also the entry the one above deferred to — "the granted cases already
+  past their trigger are reached by a document-gap scan widened to the merits
+  kinds, which is not built and will carry its own entry when it is."
+
+  **Two changes, and only the first one moves what a future cell reads.**
+
+  - **The reply kinds.** `merits-reply-petitioner` and
+    `merits-reply-respondent`, one row per side and one URL per row, taken from
+    the entry's `Main Document` link and selected only on entries filed strictly
+    after the cert grant. The Court files the reply as a distinct entry family
+    ("Reply of X filed.", "Reply Brief of X filed.") that the opening-brief
+    anchors never reach, so it was fetched under no kind before. The post-grant
+    bound carries more weight on this arm than on any other in the selector: the
+    **cert**-stage reply to a brief in opposition is spelled word for word the
+    same, and **422** of the **1,652** payload-bearing cases read below carry
+    one these predicates match — so an unbounded arm would store a reply to the
+    BIO as merits advocacy across a quarter of the docket stock.
+  - **The gap scan's merits arm.** `document-backfill`'s class gains a second
+    arm: a granted row whose respondent has filed on the merits
+    (`merits_brief_filed` dated) and which holds neither or one of the two
+    per-side merits briefs. Granted-**and**-briefed rather than granted alone is
+    what makes it drain — a granted row with no briefing dated on it has nothing
+    for a fetch to find, and is either still being briefed, which the selection
+    sweep provisions while its merits event is open, or briefed in a shape no
+    arm reads. The replies are deliberately **not** gap kinds: not every granted
+    case is replied to, so keying the class on one would hold every un-replied
+    case in it forever; a reply the docket carries is fetched with the rest.
+
+  **The population, and the route it was read by.** The blob's newest pull stamp
+  is `2026-09-14` and its newest stored snapshot `2026-07-13`. The walk runs the
+  real `select_documents` rather than a re-implementation, over the case ids the
+  blob's own `snapshots` table names, reading each case's latest payload through
+  `corpus.latest_snapshot` — which under the split routes to the **content
+  store**. That is not the route the entry above took, and the difference is
+  named rather than smoothed: read from the blob's `snapshots` table alone, at
+  this same vintage, the population is **269** granted with the merits arms
+  reaching **105** — that entry's figures exactly, unmoved. Read through the
+  store it is **1,652** payload-bearing cases, of which **271** have a payload
+  dating a cert grant and the merits-brief arms reach **110** (101 both sides, 6
+  petitioner-only, 3 respondent-only). Every figure here is the store reading,
+  because that is the route the pipeline itself reads by.
+  On the same 271 the reply arms reach **101** cases — **100** a petitioner-side
+  reply and **10** a respondent-side one — so the reply is the ordinary shape of
+  a briefed merits docket rather than a rarity, and it is the largest single
+  addition to what a briefed-moment cell reads since the merits briefs
+  themselves. The per-side split is what Rule 25.3 predicts and it is stated
+  here so the respondent row's small `n` is not later read as a coverage
+  failure. Three of the eight cases the entry above named as carrying committed
+  merits cells — `scotus/73278510`, `scotus/73278555`, `scotus/73279865` —
+  carry a petitioner reply the arm reaches.
+
+  **Nothing already stored changes, and nothing is fetched by this commit.**
+  The corpus holds **0** rows under either merits-brief kind and **0** under
+  either reply kind (its `documents` table is 1,480 `petition`, 1,187
+  `questions-presented`, 410 `brief-in-opposition`). The merits arm is a
+  *scan* widening: it names candidates and writes nothing until a maintainer
+  applies the pass. Over the whole predict-relevant live-slice population the
+  widened scan reports **1,466** addressable candidates where the primary arm
+  alone reported **1,233** — **431** of them merits gaps, **198** of which were
+  already in the class for their opening filing too. The class is not reordered
+  by arm, and on this corpus it does not need to be: `case_id` order puts the
+  older granted dockets near the head, so **176 of the first 200 candidates in
+  class order are merits gaps**. That is an observation about this corpus rather
+  than a property of the pass, and it is recorded so a later dispatch's
+  composition is read against what was expected — in particular, `merits_candidates`
+  against `candidates` is a class-level ratio and not the mix a bounded slice
+  will take. Separately, and the coincidence of the two counts is arithmetic
+  rather than a transcription slip: **176 of the 431 merits gaps are OT2022 or
+  later**, inside the upstream link window, and every one of those selects at
+  least one merits brief over its stored payload (173 both sides, 3 the
+  respondent's alone); of the 255 older ones 91 do and **164** select nothing,
+  which an apply reports as floors rather than recoveries.
+
+  **The expected-skill corollary, restated because this widens it.** A
+  post-change briefed-moment cell reads both sides' opening advocacy *and* the
+  reply that answers it, where a pre-change one read the opening briefs and a
+  pre-09-10 one read only the docket entries saying a brief was filed. Expected
+  skill on the granted docket should therefore rise again, and a rise across
+  this boundary **may not be read as a model improvement**. The negative form is
+  deliberate: the design supports excluding one reading, not asserting a cause.
+
+  **The amendment debt is unchanged in kind and larger in size.** The predict
+  prompt still tells a merits cell that any provisioned `record/documents/` text
+  is cert-stage and that the merits advocacy is not on its desk unless it goes
+  and gets it. That sentence was already false for a case holding provisioned
+  merits briefs; it is now false about the reply as well. The prompt is frozen
+  bytes, so the correction is a re-bless that must promote **before** the first
+  briefed-moment cell over a case holding these rows — this entry adds no new
+  ordering constraint, it enlarges what the registered one has to describe.
+
+  **One derived surface moves and carries no boundary.**
+  `TEXT_COVERAGE_KINDS` gains the two reply kinds, so `corpus-info
+  --text-coverage` grows from twelve `kind` × `segment` cuts to sixteen. The two
+  reply rows read differently from every row above them and the report says so:
+  their `n` is bounded by the granted cases whose docket carries a reply at all,
+  and the respondent-side row again by the postures that give a respondent the
+  last word, so a low count there is neither a granted-slice size nor a coverage
+  gap. No base rate re-prices, no scored figure moves, and
+  `metrics/live-frontier.json`'s `documents_provisioned` is untouched, its
+  watchlist being pending petitions.
+
+  The runnable effect check, for the promotion carrying this: `uv run pytest
+  tests/test_documents.py tests/test_merits_signals.py
+  tests/test_document_backfill.py` green, and — run where the corpus is pulled —
+  `uv run fedcourts backfill-documents --max-cases 0` reporting a non-zero
+  `merits_candidates` beside its `candidates` (431 of 1,466 at this commit's
+  blob), which is the walk-only reading that costs no upstream round trip. The
+  fetching half is a writer-lane dispatch and its own dry run is what a
+  maintainer reads before it: `run-repair` with `repair=document-backfill`,
+  dry-run first, then an apply bounded by what that ledger's floors and arm
+  split say the slice would actually recover.

@@ -3633,7 +3633,7 @@ def backfill_documents_cmd(
         bool,
         typer.Option(
             "--apply",
-            help="Fetch and store the primary documents; omit for a dry run that "
+            help="Fetch and store the missing documents; omit for a dry run that "
             "fetches each candidate's docket JSON and reports what selection finds.",
         ),
     ] = False,
@@ -3661,23 +3661,35 @@ def backfill_documents_cmd(
         ),
     ] = None,
 ) -> None:
-    """Provision the queued cases that hold no primary document, a slice at a time.
+    """Provision the queued cases that hold a document gap, a slice at a time.
 
     A case reaches prediction with the filing that opens it — the `petition` on a
     cert-form docket, the `application` on an interim one — because provisioning
-    runs at the transition that queues it. A case whose provisioning ran before
-    the selector had an arm for its filing type kept nothing, and no lane repairs
-    that: the poller re-fetches a kind only when its link changes, and a kind
-    never stored has no link to change. This applies the current selector to the
-    cases already past their trigger.
+    runs at the transition that queues it, and a granted case reaches its merits
+    moments with both sides' merits advocacy because the selection sweep
+    re-provisions it while a merits event is open. A case whose provisioning ran
+    before the selector had an arm for its filing type kept nothing, and no lane
+    repairs that: the poller re-fetches a kind only when its link changes, and a
+    kind never stored has no link to change. This applies the current selector to
+    the cases already past their trigger.
 
-    The population is **form-keyed**: live-slice rows queued for prediction or
-    selected by the salience gate, measured against their own docket form's
-    primary document, so an application docket is never reported as missing a
-    petition it structurally never has. Not the wide distributed stock, which is
-    overwhelmingly legacy rows carrying no document links at all — this pass
-    costs paced round trips against the Court's own host, and the cases that can
-    mint a cell are the ones worth spending them on.
+    The population is live-slice rows queued for prediction or selected by the
+    salience gate — not the wide distributed stock, which is overwhelmingly
+    legacy rows carrying no document links at all, since this pass costs paced
+    round trips against the Court's own host and the cases that can mint a cell
+    are the ones worth spending them on. Each of those rows is measured on two
+    arms. The **primary** arm is form-keyed, against the row's own docket form's
+    opening document, so an application docket is never reported as missing a
+    petition it structurally never has. The **merits** arm applies to a granted
+    row whose respondent has filed its brief on the merits, and measures it
+    against each side's merits brief; granted-and-briefed rather than granted
+    alone is what makes the arm drain, since a granted row with no briefing dated
+    on it has nothing for a fetch to find and would sit in the class forever. A
+    row can be in both arms, and is then one candidate missing up to three kinds.
+    The
+    merits **replies** are not gap kinds — not every case is replied to, so a
+    missing reply is the docket's ordinary state — but a reply the docket does
+    carry is fetched along with the rest.
 
     Each candidate is re-keyed off its stored docket number to the `(term,
     serial)` the upstream endpoint addresses, and its docket JSON is fetched
@@ -3691,9 +3703,11 @@ def backfill_documents_cmd(
 
     Two floors are reported apart from the failures, because neither drains and
     reading them as failures reports a converged class as a permanent defect: a
-    docket carrying the opening entry with no PDF behind it (a Rule 34.6 paper
-    filing), and one carrying no such entry at all. The second on a *modern*
-    docket is not a floor but a selector regression, and those cases are named.
+    docket carrying an entry for a missing kind with nothing fetchable behind it
+    (a Rule 34.6 paper filing, or a merits kind on a docket whose grant cannot be
+    dated so the stage bound places no entry), and one carrying no such entry at
+    all. The second on a *modern* docket is not a floor but a selector
+    regression, and those cases are named.
 
     `--max-cases` is a slice size rather than a refusal threshold, required on an
     apply and honored on a dry run too, since both spend paced GETs.
@@ -3775,17 +3789,27 @@ def backfill_documents_cmd(
         f"(bound {'none' if result.bound is None else result.bound}); "
         f"{result.unaddressable} unaddressable row(s) outside the class"
     )
+    # The split between the two arms, because they cost and drain differently:
+    # a merits candidate holds its cert-stage documents already and pays only for
+    # what the merits stage added, while a primary one pays for the filing that
+    # opens the docket and everything selection returns beside it.
+    typer.echo(
+        f"  of the candidates, {result.merits_candidates} are missing a merits "
+        f"brief on a granted, briefed docket and "
+        f"{result.candidates - result.merits_candidates} their opening filing alone"
+    )
     if apply and len(result.documents) > result.recovered:
         # The gap between the two counts, said out loud: these cases gained a
         # document and stayed in the class, which is the one shape of this pass
         # that reads like a recovery on a per-case line and is not one.
         typer.echo(
-            f"  {len(result.documents) - result.recovered} case(s) stored a "
-            "secondary document without their primary one and stay in the class"
+            f"  {len(result.documents) - result.recovered} case(s) stored some of "
+            "what they were missing but not all of it and stay in the class"
         )
     typer.echo(
-        f"  floors: {result.no_link} with no link behind the opening entry "
-        f"(Rule 34.6 paper filings), {result.no_entry} with no opening entry at all"
+        f"  floors: {result.no_link} with no fetchable link behind the entry "
+        f"(Rule 34.6 paper filings, or an undatable grant on a merits kind), "
+        f"{result.no_entry} with no such entry at all"
     )
     typer.echo(
         f"  losses: {result.docket_unserved} docket(s) unserved, "
@@ -3797,10 +3821,15 @@ def backfill_documents_cmd(
     for case_id, kinds in result.selected.items():
         typer.echo(f"  {case_id}: would fetch {', '.join(kinds)}")
     for case_id in result.no_entry_modern_cases:
-        # Named, not counted: a modern docket whose opening filing matched no
-        # entry is a filing shape the selector has no arm for, which is the class
-        # this pass exists to stop producing rather than to absorb.
-        typer.echo(f"  {case_id}: NO OPENING ENTRY on a modern docket (selector regression)")
+        # Named on top of its floor count rather than instead of it: the alarm is
+        # per kind, so a candidate whose other missing kinds did match an entry is
+        # counted at `no_link` and still named here. A filing shape the selector
+        # has no arm for is the class this pass exists to stop producing rather
+        # than to absorb; the step log names which kind on each case.
+        typer.echo(
+            f"  {case_id}: a missing kind matched NO ENTRY the selector reads, on a "
+            "modern docket (selector regression; the log names the kind)"
+        )
     _echo_unreached(result.unreached)
     if apply:
         _ensure_corpus_layout(db_path)
@@ -8011,9 +8040,11 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
         "petition-family kinds. An application-form docket is never modern-cert, "
         "so an `application` row sits in `rest` unless the application was filed "
         "into a paid cert docket, and that row's segment says nothing about fee "
-        "class. The two merits-brief rows are counted over granted cases alone — "
+        "class. The four merits rows are counted over granted cases alone — "
         "nothing selects them before a cert grant — so a near-zero `n` there is "
-        "the size of the granted slice and not a coverage gap)"
+        "the size of the granted slice and not a coverage gap, and the two reply "
+        "rows are bounded again by the granted cases whose docket carries a reply "
+        "at all)"
     )
     # The triage list an extraction fix works from, untruncated for the reason
     # the questions-presented backfill prints its whole ledger: the count says
@@ -8507,6 +8538,7 @@ def corpus_info(
             help="Also count the stored documents whose text is empty, per kind "
             "(petition / application / brief-in-opposition / "
             "merits-brief-petitioner / merits-brief-respondent / "
+            "merits-reply-petitioner / merits-reply-respondent / "
             "questions-presented) and split on "
             "the salience gate's paid modern-cert segment. Opt-in and not cheap: "
             "it reads the documents of every live-slice case, tens of thousands of "

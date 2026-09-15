@@ -23,6 +23,8 @@ from fedcourtsai.pipeline.documents import (
     KIND_BRIEF_IN_OPPOSITION,
     KIND_MERITS_BRIEF_PETITIONER,
     KIND_MERITS_BRIEF_RESPONDENT,
+    KIND_MERITS_REPLY_PETITIONER,
+    KIND_MERITS_REPLY_RESPONDENT,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
     _qp_stored_is_fragment,
@@ -32,6 +34,7 @@ from fedcourtsai.pipeline.documents import (
     extract_pdf_text,
     extract_questions_presented,
     fetch_case_documents,
+    merits_entry_matched,
     questions_presented_extract,
     reset_document_fetch_losses,
     select_documents,
@@ -841,6 +844,159 @@ def test_fetch_case_documents_stores_each_merits_brief_under_its_own_kind() -> N
         KIND_PETITION,
         KIND_QUESTIONS_PRESENTED,
     ]
+
+
+# --- merits replies ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    [
+        # Real post-grant entries from cases carrying committed merits cells.
+        "Reply of petitioner Michael Salazar filed.",
+        "Reply of petitioners Winston R. Anderson, et al. filed.",
+        "Reply of petitioner Floyd Johnson filed.  (Distributed)",
+        "Reply Brief of petitioner Acme Corp. filed. (Distributed)",
+    ],
+)
+def test_select_documents_takes_the_petitioner_merits_reply(entry_text: str) -> None:
+    payload = _granted_payload(_entry("Aug 12 2026", entry_text, url="https://example/reply.pdf"))
+    refs = {r.kind: r.url for r in select_documents(payload)}
+    assert refs.get(KIND_MERITS_REPLY_PETITIONER) == "https://example/reply.pdf"
+
+
+def test_select_documents_takes_the_respondent_merits_reply() -> None:
+    payload = _granted_payload(
+        _entry(
+            "Aug 12 2026",
+            "Reply of respondent New Jersey Transit Corporation filed.  VIDED. (Distributed)",
+            url="https://example/reply.pdf",
+        )
+    )
+    refs = {r.kind: r.url for r in select_documents(payload)}
+    assert refs.get(KIND_MERITS_REPLY_RESPONDENT) == "https://example/reply.pdf"
+    assert KIND_MERITS_BRIEF_RESPONDENT not in refs
+
+
+def test_select_documents_takes_no_cert_stage_reply() -> None:
+    """The bound that matters most: a reply to the BIO is worded identically.
+
+    It is filed on a large share of all petitions, so an unbounded arm would
+    store one as merits advocacy on almost every docket the Court ever sees.
+    """
+    payload = {
+        "ProceedingsandOrder": [
+            _MERITS_PETITION_ENTRY,
+            _entry(
+                "Mar 06 2026",
+                "Reply of petitioner Michael Salazar filed.  (Distributed)",
+                url="https://example/cert-reply.pdf",
+            ),
+            _GRANT_ENTRY,
+        ]
+    }
+    refs = {r.kind for r in select_documents(payload)}
+    assert KIND_MERITS_REPLY_PETITIONER not in refs
+    assert KIND_MERITS_REPLY_RESPONDENT not in refs
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    [
+        "Reply on motion to intervene filed. (Distributed)",
+        "Reply in support of motion of Missouri, et al. to intervene filed.",
+        # The partied collateral-motion form, which the anchor does reach: left
+        # unselected so it cannot take the side's slot from its real reply.
+        "Reply of petitioners in support of motion for divided argument filed.",
+        "Reply of AT&T, Inc. and Verizon Communications Inc. filed (April 13, 2026).",
+        "Reply letter (No. 21-1596) filed.",
+        "Reply of respondent United States in support of petitioner filed.",
+    ],
+)
+def test_select_documents_reply_arms_exclude_what_is_not_a_sides_reply(entry_text: str) -> None:
+    payload = _granted_payload(_entry("Aug 12 2026", entry_text, url="https://example/x.pdf"))
+    refs = {r.kind for r in select_documents(payload)}
+    assert KIND_MERITS_REPLY_PETITIONER not in refs
+    assert KIND_MERITS_REPLY_RESPONDENT not in refs
+
+
+def test_select_documents_reply_arms_take_the_main_document_only() -> None:
+    # A reply posts its certificate of word count and proof of service beside the
+    # filing, exactly as an opening brief does.
+    payload = _granted_payload(
+        _entry(
+            "Aug 12 2026",
+            "Reply of petitioner Floyd Johnson filed.",
+            url="https://example/wordcount.pdf",
+            label="Certificate of Word Count",
+        )
+    )
+    assert KIND_MERITS_REPLY_PETITIONER not in {r.kind for r in select_documents(payload)}
+
+
+def test_fetch_case_documents_stores_the_reply_under_its_own_cap() -> None:
+    """Four merits rows, four URLs, four cap budgets — nothing pipe-joined."""
+    payload = _granted_payload(
+        _entry(
+            "Jun 01 2026", "Brief of petitioner Floyd Johnson filed.", url="https://example/pet.pdf"
+        ),
+        _entry(
+            "Jul 13 2026",
+            "Brief of respondent United States Congress filed.",
+            url="https://example/resp.pdf",
+        ),
+        _entry(
+            "Aug 12 2026",
+            "Reply of petitioner Floyd Johnson filed.  (Distributed)",
+            url="https://example/reply.pdf",
+        ),
+    )
+    served = {
+        "https://example/petition.pdf": _pdf("QUESTION PRESENTED Whether X. PARTIES TO THE Acme."),
+        "https://example/pet.pdf": _pdf("Petitioner says reverse."),
+        "https://example/resp.pdf": _pdf("Respondent says affirm."),
+        "https://example/reply.pdf": _pdf("Petitioner answers the answer."),
+    }
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            payload,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 8, 20),
+        )
+    by_kind = {d.kind: d for d in documents}
+    assert by_kind[KIND_MERITS_REPLY_PETITIONER].url == "https://example/reply.pdf"
+    assert "Petitioner answers the answer." in by_kind[KIND_MERITS_REPLY_PETITIONER].text
+    # And the reply is placed by its own filing date, so a cell taken at the
+    # respondent's brief reads the openings and not the last word.
+    assert KIND_MERITS_REPLY_PETITIONER not in {
+        d.kind for d in documents_before(list(by_kind.values()), date(2026, 7, 14))
+    }
+
+
+def test_merits_entry_matched_reads_the_entry_without_the_stage_bound() -> None:
+    """The gap scan's floor test: is the filing on the docket at all.
+
+    Text only and deliberately so — a docket whose grant cannot be dated selects
+    no merits filing however it is worded, and reading that as "the entry is
+    there, nothing fetchable came back" keeps it off the selector-blindness alarm.
+    """
+    payload = {
+        "ProceedingsandOrder": [
+            _MERITS_PETITION_ENTRY,  # no grant entry at all
+            _entry(
+                "Jun 01 2026",
+                "Brief of petitioner Floyd Johnson filed.",
+                url="https://example/pet.pdf",
+            ),
+        ]
+    }
+    assert merits_entry_matched(payload, kind=KIND_MERITS_BRIEF_PETITIONER)
+    assert not merits_entry_matched(payload, kind=KIND_MERITS_BRIEF_RESPONDENT)
+    # And a kind that opens a docket is not this reader's to answer for.
+    assert not merits_entry_matched(payload, kind=KIND_PETITION)
 
 
 # --- extraction -------------------------------------------------------------------

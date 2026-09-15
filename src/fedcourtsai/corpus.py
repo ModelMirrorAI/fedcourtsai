@@ -646,7 +646,10 @@ class CaseDocument(BaseModel):
         "cert-stage opposition, every respondent's in one row) | "
         "merits-brief-petitioner | merits-brief-respondent (each side's brief on "
         "the merits, one row per side, selected only after the cert grant) | "
-        "questions-presented | …"
+        "merits-reply-petitioner | merits-reply-respondent (each side's reply on "
+        "the merits, one row per side, on the same post-grant bound — the "
+        "cert-stage reply to a brief in opposition is spelled identically and is "
+        "not this kind) | questions-presented | …"
     )
     url: str = Field(
         description="The supremecourt.gov DocumentUrl fetched; for a combined "
