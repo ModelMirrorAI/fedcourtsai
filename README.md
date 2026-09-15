@@ -4,7 +4,7 @@
 [![lint-actions](https://github.com/ModelMirrorAI/fedcourtsai/actions/workflows/lint-actions.yml/badge.svg)](https://github.com/ModelMirrorAI/fedcourtsai/actions/workflows/lint-actions.yml)
 [![codeql](https://github.com/ModelMirrorAI/fedcourtsai/actions/workflows/codeql.yml/badge.svg)](https://github.com/ModelMirrorAI/fedcourtsai/actions/workflows/codeql.yml)
 [![Python ≥3.12](https://img.shields.io/badge/python-%E2%89%A53.12-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![License: BSD 3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
 
 Agentic AI system to predict events in US federal courts — for example,
 whether a petition for certiorari will be granted or denied, the likely vote
@@ -406,4 +406,4 @@ model-generated and are not official court records.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+BSD 3-Clause — see [LICENSE](LICENSE). Copyright (c) 2026 Model Mirror, LLC.

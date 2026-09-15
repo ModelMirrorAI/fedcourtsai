@@ -4340,3 +4340,19 @@ freeze commit is recorded here.
   maintainer reads before it: `run-repair` with `repair=document-backfill`,
   dry-run first, then an apply bounded by what that ledger's floors and arm
   split say the slice would actually recover.
+
+- **The proc-v8 instant is set to `2026-09-16T00:00:00Z` ahead of the carrying
+  promotion, 2026-09-15.** The entry above forecast `2026-09-17T00:00:00Z`,
+  guessed late as the procedure asks, and named what a cell minted inside the
+  window between the merge and the instant would cost: it carries a blessed
+  digest, fails `is_frozen`'s time limb, and is re-owed by the pre-freeze
+  re-predict rule — one event spent twice. The carrying promotion is planned for
+  2026-09-15, so the instant is brought forward to the first midnight after it:
+  at or after the merge, and before the first scheduled `run-predict` tick that
+  could mint a cohort cell (14:12 UTC on 2026-09-16). That closes the window
+  without leaning on the review hold to keep it empty. The value is still a
+  forecast: if the merge lands on or after 2026-09-16 the step-4 correction
+  moves the instant to the merge's own timestamp, never earlier than the merge.
+  Nothing counted moves — the population under the proc-v7 predictor digests is
+  empty, as the entry above records — and the bless moments are unchanged
+  placeholders for step 4.
