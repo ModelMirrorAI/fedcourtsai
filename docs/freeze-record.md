@@ -3583,16 +3583,19 @@ freeze commit is recorded here.
 
   **What creates the need.** The proc-v7 freeze replaced the predictor half of
   `FROZEN_PROCESS_DIGESTS`, which de-counts every cell stamped under the
-  retired digests. The supersession entries above treat that over cells whose
-  events have **resolved**, where what moves is a published figure. The other
-  half of the retired cohort sits on events that are still open, and there the
-  consequence is invisible until it is too late to fix: the predict backlog's
-  owed check is version-blind — a committed prediction is a committed
-  prediction — so an event holding only retired cells reads as covered, derives
-  no work, resolves, is graded, and every result is dropped from the frozen
-  board by `store.stratify`. The event is consumed for nothing. As at this
-  commit **no committed `prediction.json` in the ledger carries any blessed
-  predictor digest**, so on present state the frozen board's predictor
+  retired digests. proc-v8 is an evaluator-half re-bless and carried those
+  three predictor digests forward byte-identical, holding the instant, so the
+  enforced membership filter and the counting boundary this entry reasons
+  about are proc-v7's and unchanged. The supersession entries above treat that
+  over cells whose events have **resolved**, where what moves is a published
+  figure. The other half of the retired cohort sits on events that are still
+  open, and there the consequence is invisible until it is too late to fix:
+  the predict backlog's owed check is version-blind — a committed prediction is
+  a committed prediction — so an event holding only retired cells reads as
+  covered, derives no work, resolves, is graded, and every result is dropped
+  from the frozen board by `store.stratify`. The event is consumed for nothing.
+  As at this commit **no committed `prediction.json` in the ledger carries any
+  blessed predictor digest**, so on present state the frozen board's predictor
   population is empty and would stay empty however many events resolve.
 
   **The rule, as a cohort and not a case list.** In
@@ -3652,12 +3655,15 @@ freeze commit is recorded here.
 
   **Expected size on the state at this commit** — corpus blob pulled
   **2026-09-14** (newest pull stamp; newest stored snapshot 2026-07-13), ledger
-  at the `main` tip `86ab3dd2b`. Of 663 committed `(case, event, predictor)`
-  cells, **zero** carry a blessed digest. **223** events hold nothing but
-  retired or unstamped cells. Applying the three gates above leaves **123**
-  events at an allow-listed open moment — 110 cert/distribution (every one
-  distributed for the **2026-09-28** long conference), 10 cert/cvsg, 3
-  interim/arrival — and the salience funding gate then admits **52** of them.
+  at the `main` tip `86ab3dd2b` — the ledger the production lane derives
+  against, read before this work moved to its `staging` branch, since data
+  commits land on `main` and never ride staging. Of 663 committed
+  `(case, event, predictor)` cells, **zero** carry a blessed digest. **223**
+  events hold nothing but retired or unstamped cells. Applying the three gates
+  above leaves **123** events at an allow-listed open moment — 110
+  cert/distribution (every one distributed for the **2026-09-28** long
+  conference), 10 cert/cvsg, 3 interim/arrival — and the salience funding gate
+  then admits **52** of them.
 
   Of those 52, an uncapped read of the deriver itself (`fedcourts predict-plan`
   with the cycle and cell caps lifted, against that blob and that ledger) mints
