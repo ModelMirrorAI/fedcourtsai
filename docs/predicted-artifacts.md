@@ -91,10 +91,15 @@ fields that mean the same thing at every stage:
   against a ground truth ([salience.md](salience.md)). The prompt contracts an
   answer: the number, or an explicit `null` carrying a one-line
   `big_case_rationale` for why the cell could not place the stakes. The schema
-  keeps the field optional so records written before it existed still validate,
-  which leaves one reading rule — an **absent** field on a cell minted under the
-  contract is a cell that answered neither, and it is not the same record as a
-  declared null.
+  keeps the field optional so records written before it existed still validate.
+  **The rationale is what separates a considered no-view from silence, and the
+  null cannot.** `stamp-cell` rewrites the artifact through the model, which
+  emits every field at its default, so a score the cell omitted and a score it
+  declared null are the same bytes on a stamped record — key presence says
+  whether the cell was stamped, not what it answered. Every figure over the
+  score skips a null either way, so neither form moves a denominator; what a
+  reader can tell apart is a null **with** a rationale beside it from a null
+  without one.
 - **`reasoning_doc` / `predicted_reasoning_doc`** — the filenames of the two
   prose documents, beside this file. `validate` resolves both pointers, so a
   named document that is not there fails the cell, as does a name carrying a

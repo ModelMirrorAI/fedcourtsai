@@ -80,7 +80,9 @@ the output directory you will write to.
    a forward cell; the leakage clock on a replay cell). Never invent facts.
 5. Any provisioned **filed-document text** under `record/documents/` — for a
    live cert petition typically `questions-presented.txt` (the petition's QP
-   section), `petition.txt`, and `brief-in-opposition.txt`, with
+   section), `petition.txt`, and `brief-in-opposition.txt`; on a granted
+   docket also each side's brief on the merits, which *Stage: merits* below
+   governs; with
    `documents.json` listing what is present (pages, truncation). These are
    pipeline-fetched inputs with the same standing as the snapshot: for a cert
    prediction, anchor on the questions presented and weigh the petition against
@@ -467,13 +469,16 @@ of the requested relief**:
   - `referral-increment` — P(the application is **referred to the full Court
     after prediction time**, given it has not been already).
   - `amicus-increment` — P(the amicus count **rises past** the number your
-    record shows). **Read submissions as counting toward the rise.** The count
-    both ends resolve on takes the accepted form (an `amicus curiae` brief on
-    the docket) *and* each distinct lead filer whose brief the docket shows as
-    **submitted and not yet accepted**, deduped against the acceptance entry
-    that later names the same filer, so one brief's submitted → accepted
-    lifecycle counts once. A motion for leave to file, and a brief the Court
-    refuses, stay out. On an application docket the submitted form is often the
+    record shows). **Read submissions as counting toward the rise**, and read
+    the count as entries rather than briefs. What both ends resolve on is every
+    docket entry reciting `amicus curiae` / `amici curiae`, one per entry —
+    which takes in the occasional entry that recites the Latin without being a
+    brief, such as a motion for leave to participate in argument as amicus —
+    **plus** each distinct lead filer whose brief the docket shows as
+    **submitted** in English ("Amicus brief of X submitted.") and whom no
+    Latin-form entry names, so one brief's submitted → accepted lifecycle
+    counts once. The count never falls: a submission the Court later refuses
+    stays counted. On an application docket the submitted form is often the
     only shape a brief is seen in before the matter resolves, so forecast the
     rise over both forms rather than over acceptances alone.
 
@@ -554,13 +559,21 @@ was worth.
   each side's **brief on the merits**, stored as `merits-brief-petitioner.txt`
   and `merits-brief-respondent.txt` — one row per side, selected only from
   filings after the grant. Which of them reaches *your* desk is your moment's
-  doing, not a gap: the same date cut that bounds your snapshot bounds this
-  directory, so a `moment: grant` cell has neither brief (both postdate its
-  cutoff) while a `moment: briefed` cell has whichever were filed and fetched
-  by then — routinely both, and possibly neither on a case the pipeline has
-  not reached. So the QPs are real evidence, a merits brief on your disk is
-  real evidence and the parties' own words rather than a docket line about
-  them, and whatever advocacy is **not** there is not on your desk unless you
+  doing: the same date bound that cuts your snapshot cuts this directory, so
+  where `context.cutoff` is set a `moment: grant` cell's briefs fall outside it
+  and a `moment: briefed` cell's fall inside — routinely both, and possibly
+  neither on a case the pipeline has not reached. Read the rule rather than the
+  outcome, because a **null** `cutoff` means nothing was cut and the directory
+  is the case's latest whatever your moment. So a merits brief on a
+  `moment: grant` cell's disk is a provisioning anomaly and not evidence you
+  are owed: **disclose it in `flags.json`** (`data-quality`) and do not fold it
+  into the forecast, or the two merits moments collapse into the one the later
+  of them was declared to be. Otherwise the QPs are real evidence, a
+  provisioned merits brief is real evidence and the parties' own words rather
+  than a docket line about them — **summarize rather than reproduce**, since
+  `reasoning.md` is committed to a public ledger, so characterize a brief and
+  cite what you took from it instead of pasting its text — and whatever
+  advocacy is **not** there is not on your desk unless you
   go and get it, which your cell's mode
   governs like any other retrieval: a `forward` merits cell (the normal
   case — the judgment does not exist yet) may retrieve the merits briefs, the
@@ -742,8 +755,10 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     answer on your prediction as `context.snapshot_uptake`: `unread` where you
     named a different file, or none, while the provisioned one sat on disk,
     which also raises a harness note in your `flags.json`. It reports and does
-    not mask: nothing scored conditions on it, and the conditioning block
-    beside it is unchanged either way. But it is the only record of whether
+    not mask: no computed figure conditions on it, and the conditioning block
+    beside it is unchanged either way. It does reach your evaluator, which is
+    shown it on the blinded copy and may read it as conduct. And it is the
+    only record of whether
     your forecast was formed from the baseline every predictor in this fan-out
     shares, so name the file you actually opened.
   - `granted` (1/0), `probability` (P(granted), 0–1), `predicted_disposition`
@@ -770,8 +785,8 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     voted. Leave `writing` out unless you are forecasting it: `none` is a claim
     that the Justice writes nothing, not a way of saying you did not consider it.
     `confidence` — optional 0–1.
-  - `big_case_score` (**required**, 0–1 or `null`) — your pre-registered opinion
-    of the case's
+  - `big_case_score` (**required**, 0–1 or `null`) — your pre-registered
+    opinion of the case's
     **stakes / significance / newsworthiness**, i.e. *how big is this case if
     decided* — **explicitly not** grant likelihood. A case can be denied yet
     high-stakes and closely watched, or granted yet narrow and technical; score
@@ -779,13 +794,14 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     leakage rule as the grant call (the questions presented, the posture, the
     parties — never post-hoc press coverage). **Write the number, or write
     `null` with a one-line reason in `big_case_rationale` saying why you could
-    not place the stakes** — silence is not an option. Omitting the field
-    altogether records no view where one was asked for, and on the ledger it is
-    indistinguishable from a cell that never considered the question; a
-    declared `null` says you considered it and could not answer. On the number
-    branch `big_case_rationale` is optional and worth a line where it helps a
-    reader place the score. It is judged later by an independent evaluator's
-    agreement with its own read, never against a ground truth.
+    not place the stakes** — silence is not an option, and the rationale is
+    what makes the null an answer rather than a shrug: the harness writes an
+    omitted field back as `null`, so a bare null and a field you never wrote
+    are the same bytes in the ledger, and only the line beside it records that
+    you took up the question. On the number branch `big_case_rationale` is
+    optional and worth a line where it helps a reader place the score. It is
+    judged later by an independent evaluator's agreement with its own read,
+    never against a ground truth.
   - `claims` — the **harness-declared claim set** for this event, one
     `{claim_id, probability}` entry per declared claim. The harness declares
     the set (`fedcourtsai.pipeline.claims`); you state a probability for every

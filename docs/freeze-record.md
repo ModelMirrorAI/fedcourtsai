@@ -3995,14 +3995,24 @@ freeze commit is recorded here.
      provisioned over a case carrying these rows, and it points the cell at
      retrieval for material already on its disk". The prompt told a merits cell
      that "any provisioned `record/documents/` text is cert-stage"; it now
-     names `merits-brief-petitioner.txt` and `merits-brief-respondent.txt`,
-     says which moment sees them — the date cut that bounds the snapshot bounds
-     the directory, so a `moment: grant` cell has neither and a
-     `moment: briefed` cell has whichever were filed and fetched — and asks the
-     cell to name the provisioned briefs it read in `reasoning.md`. That
-     discharges the ordering constraint the same entry set: this freeze
-     promotes before the first briefed-moment cell over a case holding
-     provisioned merits briefs.
+     names `merits-brief-petitioner.txt` and `merits-brief-respondent.txt` and
+     says which moment sees them: where `context.cutoff` is set, the date bound
+     that cuts the snapshot cuts the directory, so a `moment: grant` cell's
+     briefs fall outside it and a `moment: briefed` cell's fall inside. It
+     states the **rule** rather than that outcome, because `moment_cutoff`
+     returns null for an event row carrying no `opened_at` and an uncut
+     directory is then the case's latest whatever the moment — so the
+     amendment adds a refusal the old sentence had no need of: a merits brief
+     on a `moment: grant` cell's disk is a provisioning anomaly, to be
+     disclosed in `flags.json` (`data-quality`) and kept out of the forecast,
+     or the two merits moments collapse into the one the later of them was
+     declared to be. It asks the cell to name the provisioned briefs it read in
+     `reasoning.md`, and to **summarize rather than reproduce** them, since that
+     prose is committed to a public ledger — a republication constraint
+     [data-sources.md](data-sources.md) now carries in the same terms as the
+     questions-presented text beside it. That discharges the ordering
+     constraint the same entry set: this freeze promotes before the first
+     briefed-moment cell over a case holding provisioned merits briefs.
   4. **The amicus elicitation clause**, which the entry *The interim amicus
      reading widens to submissions, and the resolution count takes an
      end-of-day cut, 2026-09-10* registered as deliberately deferred: "the
@@ -4013,14 +4023,21 @@ freeze commit is recorded here.
      move all three predictor digests and force a re-bless; the digests stay
      put and the elicitation stays slightly coarser than the resolver, which is
      registered here rather than left silent." The re-bless is due for other
-     reasons now, so the coarseness closes at no extra cost: the
-     `amicus-increment` bullet states that the count both ends resolve on takes
-     the accepted form *and* each distinct lead filer whose brief the docket
-     shows as submitted and not yet accepted, deduped against the later
-     acceptance, with a motion for leave and a refused brief out. **Exactly
-     that gap and no more.** The other half of that entry — the resolution
-     end's end-of-day cut, and the positional-arm asymmetry it creates — is not
-     an elicitation coarseness and stays where it is registered.
+     reasons now, so the coarseness closes at no extra cost. The
+     `amicus-increment` bullet now states the count both ends resolve on, as
+     `interim_signals.amicus_briefs` actually computes it: every docket
+     **entry** reciting `amic(us|i) curiae`, one per entry and therefore
+     including an entry that recites the Latin without being a brief, plus each
+     distinct lead filer whose brief the docket shows as submitted in English
+     and whom no Latin-form entry names — and the monotonicity that follows
+     from the corpus column's max-latch, that a submission the Court later
+     refuses stays counted. That last clause is worth naming, because the
+     record sentence this amendment is discharging is looser than the resolver
+     on exactly that point, and a looser sentence in a *record* becomes a wrong
+     contract once a scored claim resolves against it. **Exactly that gap and
+     no more.** The other half of that entry — the resolution end's end-of-day
+     cut, and the positional-arm asymmetry it creates — is not an elicitation
+     coarseness and stays where it is registered.
 
   Nothing else in the prompt moves: no restructuring and no re-ordering, and
   the cert-stage spine, the claim sets, the retrieval doctrine and the leakage
@@ -4037,16 +4054,18 @@ freeze commit is recorded here.
   without moving a process version. It is recorded here because it reaches the
   same cells as the amendments above and is therefore part of what the first
   proc-v8 predictions were produced under, not because it is a boundary of its
-  own.
+  own. [data-sources.md](data-sources.md)'s republication paragraph moves with
+  amendment 3 on the same footing: it is the written model catching up to a
+  document class the provisioner already staged, and it moves no digest either.
 
   **The digests, before and after.** The three **predictor** digests move; the
   three **evaluator** digests do not:
 
   | actor | retired (proc-v7's, carried into proc-v8's evaluator half) | blessed here |
   | --- | --- | --- |
-  | claude-baseline | `sha256:930e02ae18…` | `sha256:4e9b005971…` |
-  | codex-baseline | `sha256:c57113fae8…` | `sha256:e2d19b7b57…` |
-  | gemini-baseline | `sha256:4edc5ac58c…` | `sha256:4e11ff6c08…` |
+  | claude-baseline | `sha256:930e02ae18…` | `sha256:b89df0c6d7…` |
+  | codex-baseline | `sha256:c57113fae8…` | `sha256:bfd8489590…` |
+  | gemini-baseline | `sha256:4edc5ac58c…` | `sha256:c28fa7ac37…` |
 
   The evaluator digests stay `sha256:fbc0e9c364…` (claude-judge),
   `sha256:9670e1c147…` (codex-judge) and `sha256:dbdc906476…` (gemini-judge):
@@ -4067,7 +4086,31 @@ freeze commit is recorded here.
   as step 2 asks, and `run-predict`'s review hold is what keeps the window
   between the merge and the instant empty in practice — no cell spends until a
   maintainer releases it, so a run released inside that window is a choice
-  rather than an accident.
+  rather than an accident. What that choice costs is worth stating plainly,
+  because it is not merely a few uncounted cells: a cell minted in the window
+  carries a blessed digest and still fails `is_frozen`'s time limb, so the
+  pre-freeze re-predict rule registered in the entry immediately above re-owes
+  it on its gate-3 second limb and the round is paid for twice — on this cohort
+  that is the whole ~$820 of it.
+
+  **Two things the move does that this label's predecessor entry did not
+  anticipate, recorded because an append-only record must name the claims it
+  falsifies rather than leave two entries disagreeing.** First, the move is
+  total in both halves, as [process-version.md](process-version.md) says a
+  predictor-half re-bless is: the instant independently drops every evaluation
+  stamped before it through `graded_post_freeze`, blessed evaluator digest or
+  not. The 19 evaluations the entry two above registered as *"every one stamped
+  at or after the instant, so every one passes `graded_post_freeze`"* are
+  stamped 2026-09-14 and 2026-09-08, inside `[2026-09-07, 2026-09-17)`, so
+  every one of them now fails it. Their counted census stays **0** — the
+  predictions they grade carry no blessed digest, and the committed leaderboard
+  is 0/0 — so no published figure moves; what moves is the reading, and this is
+  where it is dated. Second, that entry registers as `prereg/proc-v8`'s *only*
+  auditor's check that "the predictor digests under `prereg/proc-v8` must equal
+  `prereg/proc-v7`'s". Under this commit that comparison fails by design, so it
+  is **retired**: the audit for the tag is the ordinary step-4 date comparison
+  stated above, and an auditor running the byte comparison is running a check
+  this entry superseded before the tag was minted.
 
   **The move costs nothing, and the census says so rather than the argument.**
   A predictor-half re-bless is the third supersession shape — the only one that
@@ -4081,10 +4124,22 @@ freeze commit is recorded here.
   `metrics/leaderboard.json` committed at this commit settles it independently
   — `evaluations_total: 0`, `events_scored: 0`.
 
+  That census is a fact about **this commit**, and the window to the carrying
+  promotion is live: a `run-predict` tick released into it mints cells under
+  the retired predictor digests, which the promotion then de-counts. So the
+  claim above is stated conditionally rather than as a standing one, and this
+  entry is dated before any of those cells' outcomes are observable, which is
+  what lets it serve as the prospective **shakedown declaration** for whatever
+  that window mints: any cell stamped under a retired predictor digest between
+  this commit and the carrying merge is declared shakedown here, before its
+  event resolves, and the label whose cells are the counted record is proc-v8.
+  The promotion-time re-run of step 0 below is what says whether that arm is
+  empty or populated; either way no boundary is drawn after an outcome.
+
   **Step 0, at authoring.** Against `origin/main` at `61e1bfee6`, the per-digest
   grep over `data/cases` returns **0** for each of the three newly blessed
-  predictor digests (`sha256:4e9b005971…`, `sha256:e2d19b7b57…`,
-  `sha256:4e11ff6c08…`), which is the precondition rather than a note — a
+  predictor digests (`sha256:b89df0c6d7…`, `sha256:bfd8489590…`,
+  `sha256:c28fa7ac37…`), which is the precondition rather than a note — a
   prediction carrying one would be retroactive blessing by construction and
   would redden the ledger tripwire. The same grep returns **0** for each of the
   three retired proc-v7 predictor digests (`sha256:930e02ae18…`,
@@ -4132,6 +4187,22 @@ freeze commit is recorded here.
   case holds them. Neither is a skill claim, and the second inherits the
   expected-skill corollary the 2026-09-10 selector entry registered — a rise
   across that boundary may not be read as a model improvement.
+
+  **Three elicitation boundaries this creates, and the pooling each refuses.**
+  The evaluator half two entries above registered its rubric boundary the same
+  way, and symmetry asks for it here. (a) `amicus-increment` is elicited
+  against a stated count where it was elicited against an unstated one, so
+  before and after answer different targets: a Brier or calibration series over
+  that claim may not pool across this boundary. (b) `big_case_score` coverage
+  moves, which changes **which cases** enter the rank agreement rather than
+  changing any score, so a tau-b read across the boundary is a correlation over
+  two populations and not a trend. (c) `snapshot_uptake` was elicited from
+  cells never told the comparison existed; the harness's definition is
+  unchanged either side, but the elicitation is not, so an `unread` rate may
+  not be pooled across it. The exposure of all three is bounded to the
+  `--all-versions` views and the claim-score boards, because the frozen boards
+  hold no predictor cells at all — which is the same reason the de-count above
+  costs nothing, read from the other end.
 
   **The effect check, for the promotion carrying this.** `uv run fedcourts
   process-digest --all` at the merge prints `proc-v8` and exactly the six

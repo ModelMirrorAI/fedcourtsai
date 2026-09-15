@@ -1049,16 +1049,19 @@ class Prediction(_Strict):
         "(a case can be denied yet high-stakes, or granted yet narrow). 0-1; judged "
         "later by an independent evaluator's agreement, never against a ground truth. "
         "The prompt contracts a number or an explicit null carrying a one-line "
-        "`big_case_rationale`, so an absent field is a cell that answered neither; the "
-        "schema stays permissive (defaults None) because records written before the "
-        "field existed still validate. See docs/salience.md.",
+        "`big_case_rationale`; the rationale is what separates a considered no-view "
+        "from silence, since `stamp-cell` rewrites the record through this model and an "
+        "omitted score lands as the same null. The schema stays permissive (defaults "
+        "None) because records written before the field existed still validate. See "
+        "docs/salience.md.",
     )
     big_case_rationale: str | None = Field(
         default=None,
         max_length=500,
         description="One-line rationale for `big_case_score`: required by the prompt "
-        "contract where that score is an explicit null, optional beside a number, and "
-        "null if none",
+        "contract where that score is an explicit null — it is the only thing that "
+        "distinguishes a considered no-view from a cell that answered nothing — "
+        "optional beside a number, and null if none",
     )
     reasoning_doc: str = Field(
         default="reasoning.md",

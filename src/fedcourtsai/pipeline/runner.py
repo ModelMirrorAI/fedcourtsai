@@ -176,7 +176,10 @@ def _input_snapshot(request: RunRequest) -> str:
     the predictor reads it; the stub names that same path so its
     ``input_snapshot`` matches the shape of a real prediction. Rendered relative
     to the data root's parent (typically repo-relative, e.g. ``data/cases/...``)
-    when possible, else as an absolute path.
+    when possible, else as an absolute path — the ledger's commonest spelling
+    rather than the bare basename the prompt now contracts, deliberately: this
+    is the harness naming a file it resolved, not an agent answering a prompt
+    it never read, and both reduce to the same day under ``stamp-cell``.
 
     The day comes from the **provisioned context** where one is beside the case,
     and only falls back to the run id's own date where none is. The two are not

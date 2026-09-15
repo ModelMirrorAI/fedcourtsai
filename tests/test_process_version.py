@@ -405,6 +405,15 @@ def test_a_full_freeze_orders_the_instant_after_every_bless_it_carries() -> None
     the git comparison it asks for cannot run here, but an instant left behind
     the bless moment the maintainer wrote in can, and that is the slip that
     would count cells against a commitment still editable when they ran.
+
+    Two limits, stated rather than left to be discovered. On a map whose
+    entries are all equal this overlaps its neighbour above, which bounds the
+    predictor entries by the same instant — the coverage it adds is the
+    evaluator half, which that one does not reach. And it is deliberately
+    blind where the map holds more than one moment: it cannot tell a
+    carried-forward predictor half from a step-4 correction that reached some
+    entries and not others, so a straggler is caught by the aware/not-in-the-
+    future guard in the coupling test rather than here.
     """
     since = process_version.FROZEN_SINCE
     moments = set(process_version.FROZEN_PROCESS_DIGESTS.values())

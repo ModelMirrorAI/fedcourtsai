@@ -2720,10 +2720,29 @@ def test_a_cells_three_engines_are_handed_the_same_kickoff() -> None:
             if i in _engine_step_indices(steps)
         }
         assert len(kickoffs) == 3, f"{name}: expected three engine steps, got {sorted(kickoffs)}"
+        for step_name, text in kickoffs.items():
+            # Non-vacuity: a renamed input would leave three absent kickoffs,
+            # which are equal to each other and prove nothing. The identifier
+            # block is what makes each one a cell contract at all.
+            assert "COURT_ID=" in text, (
+                f"{name}: {step_name} carries no identifier block — the kickoff is "
+                "absent or has moved to another key, and comparing three of those "
+                "would pass having compared nothing"
+            )
         assert len(set(kickoffs.values())) == 1, (
             f"{name}: the three engine steps carry different kickoff text — "
             f"{ {k: len(v) for k, v in kickoffs.items()} }; an edit reached some "
             "engines and not others, and no digest would show it"
+        )
+        # The record directory is the predict cell's contract alone: an
+        # evaluate cell's staged inputs are not one directory, and the local
+        # runner's mirror branches on exactly this. Pinned per workflow so the
+        # YAML cannot drop the line while the Python-side test stays green.
+        names_record = "record/" in next(iter(kickoffs.values()))
+        assert names_record == (name == "run-predict.yml"), (
+            f"{name}: the kickoff {'names' if names_record else 'does not name'} the "
+            "case-level record directory; that line belongs to the predict cell and "
+            "to no other"
         )
 
 

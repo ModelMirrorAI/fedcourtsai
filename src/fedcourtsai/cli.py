@@ -9559,8 +9559,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     the corpus-split mode) — and write it where the agent reads it (a gitignored
     ``record/`` path, never committed). Any stored filed-document text (petition,
     questions presented, the cert-stage brief in opposition, each side's brief on
-    the merits once the petition is granted, and on an application docket the
-    application itself — fetched pipeline-side by the live poller) is
+    the merits once the petition is granted, and the application itself wherever
+    one was filed — fetched pipeline-side by the live poller) is
     materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest, so the cell reads identical content with no
     fetch rights.
