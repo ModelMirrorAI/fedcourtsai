@@ -1245,9 +1245,10 @@ math; this doc owns the default and the knob's semantics.
 
 ## The big-case score (a pre-registered stakes opinion)
 
-A field on `prediction.json` — `big_case_score` (0–1) plus a one-line
-`big_case_rationale` — capturing the predictor's view of the case's **stakes /
-importance / newsworthiness, decoupled from grant likelihood**. Define it as
+A field on `prediction.json` — `big_case_score` (0–1, or an explicit `null`)
+with a one-line `big_case_rationale` beside it — capturing the predictor's view
+of the case's **stakes / importance / newsworthiness, decoupled from grant
+likelihood**. Define it as
 *significance if decided*: a case can be denied yet high-stakes and closely
 watched, or granted yet narrow and technical, so the score carries information
 beyond `probability` rather than shadowing it.
