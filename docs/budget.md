@@ -213,9 +213,9 @@ funding gate does not narrow that set** — the rule is a second admission groun
 at the gate's cohort-completion narrowing, because a wholly retired cohort is
 re-minted for every engine at once — so the bill spans salience-declined cases
 too, and on a docket where most petitions sit in the baseline band that is the
-larger part of it. What the gate still bounds is the *rate*: the drain is
-`salience.sweep_cases_per_cycle` cases a tick, so a larger cohort buys more
-ticks rather than a bigger run. `fedcourts
+larger part of it. What still bounds the *rate* is the per-cycle case cap
+(`salience.sweep_cases_per_cycle`, which the scheduled derivation borrows), not
+the funding gate: a larger cohort buys more ticks rather than a bigger run. `fedcourts
 predict-plan` counts exactly that set as `reowed_pre_freeze_cells` before any
 spend, and each freeze-record entry registering such a rule states the cohort's
 size and dollar estimate on the state at its commit.

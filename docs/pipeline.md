@@ -1523,21 +1523,32 @@ mint one blessed cell beside de-counted rivals.
 The rule also **widens the funding gate**, and that is the one place it reaches
 work the salience round declined. A case neither selection nor the merits bypass
 funds reaches the derivation only on the cohort-completion ground, whose
-narrowing keeps the events a claimable board already counts; the rule is a
-second ground at that narrowing, admitting an event whose whole cohort a
-re-bless retired. The reason is the comparability argument the narrowing itself
-rests on: what it refuses is a *partial* completion, one blessed cell beside
-siblings that will never be counted, and a wholly retired cohort is re-minted
-for every engine at once. Without the arm a re-bless re-predicts only the funded
-half of the forward cohort, and the rest is graded on resolution and dropped
-from the frozen board — the state the rule exists to repair, left standing on
-the larger half. The widening reaches the re-predict cohort and nothing else: an
-event no predictor has forecast is not re-owed, so a declined case earns no new
-cells on its other events and the selection itself does not move
-([salience.md](salience.md) carries both bounds). The same arm is stated at the
-`predict-matrix`/`predict-plan` scope backstop, which reads the deriver's own
-`reopen_events` — a case list parsed from a trigger body carries none, so a
-hand-written body cannot reach it.
+narrowing keeps the events a claimable board already counts. That narrowing
+governs the never-predicted arm alone: the re-predict rule is asked over the
+case's **whole** forecastable set, so an event whose cohort a re-bless retired
+is re-owed on a declined case as on a funded one. The reason is the
+comparability argument the narrowing itself rests on: what it refuses is a
+*partial* completion, one blessed cell beside siblings that will never be
+counted, and a wholly retired cohort is re-minted for every engine at once.
+Without this a re-bless re-predicts only the funded half of the forward cohort,
+and the rest is graded on resolution and dropped from the frozen board — the
+state the rule exists to repair, left standing on the larger half.
+
+The widening is bounded by the rule and reaches no further. An event no
+predictor has forecast is not re-owed, so no *event* the funding gate declined
+is opened and the selection itself does not move
+([salience.md](salience.md) carries both bounds). At the **cell** grain a
+re-owed event does complete: an engine holding nothing on it is minted a first
+cell, since the already-predicted skip never drops such an engine — that is the
+completeness the rule is justified by, and it changes no priority, because a
+declined case admitted only by the rule still sorts behind every
+never-predicted one. The same fact is stated as an `or`-arm at the
+`predict-matrix`/`predict-plan` scope backstop, which cannot ask the corpus
+itself and so reads the deriver's own `reopen_events` — a case list parsed from
+a trigger body carries none, so a hand-written body cannot reach it. The live
+channel's **selection sweep** is not widened — it has no channel for that
+licence either (*Holding predict is lossless* below) — so these cells arrive on
+the scheduled round.
 
 Old cells are never edited:
 provisioning stages the newest run per predictor, so a re-predict **supersedes**
@@ -2377,9 +2388,10 @@ bounds has one exception, and it lives at the **scheduled** predict backlog's
 seam rather than this one: the pre-freeze re-predict rule re-owes a wholly
 retired cohort, because it is re-minted for every engine at once and so
 completes rather than manufactures a comparison (*The predict/evaluate matrix*
-above). This sweep does not apply it — the rule needs the version-aware ledger
-read the deriver makes — so a re-bless's re-predicts arrive on the scheduled
-round, not on the live cycle. What a number off a
+above). This sweep does not apply it, and the reason is a channel rather than
+a capability: the rule's licence travels as the backlog deriver's own
+`reopen_events`, which this seam neither reads nor writes. So a re-bless's
+re-predicts arrive on the scheduled round, not on the live cycle. What a number off a
 completed cohort does and does not support is in
 [salience.md](salience.md). The per-cell owed check also
 honors `predict.max_attempts_per_cell` via the ledger-derived failure facts

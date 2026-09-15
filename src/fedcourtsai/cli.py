@@ -11046,9 +11046,10 @@ def _cohort_narrowing_reason(data_root: Path, court: str, docket: int, event_id:
     if event_has_predictions(data_root, court, docket, event_id):
         return (
             "narrowed away on a salience-deferred case kept for cohort completion: this "
-            "event's whole cohort sits outside the frozen process scope and the pre-freeze "
-            "re-predict rule does not re-owe it, so a freshly stamped cell would not "
-            "complete a comparison but leave a board an event scored on one engine alone."
+            "event's whole cohort sits outside the frozen process scope and the request "
+            "carries no pre-freeze re-predict licence for it, so a freshly stamped cell "
+            "would not complete a comparison but leave a board an event scored on one "
+            "engine alone."
         )
     return (
         "narrowed away on a salience-deferred case kept for cohort completion: no committed "

@@ -56,18 +56,24 @@ eventually graded was produced under a blessed process. Two readings this does
 moves, and `superseded_gradings` is untouched. And a rise in any figure across
 the re-predict boundary is **not** a measurement of model improvement — the two
 sides are different processes on different information sets, which is the whole
-reason the partition exists. Nor is the resulting board a sample of the docket:
-the first frozen cert population is **one conference's still-forward
-retired-cohort set, n = 110 cert/distribution events, all distributed for
-2026-09-28** (70 baseline, 37 elevated, 1 high, 1 federal, 1 state), with 10
-cert/cvsg (all high band) and 2 interim events beside it. It spans bands — the
-salience funding line does not cut it, because the re-predict rule re-owes a
-wholly retired cohort on a declined case too — but spanning bands is not the
-same as being a sample: it is one conference, and the always-deny floor a figure
-is read against is the band's, so it is reported on the **per-band cut** and
-never as a pooled row, its high band is n = 1 on the cert arm, and it does not
-pool with any `"all"`-scope board. That sentence travels with the number rather
-than sitting a section away, because it is the number's population.
+reason the partition exists. Nor is the resulting board a sample of the docket
+or even of its own conference: the first frozen cert population is **n = 110
+cert/distribution events, all distributed for 2026-09-28** (70 baseline, 37
+elevated, 1 high, 1 federal, 1 state), with 10 cert/cvsg (all high band) and 2
+interim events beside it. It spans bands — the salience funding line does not
+cut it, because the re-predict rule re-owes a wholly retired cohort on a
+declined case too — but it is **110 of the 180 in-scope petitions** distributed
+for that conference (557 distributed in all), being the previously-predicted
+residue of earlier funded rounds, and so is selected **upward on band**: 63.6%
+baseline against the in-scope conference's 76.7%. Read it on the **per-band
+cut**, never as a pooled row, against the registered sal-v4 segment base rates —
+always-deny floors of 94.98% baseline / 83.11% elevated / 64.49% high / 29.21%
+federal / 76.37% state, the risk-set family the evaluator scores skill against
+(`metrics/statpack.md`'s *Segment base rate by salience band*, not its terminal
+composition table). Its high band is **n = 1 on cert/distribution and n = 10 on
+cert/cvsg**, which do not pool with each other, and none of it pools with any
+`"all"`-scope board. That paragraph travels with the number rather than sitting
+a section away, because it is the number's population.
 
 And a third reading the boundary does not license: **a cohort complete on the
 board is not the same as a cohort complete in fact.** The rule's moment gate

@@ -1309,7 +1309,11 @@ def test_a_declined_case_earns_nothing_on_an_event_the_rule_does_not_re_owe(
     predictor has forecast is not re-owed — the rule's ledger gate is false with no
     runs at all — so a declined case admitted for its retired cohort still earns no
     brand-new spend on its other events, and the salience selection itself does not
-    move."""
+    move.
+
+    The second event is the register's **declared** CVSG moment, which the rule
+    allows unconditionally: an entry-pinned or undeclared id would be refused at
+    gate 2 and the ledger gate this test exists for would never be asked."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _open_case(
@@ -1320,8 +1324,23 @@ def test_a_declined_case_earns_nothing_on_an_event_the_rule_does_not_re_owe(
         selected=False,
         conference=FUTURE_CONFERENCE,
     )
-    # A second open event on the same declined case, carrying no cohort at all.
-    _open_case(db, "scotus", 1, event_id="evt-petition-cvsg", selected=False)
+    # A second open event on the same declined case, at an allow-listed moment,
+    # carrying no cohort at all.
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=CVSG_EVENT,
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.cert,
+                    title="CVSG",
+                    resolved=False,
+                )
+            ],
+        )
 
     assert _backlog(db, data).case_ids == (), "declined, nothing retired: not a candidate"
 
@@ -1329,6 +1348,44 @@ def test_a_declined_case_earns_nothing_on_an_event_the_rule_does_not_re_owe(
     entry = _backlog(db, data).entries[0]
     assert entry.events == (BASELINE_EVENT,), "the never-predicted event stays out"
     assert entry.reopened == (BASELINE_EVENT,)
+
+
+def test_a_declined_case_whose_re_owed_event_also_misses_an_engine_still_orders_last(
+    tmp_path: Path,
+) -> None:
+    """The widening moves no priority even in the mixed state. A declined case whose
+    re-owed event *also* misses an engine entirely — what a quota-failed engine
+    leaves behind — is still work the funding gate declined, so it follows every
+    case owed a never-predicted cell and gives way first under the cap. The missing
+    engine is minted all the same: the fan-out's already-predicted skip never drops
+    an engine holding nothing, so the cohort completes without the case being
+    promoted."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    missing, *retired = [p.id for p in enabled_predictors(PREDICTORS)]
+    _open_case(
+        db,
+        "scotus",
+        1,
+        event_id=BASELINE_EVENT,
+        selected=False,
+        conference=FUTURE_CONFERENCE,
+        polled_on=FRESH - timedelta(days=2),
+    )
+    for predictor_id in retired:
+        seed_prediction(data, "scotus", 1, BASELINE_EVENT, predictor_id=predictor_id)
+    _open_case(db, "scotus", 2, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+
+    assert _derive(db, data) == ("scotus/2", "scotus/1")
+    assert _derive(db, data, cap=1) == ("scotus/2",), "the declined case still gives way"
+
+    entry = next(e for e in _backlog(db, data).entries if e.case_id == "scotus/1")
+    assert entry.reopened == (BASELINE_EVENT,)
+    case = CaseRequest("scotus", 1, entry.events, reopen_events=entry.reopened)
+    minted = predict_matrix(PREDICTORS, [case], "RID", data)["include"]
+    assert {cell["predictor_id"] for cell in minted} == {missing, *retired}, (
+        "every engine on the event, so the re-minted cohort is complete"
+    )
 
 
 def test_a_declined_case_re_owed_only_by_the_rule_orders_behind_never_predicted_work(
