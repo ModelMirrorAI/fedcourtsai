@@ -1157,11 +1157,9 @@ driver #1), and other small fixed items — the qp-topic labeler's occasional
 dispatch (driver #1) rides inside the buffer too, and so does the
 `qp-labeler-smoke` integration leg: dispatch-only, five synthetic rows at the
 labeler's default tier, cents a run. The `codex-freeze-probe` family rides
-here too, and costs less: every member that runs a real turn sends the canary's
+here too: each of its two members sends the canary's
 own codex boot probe — one one-word turn under the probe's own codex block — so its
-per-dispatch spend is the codex row of the canary table below, ≈$0.18; the
-nosudo member is refused before the model call and spends nothing, and the
-other five sit at that ceiling whichever is selected. They are dispatched when
+per-dispatch spend is the codex row of the canary table below, ≈$0.18. They are dispatched when
 the runner question is being worked
 rather than on any cadence. A deliberate buffer over
 the actual items; its defining property is that it **does not scale** with

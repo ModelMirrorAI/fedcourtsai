@@ -98,7 +98,8 @@ That infrastructure has a dedicated path:
 dispatch plus one daily canary, read-only role — collect binds no environment
 and no role at all, and the labeler smoke binds an environment but assumes no
 role — side-effect
-free but for the application-repro leg's watchdog telemetry row) runs one
+free but for the application-repro leg's and the freeze probe's watchdog
+telemetry rows) runs one
 scenario per dispatch, or — `scenario=all` — the
 promotion gate's whole required suite as one run (every required scenario, with
 engine-smoke and engine-actions-smoke once per engine each, so three cells'
@@ -290,26 +291,9 @@ avoids running the agent's own workspace Python with the engine key in its
 environment, so replicating it here would invert the control it exists to be.
 Neither whole-suite selection fans it out.
 
-The repro family's watchdog deadline is also the discriminator lever: the
-`repro_deadline_s` dispatch input lowers that one leg's deadline — and
-nothing else's, the cell workflows' deadlines being untouched literals — so
-an experiment can set it below the 58-64-minute death window and read which
-of three worlds it lands in: a fired deadline whose job then survives (the
-watchdog lives; the runner-local diagnostics finally escape), a deadline
-that never fires (the watchdog process itself dies early), or a fired
-deadline whose runner dies anyway (the death is job-clock-tied, not the
-engine's). Its sibling control is **`runner-idle-control`**: a token-free
-standalone job that waits eight minutes, arms the same off-runner record,
-idles on across the window with no agent anywhere near the runner, and
-disarms — the wait is what puts the telemetry token's one-hour life over
-the whole 58-64-minute window, so a beat gap there is a death and never
-the token expiring. A
-runner that dies idle reframes the class at the infrastructure, and one
-that survives pins it to the codex workload and leaves its per-beat
-resource trajectory as a run artifact.
-
-**`codex-freeze-probe`** is the control's opposite number: it arms the same
-off-runner record around ONE trivial codex turn — the boot probe's one-word
+**`codex-freeze-probe`** arms the cells' own off-runner record mechanism — the
+comment-only telemetry channel, on the bound environment's own issue — around
+ONE trivial codex turn — the boot probe's one-word
 prompt under the family's base-turn block, which keeps `drop-sudo` to reproduce
 the wedge, so what it spends is a boot probe — and reads what the beat trail
 does while a sandbox lives and after it exits. The design constraint it answers is that every runner-local witness
@@ -337,110 +321,35 @@ the body is ever echoed or executed. It is
 dispatch-only, out of the promotion gate's required set, and neither
 whole-suite selection fans it out.
 
-The probe is a family of six scenario values over one job, each holding one
-thing still while varying the next, and all of them carry a second instrument
+The probe is a family of two scenario values over one job, varying
+`safety-strategy` alone, and both carry a second instrument
 the trail cannot supply: a step-progress stamp written into the step summary
 after the turn and its margin. A wedge fails no step — the runner stops
 executing steps at all and the job is cancelled at its `timeout-minutes` with
 the turn green and nothing after it — so the stamp's presence says the runner
 was still running steps, and its absence under a timed-out job with a green
 turn is the wedge itself, read off the run page with no on-runner witness
-needed. **`codex-freeze-probe`** is the armed shape above.
-**`codex-freeze-probe-unwatched`** runs the same turn and the same margins
-with the mint, the arm and the disarm all skipped, so no telemetry call of any
-kind happens and no watchdog process exists; it gives up the beat trail to buy
-the one thing the trail cannot say, whether the watchdog is the pathogen or
-another victim.
-**`codex-freeze-probe-smokeconfig`** is armed and drops the post-exit margin,
-matching the assert-and-end timing the suite's own codex actions-smoke leg has
-after its turn. It varies exactly that idle time from the base
-`codex-freeze-probe` while running the family's base-turn block, so it isolates
-whether the post-exit margin is load-bearing for the beat-trail measurement —
-it takes the half of the idle that follows the sandbox. It does not share the
-actions-smoke leg's invocation: that leg runs the cells' `unprivileged-user`
-block, while this member, like the rest of the family's base turn, keeps
-`drop-sudo` to reproduce the wedge. The two-minute baseline idle
-*before* the turn stays, because the beats it buys are what make a later gap a
-change rather than a watchdog that never beat at all: the member is the
-smoke's shape after the turn, not the smoke leg reproduced end to end. Its
-beat trail is correspondingly short, and `tail` and `resumed` say nothing on
-it; the step-progress stamp is that member's verdict.
+needed. **`codex-freeze-probe`** is the armed shape above, and the family's
+positive control: its turn keeps `drop-sudo`, the strategy whose account and
+socket drop `openai/codex-action`'s own docs call irreversible and say must be
+a job's last step — the base probe runs it mid-job, which is the mutation the
+wedge follows. Its turn is a separate step held out of the cross-surface codex
+lockstep pin — one of two exemptions, with the `unprivuser` turn — while the
+pin keeps enforcing the cells' block on every real invocation: both cell steps
+and the suite's own repro and actions-smoke codex legs.
 
-**`codex-freeze-probe-autopsy`** is unwatched like the second member, and is
-the only one that asks *what* the wedge is rather than *whether* it happened.
-The other five read it from outside, off the run page; this one reads the
-machine from inside, in the seconds after the turn exits while the sandbox's
-residue is still there. It works because a step's log streams as the step runs
-— the wedge stops what would come next and retracts nothing already sent — so
-the dump is many SHORT steps rather than one long one, each flushing before
-the next begins, every command inside them `timeout`-bounded and fail-soft.
-What it takes: the whole-machine process forest with `wchan` and `stat`
-columns, a `cgroup.freeze` survey across the cgroup tree and the user slice's
-`systemd-cgls`, logind sessions and the per-user manager, the kernel log, and
-the namespace/packet-filter/socket census. The kernel log needs a tap opened
-*before* the turn, because the base probe turn's `drop-sudo` safety strategy takes sudo
-away for the rest of the job: a detached `dmesg --follow` started while sudo
-still exists writes messages into a runner-local file across the turn and into
-the fuse window, and the later steps read that file with no privilege.
-
-Reading one of its runs, top to bottom on the run page:
-
-- every diagnostic step whose log is **there** ran before the wedge, and what
-  it printed is the pre-wedge state of the machine;
-- the ticking clock's **last printed second is the wedge** — it prints a
-  stamp, the frozen-cgroup list and any new kernel lines, sleeps fifteen
-  seconds, prints again, and the sleep that never returns is where the log
-  stops;
-- a step that never **started** is post-wedge, and its absence is a reading
-  rather than a hole in the instrument.
-
-The escape caveat is why the clock is bounded at twelve ticks: on a runner
-image with no fuse the member simply completes, green, in about twelve
-minutes, and the dumps read as a clean baseline. A green autopsy says the
-machine it ran on does not wedge — not that the dump found nothing. It prints
-system state and never secrets: no environment dump, no process environs, and
-no workspace, config or credential file — the only files it opens are kernel
-pseudo-files and its own kernel-log capture. Every command line it prints is
-trimmed to 200 columns and passed through a token-shaped redaction, because
-this sweep crosses uids and lands in a public step log where the watchdog's
-own capture stays inside one uid and rides an uploaded bundle.
-
-**`codex-freeze-probe-nosudo`** is the negative control for the refusal that
-retired the family's first approach to this isolation. It is the base member's
-shape exactly — armed, with the same margins — differing in ONE field: its
-codex turn runs `safety-strategy: read-only` instead of `drop-sudo`. The
-confirmed cause of the wedge is `drop-sudo` itself:
-`openai/codex-action`'s own docs call its account and socket drop irreversible
-and say it must be a job's last step, and the base probe turn runs it mid-job.
-`read-only` drops nothing from the runner user's account or sockets, which
-would isolate that mutation — but `read-only` does not compose with a
-permission profile: the action refuses the pair, because that strategy forces
-the legacy read-only sandbox, so this member's turn starts no real session at
-all, the sandbox-started assertion finds no rollout, and the run is void. The
-real-session version of the isolation is the `unprivuser` member below; this
-member stands as the negative control. Its turn is a separate step held out of
-the cross-surface codex lockstep pin — one of three exemptions (the base
-`turn`, this one, and the `unprivuser` turn) — while the pin keeps enforcing
-the cells' block on every real member. The one posture delta is that its turn
-runs with the runner user's sudo intact rather than dropped; on a throwaway,
-dispatch-only probe runner that assumes no role, reads no corpus, launches a
-token-free sidecar and sends a fixed no-tool prompt, that is bounded and
-acceptable — and the production cells run `unprivileged-user`, the posture this
-family isolates, not `drop-sudo`.
-
-**`codex-freeze-probe-unprivuser`** is that isolation done with a genuine
+**`codex-freeze-probe-unprivuser`** varies that strategy with a genuine
 session, and it runs the same posture the production cells run. It runs the
 base member's turn under `safety-strategy: unprivileged-user` with a
 `codex-user`, so codex builds and tears down its real profile sandbox —
 network, disk writes, a rollout — but as a SEPARATE unprivileged account the
 setup step provisions, which leaves the runner user's sudo, sockets and groups
-wholly intact. That is the one axis it isolates: unlike `read-only`,
-`unprivileged-user` composes with the permission profile, so the sandbox
-lifecycle the production cells run actually happens; and unlike `drop-sudo`,
+wholly intact. That is the one axis it isolates: the sandbox lifecycle the
+production cells run happens in full, while
 the runner account is never mutated. Read it simply: a wedge that still follows
 the turn implicates the sandbox teardown, while a clean run implicates the
 account drop `drop-sudo` performs — the clean run this member and the cells
-both run. Its turn is one of the three lockstep exemptions — it varies
+both run. Its turn is the other lockstep exemption — it varies
 `safety-strategy` and adds `codex-user`. It sets no `CODEX_HOME` (neither the
 input nor a `CODEX_HOME` env is set, so the action derives that user's own
 `~/.codex`); setting it would misdirect the config and rollout, because the
@@ -525,8 +434,12 @@ the summary carries the note — but the **bundle** is still the primary evidenc
 because the off-runner lines are best-effort and a suspension long enough to
 matter has often outlived the telemetry credential's hour. No marker of an
 action was written, and none should have been. The bundle rides the
-run's artifact whichever way the leg went; the rollout's item shapes are
-distilled where the watchdog acted. The leg reports **two halves separately**, because
+run's artifact whichever way the leg went, and it is this leg's whole account
+of a hang: the rollout stays on the runner, because item shapes are the
+`engine-smoke` codex leg's instrument — what they certify is that the
+retrieval parser still recognizes the shapes a real transcript carries, which
+is a question about the parser rather than about the reap path this leg
+presents. The leg reports **two halves separately**, because
 the finding is that they can disagree: `outputs:` counts the cell's produced
 files against the same `cell-outputs` list the watchdog's sentinel waits on, and
 `step:` says whether it concluded on its own, was reaped by the watchdog, or did

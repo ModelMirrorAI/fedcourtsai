@@ -521,7 +521,6 @@ def test_the_collect_scenario_is_partitioned_from_the_environment_bound_job() ->
         assert workflow["jobs"][job_id]["if"] == (
             "${{ github.event_name == 'schedule' || (inputs.scenario != 'collect' "
             "&& inputs.scenario != 'qp-labeler-smoke' "
-            "&& inputs.scenario != 'runner-idle-control' "
             "&& !startsWith(inputs.scenario, 'codex-freeze-probe')) }}"
         )
     assert workflow["jobs"]["scenario"]["needs"] in ("plan", ["plan"])
