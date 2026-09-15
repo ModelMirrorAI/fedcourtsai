@@ -166,7 +166,7 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
 # re-predict rule re-owes it and the round is paid for twice. `run-predict`'s
 # review hold is the mitigation: no cell spends until a maintainer releases
 # one, so the window stays empty by decision rather than by luck.
-FROZEN_SINCE: datetime | None = datetime(2026, 9, 17, 0, 0, 0, tzinfo=UTC)
+FROZEN_SINCE: datetime | None = datetime(2026, 9, 16, 0, 0, 0, tzinfo=UTC)
 
 # The retrieval surface each engine's cells run with. Folded into the digest
 # because it is a process input as much as the model or the prompt: a cell that
