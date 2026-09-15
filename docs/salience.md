@@ -1046,7 +1046,12 @@ poison-pilled cohort is not swept either.
 The **spend bound** is the first: only the case's already-predicted events are
 queued. Finishing a cohort buys the missing engines on a case the project already
 funded, while the case's *untouched* open events would be new cells on a case the
-gate declined. This half mirrors the evaluate backlog's reading of the same gate
+gate declined. "Missing" spans two readings at the engine grain: an engine with
+no cell on the event, and — where a predictor-half re-bless has put its cells
+outside the frozen process scope — an engine owed a re-forecast under the
+blessed process, which the predict backlog's pre-freeze re-predict rule
+(*The predict/evaluate matrix* in [pipeline.md](pipeline.md)) derives from this
+narrowing's output and so can only shrink, never widen. This half mirrors the evaluate backlog's reading of the same gate
 (a prediction on a since-deferred case must still be graded): selection funds
 forecasts, and it does not un-fund one already made. The mirror reaches the
 funding question and stops there — grading scores a fixed artifact, while cohort

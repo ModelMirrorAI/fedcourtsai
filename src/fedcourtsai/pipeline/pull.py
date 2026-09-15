@@ -697,9 +697,6 @@ class PredictBacklog:
     stage's own schedule, which reads the committed record and derives its fan-out
     from it.
 
-    ``day`` is the date the derivation ran under, carried so a reader can say
-    which day's debounce stamps it filtered on.
-
     The two **hold** counts are the derivation's other output, and they are
     counted over the *owed* population alone — a candidate is only counted as
     held if, but for the hold, it would have produced an entry. That is what
@@ -834,10 +831,22 @@ def _reowed_pre_freeze_events(
 ) -> list[str]:
     """Which of ``events`` are owed a cell again because their cohort is retired.
 
-    The pre-freeze re-predict rule, applied to the events the never-predicted
-    arm left (the caller passes only those, so the two arms cannot both claim an
-    event and the ordering between them is well defined). Three gates, each
-    answering a different question, and an event must pass all three:
+    The pre-freeze re-predict rule. Applied to the case's **whole** admitted
+    event list, deliberately overlapping the never-predicted arm rather than
+    taking what it left: an event can carry both a predictor that never
+    forecast it and predictors whose only cells are retired, and that is
+    precisely the state a run leaves when one engine quota-fails before a
+    re-bless. Handing this only the leftovers would mint the missing engine,
+    stamp it blessed, and leave its rivals de-counted — a **one-engine frozen
+    cohort**, the exact shape
+    :func:`fedcourtsai.store.event_has_claimable_prediction` exists to refuse
+    and the inverse of the completeness this rule is justified by. So the arms
+    overlap at the event grain and stay disjoint at the cell grain, which is
+    where it matters: a predictor with no cell is the never-predicted arm's,
+    one whose cells are all retired is this one's, and no predictor is both.
+
+    Three gates, each answering a different question, and an event must pass
+    all three:
 
     1. **Genuinely forward.** :func:`fedcourtsai.store.forward_refusal_reason_from_parts`
        — the record-side forward gate the fan-out itself applies, reused rather
@@ -850,7 +859,8 @@ def _reowed_pre_freeze_events(
        ledger, and a "forward" cell minted on it is a replay in forward
        clothing.
     2. **The moment is still open.** :func:`_reopenable_moment` —
-       :data:`REPREDICT_MOMENTS` plus the past-conference refusal.
+       :data:`REPREDICT_MOMENTS`, plus the refusal of a distribution event that
+       carries no conference still ahead.
     3. **Every existing cell is retired, for at least one predictor.**
        :func:`fedcourtsai.store.predictor_holds_only_retired_predictions`, under
        the same per-cell attempt cap the never-predicted arm takes. A predictor
@@ -864,15 +874,19 @@ def _reowed_pre_freeze_events(
     events reach here exactly as they did before. This rule re-opens events the
     project already paid for; it opens none it declined.
     """
-    if not events:
+    # The moment filter runs first and alone, because it needs only the row and
+    # the register while both gates after it read a store: without this every
+    # candidate would pay a `events_for_case` query to have all its events
+    # refused for being merits, cert/arrival, or entry-pinned — which is the
+    # common case, not the rare one.
+    reopenable = [event_id for event_id in events if _reopenable_moment(event_id, row, day=day)]
+    if not reopenable:
         return []
     case_events = corpus.events_for_case(conn, row.case_id)
     court, docket_str = row.case_id.split("/", 1)
     docket = int(docket_str)
     reowed: list[str] = []
-    for event_id in events:
-        if not _reopenable_moment(event_id, row, day=day):
-            continue
+    for event_id in reopenable:
         refusal = forward_refusal_reason_from_parts(
             data_root, court, docket, event_id, case_events, row
         )
@@ -1072,9 +1086,14 @@ def derive_predict_backlog(
         # cap is full of never-predicted work, because until then a later
         # candidate may still carry some and must be reached. What the filled
         # budget stops is the re-predict evaluation: past it a candidate is
-        # examined for never-predicted cells alone — the same work this loop did
-        # before the rule existed — so walking on costs no more than the old
-        # break saved.
+        # examined for never-predicted cells alone, which is the work this loop
+        # already did per candidate. The cost is real and worth naming: once the
+        # budget fills with re-owed work the walk runs to the end of the
+        # candidate list rather than stopping, paying one `forecastable_event_ids`
+        # query and the per-cell ledger globs on each remaining candidate. That
+        # is the price of not starving the ordinary backlog, and it is bounded
+        # by the candidate set, which the funding and cohort filters already cut
+        # to a few hundred rows.
         budget_full = len(entries) + len(reowed_only) >= cap
         if budget_full and len(entries) >= cap:
             cap_reached = True
@@ -1120,6 +1139,11 @@ def derive_predict_backlog(
                 for pid in predictor_ids
             )
         ]
+        # The whole admitted list, not what `owed` left: an event can be owed a
+        # never-predicted cell for one engine and a re-predict for another, and
+        # minting only the first would build a one-engine frozen cohort. See
+        # `_reowed_pre_freeze_events` — the arms overlap per event and stay
+        # disjoint per cell.
         reowed = (
             []
             if budget_full
@@ -1127,7 +1151,7 @@ def derive_predict_backlog(
                 conn,
                 data_root,
                 row,
-                events=[event_id for event_id in events if event_id not in owed],
+                events=events,
                 predictor_ids=predictor_ids,
                 max_attempts=max_attempts,
                 day=day,
@@ -1164,15 +1188,17 @@ def derive_predict_backlog(
             # an application form has no document route at all.
             held_unswept += 1
             continue
-        # Never-predicted events lead the list, re-owed ones follow, so a
-        # downstream reader that truncates an event list keeps the ordinary
-        # backlog first — the same priority the two entry lists give at the
-        # case grain.
+        # Never-predicted events lead the list, events re-owed and nothing else
+        # follow, so a downstream reader that truncates an event list keeps the
+        # ordinary backlog first — the same priority the two entry lists give at
+        # the case grain. An event in both arms is already in `owed` and is not
+        # repeated; `reopened` still names it, since the licence it carries is
+        # read per cell and its retired engines need it.
         entry = BacklogEntry(
             case_id=row.case_id,
             court=court,
             docket=docket,
-            events=tuple(owed) + tuple(reowed),
+            events=tuple(owed) + tuple(e for e in reowed if e not in owed),
             reopened=tuple(reowed),
         )
         if owed:
@@ -1192,7 +1218,8 @@ def derive_predict_backlog(
         # what gives way, at both ends of the loop: a filled budget stops new
         # re-owed cases being admitted, and a never-predicted case found
         # afterwards displaces the stalest-last re-owed one. So the rule cannot
-        # starve the ordinary backlog.
+        # starve the ordinary backlog. The slice is defence, not logic: the loop
+        # invariant already holds the two lists to `cap` between them.
         entries=tuple(entries + reowed_only)[:cap],
         day=day,
         held_stale=held_stale,

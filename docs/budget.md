@@ -199,6 +199,20 @@ both mint. Re-forecasting a changed posture is available as a deliberate change
 (`skip_predicted=False`); its multiplier is above 1.46, because the funded
 population is the relist-selected slice rather than the docket-wide mean.
 
+**Except across a predictor-half re-bless, where a relist does cost inference.**
+The drop above is version-blind; the backlog deriver's **pre-freeze re-predict
+rule** is not. A relist mints a fresh future conference, which re-opens the
+distribution moment — so a petition whose committed cells all sit outside the
+frozen process scope is re-owed one cell per such engine, automatically, from
+committed state (*The predict/evaluate matrix* in
+[pipeline.md](pipeline.md)). That is a third route to a re-forecast beside the
+two above and the only one no one asks for, so it is the one to price: after a
+re-bless, budget a full three-engine fan-out over every still-forward event at
+a still-open moment whose cohort the re-bless retired, not zero. `fedcourts
+predict-plan` counts exactly that set as `reowed_pre_freeze_cells` before any
+spend, and each freeze-record entry registering such a rule states the cohort's
+size and dollar estimate on the state at its commit.
+
 ## Cost drivers
 
 ### 1. Model usage (the dominant cost)

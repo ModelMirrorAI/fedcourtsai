@@ -40,8 +40,8 @@ diagnostic view, never a results surface.
 registered rule.** A predictor may hold several committed runs on one event —
 a re-queue after a failed cell, or a deliberate re-forecast — and the board
 reads exactly one of them: the run the grading evaluation's harness-stamped
-`prediction_run_id` names, falling back to the predictor's **newest** run for
-records stamped before that field existed. So the staged and scored cell is the
+`prediction_run_id` names, falling back to the predictor's **newest** run where
+that field is absent or the run it names is not on disk. So the staged and scored cell is the
 newest one, and an earlier run is history that no figure counts twice.
 
 That matters because a predictor-half re-bless de-counts every cell stamped

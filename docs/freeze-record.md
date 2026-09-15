@@ -3613,14 +3613,24 @@ freeze commit is recorded here.
      with unrestricted retrieval over an answer already public.
   2. Its **declared moment is still open** — `pull.REPREDICT_MOMENTS`, a table
      of `(stage, moment)` pairs: cert/distribution, cert/cvsg, and the three
-     interim moments. A cert/distribution event is additionally refused when
-     its `distributed_for_conference` is in the past, because that cell
-     forecasts the conference the petition is distributed for and once the
-     conference is behind us a new cell answers a different question.
-  3. **Every** committed prediction that predictor holds on the event carries a
-     digest outside `FROZEN_PROCESS_DIGESTS`, an unstamped cell included. A
-     predictor already holding a blessed cell is not re-owed one, so a
-     partly-blessed cohort re-mints only its retired half.
+     interim moments. A cert/distribution event is additionally refused unless
+     it carries a `distributed_for_conference` still ahead — a past one because
+     that cell forecasts the conference the petition is distributed for and
+     once the conference is behind us a new cell answers a different question;
+     an absent one because the distribution moment has not happened at all,
+     which is the information-set precondition the fan-out's own
+     premature-cell refusal applies.
+  3. **Every** committed prediction that predictor holds on the event is
+     outside the frozen process scope —
+     `store.predictor_holds_only_retired_predictions`, which asks `is_frozen`,
+     so *both* of its limbs count: a digest outside
+     `FROZEN_PROCESS_DIGESTS`, and a blessed digest stamped before
+     `FROZEN_SINCE`. An unstamped cell is outside on the first. A predictor
+     already holding a cell inside the scope is not re-owed one, so a
+     partly-blessed cohort re-mints only its retired half — and an event
+     carrying both a predictor with no cell at all and predictors whose cells
+     are all retired is owed cells on **both** grounds, so a run can never mint
+     one blessed cell beside de-counted rivals.
 
   Every existing gate still decides which events reach the rule: `predict_excluded`,
   the predict-scope rules, the salience funding gate with its cohort-completion
@@ -3636,14 +3646,19 @@ freeze commit is recorded here.
   but a forecast of a different one, and only the original cell ever observed
   it. *merits/grant* and *merits/briefed* are excluded on funding, not on
   correctness: their moments stay genuinely open, so the rule would apply, but
-  they are spend now for a board population a Term away. The exclusion is one
-  table row in `REPREDICT_MOMENTS`, and adding either pair is the whole change
-  needed to take them. *Undeclared events* — entry-pinned motions, legacy
+  they are spend now for a board population a Term away. The exclusion is the
+  absence of their two rows from `REPREDICT_MOMENTS`, and adding the pairs
+  `(merits, grant)` and `(merits, briefed)` there is the whole change needed to
+  take them. *Undeclared events* — entry-pinned motions, legacy
   baseline ids — are excluded because the register cannot place them in a
-  cohort. *Salience-deferred cases* are excluded by the existing
-  cohort-completion narrowing, which keeps only events a claimable board
-  already counts; a wholly retired cohort is not one, so the rule reaches only
-  events the project's funding gate had already paid for.
+  cohort. On a *salience-deferred case* the existing cohort-completion
+  narrowing decides, and it excludes precisely that case's **wholly retired**
+  events, since it keeps only events a claimable board already counts. It does
+  not exclude the case: a deferred case's event that already holds one blessed
+  cell is claimable, survives the narrowing, and is then re-owed for the
+  predictors whose own cells are all retired — the partly-blessed reading of
+  gate 3, applied to a case the funding gate declined but this event it had
+  already paid for.
 
   **Old cells are retained, unedited.** A re-predict writes a new run
   directory beside the old one. Nothing edits, moves or deletes the retired
@@ -3670,13 +3685,22 @@ freeze commit is recorded here.
   **41 events on 41 cases = 123 cells** today — **29** cert/distribution, **10**
   cert/cvsg, **2** interim/arrival — at an estimated **$278.39**, priced at the
   per-(seam, engine) rates in [budget.md](budget.md) ($4.27 + $1.88 + $0.64 =
-  $6.79 an event across the three engines). The remaining **11** are held, not
-  excluded: **1** by the record-freshness bound and **10** by the
-  provisioning-attempted bound, each clearing as the live rotation and run-pull
-  reach the case. The same derivation carries **12** never-predicted events (36
-  cells, $81.48) which are ordinary backlog and not this rule's doing; the whole
-  owed set is 50 cases, and the `salience.sweep_cases_per_cycle` cap of 25 cases
-  a cycle spreads it over two of the twice-daily ticks.
+  $6.79 an event across the three engines). That is the **whole-run** rate,
+  whose measured fan-out was 11 merits events of 27, and merits runs about
+  $1.2 an event above cert; this cohort is 39 cert and 2 interim events and no
+  merits at all, so the figure reads **high** — budget.md's cert-first-
+  distribution row is $6.66 and its 137-event pre-freeze cert-distribution
+  reference $5.57, which bracket the honest range at roughly $230-275. The
+  $278.39 is quoted because it is what `predict-plan` prints, and the plan is
+  deliberately not conditioned on the forecast moment.
+
+  The remaining **11** are held, not excluded: **1** by the record-freshness
+  bound and **10** by the provisioning-attempted bound, each clearing as the
+  live rotation and run-pull reach the case. The same derivation carries
+  **12** never-predicted events (36 cells, $81.48) which are ordinary backlog
+  and not this rule's doing; the whole owed set is 50 cases, and the
+  `salience.sweep_cases_per_cycle` cap of 25 cases a cycle spreads it over two
+  of the twice-daily ticks.
 
   The **71** events the funding gate declines are **not** in the cohort, and are
   stated here so their absence is on the record rather than inferred. They sit

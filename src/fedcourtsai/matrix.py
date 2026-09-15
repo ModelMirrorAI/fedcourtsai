@@ -66,10 +66,14 @@ class CaseRequest:
     every enabled predictor; evaluate ignores it (an evaluator scores every
     committed prediction for its event).
 
-    ``reopen_events`` is a **subset of** ``events`` the predict backlog deriver
-    admitted on the pre-freeze re-predict ground: still-forward events at a
+    ``reopen_events`` is, as the predict backlog deriver builds it, a subset of
+    ``events``: those admitted on the pre-freeze re-predict ground — still-forward events at a
     still-open moment whose committed cohort a re-bless has retired
-    (:func:`fedcourtsai.pipeline.pull.derive_predict_backlog`). Listing one
+    (:func:`fedcourtsai.pipeline.pull.derive_predict_backlog`). A later
+    narrowing of ``events`` does not prune it, so the containment is the
+    deriver's guarantee rather than a standing invariant of the class; nothing
+    depends on it, because the field is only ever consulted for an event
+    :func:`predict_matrix` is already iterating. Listing one
     lifts :func:`predict_matrix`'s already-predicted skip for it — and only for
     the predictors that hold no blessed cell on it, which the matrix decides
     for itself from the ledger, so a partly-blessed cohort re-mints only the

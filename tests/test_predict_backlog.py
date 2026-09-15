@@ -1325,3 +1325,78 @@ def test_the_plan_reports_re_owed_cells_in_their_own_bucket(tmp_path: Path) -> N
     assert {r["event_id"] for r in plan["reowed_pre_freeze"]} == {BASELINE_EVENT}
     assert "retired process digest" in plan["reowed_pre_freeze"][0]["reason"]
     assert "RE-OWED under the pre-freeze rule" in _flat(result.stderr)
+
+
+def test_an_event_with_one_missing_engine_and_two_retired_ones_re_owes_both_arms(
+    tmp_path: Path,
+) -> None:
+    """The two arms overlap per event and stay disjoint per cell. This is the state
+    a run leaves when one engine quota-fails before a re-bless, and taking only the
+    never-predicted arm would mint that engine, stamp it blessed, and leave its
+    rivals de-counted — a one-engine frozen cohort, which is the very shape the
+    cohort-completion bound exists to refuse."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+    predictors = [p.id for p in enabled_predictors(PREDICTORS)]
+    missing, *retired = predictors
+    for predictor_id in retired:
+        seed_prediction(data, "scotus", 1, BASELINE_EVENT, predictor_id=predictor_id)
+
+    entry = _backlog(db, data).entries[0]
+    # The event is owed on both grounds, and is listed once.
+    assert entry.events == (BASELINE_EVENT,)
+    assert entry.reopened == (BASELINE_EVENT,)
+
+    # And the fan-out mints every engine: the missing one because it has no
+    # cell, the other two because theirs are out of frozen scope.
+    case = CaseRequest("scotus", 1, entry.events, reopen_events=entry.reopened)
+    minted = predict_matrix(PREDICTORS, [case], "RID", data)["include"]
+    assert {cell["predictor_id"] for cell in minted} == {missing, *retired}
+
+
+def test_a_distribution_event_with_no_conference_at_all_is_not_re_owed(tmp_path: Path) -> None:
+    """The distribution moment has not happened, so there is no cell of it to
+    re-mint — the same information-set precondition the fan-out's own premature-cell
+    refusal applies. Only the live channel parses that column, so this is the limb
+    most likely to decide real yield."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=None)
+    _retired_cohort(data, 1)
+
+    assert _backlog(db, data).case_ids == ()
+
+
+def test_an_undeclared_event_is_not_re_owed_however_retired_its_cohort(tmp_path: Path) -> None:
+    """The register cannot place an entry-pinned or legacy event in a cohort, so
+    the rule leaves it alone rather than guessing one. The rule ADDS admissions to
+    a version-blind backlog, so an event it cannot classify is refused."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    # `EVENT` is this module's undeclared baseline id: `moments.spec_for` has no
+    # row for it, which is exactly the case under test.
+    _open_case(db, "scotus", 1, event_id=EVENT, conference=FUTURE_CONFERENCE)
+    _retired_cohort(data, 1, event_id=EVENT)
+
+    assert _backlog(db, data).case_ids == ()
+
+
+def test_cap_reached_is_set_when_the_budget_fills_with_re_owed_work(tmp_path: Path) -> None:
+    """The cap's second stopping shape. The walk no longer breaks outright once the
+    budget is full of re-owed cases — it keeps looking for never-predicted work —
+    but it stops evaluating re-predict grounds, so the counts past that point are
+    censored and the flag has to say so."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    for docket in (1, 2):
+        _open_case(db, "scotus", docket, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+        _retired_cohort(data, docket)
+
+    uncapped = _backlog(db, data)
+    assert uncapped.case_ids == ("scotus/1", "scotus/2")
+    assert not uncapped.cap_reached
+
+    capped = _backlog(db, data, cap=1)
+    assert capped.case_ids == ("scotus/1",)
+    assert capped.cap_reached

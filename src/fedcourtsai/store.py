@@ -749,7 +749,19 @@ def predictor_holds_only_retired_predictions(
 
     An **unstamped** cell counts as retired, exactly as :func:`is_frozen` reads
     it: the shakedown ledger carries no digest, and a digest is what membership
-    is keyed on.
+    is keyed on — and so does a blessed digest stamped *before*
+    :data:`FROZEN_SINCE`, since :func:`is_frozen` gates on the counting instant
+    as well as the digest. Retired here means "out of frozen scope", not
+    "carrying a retired digest".
+
+    What this reading deliberately does **not** repair: a predictor holding a
+    blessed cell at an older run and a retired one at its latest. ``stratify``
+    reads the latest and drops the cell; this reads every run and declines to
+    re-owe it, so the event stays out of the board. That asymmetry is the price
+    of the choice above and not an oversight — the state needs a retired run
+    committed *after* a blessed one, which the lanes do not produce — and
+    closing it by keying on the latest run would reopen the case that choice
+    exists to refuse.
     """
     if FROZEN_SINCE is None:
         return False
