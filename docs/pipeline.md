@@ -1595,6 +1595,26 @@ cells is attributable from the Actions UI — and the unprovisioned arm ends its
 step red under `continue-on-error` on purpose, since it is an anomaly worth a
 visible mark where the forward gate's refusal is a designed outcome.
 
+That gate stops a cell **running** without a snapshot. Its post-agent twin
+catches the other shape: a cell that was handed one and never opened it. The
+predictor stamp copies the provisioned conditioning onto `prediction.json`,
+which asserts the forecast was formed from that snapshot, and the cell's own
+`input_snapshot` is the only place the assertion can be checked — so
+`stamp-cell` compares the two, both sides normalized to the provisioned file's
+day so the several spellings the field carries all read as agreement.
+Disagreement is **masked, not refused**: the block is still stamped, with
+`context.snapshot_uptake` `unread`, `signals_observable` false, and every signal
+the payload would have disclosed cleared, so the claims that read the snapshot
+resolve to unavailable and the evaluator scores against the terminal band. The
+cell stays `ready`, is committed, and is scoreable on everything else — and the
+stamp appends a `warning` to its `flags.json`, so the disagreement rides the
+cell's artifact into the run PR body, the Actions summary, and the
+agent-feedback issue rather than living only in the artifact. Refusing instead
+would buy nothing: a non-zero exit here reddens the cell job but changes no
+recorded outcome — `Record cell status` still runs, `validate` requires no
+stamp, and the cell lands `ready` regardless — while landing it *unstamped*,
+which is the one state in which an agent-authored `context` block survives.
+
 The predict prompt still tells a forward cell it may find itself without a
 provisioned snapshot and should then predict from priors and base rates with a
 `flags.json` note. That branch is unreachable — the workflow refuses such a cell

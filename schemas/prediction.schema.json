@@ -96,7 +96,7 @@
     },
     "PredictionContext": {
       "additionalProperties": false,
-      "description": "The conditioning state a predict cell actually ran against.\n\n**Harness-owned.** Written by ``provision-snapshot`` and copied onto the\nprediction by ``stamp-cell``, exactly like ``process_version`` and\n``usage.json`` \u2014 never the agent's word. That matters here more than\nelsewhere: ``input_snapshot`` is the agent's own string and is written four\ndifferent ways across the committed set, with some cells naming no path at\nall, so it cannot carry a scoring input.\n\nIt exists because the salience band moves. ``distribution_count`` is\nmax-latched and a ``cvsg_date``, once set, stays set, so a petition's band\nonly ever strengthens \u2014 and a band re-derived at evaluation is the band the\npetition *ended* at, not the one the cell faced. Scoring against that\nconditions a forecast's baseline on its own future. Freezing the band here is\nwhat lets the evaluator read the risk-set rate\n(``StatPackTermSegment.prefix_est_grant_rate``), which is the rate a petition\nat this band actually faces.\n\nDerived from the **provisioned snapshot payload**, not from the corpus row.\nThe row holds current values; the payload is what the cell could read, which\nis the thing a baseline has to be conditioned on. It also makes the record\nreproducible \u2014 an auditor re-parses the dated snapshot and recovers the same\nband \u2014 and makes forward and replay cells identical by construction, since\nboth go through the same derivation.",
+      "description": "The conditioning state a predict cell actually ran against.\n\n**Harness-owned.** Written by ``provision-snapshot`` and copied onto the\nprediction by ``stamp-cell``, exactly like ``process_version`` and\n``usage.json`` \u2014 never the agent's word. That matters here more than\nelsewhere: ``input_snapshot`` is the agent's own string and is written\nseveral ways across the committed set, with some cells naming no path at\nall, so it cannot carry a scoring input.\n\nThe agent's string is not *nothing*, though: it is the cell's own account of\nwhich snapshot it read, and where it disagrees with the file the harness\nprovisioned, the two describe different information sets. ``stamp-cell``\ncompares them \u2014 both sides normalized to the provisioned file's day \u2014 and\nrecords the answer in ``snapshot_uptake``. A cell that never opened its\nsnapshot is stamped with the signals below cleared, so this block keeps its\ncontract of describing what the cell actually ran against rather than what\nit was handed.\n\nIt exists because the salience band moves. ``distribution_count`` is\nmax-latched and a ``cvsg_date``, once set, stays set, so a petition's band\nonly ever strengthens \u2014 and a band re-derived at evaluation is the band the\npetition *ended* at, not the one the cell faced. Scoring against that\nconditions a forecast's baseline on its own future. Freezing the band here is\nwhat lets the evaluator read the risk-set rate\n(``StatPackTermSegment.prefix_est_grant_rate``), which is the rate a petition\nat this band actually faces.\n\nDerived from the **provisioned snapshot payload**, not from the corpus row.\nThe row holds current values; the payload is what the cell could read, which\nis the thing a baseline has to be conditioned on. It also makes the record\nreproducible \u2014 an auditor re-parses the dated snapshot and recovers the same\nband \u2014 and makes forward and replay cells identical by construction, since\nboth go through the same derivation.",
       "properties": {
         "amicus_briefs": {
           "anyOf": [
@@ -262,12 +262,12 @@
           "type": "string"
         },
         "signals_observable": {
-          "description": "Whether the payload disclosed a proceedings list at all. False means the docket-progress signals below are UNOBSERVABLE from what the cell saw, not that they are zero \u2014 a redacted replay snapshot drops the proceedings wholesale, and reading that absence as 'never distributed' would invent a fact",
+          "description": "Whether the docket-progress signals below were observable to this cell. False means UNOBSERVABLE from what the cell saw, not that they are zero \u2014 reading that absence as 'never distributed' would invent a fact. Two things put it false, and `snapshot_uptake` is what separates them: the provisioned payload disclosed no proceedings list at all (a redacted replay snapshot drops them wholesale), or the cell never opened the payload, which discloses nothing to it either",
           "title": "Signals Observable",
           "type": "boolean"
         },
         "snapshot_date": {
-          "description": "Date of the provisioned snapshot the cell read",
+          "description": "Date of the snapshot the harness provisioned for this cell, and the day its file is named for. Whether the cell went on to read it is `snapshot_uptake`, not this field",
           "format": "date",
           "title": "Snapshot Date",
           "type": "string"
@@ -283,6 +283,23 @@
           ],
           "title": "Snapshot Provenance",
           "type": "string"
+        },
+        "snapshot_uptake": {
+          "anyOf": [
+            {
+              "enum": [
+                "read",
+                "unread"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the cell's own `input_snapshot` named the snapshot the harness provisioned. Judged by `stamp-cell`, which normalizes both sides to the provisioned file's day, so the several spellings the field carries across the committed set all read as agreement. 'read' is agreement. 'unread' is a cell that reported no snapshot, or named a different one, while the provisioned file sat on disk \u2014 its forecast was formed without the baseline every predictor is supposed to share, so `signals_observable` is forced false and every signal below is cleared, and this block goes on describing the information set the cell actually had. Null where the stamp could not judge: a record stamped before the comparison existed, or a context with no provisioned snapshot file beside it to compare against. It is what keeps the two reasons for an unobservable cell separable \u2014 a payload that disclosed no proceedings against a payload the cell never opened \u2014 which a figure pooling them would lose",
+          "title": "Snapshot Uptake"
         },
         "term": {
           "anyOf": [
@@ -484,7 +501,7 @@
         }
       ],
       "default": null,
-      "description": "The conditioning state this cell ran against, frozen at provisioning. Harness-written like process_version \u2014 anything an agent puts here is overwritten. Absent on predictions written before the block existed, and on any cell that ran without a provisioned snapshot \u2014 a state run-predict refuses outright, so on that path only older records carry the gap."
+      "description": "The conditioning state this cell ran against, frozen at provisioning. Harness-written like process_version \u2014 anything an agent puts here is overwritten. Absent on predictions written before the block existed, and on any cell that ran without a provisioned snapshot \u2014 a state run-predict refuses outright, so on that path only older records carry the gap. A cell that WAS provisioned one and never read it keeps the block: the stamp masks it and says so in `snapshot_uptake`, which is the honest record and not a gap."
     },
     "created_at": {
       "format": "date-time",
@@ -506,7 +523,7 @@
       "type": "integer"
     },
     "input_snapshot": {
-      "description": "Repo-relative path to the snapshot used as input",
+      "description": "Which provisioned snapshot the cell read, spelled as that file's basename \u2014 `YYYY-MM-DD.json` \u2014 or the literal `missing` where the cell found none. The agent's own word, and the committed ledger carries older spellings (repo-rooted and `record/`-relative paths, the bare day, other sentinels), so validation accepts any string: the ledger is the ledger. Nothing scored conditions on it; `stamp-cell` compares it against the provisioned file \u2014 both sides normalized to that file's day, so a spelling variant is agreement \u2014 and records the answer in `context.snapshot_uptake`.",
       "title": "Input Snapshot",
       "type": "string"
     },

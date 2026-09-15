@@ -208,6 +208,21 @@ a basis is only readable beside the version it was banded under. An evaluate cel
 scores every predictor, so the evaluator stamp covers all of its
 `evaluation.json`.
 
+**On a predictor cell the stamp also judges its own copy.** The `context` block
+it writes is the provisioned conditioning, which asserts the forecast was formed
+from the provisioned snapshot; the cell's `input_snapshot` is the only record of
+whether it was. Where the two disagree — both normalized to the provisioned
+file's day — the block is stamped masked rather than whole
+(`context.snapshot_uptake` `unread`, `signals_observable` false, the signals
+cleared), with a `flags.json` note beside it. This moves no digest and needs no
+re-blessing: the cell's prompt, registry and information set are untouched, and
+the correction is to the *record* of that information set rather than to the
+process. It carries its own data-visible boundary, too — `snapshot_uptake` is
+non-null exactly on cells stamped under a harness that judged it — so the
+masked cells are separable in the ledger rather than pooled silently with cells
+whose payload genuinely disclosed no proceedings, which is the property the
+scoring baseline above lacks.
+
 **On an evaluate cell the stamp runs after un-aliasing, and the order is not
 interchangeable.** The stamp joins each evaluation to the prediction it scored on
 the `predictor_id` field, so under a blind-grading alias the join simply misses

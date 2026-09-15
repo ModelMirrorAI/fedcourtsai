@@ -271,6 +271,7 @@ from .required_checks import produced_contexts
 from .salience_replay import replay_gate
 from .schemas import (
     EXPORTABLE_MODELS,
+    AgentFlag,
     AgentFlags,
     AgentToolingFeedback,
     Backtest,
@@ -287,6 +288,8 @@ from .schemas import (
     Disposition,
     Engine,
     Evaluation,
+    FlagCategory,
+    FlagSeverity,
     ForwardClaimRecord,
     Leaderboard,
     LeaderboardEntry,
@@ -5869,7 +5872,8 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
         update["process_version"] = _resolve_stamp(digest, pipeline_sha, stamped_at)
 
-    event_paths = CasePaths(settings.data_root, court, docket).event(event)
+    case_paths = CasePaths(settings.data_root, court, docket)
+    event_paths = case_paths.event(event)
     if role == "predictor":
         targets = [event_paths.prediction(actor, run_id)]
         model_cls: type[Prediction] | type[Evaluation] = Prediction
@@ -5890,13 +5894,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     # where it has to become durable. Absent when provisioning left nothing to
     # freeze — and the evaluator then falls back to the terminal band rather
     # than inventing one.
-    if role == "predictor":
-        # Assigned unconditionally, so an agent-authored block is cleared rather
-        # than preserved when provisioning left nothing to freeze. A guarded
-        # assignment would let a cell that ran without a provisioned record
-        # supply its own baseline conditioning, which is the one thing this
-        # field must not be.
-        update["context"] = _read_cell_context(CasePaths(settings.data_root, court, docket))
+    provisioned = _read_cell_context(case_paths) if role == "predictor" else None
 
     graded = 0
     basis_records: dict[Path, tuple[str | None, str | None, Prediction | None]] = {}
@@ -5905,6 +5903,15 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             continue
         record = read_model(path, model_cls)
         cell_update = dict(update)
+        if isinstance(record, Prediction):
+            # Assigned unconditionally, so an agent-authored block is cleared
+            # rather than preserved when provisioning left nothing to freeze. A
+            # guarded assignment would let a cell that ran without a provisioned
+            # record supply its own baseline conditioning, which is the one
+            # thing this field must not be.
+            cell_update["context"] = _stamped_conditioning(
+                case_paths, event_paths, provisioned, record, actor, run_id
+            )
         if isinstance(record, Evaluation):
             # The graded-prediction identity is the harness's word like every
             # stamped field: the ordinary stamp resolves it (immediately
@@ -5974,6 +5981,161 @@ def _report_no_targets(regrade: bool, role: str, actor: str) -> None:
         )
         raise typer.Exit(code=1)
     typer.echo(f"stamp: no {role} artifact for {actor} to stamp; skipping.", err=True)
+
+
+def _snapshot_stem(value: str) -> str:
+    """``input_snapshot`` reduced to the day the provisioned file is named for.
+
+    The field is the agent's own string and the committed ledger spells the same
+    file several ways — repo-rooted, ``record/``-relative, the bare basename, the
+    bare day — so a comparison against the provisioned file has to normalize
+    before it can be exact. Both separators, because the agent chose the
+    spelling; the trailing ``.json`` because a cell naming the day alone named
+    the same file. A sentinel (``missing``, ``none``, ``unavailable``) carries no
+    separator and survives as itself, which is what makes it *fail* the
+    comparison rather than accidentally pass it.
+    """
+    return value.strip().replace("\\", "/").rsplit("/", 1)[-1].removesuffix(".json")
+
+
+def _stamped_conditioning(
+    case_paths: CasePaths,
+    event_paths: EventPaths,
+    provisioned: PredictionContext | None,
+    record: Prediction,
+    actor: str,
+    run_id: str,
+) -> PredictionContext | None:
+    """The ``context`` block to stamp, flagging a cell that never read its snapshot.
+
+    The stamp's own tripwire. The provisioned snapshot is every predictor's
+    guaranteed-common input, and copying its conditioning onto a prediction
+    asserts that the forecast was formed from it — but the cell's own
+    ``input_snapshot`` is the only place that assertion can be checked, and a
+    cell that reports ``missing`` while the file sits on disk is telling the
+    harness it was not. Stamping the provisioned block over that disagreement is
+    how a committed artifact comes to describe an information set its forecast
+    never used, with the leakage grade, ``signals_observable``, and the frozen
+    interim signals all trusting the stamp rather than the admission.
+
+    So the two are compared, both sides normalized by :func:`_snapshot_stem` to
+    the provisioned file's day. Agreement stamps ``snapshot_uptake: "read"`` and
+    nothing else changes; a spelling variant is agreement, which is the point of
+    normalizing rather than matching the literal string.
+
+    **Disagreement is masked, not refused.** The block is still stamped — with
+    ``snapshot_uptake: "unread"``, ``signals_observable`` false, and every signal
+    the payload would have disclosed cleared — so the artifact stays valid and
+    scoreable on the claims that do not read the snapshot, while every claim that
+    does resolves to unavailable and the evaluator falls back to the terminal
+    band. Refusing instead would buy nothing and cost two things: a non-zero exit
+    here reddens the cell job but changes no recorded outcome — ``Record cell
+    status`` still runs, ``validate`` requires no stamp, and the cell lands
+    ``ready`` and auto-merges — and it would land *unstamped*, which means an
+    agent-authored ``context`` block would survive the refusal, the one thing
+    that field must never be.
+
+    Judged only where there is something to judge. No provisioned context is the
+    existing gap and stamps ``None`` as before; a context naming a snapshot file
+    that is not on disk is a re-stamp away from the runner rather than evidence
+    about what the cell read, so it stamps the block unjudged rather than masking
+    a cell on the strength of a missing file.
+    """
+    if provisioned is None:
+        return None
+    snapshot = case_paths.snapshot(provisioned.snapshot_date.isoformat())
+    if not snapshot.is_file():
+        return provisioned
+    if _snapshot_stem(record.input_snapshot) == snapshot.stem:
+        return provisioned.model_copy(update={"snapshot_uptake": "read"})
+    _flag_unread_snapshot(
+        event_paths.prediction_flags(actor, run_id), snapshot.name, record, actor, run_id
+    )
+    return provisioned.model_copy(
+        update={
+            "snapshot_uptake": "unread",
+            "signals_observable": False,
+            "distribution_count": None,
+            "cvsg_date": None,
+            "band": None,
+            "salience_version": None,
+            "response_requested": None,
+            "referred_to_court": None,
+            "amicus_briefs": None,
+        }
+    )
+
+
+def _flag_unread_snapshot(
+    flags_path: Path,
+    snapshot: str,
+    record: Prediction,
+    actor: str,
+    run_id: str,
+) -> None:
+    """Leave the tripwire's finding where a maintainer will see it.
+
+    The masked block is honest but quiet — it reads like any other cell whose
+    payload disclosed no proceedings — so the disagreement also has to leave the
+    runner as prose. ``flags.json`` is the durable channel: ``collect`` commits
+    each produced cell's file with its output and rolls every flag into the run
+    PR body, the Actions summary, and the long-lived agent-feedback issue.
+
+    Appended to the agent's own file where there is one, because a cell that
+    noticed its own missing snapshot already wrote a flag saying so and the
+    harness's confirmation belongs beside it rather than over it. A file that
+    does not parse is left alone: overwriting it would destroy agent prose to
+    add a note, and an unparseable ``flags.json`` fails ``validate`` into the
+    draft PR a maintainer reads anyway. Deduplicated on the message so a
+    re-stamp of the same cell does not grow the list.
+
+    ``warning`` rather than ``blocker``: the cell finished and its artifact is
+    usable, it is the conditioning record that is degraded — which is what
+    ``data-quality`` names.
+    """
+    # `input_snapshot` is unbounded agent text and the flag message is capped at
+    # 2000 characters, so quote a bounded prefix: a stamp must not fail the cell
+    # over the length of the string it is reporting.
+    reported = repr(record.input_snapshot[:120])
+    message = (
+        f"Harness tripwire: this cell recorded input_snapshot {reported}, which does not name "
+        f"the provisioned snapshot {snapshot}, so the forecast was formed without the baseline "
+        "every predictor shares. The stamped context records snapshot_uptake 'unread' and masks "
+        "the frozen signals; the cell is scoreable only on claims that do not read them."
+    )
+    flag = AgentFlag(
+        category=FlagCategory.data_quality,
+        severity=FlagSeverity.warning,
+        message=message,
+        event_id=record.event_id,
+    )
+    flags = AgentFlags(
+        case_id=record.case_id,
+        run_id=run_id,
+        role=UsageRole.predictor,
+        actor_id=actor,
+        flags=[flag],
+    )
+    if flags_path.is_file():
+        try:
+            existing = AgentFlags.model_validate_json(flags_path.read_text())
+        except (OSError, ValueError):
+            typer.echo(
+                f"::warning::stamp: {flags_path} does not parse, so the unread-snapshot finding "
+                + "survives only in the stamped context; the cell's flags are left as written.",
+                err=True,
+            )
+            return
+        if any(item.message == message for item in existing.flags):
+            return
+        flags = existing.model_copy(update={"flags": [*existing.flags, flag]})
+    write_json(flags_path, flags)
+    typer.echo(
+        f"::warning::stamp: {record.case_id} {record.event_id} {actor} reported "
+        + f"input_snapshot {reported} against provisioned {snapshot}; "
+        + "stamped snapshot_uptake 'unread' with the frozen signals masked.",
+        err=True,
+    )
 
 
 def _refuse_unsupported_regrade(role: str, pipeline_sha: str, stamped_at: str) -> None:

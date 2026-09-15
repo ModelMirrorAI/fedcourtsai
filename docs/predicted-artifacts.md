@@ -53,9 +53,19 @@ fields that mean the same thing at every stage:
   `record/` is **case-level** — a sibling of `events/`, not a child of it — so
   a cell's provisioned inputs (the snapshot, `context.json`, and `documents/`)
   sit beside every event of the case rather than under the event being
-  predicted. The field is the agent's own string and is spelled several ways
-  across the committed set, so nothing scored conditions on it; the
-  harness-written `context` block carries the conditioning state instead.
+  predicted. The canonical spelling is that file's **basename**,
+  `YYYY-MM-DD.json`, or the literal `missing` where the cell found none. The
+  field is the agent's own string, though, and the committed ledger carries
+  older spellings — repo-rooted and `record/`-relative paths, the bare day,
+  other sentinels — which validation accepts, because the ledger is the ledger.
+  Nothing scored conditions on it; the harness-written `context` block carries
+  the conditioning state instead.
+
+  It is not inert, either. It is the cell's own account of which snapshot it
+  read, and the stamp compares it against the file provisioning actually wrote —
+  both sides normalized to that file's day, so a spelling variant is agreement.
+  Disagreement is recorded in `context.snapshot_uptake`; see the `context`
+  entry below.
 - **`granted` / `probability`** — the stage's declared binary and the
   probability of it. The stage names the binary, and the outcome's
   `actual_granted` is defined on the same axis, so `(probability -
@@ -551,6 +561,26 @@ directory without knowing which part is which invites trusting the wrong half.
   cells owes. Note especially that the gap says nothing about the snapshot
   being stale — a `truncated` cell's `snapshot_date` *is* its cutoff, so it
   dates the moment rather than the pull the payload was reconstructed from.
+
+  **`snapshot_uptake` is whether the cell actually opened it.** Copying the
+  provisioned conditioning onto a prediction asserts that the forecast was
+  formed from the snapshot, and the cell's own `input_snapshot` is the only
+  place that assertion can be checked. So the stamp checks it. `read` is
+  agreement. `unread` is a cell that reported no snapshot, or named a different
+  one, while the provisioned file sat on disk — and there the stamp **masks**
+  the block: `signals_observable` goes false and every signal the payload would
+  have disclosed is cleared, so the frozen conditioning goes on describing what
+  the cell actually had. The mechanical consequences are the ones a cell whose
+  payload disclosed no proceedings already gets — the increment claims resolve
+  to unavailable, and the evaluator scores against the terminal band rather than
+  a frozen one — and the cell stays valid, committed, and scoreable on every
+  claim that does not read the snapshot. It also gets a harness `flags.json`
+  note, so the disagreement reaches the run PR rather than only the artifact.
+  The field is null where the stamp could not judge: a record written before the
+  comparison existed, or a re-stamp away from the runner with no `record/`
+  beside it. It is what keeps the two reasons for an unobservable cell
+  separable — a payload that disclosed no proceedings against a payload the cell
+  never opened — which a figure pooling them would lose.
 
   **`cut_kind` is the boundary, and the cutoff on its own is not.** A date
   cannot express the interim arrival moment: an application is submitted,

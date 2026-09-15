@@ -23,11 +23,15 @@ from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.process_version import CURRENT_PROCESS_LABEL
 from fedcourtsai.schemas import (
+    AgentFlag,
+    AgentFlags,
     BaseRateBucket,
     ClaimProbability,
     Disposition,
     Evaluation,
     EventKind,
+    FlagCategory,
+    FlagSeverity,
     InterimResolutionSignals,
     Judgment,
     JusticeVote,
@@ -45,6 +49,7 @@ from fedcourtsai.schemas import (
     StatPackMeritsTerm,
     StatPackTerm,
     StatPackTermSegment,
+    UsageRole,
     VoteValue,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
@@ -2617,3 +2622,196 @@ def test_regrade_writes_what_an_ordinary_stamp_would_but_the_version(
     assert regraded_case == "scotus/25"
     assert stamped_case == "scotus/26"
     assert regraded == stamped
+
+
+# --- the unread-snapshot tripwire ---------------------------------------------
+#
+# The provisioned snapshot is every predictor's guaranteed-common input, and the
+# stamp copies its conditioning onto the prediction. A cell that reports it never
+# read that file contradicts the stamp, and the stamp is what every downstream
+# reader trusts — so the two are compared, both sides normalized to the
+# provisioned file's day.
+
+_SNAPSHOT_DAY = date(2026, 1, 1)
+
+
+def _provision(data_root: Path, docket: int, *, snapshot: bool = True) -> CasePaths:
+    """A provisioned cell record: `record/context.json` and its dated snapshot."""
+    paths = CasePaths(data_root, "scotus", docket)
+    write_json(
+        paths.cell_context,
+        PredictionContext(
+            mode="forward",
+            snapshot_date=_SNAPSHOT_DAY,
+            signals_observable=True,
+            distribution_count=2,
+            cvsg_date=date(2025, 12, 1),
+            band="baseline",
+            salience_version=SALIENCE_VERSION,
+            term=2025,
+        ),
+    )
+    if snapshot:
+        path = paths.snapshot(_SNAPSHOT_DAY.isoformat())
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"docket_number": "25-1"}))
+    return paths
+
+
+def _seed_unstamped(data_root: Path, docket: int, event: str, input_snapshot: str) -> EventPaths:
+    """One agent-written prediction naming `input_snapshot`, no context of its own."""
+    event_paths = CasePaths(data_root, "scotus", docket).event(event)
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id=f"scotus/{docket}",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 2, tzinfo=UTC),
+            input_snapshot=input_snapshot,
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+        ),
+    )
+    return event_paths
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        "2026-01-01",
+        "2026-01-01.json",
+        "record/snapshots/2026-01-01.json",
+        "snapshots/2026-01-01.json",
+        "data/cases/scotus/40/record/snapshots/2026-01-01.json",
+        "data\\cases\\scotus\\40\\record\\snapshots\\2026-01-01.json",
+    ],
+)
+def test_stamp_reads_every_spelling_of_the_provisioned_snapshot_as_agreement(
+    _data_root: Path, spelling: str
+) -> None:
+    """The committed ledger spells one file several ways; none of them is a miss.
+
+    `input_snapshot` is the agent's own string, and the six gemini cells of the
+    2026-09 rounds alone wrote four spellings of it. A tripwire matching the
+    literal string would fire on all but one, so the comparison normalizes both
+    sides to the provisioned file's day — and these are the shapes that has to
+    absorb.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 40)
+    event_paths = _seed_unstamped(_data_root, 40, event, spelling)
+
+    result = _stamp("predictor", "claude-baseline", 40, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.snapshot_uptake == "read"
+    # The conditioning survives untouched: agreement masks nothing.
+    assert stamped.context.signals_observable is True
+    assert stamped.context.band == "baseline"
+    assert stamped.context.distribution_count == 2
+    assert not event_paths.prediction_flags("claude-baseline", "RID").is_file()
+
+
+def test_stamp_masks_a_prediction_that_never_read_its_snapshot(_data_root: Path) -> None:
+    """`missing` against a provisioned file is stamped as unread, not as read.
+
+    The incident this pins: a cell that looked under the wrong path, wrote
+    `input_snapshot: "missing"`, and was stamped with the harness's snapshot date
+    and the whole frozen conditioning — so the committed artifact described an
+    information set the forecast never used, and the leakage grade,
+    `signals_observable`, and the frozen interim signals all trusted the stamp.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 41)
+    event_paths = _seed_unstamped(_data_root, 41, event, "missing")
+
+    result = _stamp("predictor", "claude-baseline", 41, event, "RID")
+
+    # Stamped, not refused: the artifact stays valid and scoreable on the claims
+    # that do not read the snapshot.
+    assert result.exit_code == 0, result.output
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.process_version is not None
+    assert stamped.context.snapshot_uptake == "unread"
+    # Every signal the cell never saw is cleared, so nothing downstream reads a
+    # conditioning the forecast was not formed from.
+    assert stamped.context.signals_observable is False
+    assert stamped.context.distribution_count is None
+    assert stamped.context.cvsg_date is None
+    assert stamped.context.band is None
+    assert stamped.context.salience_version is None
+    # What provisioning did is still on the record — the mask is about uptake.
+    assert stamped.context.snapshot_date == _SNAPSHOT_DAY
+    assert stamped.context.mode == "forward"
+
+    flags = read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+    assert flags.role == UsageRole.predictor
+    assert flags.actor_id == "claude-baseline"
+    assert [flag.severity for flag in flags.flags] == [FlagSeverity.warning]
+    assert flags.flags[0].event_id == event
+    assert "2026-01-01.json" in flags.flags[0].message
+
+
+def test_stamp_appends_the_unread_flag_beside_the_cell_s_own(_data_root: Path) -> None:
+    """A cell that flagged its own missing snapshot keeps that note, and a
+    re-stamp does not grow the list."""
+    event = "evt-petition-disposition"
+    _provision(_data_root, 42)
+    event_paths = _seed_unstamped(_data_root, 42, event, "missing")
+    flags_path = event_paths.prediction_flags("claude-baseline", "RID")
+    write_json(
+        flags_path,
+        AgentFlags(
+            case_id="scotus/42",
+            run_id="RID",
+            role=UsageRole.predictor,
+            actor_id="claude-baseline",
+            flags=[
+                AgentFlag(
+                    category=FlagCategory.data_quality,
+                    severity=FlagSeverity.warning,
+                    message="Missing snapshot; proceeding using statpack baselines.",
+                )
+            ],
+        ),
+    )
+
+    assert _stamp("predictor", "claude-baseline", 42, event, "RID").exit_code == 0
+    again = _stamp("predictor", "claude-baseline", 42, event, "RID")
+    assert again.exit_code == 0, again.output
+
+    flags = read_model(flags_path, AgentFlags)
+    assert len(flags.flags) == 2
+    assert flags.flags[0].message.startswith("Missing snapshot")
+    assert flags.flags[1].message.startswith("Harness tripwire")
+
+
+def test_stamp_leaves_the_conditioning_unjudged_with_no_snapshot_on_disk(
+    _data_root: Path,
+) -> None:
+    """No provisioned file is no evidence about what the cell read.
+
+    `record/` is gitignored, so a re-stamp away from the runner sees the context
+    the prediction was provisioned from and none of the payload beside it.
+    Masking there would degrade a cell on the strength of a missing file.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 43, snapshot=False)
+    event_paths = _seed_unstamped(_data_root, 43, event, "missing")
+
+    result = _stamp("predictor", "claude-baseline", 43, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.snapshot_uptake is None
+    assert stamped.context.signals_observable is True
+    assert stamped.context.band == "baseline"
+    assert not event_paths.prediction_flags("claude-baseline", "RID").is_file()

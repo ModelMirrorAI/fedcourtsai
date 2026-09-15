@@ -319,3 +319,60 @@ def test_the_coherent_cut_shapes_validate() -> None:
     assert _context(cut_kind="date", cutoff=date(2025, 2, 25)).cut_kind == "date"
     anchored = _context(cut_kind="arrival-position", cutoff=date(2025, 2, 25), cut_anchor_index=3)
     assert anchored.cut_anchor_index == 3
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        # The four spellings the six gemini cells of the 2026-08/09 predict
+        # rounds wrote between them, plus the repo-rooted form the other two
+        # engines favour. The description names one canonical form; validation
+        # accepts every one of these, because the committed ledger is the ledger
+        # and a schema that refused its own history would fail `validate data`.
+        "2026-08-31",
+        "2026-08-31.json",
+        "record/snapshots/2026-08-31.json",
+        "missing",
+        "data/cases/scotus/9526000273/record/snapshots/2026-09-01.json",
+    ],
+)
+def test_input_snapshot_accepts_every_committed_spelling(spelling: str) -> None:
+    assert _prediction(input_snapshot=spelling).input_snapshot == spelling
+
+
+def test_unread_snapshot_context_masks_its_signals() -> None:
+    """The mask is the whole content of an `unread` stamp."""
+    context = _context(snapshot_uptake="unread")
+    assert context.snapshot_uptake == "unread"
+    assert context.band is None
+
+
+def test_unread_snapshot_context_refuses_observable_signals() -> None:
+    with pytest.raises(ValidationError, match="disclosed nothing to it"):
+        _context(snapshot_uptake="unread", signals_observable=True)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("distribution_count", 3),
+        ("cvsg_date", date(2026, 5, 1)),
+        ("band", "baseline"),
+        ("salience_version", "sal-v4"),
+        ("response_requested", True),
+        ("referred_to_court", True),
+        ("amicus_briefs", 2),
+    ],
+)
+def test_unread_snapshot_context_refuses_a_signal_the_cell_never_saw(
+    field: str, value: object
+) -> None:
+    with pytest.raises(ValidationError, match="must clear the signals"):
+        _context(snapshot_uptake="unread", **{field: value})
+
+
+def test_snapshot_uptake_is_silent_where_the_stamp_could_not_judge() -> None:
+    """A record stamped before the comparison existed asserts nothing either way."""
+    context = _context(signals_observable=True, band="baseline", salience_version="sal-v4")
+    assert context.snapshot_uptake is None
+    assert context.band == "baseline"
