@@ -4356,3 +4356,80 @@ freeze commit is recorded here.
   Nothing counted moves — the population under the proc-v7 predictor digests is
   empty, as the entry above records — and the bless moments are unchanged
   placeholders for step 4.
+
+- **The predict prompt's interim baseline passage is corrected and the three
+  predictor digests re-computed, 2026-09-15.**
+  `.github/prompts/predict.md` told an interim
+  cell that the statpack's interim base-rate section "does not yet reach" its
+  pre-registered floor, and that the only strictly-prior Term carrying resolved
+  substantive applications "contributes 44" against an OT2025 cell. Both halves
+  are false on the committed pack (`metrics/statpack.json`, refreshed
+  2026-09-14): OT2024 carries **70** resolved substantive applications of which
+  14 were granted, so an OT2025 cell's strictly-prior pool clears
+  `INTERIM_BASE_RATE_MIN_RESOLVED = 50` and `interim_base_rate` returns
+  14/70 = 0.200, and an OT2026 cell pools 31/296 = 0.105. Both figures carry
+  the coverage caveat the estimator's registration attaches to any quoted
+  interim rate, and it binds hardest on the thinner one: OT2025's baseline
+  rests **entirely** on OT2024, a Term the poller has parsed 325 of 1,297
+  applications for, against OT2025 and OT2026 rows with nothing unparsed. So
+  0.200 is a subsample rather than a census, and the gap between it and
+  OT2025's own 7.5% is not evidence of a change in the Court's behaviour. The
+  section reaches; what the prompt
+  described as the standing answer — no baseline, anchor without one — is the
+  arm the estimator does not take on either application-Term now predictable.
+  A prompt is an agent contract, so this is a conditioning defect rather than a
+  documentation one: left in place it would govern the whole post-freeze
+  interim stream, each cell told to abandon a baseline the harness then scores
+  it against. The passage now states the rule and **quotes no Term count** —
+  the pooled strictly-prior rate where the pool clears the floor, the
+  no-baseline arm where it does not, and the section's own per-Term table as
+  the authority on which — so it cannot go stale again as parse coverage
+  accrues. No other byte of the prompt moves, and
+  `.github/prompts/evaluate.md` is untouched.
+
+  **The digests, before and after.** The three **predictor** digests move; the
+  three **evaluator** digests do not:
+
+  | actor | superseded | blessed here |
+  | --- | --- | --- |
+  | claude-baseline | `sha256:b89df0c6d7…` | `sha256:1a0b2bef2e…` |
+  | codex-baseline | `sha256:bfd8489590…` | `sha256:70fee15852…` |
+  | gemini-baseline | `sha256:c28fa7ac37…` | `sha256:a9033e5681…` |
+
+  The superseded three are the ones the proc-v8 predictor-half entry above
+  blessed. They were never blessed on `main` — they existed only on `staging`,
+  under a freeze commit whose carrying promotion has not run — so this is a
+  **replacement**, not one of the three supersession shapes: no bless moment is
+  retired, no cell is de-counted, and no shakedown declaration is owed. The
+  bless-moment placeholders are unchanged, all six still carrying the step-2
+  forecast floor `2026-09-15T00:00:00Z` for step 4 to correct at the carrying
+  merge, and `FROZEN_SINCE` stays at the value the entry above set. **Read that
+  entry's predictor half through the constants rather than through the values
+  it printed**: its before-and-after table and its step-0 paragraph name the
+  three superseded digests, and what its promotion carries is whatever
+  `FROZEN_PROCESS_DIGESTS` holds at the carrying merge — the three blessed
+  here. That is the only correction this entry makes to it.
+
+  **Step 0, at authoring.** Against `origin/main` at `0e0a9e38f`, the per-digest
+  grep over `data/cases` returns **0** for each of the three newly blessed
+  predictor digests, which is the precondition rather than a note: a prediction
+  carrying one would be retroactive blessing by construction. The same grep
+  returns **0** for each of the three superseded digests, which are absent from
+  `origin/main` entirely — the freeze commit naming them has not promoted.
+  Nothing counted is affected: no committed `prediction.json` carries any
+  predictor digest of this label, and the committed leaderboard is 0/0. Re-run
+  at the promotion: `<FILL: promotion-time step-0 counts, per newly blessed
+  predictor digest>`.
+
+  This entry must land **before** the carrying promotion, not after it. Once
+  the promotion blesses a predictor half, a later prompt correction is a second
+  re-bless that drops whatever the re-predict cohort minted in between; at this
+  commit the population under every predictor digest is empty, so the
+  correction is free exactly here and nowhere later.
+
+  The runnable effect check, for the promotion carrying this: `uv run fedcourts
+  process-digest --all` on the promoted tree printing the three predictor
+  digests above, and then the cohort's first interim cell anchoring on the
+  pooled strictly-prior rate — visible in its `reasoning.md` — rather than
+  reporting that it anchored without a published baseline. An OT2025 cell's
+  anchor should be the 0.200 above, read with the coverage caveat beside it.

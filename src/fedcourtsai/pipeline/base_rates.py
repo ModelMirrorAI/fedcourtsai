@@ -555,11 +555,13 @@ def summary_route_base_rate(
 #: tightening rather than as a bound it meets.
 #:
 #: The floor binds on the **pooled** strictly-prior sample, so it clears by
-#: accumulation exactly as :data:`MERITS_BASE_RATE_MIN_PARSED` does. Its effect
-#: today is that no single-Term pool qualifies, and that effect is accepted
-#: rather than incidental: 50 was chosen with the committed pack visible, and
-#: the criterion's own value at ``p = 0.5`` (36) would have admitted the one
-#: single-Term pool that exists. What is *not* registered is an "at least two
+#: accumulation exactly as :data:`MERITS_BASE_RATE_MIN_PARSED` does, and on the
+#: committed pack the live docket has cleared it: the floor excludes no
+#: currently predictable application-Term, and a single Term suffices where that
+#: Term itself passes fifty. The figure is **deliberate rather than
+#: incidental**: 50 is chosen on the siblings' absolute-SE standard rather than
+#: on which pools it admits, and the criterion's own value at ``p = 0.5`` (36)
+#: sits below it. What is *not* registered is an "at least two
 #: Terms" companion condition — considered and rejected, because a second
 #: parameter with no derivation behind it, chosen in knowledge of which cells it
 #: would exclude, is a forking path however reasonable it sounds. A stated

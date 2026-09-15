@@ -397,11 +397,12 @@ of the requested relief**:
   far up the ladder this application has climbed. The application's **ask**
   sits beside the ladder rather than on it: it is fixed at arrival and is what
   puts the application in scope, not a rung it climbs.
-- **The statpack's interim-docket section carries a scored base rate, and on
-  the committed pack it does not yet reach.** The yardstick an interim cell's
-  skill is scored against is the **substantive resolved slice's grant rate,
-  pooled over application-Terms strictly before your own** — the same
-  leakage rule the cert band rate keeps, over the section's per-Term
+- **The statpack's interim-docket section carries a scored base rate.** The
+  yardstick an interim cell's skill is scored against is the **substantive
+  resolved slice's grant rate, pooled over application-Terms strictly before
+  your own** — the same leakage rule the cert band rate keeps, bounded to the
+  ten Terms before yours (`application_term - 10 <= T < application_term`)
+  exactly as the merits rate is, over the section's per-Term
   `substantive_granted` / `substantive_resolved` counts, unweighted raw counts
   because the application stream carries no denial sampling. It exists only
   where that pooled sample reaches the pre-registered per-pool floor of **50**
@@ -409,13 +410,18 @@ of the requested relief**:
   `docs/salience.md`, *The interim docket*). Below the floor there is **no
   baseline and no substitute**: not the pack-level rate, which contains your
   own Term, not a single Term's, and not the cert band table, which is a
-  different population on a different standard. On the committed pack no
-  currently predictable application clears it — the only strictly-prior Term
-  carrying resolved substantive applications contributes 44 against an OT2025
-  cell, and the OT2025 Term itself joins the pool only for an OT2026 one — but
-  **compute the pool from the section you are reading** rather than taking that
-  figure: parse coverage accrues between builds, and the section is the
-  authority. Where the section's own caption still calls the rate
+  different population on a different standard. On the committed pack the
+  section's per-Term rows clear the floor for the application-Terms now
+  predictable, so the ordinary answer is the pooled strictly-prior rate rather
+  than the no-baseline arm — but **compute the pool from the section you are
+  reading** rather than from any figure quoted outside it: parse coverage
+  accrues between builds and each Term joins the pool as soon as it is strictly
+  prior to yours, so the table is the authority on what your pool holds and
+  whether it clears. Read the section's `unparsed` column beside those counts:
+  coverage is uneven across Terms, so a pool can rest on a Term the poller
+  reached only in part, and a spread between Term rates is not by itself a
+  change in the Court's behaviour. Where the section's own caption still calls
+  the rate
   descriptive-only, the pack predates the estimator's caption rewrite; the pool
   arithmetic above is unchanged, and say in `reasoning.md` which you read. So
   where the pack carries a **"The

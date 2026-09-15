@@ -109,13 +109,13 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
         # all six take the same value: one promotion carries both halves.
         #
         # predictors: claude-baseline, codex-baseline, gemini-baseline.
-        "sha256:b89df0c6d76f4c7e0ac4432cd7cac7378171623ac1a2e046fe2ccd41482227ea": datetime(
+        "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a": datetime(
             2026, 9, 15, 0, 0, 0, tzinfo=UTC
         ),
-        "sha256:bfd848959017c260596a8032edbd1b324d184f8860c2bb5a3bba37cda52df76b": datetime(
+        "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c": datetime(
             2026, 9, 15, 0, 0, 0, tzinfo=UTC
         ),
-        "sha256:c28fa7ac374ef41365bfd64720a113046ba59e46672979c71ed11fb5cab7f5cb": datetime(
+        "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f": datetime(
             2026, 9, 15, 0, 0, 0, tzinfo=UTC
         ),
         # evaluators: claude-judge, codex-judge, gemini-judge.
@@ -157,8 +157,8 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
 # a commitment still editable when they ran. It costs nothing to place it
 # there — no committed `prediction.json` carries a retired predictor digest,
 # so the population the prior instant fenced is empty, and the freeze record
-# carries that census. The value is two days past this commit's authoring
-# date, the generous-late direction the cutover asks for.
+# carries that census. The value is the first midnight after this commit's
+# authoring date, the generous-late direction the cutover asks for.
 #
 # What the window between the merge and the instant costs is worth naming,
 # because it is not only a few uncounted cells. A cell minted there carries a
