@@ -1410,12 +1410,28 @@ into: there is no `include-scored` analogue here, because the re-freeze corrects
 a value the old reading got wrong rather than re-characterizing an order, so
 holding scored events back would leave a known-wrong number standing under a
 grade. It re-freezes every committed interim block unconditionally, and the
-re-grade backlog follows. It also **presupposes
-the widened amicus reading is promoted** — it corrects the rows frozen under the
-old one, so it rides the same promotion batch as that reading and is not
-dispatched before it. One pass per dispatch makes each follow-through a second
-dispatch rather than a silent second step, which is the point: the backlog a
-rewrite owes is a maintainer's to schedule.
+re-grade backlog follows. **That backlog lists only what the dispatch can
+pay**, because `stamp-cell --regrade` *refuses* a cell it will not recompute
+rather than skipping it, and the step dies at the first refusal without
+committing anything — so a backlog that is not dispatchable whole is not
+dispatchable at all. A judge's re-runs of one cell therefore collapse to the
+surviving run, as every scoring surface collapses them, and the cells the
+re-grade would still refuse are **reported** with their reason rather than
+listed: an unstamped cell (which takes the ordinary stamp instead), an
+unparseable or path-disagreeing record, and — the one arm no dispatch reaches
+— a run that survives for one predictor while a later run supersedes it for
+another under the same judge, since one dispatch writes every predictor under
+the run. The count is of dispatchable cells, not of the grading directories
+under the re-frozen events. Two consequences for the reading: a maintainer
+pastes the list as printed, and after the follow-through the event holds cells
+scored against two resolution values, because a reported cell's
+`amicus-increment` still resolves against the superseded count and is not
+comparable with its re-graded siblings. It also **presupposes the widened
+amicus reading is promoted** — it corrects the rows frozen under the old one,
+so it rides the same promotion batch as that reading and is not dispatched
+before it. One pass per dispatch makes each follow-through a second dispatch
+rather than a silent second step, which is the point: the backlog a rewrite
+owes is a maintainer's to schedule.
 
 **Dispatching.** Dispatch on `main`, in a dead zone between the scheduled
 windows (`run-pull` at `:17` and `:47`, `run-seed` at `:31`). A *queued* repair

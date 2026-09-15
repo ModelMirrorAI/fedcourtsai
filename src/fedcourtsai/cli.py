@@ -187,7 +187,7 @@ from .ops import (
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import arrival_cut, cell_context, historical, liveprobe, moments, qp_topics, semantic
-from .pipeline.amicus_rederive import rederive_amicus_briefs
+from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
 from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.arrival_cut import arrival_cut_ledger
 from .pipeline.asof import CutoffPolicy
@@ -902,6 +902,45 @@ def rederive_distribution_counts_cmd(
         raise typer.Exit(code=1)
 
 
+def _echo_regrade_backlog(result: AmicusRederiveResult) -> None:
+    """Print the re-grade debt the re-freeze creates, in two parts.
+
+    The first is the dispatch input: the cells in the grammar `run-repair`'s
+    `regrade-stale` selector parses, copied off the ledger rather than
+    reconstructed from a directory walk. Every line in it is one `stamp-cell
+    --regrade` accepts, because that command *refuses* a cell it will not
+    recompute and the step dies at the first refusal without committing
+    anything — a list that is not dispatchable whole is not dispatchable at all.
+    The count is of dispatchable cells, so it is not the same quantity as a
+    count of the grading directories under the re-frozen events.
+
+    The second is what this dispatch does not pay, each line saying why and what
+    to do instead — an unstamped cell takes the ordinary stamp, a run superseded
+    for one of the predictors it graded is reachable by no re-grade at all. Kept
+    out of the first list, which mixing them would make refuse, but printed: an
+    unlistable re-grade is still a published number standing against a moved
+    resolution end, and after the follow-through its event holds cells scored
+    against two different resolution values.
+    """
+    owed = sorted({cell for entry in result.refrozen for cell in entry.regrade_cells})
+    if owed:
+        typer.echo(
+            f"regrade-stale backlog: {len(owed)} dispatchable evaluator cell(s) graded "
+            "against a moved resolution end — dispatch repair=regrade-stale with "
+            "repair_target:"
+        )
+        for cell in owed:
+            typer.echo(f"  {cell}")
+    blocked = sorted({line for entry in result.refrozen for line in entry.regrade_blocked})
+    if blocked:
+        typer.echo(
+            f"regrade-stale: {len(blocked)} further cell(s) a re-grade would refuse, "
+            "reported rather than listed:"
+        )
+        for line in blocked:
+            typer.echo(f"  {line}")
+
+
 @app.command("rederive-amicus-briefs")
 def rederive_amicus_briefs_cmd(
     apply: Annotated[
@@ -1051,17 +1090,7 @@ def rederive_amicus_briefs_cmd(
         typer.echo(f"  corpus {move.case_id}: {move.was} -> {move.now}")
     for entry in result.refrozen:
         typer.echo(f"  outcome {entry.ref}: {entry.was} -> {entry.now}")
-    # The re-grade debt this apply owes, in the grammar the `regrade-stale`
-    # selector parses, so the follow-through dispatch is copied off the ledger
-    # rather than reconstructed from a directory walk.
-    owed = sorted({cell for entry in result.refrozen for cell in entry.regrade_cells})
-    if owed:
-        typer.echo(
-            f"regrade-stale backlog: {len(owed)} evaluator cell(s) graded against a "
-            "moved resolution end — dispatch repair=regrade-stale with repair_target:"
-        )
-        for cell in owed:
-            typer.echo(f"  {cell}")
+    _echo_regrade_backlog(result)
     if not apply and max_changes is not None and result.total_changes > max_changes:
         # The dry run never consults the bound, so without this the refusal would
         # surface only on the second dispatch — after the reading meant to decide
