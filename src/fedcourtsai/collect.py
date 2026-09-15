@@ -499,8 +499,9 @@ def flags_table(flag_sets: Sequence[AgentFlags]) -> str:
     The shared table body behind both the per-run roll-up (:func:`render_flags`) and
     the run-ops report's open-flags section: one row per flag, loudest severity
     first, carrying the columns a maintainer triages on (severity, category, actor,
-    case, event, note). Flag messages are agent-authored, so each cell is collapsed
-    to one line and pipe-escaped. Returns ``""`` when no set raised a flag.
+    case, event, note). Flag messages are free text written by the cell's agent or,
+    where the harness raised a finding about the cell, by the stamp, so each cell is
+    collapsed to one line and pipe-escaped. Returns ``""`` when no set raised a flag.
     """
     rows: list[tuple[int, str, str, str]] = []
     for fs in flag_sets:
@@ -528,10 +529,12 @@ def render_flags(flag_sets: Sequence[AgentFlags]) -> str:
     """Roll a run's per-cell ``flags.json`` into one markdown section, or ``""``.
 
     One row per flag, loudest severity first, so a maintainer reading the run PR (or
-    the Actions summary) sees every agent-surfaced note — a data-quality problem, a
-    scope question, the reason a cell was blocked — in one place rather than buried
-    across the run's ``reasoning.md`` files. Returns the empty string when no cell
-    raised a flag, so the caller can omit the section entirely.
+    the Actions summary) sees every note surfaced against a cell — a data-quality
+    problem, a scope question, the reason a cell was blocked — in one place rather
+    than buried across the run's ``reasoning.md`` files. Most are the agent's own;
+    a few are the harness's findings about the cell, written by ``stamp-cell`` into
+    the same file and counted here with the rest. Returns the empty string when no
+    cell raised a flag, so the caller can omit the section entirely.
     """
     table = flags_table(flag_sets)
     if not table:
@@ -539,7 +542,8 @@ def render_flags(flag_sets: Sequence[AgentFlags]) -> str:
     count = sum(len(fs.flags) for fs in flag_sets)
     return (
         f"## 🚩 Agent flags ({count})\n\n"
-        "Structured notes the agents surfaced this run, for triage.\n\n" + table
+        "Structured notes surfaced against this run's cells, for triage — the "
+        "agents' own, plus any the harness raised.\n\n" + table
     )
 
 

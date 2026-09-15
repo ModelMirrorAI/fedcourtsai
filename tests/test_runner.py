@@ -26,6 +26,7 @@ from fedcourtsai.pipeline.runner import (
     StubRunner,
     _backoff_delay,
     _failure_is_transient,
+    _input_snapshot,
     _run_subprocess,
     get_runner,
 )
@@ -37,6 +38,7 @@ from fedcourtsai.schemas import (
     Outcome,
     PredictableEvent,
     Prediction,
+    PredictionContext,
     UsageRole,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
@@ -753,3 +755,51 @@ def test_codex_runner_fails_loudly_when_login_fails(
         CodexRunner(command_runner=_Recorder(), login_runner=lambda _key, _env: 1).run(
             _predict_request(tmp_path / "data")
         )
+
+
+def test_stub_input_snapshot_names_the_provisioned_snapshot(tmp_path: Path) -> None:
+    """The stub names the file provisioning wrote, not the one the run id implies.
+
+    `stamp-cell` compares `input_snapshot` against the provisioned snapshot, so a
+    stub cell dating its path from the run id would model a cell that fails that
+    check — and on a replay cell the two days are routinely different, because
+    provisioning dates the file from the moment it placed the cell at.
+    """
+    data_root = tmp_path / "data"
+    case = CasePaths(data_root, "scotus", 7)
+    write_json(
+        case.cell_context,
+        PredictionContext(
+            mode="replay",
+            snapshot_date=date(2024, 6, 24),
+            signals_observable=False,
+        ),
+    )
+    request = RunRequest(
+        role=UsageRole.predictor,
+        court_id="scotus",
+        docket_id=7,
+        event_id="evt-petition-disposition",
+        actor_id="claude-baseline",
+        run_id="20260401T000000Z",
+        prompt=tmp_path / "prompt.md",
+        data_root=data_root,
+    )
+
+    assert _input_snapshot(request).endswith("record/snapshots/2024-06-24.json")
+
+
+def test_stub_input_snapshot_falls_back_to_the_run_id_day(tmp_path: Path) -> None:
+    """With no provisioned context there is nothing to name but the run's own day."""
+    request = RunRequest(
+        role=UsageRole.predictor,
+        court_id="scotus",
+        docket_id=8,
+        event_id="evt-petition-disposition",
+        actor_id="claude-baseline",
+        run_id="20260401T000000Z",
+        prompt=tmp_path / "prompt.md",
+        data_root=tmp_path / "data",
+    )
+
+    assert _input_snapshot(request).endswith("record/snapshots/2026-04-01.json")

@@ -33,7 +33,8 @@ lane never calls writes it.
             evaluations/<evaluator_id>/<run_id>/flags.json?
 
 The ``flags.json`` files are optional: a cell writes one only when it has a
-durable, structured note to surface for maintainer triage (see
+durable, structured note to surface for maintainer triage, and the harness
+appends its own findings about the cell to the same file (see
 :class:`fedcourtsai.schemas.AgentFlags`).
 
 The corpus's own two halves are addressed here too — see *Corpus store

@@ -629,9 +629,22 @@ class PredictionContext(_Strict):
     **Harness-owned.** Written by ``provision-snapshot`` and copied onto the
     prediction by ``stamp-cell``, exactly like ``process_version`` and
     ``usage.json`` — never the agent's word. That matters here more than
-    elsewhere: ``input_snapshot`` is the agent's own string and is written four
-    different ways across the committed set, with some cells naming no path at
+    elsewhere: ``input_snapshot`` is the agent's own string and is written
+    several ways across the committed set, with some cells naming no path at
     all, so it cannot carry a scoring input.
+
+    The agent's string is not *nothing*, though: it is the cell's own account of
+    which snapshot it read, and where it disagrees with the file the harness
+    provisioned, the block and the cell are describing different information
+    sets. ``stamp-cell`` compares them — both sides normalized to the provisioned
+    file's day — and records the answer in ``snapshot_uptake``, which is the only
+    field here the cell's word decides.
+
+    That one field reports; it does not mask. What the rest of the block records
+    is what **provisioning** derived and offered, which is a fact about the
+    record whether or not a given cell took it up — so a reader wanting the
+    cell's own information set reads the two together, and every scoring surface
+    reads the conditioning exactly as it did before the field existed.
 
     It exists because the salience band moves. ``distribution_count`` is
     max-latched and a ``cvsg_date``, once set, stays set, so a petition's band
@@ -652,7 +665,11 @@ class PredictionContext(_Strict):
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     mode: str = Field(description="The cell's mode: forward or replay")
-    snapshot_date: date = Field(description="Date of the provisioned snapshot the cell read")
+    snapshot_date: date = Field(
+        description="Date of the snapshot the harness provisioned for this cell, "
+        "and the day its file is named for. Whether the cell went on to read it "
+        "is `snapshot_uptake`, not this field"
+    )
     snapshot_provenance: Literal["as-stored", "dated", "truncated", "blind"] = Field(
         default="as-stored",
         description="How the provisioned snapshot was obtained. 'as-stored' is the "
@@ -673,6 +690,27 @@ class PredictionContext(_Strict):
         "— reachable only from the replay provisioner, the one path that removes "
         "the proceedings key. Recorded so the four can be separated; a figure "
         "pooling them is pooling different information sets",
+    )
+    snapshot_uptake: Literal["read", "unread"] | None = Field(
+        default=None,
+        description="Whether the cell's own `input_snapshot` named the snapshot the "
+        "harness provisioned. Judged by `stamp-cell`, which normalizes both sides to "
+        "the provisioned file's day, so the several spellings the field carries "
+        "across the committed set all read as agreement. 'read' is agreement — the "
+        "cell's SELF-REPORT that it read that file, never verified uptake. 'unread' "
+        "is a cell that reported no snapshot, or named a different one, while the "
+        "provisioned file sat on disk: it says the forecast may have been formed "
+        "without the baseline every predictor is supposed to share, which is the one "
+        "thing the rest of this block cannot say. Null where the stamp could not "
+        "judge: a record stamped before the comparison existed, or a context with no "
+        "provisioned snapshot file beside it to compare against. **It masks "
+        "nothing.** The fields beside it stay as provisioning derived them, because "
+        "they are not all payload-uptake facts — `band` and `salience_version` reach "
+        "the cell through `record/context.json`, a different file, and are the "
+        "population label the evaluator prices the cell against rather than an input "
+        "it conditions on; nulling them would move the cell to the `terminal` basis, "
+        "which is the band re-derived at evaluation. So this field reports, and "
+        "every scoring surface goes on reading the same conditioning it did before",
     )
     cutoff: date | None = Field(
         default=None,
@@ -733,7 +771,9 @@ class PredictionContext(_Strict):
         "means the docket-progress signals below are UNOBSERVABLE from what the cell "
         "saw, not that they are zero — a redacted replay snapshot drops the "
         "proceedings wholesale, and reading that absence as 'never distributed' "
-        "would invent a fact"
+        "would invent a fact. A property of the PAYLOAD: a cell that did not report "
+        "reading the payload leaves this alone, since what the payload disclosed is "
+        "unchanged by that — `snapshot_uptake` is where the uptake is recorded"
     )
     distribution_count: int | None = Field(
         default=None,
@@ -955,7 +995,22 @@ class Prediction(_Strict):
     )
     run_id: str
     created_at: datetime
-    input_snapshot: str = Field(description="Repo-relative path to the snapshot used as input")
+    input_snapshot: str = Field(
+        description="Which provisioned snapshot the cell read — the file under "
+        "`data/cases/<court>/<docket>/record/snapshots/`, named for a day. The "
+        "agent's own word and free text: the prompt asks for the snapshot's "
+        "identifier or path, so the ledger spells one file several ways (a "
+        "repo-rooted path, commonest by far; a `record/`-relative one; the bare "
+        "basename `YYYY-MM-DD.json`; the bare day) beside sentinels for a cell "
+        "that found none, of which `missing` is the one to write. Validation "
+        "accepts any string — the ledger is the ledger, and no spelling is "
+        "contracted while the prompt asks as loosely as it does. So the harness "
+        "normalizes instead of requiring: `stamp-cell` reduces both this field "
+        "and the provisioned filename to that file's **day** and compares them, "
+        "which makes every spelling above agreement, and records the answer in "
+        "`context.snapshot_uptake`. That comparison is the only thing this field "
+        "decides; nothing scored conditions on it."
+    )
     granted: int = Field(
         ge=0,
         le=1,
@@ -1028,7 +1083,9 @@ class Prediction(_Strict):
         "puts here is overwritten. Absent on predictions written before the block "
         "existed, and on any cell that ran without a provisioned snapshot — a "
         "state run-predict refuses outright, so on that path only older records "
-        "carry the gap.",
+        "carry the gap. A cell that WAS provisioned one and did not report "
+        "reading it keeps the block unchanged, with `context.snapshot_uptake` "
+        "recording the disagreement — the honest record, and not a gap.",
     )
     claims: list[ClaimProbability] | None = Field(
         default=None,
@@ -1819,7 +1876,11 @@ class AgentFlags(_Strict):
 
     A predict/evaluate cell writes this *only when it has something to
     surface* — a data-quality problem, a scope question, an ambiguous event, or the
-    reason it was blocked. It rides the cell's artifact to the ``collect`` job, which
+    reason it was blocked. Mostly the agent's own word, but not exclusively: a
+    post-agent harness step appends its own findings about the cell to the same
+    file (``stamp-cell``, where a cell reports not having read its provisioned
+    snapshot), and the roll-up counts those with the rest — the message text is
+    what distinguishes them. It rides the cell's artifact to the ``collect`` job, which
     rolls every cell's flags into the run PR body (and the Actions summary), so a
     note outlives the run that raised it and a maintainer sees it without
     reading every ``reasoning.md``. The agent token stays comment-only: the file is

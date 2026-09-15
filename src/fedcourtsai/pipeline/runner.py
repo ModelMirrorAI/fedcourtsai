@@ -70,6 +70,7 @@ from ..schemas import (
     Outcome,
     PredictableEvent,
     Prediction,
+    PredictionContext,
     SemanticClaim,
     SemanticGrade,
     SemanticGradeBlock,
@@ -169,20 +170,48 @@ def _created_at(run_id: str) -> datetime:
 
 
 def _input_snapshot(request: RunRequest) -> str:
-    """The canonical snapshot path the cell would have read, as a stable string.
+    """The snapshot path the cell would have read, as a stable string.
 
     The workflow provisions a case's latest corpus snapshot under ``record/`` and
-    the predictor reads it; the stub names that same path (dated from the run id)
-    so its ``input_snapshot`` matches the shape of a real prediction. Rendered
-    relative to the data root's parent (typically repo-relative, e.g.
-    ``data/cases/...``) when possible, else as an absolute path.
+    the predictor reads it; the stub names that same path so its
+    ``input_snapshot`` matches the shape of a real prediction. Rendered relative
+    to the data root's parent (typically repo-relative, e.g. ``data/cases/...``)
+    when possible, else as an absolute path.
+
+    The day comes from the **provisioned context** where one is beside the case,
+    and only falls back to the run id's own date where none is. The two are not
+    the same day on a replay cell — provisioning dates the file from the snapshot
+    it placed the cell at, not from when the run happened — and the run-id guess
+    would make the stub name a file that does not exist. ``stamp-cell`` compares
+    this field against the provisioned snapshot, so a stub cell guessing here
+    would model a cell that fails that check: the stub exists to model a real
+    cell, and this is the one field where guessing shows.
     """
     case = CasePaths(request.data_root, request.court_id, request.docket_id)
-    snapshot = case.snapshot(_created_at(request.run_id).date().isoformat())
+    snapshot = case.snapshot(
+        _provisioned_day(case) or _created_at(request.run_id).date().isoformat()
+    )
     try:
         return snapshot.relative_to(request.data_root.parent).as_posix()
     except ValueError:
         return snapshot.as_posix()
+
+
+def _provisioned_day(case: CasePaths) -> str | None:
+    """The day ``record/context.json`` names, or ``None`` where there is no usable one.
+
+    Tolerant like every other read of that file: absent, unreadable, or a shape
+    that is not a :class:`~fedcourtsai.schemas.PredictionContext` all mean "the
+    cell was not provisioned through the normal path", which is a fallback rather
+    than a failure.
+    """
+    path = case.cell_context
+    if not path.is_file():
+        return None
+    try:
+        return PredictionContext.model_validate_json(path.read_text()).snapshot_date.isoformat()
+    except (OSError, ValueError):
+        return None
 
 
 def _event_stage(events: EventPaths) -> Stage | None:

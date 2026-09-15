@@ -72,7 +72,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate cell writes this *only when it has something to\nsurface* \u2014 a data-quality problem, a scope question, an ambiguous event, or the\nreason it was blocked. It rides the cell's artifact to the ``collect`` job, which\nrolls every cell's flags into the run PR body (and the Actions summary), so a\nnote outlives the run that raised it and a maintainer sees it without\nreading every ``reasoning.md``. The agent token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job does the surfacing.",
+  "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate cell writes this *only when it has something to\nsurface* \u2014 a data-quality problem, a scope question, an ambiguous event, or the\nreason it was blocked. Mostly the agent's own word, but not exclusively: a\npost-agent harness step appends its own findings about the cell to the same\nfile (``stamp-cell``, where a cell reports not having read its provisioned\nsnapshot), and the roll-up counts those with the rest \u2014 the message text is\nwhat distinguishes them. It rides the cell's artifact to the ``collect`` job, which\nrolls every cell's flags into the run PR body (and the Actions summary), so a\nnote outlives the run that raised it and a maintainer sees it without\nreading every ``reasoning.md``. The agent token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job does the surfacing.",
   "properties": {
     "actor_id": {
       "description": "The predictor_id (predict) or evaluator_id (evaluate)",

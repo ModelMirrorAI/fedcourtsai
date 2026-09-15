@@ -208,6 +208,25 @@ a basis is only readable beside the version it was banded under. An evaluate cel
 scores every predictor, so the evaluator stamp covers all of its
 `evaluation.json`.
 
+**On a predictor cell the stamp also judges its own copy.** The `context` block
+it writes is the provisioned conditioning, which reads as an assertion that the
+forecast was formed from the provisioned snapshot; the cell's `input_snapshot`
+is the only record of whether it was. Where the two disagree — both normalized
+to the provisioned file's day — the stamp records `context.snapshot_uptake`
+`unread` and writes a `flags.json` note beside it.
+
+This belongs on none of the lists above, and the reason is worth stating,
+because a change to what the harness stamps is exactly the shape they cover. It
+adds a field and changes no other byte of the block, so no scoring surface reads
+anything it did not read before: no claim's resolvability moves, no base-rate
+basis moves, no cell enters or leaves a published population, and no committed
+cell is re-stamped. That is what separates it from a masking change, which moves
+an information set, and from a membership rule, which moves the population a
+figure is computed over. The digest is untouched for the ordinary reason — the
+prompt bytes and the resolved registry config are what it hashes. The restraint
+is the point: degrading the block instead would have moved a scored number,
+which is what would have put this in the freeze record.
+
 **On an evaluate cell the stamp runs after un-aliasing, and the order is not
 interchangeable.** The stamp joins each evaluation to the prediction it scored on
 the `predictor_id` field, so under a blind-grading alias the join simply misses
