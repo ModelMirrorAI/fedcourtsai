@@ -518,8 +518,9 @@ stays outside the gate:
   on a pack built before the case resolved it over-corrects by one unit —
   bounded by `1 / 30` and self-correcting at the next refresh.
 
-  The ranked board is the **cert stage** (see the stage axis note below); a
-  non-cert stage's cells report in their own unranked `stages` block. Each entry
+  The ranked board is the **cert stage's first declared moment** (see the stage
+  axis note below); every other population — a later cert moment included —
+  reports in its own unranked `stages` block. Each entry
   also carries a `big_case` block — the predictor's `big_case_score`
   rank-agreement (Kendall's tau-b) with the evaluator panel's independent reads —
   a second, orthogonal skill dimension that never affects the ranking.
@@ -605,23 +606,26 @@ stays outside the gate:
   describes that claim, not the predictor, and a declared claim that never
   scored still appears with `scored: 0` so the coverage gap stays visible.
 
-  **A `cert-v2` mean total is a mixture, and its second addend is selected on
+  **A `cert-v2` mean total is a mixture, and its added addends are selected on
   the outcome.** Under `cert-v1` every cert cell scored exactly one claim, so a
-  mean total pooled a single quantity. `cert-v2` adds
-  `summary-disposition-route`, which is grant-conditional: a cell scores two
-  claims where the petition was granted *and* its outcome retained a route
-  marker, and one otherwise. `declared_set_versions` catches a cert-v1/cert-v2
-  mixture but not this one, because it is a single declaration with a
-  per-event denominator that varies with the realized disposition. So the
+  mean total pooled a single quantity. `cert-v2` adds two claims on complementary
+  halves of the disposition: `summary-disposition-route`, which scores only where
+  the petition was granted *and* its outcome retained a route marker, and
+  `dissent-from-denial`, which scores only where it was denied *and* its outcome
+  carries a noted-dissent marker. A cell therefore scores two claims where its
+  own half supplied the marker and one otherwise. `declared_set_versions`
+  catches a cert-v1/cert-v2 mixture but not this one, because it is a single
+  declaration with a per-event denominator that varies with the realized disposition. So the
   per-claim rows with their own `scored` counts are the readable cut, and
   `mean_total` is not comparable across predictors whose scored cells differ
   in grant rate. The floor is identically zero and `lift` is a sum too, so
   both inherit the same property.
 
-  **Counts and comparability.** The population is the **cert-stage** cells:
-  the board never blends stages, so although the other two stages declare
-  their own sets (`interim-v1` on every interim moment, `merits-v1` on the
-  minted merits event), a non-cert cell's block sits outside this surface (and
+  **Counts and comparability.** The population is the **cert stage's first
+  moment's** cells: the board never blends stages or moments, so although the
+  other two stages declare their own sets (`interim-v1` on every interim
+  moment, `merits-v1` on every merits moment), a non-cert cell's block sits
+  outside this surface (and
   outside its absence counts) entirely until a per-stage claim surface exists. The reporting unit is the **event**: every
   evaluator of the same prediction carries an identical harness block, so
   blocks are deduplicated to one per event before averaging (the newest
@@ -710,8 +714,9 @@ do.** No artifact here carries a semantic claim grade. The merits moments
 declare `semantic-v1`, both prompts ask for it — a merits cell for the
 propositions, a grader for the grades — and the evaluate cell is handed its
 case's majority opinion wherever the corpus holds one. But **opinion coverage is
-a rounding error** — fewer than ten corpus rows carry a body against a
-cert-granted slice of ≈1,250, the figure
+a rounding error** — 35 rows carry the `has_opinion` bit an ingested body sets,
+against the 1,232 rows carrying a cert-grant date on the corpus blob pulled
+2026-09-14, the figure
 [outcome-decomposition.md](../docs/outcome-decomposition.md) states and
 maintains under *What remains unbuilt* — and both declared claims require a
 majority opinion, so on essentially every cell there is no staged body and the
@@ -996,12 +1001,15 @@ ranking: scoring them as merits calls would conflate cert-worthiness
 calibration with vacatur-practice prediction.
 
 **The stage axis.** Orthogonal to the strata runs the event's decision
-**stage** (cert / interim / merits — the `event.yaml` vocabulary): `granted`
-answers a different question at each stage, so the ranked board — its entries
-and evaluation counts — is the **cert stage**, and any other stage
-reports its own unranked per-predictor block under `stages`, keyed by the
-stage value and **never blended** — no skill or count figure pools into the
-cert board, into another stage, or into any headline number. (The `big_case`
+**stage** (cert / interim / merits — the `event.yaml` vocabulary), and within a
+stage its forecast **moment**: `granted` answers a different question at each
+stage, and a later moment answers the same one with strictly more evidence, so
+the ranked board — its entries and evaluation counts — is the **cert stage's
+first declared moment**, and every other population, a later cert moment
+included, reports its own unranked per-predictor block under `stages`, keyed
+`<stage>@<moment>` (bare stage where none is recorded) and **never blended** —
+no skill or count figure pools into the cert board, into another block, or into
+any headline number. (The `big_case`
 and `evaluator_agreement` blocks are the deliberate exception: they describe
 stakes reads and grader latitude, not stage-scoped skill, and stay
 stage-blind.) A petition/appeal-kind event with no
@@ -1412,7 +1420,7 @@ the rendered table) and
   anchor, undiluted by merits-era labels), grant/deny by originating circuit,
   by relist count, by CVSG status, by **capital-case marking** over the same
   paid scored segment (whose `unmarked` bucket is an upper bound — read its rule
-  below; it renders the next time the metrics refresh runs), and by **salience
+  below), and by **salience
   band** (the
   active scorer's frozen grant-likelihood tier over the paid scored segment), plus a
   by-originating-court reader table that names state courts. A coverage block
@@ -1567,7 +1575,7 @@ the rendered table) and
   models are any good. Composition by court and by decade era; then, over the
   live/historical slice of modern discretionary-cert petitions, the disposition
   split, the originating circuit, the relist count, the CVSG status, the paid/IFP
-  fee class, a capital-case marking cut that renders the next time
+  fee class, a capital-case marking cut,
   `fedcourts docket` runs, and a reader table that names the state courts a
   petition came from;
   then a per-Term census of docketed filings against ingestion, grant rate, grants
@@ -1590,9 +1598,9 @@ the rendered table) and
   prints the observed `ingested (rows)` beside the estimate.
   `(none)` and `(unknown)` buckets are rendered rather than dropped, so a coverage
   gap is never hidden inside a rate — `(unknown)` on the relist and CVSG cuts means
-  *not yet parsed*, not *did not happen*. The **capital-case cut**, which renders
-  the next time each pack is built, carries the same shape of caveat one step
-  further, and its inline scope note says so: the flag is latched from
+  *not yet parsed*, not *did not happen*. The **capital-case cut** carries the
+  same shape of caveat one step further, and its inline scope note says so: the
+  flag is latched from
   supremecourt.gov's own `bCapitalCase` field OR-ed with the
   `*** CAPITAL CASE ***` annotation it appends to the docket number, and no
   other channel serves either reading, so `last_live_polled` is that column's
@@ -1640,7 +1648,7 @@ the majority, agreement matrices, opinion authorship — need per-justice vote
 data, e.g. a Supreme Court Database import), amicus-brief counts per petition
 (need docket-entry parsing beyond the proceedings), oral-argument statistics
 (need transcript data), and a merits circuit scorecard (affirm/reverse by
-court below — needs judgment-entry parsing on decided merits cases).
+court below — the parsed merits judgments carry no cut by originating court).
 
 **What may be claimed from an agreement rate.** A `qp-topic-v0` labeling run
 (`data/qp-topics/qp-topics.json`, `docs/qp-topic.md`) produces one instrument
@@ -1759,7 +1767,7 @@ pooled across modes or across forecast moments, in the table or in the
 coefficient.
 
 **No correlation between retrieval and accuracy may be claimed.** A rank
-correlation is published only for a (mode, moment) population that clears
+correlation is published only for a (mode, stage, moment) population that clears
 `tool_usage.TOOL_USAGE_CORRELATION_MIN_CELLS`, a floor declared in code ahead of
 any coefficient rather than chosen once one is in view; below it the value is
 **withheld**, not merely unreported, and the surface prints denominators and an

@@ -346,8 +346,8 @@ engine keys have per-environment twins there; both exceptions are recorded
 where those holders are described), the Anthropic API key, the Codex/OpenAI key, the Gemini API key,
 the CourtListener API token (used by pull's ingestion; by the MCP
 sidecar composite's launch step — the cells', `integration-test`'s
-engine-smoke **codex** leg, and its engine-actions-smoke legs, all of which
-wire the same sidecar to exercise it —
+engine-smoke **codex** leg, its engine-actions-smoke legs and each
+repro-family leg, all of which wire the same sidecar to exercise it —
 whose background `mcp-serve` process serves agent
 retrieval over localhost, the cells having no REST fallback, so no agent step
 carries the token and no client config file does either; unset degrades the
@@ -792,15 +792,13 @@ pair the third one writes:
   manifests never need a delete; this means no run can wipe corpus data.
 - **Read-only role** (`AWS_ROLE_TO_ASSUME_READONLY`, used by every corpus
   *consumer* job — read and list only, so a compromised consumer runner
-  cannot write or poison the corpus). Consumers reach it through three
-  composites: `corpus-ranged` for the predict/evaluate **plan** jobs (role +
-  backend env job-wide — fine where no agent runs; scope gating is point
-  lookups over the named cases), `corpus-sidecar` for the predict/evaluate
-  **cell** jobs (credentials stay step-scoped: the background `corpus-serve`
+  cannot write or poison the corpus). Consumers reach it through two
+  composites: `corpus-sidecar` for the predict/evaluate **cell** jobs (credentials stay step-scoped: the background `corpus-serve`
   process and the deterministic provisioning steps hold them, the agent steps
-  never do — see below), and `corpus-readonly` for the scan-heavy
-  full-pull consumers (`run-analytics` / the metrics refresh, and
-  `run-backtest`). Two operational facts ride this role. Its IAM **maximum
+  never do — see below), and `corpus-readonly` for the full-pull consumers —
+  the predict/evaluate **plan** jobs, whose backlog derivation scans every open
+  event, and the scan-heavy `run-analytics` / the metrics refresh and
+  `run-backtest`. Two operational facts ride this role. Its IAM **maximum
   session duration** must allow the sessions its callers request —
   `run-backtest`'s replay job asks for 21600 s (6 h), the census for 8100 s —
   because a
@@ -875,7 +873,7 @@ the deterministic provisioning steps' step-scoped env. A guard step fails the jo
 visible in the job env when the agent steps begin, and this also levels the
 engines: the Gemini sanitizer could never allowlist a credential, so every
 engine queries the same credential-free surface rather than whichever one its
-harness happens to let credentials reach. What replaces the old residual: the sidecar is
+harness happens to let credentials reach. The residual it leaves: the sidecar is
 an **unauthenticated localhost HTTP surface**, so any process on the runner —
 including the injected agent itself, which is the *intended* client — can
 query the corpus and spend ranged-read egress through it. That is the same

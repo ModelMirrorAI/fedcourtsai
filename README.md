@@ -362,7 +362,7 @@ data/               the git ledger of derived judgments (versioned)
 corpus/             the index's committed pointer + row-schema reference (never the blob)
 metrics/            scored outputs — leaderboard, statpack, backtests — and what may be claimed from them
 schemas/            JSON Schema exported from the pydantic models
-scripts/            the gate, the promotion gate, and the corpus-access helpers
+scripts/            the gate, the promotion gate, the engine watchdog, and the corpus-access helpers
 docs/               design & operations references (see Documentation below)
 .github/workflows/  the scheduled pipeline + CI + workflow linting
 .github/prompts/    engine-agnostic prompts shared by the three engines

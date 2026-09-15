@@ -200,7 +200,7 @@ force-include, the stratified fill's proportions, exclusion of already-published
 rows, a frame clearing over repeated dispatches without relabeling a row, and
 the converged and under-coverage refusals — all over corpora and frames built in
 `tmp_path`), and the model call is exactly what `run-analytics` pays for.
-`engine-smoke` is the first of the four token-spending scenario classes: a single
+`engine-smoke` is the first of the five token-spending scenario classes: a single
 real-engine
 predictor cell (the `engine` input picks which — an `all` dispatch ignores it
 and runs one smoke per engine; one predict cell's spend
@@ -365,7 +365,7 @@ dispatch-only probe runner, that is bounded and acceptable; the production cells
 run this same `unprivileged-user` posture, with the account granted read over
 the checkout and write over its one output subtree.
 
-**The repro family** is the fourth token-spending class, and it exists
+**The repro family** is the fifth token-spending class, and it exists
 because the two engine families above share a blind spot: the resolver
 applies no stage screen, but
 what it settles on in practice is a cert-stage petition, so a defect keyed on

@@ -165,7 +165,7 @@ through `fedcourtsai.corpus`) plus shared dedup/cursor utilities. **Unify the
 library and the data, not the job:** every job writes the same stores through
 the same APIs; separate jobs only keep the budget boundary crisp.
 
-One writer sits outside these four without contradicting the claim above: the
+One writer sits outside these five without contradicting the claim above: the
 dispatch-only `staging-corpus-refresh` workflow holds the **staging** pair's
 read-write role (`fedcourts corpus-seed-slice`), which is read-only against
 production. It writes a disposable slice, never these stores — which is the
@@ -402,7 +402,7 @@ harness-written field, `process_version` — the stamp of the process that produ
 the cell (prompt template + resolved registry config, hashed to a content
 `digest`). Like `usage.json`, it is the harness's word, not the agent's: a
 post-agent `stamp-cell` step injects it from the registry in force at run time.
-Headline metrics partition on this digest so the July/August shakedown is
+Headline metrics partition on this digest so the shakedown is
 excluded from the frozen board without deleting it. See
 [process-version.md](process-version.md).
 
@@ -682,7 +682,8 @@ refusal is a counted line in the run's report.
 
 Its **scope is its budget argument**. The pass walks the cert-granted SCOTUS
 slice only — rows carrying `date_cert_granted`, which is grants and GVRs
-together: ≈1,250 all-time and ≈120–130 a Term — at up to four REST requests a
+together: ≈1,230 all-time (1,232 on the corpus blob pulled 2026-09-14) and
+≈120–130 a Term — at up to four REST requests a
 case resolved by docket number (docket, cluster list, the docket that cluster
 names, opinion) and three by the docket route (docket, cluster, opinion),
 dropping to two on the rare row whose newest snapshot is REST-shaped rather
@@ -1306,7 +1307,7 @@ command's own refusal, since that registry lives in Python. The re-grade takes a
 so spaces work as well as newlines, as in
 
 ```
-scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge
+scotus/1119228/evt-petition-disposition/20260624T103000Z/claude-judge
 ```
 
 One re-grade per line, so a cell three judges graded is three lines — which
@@ -1512,8 +1513,8 @@ gh workflow run run-repair.yml --ref main \
 # A pass with a target. The re-grade takes one cell per line, one per judge.
 gh workflow run run-repair.yml --ref main \
   -f repair=regrade-stale -f repair_mode=dry-run \
-  -f repair_target='scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge
-scotus/1119228/evt-petition-certiorari/20260624T103000Z/codex-judge'
+  -f repair_target='scotus/1119228/evt-petition-disposition/20260624T103000Z/claude-judge
+scotus/1119228/evt-petition-disposition/20260624T103000Z/codex-judge'
 
 # The distribution re-derivation names its parse and takes no bound. Dispatch
 # the INCUMBENT parse first as a control: it must report `changed = 0`.
@@ -1601,7 +1602,8 @@ give the data **invariants** worth asserting on their own, distinct from
   the schedule to catch anything that bypassed the gate).
 
   The path that bypasses it is the **deterministic writers**: pull, live,
-  enrich, and seed commit to `main` directly, with no PR and therefore no gate.
+  enrich, seed, and the repair bench commit to `main` directly, with no PR and
+  therefore no gate.
   So a writer that lands a malformed or orphaned artifact reddens the data
   stage on *every
   open PR at once*, since each one validates the whole tree it checked out —

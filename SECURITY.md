@@ -31,8 +31,9 @@ runbook, [docs/security.md](docs/security.md).
 - **No static key in the runner's process env where untrusted code runs.** The
   Claude and Codex engine *actions* proxy or scope their model API keys so those
   CLIs never hold them. The engines this repo drives directly — Gemini
-  everywhere, and all three in the cert back-test — are the exception: their key
-  is a scoped step env on the agent step, so the control there is the Gemini
+  everywhere, and all three in the cert back-test and the integration suite's
+  engine smoke — are the exception: their key is a scoped step env on the agent
+  step, so the control there is the Gemini
   CLI's own sanitizer, which strips every env var it has not been asked to
   allowlist and **refuses to allowlist** any name matching
   `/TOKEN|SECRET|KEY|AUTH|CREDENTIAL|PRIVATE|CERT/i` — so a model key can never
@@ -54,10 +55,9 @@ runbook, [docs/security.md](docs/security.md).
   same secret under its own name; the two kinds here are the agent
   workflows'. A new caller of the composite is a new *call site*, never a new
   kind of place — the token reaches the launch step's env and stops there.) **No agent step holds it, and no file an agent can read
-  carries it:** the client configs name only the sidecar's `localhost` URL —
-  the structural fix that retired the old stdio-transport residual, where the
-  token sat as a literal value in a gitignored client-config file the agent's
-  file tools could read. The cells have no REST fallback, so live
+  carries it:** the client configs name only the sidecar's `localhost` URL, so no
+  client-config file on a cell runner carries the token as a literal value for
+  the agent's file tools to read. The cells have no REST fallback, so live
   CourtListener access is the MCP sidecar only (the agent calls it by tool
   name, never handling the token), and the token is never in the environment
   while an engine processes adversarial docket text.
@@ -179,7 +179,7 @@ runbook, [docs/security.md](docs/security.md).
   cap cancels the runner — destroys every runner-local account of itself, the
   diagnostics bundle and the job log included. So the watchdog reports **off**
   the runner while the runner is still alive, onto the bound channel's
-  long-lived issue (`codex-watchdog`; a staging-bound repro dispatch writes
+  long-lived issue (`codex-watchdog`; a staging-bound integration dispatch writes
   `codex-watchdog-staging` instead, under a separate staging-only App whose
   App-level grant is Issues alone), and that costs an App token minted with
   **`issues: write` and nothing else** — no `contents`, no `pull-requests`, and
@@ -191,10 +191,12 @@ runbook, [docs/security.md](docs/security.md).
   only where the escalation fails to end the step at all and the job cap cancels
   the runner regardless — the deadline path, which codex is the one engine to
   have taken. The mint therefore lives on the codex cells of `run-predict` /
-  `run-evaluate` and on the integration suite's application-repro leg — itself
+  `run-evaluate`, on the integration suite's application-repro leg — itself
   a codex cell against a pinned record, and the one place a deadline kill has
-  been observed to cancel the whole job — on identical terms: issues-only,
-  step-scoped in distribution, failing soft, never reaching the agent step.
+  been observed to cancel the whole job — and on its codex-freeze-probe job,
+  whose whole subject is the watchdog's own beat trail, on identical terms:
+  issues-only, step-scoped in distribution, failing soft, never reaching the
+  agent step.
   Minting for every engine
   would place an issues:write token in every cell of every round to buy a record
   for a failure no other engine has shown. Everything it is used for is

@@ -308,7 +308,8 @@ queues behind the production run of the same mode. The modes:
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
   committed `metrics/statpack.json`, which its realized-Term skill column is
   scored against — so it regenerates *after* the pack)
-  and `metrics/backtest.json` / `metrics/statpack.{json,md}`
+  and `metrics/backtest.json` / `metrics/statpack.{json,md}` /
+  `data/scope/scope.json`
   (input: the corpus) are deterministic stage commands that otherwise change
   only when someone reruns them locally. It reruns those tested
   `fedcourts` commands and — only when an artifact actually changed (they are
@@ -2010,8 +2011,8 @@ refused for a session token) — one line per judge in `repair_target`:
 ```bash
 gh workflow run run-repair.yml --ref main \
   -f repair=regrade-stale -f repair_mode=dry-run \
-  -f repair_target='scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge
-scotus/1119228/evt-petition-certiorari/20260624T103000Z/codex-judge'
+  -f repair_target='scotus/1119228/evt-petition-disposition/20260624T103000Z/claude-judge
+scotus/1119228/evt-petition-disposition/20260624T103000Z/codex-judge'
 ```
 
 The `dry-run` echoes each `stamp-cell` command it would run; re-dispatch with
@@ -2296,7 +2297,8 @@ exactly the evidence a wedge is best placed to destroy. (A *reaped* cell keeps
 it: concluding the step is what makes the tail that uploads it run.) The record
 that survives a cancellation is off the runner entirely, and it is **codex cells
 only** — the run workflows' cells and the integration suite's application-repro
-leg. The reaper needs no telemetry to work, and the record is load-bearing
+leg and codex-freeze-probe members. The reaper needs no telemetry to work, and
+the record is load-bearing
 only where the escalation fails to end the step at all and the job cap cancels
 the runner regardless — the deadline path, which codex is the one engine to have
 taken. Widening the mint would put an issues:write App token in every cell of

@@ -189,9 +189,10 @@ citation to key on, and keywords actively mislead — background prose fires
 rules, cited statutes belong to different subjects than the question, and
 case-name mentions contaminate ("habeas relief" inside a *Heck* discussion).
 The labeling job closes what it can rather than asking for all of it: the
-labeler's invocation denies the shell and the delegation tools by name
-([pipeline.md](pipeline.md)), so a label cannot be produced by a script the
-labeler runs or by a subagent labeling on its behalf. Search is the part that
+labeler's invocation denies the shell, the delegation tools and the web tools by
+name ([pipeline.md](pipeline.md)), so a label cannot be produced by a script the
+labeler runs, by a subagent labeling on its behalf, or off a fetch carrying
+knowledge the petition text does not hold. Local search is the part that
 stays contract — the labeler needs it to navigate this document, and using it
 to key a label off a word instead of reading the question is a rule the
 labeler keeps, not one the invocation takes away.
@@ -582,8 +583,8 @@ the corpus is a **document-fetch artifact, not a sample**:
   a small, docket-form-honest widening of what the section describes, not a
   second population. An *application* is a different form and never enters: no
   questions-presented row is derived from one. The extract does **not** narrow to the predict-scope segment,
-  which is the tempting narrowing and the wrong one; the reason is in *What one
-  labeling run can hold* below, and it is a measurement-integrity reason rather
+  which is the tempting narrowing and the wrong one; the reason is in *Batching:
+  how the frame gets labeled* below, and it is a measurement-integrity reason rather
   than a statistical one.
 - **No reweighting recovers the docket.** Topics exist only for QP-bearing
   rows, and QP presence is itself outcome- and stream-correlated, so a
@@ -676,9 +677,9 @@ committed state alone (`derive_label_batch`), in two clauses:
    after batch. Those rows are the measurement, not the output: the publication
    gate needs 90% reference coverage and 80% agreement in *every* run, so a batch
    that carried only part of the set could not be measured at all. They are
-   re-labeled each run and cost whatever the frame holds of the set — 296 of the
-   1,200 rows against the blob pulled 2026-09-08 whose newest stored snapshot is
-   2026-07-13, about a quarter of each batch, and the standing per-run price of
+   re-labeled each run and cost whatever the frame holds of the set — 353 of the
+   1,200 rows against the blob pulled 2026-09-09 whose newest stored snapshot is
+   2026-07-13, just under a third of each batch, and the standing per-run price of
    the measurement. Only *in-frame* members can be force-included, which is what
    the coverage check below turns on.
 2. **The rest of the budget is filled from the not-yet-labeled rows** — those
@@ -759,12 +760,12 @@ points of movement is noise; only a sustained move reads.
 That is what a held-out gold set is for, and it is the design here — but it has a
 shape worth stating rather than leaving to inference:
 
-- **No published row is ever measured.** "296 of 1,200 rows measured" is not
+- **No published row is ever measured.** "353 of 1,200 rows measured" is not
   coverage *of the batch*; it is a rate over rows that share none of the batch's
   output.
 - **The evidence base is fixed while the output grows.** `n` stays at the
   in-frame reference count for every batch, so the measured share of the artifact
-  falls from about a quarter at the first batch toward a few percent at
+  falls from just under a third at the first batch toward a few percent at
   convergence. The same passing rate licenses steadily more unmeasured rows.
 - **The oracle fence is load-bearing for the measurement, not only for
   leakage.** The rows that decide the gate are exactly the rows whose labels are
@@ -780,7 +781,7 @@ shape worth stating rather than leaving to inference:
   why the per-stream split at measurement review binds every batch, not just the
   first.
 - **Re-dispatching after a gate failure looks at the same rows.** The derivation
-  is deterministic, so a second attempt is scored on the identical 296 entries
+  is deterministic, so a second attempt is scored on the identical 353 entries
   against the identical threshold. That is the repository's own "tuned on the
   measurement set" warning, one level up: say what changed between attempts.
 - **Convergence ends measurement.** Once the frame is clear no further batch
@@ -813,8 +814,8 @@ blocks would leave the measured remainder more grant-skewed than the reference
 set already is.
 
 **Convergence.** Repeat dispatches clear the frame batch by batch. Against the
-blob above — 8,183 rows, 296 reference members in frame, so 904 new rows a
-batch — the historical backlog clears in **nine dispatches**. That figure moves
+blob above — 8,452 rows, 353 reference members in frame, so 847 new rows a
+batch — the historical backlog clears in **ten dispatches**. That figure moves
 with the frame and with the reference set; it is arithmetic over two numbers, not
 a property of the design. When nothing is left to label outside the reference
 set, `qp-corpus` says so and exits non-zero rather than spending a run to
