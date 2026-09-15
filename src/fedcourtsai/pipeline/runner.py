@@ -591,6 +591,17 @@ def _claude_instruction(request: RunRequest, model: str) -> str:
         task = f"Read {prompt} and AGENTS.md, then produce the prediction for this cell:"
         actor_line = f"PREDICTOR_ID={request.actor_id}"
         blocked_doc = "reasoning.md"
+        # The predict kickoff names the case-level record directory outright,
+        # as `run-predict.yml`'s does, so an engine that reads the identifiers
+        # and never opens the template still lands on the provisioned inputs
+        # instead of hunting for them under the event.
+        record = CasePaths(request.data_root, request.court_id, request.docket_id).record
+        record_block = (
+            f"Your provisioned inputs are at {record.as_posix()}/ — the case-level "
+            "directory (a sibling of events/, not a child of it) holding the snapshot, "
+            "context.json, and any provisioned documents.\n"
+            "\n"
+        )
     else:
         task = (
             f"Read {prompt} and AGENTS.md, then score every predictor's prediction "
@@ -598,6 +609,9 @@ def _claude_instruction(request: RunRequest, model: str) -> str:
         )
         actor_line = f"EVALUATOR_ID={request.actor_id}"
         blocked_doc = "evaluation.md"
+        # The evaluate kickoff names no record path, as `run-evaluate.yml`'s
+        # does not: an evaluate cell's staged inputs are not one directory.
+        record_block = ""
     return (
         f"{task}\n"
         "\n"
@@ -608,6 +622,7 @@ def _claude_instruction(request: RunRequest, model: str) -> str:
         f"RUN_ID={request.run_id}\n"
         f"MODEL_ID={model}\n"
         "\n"
+        f"{record_block}"
         "These values are authoritative; the same identifiers are exported as "
         "environment variables on engines that pass them through, but if "
         "`$COURT_ID` expands empty in your shell, use the literals above. "

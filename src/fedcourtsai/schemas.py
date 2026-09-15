@@ -998,13 +998,14 @@ class Prediction(_Strict):
     input_snapshot: str = Field(
         description="Which provisioned snapshot the cell read — the file under "
         "`data/cases/<court>/<docket>/record/snapshots/`, named for a day. The "
-        "agent's own word and free text: the prompt asks for the snapshot's "
-        "identifier or path, so the ledger spells one file several ways (a "
-        "repo-rooted path, commonest by far; a `record/`-relative one; the bare "
-        "basename `YYYY-MM-DD.json`; the bare day) beside sentinels for a cell "
-        "that found none, of which `missing` is the one to write. Validation "
-        "accepts any string — the ledger is the ledger, and no spelling is "
-        "contracted while the prompt asks as loosely as it does. So the harness "
+        "agent's own word. The prompt contracts one spelling — the file's bare "
+        "basename `YYYY-MM-DD.json`, or the literal `missing` where the cell "
+        "found none — but the committed ledger predates that contract and "
+        "spells one file several ways (a repo-rooted path, commonest by far; a "
+        "`record/`-relative one; the bare basename; the bare day). Validation "
+        "accepts any string: the ledger is the ledger, and refusing a spelling "
+        "the contract never asked of those cells would fail records that are "
+        "not wrong. So the harness "
         "normalizes instead of requiring: `stamp-cell` reduces both this field "
         "and the provisioned filename to that file's **day** and compares them, "
         "which makes every spelling above agreement, and records the answer in "
@@ -1047,13 +1048,17 @@ class Prediction(_Strict):
         "newsworthiness — *significance if decided*, decoupled from grant likelihood "
         "(a case can be denied yet high-stakes, or granted yet narrow). 0-1; judged "
         "later by an independent evaluator's agreement, never against a ground truth. "
-        "Optional (defaults None) so records written before the field existed still "
-        "validate. See docs/salience.md.",
+        "The prompt contracts a number or an explicit null carrying a one-line "
+        "`big_case_rationale`, so an absent field is a cell that answered neither; the "
+        "schema stays permissive (defaults None) because records written before the "
+        "field existed still validate. See docs/salience.md.",
     )
     big_case_rationale: str | None = Field(
         default=None,
         max_length=500,
-        description="Optional one-line rationale for `big_case_score`; null if none",
+        description="One-line rationale for `big_case_score`: required by the prompt "
+        "contract where that score is an explicit null, optional beside a number, and "
+        "null if none",
     )
     reasoning_doc: str = Field(
         default="reasoning.md",

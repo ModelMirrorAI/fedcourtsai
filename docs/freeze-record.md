@@ -3948,3 +3948,199 @@ freeze commit is recorded here.
   gradings of those events enter the frozen board — `metrics/leaderboard.json`
   built with `process_scope: "frozen"` and a non-zero cell count, where today
   it renders its empty state.
+
+- Freeze commit: `<FILL: this freeze commit's hash>`, to be tagged
+  **`prereg/proc-v8`** per step 4 — on this freeze commit itself, once its
+  carrying promotion lands. **The predict contract answers four questions it
+  left open, the predictor half is re-blessed, and proc-v8 becomes a full
+  freeze, 2026-09-15.** proc-v8's evaluator half is registered two entries
+  above; this one registers its predictor half, and because neither half has
+  reached `main` yet the two ride **one** carrying promotion, so the
+  `prereg/proc-v8` tag covers both. Carried to `main` by the promotion tagged
+  `<FILL: promotion tag>` (merge commit `<FILL: merge commit>`, merged
+  `<FILL: git log -1 --format=%cI of that merge>`).
+
+  **What moves the digests.** `.github/prompts/predict.md`, four amendments and
+  nothing else — every byte of that file is hashed into all three predictor
+  digests, so the change is stated as a list a reader can check against the
+  diff:
+
+  1. **`input_snapshot` acquires a canonical form, and its consequence.** The
+     field asked for an "identifier/path"; it now asks for the provisioned
+     file's bare basename `YYYY-MM-DD.json`, or the literal `missing` with the
+     reason in `flags.json`, and it states what the harness does with the
+     answer — `stamp-cell` compares the cell's string against the provisioned
+     snapshot, both reduced to that file's day, and records
+     `context.snapshot_uptake` `unread` on disagreement, with a harness note
+     beside it. That comparison was built without telling the cell it existed,
+     and a cell judged on a field whose contract it was never given is the
+     coarseness this closes. Validation stays permissive — the committed
+     ledger's several spellings were elicited under the looser ask and are not
+     wrong under it — so what tightened is the prompt, and the schema and
+     [predicted-artifacts.md](predicted-artifacts.md) now say which is which.
+  2. **`big_case_score` becomes required with a null escape.** It was optional,
+     and an absent field pooled two different records: a cell that weighed the
+     stakes and could not place them, and a cell that never engaged the
+     question. The prompt now asks for the number, or an explicit `null`
+     carrying a one-line `big_case_rationale`. The field's meaning is unchanged
+     — "score the stakes, not the odds" stands byte for byte — and the schema
+     stays nullable and optional so the committed ledger validates, which
+     leaves the separation the prompt's to hold. Every figure over this field
+     counts reads rather than cells, so the pooling moved a denominator; from
+     here a declared null is visible in it.
+  3. **The merits-stage documents correction**, which the entry *The document
+     selector reads the merits stage: per-side merits briefs, and a cert-stage
+     bound on the opposition row, 2026-09-10* registered as owed — "that
+     sentence becomes **false** for a briefed-moment cell the first time one is
+     provisioned over a case carrying these rows, and it points the cell at
+     retrieval for material already on its disk". The prompt told a merits cell
+     that "any provisioned `record/documents/` text is cert-stage"; it now
+     names `merits-brief-petitioner.txt` and `merits-brief-respondent.txt`,
+     says which moment sees them — the date cut that bounds the snapshot bounds
+     the directory, so a `moment: grant` cell has neither and a
+     `moment: briefed` cell has whichever were filed and fetched — and asks the
+     cell to name the provisioned briefs it read in `reasoning.md`. That
+     discharges the ordering constraint the same entry set: this freeze
+     promotes before the first briefed-moment cell over a case holding
+     provisioned merits briefs.
+  4. **The amicus elicitation clause**, which the entry *The interim amicus
+     reading widens to submissions, and the resolution count takes an
+     end-of-day cut, 2026-09-10* registered as deliberately deferred: "the
+     predict prompt asks an interim cell for the probability that 'the amicus
+     count rises past' the number its record shows, and it does not say which
+     entries that count reads. Under the widened reading it now reads
+     submissions too, and the cell is not told. Saying so in the prompt would
+     move all three predictor digests and force a re-bless; the digests stay
+     put and the elicitation stays slightly coarser than the resolver, which is
+     registered here rather than left silent." The re-bless is due for other
+     reasons now, so the coarseness closes at no extra cost: the
+     `amicus-increment` bullet states that the count both ends resolve on takes
+     the accepted form *and* each distinct lead filer whose brief the docket
+     shows as submitted and not yet accepted, deduped against the later
+     acceptance, with a motion for leave and a refused brief out. **Exactly
+     that gap and no more.** The other half of that entry — the resolution
+     end's end-of-day cut, and the positional-arm asymmetry it creates — is not
+     an elicitation coarseness and stays where it is registered.
+
+  Nothing else in the prompt moves: no restructuring and no re-ordering, and
+  the cert-stage spine, the claim sets, the retrieval doctrine and the leakage
+  rules are byte-identical.
+
+  **What else rides the commit and moves no digest.** `run-predict.yml`'s three
+  engine kickoff messages gain the case-level record path
+  (`data/cases/<court>/<docket>/record/`, matrix-interpolated so the engine
+  reads a resolved literal), and `pipeline.runner`'s local mirror of that
+  kickoff gains the same line, so an engine that reads the identifiers and
+  never opens the template still lands on the provisioned inputs. A kickoff is
+  hashed into no digest — the template file's bytes and the resolved registry
+  config are what the digest covers — so this widens what a cell is told
+  without moving a process version. It is recorded here because it reaches the
+  same cells as the amendments above and is therefore part of what the first
+  proc-v8 predictions were produced under, not because it is a boundary of its
+  own.
+
+  **The digests, before and after.** The three **predictor** digests move; the
+  three **evaluator** digests do not:
+
+  | actor | retired (proc-v7's, carried into proc-v8's evaluator half) | blessed here |
+  | --- | --- | --- |
+  | claude-baseline | `sha256:930e02ae18…` | `sha256:4e9b005971…` |
+  | codex-baseline | `sha256:c57113fae8…` | `sha256:e2d19b7b57…` |
+  | gemini-baseline | `sha256:4edc5ac58c…` | `sha256:4e11ff6c08…` |
+
+  The evaluator digests stay `sha256:fbc0e9c364…` (claude-judge),
+  `sha256:9670e1c147…` (codex-judge) and `sha256:dbdc906476…` (gemini-judge):
+  the entry two above blessed them and this commit does not touch
+  `.github/prompts/evaluate.md`. All six therefore carry the **same** step-2
+  forecast floor, `2026-09-15T00:00:00Z` — midnight on this commit's authoring
+  date, and so at or before it, which is the safe direction because the
+  carrying merge is necessarily later — and all six take step 4's correction to
+  `<FILL: the carrying merge's %cI>`. None is carried forward from an earlier
+  label, so none keeps an earlier bless moment.
+
+  **The freeze instant moves to `2026-09-17T00:00:00Z`**, from proc-v7's
+  `2026-09-07T00:00:00Z`. The held-instant exception is scoped to a predictor
+  half byte-identical to the prior `prereg/` tag's, and this commit is exactly
+  the case it excludes, so the ordinary rule governs: the literal must be at or
+  after the carrying promotion's merge and before the first run intended to
+  count. The value is two days past this commit's authoring date, guessed late
+  as step 2 asks, and `run-predict`'s review hold is what keeps the window
+  between the merge and the instant empty in practice — no cell spends until a
+  maintainer releases it, so a run released inside that window is a choice
+  rather than an accident.
+
+  **The move costs nothing, and the census says so rather than the argument.**
+  A predictor-half re-bless is the third supersession shape — the only one that
+  de-counts — but the population it de-counts here is **empty**. No committed
+  `prediction.json` carries any of the three retired predictor digests, so
+  `is_frozen`'s membership limb was already false for every cell in the ledger,
+  and moving the instant takes nothing out of a published figure that was in
+  one. This is therefore the plain supersession rather than the
+  licensed-by-declaration shape, and no shakedown declaration is owed: there is
+  no de-counted claim window, because there are no counted cells. The
+  `metrics/leaderboard.json` committed at this commit settles it independently
+  — `evaluations_total: 0`, `events_scored: 0`.
+
+  **Step 0, at authoring.** Against `origin/main` at `61e1bfee6`, the per-digest
+  grep over `data/cases` returns **0** for each of the three newly blessed
+  predictor digests (`sha256:4e9b005971…`, `sha256:e2d19b7b57…`,
+  `sha256:4e11ff6c08…`), which is the precondition rather than a note — a
+  prediction carrying one would be retroactive blessing by construction and
+  would redden the ledger tripwire. The same grep returns **0** for each of the
+  three retired proc-v7 predictor digests (`sha256:930e02ae18…`,
+  `sha256:c57113fae8…`, `sha256:4edc5ac58c…`), which is the de-counted census
+  above, and **0** for the three evaluator digests, unchanged from the entry
+  two above. The wider census of stamped cells — the object-form grep for
+  `"process_version": {` over the same tree — is **482**. Re-run all of it at
+  the promotion: `<FILL: promotion-time step-0 counts, per newly blessed digest
+  and per retired predictor digest>`.
+
+  **What the retired predictor digests ran, and why the ledger count is zero
+  too.** Unlike the evaluator half two entries above — whose retiring digests
+  carry 19 committed but uncounted evaluations — the retiring **predictor**
+  digests carry no committed cells at all, counted or ledgered. proc-v7 blessed
+  them on 2026-09-06 and the predict lane has minted nothing under them since,
+  which is the same fact the entry immediately above — *The predict backlog
+  re-owes a cell on a still-forward event whose whole cohort a re-bless
+  retired, 2026-09-15* — derives its whole cohort from. So this supersession
+  retires a blessed process that never produced a record, and that process's
+  headline was legitimately empty for the whole of its life.
+
+  **The cohort this freeze is timed for.** The re-predict rule registered in the
+  entry immediately above derives **122 events on 122 cases = 362 cells** on the
+  state at that commit, every cert/distribution member of it distributed for the
+  **2026-09-28** long conference, drained at about 25 cases a tick over roughly
+  five ticks. Those cells are the frozen board's first predictor population, and
+  they are the reason this amendment lands **now** rather than after them: a
+  predictor re-bless taken later would de-count the whole cohort and re-owe it,
+  against a conference date that closes the distribution limb on 2026-09-29.
+  Minting the cohort under the amended prompt from its first tick costs one
+  promotion; the same correction a week later costs the cohort. The band mix,
+  the reading rules and the complete-grid discipline that entry registers for
+  those cells are untouched by this one — this moves which process produced
+  them, not which events they sit on.
+
+  **What is not claimed.** The first cells under the amended prompt will be that
+  cohort, on real spend: no committed prediction exists under these bytes, so
+  nothing here reports how the four amendments change a forecast. The
+  whole-suite freshness run's engine-smoke cells are the rehearsal — a real
+  engine over the amended template, one cell per engine — and they smoke the
+  contract rather than measuring it. Two expectations are stated so a later
+  reading cannot be dressed up as a finding: `big_case_score` coverage should
+  **rise** toward every cell carrying either a read or a declared null, and a
+  briefed-moment merits cell should cite provisioned merits briefs where its
+  case holds them. Neither is a skill claim, and the second inherits the
+  expected-skill corollary the 2026-09-10 selector entry registered — a rise
+  across that boundary may not be read as a model improvement.
+
+  **The effect check, for the promotion carrying this.** `uv run fedcourts
+  process-digest --all` at the merge prints `proc-v8` and exactly the six
+  blessed digests, matching the map. Then the first `run-predict` tick released
+  at or after the instant mints the re-predict cohort's first cells stamped
+  with the new predictor digests — read `process_version.digest` off any new
+  `prediction.json` — and `uv run fedcourts predict-plan` (run where the corpus
+  is pulled) shows the re-owed bucket those cells come from. The lasting check
+  is the one the timing is for: after the 2026-09-28 conference the evaluate
+  round's gradings of those events enter the frozen board, with
+  `metrics/leaderboard.json` built at `process_scope: "frozen"` carrying a
+  non-zero cell count where today it renders its empty state.
