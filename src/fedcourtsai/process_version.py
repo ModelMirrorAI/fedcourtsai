@@ -68,20 +68,18 @@ CURRENT_PROCESS_LABEL = "proc-v8"
 # frozen-headline set: the six proc-v8
 # baselines (claude/codex/gemini, predictor and evaluator each), read off
 # `fedcourts process-digest --all`; set together with FROZEN_SINCE below,
-# which a test pins. proc-v8 is the **evaluator half only**: the three
-# evaluator digests move because the grading protocol's bytes move (the
-# evaluate cell is handed the case's staged majority opinion at
-# `record/opinion/`, and the mask's ground becomes a counted field the grader
-# names rather than free text inside `basis`), while the three predictor
-# digests are carried forward **byte-identical** from proc-v7 — nothing in the
-# predict contract, the predictor configs, or the resolved predictor models
-# moved. That is the second supersession shape in `docs/process-version.md`:
-# the map holds one blessed process per actor, so the proc-v7 evaluator
-# digests are replaced rather than kept beside these, and because the
-# evaluator entries are the freeze *record* and never the counting filter
-# (`is_frozen` reads the predictor half), retiring them de-counts nothing. This
+# which a test pins. proc-v8 is a **full** freeze: all six digests are newly
+# blessed at one carrying promotion. The predictor half moves because the
+# predict contract's bytes move — the snapshot stamp's canonical form, the
+# stakes read as a required number-or-null, the merits documents a granted
+# docket now carries, and the entry forms the interim amicus count reads — and
+# the evaluator half because the grading protocol's bytes move: the evaluate
+# cell is handed the case's staged majority opinion at `record/opinion/`, and
+# the mask's ground becomes a counted field the grader names rather than free
+# text inside `basis`. The map holds one blessed process per actor, so
+# proc-v7's six digests are replaced rather than kept beside these. This
 # constant names the live fleet's processes alone; the retired digests and the
-# census of what was graded under them live in the freeze record. Keyed
+# census of what ran under them live in the freeze record. Keyed
 # on the digest, never the label,
 # so a process that drifted under an unchanged label is not silently blessed.
 #
@@ -106,29 +104,21 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
         # comment above; a freeze commit initially ships a step-2 forecast
         # floor (a stamp at or before its own authoring date, safe because
         # the carrying merge is necessarily at or after it), which step 4 of
-        # the cutover corrects for each newly blessed entry.
+        # the cutover corrects for each newly blessed entry. Nothing here is
+        # carried forward from proc-v7, so all six take that correction and
+        # all six take the same value: one promotion carries both halves.
         #
-        # predictors: claude-baseline, codex-baseline, gemini-baseline. All
-        # three carry forward from proc-v7 byte-identical, so each keeps that
-        # label's bless moment verbatim — the bytes have been immutable since
-        # then, and re-dating them would assert a later immutability than git
-        # can witness. This is also the audit for the held instant below: the
-        # comparison an auditor runs on this label is these three values
-        # against `prereg/proc-v7`'s, not a date against a promotion.
-        "sha256:930e02ae18fd07192bede9d3e54ad420a66183db927f0b5d5939c2af0a2c93eb": datetime(
-            2026, 9, 6, 21, 18, 48, tzinfo=UTC
+        # predictors: claude-baseline, codex-baseline, gemini-baseline.
+        "sha256:b89df0c6d76f4c7e0ac4432cd7cac7378171623ac1a2e046fe2ccd41482227ea": datetime(
+            2026, 9, 15, 0, 0, 0, tzinfo=UTC
         ),
-        "sha256:c57113fae8715f31767475ef80bb2cee885534ea6c0c39c04aee327241bbf890": datetime(
-            2026, 9, 6, 21, 18, 48, tzinfo=UTC
+        "sha256:bfd848959017c260596a8032edbd1b324d184f8860c2bb5a3bba37cda52df76b": datetime(
+            2026, 9, 15, 0, 0, 0, tzinfo=UTC
         ),
-        "sha256:4edc5ac58c718a385e9518a9a1cfc0f17f32eb62ca788ad79c91e7112c11994a": datetime(
-            2026, 9, 6, 21, 18, 48, tzinfo=UTC
+        "sha256:c28fa7ac374ef41365bfd64720a113046ba59e46672979c71ed11fb5cab7f5cb": datetime(
+            2026, 9, 15, 0, 0, 0, tzinfo=UTC
         ),
-        # evaluators: claude-judge, codex-judge, gemini-judge. All three are
-        # newly blessed — the shared grading prompt's bytes move for every
-        # judge — so none keeps an earlier label's bless moment, and each
-        # carries the step-2 forecast floor until step 4 corrects it against
-        # the carrying merge.
+        # evaluators: claude-judge, codex-judge, gemini-judge.
         "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13": datetime(
             2026, 9, 15, 0, 0, 0, tzinfo=UTC
         ),
@@ -150,34 +140,33 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
 # at or after the instant is in. It is deliberately guessed *late*, so it sits
 # at or after every bless moment in the map above and a cell minted in the
 # window between them lands as shakedown rather than as a counted cell. One
-# shape inverts that order — the held-instant evaluator re-bless noted below,
-# where the instant precedes the newly blessed entries' bless moment. While
-# that window is open nothing mechanical gates it (`graded_post_freeze` has
-# no digest limb, and the tripwire cannot see a digest the map does not yet
-# hold); the gap stays empty because cells are minted from `main` — an
-# audited convention, not an invariant. From the bless moment on, the
-# evaluation-ledger tripwire detects any cell stamped inside the gap, so a
-# violation is caught at the re-bless. The literal must be at or
-# after the date of the promotion merge that carried this commit to `main`
-# (verified against `promotion/<YYYY-MM-DD>` before the `prereg/` tag is
-# minted) and before the first run intended to count — see the cutover in
-# `docs/process-version.md`. The exception is an evaluator-half re-bless,
-# which holds this instant while swapping only the evaluator entries above:
-# the enforced predictor half is byte-identical to the prior `prereg/` tag's,
-# so such a label is audited by that byte comparison rather than the date
-# rule (the supersession notes in the same doc).
+# shape inverts that order — an evaluator-half re-bless that holds this
+# instant while swapping only the evaluator entries above, licensed because
+# the enforced predictor half is then byte-identical to the prior `prereg/`
+# tag's and such a label is audited by that byte comparison rather than by the
+# date rule (the supersession notes in `docs/process-version.md`).
 #
-# The current value **held** across the proc-v8 re-bless, which is that
-# exception: proc-v8 moves no predictor byte, so the enforced half of the map
-# is proc-v7's and the instant it was chosen for still fences exactly the
-# population it fenced. Moving it forward would drop every prediction stamped
-# since 2026-09-07 from the headline in payment for a change that touched no
-# predictor byte. The consequence to read deliberately: the newly blessed
-# evaluator entries' bless moments sit *after* this instant rather than before
-# it, inverting the ordinary order, and the gap that opens is empty by the
-# step-0 grep the freeze record carries — no committed cell was stamped under
-# the new evaluator bytes before they landed.
-FROZEN_SINCE: datetime | None = datetime(2026, 9, 7, 0, 0, 0, tzinfo=UTC)
+# proc-v8 is not that shape. It blesses both halves at one promotion, so the
+# ordinary rule governs: the literal must be at or after the date of the
+# promotion merge that carries this commit to `main` (verified against
+# `promotion/<YYYY-MM-DD>` before the `prereg/` tag is minted) and before the
+# first run intended to count.
+#
+# The instant sits past this label's carrying promotion because the enforced
+# half's bytes are new: an instant behind that merge would count cells against
+# a commitment still editable when they ran. It costs nothing to place it
+# there — no committed `prediction.json` carries a retired predictor digest,
+# so the population the prior instant fenced is empty, and the freeze record
+# carries that census. The value is two days past this commit's authoring
+# date, the generous-late direction the cutover asks for.
+#
+# What the window between the merge and the instant costs is worth naming,
+# because it is not only a few uncounted cells. A cell minted there carries a
+# blessed digest and still fails `is_frozen`'s time limb, so the pre-freeze
+# re-predict rule re-owes it and the round is paid for twice. `run-predict`'s
+# review hold is the mitigation: no cell spends until a maintainer releases
+# one, so the window stays empty by decision rather than by luck.
+FROZEN_SINCE: datetime | None = datetime(2026, 9, 17, 0, 0, 0, tzinfo=UTC)
 
 # The retrieval surface each engine's cells run with. Folded into the digest
 # because it is a process input as much as the model or the prompt: a cell that

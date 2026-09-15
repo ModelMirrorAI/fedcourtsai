@@ -1245,12 +1245,24 @@ math; this doc owns the default and the knob's semantics.
 
 ## The big-case score (a pre-registered stakes opinion)
 
-A field on `prediction.json` — `big_case_score` (0–1) plus an optional one-line
-rationale — capturing the predictor's view of the case's **stakes / importance /
-newsworthiness, decoupled from grant likelihood**. Define it as *significance if
-decided*: a case can be denied yet high-stakes and closely watched, or granted yet
-narrow and technical, so the score carries information beyond `probability` rather
-than shadowing it.
+A field on `prediction.json` — `big_case_score` (0–1, or an explicit `null`),
+with a one-line `big_case_rationale` beside it wherever the score is null —
+capturing the predictor's view of the case's **stakes / importance /
+newsworthiness, decoupled from grant likelihood**. Define it as
+*significance if decided*: a case can be denied yet high-stakes and closely
+watched, or granted yet narrow and technical, so the score carries information
+beyond `probability` rather than shadowing it.
+
+The predict prompt contracts an **answer**, not necessarily a score: the number,
+or an explicit `null` whose rationale says why the cell could not place the
+stakes. The separation that buys is carried by the **rationale**, not by the
+null — `stamp-cell` rewrites the record through the model, so an omitted score
+and a declared null land as the same bytes, and every figure here skips a null
+either way. What the contract changes is coverage of the number branch, and it
+makes a no-view legible where it was previously indistinguishable from a cell
+that never took the question up. The schema keeps the field nullable and
+optional so records written before the contract still validate, which leaves
+the separation the prompt's to hold rather than validation's.
 
 It is **judged by an independent evaluator, not against a ground truth**. At
 evaluation the evaluator forms its **own** read of how big the case is, and the

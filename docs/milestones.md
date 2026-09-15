@@ -52,12 +52,13 @@ short article — *"We predicted the long conference — here's how we did"* —
 the calibration numbers attached, compared against the statpack's per-Term cert
 base rates.
 
-The counted record for this release opens at the `proc-v7` freeze: its three
-blessed predictor digests and the freeze instant 2026-09-07T00:00:00Z
-([freeze-record.md](freeze-record.md)), both carried forward unchanged by the
-`proc-v8` evaluator-half re-bless — so predictions
+The counted record for this release opens at the `proc-v8` **full** freeze:
+its three blessed predictor digests and the freeze instant
+2026-09-17T00:00:00Z ([freeze-record.md](freeze-record.md)) — so predictions
 stamped from that instant, under those digests, are the release's
-claimable population. It is small, datable, and end-to-end, and it defines the
+claimable population. The conference cohort is re-predicted under them from
+the carrying promotion's first released tick, which is what puts this
+conference inside the counted record rather than behind its boundary. It is small, datable, and end-to-end, and it defines the
 scope cleanly: the petitions on that conference list are SCOTUS dockets,
 exactly the gate the budget sizes for bootstrapping.
 

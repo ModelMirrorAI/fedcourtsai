@@ -282,7 +282,8 @@ The first predict fan-out to land after the pre-registration freeze instant
 over 27 events — is the anchor measurement covering the arrival, interim, and
 merits moments rather than cert alone. ("Post-freeze" throughout this document
 names the August cohort stamped after the 2026-08-16 `proc-v3` instant; the
-`proc-v5`, `proc-v6` and `proc-v7` re-blesses have since re-based the frozen partition, so
+`proc-v5`, `proc-v6`, `proc-v7` and `proc-v8` re-blesses have since re-based the frozen
+partition, so
 these are measurement cohorts, not claimable-partition members. Every measured
 Claude figure in this document was produced on `claude-fable-5`; the point
 release holds its rate, so the dollar figures carry to the current default and

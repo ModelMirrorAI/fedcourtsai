@@ -179,7 +179,15 @@ That text is derived from petition PDFs fetched from supremecourt.gov — public
 records, outside the CC BY-ND term above — and that channel is accepted for the
 labeling run alone, not as a route for corpus content generally. The other
 three republish no document text. Prediction reasoning may quote or summarize
-public-record docket facts in the course of explaining a prediction, and an
+public-record docket facts in the course of explaining a prediction, and may
+characterize what a provisioned filing argues — a petition, a brief in
+opposition, a questions-presented section, either side's brief on the merits —
+on the same public-record footing as the questions-presented text above: those
+PDFs are fetched from supremecourt.gov, outside the CC BY-ND term, and the
+staged copies are gitignored and never committed. The prompt contract asks a
+cell to summarize rather than reproduce, which is what keeps that a
+characterization; a brief pasted at length into `reasoning.md` would be
+republication of a document by a route the ledger was never meant to open. An
 evaluation's `basis` and `evaluation.md` may quote the passage of a majority
 opinion a semantic grade rests on — the opinion body is CourtListener's text
 extraction of a public-domain federal opinion, outside the CC BY-ND value-add

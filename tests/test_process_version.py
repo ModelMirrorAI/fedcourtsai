@@ -389,6 +389,46 @@ def test_only_an_evaluator_digest_is_ever_blessed_after_the_instant() -> None:
     )
 
 
+def test_a_full_freeze_orders_the_instant_after_every_bless_it_carries() -> None:
+    """The other half of the held-instant rule, for the shape that may not use it.
+
+    The exception above is keyed on the predictor digests being carried forward
+    byte-identical from the prior `prereg/` tag, and that is visible in the
+    constants: a carried-forward digest keeps the *earlier* label's bless
+    moment, so a held-instant label's map holds more than one distinct moment.
+    A **full** freeze — both halves blessed at one carrying promotion — holds
+    exactly one, because every entry is that merge's time. There the ordinary
+    rule governs the whole map rather than the predictor half alone, so the
+    instant sits at or after it.
+
+    This is the constants-only shadow of the cutover's step 4 on a full freeze:
+    the git comparison it asks for cannot run here, but an instant left behind
+    the bless moment the maintainer wrote in can, and that is the slip that
+    would count cells against a commitment still editable when they ran.
+
+    Two limits, stated rather than left to be discovered. On a map whose
+    entries are all equal this overlaps its neighbour above, which bounds the
+    predictor entries by the same instant — the coverage it adds is the
+    evaluator half, which that one does not reach. And it is deliberately
+    blind where the map holds more than one moment: it cannot tell a
+    carried-forward predictor half from a step-4 correction that reached some
+    entries and not others, so a straggler is caught by the aware/not-in-the-
+    future guard in the coupling test rather than here.
+    """
+    since = process_version.FROZEN_SINCE
+    moments = set(process_version.FROZEN_PROCESS_DIGESTS.values())
+    if since is None or len(moments) != 1:
+        return
+    carried = moments.pop()
+    assert since >= carried, (
+        f"the freeze instant {since.isoformat()} precedes the single bless moment "
+        f"{carried.isoformat()} every digest in the map carries — on a full freeze the "
+        "instant is at or after the promotion that made those bytes immutable; the "
+        "held-instant exception is scoped to carried-forward predictor digests, which "
+        "this map has none of"
+    )
+
+
 def test_is_frozen_requires_the_stamp_to_postdate_the_freeze(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

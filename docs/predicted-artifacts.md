@@ -53,15 +53,16 @@ fields that mean the same thing at every stage:
   `record/` is **case-level** — a sibling of `events/`, not a child of it — so
   a cell's provisioned inputs (the snapshot, `context.json`, and `documents/`)
   sit beside every event of the case rather than under the event being
-  predicted. The field is the agent's own string and free text: the prompt asks
-  for the snapshot's identifier or path, so the ledger spells one file several
-  ways — a repo-rooted path (much the commonest, and what the example below
-  shows), a `record/`-relative one, the bare basename `YYYY-MM-DD.json`, the
-  bare day — beside sentinels for a cell that found none, of which `missing` is
-  the one to write. Validation accepts all of them, because the ledger is the
-  ledger and **no spelling is contracted** while the prompt asks as loosely as
-  it does. Nothing scored conditions on it; the harness-written `context` block
-  carries the conditioning state instead.
+  predicted. The field is the agent's own string. The prompt contracts one
+  spelling — the file's bare basename `YYYY-MM-DD.json`, or the literal
+  `missing` with the reason in `flags.json` where the cell found no snapshot at
+  all — while the committed ledger predates that contract and spells one file
+  several ways: a repo-rooted path (much the commonest, and what the example
+  below shows), a `record/`-relative one, the bare basename, the bare day.
+  Validation accepts all of them, because the ledger is the
+  ledger and refusing a spelling those cells were never asked for would fail
+  records that are not wrong. Nothing scored conditions on it; the
+  harness-written `context` block carries the conditioning state instead.
 
   It is not inert, either. It is the cell's own account of which snapshot it
   read, so rather than requiring a spelling the harness normalizes: the stamp
@@ -84,10 +85,21 @@ fields that mean the same thing at every stage:
   prediction carrying it must carry a non-empty `votes` block; the schema
   enforces that on every artifact.
 - **`confidence`** — optional, 0–1.
-- **`big_case_score` / `big_case_rationale`** — an optional pre-registered read
-  of the case's stakes *if decided*, explicitly not grant likelihood. Graded
+- **`big_case_score` / `big_case_rationale`** — a pre-registered read of the
+  case's stakes *if decided*, explicitly not grant likelihood. Graded
   later by rank-agreement with the evaluators' own independent reads, never
-  against a ground truth ([salience.md](salience.md)).
+  against a ground truth ([salience.md](salience.md)). The prompt contracts an
+  answer: the number, or an explicit `null` carrying a one-line
+  `big_case_rationale` for why the cell could not place the stakes. The schema
+  keeps the field optional so records written before it existed still validate.
+  **The rationale is what separates a considered no-view from silence, and the
+  null cannot.** `stamp-cell` rewrites the artifact through the model, which
+  emits every field at its default, so a score the cell omitted and a score it
+  declared null are the same bytes on a stamped record — key presence says
+  whether the cell was stamped, not what it answered. Every figure over the
+  score skips a null either way, so neither form moves a denominator; what a
+  reader can tell apart is a null **with** a rationale beside it from a null
+  without one.
 - **`reasoning_doc` / `predicted_reasoning_doc`** — the filenames of the two
   prose documents, beside this file. `validate` resolves both pointers, so a
   named document that is not there fails the cell, as does a name carrying a
