@@ -57,12 +57,17 @@ moves, and `superseded_gradings` is untouched. And a rise in any figure across
 the re-predict boundary is **not** a measurement of model improvement — the two
 sides are different processes on different information sets, which is the whole
 reason the partition exists. Nor is the resulting board a sample of the docket:
-the first frozen cert population is **one conference's (2026-09-28)
-elevated-band selection, n = 39 events** (34 elevated, 3 baseline, 1 high, 1
-federal), so its always-deny floor is the elevated band's rather than the
-docket's, it is read on the per-band cut and never as a pooled row, and it does
-not pool with any `"all"`-scope board. That sentence travels with the number
-rather than sitting a section away, because it is the number's population.
+the first frozen cert population is **one conference's still-forward
+retired-cohort set, n = 110 cert/distribution events, all distributed for
+2026-09-28** (70 baseline, 37 elevated, 1 high, 1 federal, 1 state), with 10
+cert/cvsg (all high band) and 2 interim events beside it. It spans bands — the
+salience funding line does not cut it, because the re-predict rule re-owes a
+wholly retired cohort on a declined case too — but spanning bands is not the
+same as being a sample: it is one conference, and the always-deny floor a figure
+is read against is the band's, so it is reported on the **per-band cut** and
+never as a pooled row, its high band is n = 1 on the cert arm, and it does not
+pool with any `"all"`-scope board. That sentence travels with the number rather
+than sitting a section away, because it is the number's population.
 
 And a third reading the boundary does not license: **a cohort complete on the
 board is not the same as a cohort complete in fact.** The rule's moment gate

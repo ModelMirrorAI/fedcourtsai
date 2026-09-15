@@ -11046,9 +11046,9 @@ def _cohort_narrowing_reason(data_root: Path, court: str, docket: int, event_id:
     if event_has_predictions(data_root, court, docket, event_id):
         return (
             "narrowed away on a salience-deferred case kept for cohort completion: this "
-            "event's whole cohort sits outside the frozen process scope, so a freshly "
-            "stamped cell would not complete a comparison but leave a board an event "
-            "scored on one engine alone."
+            "event's whole cohort sits outside the frozen process scope and the pre-freeze "
+            "re-predict rule does not re-owe it, so a freshly stamped cell would not "
+            "complete a comparison but leave a board an event scored on one engine alone."
         )
     return (
         "narrowed away on a salience-deferred case kept for cohort completion: no committed "
@@ -11107,21 +11107,28 @@ def _scope_filtered(
     :func:`corpus.connect_readonly` itself.
 
     ``data_root`` enables the **cohort-completion** reading of the salience
-    drop, the plan-time mirror of the live sweep's carve-out: a deferred case
-    whose listed events hold a cohort a claimable board will count once the
-    event resolves and is graded
-    (:func:`fedcourtsai.store.event_has_claimable_prediction`) is kept, narrowed
-    to exactly those events, because finishing such a cohort buys only the
-    missing engines on a case the project already funded. Everything else about
-    the case goes with the drop — its unpredicted events, which would be new
-    spend on a case the funding gate declined, and its events whose whole cohort
-    sits outside the frozen process scope, where a freshly-stamped cell would
-    not complete a comparison but manufacture a one-engine one. A deferred case
-    with no qualifying listed event is dropped as before, and so is one whose
-    request lists no events at all: an unlisted request means "resolve this
-    case's defaults", which is a request for new cells, not for a cohort.
-    Without ``data_root`` (the evaluate reading, which ``for_grading`` already
-    exempts from the salience drop) the carve-out is off.
+    drop, the plan-time mirror of the live sweep's carve-out, and with it the
+    pre-freeze re-predict rule's widening of the same gate. A deferred case is
+    kept, narrowed to the listed events qualifying on either ground: an event
+    whose cohort a claimable board will count once the event resolves and is
+    graded (:func:`fedcourtsai.store.event_has_claimable_prediction`), because
+    finishing it buys only the missing engines on a case the project already
+    funded; or an event the backlog deriver named in ``reopen_events``, whose
+    whole cohort a re-bless retired while the event is still forward at an open
+    moment, because a wholly retired cohort is re-minted for every engine at
+    once and so completes rather than manufactures a comparison. Everything else
+    about the case goes with the drop — its unpredicted events, which would be
+    new spend on a case the funding gate declined, and its predicted-but-retired
+    events the rule does not re-owe, where a freshly-stamped cell would leave a
+    board an event scored on one engine alone. A deferred case with no
+    qualifying listed event is dropped as before, and so is one whose request
+    lists no events at all: an unlisted request means "resolve this case's
+    defaults", which is a request for new cells, not for a cohort. Only the
+    deriver sets ``reopen_events`` — the corpus-side gates behind it are not
+    answerable from a trigger body, which carries none — so the second arm is
+    unreachable from a hand-written case list. Without ``data_root`` (the
+    evaluate reading, which ``for_grading`` already exempts from the salience
+    drop) the carve-out is off.
 
     ``dropped_out`` collects each skipped case as a structured record carrying
     the same reason the stderr note prints, so a plan can attribute a missing
@@ -11169,6 +11176,7 @@ def _scope_filtered(
                         if event_has_claimable_prediction(
                             data_root, case.court, case.docket, event_id
                         )
+                        or event_id in case.reopen_events
                     )
                 ):
                     # Cohort completion: these events were funded and predicted
@@ -11176,6 +11184,17 @@ def _scope_filtered(
                     # them. `predict_matrix`'s per-(predictor, event) skip mints
                     # exactly those; the narrowing here is what keeps the case's
                     # *unpredicted* events out of the fan-out entirely.
+                    #
+                    # The second arm is the deriver's pre-freeze re-predict
+                    # rule, and this is the same widening of the funding gate
+                    # the deriver applies — stated in both places because a
+                    # backstop that refused what the deriver admitted would drop
+                    # the whole case here and silently halve the re-predicted
+                    # cohort. Only the deriver can set `reopen_events`: it alone
+                    # can ask the corpus-side gates (is the event still forward,
+                    # is its moment still open), and a case list parsed from a
+                    # trigger body carries none, so a hand-written body cannot
+                    # reach this arm.
                     typer.echo(
                         f"Narrowing {case.court}/{case.docket}: {drop} Kept "
                         f"{len(cohort)} of {len(case.events)} listed event(s) for "

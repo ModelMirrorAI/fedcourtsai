@@ -208,7 +208,14 @@ committed state (*The predict/evaluate matrix* in
 [pipeline.md](pipeline.md)). That is a third route to a re-forecast beside the
 two above and the only one no one asks for, so it is the one to price: after a
 re-bless, budget a full three-engine fan-out over every still-forward event at
-a still-open moment whose cohort the re-bless retired, not zero. `fedcourts
+a still-open moment whose cohort the re-bless retired, not zero. **The salience
+funding gate does not narrow that set** — the rule is a second admission ground
+at the gate's cohort-completion narrowing, because a wholly retired cohort is
+re-minted for every engine at once — so the bill spans salience-declined cases
+too, and on a docket where most petitions sit in the baseline band that is the
+larger part of it. What the gate still bounds is the *rate*: the drain is
+`salience.sweep_cases_per_cycle` cases a tick, so a larger cohort buys more
+ticks rather than a bigger run. `fedcourts
 predict-plan` counts exactly that set as `reowed_pre_freeze_cells` before any
 spend, and each freeze-record entry registering such a rule states the cohort's
 size and dollar estimate on the state at its commit.

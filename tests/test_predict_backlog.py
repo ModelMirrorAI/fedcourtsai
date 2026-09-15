@@ -1276,11 +1276,13 @@ def test_within_a_case_the_never_predicted_events_lead(tmp_path: Path) -> None:
     assert entry.reopened == (BASELINE_EVENT,)
 
 
-def test_the_salience_cohort_is_untouched_by_the_rule(tmp_path: Path) -> None:
-    """The rule re-opens events the project already paid for; it opens none the
-    funding gate declined. A salience-deferred case reaches the deriver only on the
-    cohort-completion ground, which keeps exactly the events a claimable board
-    already counts — and a wholly retired cohort is not one of them."""
+def test_a_salience_declined_case_is_re_owed_its_retired_cohort(tmp_path: Path) -> None:
+    """The funding gate's one widening. A case the salience round declined still
+    carries pre-freeze cells on a forward event, and leaving them there is not a
+    saving: the event is graded when it resolves and every result is dropped as
+    out of frozen scope. So the re-predict rule is the second admission ground at
+    the cohort narrowing, and the forward cohort is re-predicted whole rather than
+    on its funded half."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _open_case(
@@ -1293,7 +1295,67 @@ def test_the_salience_cohort_is_untouched_by_the_rule(tmp_path: Path) -> None:
     )
     _retired_cohort(data, 1)
 
-    assert _backlog(db, data).case_ids == ()
+    backlog = _backlog(db, data)
+
+    assert backlog.case_ids == ("scotus/1",)
+    assert _reopened(backlog) == {"scotus/1": (BASELINE_EVENT,)}
+    assert backlog.entries[0].events == (BASELINE_EVENT,)
+
+
+def test_a_declined_case_earns_nothing_on_an_event_the_rule_does_not_re_owe(
+    tmp_path: Path,
+) -> None:
+    """The widening reaches the re-predict cohort and stops there. An event no
+    predictor has forecast is not re-owed — the rule's ledger gate is false with no
+    runs at all — so a declined case admitted for its retired cohort still earns no
+    brand-new spend on its other events, and the salience selection itself does not
+    move."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(
+        db,
+        "scotus",
+        1,
+        event_id=BASELINE_EVENT,
+        selected=False,
+        conference=FUTURE_CONFERENCE,
+    )
+    # A second open event on the same declined case, carrying no cohort at all.
+    _open_case(db, "scotus", 1, event_id="evt-petition-cvsg", selected=False)
+
+    assert _backlog(db, data).case_ids == (), "declined, nothing retired: not a candidate"
+
+    _retired_cohort(data, 1)
+    entry = _backlog(db, data).entries[0]
+    assert entry.events == (BASELINE_EVENT,), "the never-predicted event stays out"
+    assert entry.reopened == (BASELINE_EVENT,)
+
+
+def test_a_declined_case_re_owed_only_by_the_rule_orders_behind_never_predicted_work(
+    tmp_path: Path,
+) -> None:
+    """The widening adds an admission ground and moves no priority. A declined case
+    admitted on the rule alone is a re-owed-only entry like any other, so it
+    follows every case owed a never-predicted cell and is the end that gives way
+    under the cycle cap."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    # The declined case is the staler candidate, so only the ordering rule can
+    # put the funded never-predicted one in front of it.
+    _open_case(
+        db,
+        "scotus",
+        1,
+        event_id=BASELINE_EVENT,
+        selected=False,
+        conference=FUTURE_CONFERENCE,
+        polled_on=FRESH - timedelta(days=2),
+    )
+    _retired_cohort(data, 1)
+    _open_case(db, "scotus", 2, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+
+    assert _derive(db, data) == ("scotus/2", "scotus/1")
+    assert _derive(db, data, cap=1) == ("scotus/2",), "the re-owed end gives way"
 
 
 def test_the_plan_reports_re_owed_cells_in_their_own_bucket(tmp_path: Path) -> None:
@@ -1325,6 +1387,38 @@ def test_the_plan_reports_re_owed_cells_in_their_own_bucket(tmp_path: Path) -> N
     assert {r["event_id"] for r in plan["reowed_pre_freeze"]} == {BASELINE_EVENT}
     assert "retired process digest" in plan["reowed_pre_freeze"][0]["reason"]
     assert "RE-OWED under the pre-freeze rule" in _flat(result.stderr)
+
+
+def test_the_plan_keeps_a_salience_declined_case_the_rule_re_owes(tmp_path: Path) -> None:
+    """The deriver and the plan's scope backstop have to agree about the widening,
+    or the run silently halves the cohort: the backstop reads the funding gate for
+    itself, and a declined case it refused would be dropped whole after the
+    derivation admitted it. The licence travels on the derivation's own
+    ``reopen_events``, which is why a trigger body cannot reach this arm."""
+    env = _cli_env(tmp_path)
+    db = corpus.corpus_db_path(Path(env["FEDCOURTS_CORPUS_ROOT"]))
+    _open_case(
+        db,
+        "scotus",
+        24001,
+        event_id=BASELINE_EVENT,
+        selected=False,
+        polled_on=date.today(),
+        conference=date.today() + timedelta(days=14),
+    )
+    _retired_cohort(Path(env["FEDCOURTS_DATA_ROOT"]), 24001)
+
+    result = runner.invoke(app, ["predict-plan", "--run-id", "RID"], env=env)
+
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.stdout)
+    engines = len(enabled_predictors(PREDICTORS))
+    assert plan["counts"]["provenance"]["dropped_out_of_scope_cases"] == 0, (
+        "the backstop must not drop a case the derivation admitted under the rule"
+    )
+    assert plan["counts"]["cell_ledger"]["reowed_pre_freeze_cells"] == engines
+    assert plan["counts"]["cell_ledger"]["would_mint_cells"] == engines
+    assert "for cohort completion" in _flat(result.stderr)
 
 
 def test_an_event_with_one_missing_engine_and_two_retired_ones_re_owes_both_arms(

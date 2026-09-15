@@ -868,11 +868,13 @@ def _reowed_pre_freeze_events(
        event whose cohort is partly blessed re-owes only the engines that are
        not.
 
-    The event's ordinary admission is unchanged and still upstream of this: the
-    caller passes the forecastable set, narrowed for a cohort-only candidate,
-    so the salience funding gate and the cohort-completion bounds decide which
-    events reach here exactly as they did before. This rule re-opens events the
-    project already paid for; it opens none it declined.
+    The caller passes the case's whole forecastable set, and for a cohort-only
+    candidate this runs **before** the cohort narrowing rather than after it:
+    the rule is one of that narrowing's two admission grounds, so a
+    salience-declined case's wholly retired events are re-owed alongside a
+    funded case's. What the rule never reaches is an event no predictor has
+    forecast at all — gate 3 is false with no runs — so it re-opens the
+    pre-freeze cohort and opens no new work on either side of the funding line.
     """
     # The moment filter runs first and alone, because it needs only the row and
     # the register while both gates after it read a store: without this every
@@ -939,8 +941,8 @@ def derive_predict_backlog(
        sweep's own pre-filter.
     5. Funding: selected by salience, **or** carrying an open merits event (the
        Court's own selection outranks the cert-stage funding question), **or**
-       already holding a committed prediction somewhere (cohort completion,
-       admission only — see the narrowing below).
+       already holding a committed prediction somewhere (cohort completion or a
+       pre-freeze re-predict, admission only — see the narrowing below).
     6. :func:`_row_in_predict_scope` — the full scope gate the pull and live
        lanes apply at queue time, with ``cohort_completion`` set exactly when
        (5) admitted the row on the cohort ground alone.
@@ -1028,13 +1030,21 @@ def derive_predict_backlog(
     between entries — so the rule can never starve the ordinary backlog under
     the cap.
 
-    A **cohort-only** candidate is narrowed further,
-    to the events whose cohort a claimable board will count
-    (:func:`fedcourtsai.store.event_has_claimable_prediction`) — the sweep's
-    two bounds, unchanged: a case the funding gate declined earns its missing
-    engines on an event already paid for, never new cells on its other events,
-    and never a one-engine comparison on an event whose whole cohort sits
-    outside the frozen process scope.
+    A **cohort-only** candidate — one the salience round declined, here only
+    because it already holds a prediction somewhere — keeps an event on either
+    of two grounds. The first is cohort completion, the sweep's own bound: an
+    event whose cohort a claimable board will count
+    (:func:`fedcourtsai.store.event_has_claimable_prediction`), so the case
+    earns its missing engines on work already paid for and never a one-engine
+    comparison on a cohort outside the frozen process scope. The second is the
+    re-predict rule itself, which is the funding gate's one widening: a wholly
+    retired cohort is re-minted for *every* engine at once, so it yields a
+    complete frozen cohort rather than the partial completion the first ground
+    refuses — and without the arm the forward cohort would be re-predicted only
+    on its funded half, leaving the rest to be graded and dropped. The arm
+    reaches the re-predict cohort alone: an event no predictor has forecast is
+    not re-owed, so a declined case still earns no new cells on its other
+    events and the salience selection itself does not move.
 
     Like the evaluate deriver, the scan is driven from the **open-event set**
     (``corpus.iter_open_events``) with a point query per candidate case. On a
@@ -1102,48 +1112,16 @@ def derive_predict_backlog(
         court, docket_str = row.case_id.split("/", 1)
         docket = int(docket_str)
         events = forecastable_event_ids(conn, court, docket, today=day)
-        if cohort_only:
-            # The cohort-completion narrowing, and the **funding boundary of the
-            # pre-freeze re-predict rule below** — the two meet here, so the
-            # decision is stated where it is made rather than left to be
-            # reconstructed. A salience-deferred case reaches this scan only
-            # because it already holds a prediction somewhere, and this keeps
-            # only the events a claimable board already counts. An event whose
-            # whole cohort is retired is not one, so it is dropped before the
-            # re-predict rule ever sees it: the rule re-opens events the
-            # funding gate paid for and opens none it declined.
-            #
-            # That is a **funding** boundary, not a correctness one, and it is
-            # the one line that moves if the project decides otherwise. The
-            # comparability half of this predicate does not object to a
-            # re-predict: it refuses a *partial* completion, which would leave
-            # one engine scored and its rivals structurally excluded, whereas a
-            # wholly retired cohort is re-minted for every engine at once and so
-            # yields a complete frozen cohort. Widening is therefore an
-            # `or`-arm here admitting an event no predictor holds a blessed cell
-            # on — and it is spend on cases the salience round declined, which
-            # is why it is not taken by default.
-            events = [
-                event_id
-                for event_id in events
-                if event_has_claimable_prediction(data_root, court, docket, event_id)
-            ]
-        owed = [
-            event_id
-            for event_id in events
-            if any(
-                not event_has_predictions(data_root, court, docket, event_id, predictor_id=pid)
-                and not _cell_capped(
-                    data_root, court, docket, event_id, pid, max_attempts, "predict"
-                )
-                for pid in predictor_ids
-            )
-        ]
-        # The whole admitted list, not what `owed` left: an event can be owed a
-        # never-predicted cell for one engine and a re-predict for another, and
-        # minting only the first would build a one-engine frozen cohort. See
-        # `_reowed_pre_freeze_events` — the arms overlap per event and stay
-        # disjoint per cell.
+        # The re-predict rule runs **before** the cohort narrowing below,
+        # because it is one of that narrowing's two admission grounds: an event
+        # is kept when a claimable board already counts its cohort, or when the
+        # rule re-owes it. So it is asked over the case's whole forecastable
+        # set, not over what the narrowing left. The whole admitted list is also
+        # what it takes on a funded case, and for a second reason: an event can
+        # be owed a never-predicted cell for one engine and a re-predict for
+        # another, and minting only the first would build a one-engine frozen
+        # cohort. See `_reowed_pre_freeze_events` — the arms overlap per event
+        # and stay disjoint per cell.
         reowed = (
             []
             if budget_full
@@ -1157,6 +1135,54 @@ def derive_predict_backlog(
                 day=day,
             )
         )
+        if cohort_only:
+            # The cohort-completion narrowing, and the **funding boundary of the
+            # pre-freeze re-predict rule above** — the two meet here, so the
+            # decision is stated where it is made rather than left to be
+            # reconstructed. A salience-deferred case reaches this scan only
+            # because it already holds a prediction somewhere, and an event of
+            # it is kept on either of two grounds.
+            #
+            # The first is cohort completion, unchanged: an event a claimable
+            # board already counts, whose missing engines are worth finishing.
+            #
+            # The second is the re-predict rule, and it is the funding gate's
+            # one widening: an event the rule re-owes — still forward, still at
+            # an open moment, every committed cell out of frozen scope for some
+            # engine. The comparability half of `event_has_claimable_prediction`
+            # does not object to it. What that predicate refuses is a *partial*
+            # completion, which would leave one engine scored and its rivals
+            # structurally excluded; a wholly retired cohort is re-minted for
+            # every engine at once and so yields a **complete** frozen cohort.
+            # Without this arm the whole forward cohort is not re-predicted:
+            # the events on salience-declined cases keep only pre-freeze cells,
+            # are graded when they resolve, and are dropped from the frozen
+            # board — the state the rule exists to repair, left standing on the
+            # larger half of the cohort.
+            #
+            # The arm reaches the re-predict cohort and nothing else. An event
+            # no predictor has forecast is not re-owed
+            # (`predictor_holds_only_retired_predictions` is false with no runs
+            # at all), so a declined case still earns no new cells on its other
+            # events, and the salience selection itself does not move.
+            reopened = set(reowed)
+            events = [
+                event_id
+                for event_id in events
+                if event_has_claimable_prediction(data_root, court, docket, event_id)
+                or event_id in reopened
+            ]
+        owed = [
+            event_id
+            for event_id in events
+            if any(
+                not event_has_predictions(data_root, court, docket, event_id, predictor_id=pid)
+                and not _cell_capped(
+                    data_root, court, docket, event_id, pid, max_attempts, "predict"
+                )
+                for pid in predictor_ids
+            )
+        ]
         # The owed check runs FIRST, and the two timing holds after it, so a
         # hold is only counted where it is the sole thing between the case and
         # an entry. Counted the other way round the figures would be dominated
