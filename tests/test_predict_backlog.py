@@ -20,16 +20,18 @@ from typer.testing import CliRunner
 
 from fedcourtsai import casestore, corpus
 from fedcourtsai.cli import app
+from fedcourtsai.matrix import CaseRequest, predict_matrix
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
+    REPREDICT_MOMENTS,
     PredictBacklog,
     derive_predict_backlog,
 )
 from fedcourtsai.registry import enabled_predictors
-from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Stage
+from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Moment, ProcessVersion, Stage
 from fedcourtsai.serialize import write_json
-from tests.conftest import seed_prediction
+from tests.conftest import retired_stamp, seed_prediction
 
 runner = CliRunner()
 
@@ -64,6 +66,7 @@ def _open_case(  # noqa: PLR0913 - one fixture knob per admission predicate unde
     granted_on: date | None = None,
     polled_on: date | None = FRESH,
     queued_on: date | None = None,
+    conference: date | None = None,
 ) -> None:
     """Seed one predict candidate: a distributed SCOTUS row, an open event, documents.
 
@@ -88,6 +91,7 @@ def _open_case(  # noqa: PLR0913 - one fixture knob per admission predicate unde
                     date_cert_granted=granted_on,
                     disposition=Disposition.granted if granted_on else None,
                     last_live_polled=polled_on,
+                    distributed_for_conference=conference,
                 )
             ],
         )
@@ -1007,3 +1011,317 @@ def test_the_backlog_mode_refuses_an_absent_corpus(tmp_path: Path) -> None:
 
     assert result.exit_code != 0
     assert "corpus-pull" in _flat(result.output)
+
+
+# --- The pre-freeze re-predict rule ------------------------------------------
+#
+# The owed check above is version-blind, which is a hole a predictor-half
+# re-bless opens: an event whose whole committed cohort carries retired digests
+# is reported covered while holding forecasts no claimable board will ever
+# count. These exercise the rule that re-owes it — and, just as importantly,
+# every case it must refuse.
+
+#: The register's cert baseline, whose declared moment is the first
+#: distribution. The rule is keyed on the *declared* moment, so these fixtures
+#: use the real id rather than this module's undeclared `EVENT`.
+BASELINE_EVENT = "evt-petition-disposition"
+
+#: A conference still ahead of `TODAY`, and one already behind it — the
+#: distribution moment's open/closed boundary.
+FUTURE_CONFERENCE = date(2026, 8, 7)
+PAST_CONFERENCE = date(2026, 7, 10)
+
+
+def _retired_cohort(
+    data: Path,
+    docket: int,
+    *,
+    event_id: str = BASELINE_EVENT,
+    frozen_predictors: tuple[str, ...] = (),
+    stamp: ProcessVersion | None = None,
+) -> None:
+    """Commit one prediction per enabled predictor, all but ``frozen_predictors`` retired."""
+    for predictor in enabled_predictors(PREDICTORS):
+        seed_prediction(
+            data,
+            "scotus",
+            docket,
+            event_id,
+            predictor_id=predictor.id,
+            frozen=predictor.id in frozen_predictors,
+            stamp=None if predictor.id in frozen_predictors else stamp,
+        )
+
+
+def _reopened(backlog: PredictBacklog) -> dict[str, tuple[str, ...]]:
+    return {entry.case_id: entry.reopened for entry in backlog.entries}
+
+
+def test_an_event_whose_whole_cohort_is_retired_is_re_owed(tmp_path: Path) -> None:
+    """The rule itself. Every predictor has predicted the event, so the
+    version-blind owed check reports nothing due — yet no cell it holds is in the
+    frozen partition, so when the event resolves the whole cohort is dropped from
+    the board and the event is consumed for nothing."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+    _retired_cohort(data, 1)
+
+    backlog = _backlog(db, data)
+
+    assert backlog.case_ids == ("scotus/1",)
+    assert _reopened(backlog) == {"scotus/1": (BASELINE_EVENT,)}
+    assert backlog.entries[0].events == (BASELINE_EVENT,)
+    assert backlog.reowed_events == 1
+
+
+def test_a_retired_digest_reads_the_same_as_an_unstamped_cell(tmp_path: Path) -> None:
+    """The two ways out of the frozen partition are one condition. An unstamped
+    shakedown cell carries no digest; a de-counted cell carries one the current
+    freeze no longer blesses. `is_frozen` rejects both, and so does this rule."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+    _retired_cohort(data, 1, stamp=retired_stamp())
+
+    assert _reopened(_backlog(db, data)) == {"scotus/1": (BASELINE_EVENT,)}
+
+
+def test_a_predictor_holding_a_blessed_cell_is_not_re_owed_one(tmp_path: Path) -> None:
+    """The rule buys a blessed cell where there is none, never a second one. With
+    every engine already inside the partition there is nothing to repair, and the
+    event drops out of the backlog entirely."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+    _retired_cohort(data, 1, frozen_predictors=tuple(p.id for p in enabled_predictors(PREDICTORS)))
+
+    assert _backlog(db, data).case_ids == ()
+
+
+def test_a_partly_blessed_cohort_re_mints_only_its_retired_half(tmp_path: Path) -> None:
+    """Per (predictor, event), not per event: an engine that already re-ran under
+    the blessed process keeps its cell, and only the engines still on a retired
+    digest are minted again."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+    blessed = enabled_predictors(PREDICTORS)[0].id
+    _retired_cohort(data, 1, frozen_predictors=(blessed,))
+
+    backlog = _backlog(db, data)
+    assert _reopened(backlog) == {"scotus/1": (BASELINE_EVENT,)}
+
+    # The event is re-owed, and the fan-out decides the engines: the blessed one
+    # is skipped exactly as an already-predicted cell always was.
+    case = CaseRequest("scotus", 1, (BASELINE_EVENT,), reopen_events=(BASELINE_EVENT,))
+    minted = predict_matrix(PREDICTORS, [case], "RID", data)["include"]
+    assert {cell["predictor_id"] for cell in minted} == {
+        p.id for p in enabled_predictors(PREDICTORS)
+    } - {blessed}
+
+
+def test_an_event_the_ledger_already_resolved_is_not_re_owed(tmp_path: Path) -> None:
+    """A recorded outcome ends the forecast. The rule adds forward cells only, so
+    it defers to the same record-side gate the fan-out applies."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+    _retired_cohort(data, 1)
+    # The gate reads the file's existence, not its body.
+    outcome = CasePaths(data, "scotus", 1).event(BASELINE_EVENT).outcome
+    outcome.parent.mkdir(parents=True, exist_ok=True)
+    outcome.write_text("{}")
+
+    assert _backlog(db, data).case_ids == ()
+
+
+def test_a_case_decided_in_the_corpus_without_an_outcome_yet_is_not_re_owed(
+    tmp_path: Path,
+) -> None:
+    """The maintainer's hard caveat, and the one exclusion a version-blind reading
+    would miss. The live channel polls a docket as decided before it writes the
+    outcome, so between the two the corpus says decided and the ledger says open.
+    A cell minted in that window is a replay wearing forward clothing — with
+    unrestricted retrieval over an answer that is already public."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(
+        db,
+        "scotus",
+        1,
+        event_id=BASELINE_EVENT,
+        conference=FUTURE_CONFERENCE,
+        granted_on=date(2026, 7, 15),
+    )
+    _retired_cohort(data, 1)
+
+    assert _backlog(db, data).case_ids == ()
+
+
+def test_the_cert_arrival_moment_is_not_re_owed(tmp_path: Path) -> None:
+    """Its whole contract is "forecast at docketing, before any distribution or
+    docket-acquired signal exists". A cell minted now would not be a late forecast
+    of that moment but a forecast of a different one — the moment is gone, and only
+    the original cell ever observed it."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    arrival = "evt-petition-arrival-disposition"
+    _open_case(db, "scotus", 1, event_id=arrival, stage=Stage.cert, conference=FUTURE_CONFERENCE)
+    _retired_cohort(data, 1, event_id=arrival)
+
+    assert (Stage.cert, Moment.arrival) not in REPREDICT_MOMENTS
+    assert _backlog(db, data).case_ids == ()
+
+
+def test_a_distribution_whose_conference_has_passed_is_not_re_owed(tmp_path: Path) -> None:
+    """The distribution cell forecasts the conference the petition is distributed
+    for. Once that conference is behind us the order list has issued or the
+    petition relisted, and a cell minted now answers a different question from the
+    one the retired cells answered."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=PAST_CONFERENCE)
+    _retired_cohort(data, 1)
+
+    assert _backlog(db, data).case_ids == ()
+    # …and the same case with the conference still ahead is re-owed, so the
+    # refusal is the date and nothing else about the fixture.
+    _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+    assert _backlog(db, data).case_ids == ("scotus/1",)
+
+
+def test_the_moment_allow_list_holds_merits_out_and_is_one_edit_from_taking_them(
+    tmp_path: Path,
+) -> None:
+    """Merits moments resolve months out, so the rule *would* apply to them — they
+    are held out because that is spend now for a board population a Term away, a
+    funding call rather than a correctness one. The table is the whole switch."""
+    assert (Stage.merits, Moment.grant) not in REPREDICT_MOMENTS
+    assert (Stage.merits, Moment.briefed) not in REPREDICT_MOMENTS
+    assert {
+        (Stage.cert, Moment.distribution),
+        (Stage.cert, Moment.cvsg),
+        (Stage.interim, Moment.arrival),
+        (Stage.interim, Moment.response_requested),
+        (Stage.interim, Moment.response_filed),
+    } == REPREDICT_MOMENTS
+
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(
+        db,
+        "scotus",
+        1,
+        event_id="evt-order-judgment",
+        kind=EventKind.order,
+        stage=Stage.merits,
+        granted_on=date(2026, 7, 1),
+        conference=FUTURE_CONFERENCE,
+    )
+    _retired_cohort(data, 1, event_id="evt-order-judgment")
+
+    assert _backlog(db, data).case_ids == ()
+
+
+def test_re_owed_cases_are_ordered_after_never_predicted_ones(tmp_path: Path) -> None:
+    """The rule must never starve the ordinary backlog. Stalest-first would put the
+    re-owed case first here; the grouping puts the never-predicted one in front of
+    it, so a cap truncates from the re-owed end."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    # The re-owed case is the *staler* of the two, so candidate order alone
+    # would lead with it.
+    _open_case(
+        db,
+        "scotus",
+        1,
+        event_id=BASELINE_EVENT,
+        conference=FUTURE_CONFERENCE,
+        polled_on=TODAY - timedelta(days=5),
+    )
+    _retired_cohort(data, 1)
+    _open_case(db, "scotus", 2, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+
+    assert _derive(db, data) == ("scotus/2", "scotus/1")
+    # And under a cap of one it is the never-predicted case that survives.
+    assert _derive(db, data, cap=1) == ("scotus/2",)
+
+
+def test_within_a_case_the_never_predicted_events_lead(tmp_path: Path) -> None:
+    """The same priority at the event grain, so a downstream reader that truncates
+    an event list keeps the ordinary backlog first."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=CVSG_EVENT,
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.cert,
+                    title="CVSG",
+                    resolved=False,
+                )
+            ],
+        )
+    _retired_cohort(data, 1)
+
+    entry = _backlog(db, data).entries[0]
+    assert entry.events == (CVSG_EVENT, BASELINE_EVENT)
+    assert entry.reopened == (BASELINE_EVENT,)
+
+
+def test_the_salience_cohort_is_untouched_by_the_rule(tmp_path: Path) -> None:
+    """The rule re-opens events the project already paid for; it opens none the
+    funding gate declined. A salience-deferred case reaches the deriver only on the
+    cohort-completion ground, which keeps exactly the events a claimable board
+    already counts — and a wholly retired cohort is not one of them."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(
+        db,
+        "scotus",
+        1,
+        event_id=BASELINE_EVENT,
+        selected=False,
+        conference=FUTURE_CONFERENCE,
+    )
+    _retired_cohort(data, 1)
+
+    assert _backlog(db, data).case_ids == ()
+
+
+def test_the_plan_reports_re_owed_cells_in_their_own_bucket(tmp_path: Path) -> None:
+    """A re-forecast of an event the ledger already covers is a spend decision, so
+    the dry run a maintainer reads before the hold must show it as such rather than
+    as an ordinary unpredicted cell."""
+    # No docket from the helper: this case carries the register's declared
+    # baseline alone, so every cell in the plan is one the rule re-owed.
+    env = _cli_env(tmp_path)
+    db = corpus.corpus_db_path(Path(env["FEDCOURTS_CORPUS_ROOT"]))
+    _open_case(
+        db,
+        "scotus",
+        24001,
+        event_id=BASELINE_EVENT,
+        polled_on=date.today(),
+        conference=date.today() + timedelta(days=14),
+    )
+    _retired_cohort(Path(env["FEDCOURTS_DATA_ROOT"]), 24001)
+
+    result = runner.invoke(app, ["predict-plan", "--run-id", "RID"], env=env)
+
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.stdout)
+    engines = len(enabled_predictors(PREDICTORS))
+    assert plan["counts"]["cell_ledger"]["reowed_pre_freeze_cells"] == engines
+    assert plan["counts"]["cell_ledger"]["dropped_already_predicted_cells"] == 0
+    assert plan["counts"]["cell_ledger"]["would_mint_cells"] == engines
+    assert {r["event_id"] for r in plan["reowed_pre_freeze"]} == {BASELINE_EVENT}
+    assert "retired process digest" in plan["reowed_pre_freeze"][0]["reason"]
+    assert "RE-OWED under the pre-freeze rule" in _flat(result.stderr)

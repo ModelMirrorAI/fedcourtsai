@@ -34,7 +34,32 @@ they exercised the pipeline while the process was still moving, and nothing
 about them was pre-registered. `leaderboard.json` and `claim-scores.json`
 publish which scope they were built under as `process_scope` (`"frozen"` or
 `"all"`); an `"all"` build — the `--all-versions` CLI toggle — is a
-diagnostic view, never a results surface. The prediction census and the
+diagnostic view, never a results surface.
+
+**One prediction per predictor per event, and re-predicting a live event is a
+registered rule.** A predictor may hold several committed runs on one event —
+a re-queue after a failed cell, or a deliberate re-forecast — and the board
+reads exactly one of them: the run the grading evaluation's harness-stamped
+`prediction_run_id` names, falling back to the predictor's **newest** run for
+records stamped before that field existed. So the staged and scored cell is the
+newest one, and an earlier run is history that no figure counts twice.
+
+That matters because a predictor-half re-bless de-counts every cell stamped
+under the retired digests, including cells on events that have **not yet
+resolved**. Those events would otherwise be consumed for nothing: graded on
+resolution, then dropped from this scope, leaving the frozen board with no
+population at all. The predict backlog therefore **re-owes** a cell on a
+still-forward event at a still-open moment whose whole committed cohort is
+retired ([docs/pipeline.md](../docs/pipeline.md)), so the cell that is
+eventually graded was produced under a blessed process. Two readings this does
+**not** license. It is not a re-grade: nothing about an existing evaluation
+moves, and `superseded_gradings` is untouched. And a rise in any figure across
+the re-predict boundary is **not** a measurement of model improvement — the two
+sides are different processes on different information sets, which is the whole
+reason the partition exists. The cohort rule, its exclusions and its expected
+size are pre-registered in [docs/freeze-record.md](../docs/freeze-record.md)
+before any of its outcomes were observable; that entry, not this paragraph, is
+the record. The prediction census and the
 leakage digest deliberately stay version-blind (they are plumbing
 diagnostics, and shakedown contamination is exactly what the leakage digest
 exists to surface), and the corpus-descriptive artifacts here — the statpack,

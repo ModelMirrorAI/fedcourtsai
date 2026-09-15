@@ -717,6 +717,48 @@ def event_has_claimable_prediction(
     )
 
 
+def predictor_holds_only_retired_predictions(
+    data_root: Path, court_id: str, docket_id: int, event_id: str, predictor_id: str
+) -> bool:
+    """Whether this predictor's every committed cell on the event is out of frozen scope.
+
+    The **ledger half** of the pre-freeze re-predict rule
+    (:func:`fedcourtsai.pipeline.pull.derive_predict_backlog`): a predictor that
+    forecast an event under a process the current freeze has since retired holds
+    a cell no claimable board will ever count, so while the event is still
+    forward it is owed a cell under the blessed process. Answers only the ledger
+    question — whether the event is genuinely forward, and whether its moment is
+    still open, are the deriver's corpus-side gates.
+
+    Three ways to be false, and each is a different case:
+
+    * **No committed prediction at all.** That is the ordinary backlog's
+      never-predicted arm, not this one; keeping the two disjoint is what lets
+      the deriver order re-owed cells behind never-predicted ones.
+    * **A blessed cell already exists** for this predictor on this event, at any
+      run. Deliberately ``any`` over every run rather than
+      :func:`event_has_claimable_prediction`'s latest-run reading: the question
+      there is which cohort a *board* counts, while the question here is whether
+      the project has already paid this engine to forecast this event under a
+      blessed process. Answered on the latest run alone, a retired re-run
+      committed after a blessed cell would buy a third forecast of the same
+      moment; answered this way it does not.
+    * **No freeze is in force.** There is then one process scope, every
+      committed prediction is in it, and the partition this rule repairs does
+      not exist.
+
+    An **unstamped** cell counts as retired, exactly as :func:`is_frozen` reads
+    it: the shakedown ledger carries no digest, and a digest is what membership
+    is keyed on.
+    """
+    if FROZEN_SINCE is None:
+        return False
+    predictions_root = CasePaths(data_root, court_id, docket_id).event(event_id).predictions_dir
+    pattern = f"{predictor_id}/*/prediction.json"
+    runs = [read_model(path, Prediction) for path in predictions_root.glob(pattern)]
+    return bool(runs) and not any(is_frozen(run.process_version) for run in runs)
+
+
 def iter_evaluations(data_root: Path) -> list[Evaluation]:
     """Every ``evaluation.json`` in the derived ledger, in stable path order.
 

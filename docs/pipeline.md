@@ -1503,7 +1503,23 @@ hand until there is a reason to parameterize it.
 the matrix command itself: given no case list, `predict-matrix` derives the
 predict backlog (`pipeline.pull.derive_predict_backlog`, described in
 [cli.md](cli.md)) and `evaluate-matrix` the evaluate backlog, each from committed
-state. That is the shape both workflows invoke, on every round. The commands
+state. That derivation is version-blind in one direction only: a case
+is owed cells for an event no predictor has covered, and — under the
+**pre-freeze re-predict rule** — for an event whose committed cohort a
+predictor-half re-bless has since retired. The second arm exists because
+without it a freeze silently empties the board it defines: an event forecast
+only under de-counted digests reads as covered, resolves, is graded, and every
+result is dropped from the frozen partition. So it is re-owed a cell while it
+is still genuinely forward (nothing in the ledger or the corpus records its
+stage decided) and its declared moment is still open (`REPREDICT_MOMENTS` —
+cert distribution and CVSG plus the interim moments; cert arrival and the
+merits moments are held out, and a distribution whose conference has passed is
+refused on the date). The old cells are never edited: provisioning stages the
+newest run per predictor, so a re-predict supersedes rather than replaces, and
+re-owed work is ordered after never-predicted work so it cannot starve the
+ordinary backlog under the cycle cap. [cli.md](cli.md) carries the predicates;
+`predict-plan` reports the re-owed cells in their own `reowed_pre_freeze_cells`
+bucket, which is what a maintainer reads at the hold before any spend. That is the shape both workflows invoke, on every round. The commands
 still accept an explicit case list — a ` ```json ``` ` block by `--body-file`, or
 `--court`/`--docket` — which is what a local dry run of one case uses; no
 workflow passes one, because a case list a round did not derive is a case list

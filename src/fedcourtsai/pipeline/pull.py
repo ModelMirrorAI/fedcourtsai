@@ -37,9 +37,17 @@ from ..matrix import (
     predicted_case_ids,
 )
 from ..registry import enabled_evaluators, enabled_predictors
-from ..store import event_has_claimable_prediction, forecastable_event_ids, forecastable_events
+from ..schemas import Moment, Stage
+from ..store import (
+    event_has_claimable_prediction,
+    forecastable_event_ids,
+    forecastable_events,
+    forward_refusal_reason_from_parts,
+    predictor_holds_only_retired_predictions,
+)
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
+from .moments import spec_for
 from .outcome import (
     UnrecordedOutcome,
     disposition_basis,
@@ -335,15 +343,30 @@ class BacklogEntry:
     Shared by both derivers: the evaluate backlog's owed gradings and the
     predict backlog's owed forecasts have the same shape, because both name a
     case and the subset of its events some enabled actor has not covered.
+
+    ``reopened`` is the predict deriver's alone and is a **subset of**
+    ``events``: those admitted on the pre-freeze re-predict ground rather than
+    because a predictor had never covered them (see
+    :func:`derive_predict_backlog`). It travels separately because the fan-out's
+    per-``(predictor, event)`` already-predicted skip would otherwise drop every
+    one of them — the cell it re-owes is by definition one the ledger already
+    holds. Empty for every evaluate entry and for an ordinary predict entry.
     """
 
     case_id: str
     court: str
     docket: int
     events: tuple[str, ...]
+    reopened: tuple[str, ...] = ()
 
     def as_queue_entry(self) -> dict[str, object]:
-        """The mapping shape a ``PullQueues`` list carries to the workflow."""
+        """The mapping shape a ``PullQueues`` list carries to the workflow.
+
+        ``reopened`` is deliberately **not** carried: this shape is the pull
+        lane's run-log queue, which no fan-out reads back, and a case list a
+        maintainer replays by hand must re-derive its own re-predict grounds
+        rather than inherit a stale claim that an event's cohort was retired.
+        """
         return {"court": self.court, "docket": self.docket, "events": list(self.events)}
 
 
@@ -586,6 +609,81 @@ def _last_observed(row: corpus.CorpusRow) -> date | None:
     return max(seen) if seen else None
 
 
+#: The declared ``(stage, moment)`` pairs a **re-predict** may target — the
+#: moment half of the pre-freeze re-predict rule (see
+#: :func:`derive_predict_backlog`). Narrower than the fan-out's own
+#: forecastability gate, and deliberately a table rather than a chain of
+#: conditions, so the cohort can be narrowed or widened here without reading
+#: the deriver.
+#:
+#: A moment earns a place by two questions: *is the moment still open* (a
+#: forecast made after its information set has moved on is a different forecast
+#: from the one the cohort holds), and *does the re-predicted cell reach a
+#: board while it still matters*.
+#:
+#: * **cert / distribution** — the petition baseline. Open for as long as the
+#:   petition is undistributed-past: the conference it is currently distributed
+#:   for decides it, so the rule additionally refuses one whose conference has
+#:   already passed (:func:`_reopenable_moment`). This is the cohort the rule
+#:   exists for.
+#: * **cert / cvsg** — forecast after the Court called for the Solicitor
+#:   General's views, an information set that does not expire on a date.
+#: * **interim / arrival, response_requested, response_filed** — the
+#:   application lane's three moments, each keyed on a docket transition that
+#:   has already happened rather than on a date ahead.
+#:
+#: Two families are excluded, and each for its own reason:
+#:
+#: * **cert / arrival** — its whole contract is "forecast at docketing, before
+#:   any distribution or docket-acquired signal exists"
+#:   (:mod:`fedcourtsai.pipeline.moments`). Every such petition has since been
+#:   distributed or is about to be, so a cell minted now is not a late forecast
+#:   of that moment but a forecast of a different one. The moment is gone; only
+#:   the original cell ever observed it.
+#: * **merits / grant, briefed** — the moment stays genuinely open (these
+#:   resolve months out), so the rule *would* apply. They are held out because a
+#:   merits re-predict is spend now for a board population that arrives a Term
+#:   later, which is a funding decision rather than a correctness one. Adding
+#:   either pair here is the whole change needed to take them.
+REPREDICT_MOMENTS: frozenset[tuple[Stage, Moment]] = frozenset(
+    {
+        (Stage.cert, Moment.distribution),
+        (Stage.cert, Moment.cvsg),
+        (Stage.interim, Moment.arrival),
+        (Stage.interim, Moment.response_requested),
+        (Stage.interim, Moment.response_filed),
+    }
+)
+
+
+def _reopenable_moment(event_id: str, row: corpus.CorpusRow, *, day: date) -> bool:
+    """Whether ``event_id``'s declared moment is one a re-predict may still target.
+
+    :data:`REPREDICT_MOMENTS` plus the one bound that is a date rather than a
+    table row: a **distribution** cell forecasts the conference the petition is
+    currently distributed for, so once that conference is past the moment the
+    cohort was forecast at is over — the order list has been issued or the
+    petition relisted, and either way a cell minted now answers a different
+    question from the one the retired cells answered. A petition with no
+    conference at all is refused for the same reason the fan-out's own
+    information-set precondition refuses it
+    (:func:`fedcourtsai.store._premature_distribution_cell`): the distribution
+    moment has not happened.
+
+    An **undeclared** event — an entry-pinned motion, a legacy baseline id —
+    has no moment to check and is refused. The rule adds cells to a backlog
+    that is otherwise version-blind, so an event the register cannot place is
+    left alone rather than guessed into a cohort.
+    """
+    spec = spec_for(event_id)
+    if spec is None or (spec.stage, spec.moment) not in REPREDICT_MOMENTS:
+        return False
+    if spec.moment is Moment.distribution:
+        conference = row.distributed_for_conference
+        return conference is not None and conference >= day
+    return True
+
+
 @dataclass(frozen=True)
 class PredictBacklog:
     """What one predict-backlog derivation found, having written nothing.
@@ -621,13 +719,24 @@ class PredictBacklog:
     The classes are first-match (staleness is tested first), so a case that is
     both counts once, under ``held_stale``; the sum is the true held total.
 
-    ``cap_reached`` says the scan stopped on ``cap`` rather than exhausting the
-    candidates, so both counts are **censored**: candidates past the break were
-    never examined and are in neither figure. A reader quoting a hold count
-    without it would be quoting a lower bound as a total.
+    ``cap_reached`` says the scan hit ``cap`` rather than exhausting the
+    candidates, so both counts are **censored** and a reader quoting a hold
+    count without it would be quoting a lower bound as a total. It covers two
+    stopping shapes, since the re-predict rule gave the cap two effects: the
+    walk breaking outright (the cap full of never-predicted work, so nothing
+    past it is examined at all), and the milder one where the walk continues but
+    stops evaluating re-predict grounds — candidates past that point are still
+    examined for never-predicted cells, and a re-owed-only case among them is
+    skipped silently rather than counted as held.
 
     ``day`` is the date the derivation ran under, carried so a reader can say
     which day's debounce stamps and which staleness horizon it filtered on.
+
+    ``reowed_events`` counts the entries' ``reopened`` events across the whole
+    derivation — the pre-freeze re-predict rule's own contribution, reported
+    apart from the total because it is spend on events the ledger already
+    covers and a reader deciding whether to let a cycle run needs the two
+    numbers separately. Censored by ``cap_reached`` exactly as the holds are.
     """
 
     entries: tuple[BacklogEntry, ...]
@@ -639,6 +748,10 @@ class PredictBacklog:
     @property
     def case_ids(self) -> tuple[str, ...]:
         return tuple(entry.case_id for entry in self.entries)
+
+    @property
+    def reowed_events(self) -> int:
+        return sum(len(entry.reopened) for entry in self.entries)
 
 
 def _predict_backlog_candidates(
@@ -709,6 +822,71 @@ def _predict_backlog_candidates(
     return candidates
 
 
+def _reowed_pre_freeze_events(
+    conn: corpus.ReadConnection,
+    data_root: Path,
+    row: corpus.CorpusRow,
+    *,
+    events: list[str],
+    predictor_ids: list[str],
+    max_attempts: int,
+    day: date,
+) -> list[str]:
+    """Which of ``events`` are owed a cell again because their cohort is retired.
+
+    The pre-freeze re-predict rule, applied to the events the never-predicted
+    arm left (the caller passes only those, so the two arms cannot both claim an
+    event and the ordering between them is well defined). Three gates, each
+    answering a different question, and an event must pass all three:
+
+    1. **Genuinely forward.** :func:`fedcourtsai.store.forward_refusal_reason_from_parts`
+       — the record-side forward gate the fan-out itself applies, reused rather
+       than restated: the ledger holds no ``outcome.json``, the corpus does not
+       flag the event resolved, and the row's own columns *for this event's
+       stage* carry no disposition, resolution date, latched merits judgment or
+       merits termination. The last limb is the one a version-blind reading
+       would miss: a docket the live channel has polled as decided but whose
+       outcome it has not yet written is decided in the corpus and open in the
+       ledger, and a "forward" cell minted on it is a replay in forward
+       clothing.
+    2. **The moment is still open.** :func:`_reopenable_moment` —
+       :data:`REPREDICT_MOMENTS` plus the past-conference refusal.
+    3. **Every existing cell is retired, for at least one predictor.**
+       :func:`fedcourtsai.store.predictor_holds_only_retired_predictions`, under
+       the same per-cell attempt cap the never-predicted arm takes. A predictor
+       already holding a blessed cell on the event is not re-owed one, so an
+       event whose cohort is partly blessed re-owes only the engines that are
+       not.
+
+    The event's ordinary admission is unchanged and still upstream of this: the
+    caller passes the forecastable set, narrowed for a cohort-only candidate,
+    so the salience funding gate and the cohort-completion bounds decide which
+    events reach here exactly as they did before. This rule re-opens events the
+    project already paid for; it opens none it declined.
+    """
+    if not events:
+        return []
+    case_events = corpus.events_for_case(conn, row.case_id)
+    court, docket_str = row.case_id.split("/", 1)
+    docket = int(docket_str)
+    reowed: list[str] = []
+    for event_id in events:
+        if not _reopenable_moment(event_id, row, day=day):
+            continue
+        refusal = forward_refusal_reason_from_parts(
+            data_root, court, docket, event_id, case_events, row
+        )
+        if refusal is not None:
+            continue
+        if any(
+            predictor_holds_only_retired_predictions(data_root, court, docket, event_id, pid)
+            and not _cell_capped(data_root, court, docket, event_id, pid, max_attempts, "predict")
+            for pid in predictor_ids
+        ):
+            reowed.append(event_id)
+    return reowed
+
+
 def derive_predict_backlog(
     conn: corpus.ReadConnection,
     data_root: Path,
@@ -752,9 +930,10 @@ def derive_predict_backlog(
     6. :func:`_row_in_predict_scope` — the full scope gate the pull and live
        lanes apply at queue time, with ``cohort_completion`` set exactly when
        (5) admitted the row on the cohort ground alone.
-    7. **Owed** — some ``(predictor, event)`` cell of the case is both
-       unpredicted and under the per-cell attempt cap, over the event list the
-       cohort narrowing below leaves.
+    7. **Owed** — some ``(predictor, event)`` cell of the case is either
+       unpredicted, or **re-owed under the pre-freeze rule**, and under the
+       per-cell attempt cap, over the event list the cohort narrowing below
+       leaves.
 
     Then two **timing holds**, which run only on a case step 7 found owed, so
     every held case is one this lane genuinely owes and cannot mint yet:
@@ -811,6 +990,30 @@ def derive_predict_backlog(
     of the stricter reading is that raising the ceiling, not a re-queue, is what
     reopens such a cell.
 
+    **The pre-freeze re-predict rule.** The owed check above is otherwise
+    version-blind — a committed prediction is a committed prediction — and that
+    is a hole a freeze opens: once a predictor half is re-blessed, every cell
+    stamped under the retired digests is de-counted, so an event whose whole
+    cohort predates the freeze holds forecasts no claimable board will ever
+    count while the deriver reports it covered. When the event then resolves,
+    the evaluate lane grades it, :func:`fedcourtsai.store.stratify` drops every
+    result as out of frozen scope, and the event is consumed for nothing. So an
+    event is owed a cell **again** when it is genuinely forward, its declared
+    moment is still open, and some predictor's every committed cell on it
+    carries a retired digest — :func:`_reowed_pre_freeze_events`, which spells
+    the three gates out. It is a rule over committed state like every other
+    predicate here: no flag, no dispatch input, nothing to remember to set.
+
+    A re-predict **replaces** rather than adds. The older cell stays under its
+    own run id and nothing edits it; provisioning stages the newest run per
+    predictor
+    (:func:`fedcourtsai.blinding.latest_prediction_dirs`) and the evaluation
+    names the ``prediction_run_id`` it graded, so the new cell is the one the
+    board reads and the old one is history. Re-owed cells are ordered after
+    never-predicted ones at both grains — within an entry's event list, and
+    between entries — so the rule can never starve the ordinary backlog under
+    the cap.
+
     A **cohort-only** candidate is narrowed further,
     to the events whose cohort a claimable board will count
     (:func:`fedcourtsai.store.event_has_claimable_prediction`) — the sweep's
@@ -859,17 +1062,48 @@ def derive_predict_backlog(
     )
 
     entries: list[BacklogEntry] = []
+    reowed_only: list[BacklogEntry] = []
     held_stale = 0
     held_unswept = 0
     cap_reached = False
     for row, cohort_only in candidates:
-        if len(entries) >= cap:
+        # Two different budgets, and the difference is what stops the re-predict
+        # rule starving the ordinary backlog. The **walk** stops only when the
+        # cap is full of never-predicted work, because until then a later
+        # candidate may still carry some and must be reached. What the filled
+        # budget stops is the re-predict evaluation: past it a candidate is
+        # examined for never-predicted cells alone — the same work this loop did
+        # before the rule existed — so walking on costs no more than the old
+        # break saved.
+        budget_full = len(entries) + len(reowed_only) >= cap
+        if budget_full and len(entries) >= cap:
             cap_reached = True
             break
+        cap_reached = cap_reached or budget_full
         court, docket_str = row.case_id.split("/", 1)
         docket = int(docket_str)
         events = forecastable_event_ids(conn, court, docket, today=day)
         if cohort_only:
+            # The cohort-completion narrowing, and the **funding boundary of the
+            # pre-freeze re-predict rule below** — the two meet here, so the
+            # decision is stated where it is made rather than left to be
+            # reconstructed. A salience-deferred case reaches this scan only
+            # because it already holds a prediction somewhere, and this keeps
+            # only the events a claimable board already counts. An event whose
+            # whole cohort is retired is not one, so it is dropped before the
+            # re-predict rule ever sees it: the rule re-opens events the
+            # funding gate paid for and opens none it declined.
+            #
+            # That is a **funding** boundary, not a correctness one, and it is
+            # the one line that moves if the project decides otherwise. The
+            # comparability half of this predicate does not object to a
+            # re-predict: it refuses a *partial* completion, which would leave
+            # one engine scored and its rivals structurally excluded, whereas a
+            # wholly retired cohort is re-minted for every engine at once and so
+            # yields a complete frozen cohort. Widening is therefore an
+            # `or`-arm here admitting an event no predictor holds a blessed cell
+            # on — and it is spend on cases the salience round declined, which
+            # is why it is not taken by default.
             events = [
                 event_id
                 for event_id in events
@@ -886,12 +1120,25 @@ def derive_predict_backlog(
                 for pid in predictor_ids
             )
         ]
+        reowed = (
+            []
+            if budget_full
+            else _reowed_pre_freeze_events(
+                conn,
+                data_root,
+                row,
+                events=[event_id for event_id in events if event_id not in owed],
+                predictor_ids=predictor_ids,
+                max_attempts=max_attempts,
+                day=day,
+            )
+        )
         # The owed check runs FIRST, and the two timing holds after it, so a
         # hold is only counted where it is the sole thing between the case and
         # an entry. Counted the other way round the figures would be dominated
         # by cases the owed check drops anyway, and "held, still owed a
         # forecast" would be false of almost every one of them.
-        if not owed:
+        if not owed and not reowed:
             continue
         observed = _last_observed(row)
         if observed is None or (day - observed).days > BACKLOG_MAX_POLL_AGE_DAYS:
@@ -917,12 +1164,36 @@ def derive_predict_backlog(
             # an application form has no document route at all.
             held_unswept += 1
             continue
-        entries.append(
-            BacklogEntry(case_id=row.case_id, court=court, docket=docket, events=tuple(owed))
+        # Never-predicted events lead the list, re-owed ones follow, so a
+        # downstream reader that truncates an event list keeps the ordinary
+        # backlog first — the same priority the two entry lists give at the
+        # case grain.
+        entry = BacklogEntry(
+            case_id=row.case_id,
+            court=court,
+            docket=docket,
+            events=tuple(owed) + tuple(reowed),
+            reopened=tuple(reowed),
         )
+        if owed:
+            entries.append(entry)
+            if len(entries) + len(reowed_only) > cap:
+                # A never-predicted case displaces the stalest-last re-owed one,
+                # which is the priority stated below made to hold under the cap
+                # rather than only in the returned order.
+                reowed_only.pop()
+        else:
+            reowed_only.append(entry)
 
     return PredictBacklog(
-        entries=tuple(entries),
+        # Cases owed a never-predicted cell come first, and a case owed only
+        # re-predicts follows every one of them, each group keeping the
+        # stalest-first order it was walked in. Under the cap the re-owed end is
+        # what gives way, at both ends of the loop: a filled budget stops new
+        # re-owed cases being admitted, and a never-predicted case found
+        # afterwards displaces the stalest-last re-owed one. So the rule cannot
+        # starve the ordinary backlog.
+        entries=tuple(entries + reowed_only)[:cap],
         day=day,
         held_stale=held_stale,
         held_unswept=held_unswept,

@@ -3573,3 +3573,153 @@ freeze commit is recorded here.
   opposite reading: it says the staging step did not deliver, and the failure
   annotation on that run is where to look. `unstated` there says the cell ran
   under the retired protocol.
+
+- **The predict backlog re-owes a cell on a still-forward event whose whole
+  cohort a re-bless retired, 2026-09-15.** Registered **before** any of the
+  cells it will mint exist, and before any of their outcomes are observable:
+  what this entry pre-registers is a **selection rule over a cohort**, and a
+  rule written after its cells had been forecast would be a report rather than
+  a pre-registration.
+
+  **What creates the need.** The proc-v7 freeze replaced the predictor half of
+  `FROZEN_PROCESS_DIGESTS`, which de-counts every cell stamped under the
+  retired digests. The supersession entries above treat that over cells whose
+  events have **resolved**, where what moves is a published figure. The other
+  half of the retired cohort sits on events that are still open, and there the
+  consequence is invisible until it is too late to fix: the predict backlog's
+  owed check is version-blind — a committed prediction is a committed
+  prediction — so an event holding only retired cells reads as covered, derives
+  no work, resolves, is graded, and every result is dropped from the frozen
+  board by `store.stratify`. The event is consumed for nothing. As at this
+  commit **no committed `prediction.json` in the ledger carries any blessed
+  predictor digest**, so on present state the frozen board's predictor
+  population is empty and would stay empty however many events resolve.
+
+  **The rule, as a cohort and not a case list.** In
+  `pipeline.pull.derive_predict_backlog`, an event is owed a cell **again** for
+  a predictor when all of:
+
+  1. It is **genuinely forward**, on the record-side gate the fan-out already
+     applies (`store.forward_refusal_reason_from_parts`): no committed
+     `outcome.json`, not flagged resolved in the corpus, and — for the event's
+     own stage — no disposition, no resolution date, no latched merits
+     judgment, no recorded merits termination. The stage limb is what excludes
+     a docket the live channel has polled as decided but whose outcome it has
+     not yet written; `scotus/9526000326`, decided 2026-09-10, is such a case
+     at this commit. A cell minted there would be a replay in forward clothing,
+     with unrestricted retrieval over an answer already public.
+  2. Its **declared moment is still open** — `pull.REPREDICT_MOMENTS`, a table
+     of `(stage, moment)` pairs: cert/distribution, cert/cvsg, and the three
+     interim moments. A cert/distribution event is additionally refused when
+     its `distributed_for_conference` is in the past, because that cell
+     forecasts the conference the petition is distributed for and once the
+     conference is behind us a new cell answers a different question.
+  3. **Every** committed prediction that predictor holds on the event carries a
+     digest outside `FROZEN_PROCESS_DIGESTS`, an unstamped cell included. A
+     predictor already holding a blessed cell is not re-owed one, so a
+     partly-blessed cohort re-mints only its retired half.
+
+  Every existing gate still decides which events reach the rule: `predict_excluded`,
+  the predict-scope rules, the salience funding gate with its cohort-completion
+  narrowing, the per-cell attempt cap, the record-freshness and
+  provisioning-attempted holds, the per-cycle case cap, the per-run cell cap,
+  and the ex-post spend backstop. The rule adds an admission ground; it
+  loosens none of them.
+
+  **The exclusions and their grounds.** *cert/arrival* is excluded because its
+  contract is "forecast at docketing, before any distribution or
+  docket-acquired signal exists" — every such petition has since been
+  distributed, so a cell minted now would not be a late forecast of that moment
+  but a forecast of a different one, and only the original cell ever observed
+  it. *merits/grant* and *merits/briefed* are excluded on funding, not on
+  correctness: their moments stay genuinely open, so the rule would apply, but
+  they are spend now for a board population a Term away. The exclusion is one
+  table row in `REPREDICT_MOMENTS`, and adding either pair is the whole change
+  needed to take them. *Undeclared events* — entry-pinned motions, legacy
+  baseline ids — are excluded because the register cannot place them in a
+  cohort. *Salience-deferred cases* are excluded by the existing
+  cohort-completion narrowing, which keeps only events a claimable board
+  already counts; a wholly retired cohort is not one, so the rule reaches only
+  events the project's funding gate had already paid for.
+
+  **Old cells are retained, unedited.** A re-predict writes a new run
+  directory beside the old one. Nothing edits, moves or deletes the retired
+  cell. Provisioning stages the **newest** run per predictor
+  (`blinding.latest_prediction_dirs`) and an evaluation records the
+  `prediction_run_id` it graded, so the new cell is the one a board reads and
+  the old one is history that no figure counts twice. This is not a re-grade:
+  no existing `evaluation.json` moves and `superseded_gradings` is untouched.
+
+  **Expected size on the state at this commit** — corpus blob pulled
+  **2026-09-14** (newest pull stamp; newest stored snapshot 2026-07-13), ledger
+  at the `main` tip `86ab3dd2b`. Of 663 committed `(case, event, predictor)`
+  cells, **zero** carry a blessed digest. **223** events hold nothing but
+  retired or unstamped cells. Applying the three gates above leaves **123**
+  events at an allow-listed open moment — 110 cert/distribution (every one
+  distributed for the **2026-09-28** long conference), 10 cert/cvsg, 3
+  interim/arrival — and the salience funding gate then admits **52** of them.
+
+  Of those 52, an uncapped read of the deriver itself (`fedcourts predict-plan`
+  with the cycle and cell caps lifted, against that blob and that ledger) mints
+  **41 events on 41 cases = 123 cells** today — **29** cert/distribution, **10**
+  cert/cvsg, **2** interim/arrival — at an estimated **$278.39**, priced at the
+  per-(seam, engine) rates in [budget.md](budget.md) ($4.27 + $1.88 + $0.64 =
+  $6.79 an event across the three engines). The remaining **11** are held, not
+  excluded: **1** by the record-freshness bound and **10** by the
+  provisioning-attempted bound, each clearing as the live rotation and run-pull
+  reach the case. The same derivation carries **12** never-predicted events (36
+  cells, $81.48) which are ordinary backlog and not this rule's doing; the whole
+  owed set is 50 cases, and the `salience.sweep_cases_per_cycle` cap of 25 cases
+  a cycle spreads it over two of the twice-daily ticks.
+
+  The **71** events the funding gate declines are **not** in the cohort, and are
+  stated here so their absence is on the record rather than inferred. They sit
+  on salience-deferred cases, which reach the deriver only on the
+  cohort-completion ground, whose narrowing keeps exactly the events a claimable
+  board already counts — and a wholly retired cohort is not one. That boundary
+  is a funding decision, not a correctness one: a re-predict of a wholly retired
+  cohort re-mints every engine at once and so yields a *complete* frozen cohort,
+  which is not what that narrowing refuses. A later decision to take them is a
+  new entry, and it is the difference between this cohort and the 123 events
+  above.
+
+  **The salience overhang is kept and disclosed, not cleared.** 39 of the
+  cert/distribution events are on cases the current round selected against a
+  long-conference capacity of 24 (29 of them derivable today, the rest held).
+  The overhang is deliberate and stays: no
+  `unlatch-overselected` pass runs for this, the selected set is not narrowed,
+  and the extra cases are re-predicted as forward cells like the rest. A
+  conference cohort read off these cells is therefore **over-capacity by
+  construction**, which is a fact about the selection round and not about the
+  rule registered here.
+
+  **The comparability caveat, and it is the same one the amicus re-derivation
+  carries.** A figure that rises across this boundary is **not** a measurement
+  of model improvement. The cells on either side were produced by different
+  processes — that is what the digest partition means — and the frozen board
+  will hold only the post-boundary side, so there is no before-and-after series
+  to read at all. The entry *The interim amicus re-derivation is built, and the
+  two ends of the increment part company, 2026-09-14* states the same rule for
+  its own apply ("a series compared across the apply is not a comparison"), and
+  it holds here for the stronger reason that the pre-boundary side is not
+  merely differently derived but structurally absent from every frozen-scope
+  artifact.
+
+  **What this rule cannot repair.** An event whose moment has already closed —
+  a petition whose conference has passed, a cert/arrival cell — keeps its
+  retired cohort and will be graded out of scope when it resolves. Those events
+  are spent. The rule bounds the loss to what has already happened rather than
+  recovering it, and nothing here claims otherwise.
+
+  **The effect check, for the promotion carrying this.** `uv run pytest
+  tests/test_predict_backlog.py` green. After promotion, the next two scheduled
+  `run-predict` ticks derive re-owed cells rather than reporting a drained
+  backlog: `uv run fedcourts predict-plan` (run where the corpus is pulled)
+  shows a non-zero `counts.cell_ledger.reowed_pre_freeze_cells` with the
+  matching records under `reowed_pre_freeze` — 45 over 15 cert/distribution
+  events on the first tick as read at this commit — and the run's own plan
+  report carries the same figure at the review hold. The lasting check is the one the
+  rule exists for: after the 2026-09-28 conference the evaluate round's
+  gradings of those events enter the frozen board — `metrics/leaderboard.json`
+  built with `process_scope: "frozen"` and a non-zero cell count, where today
+  it renders its empty state.
