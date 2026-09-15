@@ -14,11 +14,16 @@ evaluate cell also stages its blinded candidates there
 (:mod:`fedcourtsai.blinding`), for the same reason — a masked copy of a
 prediction must never reach the ledger. The map that would unmask them is the
 one blinding artifact that does *not* live here: the grader is sent into
-``record/``, so its key is kept out of the tree entirely.
+``record/``, so its key is kept out of the tree entirely. The majority opinion
+body is staged there too, in its own ``opinion/`` slot rather than among the
+filed documents, because it is an **evaluate-only** input: a decided case's
+opinion postdates every predict moment, and only the provisioner the predict
+lane never calls writes it.
 
     data/cases/<court_id>/<docket_id>/
         record/snapshots/<YYYY-MM-DD>.json   # provisioned from the corpus (gitignored)
         record/blinded/<alias>/              # the evaluate cell's blinded candidates (gitignored)
+        record/opinion/                      # the evaluate cell's majority opinion (gitignored)
         events/<event_id>/
             event.yaml
             outcome.json
@@ -278,6 +283,31 @@ class CasePaths:
     @property
     def documents_manifest(self) -> Path:
         return self.documents_dir / "documents.json"
+
+    @property
+    def opinion_dir(self) -> Path:
+        # Provisioning location for the case's **majority opinion body** — the
+        # evaluate cell's slot, and only ever that. Deliberately not under
+        # `documents_dir`: that tree's sole cut is `provision.documents_before`,
+        # a date filter over documents the docket carries, and an opinion
+        # postdates every predict moment's cutoff by construction. A body placed
+        # there would reach a predict cell the moment its date happened to parse
+        # short of the bound — so the slot the predict provisioner never writes
+        # is the guarantee, not the filter. Gitignored with the rest of record/.
+        return self.record / "opinion"
+
+    @property
+    def opinion_text(self) -> Path:
+        # The majority opinion's plain text, as the corpus stores it.
+        return self.opinion_dir / "majority-opinion.txt"
+
+    @property
+    def opinion_manifest(self) -> Path:
+        # What the text beside it is and where it came from: the case, the
+        # presence bit, the body's sha256 and length, and the citation the
+        # corpus row carries. Written only alongside a body, so its presence is
+        # the "a body is staged" signal a grader keys on.
+        return self.opinion_dir / "opinion.json"
 
     @property
     def events_dir(self) -> Path:

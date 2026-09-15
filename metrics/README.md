@@ -700,6 +700,42 @@ multiply against a case count that does not. No standing, no ordering, and no en
 into the leaderboard or any headline. Nothing derived from a grade is a skill,
 calibration, or forecasting claim of any kind.
 
+**The mask publishes split by its ground, never as one total.** A
+`not-addressed` count is counted apart from the ordinal levels, and the census
+splits it again into three kinds of fact plus a bucket for silence:
+`no-judgment` (no opinion body of the kind the claim requires was filed — the
+case's posture, which bounds what could ever have been graded), `not-ingested`
+(one exists and the record does not carry it — work this pipeline still owes),
+`silent-on-axis` (the body is in hand and says nothing on the claim's axis — a
+finding about what the Court wrote), and `unstated` for a grade naming none.
+None of the three substitutes for another, so a figure quoting a mask total
+without its grounds is not readable. The four buckets sum to the mask total
+exactly. Read each as *units resolved to that ground*, not as panel agreement: a
+panel naming different grounds is settled by a fixed precedence,
+`not-ingested` > `no-judgment` > `silent-on-axis` — the two availability grounds
+before the substantive one, so a `not-ingested`/`silent-on-axis` split reports a
+coverage gap and a `no-judgment`/`silent-on-axis` split reports that no opinion
+existed where one grader says it read one. The bias therefore runs one way and
+should be read that way: the split can under-state what an opinion said and
+never over-state it, and nothing in the artifact bounds how many units were
+resolved rather than agreed.
+
+**Today that split is `unstated` or nothing, and a mask total is therefore not
+quotable yet.** `SemanticGrade.mask_ground` exists and the census counts it, but
+the evaluate prompt does not yet ask a grader to fill it, so every real mask
+lands in `unstated` — which records *nobody was asked*, never *nobody could
+tell*. Until the prompt elicits the field, the standard above bites on the
+family's own numbers: no mask total published here has grounds behind it. Two
+further readings will apply once it does. A census legitimately pools graders
+from both sides of that prompt amendment, because `semantic-summary`'s scope
+gate filters on the *prediction's* stamp rather than the evaluation's digest —
+so `unstated` will for a while be a mixture of "graded before the field was
+asked for" and "grader declined to say", inseparable from the artifact, and the
+freeze-record entry for the amendment is what dates the boundary. And the
+offline stub grader writes `not-ingested` unconditionally, so on any ledger a
+stub cascade wrote into, that bucket is a harness constant rather than a grader
+finding.
+
 **A `majority-ground` census is an upper bound on forecasting skill, not a
 measure of it.** Nothing pins a merits predict cell to the grant, and a forward
 cell may retrieve without restriction, so a cell running after oral argument can
@@ -754,9 +790,8 @@ record separates withheld from undefined, so a thin sample and a degenerate one
 are distinguishable; neither publishes.
 
 **The mask is the record's, and sits outside every denominator.**
-`not-addressed` means the record does not put the claim in question — no
-opinion body of the required kind exists, none is ingested, or the opinion is
-silent on the claim's axis. It gets the same *treatment* as a masked mechanical
+`not-addressed` means the record does not put the claim in question, on one of
+the three grounds named above, which the census splits it by. It gets the same *treatment* as a masked mechanical
 claim — counted apart, never averaged with the ordinal levels, never inside a
 share's denominator, never inside the agreement coefficient — though not the
 same provenance: the mechanical mask is harness-computed with no latitude and

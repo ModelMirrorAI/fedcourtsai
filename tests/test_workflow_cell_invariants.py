@@ -731,6 +731,29 @@ def test_the_evaluate_cell_provisions_without_the_forward_guard() -> None:
         assert "--refuse-terminal" not in line, line
 
 
+def test_the_predict_lane_never_stages_an_opinion() -> None:
+    """The majority opinion is the outcome, so a predict cell must never be handed it.
+
+    `provision-opinion` writes `record/opinion/`, and the whole guarantee that a
+    predictor cannot read it is that the predict lane does not invoke the command
+    — there is no flag to mis-set and no default to drift. That makes this pin
+    the guard itself rather than a check on one: a step added here would hand
+    every forward cell the decision it is forecasting, and nothing at runtime
+    would refuse it.
+    """
+    # The liveness half: this lane really does provision, so a scan finding
+    # nothing is a broken loader rather than a clean predict workflow.
+    assert _provision_lines("run-predict.yml")
+    for name in ("run-predict.yml", "run-backtest.yml"):
+        blocks = _run_blocks(_load(name))
+        assert blocks, f"{name} has no run blocks to scan"
+        for run in blocks:
+            for line in run.replace("\\\n", " ").splitlines():
+                if line.lstrip().startswith("#"):
+                    continue
+                assert "provision-opinion" not in line, f"{name}: {line}"
+
+
 def test_the_evaluate_cell_brackets_its_agent_with_the_committed_record_hide() -> None:
     """The judge's blinding is only as good as the tree beside the staging area.
 
