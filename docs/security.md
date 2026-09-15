@@ -37,10 +37,10 @@ convention `AGENTS.md` carries, not something identity enforces):
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
   **not** a bypass actor, so nothing it holds can reach `main` except through a
   PR that satisfies the required checks.
-- **staging telemetry App** (`fedcourtsai-staging`) — used by exactly three
-  steps of one workflow, all the same watchdog-mint shape:
-  `integration-test`'s application-repro leg, its runner-idle-control
-  job and its codex-freeze-probe job mint from it on a
+- **staging telemetry App** (`fedcourtsai-staging`) — used by exactly two
+  steps of one workflow, both the same watchdog-mint shape:
+  `integration-test`'s application-repro leg and its codex-freeze-probe job
+  mint from it on a
   staging-bound dispatch, for the watchdog telemetry row on the rehearsal
   channel's own issue. Its client id is the `STAGING_APP_CLIENT_ID` variable
   and its private key the `STAGING_APP_PRIVATE_KEY` secret, both on the
@@ -66,7 +66,7 @@ environment-scoped one correctly resolves empty. Each workflow mints a token sco
 | `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
 | `run-repair` | data | contents (both writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the validation job holds no credential |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner. The watchdog brackets every engine; this token is minted on codex cells alone |
-| `integration-test` (codex-application-repro leg, and the runner-idle-control and codex-freeze-probe jobs) | dev on a prod-bound dispatch; staging telemetry App on a staging-bound one | issues | the cell workflows' watchdog telemetry mint, on identical terms: arm/disarm steps and the detached watchdog only, never the agent step. The credentials select per bound environment, and the arm/disarm steps pass the matching channel, so a staging rehearsal's rows land on the rehearsal channel's own issue under an App whose platform-enforced ceiling is Issues alone; a leg bound to neither environment mints nothing, warns, and degrades to its runner-local account |
+| `integration-test` (codex-application-repro leg and the codex-freeze-probe job) | dev on a prod-bound dispatch; staging telemetry App on a staging-bound one | issues | the cell workflows' watchdog telemetry mint, on identical terms: arm/disarm steps and the detached watchdog only, never the agent step. The credentials select per bound environment, and the arm/disarm steps pass the matching channel, so a staging rehearsal's rows land on the rehearsal channel's own issue under an App whose platform-enforced ceiling is Issues alone; a leg bound to neither environment mints nothing, warns, and degrades to its runner-local account |
 | `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
 | `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — and on `main`-branch (prod-bound) runs only, so a rehearsal that reaches the labeler runs the full agent posture and the gate with no App token in the job at all — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
@@ -659,36 +659,22 @@ The `codex-freeze-probe` job reads the codex key alone for one
 one-word turn, on a block that deliberately keeps `safety-strategy: drop-sudo`
 — the posture that mutates the runner user's own account mid-job and wedges the
 VM. The job is the diagnostic that reproduces that wedge, so its base turn is
-the one place in the repository codex still runs under `drop-sudo`; the
+the one place in the repository codex runs under `drop-sudo`; the
 production cells run `safety-strategy: unprivileged-user`, driving codex as a
 separate unprivileged UNIX account so the runner account is never mutated,
 precisely to avoid it. The base turn is held out of the cross-surface lockstep
-pin for that reason, alongside two members that vary the block further: the
-`codex-freeze-probe-nosudo` member runs `safety-strategy: read-only` rather
-than `drop-sudo` (though that strategy does not compose with a permission
-profile, so its turn starts no real session), and the
+pin for that reason, alongside the one member that varies the block: the
 `codex-freeze-probe-unprivuser` member runs `safety-strategy:
 unprivileged-user` — the cells' own posture — driving codex as a separate
 unprivileged UNIX user the job provisions so the runner account is never
 mutated, and the model key never enters that user's environment or any file it
 can read: it stays behind the action's localhost proxy. The runner account
-keeps its sudo on all three; the turns differ in privilege — the base and
-nosudo turns run as the runner user (the nosudo one starting no real session),
-while the unprivuser turn runs as a separate account that never holds sudo. The
+keeps its sudo on both; the turns differ in privilege — the base turn runs as
+the runner user, while the unprivuser turn runs as a separate account that
+never holds sudo. The
 job's subject is the watchdog process rather than the stack, so it assumes no
-role, holds no `id-token`, and launches its retrieval sidecar token-free. Its
-autopsy member adds one pre-turn root process — a detached `dmesg --follow`
-opened while sudo still exists, because the base turn's `drop-sudo` strategy
-removes the privilege for the rest of the job — appending kernel messages to a
-file under
-`RUNNER_TEMP`. The turn can reach that path, on the same terms as the
-watchdog's own log there; what the file holds is kernel-owned message text,
-and this member mints no credential for one to sit beside. Beyond the userns
-sysctl the whole family sets for the sandbox, no kernel knob is relaxed for
-the tap: the ring buffer's own read restriction is left as the image set it,
-though the file is a ring-buffer view the turn could not otherwise take, and
-one it could also append to or truncate — the dump is read as evidence because
-the turn is a fixed one-word probe, not because the file is tamper-evident. An `all` dispatch fans one of each per
+role, holds no `id-token`, and launches its retrieval sidecar token-free.
+An `all` dispatch fans one engine-smoke and one engine-actions-smoke leg per
 engine, so a single run reads all three keys — each confined to its own job —
 and spends three cells plus three boot probes; `all-offline`, the same suite
 without either family, reads no engine key and spends nothing. The keys live on
@@ -852,8 +838,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
 | `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, no `id-token: write`, and the same pre-agent assertion that the AWS and OIDC variables are absent. What leaves it is one artifact of invented question texts — the labels the smoke produced — published only past a containment check against the engine key |
-| `integration-test` — runner-idle-control  | none          | the idle control assumes no role and holds no `id-token`: it reads nothing — its whole reach is the telemetry mint, and its product is the record row plus its own job conclusion |
-| `integration-test` — codex-freeze-probe family (`codex-freeze-probe`, `codex-freeze-probe-unwatched`, `codex-freeze-probe-smokeconfig`, `codex-freeze-probe-autopsy`, `codex-freeze-probe-nosudo`, `codex-freeze-probe-unprivuser`) | none          | the freeze probe assumes no role and holds no `id-token` either: it reads no corpus, and its reach is the telemetry mint plus the engine key one trivial turn spends — the ceiling for the family, since the unwatched and autopsy members skip the mint entirely and reach only the engine key. The `codex-freeze-probe-nosudo` member mints and arms as the base and smokeconfig members do, but its codex turn under `safety-strategy: read-only` is refused before the model call — `read-only` does not compose with the permission profile — so it starts no session and spends nothing on the engine; it stands as the negative control for that refusal, one of three codex invocations held out of the cross-surface lockstep pin (with the base `codex-freeze-probe` turn, which keeps `drop-sudo` to reproduce the wedge, and the unprivuser turn). The `codex-freeze-probe-unprivuser` member mints, arms and spends as the base member does; it runs its codex turn under `safety-strategy: unprivileged-user` as a separate unprivileged UNIX user the job provisions (nologin, no sudo, no supplementary groups; its home relaxed to 0755, and its boot-probe session rollout copied into the workspace for the shared assertion), so the runner account is never mutated and the model key never enters that user's environment or any file it can read — another of the lockstep-exempt turns, and the same `unprivileged-user` posture the production cells now run. The autopsy member's diagnostic dump reads machine state alone — process table, cgroup, logind, kernel-log and network-stack figures — and never an environment or a process's environ, and no workspace, config or credential file — only kernel pseudo-files and its own kernel-log capture; every command line it prints is trimmed and token-redacted, and it holds no credential to print in the first place. Its MCP sidecar is launched deliberately **token-free** — the turn uses no tools, so an unauthenticated server that handshakes is the whole requirement, and no CourtListener token reaches the agent's env or any config file it can read |
+| `integration-test` — codex-freeze-probe family (`codex-freeze-probe`, `codex-freeze-probe-unprivuser`) | none          | the freeze probe assumes no role and holds no `id-token`: it reads no corpus, and its reach is the telemetry mint plus the engine key one trivial turn spends — the ceiling for both members, which mint, arm and spend alike. The base `codex-freeze-probe` turn keeps `safety-strategy: drop-sudo` to reproduce the wedge, which is why it is held out of the cross-surface lockstep pin. The `codex-freeze-probe-unprivuser` member runs its codex turn under `safety-strategy: unprivileged-user` as a separate unprivileged UNIX user the job provisions (nologin, no sudo, no supplementary groups; its home relaxed to 0755, and its boot-probe session rollout copied into the workspace for the shared assertion), so the runner account is never mutated and the model key never enters that user's environment or any file it can read — the other lockstep-exempt turn, and the same `unprivileged-user` posture the production cells run. The job's MCP sidecar is launched deliberately **token-free** — the turn uses no tools, so an unauthenticated server that handshakes is the whole requirement, and no CourtListener token reaches the agent's env or any config file it can read |
 | `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `prod`, and it can write nothing production owns |
 | `run-ops`                                 | none          | the report reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
