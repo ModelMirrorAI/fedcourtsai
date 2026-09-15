@@ -112,12 +112,13 @@ from __future__ import annotations
 import sqlite3
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from .. import corpus
-from ..schemas import InterimResolutionSignals, Outcome
+from ..integrity import latest_evaluation_runs
+from ..schemas import Evaluation, InterimResolutionSignals, Outcome
 from ..serialize import read_model, write_json
 from . import cert_signals
 from .interim_signals import amicus_briefs_through, interim_disposition_date
@@ -141,7 +142,22 @@ class AmicusRefreeze(BaseModel):
         description="The committed evaluator cells this re-freeze puts in the re-grade "
         "backlog, in the `court/docket/event/run_id/actor` grammar `run-repair`'s "
         "`regrade-stale` selector parses — one per distinct (evaluator, run) pair under "
-        "the event, so the debt can be dispatched off the ledger rather than reconstructed",
+        "the event, so the debt can be dispatched off the ledger rather than "
+        "reconstructed. Only cells `stamp-cell --regrade` would accept — the surviving "
+        "grading of each (evaluator, predictor), stamped — because the re-grade refuses "
+        "rather than skips and the dispatch commits nothing once one line refuses. A "
+        "cell it would refuse is reported in `regrade_blocked` instead of listed here",
+    )
+    regrade_blocked: list[str] = Field(
+        default_factory=list,
+        description="Cells under this event that the re-freeze puts out of step and "
+        "`stamp-cell --regrade` would refuse, each with why and what to do instead: "
+        "unstamped (it takes the ordinary stamp, which is a different write), a record "
+        "disagreeing with the directory holding it, an unparseable record, or a run "
+        "surviving for one predictor while superseded for another under the same judge "
+        "— the one arm no `--regrade` dispatch can reach. Reported rather than listed, "
+        "so the backlog above stays dispatchable as printed while the debt this dispatch "
+        "does not pay is still visible",
     )
 
 
@@ -383,7 +399,14 @@ def _rederive_column(
     return rederived, corpus_updates
 
 
-def _regrade_cells(event_dir: Path, case_id: str, event_id: str) -> list[str]:
+class _RegradeBacklog(NamedTuple):
+    """One re-freeze's re-grade debt, split by whether a dispatch can pay it."""
+
+    cells: list[str]
+    blocked: list[str]
+
+
+def _regrade_cells(event_dir: Path, case_id: str, event_id: str) -> _RegradeBacklog:
     """The committed evaluator cells one re-freeze puts in the re-grade backlog.
 
     Emitted in the ``court/docket/event/run_id/actor`` grammar ``run-repair``'s
@@ -394,24 +417,124 @@ def _regrade_cells(event_dir: Path, case_id: str, event_id: str) -> list[str]:
     evaluator cell, and several predictors' evaluations share one such cell, so
     the per-predictor directories collapse to one line each.
 
-    Directory presence is enough, as it is for the sibling relabel's count: an
-    empty leftover still means a cell was provisioned there, and erring toward
-    naming a re-grade that is not owed is cheaper than missing one that is.
+    **Only what ``stamp-cell --regrade`` would accept is listed**, because the
+    list is a dispatch input rather than a description: over-naming does not err
+    toward safety here, since the re-grade *refuses* a cell it will not
+    recompute rather than skipping it, and the dispatch loop fails at the first
+    refusal and commits nothing — including the cells it had already rewritten.
+    So the walk reads the records and applies the re-grade's own admission rules
+    (:func:`fedcourtsai.cli._refuse_unregradable`): every evaluation the
+    dispatch would touch must carry a ``process_version``
+    (:func:`~fedcourtsai.cli._require_prior_stamp`), and the run must be the
+    **surviving** grading of its predictor
+    (:func:`~fedcourtsai.cli._require_latest_run`), on the collapse every
+    scoring surface already takes
+    (:func:`fedcourtsai.integrity.latest_evaluation_runs`). An empty leftover
+    directory holds no record and so names no cell — the re-grade would find
+    nothing to recompute there and refuse for that.
+
+    The third rule, :func:`~fedcourtsai.cli._require_reproducible_trio`, cannot
+    bite this population and so is not modelled: it returns on the stages whose
+    skill record the harness owns, and every interim moment — the whole of the
+    re-freeze worklist — declares :data:`~fedcourtsai.schemas.Stage.interim`.
+    The second line of defence is the correction's own reach: the trio is
+    scored against ``actual_granted``, which an amicus re-freeze does not move,
+    so it still reproduces even on an event whose stage cannot be read.
+
+    A cell the rules exclude is **reported, not listed**, in
+    :attr:`_RegradeBacklog.blocked`, each line carrying its own remedy, because
+    only one of the four is debt nothing can pay:
+
+    - *unstamped* — there is no stamp for a re-grade to preserve, so the cell
+      takes the ordinary stamp instead. That is not the same write: the
+      ordinary path also re-resolves ``prediction_run_id`` and writes a fresh
+      ``process_version``.
+    - *superseded in part* — this judge's run survives for one predictor and is
+      superseded for another, and one dispatch writes every predictor under the
+      run, so neither run is dispatchable. This one has no remedy through
+      ``--regrade`` at all.
+    - *record disagrees with its path* — the dispatch addresses a cell by
+      *path* while the refusal reads the *record*, so where the two disagree
+      nothing can be concluded about which run wins.
+    - *unreadable* — the record does not parse, which is ``validate``'s to fail
+      on; the walk reports the line rather than losing the whole ledger to it.
+
+    A run superseded outright is neither listed nor reported — the surviving
+    run beside it carries that debt, and is listed.
     """
     court, _, docket = case_id.partition("/")
     root = event_dir / "evaluations"
     if not root.is_dir():
-        return []
-    cells = {
-        f"{court}/{docket}/{event_id}/{run_dir.name}/{evaluator_dir.name}"
-        for evaluator_dir in root.iterdir()
-        if evaluator_dir.is_dir()
-        for predictor_dir in evaluator_dir.iterdir()
-        if predictor_dir.is_dir()
-        for run_dir in predictor_dir.iterdir()
-        if run_dir.is_dir()
-    }
-    return sorted(cells)
+        return _RegradeBacklog([], [])
+    # The dispatch unit: `stamp-cell --regrade` takes one (actor, run) and
+    # writes every `evaluations/<actor>/*/<run_id>/evaluation.json` under it, so
+    # a single inadmissible record in this group refuses the whole cell.
+    grouped: dict[tuple[str, str], list[tuple[Path, Evaluation]]] = defaultdict(list)
+    unreadable: set[tuple[str, str]] = set()
+    for path in sorted(root.glob("*/*/*/evaluation.json")):
+        run_dir = path.parent
+        key = (run_dir.parent.parent.name, run_dir.name)
+        try:
+            grouped[key].append((path, read_model(path, Evaluation)))
+        except (OSError, ValueError):
+            # Schema law is `validate`'s to enforce and this pass's to survive:
+            # the ledger it prints is the reading the apply's bound comes from,
+            # and one unparseable record must cost a line of it rather than all
+            # of it. The load-bearing `outcome.json` read is unguarded on
+            # purpose — without it there is no plan to report at all.
+            unreadable.add(key)
+    # The collapse is keyed on the record, the cell line on the path: the
+    # dispatch names a directory, and `latest_evaluation_runs` is the same
+    # function every scoring surface reads the ledger through.
+    graded = [item for group in grouped.values() for item in group]
+    surviving = {path for path, _ in latest_evaluation_runs(graded, lambda item: item[1])}
+    cells: list[str] = []
+    blocked: list[str] = []
+    for evaluator, run_id in sorted(set(grouped) | unreadable):
+        group = grouped.get((evaluator, run_id), [])
+        line = f"{court}/{docket}/{event_id}/{run_id}/{evaluator}"
+        survives = [path in surviving for path, _ in group]
+        if (evaluator, run_id) in unreadable:
+            blocked.append(f"{line} — unreadable, not re-gradable: the record does not parse")
+        elif not any(survives):
+            continue
+        # The remaining reasons in the order the command reaches them, so a
+        # maintainer who chases a reported line into the refusal that produced
+        # it reads the same sentence twice. Each carries its own remedy: only
+        # the partly-superseded arm is debt nothing can pay.
+        elif any(
+            _coordinates(record) != (case_id, event_id, evaluator, run_id) for _, record in group
+        ):
+            blocked.append(
+                f"{line} — record disagrees with its path, not re-gradable: "
+                + "reconcile the record's own ids with the directory holding it"
+            )
+        elif any(record.process_version is None for _, record in group):
+            blocked.append(
+                f"{line} — unstamped, not re-gradable: it takes the ordinary stamp instead"
+            )
+        elif not all(survives):
+            blocked.append(
+                f"{line} — superseded in part, not re-gradable: this judge's run survives for "
+                + "one predictor and is superseded for another, so no dispatch reaches it"
+            )
+        else:
+            cells.append(line)
+    # Sorted as lines rather than by the key they were grouped on: the ledger is
+    # read as text, and run-before-evaluator is the order it prints in.
+    return _RegradeBacklog(sorted(cells), sorted(blocked))
+
+
+def _coordinates(record: Evaluation) -> tuple[str, str, str, str]:
+    """The four ids a cell line is built from, as the record itself carries them.
+
+    The dispatch addresses a cell by path and ``stamp-cell --regrade`` refuses
+    by record, so the two have to agree for either the collapse or the emitted
+    line to mean anything. Nothing writes these four from the harness side, and
+    no committed check ties them to the directory, so the walk compares them
+    rather than assuming them.
+    """
+    return (record.case_id, record.event_id, record.evaluator_id, record.run_id)
 
 
 def _plan_refreezes(
@@ -447,12 +570,14 @@ def _plan_refreezes(
             # not touch are carried through by the copy.
             plans.append((path, outcome, block.model_copy(update={"amicus_briefs": recount})))
             cases.add(outcome.case_id)
+            backlog = _regrade_cells(path.parent, outcome.case_id, outcome.event_id)
             result.refrozen.append(
                 AmicusRefreeze(
                     ref=f"{outcome.case_id}/{outcome.event_id}",
                     was=block.amicus_briefs,
                     now=recount,
-                    regrade_cells=_regrade_cells(path.parent, outcome.case_id, outcome.event_id),
+                    regrade_cells=backlog.cells,
+                    regrade_blocked=backlog.blocked,
                 )
             )
     result.interim_amicus_distribution = dict(sorted(distribution.items()))

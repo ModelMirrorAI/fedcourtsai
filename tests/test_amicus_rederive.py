@@ -12,24 +12,37 @@ The properties no other suite covers, and the ones a stats-reviewer checks:
   ends of the ``amicus-increment`` claim move at different times by design.
 - The dry run writes nothing, the bound refuses whole, and the frozen-value
   distribution the ledger reports matches the affected set.
+- The re-grade backlog is a **dispatch input**, so it lists only cells
+  ``stamp-cell --regrade`` would accept — the surviving run of each (evaluator,
+  predictor), stamped. A cell the re-grade would refuse is reported with its
+  reason instead, because the refusal aborts the whole paste rather than
+  skipping the line.
 """
 
 from __future__ import annotations
 
+import random
 import re
 import sqlite3
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+import pytest
+import typer
+
 from fedcourtsai import corpus
+from fedcourtsai.cli import _echo_regrade_backlog, _refuse_unregradable
+from fedcourtsai.integrity import latest_evaluation_runs
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline.amicus_rederive import rederive_amicus_briefs
+from fedcourtsai.pipeline.amicus_rederive import _regrade_cells, rederive_amicus_briefs
 from fedcourtsai.schemas import (
     Disposition,
+    Evaluation,
     InterimResolutionSignals,
     Outcome,
     Prediction,
     PredictionContext,
+    ProcessVersion,
 )
 from fedcourtsai.serialize import read_model, write_json
 
@@ -153,6 +166,50 @@ def _write_prediction(data_root: Path, case_id: str, docket: int, *, context_ami
                 snapshot_date=date(2026, 6, 24),
                 signals_observable=True,
                 amicus_briefs=context_amicus,
+            ),
+        ),
+    )
+    return path
+
+
+def _write_evaluation(
+    data_root: Path,
+    docket: int,
+    run_id: str,
+    *,
+    evaluator: str = "claude-judge",
+    predictor: str = "claude-baseline",
+    stamped: bool = True,
+) -> Path:
+    """One committed grading under the event, as the harness leaves it.
+
+    A schema-true record rather than a stub, because the backlog walk now reads
+    these files: the collapse to a surviving run and the stamp check are both
+    properties of the record, not of the directory it sits in. The harness clock
+    the collapse orders on is the process stamp, so it is derived from the run id
+    — the newer run is newer on both, as it is in the ledger.
+    """
+    stamped_at = datetime.strptime(run_id, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+    path = (
+        CasePaths(data_root, "scotus", docket)
+        .event(_EVENT)
+        .evaluation(evaluator, predictor, run_id)
+    )
+    write_json(
+        path,
+        Evaluation(
+            case_id=f"scotus/{docket}",
+            event_id=_EVENT,
+            predictor_id=predictor,
+            evaluator_id=evaluator,
+            engine="claude-code",
+            run_id=run_id,
+            created_at=stamped_at,
+            correct=1,
+            process_version=(
+                ProcessVersion(label="proc-v4", digest="sha256:abc", stamped_at=stamped_at)
+                if stamped
+                else None
             ),
         ),
     )
@@ -286,12 +343,11 @@ def test_the_refreeze_names_the_regrade_cells_it_puts_in_the_backlog(tmp_path: P
     """
     data_root = tmp_path / "data"
     _write_outcome(data_root, "scotus/700", 700, amicus=2)
-    event = CasePaths(data_root, "scotus", 700).event(_EVENT)
     for evaluator in ("claude-judge", "codex-judge"):
         for predictor in ("claude-baseline", "gemini-baseline"):
-            path = event.evaluation(evaluator, predictor, "20260825T024608Z")
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("{}")
+            _write_evaluation(
+                data_root, 700, "20260825T024608Z", evaluator=evaluator, predictor=predictor
+            )
     db = corpus.corpus_db_path(tmp_path / "corpus")
     with corpus.connect(db) as conn:
         _seed_corpus(conn)
@@ -312,6 +368,236 @@ def test_the_refreeze_names_the_regrade_cells_it_puts_in_the_backlog(tmp_path: P
     pattern = _regrade_pattern()
     for cell in entry.regrade_cells:
         assert re.match(pattern, cell), f"{cell!r} is not a cell run-repair would accept"
+
+
+def test_a_twice_graded_cell_names_only_the_surviving_run(tmp_path: Path) -> None:
+    """The backlog is a dispatch input, so it collapses re-runs the way scoring does.
+
+    A judge that graded this cell twice leaves two run directories describing one
+    observation. `stamp-cell --regrade` refuses the superseded one — recomputing
+    it moves no published number while reading as landed — and the first refusal
+    aborts the whole dispatch, so naming both runs makes the list unusable rather
+    than merely long. Only the surviving run is named, on the same collapse
+    `integrity.latest_evaluation_runs` applies everywhere else.
+    """
+    data_root = tmp_path / "data"
+    _write_outcome(data_root, "scotus/700", 700, amicus=2)
+    for run_id in ("20260824T231401Z", "20260825T024608Z"):
+        for predictor in ("claude-baseline", "gemini-baseline"):
+            _write_evaluation(data_root, 700, run_id, predictor=predictor)
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _seed_corpus(conn)
+        result = rederive_amicus_briefs(conn, data_root, apply=False)
+
+    (entry,) = [e for e in result.refrozen if e.ref.startswith("scotus/700/")]
+    assert entry.regrade_cells == [f"scotus/700/{_EVENT}/20260825T024608Z/claude-judge"]
+    # The superseded run is not reported either: the surviving run beside it is
+    # listed, and that dispatch is the whole of the debt this event owes.
+    assert entry.regrade_blocked == []
+
+
+def test_an_unstamped_grading_is_reported_rather_than_listed(tmp_path: Path) -> None:
+    """A cell with no process stamp is debt the ledger names and no dispatch pays.
+
+    `stamp-cell --regrade` preserves the stamp of the process that produced the
+    record, so a cell carrying none has nothing for it to preserve and the
+    re-grade refuses. Listing it would abort the paste; dropping it silently
+    would hide a number standing against a moved resolution end — so it is
+    reported, with the reason, beside the dispatchable list.
+    """
+    data_root = tmp_path / "data"
+    _write_outcome(data_root, "scotus/700", 700, amicus=2)
+    _write_evaluation(data_root, 700, "20260825T024608Z", stamped=False)
+    _write_evaluation(data_root, 700, "20260825T024608Z", evaluator="codex-judge")
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _seed_corpus(conn)
+        result = rederive_amicus_briefs(conn, data_root, apply=False)
+
+    (entry,) = [e for e in result.refrozen if e.ref.startswith("scotus/700/")]
+    # The stamped judge is dispatchable; the unstamped one is not, and the two
+    # are kept apart rather than pooled into a list that would refuse whole.
+    assert entry.regrade_cells == [f"scotus/700/{_EVENT}/20260825T024608Z/codex-judge"]
+    assert entry.regrade_blocked == [
+        f"scotus/700/{_EVENT}/20260825T024608Z/claude-judge — unstamped, not re-gradable: "
+        + "it takes the ordinary stamp instead"
+    ]
+
+
+def test_a_run_superseded_for_one_predictor_only_is_reported_not_listed(
+    tmp_path: Path,
+) -> None:
+    """A partly superseded run is the one exclusion that leaves a debt unpayable.
+
+    One `--regrade` dispatch writes every `evaluations/<judge>/*/<run>/` record
+    under the cell, so a run that survives for one predictor while a later run
+    supersedes it for another is refused whichever of the two is named. The
+    surviving half is therefore not dispatchable through either run, and the
+    ledger says so instead of emitting a line that would abort the paste.
+    """
+    data_root = tmp_path / "data"
+    _write_outcome(data_root, "scotus/700", 700, amicus=2)
+    _write_evaluation(data_root, 700, "20260824T231401Z", predictor="claude-baseline")
+    _write_evaluation(data_root, 700, "20260824T231401Z", predictor="gemini-baseline")
+    # Only `claude-baseline` was re-graded, so the earlier run still wins for
+    # `gemini-baseline` and loses for `claude-baseline`.
+    _write_evaluation(data_root, 700, "20260825T024608Z", predictor="claude-baseline")
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _seed_corpus(conn)
+        result = rederive_amicus_briefs(conn, data_root, apply=False)
+
+    (entry,) = [e for e in result.refrozen if e.ref.startswith("scotus/700/")]
+    assert entry.regrade_cells == [f"scotus/700/{_EVENT}/20260825T024608Z/claude-judge"]
+    assert entry.regrade_blocked == [
+        f"scotus/700/{_EVENT}/20260824T231401Z/claude-judge — superseded in part, not "
+        + "re-gradable: this judge's run survives for one predictor and is superseded "
+        + "for another, so no dispatch reaches it"
+    ]
+
+
+def test_an_empty_evaluation_directory_names_no_cell(tmp_path: Path) -> None:
+    """A leftover directory holding no record is not a re-grade the ledger owes.
+
+    `stamp-cell --regrade` globs for the `evaluation.json` files under the cell
+    and exits non-zero when it finds none, so a provisioned-but-empty directory
+    is a refusal rather than a cell — naming it costs the dispatch it rides in.
+    """
+    data_root = tmp_path / "data"
+    _write_outcome(data_root, "scotus/700", 700, amicus=2)
+    leftover = (
+        CasePaths(data_root, "scotus", 700)
+        .event(_EVENT)
+        .evaluation("claude-judge", "claude-baseline", "20260825T024608Z")
+    )
+    leftover.parent.mkdir(parents=True, exist_ok=True)
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _seed_corpus(conn)
+        result = rederive_amicus_briefs(conn, data_root, apply=False)
+
+    (entry,) = [e for e in result.refrozen if e.ref.startswith("scotus/700/")]
+    assert (entry.regrade_cells, entry.regrade_blocked) == ([], [])
+
+
+def test_an_unparseable_grading_costs_a_line_and_not_the_ledger(tmp_path: Path) -> None:
+    """A record that does not parse is `validate`'s to fail on and this pass's to survive.
+
+    The ledger is the reading the apply's `--max-changes` bound comes from, and
+    the corpus half of it rides in the same report, so one unreadable committed
+    record must not take the whole reading with it.
+    """
+    data_root = tmp_path / "data"
+    _write_outcome(data_root, "scotus/700", 700, amicus=2)
+    _write_evaluation(data_root, 700, "20260825T024608Z", evaluator="codex-judge")
+    broken = _write_evaluation(data_root, 700, "20260825T024608Z")
+    broken.write_text("{not json")
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _seed_corpus(conn)
+        result = rederive_amicus_briefs(conn, data_root, apply=False)
+
+    # The corpus half of the reading is intact, which is the point of surviving.
+    assert result.corpus_changed == 2
+    (entry,) = [e for e in result.refrozen if e.ref.startswith("scotus/700/")]
+    assert entry.regrade_cells == [f"scotus/700/{_EVENT}/20260825T024608Z/codex-judge"]
+    assert entry.regrade_blocked == [
+        f"scotus/700/{_EVENT}/20260825T024608Z/claude-judge — unreadable, not re-gradable: "
+        + "the record does not parse"
+    ]
+
+
+def test_every_listed_cell_is_one_the_regrade_accepts(tmp_path: Path) -> None:
+    """The property the whole split exists for, checked against the gate itself.
+
+    Two surfaces in two modules decide this — the ledger that names a cell and
+    the command that admits one — and nothing at runtime holds them together, so
+    the coupling is asserted over a randomized ledger rather than argued in two
+    docstrings. `_refuse_unregradable` is the gate `stamp-cell --regrade` runs
+    before its first write: a listed cell must pass it, a reported one must not,
+    and no surviving grading may fall out of both lists.
+    """
+    runs = ("20260824T231401Z", "20260825T024608Z")
+    evaluators = ("claude-judge", "codex-judge")
+    predictors = ("claude-baseline", "gemini-baseline")
+    slots = [(e, p, r) for e in evaluators for p in predictors for r in runs]
+    rng = random.Random(7)
+    for trial in range(40):
+        data_root = tmp_path / f"trial-{trial}" / "data"
+        present = [slot for slot in slots if rng.random() < 0.5]
+        if not present:
+            continue
+        for evaluator, predictor, run_id in present:
+            _write_evaluation(
+                data_root,
+                700,
+                run_id,
+                evaluator=evaluator,
+                predictor=predictor,
+                stamped=rng.random() < 0.75,
+            )
+        event_paths = CasePaths(data_root, "scotus", 700).event(_EVENT)
+        backlog = _regrade_cells(event_paths.base, "scotus/700", _EVENT)
+        reported = {line.split(" — ")[0] for line in backlog.blocked}
+        for evaluator in evaluators:
+            for run_id in runs:
+                targets = sorted(
+                    (event_paths.base / "evaluations" / evaluator).glob(
+                        f"*/{run_id}/evaluation.json"
+                    )
+                )
+                if not targets:
+                    continue
+                line = f"scotus/700/{_EVENT}/{run_id}/{evaluator}"
+                try:
+                    _refuse_unregradable(targets, event_paths, evaluator, run_id)
+                except typer.Exit:
+                    assert line not in backlog.cells, f"{line} is listed and would refuse"
+                else:
+                    assert line in backlog.cells, f"{line} would be accepted and is not listed"
+        # And nothing a scoring surface still reads is dropped without a word:
+        # every surviving grading is either dispatchable or reported.
+        graded = [
+            (path, read_model(path, Evaluation))
+            for path in sorted(event_paths.base.glob("evaluations/*/*/*/evaluation.json"))
+        ]
+        for path, _ in latest_evaluation_runs(graded, lambda item: item[1]):
+            run_dir = path.parent
+            line = f"scotus/700/{_EVENT}/{run_dir.name}/{run_dir.parent.parent.name}"
+            assert line in backlog.cells or line in reported, f"{line} is silently dropped"
+
+
+def test_the_ledger_prints_the_two_halves_apart(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The run summary is where this lands, so the separation is pinned as text.
+
+    A blocked line pasted into `repair_target` refuses the whole dispatch, so it
+    must never appear under the header a maintainer copies from — and it must
+    appear somewhere, since an unpayable debt that prints nowhere is one nobody
+    triages.
+    """
+    data_root = tmp_path / "data"
+    _write_outcome(data_root, "scotus/700", 700, amicus=2)
+    _write_evaluation(data_root, 700, "20260824T231401Z")
+    _write_evaluation(data_root, 700, "20260825T024608Z")
+    _write_evaluation(data_root, 700, "20260825T024608Z", evaluator="codex-judge", stamped=False)
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        _seed_corpus(conn)
+        result = rederive_amicus_briefs(conn, data_root, apply=False)
+    _echo_regrade_backlog(result)
+
+    printed = capsys.readouterr().out
+    listed, _, reported = printed.partition("regrade-stale: ")
+    assert "1 dispatchable evaluator cell(s)" in listed
+    assert f"  scotus/700/{_EVENT}/20260825T024608Z/claude-judge\n" in listed
+    # The superseded run is named nowhere, and the unstamped judge only below.
+    assert "20260824T231401Z" not in printed
+    assert "codex-judge" not in listed
+    assert "1 further cell(s) a re-grade would refuse" in reported
+    assert "codex-judge — unstamped, not re-gradable" in reported
 
 
 def test_a_dry_run_reports_the_plan_and_writes_nothing(tmp_path: Path) -> None:
