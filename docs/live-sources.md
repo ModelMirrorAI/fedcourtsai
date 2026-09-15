@@ -337,13 +337,27 @@ drains from. The wide `distributed`
 stock stays petition-keyed and unfiltered, matching what it is. On the fetch
 side the routes are recorded as they happen —
 `documents.document_fetch_losses` counts every dropped document by reason (a
-transport failure, a link the upstream did not serve, an opposition whose every
-brief failed) and each one is warned into the run log — so those causes stop
-leaving the same trace, which is none. A fourth reason sits one step earlier
-and is the one loss those three cannot see: `not-selected`, recorded per
-case where the docket JSON nominated no document, so the class an upstream that
-publishes no PDF (a Rule 34.6 paper filing) and a selector with no arm for the
-filing type both land in is counted rather than silent.
+transport failure, a link the upstream did not serve, a link that is not HTTPS
+on the Court's own host, an opposition whose every brief failed) and each one is
+warned into the run log — so those causes stop leaving the same trace, which is
+none. `off-host` is the one of the four that is not an upstream failing to serve
+and is not repaired by re-attempting it. **Every request the fetching client
+makes is HTTPS on a supremecourt.gov host, and it enforces that rather than
+assuming it**: a `DocumentUrl` is upstream text lifted verbatim out of docket
+JSON and a `Location` header is upstream text too, so the client checks the URL
+a fetch starts at, then walks any redirect chain hop by hop, refusing the first
+one that leaves the host **before** making that request. Checking after httpx
+had followed the chain would be too late — the bytes a document fetch returns
+are stored and read by a cell as evidence, and the politeness pacing and the 403
+retry posture are keyed to the intended host — so a single occurrence is worth a
+maintainer's reading. (The reachability probe below keeps its own client, which
+follows a redirect wherever it leads: it builds its own URLs and writes nothing
+to the corpus, so where a body came from cannot enter the record.) A fifth
+reason sits one step earlier and is the one loss those four cannot see:
+`not-selected`, recorded per case where the docket JSON nominated no document,
+so the class an upstream that publishes no PDF (a Rule 34.6 paper
+filing) and a selector with no arm for the filing type both land in is counted
+rather than silent.
 **The questions presented
 are derived from the petition PDF, never from `QPLink`:** the `/qp/` page is
 generated when certiorari is *granted* and opens with the grant order, so the

@@ -415,11 +415,11 @@ def test_documents_fetched_only_from_the_floor_term_up(tmp_path: Path) -> None:
     )
     rich = _decided("22-2", _GRANTED_ENTRY)
     rich["ProceedingsandOrder"][0]["Links"] = [
-        {"Description": "Petition", "DocumentUrl": "https://example/22.pdf"}
+        {"Description": "Petition", "DocumentUrl": "https://www.supremecourt.gov/22.pdf"}
     ]
     old = _decided("20-2", _GRANTED_ENTRY)
     old["ProceedingsandOrder"][0]["Links"] = [
-        {"Description": "Petition", "DocumentUrl": "https://example/20.pdf"}
+        {"Description": "Petition", "DocumentUrl": "https://www.supremecourt.gov/20.pdf"}
     ]
     served = {"22-2": rich, "20-2": old}
     doc_urls: list[str] = []
@@ -443,7 +443,7 @@ def test_documents_fetched_only_from_the_floor_term_up(tmp_path: Path) -> None:
             today=date(2026, 7, 10),
         )
     # Only the at-or-above-floor Term's documents were fetched at all.
-    assert doc_urls == ["https://example/22.pdf"]
+    assert doc_urls == ["https://www.supremecourt.gov/22.pdf"]
     assert report.documents == 2  # petition + derived questions-presented
     with corpus.connect(db) as conn:
         rich_docs = corpus.documents_for_case(conn, "scotus/9022000002")
