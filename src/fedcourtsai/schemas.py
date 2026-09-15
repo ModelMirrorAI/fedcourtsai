@@ -1502,11 +1502,13 @@ class SemanticGradeBlock(_Strict):
 
     **Alpha, and still producing nothing.** ``semantic-v1`` is provisional and
     unproven against opinion text — not a pre-registered commitment in the sense
-    ``cert-v1`` and ``merits-v1`` are. The merits moments declare it and the
-    evaluate prompt asks a grader for it, but no opinion body is ingested to
-    grade against, so every declared claim masks (``not-addressed``) and no
-    published number depends on it. Supersession by a set formed with text in
-    hand is the expected path, not an exception.
+    ``cert-v1`` and ``merits-v1`` are. The merits moments declare it, the
+    evaluate prompt asks a grader for it, and the evaluate cell is handed its
+    case's majority opinion wherever the corpus holds one — but opinion coverage
+    is a rounding error against the granted slice, so essentially every declared
+    claim masks (``not-addressed``) and no published number depends on it.
+    Supersession by a set formed with text in hand is the expected path, not an
+    exception.
     """
 
     declared_set_version: str = Field(

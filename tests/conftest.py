@@ -23,6 +23,7 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import documents
 from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.salience import SalienceScorer
+from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import Disposition, Evaluation, Prediction, ProcessVersion
 from fedcourtsai.serialize import write_json
 
@@ -280,10 +281,12 @@ def open_freeze_window() -> tuple[str, datetime] | None:
     such window is open — nothing blessed, no instant, or the instant already
     reached — which the callers turn into a skip.
 
-    The latest-blessed digest is the one a round stamps under the current
-    predictor-half re-bless, where it is the enforced half; after an
-    evaluator-half re-bless it would be an evaluator digest instead, and the
-    window it reports simply closes.
+    The window is read over the **predictor** half alone, because that is the
+    half `is_frozen` enforces and the half a window cell is stamped under. An
+    evaluator-half re-bless deliberately blesses *after* the held instant, so
+    taking the latest over the whole map would report the window closed on a
+    label whose enforced half still has one open, silently retiring every
+    caller.
 
     The stamp is taken from the instant's edge rather than the bless moment's,
     so these tests keep running for the whole life of a late-guessed instant
@@ -292,7 +295,18 @@ def open_freeze_window() -> tuple[str, datetime] | None:
     since = process_version.FROZEN_SINCE
     if not process_version.FROZEN_PROCESS_DIGESTS or since is None:
         return None
-    digest, blessed = max(process_version.FROZEN_PROCESS_DIGESTS.items(), key=lambda kv: kv[1])
+    enforced = {
+        process_version.digest_for_actor(Path("."), Path("config"), "predictor", entry.id)
+        for entry in enabled_predictors(Path("config") / "predictors.yaml")
+    }
+    blessed_enforced = {
+        digest: moment
+        for digest, moment in process_version.FROZEN_PROCESS_DIGESTS.items()
+        if digest in enforced
+    }
+    if not blessed_enforced:
+        return None
+    digest, blessed = max(blessed_enforced.items(), key=lambda kv: kv[1])
     minted = since - timedelta(seconds=1)
     return None if minted < blessed else (digest, minted)
 

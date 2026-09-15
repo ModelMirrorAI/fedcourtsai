@@ -613,9 +613,12 @@ in prose.
   null wherever the prediction or the outcome it compares was unreadable.
   `semantic_grades` is the counterpart of the prediction's `semantic_claims`
   above: written on a **merits** cell, one ordinal grade per declared claim, and
-  null on every other stage. No opinion body is ingested, so every grade it
-  carries today is `not-addressed` — the availability mask, a property of the
-  record — and no census publishes. It is the one *claim-family* block that
+  null on every other stage. The cell is handed its case's majority opinion at
+  `record/opinion/` wherever the corpus holds one, but coverage is a rounding
+  error against the granted slice, so essentially every grade it carries today
+  is `not-addressed` — the availability mask, a property of the record — with
+  `mask_ground` naming which of the mask's three grounds applied, and no census
+  publishes. It is the one *claim-family* block that
   could never be the harness's word, unlike `claim_scores`, since resolving a
   semantic claim needs a reader; that is why inter-grader agreement is what a
   published grade would have to travel with.

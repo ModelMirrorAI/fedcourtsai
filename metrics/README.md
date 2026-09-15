@@ -654,11 +654,16 @@ stays outside the gate:
 
 **Semantic grades publish nothing today, and this is the contract for when they
 do.** No artifact here carries a semantic claim grade. The merits moments
-declare `semantic-v1` and both prompts ask for it — a merits cell for the
-propositions, a grader for the grades — but **no opinion body is ingested to
-grade against**, and both declared claims require a majority opinion, so every
-grade a cell writes is `not-addressed`: the availability mask, a property of the
-record. Blocks accumulate; ordinal grades do not. `fedcourts
+declare `semantic-v1`, both prompts ask for it — a merits cell for the
+propositions, a grader for the grades — and the evaluate cell is handed its
+case's majority opinion wherever the corpus holds one. But **opinion coverage is
+a rounding error** — fewer than ten corpus rows carry a body against a
+cert-granted slice of ≈1,250, the figure
+[outcome-decomposition.md](../docs/outcome-decomposition.md) states and
+maintains under *What remains unbuilt* — and both declared claims require a
+majority opinion, so on essentially every cell there is no staged body and the
+grade is `not-addressed`: the availability mask, a property of the record.
+Blocks accumulate; ordinal grades do not. `fedcourts
 semantic-summary` is the surface that publishes them, and it writes
 `semantic-grades-<stratum>-<scope>.json` only where **both** preconditions below
 are met — the floor *and* a non-null agreement coefficient. Below either it
@@ -720,18 +725,21 @@ should be read that way: the split can under-state what an opinion said and
 never over-state it, and nothing in the artifact bounds how many units were
 resolved rather than agreed.
 
-**Today that split is `unstated` or nothing, and a mask total is therefore not
-quotable yet.** `SemanticGrade.mask_ground` exists and the census counts it, but
-the evaluate prompt does not yet ask a grader to fill it, so every real mask
-lands in `unstated` — which records *nobody was asked*, never *nobody could
-tell*. Until the prompt elicits the field, the standard above bites on the
-family's own numbers: no mask total published here has grounds behind it. Two
-further readings will apply once it does. A census legitimately pools graders
-from both sides of that prompt amendment, because `semantic-summary`'s scope
-gate filters on the *prediction's* stamp rather than the evaluation's digest —
-so `unstated` will for a while be a mixture of "graded before the field was
-asked for" and "grader declined to say", inseparable from the artifact, and the
-freeze-record entry for the amendment is what dates the boundary. And the
+**No mask total here has grounds behind it yet, because no mask exists here
+yet.** `SemanticGrade.mask_ground` is elicited — the evaluate prompt asks a
+grader to name the ground on every `not-addressed` row, on the closed vocabulary
+above, and `validate` fails the cell on anything outside it — and the ledger
+carries no `semantic_grades` block at all, so every bucket including `unstated`
+is empty and a mask total is **not quotable**. Two readings arm the moment one
+is. `unstated` records *nobody was asked*, never *nobody could tell*, and a
+grade written under a superseded evaluator process that did not ask for the
+ground lands there; since `semantic-summary`'s scope gate filters on the
+*prediction's* stamp rather than the evaluation's digest, a census legitimately
+pools graders from both sides of such a boundary, making `unstated` a mixture of
+"asked and declined" and "never asked" that the artifact cannot separate. The
+freeze-record entry for the evaluator-half re-bless that elicited the field is
+what dates that boundary, and a mask total quoted across it is not a
+like-for-like figure. And the
 offline stub grader writes `not-ingested` unconditionally, so on any ledger a
 stub cascade wrote into, that bucket is a harness constant rather than a grader
 finding.

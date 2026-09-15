@@ -4952,9 +4952,11 @@ def semantic_summary_command(
     written and the state is printed, naming which precondition failed.
 
     So today it writes nothing and says so. The evaluate prompt asks a merits
-    grader for a block, but no opinion body is ingested to grade against and
-    both declared claims require a majority opinion, so every unit is the
-    availability mask and the census carries no ordinal grades to publish.
+    grader for a block and the cell is handed its case's majority opinion
+    wherever the corpus holds one, but opinion coverage is a rounding error
+    against the granted slice and both declared claims require a majority
+    opinion, so essentially every unit is the availability mask and the census
+    carries no ordinal grades to publish.
     """
     if stratum not in get_args(Stratum):
         raise typer.BadParameter(

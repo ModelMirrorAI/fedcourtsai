@@ -731,6 +731,47 @@ def test_the_evaluate_cell_provisions_without_the_forward_guard() -> None:
         assert "--refuse-terminal" not in line, line
 
 
+def test_only_trusted_repo_code_carries_the_corpus_credentials() -> None:
+    """A cell's read credentials ride `run:` steps of our own code, never an action.
+
+    The containment the cell workflows rest on is that the corpus role's
+    credentials sit in the `env:` of individual steps rather than the job env,
+    so no agent step inherits them. A runtime guard asserts the job half before
+    the agent runs; nothing pins the step half, and the block is hand-copied
+    once per provisioning step, so the drift this catches is one paste landing
+    on a `uses:` step — an engine action, say — which would hand a model's
+    process live cloud credentials with no guard in the way.
+    """
+    for name in ("run-predict.yml", "run-evaluate.yml", "run-backtest.yml"):
+        carriers = [
+            step
+            for job in _load(name)["jobs"].values()
+            for step in job.get("steps", []) or []
+            if any(
+                key.startswith("AWS_") and key not in ("AWS_REGION", "AWS_DEFAULT_REGION")
+                for key in (step.get("env") or {})
+            )
+        ]
+        for step in carriers:
+            label = step.get("name") or step.get("uses") or "<unnamed>"
+            assert "uses" not in step, (
+                f"{name}: step {label!r} hands corpus credentials to an action; "
+                "they belong to `run:` steps of this repo's own code only"
+            )
+            assert "uv run fedcourts" in step["run"], (
+                f"{name}: step {label!r} carries corpus credentials but runs "
+                "something other than the fedcourts CLI"
+            )
+    # Liveness: the scan really does find the provisioning steps, so a workflow
+    # that stopped carrying credentials at all cannot pass this vacuously.
+    assert [
+        step
+        for job in _load("run-evaluate.yml")["jobs"].values()
+        for step in job.get("steps", []) or []
+        if "AWS_SECRET_ACCESS_KEY" in (step.get("env") or {})
+    ]
+
+
 def test_the_predict_lane_never_stages_an_opinion() -> None:
     """The majority opinion is the outcome, so a predict cell must never be handed it.
 

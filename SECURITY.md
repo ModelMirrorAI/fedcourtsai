@@ -425,10 +425,13 @@ runbook, [docs/security.md](docs/security.md).
   read-write on the staging bucket pair alone, so production's single-writer
   discipline is unchanged and the worst a staging-bound write can corrupt is
   the re-seedable fixture the refresh lane rebuilds in one dispatch.
-- **Prompt-injection awareness.** Docket text is untrusted input, and it is the
-  input a cell actually reads: no round takes a case list from anything a
+- **Prompt-injection awareness.** Third-party text is untrusted input, and it is
+  the input a cell actually reads: the docket, the filed documents provisioned
+  under `record/documents/` (party-authored), and — on an evaluate cell — the
+  majority opinion staged at `record/opinion/`, which quotes whatever the
+  parties put in front of the Court. No round takes a case list from anything a
   requester wrote, since the matrix is derived from committed corpus state.
-  Agents are instructed to treat docket text as data, not instructions, and the
+  Agents are instructed to treat all of it as data, not instructions, and the
   cell's credential carries no `contents: write` — its output rides to `collect`
   as an artifact, so injected text cannot push code.
 - **`persist-credentials: false`** on read-only checkouts.

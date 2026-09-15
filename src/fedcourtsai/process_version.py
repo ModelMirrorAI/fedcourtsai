@@ -62,34 +62,28 @@ from .schemas import EvaluatorConfig, FrozenProcessRecord, PredictorConfig, Proc
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
-CURRENT_PROCESS_LABEL = "proc-v7"
+CURRENT_PROCESS_LABEL = "proc-v8"
 
 # The blessed process digests, each mapped to its bless moment — the
-# frozen-headline set: the six proc-v7
+# frozen-headline set: the six proc-v8
 # baselines (claude/codex/gemini, predictor and evaluator each), read off
 # `fedcourts process-digest --all`; set together with FROZEN_SINCE below,
-# which a test pins. proc-v7 is **fleet-wide**: all six digests move, because
-# the two shared prompt templates' bytes move (the case-level `record/` path
-# anchor in both cell contracts, the removal of the unprovisioned-snapshot
-# escape hatch, and the positional-cutoff contract — `cut_kind` /
-# `cut_anchor_index` — on the predict side) and, on the codex pair, the
-# resolved model does too (`gpt-6-astra`). The map holds one blessed process
-# per actor, so every proc-v6 digest is replaced rather than kept beside
-# these. Because the predictor digest is the enforced membership filter
-# (`is_frozen`), retiring the predictor half **de-counts every prediction
-# stamped under it** — the mechanism the third supersession shape in
-# `docs/process-version.md` names, engaged here over an empty set. The label
-# is the **first** shape, a re-freeze with nothing counted under the prior
-# label: no prediction was ever stamped under its predictor digests, and
-# every evaluation ever stamped under its evaluator digests grades a
-# prediction that was never counted — each stamped before its own label's
-# counting instant — so no frozen-scope artifact ever contained one, and
-# nothing the retirement removes was ever counted; no declaration is called
-# on. The freeze record carries the census and the grounds it rests on. Keyed
+# which a test pins. proc-v8 is the **evaluator half only**: the three
+# evaluator digests move because the grading protocol's bytes move (the
+# evaluate cell is handed the case's staged majority opinion at
+# `record/opinion/`, and the mask's ground becomes a counted field the grader
+# names rather than free text inside `basis`), while the three predictor
+# digests are carried forward **byte-identical** from proc-v7 — nothing in the
+# predict contract, the predictor configs, or the resolved predictor models
+# moved. That is the second supersession shape in `docs/process-version.md`:
+# the map holds one blessed process per actor, so the proc-v7 evaluator
+# digests are replaced rather than kept beside these, and because the
+# evaluator entries are the freeze *record* and never the counting filter
+# (`is_frozen` reads the predictor half), retiring them de-counts nothing. This
+# constant names the live fleet's processes alone; the retired digests and the
+# census of what was graded under them live in the freeze record. Keyed
 # on the digest, never the label,
-# so a process that drifted under an unchanged label is not silently blessed;
-# the evaluator entries are the freeze *record* of the blessed grading
-# process.
+# so a process that drifted under an unchanged label is not silently blessed.
 #
 # Each digest maps to **the instant it was blessed**: the merge time of the
 # promotion that carried its freeze commit to `main`, the moment its bytes
@@ -114,7 +108,13 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
         # the carrying merge is necessarily at or after it), which step 4 of
         # the cutover corrects for each newly blessed entry.
         #
-        # predictors: claude-baseline, codex-baseline, gemini-baseline.
+        # predictors: claude-baseline, codex-baseline, gemini-baseline. All
+        # three carry forward from proc-v7 byte-identical, so each keeps that
+        # label's bless moment verbatim — the bytes have been immutable since
+        # then, and re-dating them would assert a later immutability than git
+        # can witness. This is also the audit for the held instant below: the
+        # comparison an auditor runs on this label is these three values
+        # against `prereg/proc-v7`'s, not a date against a promotion.
         "sha256:930e02ae18fd07192bede9d3e54ad420a66183db927f0b5d5939c2af0a2c93eb": datetime(
             2026, 9, 6, 21, 18, 48, tzinfo=UTC
         ),
@@ -124,17 +124,19 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
         "sha256:4edc5ac58c718a385e9518a9a1cfc0f17f32eb62ca788ad79c91e7112c11994a": datetime(
             2026, 9, 6, 21, 18, 48, tzinfo=UTC
         ),
-        # evaluators: claude-judge, codex-judge, gemini-judge. None carries
-        # forward — the shared prompt bytes move for all three — so none
-        # keeps an earlier label's bless moment.
-        "sha256:84cf4c8b52a1475c8982a22876f9d01e2f628f4d5e9027709490679d211da868": datetime(
-            2026, 9, 6, 21, 18, 48, tzinfo=UTC
+        # evaluators: claude-judge, codex-judge, gemini-judge. All three are
+        # newly blessed — the shared grading prompt's bytes move for every
+        # judge — so none keeps an earlier label's bless moment, and each
+        # carries the step-2 forecast floor until step 4 corrects it against
+        # the carrying merge.
+        "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13": datetime(
+            2026, 9, 15, 0, 0, 0, tzinfo=UTC
         ),
-        "sha256:fa92c82e827ede277677781a11d13f20afc830517c11377cf50be167c8a07d36": datetime(
-            2026, 9, 6, 21, 18, 48, tzinfo=UTC
+        "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1": datetime(
+            2026, 9, 15, 0, 0, 0, tzinfo=UTC
         ),
-        "sha256:2585c15a6b2c5f3f6cb4aa5393f49ee63592dbfd8ad38fc1a9b9dae0d2ce1bf3": datetime(
-            2026, 9, 6, 21, 18, 48, tzinfo=UTC
+        "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe": datetime(
+            2026, 9, 15, 0, 0, 0, tzinfo=UTC
         ),
     }
 )
@@ -165,13 +167,16 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
 # so such a label is audited by that byte comparison rather than the date
 # rule (the supersession notes in the same doc).
 #
-# The current value moves with the label, per the **ordinary** rule —
-# proc-v7 moves predictor bytes, so the held-instant exception cannot apply.
-# It is guessed late: ahead of the promotion forecast to carry this commit,
-# on the condition the freeze record registers — this must land on `main` at
-# or before it. Should the promotion slip past, the instant is bumped in a
-# follow-up promotion **before** the `prereg/` tag is minted, since a tag over
-# a bad instant burns the label.
+# The current value **held** across the proc-v8 re-bless, which is that
+# exception: proc-v8 moves no predictor byte, so the enforced half of the map
+# is proc-v7's and the instant it was chosen for still fences exactly the
+# population it fenced. Moving it forward would drop every prediction stamped
+# since 2026-09-07 from the headline in payment for a change that touched no
+# predictor byte. The consequence to read deliberately: the newly blessed
+# evaluator entries' bless moments sit *after* this instant rather than before
+# it, inverting the ordinary order, and the gap that opens is empty by the
+# step-0 grep the freeze record carries — no committed cell was stamped under
+# the new evaluator bytes before they landed.
 FROZEN_SINCE: datetime | None = datetime(2026, 9, 7, 0, 0, 0, tzinfo=UTC)
 
 # The retrieval surface each engine's cells run with. Folded into the digest

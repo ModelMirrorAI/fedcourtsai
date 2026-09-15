@@ -1684,6 +1684,15 @@ staging area lives under the case's gitignored `record/`, which stays on the
 runner — neither committed nor uploaded, since the cell artifact carries only
 the cell's own event directory — and so never reaches the ledger.
 
+That same `record/` carries the cell's one evaluate-only input: `fedcourts
+provision-opinion` stages the case's majority opinion at `record/opinion/` for
+the semantic grades to be formed against, on a best-effort step that runs before
+the agent on every cell. It stages nothing where the corpus row holds no body,
+which is most cases, so an **absent** slot is the ordinary state and the grader
+masks. When a round's semantic claims all mask, read that step's outcome first:
+a failed staging and genuine non-coverage leave the same empty slot, and the
+step annotates the run summary where it failed.
+
 A second pair of steps keeps the aliases worth having. The committed `predictions/` and
 `evaluations/` trees name every predictor elsewhere in the same case tree, at
 `events/<event_id>/predictions/<predictor_id>/`, so a routine `ls` de-blinds a

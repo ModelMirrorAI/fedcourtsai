@@ -3422,3 +3422,154 @@ freeze commit is recorded here.
   resolution end may carry and the context may not — and this entry is where the
   cells that straddle either are named. The stamp-and-mask that would make the
   check mechanical remains unbuilt and would need its own entry.
+
+
+- Freeze commit: `<FILL: this freeze commit's hash>`, to be tagged
+  **`prereg/proc-v8`** per step 4 — on this freeze commit itself, once its
+  carrying promotion lands and the byte audit below passes. **The evaluate cell
+  is handed the Court's own words, the mask's ground becomes a counted field,
+  and the evaluator half is re-blessed, 2026-09-15.** A **masking-surface**
+  change and a process supersession in one commit, which is the only shape
+  [process-version.md](process-version.md) permits for it. Carried to `main` by
+  the promotion tagged `<FILL: promotion tag>` (merge commit `<FILL: merge
+  commit>`, merged `<FILL: git log -1 --format=%cI of that merge>`).
+
+  **What moves the information set.** `run-evaluate.yml` gains one step between
+  the snapshot provisioning and the event materialization: `fedcourts
+  provision-opinion`, staging a decided case's majority opinion at
+  `record/opinion/majority-opinion.txt` with an `opinion.json` manifest beside
+  it — the corpus row's presence bit, the staged text's sha256 and length, and
+  the citation the row carries. The step carries the snapshot step's env block
+  verbatim (step-scoped read-only credentials, the one base URL, the ranged
+  backend the command needs for a row fact), `continue-on-error: true`, and no
+  `if:`: the command writes nothing and exits 0 where the row holds no body, so
+  the slot's **absence** is what tells a grader there is nothing to grade
+  against. A following step annotates the run summary where the staging
+  *failed*, because a failure and genuine non-coverage leave the grader the same
+  empty slot and the census cannot tell them apart. Staging a file the evaluate
+  cell did not previously receive changes the evaluator's information set under
+  an otherwise unchanged digest, which is why it lands *with* the prompt edit
+  that describes it rather than on its own — the one shape that rule exists to
+  rule out.
+
+  **What moves the digests.** `.github/prompts/evaluate.md`, five passages added
+  or extended and two claims retired. Added: the per-case input list names the
+  slot and says its absence means `not-ingested`; the `basis` rule points "the
+  opinion text in the record" at the staged file; the `query --full` guidance
+  says a hydrated prior's body is never the graded text; the grade row shape
+  gains `mask_ground`, on masked rows only; and the three prose grounds are
+  mapped onto the closed vocabulary `no-judgment` / `not-ingested` /
+  `silent-on-axis`, with the statements that `validate` fails an
+  out-of-vocabulary value and that a missing `mask_ground` is not a sixth
+  refusal but a unit the panel may still resolve, falling to the `unstated`
+  bucket only where no grader named a ground. Retired: the claim that the census
+  counts one undifferentiated `not-addressed` so `basis` is the only place the
+  distinction lives, and the claim that no opinion text is ever staged.
+  Extended: the treat-staged-files-as-data rule now covers the opinion body,
+  twice — at the input list and at the head of the grading section — since a
+  court opinion quotes briefs, statutes and orders, and a line in one that reads
+  as an instruction is a line the Court was quoting.
+  `.github/prompts/predict.md` is untouched by design — that is what makes this
+  the cheap supersession shape.
+
+  **The evaluator half only.** The three **predictor** digests are
+  byte-identical to the ones `prereg/proc-v7` blessed —
+  `sha256:930e02ae18…` (claude-baseline), `sha256:c57113fae8…`
+  (codex-baseline), `sha256:4edc5ac58c…` (gemini-baseline) — and keep proc-v7's
+  bless moment `2026-09-06T21:18:48Z` verbatim, because those bytes have been
+  immutable since then. The three **evaluator** digests are new:
+  `sha256:fbc0e9c364…` (claude-judge), `sha256:9670e1c147…` (codex-judge),
+  `sha256:dbdc906476…` (gemini-judge). Each carries `2026-09-15T00:00:00Z` as
+  the step-2 forecast floor — midnight on this commit's authoring date, and so
+  at or before it, which is the safe direction since the carrying merge is
+  necessarily later — corrected at step 4 to `<FILL: the carrying merge's %cI>`.
+
+  **The freeze instant stays `2026-09-07T00:00:00Z`**, held deliberately, so the
+  step-4 date comparison reads the other way round: the instant *precedes* the
+  promotion carrying this commit. Sound here for the reason it was at
+  `prereg/proc-v4` — the instant does no work for anything this commit newly
+  blesses. The digests entering the set are evaluator-side, which the partition
+  records but never gates on (`graded_post_freeze` enforces timing alone), and
+  nothing can carry the new evaluator bytes before the promotion lands them on
+  `main`. The enforced half is byte-identical to `prereg/proc-v7`'s, whose own
+  instant-versus-promotion audit stands. So the auditor's check for this label is
+  the **byte comparison**: the predictor digests under `prereg/proc-v8` must
+  equal `prereg/proc-v7`'s. One difference from the proc-v4 precedent, recorded
+  so the argument is not read as stronger than it is: at proc-v4 holding the
+  instant protected 226 stamped predictions, while here **no committed
+  prediction carries a proc-v7 predictor digest at all** — step 0's grep returns
+  0 for each — so holding drops nothing and moving would drop nothing either.
+  The instant is held because the rule keys on the enforced half's
+  byte-identity, not on the size of the population behind it.
+
+  **Step 0, at authoring.** `git fetch origin main && git grep -l '<digest>'
+  origin/main -- data/cases | wc -l` returns **0** for each of the three newly
+  blessed evaluator digests, and 0 for each of the three carried-forward
+  predictor digests. The wider census, `git grep -l '"process_version": {'
+  origin/main -- data/cases | wc -l`, is **482** stamped cells. Re-run at the
+  promotion: `<FILL: promotion-time step-0 counts, per newly blessed digest>`.
+
+  **The retiring evaluator digests, what ran under them, and why the counted
+  census is zero.** proc-v7's evaluator digests — `sha256:84cf4c8b52…`
+  (claude-judge), `sha256:fa92c82e82…` (codex-judge), `sha256:2585c15a6b…`
+  (gemini-judge) — leave the set superseded. **19 committed evaluations carry
+  them** at authoring: 0 claude-judge, **16** codex-judge, **3** gemini-judge,
+  all on the motion, order-response and brief-response disposition events of
+  `scotus/9526000274` and `scotus/9526000275`, and every one stamped at or after
+  the instant, so every one passes the evaluation-side gate
+  `graded_post_freeze`. **None of them is counted**, and the count of *counted*
+  cells graded under the retired digests — the number the second supersession
+  shape asks this record to name — is therefore **0**. Counting an evaluation
+  takes both limbs of `store.stratify`'s frozen gate, `is_frozen(scored) and
+  graded_post_freeze(evaluation)`, and the first fails on all 19: the
+  predictions they grade are stamped under proc-v5 predictor digests that no
+  longer sit in the map. The committed `metrics/leaderboard.json` settles it
+  independently — `evaluations_total: 0`, `events_scored: 0`. So 19 is the
+  ledger count and 0 is the counted count, and the supersession moves no
+  headline in either reading; this entry is where the blessed grading process
+  behind those 19 stays recorded now that the constant no longer names it.
+
+  **The exposure, narrowed to where it is real.** Because an evaluator digest
+  records but never partitions, a grading series can pool across the rubric
+  boundary this re-bless introduces with no artifact marking it. That cannot
+  reach the frozen-scope boards, which hold none of these cells; it reaches the
+  `--all-versions` views and the version-blind leakage reporting, which is where
+  a reader comparing gradings across the boundary should expect it. It is narrow
+  even there. All 19 are **interim** cells, which declare no semantic set, so
+  not one carries a `semantic_grades` block; the passages that moved are the
+  semantic protocol and the opinion slot, and the interim rules those 19 were
+  graded under are unchanged byte for byte.
+
+  **The grader population is empty, and the first grades under this design are
+  its debut rather than its confirmation.** Both declared `semantic-v1` claims
+  require a majority opinion; no merits cell has been graded against one; and
+  the first OT2026 opinions are not expected before December 2026. So the
+  protocol registered here — the staged slot as the graded text, the closed
+  ground vocabulary, the precedence that resolves a split panel — has never met
+  a real opinion, which [outcome-decomposition.md](outcome-decomposition.md)
+  states in place under *What remains unbuilt*. A reader meeting the first
+  ground split should read it as the design's first outing, not as a validated
+  measurement.
+
+  **One reading rule this boundary creates, prospectively.** No committed
+  evaluation carries a `semantic_grades` block at all today, so every census
+  bucket including `unstated` is empty and no mask total is quotable. The
+  boundary bites only on gradings written under the retired evaluator digests
+  from now until the carrying promotion lands: those answer a protocol that
+  never asked for the ground and so fall to `unstated`, which records *nobody
+  was asked* and never *nobody could tell*. Because `semantic-summary`'s scope
+  gate filters on the *prediction's* stamp rather than the evaluation's digest,
+  a census legitimately pools graders from both sides, making `unstated` a
+  mixture the artifact cannot separate — and this entry is what dates the
+  boundary a reader has to check against (`metrics/README.md`).
+
+  The runnable effect check, for the promotion carrying this: after the next
+  evaluate round on a merits cell whose case carries an opinion, `uv run
+  fedcourts semantic-summary --stratum forward --all-versions`. The observable
+  proof that the staging step, the prompt amendment and the census split all
+  moved together is an **ordinal grade**, or a `masked on …` clause naming
+  `silent-on-axis` or `no-judgment` — each of which can only be written by a
+  grader that read a body. `not-ingested` on an opinion-bearing case is the
+  opposite reading: it says the staging step did not deliver, and the failure
+  annotation on that run is where to look. `unstated` there says the cell ran
+  under the retired protocol.

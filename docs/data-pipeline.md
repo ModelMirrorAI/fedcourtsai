@@ -613,7 +613,9 @@ parity gate (`tests/test_provision_casestore.py`).
 
 A third command writes into that same `record/` and reads the store a different
 way: `provision-opinion` stages a decided case's majority opinion at
-`record/opinion/` for an **evaluate** cell to grade a semantic claim against. It
+`record/opinion/` for an **evaluate** cell to grade a semantic claim against,
+on a `run-evaluate` step that runs on every cell and stages nothing where the
+row holds nothing. It
 does *not* take `casestore` — the presence bit and the citation it stages are
 index facts and the content store exposes no rows — so it reads the row over
 `local`/`ranged` while the body half routes itself through the payload read
