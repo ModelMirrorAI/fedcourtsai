@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000275",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "gemini-baseline reports missing snapshot/context and records input_snapshot as 'missing', but its captured queries try the event-level record/ directory rather than the contract's case-level record/. No attempt to read the correct location is visible. This suggests a path-resolution failure, not a confirmed provisioning outage; all call results are unobserved, so actual file availability cannot be established from the log. The prediction remains scoreable, with its limited case-specific reasoning explained in evaluation.md.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260914T195025Z",
+  "schema_version": "1.0"
+}

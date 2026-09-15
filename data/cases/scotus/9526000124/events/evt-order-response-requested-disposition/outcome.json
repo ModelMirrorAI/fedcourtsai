@@ -6,7 +6,7 @@
   "disposition_route": null,
   "event_id": "evt-order-response-requested-disposition",
   "interim_signals": {
-    "amicus_briefs": 6,
+    "amicus_briefs": 13,
     "referred_to_court": true,
     "response_requested": true
   },

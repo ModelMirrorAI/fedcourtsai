@@ -1,0 +1,74 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": null,
+  "brier_score": 0.004900000000000001,
+  "brier_skill_score": 0.5532586888657647,
+  "case_id": "scotus/9526000275",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": 0.006068316289262234
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.6,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.006068316289262234,
+    "total": 0.006068316289262234
+  },
+  "correct": 1,
+  "created_at": "2026-09-14T19:53:11Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The log records captured local provisioned-input reads, statpack reads and corpus queries for analogues, with coverage 1.0. The dated grant and denial query results are September 2 and August 28, respectively, before the September 3 disposition. An additional topical corpus query has no extracted date; its digest does not disclose the full result. No direct live lookup for this case or its state-court companion appears, and the reasoning treats disposition as unresolved. No evidence shows this application's denial surfaced before prediction. Same-day creation/resolution does not establish intraday order, and the evaluator's later snapshot is not the predictor's baseline.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260903T010048Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fa92c82e827ede277677781a11d13f20afc830517c11377cf50be167c8a07d36",
+    "label": "proc-v7",
+    "pipeline_sha": "ba603cd0da8d4e4c59f1aa3d405e7ba4979571fc",
+    "stamped_at": "2026-09-14T19:54:56.166177Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20260914T195025Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

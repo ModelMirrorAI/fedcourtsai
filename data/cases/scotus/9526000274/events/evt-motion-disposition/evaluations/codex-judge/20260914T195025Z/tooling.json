@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000274",
+  "run_id": "20260914T195025Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell: read provisioned outcome, snapshot, blinded candidates and retrieval logs",
+    "shell: read committed statpack and output schemas",
+    "apply_patch",
+    "local JSON Schema and Pydantic validation"
+  ],
+  "helpful": [
+    "Alias-keyed candidates preserve blind grading while retaining the probability and frozen context.",
+    "Per-call timestamps and result-capture markers separate retrieval timing from telemetry visibility.",
+    "The interim statpack section identifies the eligible prior-Term population and sample floor."
+  ],
+  "gaps": [
+    "Unobserved result rows limit direct verification of retrieved content; no empty-result inference was made from absent dates or digests."
+  ],
+  "notes": "Evaluated all three supplied aliases without external retrieval. Interim baseline, skill, claims, and provenance stamps remain for the harness. Optional independent big-case assessments were not made. No blocking or actionable data-quality issue required a flags file."
+}
