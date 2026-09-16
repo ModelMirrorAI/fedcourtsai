@@ -101,32 +101,33 @@ CURRENT_PROCESS_LABEL = "proc-v8"
 FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
     {
         # Every entry below is the audited carrying-merge time per the block
-        # comment above; a freeze commit initially ships a step-2 forecast
-        # floor (a stamp at or before its own authoring date, safe because
-        # the carrying merge is necessarily at or after it), which step 4 of
-        # the cutover corrects for each newly blessed entry. Nothing here is
-        # carried forward from proc-v7, so all six take that correction and
-        # all six take the same value: one promotion carries both halves.
+        # comment above: `2026-09-16T00:26:04Z`, the committed instant of the
+        # merge `545e26e2b` that carried this label's two freeze commits to
+        # `main`, which `promotion/2026-09-16` tags and the freeze record
+        # carries the re-derivation command for. Nothing here is carried
+        # forward from proc-v7, so every entry takes step 4's correction off
+        # that one merge and all six carry the same value — one promotion
+        # carries both halves, which is what makes this a full freeze.
         #
         # predictors: claude-baseline, codex-baseline, gemini-baseline.
         "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a": datetime(
-            2026, 9, 15, 0, 0, 0, tzinfo=UTC
+            2026, 9, 16, 0, 26, 4, tzinfo=UTC
         ),
         "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c": datetime(
-            2026, 9, 15, 0, 0, 0, tzinfo=UTC
+            2026, 9, 16, 0, 26, 4, tzinfo=UTC
         ),
         "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f": datetime(
-            2026, 9, 15, 0, 0, 0, tzinfo=UTC
+            2026, 9, 16, 0, 26, 4, tzinfo=UTC
         ),
         # evaluators: claude-judge, codex-judge, gemini-judge.
         "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13": datetime(
-            2026, 9, 15, 0, 0, 0, tzinfo=UTC
+            2026, 9, 16, 0, 26, 4, tzinfo=UTC
         ),
         "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1": datetime(
-            2026, 9, 15, 0, 0, 0, tzinfo=UTC
+            2026, 9, 16, 0, 26, 4, tzinfo=UTC
         ),
         "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe": datetime(
-            2026, 9, 15, 0, 0, 0, tzinfo=UTC
+            2026, 9, 16, 0, 26, 4, tzinfo=UTC
         ),
     }
 )
@@ -137,9 +138,10 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
 # blessed would otherwise read as frozen retroactively — pre-registration
 # means the commitment preceded the run, and only a time cutoff can say so.
 # Compared against the stamp's `stamped_at`, which the harness writes; anything
-# at or after the instant is in. It is deliberately guessed *late*, so it sits
-# at or after every bless moment in the map above and a cell minted in the
-# window between them lands as shakedown rather than as a counted cell. One
+# at or after the instant is in. It sits at or after every bless moment in the
+# map above — guessed generously late at the freeze commit, then corrected at
+# step 4 against the merge that actually landed — so a cell minted in any
+# window between the two lands as shakedown rather than as a counted cell. One
 # shape inverts that order — an evaluator-half re-bless that holds this
 # instant while swapping only the evaluator entries above, licensed because
 # the enforced predictor half is then byte-identical to the prior `prereg/`
@@ -148,25 +150,25 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
 #
 # proc-v8 is not that shape. It blesses both halves at one promotion, so the
 # ordinary rule governs: the literal must be at or after the date of the
-# promotion merge that carries this commit to `main` (verified against
-# `promotion/<YYYY-MM-DD>` before the `prereg/` tag is minted) and before the
-# first run intended to count.
+# promotion merge that carried this label's freeze commits to `main` (verified
+# against `promotion/2026-09-16` before the `prereg/` tag is minted) and before
+# the first run intended to count.
 #
-# The instant sits past this label's carrying promotion because the enforced
-# half's bytes are new: an instant behind that merge would count cells against
-# a commitment still editable when they ran. It costs nothing to place it
-# there — no committed `prediction.json` carries a retired predictor digest,
-# so the population the prior instant fenced is empty, and the freeze record
-# carries that census. The value is the first midnight after this commit's
-# authoring date, the generous-late direction the cutover asks for.
+# The instant is that merge's own committed instant — the same
+# `2026-09-16T00:26:04Z` every entry in the map above carries, which is the
+# earliest value the rule allows. An instant behind the merge would count
+# cells against a commitment still editable when they ran; the enforced half's
+# bytes are new here, so nothing licenses one.
 #
-# What the window between the merge and the instant costs is worth naming,
-# because it is not only a few uncounted cells. A cell minted there carries a
-# blessed digest and still fails `is_frozen`'s time limb, so the pre-freeze
-# re-predict rule re-owes it and the round is paid for twice. `run-predict`'s
-# review hold is the mitigation: no cell spends until a maintainer releases
-# one, so the window stays empty by decision rather than by luck.
-FROZEN_SINCE: datetime | None = datetime(2026, 9, 16, 0, 0, 0, tzinfo=UTC)
+# Placing it *at* the merge rather than past it is what closes the window, and
+# that window costs more than a few uncounted cells. A cell minted between the
+# merge and a later instant carries a blessed digest and still fails
+# `is_frozen`'s time limb, so the pre-freeze re-predict rule re-owes it and the
+# event is paid for twice. Equality leaves no such cell to mint, so the window
+# is empty by construction rather than by `run-predict`'s review hold keeping
+# it so — the hold stays the control over *when* the first counted round
+# spends, not over whether its cells can count.
+FROZEN_SINCE: datetime | None = datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC)
 
 # The retrieval surface each engine's cells run with. Folded into the digest
 # because it is a process input as much as the model or the prompt: a cell that

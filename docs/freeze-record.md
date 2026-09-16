@@ -3424,15 +3424,14 @@ freeze commit is recorded here.
   check mechanical remains unbuilt and would need its own entry.
 
 
-- Freeze commit: `<FILL: this freeze commit's hash>`, to be tagged
+- Freeze commit: `0272b1b9d209cb1f9a712c5143cb111627ecc620`, to be tagged
   **`prereg/proc-v8`** per step 4 — on this freeze commit itself, once its
   carrying promotion lands and the byte audit below passes. **The evaluate cell
   is handed the Court's own words, the mask's ground becomes a counted field,
   and the evaluator half is re-blessed, 2026-09-15.** A **masking-surface**
   change and a process supersession in one commit, which is the only shape
   [process-version.md](process-version.md) permits for it. Carried to `main` by
-  the promotion tagged `<FILL: promotion tag>` (merge commit `<FILL: merge
-  commit>`, merged `<FILL: git log -1 --format=%cI of that merge>`).
+  the promotion tagged `promotion/2026-09-16` (merge commit `545e26e2b753ac79701a4fd638689a8d48654bce`, merged `2026-09-16T00:26:04Z`).
 
   **What moves the information set.** `run-evaluate.yml` gains one step between
   the snapshot provisioning and the event materialization: `fedcourts
@@ -3482,7 +3481,7 @@ freeze commit is recorded here.
   `sha256:dbdc906476…` (gemini-judge). Each carries `2026-09-15T00:00:00Z` as
   the step-2 forecast floor — midnight on this commit's authoring date, and so
   at or before it, which is the safe direction since the carrying merge is
-  necessarily later — corrected at step 4 to `<FILL: the carrying merge's %cI>`.
+  necessarily later — corrected at step 4 to `2026-09-16T00:26:04Z`.
 
   **The freeze instant stays `2026-09-07T00:00:00Z`**, held deliberately, so the
   step-4 date comparison reads the other way round: the instant *precedes* the
@@ -3507,7 +3506,8 @@ freeze commit is recorded here.
   blessed evaluator digests, and 0 for each of the three carried-forward
   predictor digests. The wider census, `git grep -l '"process_version": {'
   origin/main -- data/cases | wc -l`, is **482** stamped cells. Re-run at the
-  promotion: `<FILL: promotion-time step-0 counts, per newly blessed digest>`.
+  promotion, against `origin/main` at `545e26e2b`: **0** for each of the three
+  newly blessed evaluator digests, and the wider census unmoved at **482**.
 
   **The retiring evaluator digests, what ran under them, and why the counted
   census is zero.** proc-v7's evaluator digests — `sha256:84cf4c8b52…`
@@ -3949,7 +3949,7 @@ freeze commit is recorded here.
   built with `process_scope: "frozen"` and a non-zero cell count, where today
   it renders its empty state.
 
-- Freeze commit: `<FILL: this freeze commit's hash>`, to be tagged
+- Freeze commit: `100a911adf3d8c249296dcf0124e025bb7dc8910`, to be tagged
   **`prereg/proc-v8`** per step 4 — on this freeze commit itself, once its
   carrying promotion lands. **The predict contract answers four questions it
   left open, the predictor half is re-blessed, and proc-v8 becomes a full
@@ -3957,8 +3957,8 @@ freeze commit is recorded here.
   above; this one registers its predictor half, and because neither half has
   reached `main` yet the two ride **one** carrying promotion, so the
   `prereg/proc-v8` tag covers both. Carried to `main` by the promotion tagged
-  `<FILL: promotion tag>` (merge commit `<FILL: merge commit>`, merged
-  `<FILL: git log -1 --format=%cI of that merge>`).
+  `promotion/2026-09-16` (merge commit `545e26e2b753ac79701a4fd638689a8d48654bce`, merged
+  `2026-09-16T00:26:04Z`).
 
   **What moves the digests.** `.github/prompts/predict.md`, four amendments and
   nothing else — every byte of that file is hashed into all three predictor
@@ -4074,7 +4074,7 @@ freeze commit is recorded here.
   forecast floor, `2026-09-15T00:00:00Z` — midnight on this commit's authoring
   date, and so at or before it, which is the safe direction because the
   carrying merge is necessarily later — and all six take step 4's correction to
-  `<FILL: the carrying merge's %cI>`. None is carried forward from an earlier
+  `2026-09-16T00:26:04Z`. None is carried forward from an earlier
   label, so none keeps an earlier bless moment.
 
   **The freeze instant moves to `2026-09-17T00:00:00Z`**, from proc-v7's
@@ -4147,8 +4147,14 @@ freeze commit is recorded here.
   above, and **0** for the three evaluator digests, unchanged from the entry
   two above. The wider census of stamped cells — the object-form grep for
   `"process_version": {` over the same tree — is **482**. Re-run all of it at
-  the promotion: `<FILL: promotion-time step-0 counts, per newly blessed digest
-  and per retired predictor digest>`.
+  the promotion, against `origin/main` at `545e26e2b`: **0** for each of the six
+  digests the map carries at that merge — the three evaluator digests unchanged,
+  and the three predictor digests the entry below re-minted,
+  `sha256:1a0b2bef2e…`, `sha256:70fee15852…` and `sha256:a9033e5681…`, which are
+  what this promotion actually blesses — **0** for each of the three retired
+  proc-v7 predictor digests, and **0** for each of the three superseded digests
+  this entry printed, which never reached `main`. The wider census is unmoved at
+  **482**.
 
   **What the retired predictor digests ran, and why the ledger count is zero
   too.** Unlike the evaluator half two entries above — whose retiring digests
@@ -4418,8 +4424,9 @@ freeze commit is recorded here.
   `origin/main` entirely — the freeze commit naming them has not promoted.
   Nothing counted is affected: no committed `prediction.json` carries any
   predictor digest of this label, and the committed leaderboard is 0/0. Re-run
-  at the promotion: `<FILL: promotion-time step-0 counts, per newly blessed
-  predictor digest>`.
+  at the promotion, against `origin/main` at `545e26e2b`: **0** for each of the
+  three blessed predictor digests, **0** for each of the three superseded ones,
+  still absent from `main` entirely, and the wider census unmoved at **482**.
 
   This entry must land **before** the carrying promotion, not after it. Once
   the promotion blesses a predictor half, a later prompt correction is a second
@@ -4433,3 +4440,114 @@ freeze commit is recorded here.
   pooled strictly-prior rate — visible in its `reasoning.md` — rather than
   reporting that it anchored without a published baseline. An OT2025 cell's
   anchor should be the 0.200 above, read with the coverage caveat beside it.
+
+- **The proc-v8 carrying promotion lands — step 4's correction to the instant
+  and to the six bless moments, 2026-09-16.** The label's two freeze commits,
+  `0272b1b9d209cb1f9a712c5143cb111627ecc620` (the evaluator half) and
+  `100a911adf3d8c249296dcf0124e025bb7dc8910` (the predictor half, whose three
+  predictor digests its branch-mate
+  `09395d931d42a6779d426989b2fd7299dabf6ba7` re-minted inside the same PR and
+  the entry above superseded again), promoted together on one merge as the
+  predictor-half entry said they would: merge commit
+  `545e26e2b753ac79701a4fd638689a8d48654bce` on `main` (parents `f67bd8e7a` /
+  `a5ff08fb5`), tagged `promotion/2026-09-16`, committed
+  **2026-09-16T00:26:04Z** — read off `git log -1 --format=%cI 545e26e2b`,
+  which prints `2026-09-15T20:26:04-04:00`. The `<FILL:>` placeholders in both
+  proc-v8 clusters and in the digest-recompute entry above are filled against
+  that merge in the same commit as this entry. This is a new entry rather than
+  a completion because it moves a constant, which a completion may not do.
+
+  **The instant moves forward, from `2026-09-16T00:00:00Z` to
+  `2026-09-16T00:26:04Z`.** The forecast midnight was chosen against a
+  promotion planned for 2026-09-15; the merge landed 26 minutes and 4 seconds
+  the far side of it, so the forecast sits **before** the moment the
+  commitment became immutable on `main` and does not satisfy the ordinary
+  step-4 rule. The entry that set it registered exactly this contingency — "if
+  the merge lands on or after 2026-09-16 the step-4 correction moves the
+  instant to the merge's own timestamp, never earlier than the merge" — and
+  this is that correction, taken at the merge's own committed instant rather
+  than at a later round number. That is the earliest value the rule allows,
+  and choosing the earliest is deliberate on the reasoning the predictor-half
+  entry gave for bringing the forecast forward in the first place: a cell
+  minted between the merge and a later instant carries a blessed digest, still
+  fails `is_frozen`'s time limb, and is re-owed by the pre-freeze re-predict
+  rule, so its event is paid for twice. At equality that window has zero width
+  and no such cell can be minted at all, which is a stronger guarantee than
+  the review hold keeping it empty by decision.
+
+  **The six bless moments move from the placeholder floor
+  `2026-09-15T00:00:00Z` to that same `2026-09-16T00:26:04Z`.** proc-v8 is a
+  **full** freeze — both halves blessed at one carrying promotion, with
+  nothing carried forward from proc-v7 — so every entry in
+  `FROZEN_PROCESS_DIGESTS` takes that one merge's time and the map holds a
+  single distinct moment, which is the shape the constants-only ordering check
+  reads. The two corrections land in one commit but are not the same kind of
+  thing: a bless moment is a fact about git that the constant merely restates,
+  and it could not have been in either freeze commit's tree because the merge
+  establishing it had not happened; the instant is the pre-registered choice,
+  which is why the `prereg/proc-v8` tag waits for the promotion that carries
+  this commit rather than being minted at the one above.
+
+  **No cell was minted in the window, so the forward move de-counts nothing.**
+  The window is `[2026-09-16T00:00:00Z, 2026-09-16T00:26:04Z)`, and it is
+  empty on three independent readings. No `run-predict` run started between
+  the carrying merge and this entry: the newest is `35018975003`, scheduled
+  2026-09-15T20:20:04Z — four hours before the merge, and a 1m14s
+  plan-and-hold that mints nothing — and the newest `run-evaluate` is
+  `35012098344` at 2026-09-15T19:11:11Z, likewise before it. `main` carries no
+  commit at all after the carrying merge, so no data PR could have landed a
+  cell there. And the ledger itself holds no cell stamped on the day: over
+  `data/cases` at `545e26e2b`, the grep for `"stamped_at": "2026-09-16`
+  returns **0** files. Nothing counted moves in either direction and no
+  published figure changes — the committed `metrics/leaderboard.json` is still
+  `evaluations_total: 0`, `events_scored: 0`, and still carries proc-v7's
+  constants, not yet having been rebuilt since the freeze promoted.
+
+  **Step 0, re-run at the promotion.** Against `origin/main` at `545e26e2b`,
+  the per-digest grep over `data/cases` returns **0** for each of the six
+  digests the map carries — predictors `sha256:1a0b2bef2e…`,
+  `sha256:70fee15852…`, `sha256:a9033e5681…`, evaluators
+  `sha256:fbc0e9c364…`, `sha256:9670e1c147…`, `sha256:dbdc906476…` — so
+  nothing claims a proc-v8 digest from before its bless and both ledger
+  tripwires have nothing to fire on. The same grep returns **0** for each of
+  the three retired proc-v7 predictor digests and **0** for each of the three
+  superseded predictor digests the predictor-half entry printed, which never
+  reached `main`. The wider census, the object-form grep for
+  `"process_version": {` over the same tree, is **482** stamped cells,
+  unmoved from the authoring-time reading.
+
+  **The tag, and where it goes.** `prereg/proc-v8` is **not** minted at the
+  carrying merge. The procedure is explicit that an instant which came in
+  early is bumped in a follow-up promotion landed *before* tagging — the
+  `prereg/` namespace blocks update and deletion, so a tag minted over a bad
+  instant burns the label — so the tag waits for the promotion carrying this
+  correction, which is the whole content of that batch. Where it goes departs
+  from the two clusters above, each of which said "on this freeze commit
+  itself", and the reason is that this label has **two** freeze commits and
+  neither one's tree states the quantities the tag pre-registers: the
+  evaluator half's tree holds proc-v7's predictor digests and the instant
+  `2026-09-07T00:00:00Z`, and the predictor half's holds three predictor
+  digests a later commit re-minted and the instant `2026-09-17T00:00:00Z`.
+  What a `prereg/` tag pre-registers is the blessed digests and the instant,
+  so it goes on the **step-4 correction commit** — the commit this entry lands
+  in — which is the first commit whose tree states both in the audited form,
+  and which reaches `main` through its own carrying promotion. The placement
+  and its consequence are recorded here as [pipeline.md](pipeline.md)'s *Tags*
+  section asks of any deviation, and the auditor's check is unchanged by it:
+  the literal in `src/fedcourtsai/process_version.py` at `prereg/proc-v8` must
+  be at or after `git log -1 --format=%cI promotion/2026-09-16`, which it is,
+  at equality. The byte comparison the evaluator-half entry once named as this
+  label's audit stays retired, as the predictor-half entry retired it.
+
+  **The runnable effect check, for the promotion carrying this.** On the
+  promoted tree, `uv run fedcourts process-digest --all` still prints
+  `proc-v8` and exactly the six digests above: this correction touches no
+  prompt byte and no registry field, so a moved digest would mean something
+  else rode along. The artifact-visible half is the next metrics refresh —
+  `metrics/leaderboard.json`'s `frozen_process` block reading `since:
+  2026-09-16T00:26:04Z` beside the six digests, where today it carries
+  proc-v7's `2026-09-07T00:00:00Z` and proc-v7's six. The lasting check is the
+  first released `run-predict` tick after this promotion: its cells are
+  stamped after the instant by construction, so each clears `is_frozen`'s time
+  limb, and the re-predict cohort's first cells enter the counted record with
+  no window behind them.
